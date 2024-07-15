@@ -61,8 +61,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call.call_stack_item.public_inputs,
             array_lengths,
             private_call.call_stack_item.contract_address,
-            private_call.public_call_stack,
-            private_call.public_teardown_call_request,
             FixtureBuilder::vk_tree_root()
         );
     }
@@ -83,9 +81,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             previous_kernel_array_lengths,
             private_call.call_stack_item.public_inputs,
             private_call_array_lengths,
-            private_call.call_stack_item.contract_address,
-            private_call.public_call_stack,
-            private_call.public_teardown_call_request
+            private_call.call_stack_item.contract_address
         );
     }
 }

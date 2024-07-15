@@ -15,8 +15,9 @@ use crate::{
     private_call_request::{PrivateCallRequest, ScopedPrivateCallRequest},
     private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, public_data_read::PublicDataRead,
-    public_data_update_request::PublicDataUpdateRequest, read_request::{ReadRequest, ScopedReadRequest},
+    private_kernel::private_call_data::PrivateCallData, public_call_request::PublicCallRequest,
+    public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+    read_request::{ReadRequest, ScopedReadRequest},
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
     validation_requests::{
     ValidationRequests, ValidationRequestsBuilder, KeyValidationRequest,
@@ -74,7 +75,7 @@ struct FixtureBuilder {
     // Fees.
     is_fee_payer: bool,
     fee_payer: AztecAddress,
-    public_teardown_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_teardown_call_stack: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     // Constant data.
     historical_header: Header,
@@ -96,7 +97,7 @@ struct FixtureBuilder {
     unencrypted_log_preimages_length: Field,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     private_call_requests: BoundedVec<ScopedPrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    public_call_requests: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
     non_revertible_gas_used: Gas,
     revert_code: u8,
@@ -268,8 +269,8 @@ impl FixtureBuilder {
             note_hashes: subarray(self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash)),
             nullifiers: subarray(self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier)),
             private_call_requests: subarray(self.private_call_requests.storage.map(|r: ScopedPrivateCallRequest| r.call_request)),
-            public_call_stack_hashes: subarray(self.public_call_requests.storage.map(|c: CallRequest| c.hash)),
-            public_teardown_function_hash: self.public_teardown_call_stack.storage[0].hash,
+            public_call_requests: subarray(self.public_call_requests.storage),
+            public_teardown_call_request: self.public_teardown_call_stack.storage[0],
             l2_to_l1_msgs: subarray(self.l2_to_l1_msgs.storage.map(|r: ScopedL2ToL1Message| r.message)),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
@@ -292,8 +293,6 @@ impl FixtureBuilder {
     pub fn to_private_call_data(self) -> PrivateCallData {
         PrivateCallData {
             call_stack_item: self.to_private_call_stack_item(),
-            public_call_stack: subarray(self.public_call_requests.storage),
-            public_teardown_call_request: self.public_teardown_call_stack.storage[0],
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
@@ -312,8 +311,8 @@ impl FixtureBuilder {
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes,
             encrypted_logs_hashes: self.encrypted_logs_hashes,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes,
-            private_call_stack: vec_reverse(self.private_call_requests),
-            public_call_stack: self.public_call_requests
+            public_call_requests: self.public_call_requests,
+            private_call_stack: vec_reverse(self.private_call_requests)
         }
     }
 
@@ -345,7 +344,7 @@ impl FixtureBuilder {
             encrypted_logs_hashes,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes,
             public_data_update_requests: self.public_data_update_requests,
-            public_call_stack: self.public_call_requests,
+            public_call_stack: self.public_call_requests.map(|r: PublicCallRequest| CallRequest::from_public_call_request(r)),
             gas_used: self.gas_used
         }
     }
@@ -363,7 +362,7 @@ impl FixtureBuilder {
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             public_data_update_requests: self.public_data_update_requests.storage,
-            public_call_stack: self.public_call_requests.storage.map(|cr: CallRequest| cr.expose_to_public()),
+            public_call_stack: self.public_call_requests.storage.map(|cr: PublicCallRequest| CallRequest::from_public_call_request(cr.expose_to_public())),
             gas_used: self.gas_used
         }
     }
@@ -439,7 +438,7 @@ impl FixtureBuilder {
             validation_requests,
             constants,
             revert_code: self.revert_code,
-            public_teardown_call_stack: self.public_teardown_call_stack.storage,
+            public_teardown_call_stack: self.public_teardown_call_stack.storage.map(|r| CallRequest::from_public_call_request(r)),
             fee_payer: self.fee_payer
         }
     }
@@ -917,20 +916,14 @@ impl FixtureBuilder {
         self.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
-    fn generate_public_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
+    fn generate_public_call_request(&mut self, hash: Field, is_delegate_call: bool) -> PublicCallRequest {
         let mut caller_context = CallerContext::empty();
+        caller_context.is_static_call = self.is_static_call;
         if is_delegate_call {
             caller_context.msg_sender = self.msg_sender;
             caller_context.storage_contract_address = self.storage_contract_address;
         }
-        let start_counter = self.next_counter();
-        CallRequest {
-            hash,
-            caller_contract_address: self.contract_address,
-            caller_context,
-            start_side_effect_counter: start_counter,
-            end_side_effect_counter: 0
-        }
+        PublicCallRequest { hash, caller_contract_address: self.contract_address, caller_context, counter: self.next_counter() }
     }
 
     fn mock_note_hash_read_value(self, index: u32) -> Field {

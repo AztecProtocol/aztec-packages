@@ -9,7 +9,8 @@ use dep::types::{
     abis::{
     call_request::CallRequest,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, nullifier::Nullifier
+    log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, nullifier::Nullifier,
+    public_call_request::PublicCallRequest
 },
     hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
     traits::{Empty, is_empty_array},
@@ -159,11 +160,11 @@ impl TailToPublicOutputValidator {
             hints.sorted_unencrypted_log_hash_hints
         );
 
-        // public_call_stack
+        // public_call_requests
         validate_value_transformation(
-            prev_data.public_call_stack,
+            prev_data.public_call_requests,
             hints.public_call_requests,
-            |cr: CallRequest, public_cr: CallRequest| (public_cr.hash == cr.hash)
+            |cr: PublicCallRequest, public_cr: CallRequest| (public_cr.hash == cr.hash)
                 & (public_cr.caller_contract_address == cr.caller_contract_address)
                 & (public_cr.caller_context == cr.caller_context)
                 & (public_cr.start_side_effect_counter == 0)
@@ -171,7 +172,7 @@ impl TailToPublicOutputValidator {
         );
 
         assert_split_sorted_transformed_value_arrays_desc(
-            prev_data.public_call_stack,
+            prev_data.public_call_requests,
             hints.public_call_requests,
             split_counter,
             output_non_revertible.public_call_stack,

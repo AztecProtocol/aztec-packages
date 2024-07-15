@@ -1,7 +1,6 @@
 use crate::components::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
 use dep::types::{
     abis::{
-    call_request::CallRequest,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
     max_block_number::MaxBlockNumber,
     private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths},
@@ -112,22 +111,15 @@ impl PrivateKernelCircuitOutputValidator {
         PrivateKernelCircuitOutputValidator { output }
     }
 
-    pub fn validate_as_first_call<PUBLIC_CALL_REQUESTS_LEN>(
+    pub fn validate_as_first_call(
         self,
         tx_request: TxRequest,
         private_call: PrivateCircuitPublicInputs,
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
         contract_address: AztecAddress,
-        public_call_requests: [CallRequest; PUBLIC_CALL_REQUESTS_LEN],
-        public_teardown_call_request: CallRequest,
         vk_tree_root: Field
     ) {
-        self.validate_initial_values(
-            tx_request,
-            private_call,
-            public_teardown_call_request,
-            vk_tree_root
-        );
+        self.validate_initial_values(tx_request, private_call, vk_tree_root);
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
         offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
         self.validate_propagated_from_private_call(
@@ -135,30 +127,26 @@ impl PrivateKernelCircuitOutputValidator {
             private_call_array_lengths,
             offsets,
             0, // num_popped_call
-            contract_address,
-            public_call_requests
+            contract_address
         );
     }
 
-    pub fn validate_as_inner_call<PUBLIC_CALL_REQUESTS_LEN>(
+    pub fn validate_as_inner_call(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         previous_kernel_array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
         private_call: PrivateCircuitPublicInputs,
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
-        contract_address: AztecAddress,
-        public_call_requests: [CallRequest; PUBLIC_CALL_REQUESTS_LEN],
-        public_teardown_call_request: CallRequest
+        contract_address: AztecAddress
     ) {
-        self.validate_aggregated_values(previous_kernel, private_call, public_teardown_call_request);
+        self.validate_aggregated_values(previous_kernel, private_call);
         self.validate_propagated_from_previous_kernel(previous_kernel, previous_kernel_array_lengths);
         self.validate_propagated_from_private_call(
             private_call,
             private_call_array_lengths,
             previous_kernel_array_lengths,
             1, // num_popped_call
-            contract_address,
-            public_call_requests
+            contract_address
         );
     }
 
@@ -166,7 +154,6 @@ impl PrivateKernelCircuitOutputValidator {
         self,
         tx_request: TxRequest,
         private_call: PrivateCircuitPublicInputs,
-        public_teardown_call_request: CallRequest,
         vk_tree_root: Field
     ) {
         // Constants.
@@ -191,7 +178,7 @@ impl PrivateKernelCircuitOutputValidator {
             self.output.validation_requests.for_rollup.max_block_number, private_call.max_block_number, "incorrect initial max_block_number"
         );
         assert_eq(
-            self.output.public_teardown_call_request, public_teardown_call_request, "incorrect initial public_teardown_call_request"
+            self.output.public_teardown_call_request, private_call.public_teardown_call_request, "incorrect initial public_teardown_call_request"
         );
         let initial_fee_payer = if private_call.is_fee_payer {
             private_call.call_context.storage_contract_address
@@ -204,8 +191,7 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_aggregated_values(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        private_call: PrivateCircuitPublicInputs,
-        public_teardown_call_request: CallRequest
+        private_call: PrivateCircuitPublicInputs
     ) {
         // min_revertible_side_effect_counter
         let propagated_min_revertible_counter = if previous_kernel.min_revertible_side_effect_counter != 0 {
@@ -231,10 +217,12 @@ impl PrivateKernelCircuitOutputValidator {
 
         // public_teardown_call_request
         let propagated_public_teardown_call_request = if !is_empty(previous_kernel.public_teardown_call_request) {
-            assert(is_empty(public_teardown_call_request), "cannot overwrite public_teardown_call_request");
+            assert(
+                is_empty(private_call.public_teardown_call_request), "cannot overwrite public_teardown_call_request"
+            );
             previous_kernel.public_teardown_call_request
         } else {
-            public_teardown_call_request
+            private_call.public_teardown_call_request
         };
         assert_eq(
             self.output.public_teardown_call_request, propagated_public_teardown_call_request, "incorrect output public_teardown_call_request"
@@ -304,6 +292,11 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.end.unencrypted_logs_hashes,
             array_lengths.unencrypted_logs_hashes
         );
+        validate_array_prepended(
+            self.output.end.public_call_requests,
+            previous_kernel.end.public_call_requests,
+            array_lengths.public_call_requests
+        );
         // array_lengths.private_call_stack is guaranteed to be greater than 0.
         // It's checked in private_kernel_inner when comparing the top item in the stack with the current private call.
         validate_array_prepended(
@@ -311,21 +304,15 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.end.private_call_stack,
             array_lengths.private_call_stack - 1 // Do not copy the top item in the stack.
         );
-        validate_array_prepended(
-            self.output.end.public_call_stack,
-            previous_kernel.end.public_call_stack,
-            array_lengths.public_call_stack
-        );
     }
 
-    fn validate_propagated_from_private_call<PUBLIC_CALL_REQUESTS_LEN>(
+    fn validate_propagated_from_private_call(
         self,
         private_call: PrivateCircuitPublicInputs,
         array_lengths: PrivateCircuitPublicInputsArrayLengths,
         offsets: PrivateKernelCircuitPublicInputsArrayLengths,
         num_popped_call: u32,
-        contract_address: AztecAddress,
-        public_call_requests: [CallRequest; PUBLIC_CALL_REQUESTS_LEN]
+        contract_address: AztecAddress
     ) {
         let storage_contract_address = private_call.call_context.storage_contract_address;
         validate_array_appended_scoped(
@@ -390,20 +377,18 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.unencrypted_logs_hashes,
             storage_contract_address
         );
+        validate_array_appended(
+            self.output.end.public_call_requests,
+            private_call.public_call_requests,
+            array_lengths.public_call_requests,
+            offsets.public_call_requests
+        );
         validate_array_appended_reversed_scoped(
             self.output.end.private_call_stack,
             private_call.private_call_requests,
             array_lengths.private_call_requests,
             offsets.private_call_stack - num_popped_call,
             contract_address
-        );
-        // TODO: Should push call requests instead of hashes to the accumulated data.
-        validate_array_appended(
-            self.output.end.public_call_stack,
-            public_call_requests,
-            // private_call.public_call_requests,
-            array_lengths.public_call_stack_hashes,
-            offsets.public_call_stack
         );
     }
 }

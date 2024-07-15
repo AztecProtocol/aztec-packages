@@ -23,16 +23,23 @@ impl PrivateCallDataValidatorBuilder {
 fn validate_private_call_requests_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.append_private_call_requests(1);
-    builder.private_call.append_private_call_requests_delegate(1);
-    builder.private_call.append_private_call_requests(1);
+    builder.private_call.append_private_call_requests(2);
 
     builder.validate();
 }
 
 #[test]
-fn validate_private_call_requests_from_delegate_call_succeeds() {
-    let mut builder = PrivateCallDataValidatorBuilder::new().is_delegate_call();
+fn validate_private_call_requests_delegate_call_succeeds() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.append_private_call_requests_delegate(2);
+
+    builder.validate();
+}
+
+#[test]
+fn validate_private_call_requests_mix_succeeds() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(1);
     builder.private_call.append_private_call_requests_delegate(1);

@@ -7,7 +7,7 @@ use crate::components::private_call_data_validator::{
 };
 use dep::types::{
     abis::{
-    call_context::CallContext, call_request::CallRequest, caller_context::CallerContext,
+    call_context::CallContext, caller_context::CallerContext,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::NoteLogHash,
     note_hash::ScopedNoteHash, private_call_request::ScopedPrivateCallRequest,
     private_call_stack_item::PrivateCallStackItem,
@@ -43,16 +43,6 @@ fn validate_caller_context(caller_context: CallerContext, this_context: CallCont
     assert(matching_caller_context | hidden_caller_context, "invalid caller context");
 
     assert_eq(caller_context.is_static_call, this_context.is_static_call, "mismatch is_static_call flag");
-}
-
-fn validate_call_request(request: CallRequest, hash: Field, caller: PrivateCallStackItem) {
-    if hash != 0 {
-        assert_eq(request.hash, hash, "call stack hash does not match call request hash");
-        assert_eq(request.caller_contract_address, caller.contract_address, "invalid caller contract address");
-        validate_caller_context(request.caller_context, caller.public_inputs.call_context)
-    } else {
-        assert(is_empty(request), "call requests length does not match the expected length");
-    }
 }
 
 fn validate_incrementing_counters_within_range<T, N>(counter_start: u32, counter_end: u32, items: [T; N], num_items: u32) where T: Ordered {
@@ -283,19 +273,32 @@ impl PrivateCallDataValidator {
     }
 
     fn validate_public_call_requests(self) {
-        let call_requests = self.data.public_call_stack;
-        let hashes = self.data.call_stack_item.public_inputs.public_call_stack_hashes;
+        let this_contract_address = self.data.call_stack_item.contract_address;
+        let this_call_context = self.data.call_stack_item.public_inputs.call_context;
+        let call_requests = self.data.call_stack_item.public_inputs.public_call_requests;
+        let num_requests = self.array_lengths.public_call_requests;
+        let mut should_check = true;
         for i in 0..call_requests.len() {
-            validate_call_request(call_requests[i], hashes[i], self.data.call_stack_item);
+            should_check &= i != num_requests;
+            if should_check {
+                assert_eq(
+                    call_requests[i].caller_contract_address, this_contract_address, "invalid caller contract address"
+                );
+                validate_caller_context(call_requests[i].caller_context, this_call_context);
+            }
         }
     }
 
     fn validate_teardown_call_request(self) {
-        validate_call_request(
-            self.data.public_teardown_call_request,
-            self.data.call_stack_item.public_inputs.public_teardown_function_hash,
-            self.data.call_stack_item
-        );
+        let this_contract_address = self.data.call_stack_item.contract_address;
+        let this_call_context = self.data.call_stack_item.public_inputs.call_context;
+        let request = self.data.call_stack_item.public_inputs.public_teardown_call_request;
+        if request.hash != 0 {
+            assert_eq(
+                request.caller_contract_address, this_contract_address, "invalid caller contract address"
+            );
+            validate_caller_context(request.caller_context, this_call_context);
+        }
     }
 
     fn validate_counters(self) {
@@ -358,11 +361,11 @@ impl PrivateCallDataValidator {
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            self.data.public_call_stack,
-            self.array_lengths.public_call_stack_hashes
+            public_inputs.public_call_requests,
+            self.array_lengths.public_call_requests
         );
 
-        let teardown_call_request_count = if self.data.public_teardown_call_request.hash == 0 {
+        let teardown_call_request_count = if public_inputs.public_teardown_call_request.hash == 0 {
             0
         } else {
             1
@@ -370,7 +373,7 @@ impl PrivateCallDataValidator {
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            [self.data.public_teardown_call_request],
+            [public_inputs.public_teardown_call_request],
             teardown_call_request_count
         );
     }

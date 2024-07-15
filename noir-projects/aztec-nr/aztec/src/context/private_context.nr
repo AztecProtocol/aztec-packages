@@ -18,8 +18,9 @@ use dep::protocol_types::{
     max_block_number::MaxBlockNumber,
     validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_stack_item::PublicCallStackItem, read_request::ReadRequest, note_hash::NoteHash,
-    nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
+    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
+    read_request::ReadRequest, note_hash::NoteHash, nullifier::Nullifier,
+    log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
 },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -54,8 +55,8 @@ struct PrivateContext {
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
 
     private_call_requests : BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_stack_hashes : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    public_teardown_function_hash: Field,
+    public_call_requests : BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public_teardown_call_request: PublicCallRequest,
     l2_to_l1_msgs : BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
@@ -89,8 +90,8 @@ impl PrivateContext {
             nullifiers: BoundedVec::new(),
             historical_header: inputs.historical_header,
             private_call_requests: BoundedVec::new(),
-            public_call_stack_hashes: BoundedVec::new(),
-            public_teardown_function_hash: 0,
+            public_call_requests: BoundedVec::new(),
+            public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
             note_encrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hashes: BoundedVec::new(),
@@ -164,8 +165,8 @@ impl PrivateContext {
             note_hashes: self.note_hashes.storage,
             nullifiers: self.nullifiers.storage,
             private_call_requests: self.private_call_requests.storage,
-            public_call_stack_hashes: self.public_call_stack_hashes.storage,
-            public_teardown_function_hash: self.public_teardown_function_hash,
+            public_call_requests: self.public_call_requests.storage,
+            public_teardown_call_request: self.public_teardown_call_request,
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
@@ -397,12 +398,6 @@ impl PrivateContext {
             );
         }
 
-        let mut caller_context = CallerContext::empty();
-        caller_context.is_static_call = self.inputs.call_context.is_static_call;
-        if is_delegate_call {
-            caller_context.msg_sender = self.inputs.call_context.msg_sender;
-            caller_context.storage_contract_address = self.inputs.call_context.storage_contract_address;
-        }
         self.private_call_requests.push(
             PrivateCallRequest {
             target: item.contract_address,
@@ -410,7 +405,7 @@ impl PrivateContext {
             function_data: item.function_data,
             args_hash: item.public_inputs.args_hash,
             returns_hash: item.public_inputs.returns_hash,
-            caller_context,
+            caller_context: self.get_caller_context(is_delegate_call),
             start_side_effect_counter,
             end_side_effect_counter
         }
@@ -484,12 +479,14 @@ impl PrivateContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) {
+        let counter = self.next_counter();
+
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let fields = enqueue_public_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
-            self.side_effect_counter,
+            counter,
             is_static_call,
             is_delegate_call
         );
@@ -504,8 +501,13 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        self.side_effect_counter = self.side_effect_counter + 1;
-        self.public_call_stack_hashes.push(item.get_compressed().hash());
+        let call_request = PublicCallRequest {
+            hash: item.get_compressed().hash(),
+            caller_contract_address: self.this_address(),
+            caller_context: self.get_caller_context(is_delegate_call),
+            counter
+        };
+        self.public_call_requests.push(call_request);
     }
 
     pub fn set_public_teardown_function<ARGS_COUNT>(
@@ -527,12 +529,14 @@ impl PrivateContext {
         is_static_call: bool,
         is_delegate_call: bool
     ) {
+        let counter = self.next_counter();
+
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let fields = set_public_teardown_function_call_internal(
             contract_address,
             function_selector,
             args_hash,
-            self.side_effect_counter,
+            counter,
             is_static_call,
             is_delegate_call
         );
@@ -547,8 +551,12 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        self.side_effect_counter = self.side_effect_counter + 1;
-        self.public_teardown_function_hash = item.get_compressed().hash();
+        self.public_teardown_call_request = PublicCallRequest {
+            hash: item.get_compressed().hash(),
+            caller_contract_address: self.this_address(),
+            caller_context: self.get_caller_context(is_delegate_call),
+            counter,
+        };
     }
 
     fn validate_call_stack_item_from_oracle(
@@ -586,6 +594,16 @@ impl PrivateContext {
         }
     }
 
+    fn get_caller_context(self, is_delegate_call: bool) -> CallerContext {
+        let mut caller_context = CallerContext::empty();
+        caller_context.is_static_call = self.inputs.call_context.is_static_call;
+        if is_delegate_call {
+            caller_context.msg_sender = self.inputs.call_context.msg_sender;
+            caller_context.storage_contract_address = self.inputs.call_context.storage_contract_address;
+        }
+        caller_context
+    }
+
     fn next_counter(&mut self) -> u32 {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
@@ -609,8 +627,8 @@ impl Empty for PrivateContext {
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
-            public_call_stack_hashes: BoundedVec::new(),
-            public_teardown_function_hash: 0,
+            public_call_requests: BoundedVec::new(),
+            public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
             historical_header: Header::empty(),
             note_encrypted_logs_hashes: BoundedVec::new(),

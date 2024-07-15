@@ -381,7 +381,7 @@ mod tests {
 
         builder.stub_teardown_call();
         let non_revertible_call_stack = [
-            builder.previous_kernel.public_call_requests.get(0),
+            CallRequest::from_public_call_request(builder.previous_kernel.public_call_requests.get(0)),
             storage[0], storage[1]
         ];
 

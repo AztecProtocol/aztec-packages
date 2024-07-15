@@ -1,14 +1,28 @@
 use crate::{
-    abis::{caller_context::CallerContext, side_effect::Ordered}, address::AztecAddress,
-    constants::CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
+    abis::{caller_context::CallerContext, public_call_request::PublicCallRequest, side_effect::Ordered},
+    address::AztecAddress, constants::CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
+    utils::reader::Reader
 };
 
+// TODO: Deprecate it and use PublicCallRequest.
 struct CallRequest {
     hash: Field,
     caller_contract_address: AztecAddress,
     caller_context: CallerContext,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
+}
+
+impl CallRequest {
+    pub fn from_public_call_request(request: PublicCallRequest) -> Self {
+        CallRequest {
+            hash: request.hash,
+            caller_contract_address: request.caller_contract_address,
+            caller_context: request.caller_context,
+            start_side_effect_counter: request.counter,
+            end_side_effect_counter: 0
+        }
+    }
 }
 
 impl Ordered for CallRequest {

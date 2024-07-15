@@ -43,9 +43,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         let private_call = self.private_call.to_private_call_data();
         self.new_from_tx_request().with_private_call(
             private_call.call_stack_item.public_inputs,
-            private_call.call_stack_item.contract_address,
-            private_call.public_call_stack,
-            private_call.public_teardown_call_request
+            private_call.call_stack_item.contract_address
         ).finish()
     }
 
@@ -60,9 +58,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel).pop_top_call_request().with_private_call(
             private_call.call_stack_item.public_inputs,
-            private_call.call_stack_item.contract_address,
-            private_call.public_call_stack,
-            private_call.public_teardown_call_request
+            private_call.call_stack_item.contract_address
         ).finish()
     }
 }
