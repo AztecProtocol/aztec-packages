@@ -231,7 +231,7 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> whe
         self.read_value_change().get_current_at(block_number)
     }
 
-    fn read_value_change(self) -> ScheduledValueChange<T> {
+    unconstrained fn read_value_change(self) -> ScheduledValueChange<T> {
         self.context.storage_read(self.get_value_change_storage_slot())
     }
 }
