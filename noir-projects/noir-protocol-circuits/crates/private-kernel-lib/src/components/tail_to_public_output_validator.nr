@@ -10,10 +10,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, nullifier::Nullifier
 },
-    hash::{
-    silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier,
-    silo_unencrypted_log_hash
-},
+    hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
     traits::{Empty, is_empty_array},
     utils::arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc}
 };
@@ -62,6 +59,8 @@ impl TailToPublicOutputValidator {
 
     fn validate_propagated_sorted_siloed_values(self, hints: TailToPublicOutputHints) {
         let split_counter = self.previous_kernel.min_revertible_side_effect_counter;
+        assert(split_counter != 0, "min_revertible_side_effect_counter must not be 0");
+
         let prev_data = self.previous_kernel.end;
         let output_non_revertible = self.output.end_non_revertible;
         let output_revertible = self.output.end;
@@ -149,15 +148,10 @@ impl TailToPublicOutputValidator {
         );
 
         // unencrypted_logs_hashes
-        validate_value_transformation(
-            prev_data.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_logs_hashes,
-            |slh: ScopedLogHash, lh: LogHash| (lh.value == silo_unencrypted_log_hash(slh)) & (lh.length == slh.log_hash.length) & (lh.counter == 0)
-        );
 
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_logs_hashes,
+            prev_data.unencrypted_logs_hashes,
             split_counter,
             output_non_revertible.unencrypted_logs_hashes,
             output_revertible.unencrypted_logs_hashes,

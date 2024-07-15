@@ -342,6 +342,11 @@ impl StructType {
         vecmap(&self.fields, |(name, typ)| (name.0.contents.clone(), typ.clone()))
     }
 
+    /// Returns the field at the given index. Panics if no field exists at the given index.
+    pub fn field_at(&self, index: usize) -> &(Ident, Type) {
+        &self.fields[index]
+    }
+
     pub fn field_names(&self) -> BTreeSet<Ident> {
         self.fields.iter().map(|(name, _)| name.clone()).collect()
     }
@@ -663,6 +668,10 @@ impl Type {
 
     pub fn is_bool(&self) -> bool {
         matches!(self.follow_bindings(), Type::Bool)
+    }
+
+    pub fn is_integer(&self) -> bool {
+        matches!(self.follow_bindings(), Type::Integer(_, _))
     }
 
     pub fn is_signed(&self) -> bool {

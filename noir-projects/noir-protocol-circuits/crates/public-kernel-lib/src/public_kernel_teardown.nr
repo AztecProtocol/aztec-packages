@@ -4,11 +4,22 @@ use dep::types::abis::{
     public_kernel_data::PublicKernelData, public_call_data::PublicCallData, gas_fees::GasFees
 };
 use dep::types::utils::arrays::array_to_bounded_vec;
+use dep::types::constants::{
+    PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX,
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX
+};
 
 struct PublicKernelTeardownCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+    PUBLIC_KERNEL_SETUP_INDEX,
+    PUBLIC_KERNEL_APP_LOGIC_INDEX,
+    PUBLIC_KERNEL_TEARDOWN_INDEX,
+];
 
 impl PublicKernelTeardownCircuitPrivateInputs {
     fn initialize_revert_code(self, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
@@ -94,8 +105,12 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     }
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
-        // verify the previous kernel proof
-        self.previous_kernel.verify();
+        if !dep::std::runtime::is_unconstrained() {
+            // verify the previous kernel proof
+            self.previous_kernel.verify();
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
 
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
@@ -141,7 +156,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
 mod tests {
     use crate::{
-        public_kernel_teardown::PublicKernelTeardownCircuitPrivateInputs,
+        public_kernel_teardown::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelTeardownCircuitPrivateInputs},
         utils::{
         assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
         compute_public_data_reads, compute_public_data_update_requests
@@ -151,16 +166,16 @@ mod tests {
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest
+        public_data_update_request::PublicDataUpdateRequest, log_hash::ScopedLogHash
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::compute_siloed_unencrypted_log_hash,
+        contrakt::storage_read::StorageRead,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX
     };
 
     struct PublicKernelTeardownCircuitPrivateInputsBuilder {
@@ -171,7 +186,7 @@ mod tests {
 
     impl PublicKernelTeardownCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new().as_parent_contract();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
             let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
@@ -434,11 +449,12 @@ mod tests {
         );
         let prev_data = builder.previous_kernel.to_public_accumulated_data();
 
-        let mut expected_unencrypted_logs = [
-            prev_data.unencrypted_logs_hashes[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        let expected_unencrypted_logs = [
+            prev_data.unencrypted_logs_hashes[0], ScopedLogHash {
+                log_hash: builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0],
+                contract_address: builder.public_call.contract_address
+            }
         ];
-        // silo the new log hash
-        expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
         let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
 
@@ -582,4 +598,20 @@ mod tests {
         let public_inputs = builder.execute();
         assert_eq(public_inputs.revert_code, 3);
     }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

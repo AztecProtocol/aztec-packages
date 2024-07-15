@@ -765,7 +765,7 @@ impl<'a> Resolver<'a> {
         }
 
         // If we cannot find a local generic of the same name, try to look up a global
-        match self.path_resolver.resolve(self.def_maps, path.clone()) {
+        match self.path_resolver.resolve(self.def_maps, path.clone(), &mut None) {
             Ok(PathResolution { module_def_id: ModuleDefId::GlobalId(id), error }) => {
                 if let Some(current_item) = self.current_item {
                     self.interner.add_global_dependency(current_item, id);
@@ -1096,8 +1096,7 @@ impl<'a> Resolver<'a> {
 
         let direct_generics = func.def.generics.iter();
         let direct_generics = direct_generics
-            .filter_map(|generic| self.find_generic(&generic.ident().0.contents))
-            .map(|ResolvedGeneric { name, type_var, .. }| (name.clone(), type_var.clone()))
+            .filter_map(|generic| self.find_generic(&generic.ident().0.contents).cloned())
             .collect();
 
         FuncMeta {
@@ -1549,6 +1548,7 @@ impl<'a> Resolver<'a> {
             ExpressionKind::Prefix(prefix) => {
                 let operator = prefix.operator;
                 let rhs = self.resolve_expression(prefix.rhs);
+                let trait_method_id = self.interner.get_prefix_operator_trait_method(&operator);
 
                 if operator == UnaryOp::MutableReference {
                     if let Err(error) = verify_mutable_reference(self.interner, rhs) {
@@ -1556,7 +1556,7 @@ impl<'a> Resolver<'a> {
                     }
                 }
 
-                HirExpression::Prefix(HirPrefixExpression { operator, rhs })
+                HirExpression::Prefix(HirPrefixExpression { operator, rhs, trait_method_id })
             }
             ExpressionKind::Infix(infix) => {
                 let lhs = self.resolve_expression(infix.lhs);
@@ -2017,7 +2017,7 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_path(&mut self, path: Path) -> Result<ModuleDefId, ResolverError> {
-        let path_resolution = self.path_resolver.resolve(self.def_maps, path)?;
+        let path_resolution = self.path_resolver.resolve(self.def_maps, path, &mut None)?;
 
         if let Some(error) = path_resolution.error {
             self.push_err(error.into());

@@ -14,404 +14,10 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 
-// This already imports the relations and permutations. For now we rely on the transitive includes.
 #include "barretenberg/vm/generated/avm_flavor.hpp"
+#include "barretenberg/vm/generated/avm_full_row.hpp"
 
 namespace bb {
-
-template <typename FF> struct AvmFullRow {
-    FF main_clk{};
-    FF main_sel_first{};
-    FF kernel_kernel_inputs{};
-    FF kernel_kernel_value_out{};
-    FF kernel_kernel_side_effect_out{};
-    FF kernel_kernel_metadata_out{};
-    FF main_calldata{};
-    FF alu_a_hi{};
-    FF alu_a_lo{};
-    FF alu_b_hi{};
-    FF alu_b_lo{};
-    FF alu_borrow{};
-    FF alu_cf{};
-    FF alu_clk{};
-    FF alu_cmp_rng_ctr{};
-    FF alu_div_u16_r0{};
-    FF alu_div_u16_r1{};
-    FF alu_div_u16_r2{};
-    FF alu_div_u16_r3{};
-    FF alu_div_u16_r4{};
-    FF alu_div_u16_r5{};
-    FF alu_div_u16_r6{};
-    FF alu_div_u16_r7{};
-    FF alu_divisor_hi{};
-    FF alu_divisor_lo{};
-    FF alu_ff_tag{};
-    FF alu_ia{};
-    FF alu_ib{};
-    FF alu_ic{};
-    FF alu_in_tag{};
-    FF alu_op_add{};
-    FF alu_op_cast{};
-    FF alu_op_cast_prev{};
-    FF alu_op_div{};
-    FF alu_op_div_a_lt_b{};
-    FF alu_op_div_std{};
-    FF alu_op_eq{};
-    FF alu_op_eq_diff_inv{};
-    FF alu_op_lt{};
-    FF alu_op_lte{};
-    FF alu_op_mul{};
-    FF alu_op_not{};
-    FF alu_op_shl{};
-    FF alu_op_shr{};
-    FF alu_op_sub{};
-    FF alu_p_a_borrow{};
-    FF alu_p_b_borrow{};
-    FF alu_p_sub_a_hi{};
-    FF alu_p_sub_a_lo{};
-    FF alu_p_sub_b_hi{};
-    FF alu_p_sub_b_lo{};
-    FF alu_partial_prod_hi{};
-    FF alu_partial_prod_lo{};
-    FF alu_quotient_hi{};
-    FF alu_quotient_lo{};
-    FF alu_remainder{};
-    FF alu_res_hi{};
-    FF alu_res_lo{};
-    FF alu_sel_alu{};
-    FF alu_sel_cmp{};
-    FF alu_sel_div_rng_chk{};
-    FF alu_sel_rng_chk{};
-    FF alu_sel_rng_chk_lookup{};
-    FF alu_sel_shift_which{};
-    FF alu_shift_lt_bit_len{};
-    FF alu_t_sub_s_bits{};
-    FF alu_two_pow_s{};
-    FF alu_two_pow_t_sub_s{};
-    FF alu_u128_tag{};
-    FF alu_u16_r0{};
-    FF alu_u16_r1{};
-    FF alu_u16_r10{};
-    FF alu_u16_r11{};
-    FF alu_u16_r12{};
-    FF alu_u16_r13{};
-    FF alu_u16_r14{};
-    FF alu_u16_r2{};
-    FF alu_u16_r3{};
-    FF alu_u16_r4{};
-    FF alu_u16_r5{};
-    FF alu_u16_r6{};
-    FF alu_u16_r7{};
-    FF alu_u16_r8{};
-    FF alu_u16_r9{};
-    FF alu_u16_tag{};
-    FF alu_u32_tag{};
-    FF alu_u64_tag{};
-    FF alu_u8_r0{};
-    FF alu_u8_r1{};
-    FF alu_u8_tag{};
-    FF binary_acc_ia{};
-    FF binary_acc_ib{};
-    FF binary_acc_ic{};
-    FF binary_clk{};
-    FF binary_ia_bytes{};
-    FF binary_ib_bytes{};
-    FF binary_ic_bytes{};
-    FF binary_in_tag{};
-    FF binary_mem_tag_ctr{};
-    FF binary_mem_tag_ctr_inv{};
-    FF binary_op_id{};
-    FF binary_sel_bin{};
-    FF binary_start{};
-    FF byte_lookup_sel_bin{};
-    FF byte_lookup_table_byte_lengths{};
-    FF byte_lookup_table_in_tags{};
-    FF byte_lookup_table_input_a{};
-    FF byte_lookup_table_input_b{};
-    FF byte_lookup_table_op_id{};
-    FF byte_lookup_table_output{};
-    FF conversion_clk{};
-    FF conversion_input{};
-    FF conversion_num_limbs{};
-    FF conversion_radix{};
-    FF conversion_sel_to_radix_le{};
-    FF gas_da_gas_fixed_table{};
-    FF gas_l2_gas_fixed_table{};
-    FF gas_sel_gas_cost{};
-    FF keccakf1600_clk{};
-    FF keccakf1600_input{};
-    FF keccakf1600_output{};
-    FF keccakf1600_sel_keccakf1600{};
-    FF kernel_emit_l2_to_l1_msg_write_offset{};
-    FF kernel_emit_note_hash_write_offset{};
-    FF kernel_emit_nullifier_write_offset{};
-    FF kernel_emit_unencrypted_log_write_offset{};
-    FF kernel_kernel_in_offset{};
-    FF kernel_kernel_out_offset{};
-    FF kernel_l1_to_l2_msg_exists_write_offset{};
-    FF kernel_note_hash_exist_write_offset{};
-    FF kernel_nullifier_exists_write_offset{};
-    FF kernel_nullifier_non_exists_write_offset{};
-    FF kernel_q_public_input_kernel_add_to_table{};
-    FF kernel_q_public_input_kernel_out_add_to_table{};
-    FF kernel_side_effect_counter{};
-    FF kernel_sload_write_offset{};
-    FF kernel_sstore_write_offset{};
-    FF main_abs_da_rem_gas_hi{};
-    FF main_abs_da_rem_gas_lo{};
-    FF main_abs_l2_rem_gas_hi{};
-    FF main_abs_l2_rem_gas_lo{};
-    FF main_alu_in_tag{};
-    FF main_bin_op_id{};
-    FF main_call_ptr{};
-    FF main_da_gas_op_cost{};
-    FF main_da_gas_remaining{};
-    FF main_da_out_of_gas{};
-    FF main_ia{};
-    FF main_ib{};
-    FF main_ic{};
-    FF main_id{};
-    FF main_id_zero{};
-    FF main_ind_addr_a{};
-    FF main_ind_addr_b{};
-    FF main_ind_addr_c{};
-    FF main_ind_addr_d{};
-    FF main_internal_return_ptr{};
-    FF main_inv{};
-    FF main_l2_gas_op_cost{};
-    FF main_l2_gas_remaining{};
-    FF main_l2_out_of_gas{};
-    FF main_mem_addr_a{};
-    FF main_mem_addr_b{};
-    FF main_mem_addr_c{};
-    FF main_mem_addr_d{};
-    FF main_op_err{};
-    FF main_opcode_val{};
-    FF main_pc{};
-    FF main_r_in_tag{};
-    FF main_rwa{};
-    FF main_rwb{};
-    FF main_rwc{};
-    FF main_rwd{};
-    FF main_sel_alu{};
-    FF main_sel_bin{};
-    FF main_sel_gas_accounting_active{};
-    FF main_sel_last{};
-    FF main_sel_mem_op_a{};
-    FF main_sel_mem_op_activate_gas{};
-    FF main_sel_mem_op_b{};
-    FF main_sel_mem_op_c{};
-    FF main_sel_mem_op_d{};
-    FF main_sel_mov_ia_to_ic{};
-    FF main_sel_mov_ib_to_ic{};
-    FF main_sel_op_add{};
-    FF main_sel_op_address{};
-    FF main_sel_op_and{};
-    FF main_sel_op_block_number{};
-    FF main_sel_op_cast{};
-    FF main_sel_op_chain_id{};
-    FF main_sel_op_cmov{};
-    FF main_sel_op_coinbase{};
-    FF main_sel_op_dagasleft{};
-    FF main_sel_op_div{};
-    FF main_sel_op_emit_l2_to_l1_msg{};
-    FF main_sel_op_emit_note_hash{};
-    FF main_sel_op_emit_nullifier{};
-    FF main_sel_op_emit_unencrypted_log{};
-    FF main_sel_op_eq{};
-    FF main_sel_op_external_call{};
-    FF main_sel_op_fdiv{};
-    FF main_sel_op_fee_per_da_gas{};
-    FF main_sel_op_fee_per_l2_gas{};
-    FF main_sel_op_function_selector{};
-    FF main_sel_op_get_contract_instance{};
-    FF main_sel_op_halt{};
-    FF main_sel_op_internal_call{};
-    FF main_sel_op_internal_return{};
-    FF main_sel_op_jump{};
-    FF main_sel_op_jumpi{};
-    FF main_sel_op_keccak{};
-    FF main_sel_op_l1_to_l2_msg_exists{};
-    FF main_sel_op_l2gasleft{};
-    FF main_sel_op_lt{};
-    FF main_sel_op_lte{};
-    FF main_sel_op_mov{};
-    FF main_sel_op_mul{};
-    FF main_sel_op_not{};
-    FF main_sel_op_note_hash_exists{};
-    FF main_sel_op_nullifier_exists{};
-    FF main_sel_op_or{};
-    FF main_sel_op_pedersen{};
-    FF main_sel_op_poseidon2{};
-    FF main_sel_op_radix_le{};
-    FF main_sel_op_sender{};
-    FF main_sel_op_sha256{};
-    FF main_sel_op_shl{};
-    FF main_sel_op_shr{};
-    FF main_sel_op_sload{};
-    FF main_sel_op_sstore{};
-    FF main_sel_op_storage_address{};
-    FF main_sel_op_sub{};
-    FF main_sel_op_timestamp{};
-    FF main_sel_op_transaction_fee{};
-    FF main_sel_op_version{};
-    FF main_sel_op_xor{};
-    FF main_sel_q_kernel_lookup{};
-    FF main_sel_q_kernel_output_lookup{};
-    FF main_sel_resolve_ind_addr_a{};
-    FF main_sel_resolve_ind_addr_b{};
-    FF main_sel_resolve_ind_addr_c{};
-    FF main_sel_resolve_ind_addr_d{};
-    FF main_sel_rng_16{};
-    FF main_sel_rng_8{};
-    FF main_space_id{};
-    FF main_tag_err{};
-    FF main_w_in_tag{};
-    FF mem_addr{};
-    FF mem_clk{};
-    FF mem_diff_hi{};
-    FF mem_diff_lo{};
-    FF mem_diff_mid{};
-    FF mem_glob_addr{};
-    FF mem_last{};
-    FF mem_lastAccess{};
-    FF mem_one_min_inv{};
-    FF mem_r_in_tag{};
-    FF mem_rw{};
-    FF mem_sel_mem{};
-    FF mem_sel_mov_ia_to_ic{};
-    FF mem_sel_mov_ib_to_ic{};
-    FF mem_sel_op_a{};
-    FF mem_sel_op_b{};
-    FF mem_sel_op_c{};
-    FF mem_sel_op_cmov{};
-    FF mem_sel_op_d{};
-    FF mem_sel_resolve_ind_addr_a{};
-    FF mem_sel_resolve_ind_addr_b{};
-    FF mem_sel_resolve_ind_addr_c{};
-    FF mem_sel_resolve_ind_addr_d{};
-    FF mem_sel_rng_chk{};
-    FF mem_skip_check_tag{};
-    FF mem_space_id{};
-    FF mem_tag{};
-    FF mem_tag_err{};
-    FF mem_tsp{};
-    FF mem_val{};
-    FF mem_w_in_tag{};
-    FF pedersen_clk{};
-    FF pedersen_input{};
-    FF pedersen_output{};
-    FF pedersen_sel_pedersen{};
-    FF poseidon2_clk{};
-    FF poseidon2_input{};
-    FF poseidon2_output{};
-    FF poseidon2_sel_poseidon_perm{};
-    FF powers_power_of_2{};
-    FF sha256_clk{};
-    FF sha256_input{};
-    FF sha256_output{};
-    FF sha256_sel_sha256_compression{};
-    FF sha256_state{};
-    FF perm_main_alu{};
-    FF perm_main_bin{};
-    FF perm_main_conv{};
-    FF perm_main_pos2_perm{};
-    FF perm_main_pedersen{};
-    FF perm_main_mem_a{};
-    FF perm_main_mem_b{};
-    FF perm_main_mem_c{};
-    FF perm_main_mem_d{};
-    FF perm_main_mem_ind_addr_a{};
-    FF perm_main_mem_ind_addr_b{};
-    FF perm_main_mem_ind_addr_c{};
-    FF perm_main_mem_ind_addr_d{};
-    FF lookup_byte_lengths{};
-    FF lookup_byte_operations{};
-    FF lookup_opcode_gas{};
-    FF range_check_l2_gas_hi{};
-    FF range_check_l2_gas_lo{};
-    FF range_check_da_gas_hi{};
-    FF range_check_da_gas_lo{};
-    FF kernel_output_lookup{};
-    FF lookup_into_kernel{};
-    FF incl_main_tag_err{};
-    FF incl_mem_tag_err{};
-    FF lookup_mem_rng_chk_lo{};
-    FF lookup_mem_rng_chk_mid{};
-    FF lookup_mem_rng_chk_hi{};
-    FF lookup_pow_2_0{};
-    FF lookup_pow_2_1{};
-    FF lookup_u8_0{};
-    FF lookup_u8_1{};
-    FF lookup_u16_0{};
-    FF lookup_u16_1{};
-    FF lookup_u16_2{};
-    FF lookup_u16_3{};
-    FF lookup_u16_4{};
-    FF lookup_u16_5{};
-    FF lookup_u16_6{};
-    FF lookup_u16_7{};
-    FF lookup_u16_8{};
-    FF lookup_u16_9{};
-    FF lookup_u16_10{};
-    FF lookup_u16_11{};
-    FF lookup_u16_12{};
-    FF lookup_u16_13{};
-    FF lookup_u16_14{};
-    FF lookup_div_u16_0{};
-    FF lookup_div_u16_1{};
-    FF lookup_div_u16_2{};
-    FF lookup_div_u16_3{};
-    FF lookup_div_u16_4{};
-    FF lookup_div_u16_5{};
-    FF lookup_div_u16_6{};
-    FF lookup_div_u16_7{};
-    FF lookup_byte_lengths_counts{};
-    FF lookup_byte_operations_counts{};
-    FF lookup_opcode_gas_counts{};
-    FF range_check_l2_gas_hi_counts{};
-    FF range_check_l2_gas_lo_counts{};
-    FF range_check_da_gas_hi_counts{};
-    FF range_check_da_gas_lo_counts{};
-    FF kernel_output_lookup_counts{};
-    FF lookup_into_kernel_counts{};
-    FF incl_main_tag_err_counts{};
-    FF incl_mem_tag_err_counts{};
-    FF lookup_mem_rng_chk_lo_counts{};
-    FF lookup_mem_rng_chk_mid_counts{};
-    FF lookup_mem_rng_chk_hi_counts{};
-    FF lookup_pow_2_0_counts{};
-    FF lookup_pow_2_1_counts{};
-    FF lookup_u8_0_counts{};
-    FF lookup_u8_1_counts{};
-    FF lookup_u16_0_counts{};
-    FF lookup_u16_1_counts{};
-    FF lookup_u16_2_counts{};
-    FF lookup_u16_3_counts{};
-    FF lookup_u16_4_counts{};
-    FF lookup_u16_5_counts{};
-    FF lookup_u16_6_counts{};
-    FF lookup_u16_7_counts{};
-    FF lookup_u16_8_counts{};
-    FF lookup_u16_9_counts{};
-    FF lookup_u16_10_counts{};
-    FF lookup_u16_11_counts{};
-    FF lookup_u16_12_counts{};
-    FF lookup_u16_13_counts{};
-    FF lookup_u16_14_counts{};
-    FF lookup_div_u16_0_counts{};
-    FF lookup_div_u16_1_counts{};
-    FF lookup_div_u16_2_counts{};
-    FF lookup_div_u16_3_counts{};
-    FF lookup_div_u16_4_counts{};
-    FF lookup_div_u16_5_counts{};
-    FF lookup_div_u16_6_counts{};
-    FF lookup_div_u16_7_counts{};
-
-    [[maybe_unused]] static std::vector<std::string> names();
-};
-
-template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
 
 class AvmCircuitBuilder {
   public:
@@ -423,8 +29,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 387;
-    static constexpr size_t num_polys = 387 + 65;
+    static constexpr size_t num_fixed_columns = 411;
+    static constexpr size_t num_polys = 411 + 74;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -447,6 +53,7 @@ class AvmCircuitBuilder {
             polys.kernel_kernel_side_effect_out[i] = rows[i].kernel_kernel_side_effect_out;
             polys.kernel_kernel_metadata_out[i] = rows[i].kernel_kernel_metadata_out;
             polys.main_calldata[i] = rows[i].main_calldata;
+            polys.main_returndata[i] = rows[i].main_returndata;
             polys.alu_a_hi[i] = rows[i].alu_a_hi;
             polys.alu_a_lo[i] = rows[i].alu_a_lo;
             polys.alu_b_hi[i] = rows[i].alu_b_hi;
@@ -616,6 +223,7 @@ class AvmCircuitBuilder {
             polys.main_rwd[i] = rows[i].main_rwd;
             polys.main_sel_alu[i] = rows[i].main_sel_alu;
             polys.main_sel_bin[i] = rows[i].main_sel_bin;
+            polys.main_sel_calldata[i] = rows[i].main_sel_calldata;
             polys.main_sel_gas_accounting_active[i] = rows[i].main_sel_gas_accounting_active;
             polys.main_sel_last[i] = rows[i].main_sel_last;
             polys.main_sel_mem_op_a[i] = rows[i].main_sel_mem_op_a;
@@ -629,6 +237,7 @@ class AvmCircuitBuilder {
             polys.main_sel_op_address[i] = rows[i].main_sel_op_address;
             polys.main_sel_op_and[i] = rows[i].main_sel_op_and;
             polys.main_sel_op_block_number[i] = rows[i].main_sel_op_block_number;
+            polys.main_sel_op_calldata_copy[i] = rows[i].main_sel_op_calldata_copy;
             polys.main_sel_op_cast[i] = rows[i].main_sel_op_cast;
             polys.main_sel_op_chain_id[i] = rows[i].main_sel_op_chain_id;
             polys.main_sel_op_cmov[i] = rows[i].main_sel_op_cmov;
@@ -641,6 +250,7 @@ class AvmCircuitBuilder {
             polys.main_sel_op_emit_unencrypted_log[i] = rows[i].main_sel_op_emit_unencrypted_log;
             polys.main_sel_op_eq[i] = rows[i].main_sel_op_eq;
             polys.main_sel_op_external_call[i] = rows[i].main_sel_op_external_call;
+            polys.main_sel_op_external_return[i] = rows[i].main_sel_op_external_return;
             polys.main_sel_op_fdiv[i] = rows[i].main_sel_op_fdiv;
             polys.main_sel_op_fee_per_da_gas[i] = rows[i].main_sel_op_fee_per_da_gas;
             polys.main_sel_op_fee_per_l2_gas[i] = rows[i].main_sel_op_fee_per_l2_gas;
@@ -683,8 +293,10 @@ class AvmCircuitBuilder {
             polys.main_sel_resolve_ind_addr_b[i] = rows[i].main_sel_resolve_ind_addr_b;
             polys.main_sel_resolve_ind_addr_c[i] = rows[i].main_sel_resolve_ind_addr_c;
             polys.main_sel_resolve_ind_addr_d[i] = rows[i].main_sel_resolve_ind_addr_d;
+            polys.main_sel_returndata[i] = rows[i].main_sel_returndata;
             polys.main_sel_rng_16[i] = rows[i].main_sel_rng_16;
             polys.main_sel_rng_8[i] = rows[i].main_sel_rng_8;
+            polys.main_sel_slice_gadget[i] = rows[i].main_sel_slice_gadget;
             polys.main_space_id[i] = rows[i].main_space_id;
             polys.main_tag_err[i] = rows[i].main_tag_err;
             polys.main_w_in_tag[i] = rows[i].main_w_in_tag;
@@ -707,6 +319,7 @@ class AvmCircuitBuilder {
             polys.mem_sel_op_c[i] = rows[i].mem_sel_op_c;
             polys.mem_sel_op_cmov[i] = rows[i].mem_sel_op_cmov;
             polys.mem_sel_op_d[i] = rows[i].mem_sel_op_d;
+            polys.mem_sel_op_slice[i] = rows[i].mem_sel_op_slice;
             polys.mem_sel_resolve_ind_addr_a[i] = rows[i].mem_sel_resolve_ind_addr_a;
             polys.mem_sel_resolve_ind_addr_b[i] = rows[i].mem_sel_resolve_ind_addr_b;
             polys.mem_sel_resolve_ind_addr_c[i] = rows[i].mem_sel_resolve_ind_addr_c;
@@ -733,8 +346,21 @@ class AvmCircuitBuilder {
             polys.sha256_output[i] = rows[i].sha256_output;
             polys.sha256_sel_sha256_compression[i] = rows[i].sha256_sel_sha256_compression;
             polys.sha256_state[i] = rows[i].sha256_state;
+            polys.slice_addr[i] = rows[i].slice_addr;
+            polys.slice_clk[i] = rows[i].slice_clk;
+            polys.slice_cnt[i] = rows[i].slice_cnt;
+            polys.slice_col_offset[i] = rows[i].slice_col_offset;
+            polys.slice_one_min_inv[i] = rows[i].slice_one_min_inv;
+            polys.slice_sel_cd_cpy[i] = rows[i].slice_sel_cd_cpy;
+            polys.slice_sel_mem_active[i] = rows[i].slice_sel_mem_active;
+            polys.slice_sel_return[i] = rows[i].slice_sel_return;
+            polys.slice_sel_start[i] = rows[i].slice_sel_start;
+            polys.slice_space_id[i] = rows[i].slice_space_id;
+            polys.slice_val[i] = rows[i].slice_val;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
+            polys.lookup_cd_value_counts[i] = rows[i].lookup_cd_value_counts;
+            polys.lookup_ret_value_counts[i] = rows[i].lookup_ret_value_counts;
             polys.lookup_opcode_gas_counts[i] = rows[i].lookup_opcode_gas_counts;
             polys.range_check_l2_gas_hi_counts[i] = rows[i].range_check_l2_gas_hi_counts;
             polys.range_check_l2_gas_lo_counts[i] = rows[i].range_check_l2_gas_lo_counts;
@@ -776,77 +402,9 @@ class AvmCircuitBuilder {
             polys.lookup_div_u16_7_counts[i] = rows[i].lookup_div_u16_7_counts;
         }
 
-        polys.alu_a_hi_shift = Polynomial(polys.alu_a_hi.shifted());
-        polys.alu_a_lo_shift = Polynomial(polys.alu_a_lo.shifted());
-        polys.alu_b_hi_shift = Polynomial(polys.alu_b_hi.shifted());
-        polys.alu_b_lo_shift = Polynomial(polys.alu_b_lo.shifted());
-        polys.alu_cmp_rng_ctr_shift = Polynomial(polys.alu_cmp_rng_ctr.shifted());
-        polys.alu_div_u16_r0_shift = Polynomial(polys.alu_div_u16_r0.shifted());
-        polys.alu_div_u16_r1_shift = Polynomial(polys.alu_div_u16_r1.shifted());
-        polys.alu_div_u16_r2_shift = Polynomial(polys.alu_div_u16_r2.shifted());
-        polys.alu_div_u16_r3_shift = Polynomial(polys.alu_div_u16_r3.shifted());
-        polys.alu_div_u16_r4_shift = Polynomial(polys.alu_div_u16_r4.shifted());
-        polys.alu_div_u16_r5_shift = Polynomial(polys.alu_div_u16_r5.shifted());
-        polys.alu_div_u16_r6_shift = Polynomial(polys.alu_div_u16_r6.shifted());
-        polys.alu_div_u16_r7_shift = Polynomial(polys.alu_div_u16_r7.shifted());
-        polys.alu_op_add_shift = Polynomial(polys.alu_op_add.shifted());
-        polys.alu_op_cast_prev_shift = Polynomial(polys.alu_op_cast_prev.shifted());
-        polys.alu_op_cast_shift = Polynomial(polys.alu_op_cast.shifted());
-        polys.alu_op_div_shift = Polynomial(polys.alu_op_div.shifted());
-        polys.alu_op_mul_shift = Polynomial(polys.alu_op_mul.shifted());
-        polys.alu_op_shl_shift = Polynomial(polys.alu_op_shl.shifted());
-        polys.alu_op_shr_shift = Polynomial(polys.alu_op_shr.shifted());
-        polys.alu_op_sub_shift = Polynomial(polys.alu_op_sub.shifted());
-        polys.alu_p_sub_a_hi_shift = Polynomial(polys.alu_p_sub_a_hi.shifted());
-        polys.alu_p_sub_a_lo_shift = Polynomial(polys.alu_p_sub_a_lo.shifted());
-        polys.alu_p_sub_b_hi_shift = Polynomial(polys.alu_p_sub_b_hi.shifted());
-        polys.alu_p_sub_b_lo_shift = Polynomial(polys.alu_p_sub_b_lo.shifted());
-        polys.alu_sel_alu_shift = Polynomial(polys.alu_sel_alu.shifted());
-        polys.alu_sel_cmp_shift = Polynomial(polys.alu_sel_cmp.shifted());
-        polys.alu_sel_div_rng_chk_shift = Polynomial(polys.alu_sel_div_rng_chk.shifted());
-        polys.alu_sel_rng_chk_lookup_shift = Polynomial(polys.alu_sel_rng_chk_lookup.shifted());
-        polys.alu_sel_rng_chk_shift = Polynomial(polys.alu_sel_rng_chk.shifted());
-        polys.alu_u16_r0_shift = Polynomial(polys.alu_u16_r0.shifted());
-        polys.alu_u16_r1_shift = Polynomial(polys.alu_u16_r1.shifted());
-        polys.alu_u16_r2_shift = Polynomial(polys.alu_u16_r2.shifted());
-        polys.alu_u16_r3_shift = Polynomial(polys.alu_u16_r3.shifted());
-        polys.alu_u16_r4_shift = Polynomial(polys.alu_u16_r4.shifted());
-        polys.alu_u16_r5_shift = Polynomial(polys.alu_u16_r5.shifted());
-        polys.alu_u16_r6_shift = Polynomial(polys.alu_u16_r6.shifted());
-        polys.alu_u8_r0_shift = Polynomial(polys.alu_u8_r0.shifted());
-        polys.alu_u8_r1_shift = Polynomial(polys.alu_u8_r1.shifted());
-        polys.binary_acc_ia_shift = Polynomial(polys.binary_acc_ia.shifted());
-        polys.binary_acc_ib_shift = Polynomial(polys.binary_acc_ib.shifted());
-        polys.binary_acc_ic_shift = Polynomial(polys.binary_acc_ic.shifted());
-        polys.binary_mem_tag_ctr_shift = Polynomial(polys.binary_mem_tag_ctr.shifted());
-        polys.binary_op_id_shift = Polynomial(polys.binary_op_id.shifted());
-        polys.kernel_emit_l2_to_l1_msg_write_offset_shift =
-            Polynomial(polys.kernel_emit_l2_to_l1_msg_write_offset.shifted());
-        polys.kernel_emit_note_hash_write_offset_shift = Polynomial(polys.kernel_emit_note_hash_write_offset.shifted());
-        polys.kernel_emit_nullifier_write_offset_shift = Polynomial(polys.kernel_emit_nullifier_write_offset.shifted());
-        polys.kernel_emit_unencrypted_log_write_offset_shift =
-            Polynomial(polys.kernel_emit_unencrypted_log_write_offset.shifted());
-        polys.kernel_l1_to_l2_msg_exists_write_offset_shift =
-            Polynomial(polys.kernel_l1_to_l2_msg_exists_write_offset.shifted());
-        polys.kernel_note_hash_exist_write_offset_shift =
-            Polynomial(polys.kernel_note_hash_exist_write_offset.shifted());
-        polys.kernel_nullifier_exists_write_offset_shift =
-            Polynomial(polys.kernel_nullifier_exists_write_offset.shifted());
-        polys.kernel_nullifier_non_exists_write_offset_shift =
-            Polynomial(polys.kernel_nullifier_non_exists_write_offset.shifted());
-        polys.kernel_side_effect_counter_shift = Polynomial(polys.kernel_side_effect_counter.shifted());
-        polys.kernel_sload_write_offset_shift = Polynomial(polys.kernel_sload_write_offset.shifted());
-        polys.kernel_sstore_write_offset_shift = Polynomial(polys.kernel_sstore_write_offset.shifted());
-        polys.main_da_gas_remaining_shift = Polynomial(polys.main_da_gas_remaining.shifted());
-        polys.main_internal_return_ptr_shift = Polynomial(polys.main_internal_return_ptr.shifted());
-        polys.main_l2_gas_remaining_shift = Polynomial(polys.main_l2_gas_remaining.shifted());
-        polys.main_pc_shift = Polynomial(polys.main_pc.shifted());
-        polys.mem_glob_addr_shift = Polynomial(polys.mem_glob_addr.shifted());
-        polys.mem_rw_shift = Polynomial(polys.mem_rw.shifted());
-        polys.mem_sel_mem_shift = Polynomial(polys.mem_sel_mem.shifted());
-        polys.mem_tag_shift = Polynomial(polys.mem_tag.shifted());
-        polys.mem_tsp_shift = Polynomial(polys.mem_tsp.shifted());
-        polys.mem_val_shift = Polynomial(polys.mem_val.shifted());
+        for (auto [shifted, to_be_shifted] : zip_view(polys.get_shifted(), polys.get_to_be_shifted())) {
+            shifted = to_be_shifted.shifted();
+        }
 
         return polys;
     }
@@ -946,6 +504,10 @@ class AvmCircuitBuilder {
         auto mem = [=]() {
             return evaluate_relation.template operator()<Avm_vm::mem<FF>>("mem", Avm_vm::get_relation_label_mem);
         };
+        auto mem_slice = [=]() {
+            return evaluate_relation.template operator()<Avm_vm::mem_slice<FF>>("mem_slice",
+                                                                                Avm_vm::get_relation_label_mem_slice);
+        };
         auto pedersen = [=]() {
             return evaluate_relation.template operator()<Avm_vm::pedersen<FF>>("pedersen",
                                                                                Avm_vm::get_relation_label_pedersen);
@@ -964,6 +526,9 @@ class AvmCircuitBuilder {
         };
 
         // Check lookups
+        auto perm_slice_mem = [=]() {
+            return evaluate_logderivative.template operator()<perm_slice_mem_relation<FF>>("PERM_SLICE_MEM");
+        };
         auto perm_main_alu = [=]() {
             return evaluate_logderivative.template operator()<perm_main_alu_relation<FF>>("PERM_MAIN_ALU");
         };
@@ -978,6 +543,9 @@ class AvmCircuitBuilder {
         };
         auto perm_main_pedersen = [=]() {
             return evaluate_logderivative.template operator()<perm_main_pedersen_relation<FF>>("PERM_MAIN_PEDERSEN");
+        };
+        auto perm_main_slice = [=]() {
+            return evaluate_logderivative.template operator()<perm_main_slice_relation<FF>>("PERM_MAIN_SLICE");
         };
         auto perm_main_mem_a = [=]() {
             return evaluate_logderivative.template operator()<perm_main_mem_a_relation<FF>>("PERM_MAIN_MEM_A");
@@ -1013,6 +581,12 @@ class AvmCircuitBuilder {
         auto lookup_byte_operations = [=]() {
             return evaluate_logderivative.template operator()<lookup_byte_operations_relation<FF>>(
                 "LOOKUP_BYTE_OPERATIONS");
+        };
+        auto lookup_cd_value = [=]() {
+            return evaluate_logderivative.template operator()<lookup_cd_value_relation<FF>>("LOOKUP_CD_VALUE");
+        };
+        auto lookup_ret_value = [=]() {
+            return evaluate_logderivative.template operator()<lookup_ret_value_relation<FF>>("LOOKUP_RET_VALUE");
         };
         auto lookup_opcode_gas = [=]() {
             return evaluate_logderivative.template operator()<lookup_opcode_gas_relation<FF>>("LOOKUP_OPCODE_GAS");
@@ -1151,15 +725,18 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, kernel));
         relation_futures.emplace_back(std::async(std::launch::async, main));
         relation_futures.emplace_back(std::async(std::launch::async, mem));
+        relation_futures.emplace_back(std::async(std::launch::async, mem_slice));
         relation_futures.emplace_back(std::async(std::launch::async, pedersen));
         relation_futures.emplace_back(std::async(std::launch::async, poseidon2));
         relation_futures.emplace_back(std::async(std::launch::async, powers));
         relation_futures.emplace_back(std::async(std::launch::async, sha256));
+        relation_futures.emplace_back(std::async(std::launch::async, perm_slice_mem));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_alu));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_bin));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_conv));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_pos2_perm));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_pedersen));
+        relation_futures.emplace_back(std::async(std::launch::async, perm_main_slice));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_a));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_b));
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_c));
@@ -1170,6 +747,8 @@ class AvmCircuitBuilder {
         relation_futures.emplace_back(std::async(std::launch::async, perm_main_mem_ind_addr_d));
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_lengths));
         relation_futures.emplace_back(std::async(std::launch::async, lookup_byte_operations));
+        relation_futures.emplace_back(std::async(std::launch::async, lookup_cd_value));
+        relation_futures.emplace_back(std::async(std::launch::async, lookup_ret_value));
         relation_futures.emplace_back(std::async(std::launch::async, lookup_opcode_gas));
         relation_futures.emplace_back(std::async(std::launch::async, range_check_l2_gas_hi));
         relation_futures.emplace_back(std::async(std::launch::async, range_check_l2_gas_lo));
@@ -1212,8 +791,7 @@ class AvmCircuitBuilder {
 
         // Wait for lookup evaluations to complete
         for (auto& future : relation_futures) {
-            int result = future.get();
-            if (!result) {
+            if (!future.get()) {
                 return false;
             }
         }

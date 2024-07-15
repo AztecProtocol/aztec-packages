@@ -21,12 +21,13 @@ import {
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -99,6 +100,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   seed *= MAX_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
   const tx = mockTx(seed);
   const kernelOutput = KernelCircuitPublicInputs.empty();
+  kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
   kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -111,7 +113,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
     seed + 0x600,
   );
 
-  const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+  const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
   processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
   processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100000);
@@ -121,14 +123,13 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
   processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash());
   processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-  processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
   return processedTx;
 };
 
 export const makeEmptyProcessedTx = async (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
   const header = await builderDb.buildInitialHeader();
-  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
+  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
 };
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs

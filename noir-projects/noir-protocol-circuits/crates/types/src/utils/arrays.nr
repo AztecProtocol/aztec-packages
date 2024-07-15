@@ -8,7 +8,7 @@ mod sort_get_sorted_tuple;
 mod sort_get_split_order_hints;
 
 // Re-exports.
-use assert_sorted_array::assert_sorted_array;
+use assert_sorted_array::{assert_sorted_array_with_order_hints, assert_sorted_array};
 use assert_split_sorted_transformed_value_arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc};
 use assert_sorted_transformed_value_array::assert_sorted_transformed_value_array;
 use sort_by_counters::{sort_by_counters_asc, sort_by_counters_desc};
@@ -53,6 +53,16 @@ pub fn filter_array_to_bounded_vec<T, N>(arr: [T; N], should_propagate: [bool; N
     assert_eq(verifying_index, vec_hint.len());
 
     vec_hint
+}
+
+unconstrained pub fn find_index_hint<T, N>(array: [T; N], find: T) -> u32 where T: Eq {
+    let mut index = 0;
+    for i in 0..array.len() {
+        if array[i] == find {
+            index = i;
+        }
+    }
+    index
 }
 
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
