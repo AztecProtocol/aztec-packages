@@ -43,7 +43,7 @@ impl<T, T_SERIALIZED_LEN> SharedImmutable<T, &mut PublicContext> where T: Serial
 
 impl<T, T_SERIALIZED_LEN> SharedImmutable<T, UnconstrainedContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
     unconstrained pub fn read_public(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        self.context.storage_read(self.context.this_address(), self.storage_slot)
     }
 }
 
