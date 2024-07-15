@@ -19,15 +19,22 @@ pub(crate) struct GatesFlamegraphCommand {
     #[clap(long, short)]
     backend_path: String,
 
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    backend_extra_args: Vec<String>,
+
     /// The output folder for the flamegraph svg files
     #[clap(long, short)]
     output: String,
 }
 
 pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
+    dbg!(&args.backend_extra_args);
     run_with_provider(
         &PathBuf::from(args.artifact_path),
-        &BackendGatesProvider { backend_path: PathBuf::from(args.backend_path) },
+        &BackendGatesProvider {
+            backend_path: PathBuf::from(args.backend_path),
+            extra_args: args.backend_extra_args,
+        },
         &InfernoFlamegraphGenerator { count_name: "gates".to_string() },
         &PathBuf::from(args.output),
     )
