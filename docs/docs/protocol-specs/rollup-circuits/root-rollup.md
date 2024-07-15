@@ -36,7 +36,7 @@ StateReference *-- PartialStateReference: partial
 class GlobalVariables {
     block_number: Fr
     timestamp: Fr
-    version: Fr
+    version: UInt32
     chain_id: Fr
     coinbase: EthAddress
     fee_recipient: Address

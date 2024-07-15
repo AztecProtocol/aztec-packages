@@ -6,6 +6,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { GasFees } from './gas_fees.js';
+import { type UInt32 } from './shared.js';
 
 /**
  * Global variables of the L2 block.
@@ -15,7 +16,7 @@ export class GlobalVariables {
     /** ChainId for the L2 block. */
     public chainId: Fr,
     /** Version for the L2 block. */
-    public version: Fr,
+    public version: UInt32,
     /** Block number of the L2 block. */
     public blockNumber: Fr,
     /** Timestamp of the L2 block. */
@@ -37,14 +38,14 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO, GasFees.empty());
+    return new GlobalVariables(Fr.ZERO, 0, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO, GasFees.empty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
     const reader = BufferReader.asReader(buffer);
     return new GlobalVariables(
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(EthAddress),
@@ -56,7 +57,7 @@ export class GlobalVariables {
   static fromJSON(obj: any): GlobalVariables {
     return new GlobalVariables(
       Fr.fromString(obj.chainId),
-      Fr.fromString(obj.version),
+      obj.version,
       Fr.fromString(obj.blockNumber),
       Fr.fromString(obj.timestamp),
       EthAddress.fromString(obj.coinbase),
@@ -70,7 +71,7 @@ export class GlobalVariables {
 
     return new GlobalVariables(
       reader.readField(),
-      reader.readField(),
+      reader.readField().toNumber(),
       reader.readField(),
       reader.readField(),
       EthAddress.fromField(reader.readField()),
@@ -125,7 +126,7 @@ export class GlobalVariables {
   isEmpty(): boolean {
     return (
       this.chainId.isZero() &&
-      this.version.isZero() &&
+      this.version == 0 &&
       this.blockNumber.isZero() &&
       this.timestamp.isZero() &&
       this.coinbase.isZero() &&

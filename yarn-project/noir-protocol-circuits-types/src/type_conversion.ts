@@ -382,7 +382,7 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
 export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
   return {
     chain_id: mapFieldToNoir(txContext.chainId),
-    version: mapFieldToNoir(txContext.version),
+    version: mapNumberToNoir(txContext.version),
     gas_settings: mapGasSettingsToNoir(txContext.gasSettings),
   };
 }
@@ -395,7 +395,7 @@ export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
 export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   return new TxContext(
     mapFieldFromNoir(txContext.chain_id),
-    mapFieldFromNoir(txContext.version),
+    mapNumberFromNoir(txContext.version),
     mapGasSettingsFromNoir(txContext.gas_settings),
   );
 }
@@ -1770,7 +1770,7 @@ export function mapStorageUpdateRequestToNoir(
 export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): GlobalVariablesNoir {
   return {
     chain_id: mapFieldToNoir(globalVariables.chainId),
-    version: mapFieldToNoir(globalVariables.version),
+    version: mapNumberToNoir(globalVariables.version),
     block_number: mapFieldToNoir(globalVariables.blockNumber),
     timestamp: mapFieldToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
@@ -1799,7 +1799,7 @@ export function mapStorageReadToNoir(storageRead: ContractStorageRead): StorageR
 export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir): GlobalVariables {
   return new GlobalVariables(
     mapFieldFromNoir(globalVariables.chain_id),
-    mapFieldFromNoir(globalVariables.version),
+    mapNumberFromNoir(globalVariables.version),
     mapFieldFromNoir(globalVariables.block_number),
     mapFieldFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),
@@ -2326,7 +2326,7 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
     empty_nested: mapEmptyNestedDataToNoir(inputs.emptyNested),
     historical_header: mapHeaderToNoir(inputs.header),
     chain_id: mapFieldToNoir(inputs.chainId),
-    version: mapFieldToNoir(inputs.version),
+    version: mapNumberToNoir(inputs.version),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
   };
 }

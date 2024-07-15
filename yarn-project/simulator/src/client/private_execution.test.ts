@@ -26,6 +26,7 @@ import {
   PublicDataTreeLeafPreimage,
   StateReference,
   TxContext,
+  UInt32,
   computeAppNullifierSecretKey,
   computeOvskApp,
   deriveKeys,
@@ -104,7 +105,7 @@ describe('Private Execution test suite', () => {
   let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree<Fr> } = {};
   const txContextFields: FieldsOf<TxContext> = {
     chainId: new Fr(10),
-    version: new Fr(20),
+    version: 20,
     gasSettings: GasSettings.default(),
   };
 
@@ -532,7 +533,7 @@ describe('Private Execution test suite', () => {
   });
 
   describe('nested calls', () => {
-    const privateIncrement = txContextFields.chainId.value + txContextFields.version.value;
+    const privateIncrement = txContextFields.chainId.value + BigInt(txContextFields.version);
 
     it('child function should be callable', async () => {
       const initialValue = 100n;
@@ -677,7 +678,7 @@ describe('Private Execution test suite', () => {
           contractAddress,
           artifact,
           args,
-          txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+          txContext: { version: 1, chainId: new Fr(1n) },
         });
 
         // Check a nullifier has been inserted
@@ -698,7 +699,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+            txContext: { version: 1, chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -719,7 +720,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+            txContext: { version: 1, chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -739,7 +740,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+            txContext: { version: 1, chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -758,7 +759,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(1n), chainId: new Fr(2n) },
+            txContext: { version: 1, chainId: new Fr(2n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -777,7 +778,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(2n), chainId: new Fr(1n) },
+            txContext: { version: 2, chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -797,7 +798,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+            txContext: { version: 1, chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -817,7 +818,7 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            txContext: { version: new Fr(1n), chainId: new Fr(1n) },
+            txContext: { version: 1, chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
       });
@@ -1162,13 +1163,13 @@ describe('Private Execution test suite', () => {
 
   describe('Private global variables', () => {
     let chainId: Fr;
-    let version: Fr;
+    let version: UInt32;
     let args: any[];
     let artifact: FunctionArtifact;
 
     beforeEach(() => {
       chainId = Fr.random();
-      version = Fr.random();
+      version = Math.floor(Math.random() * 2 ** 32);
       args = [chainId, version];
 
       artifact = getFunctionArtifact(TestContractArtifact, 'assert_private_global_vars');
@@ -1190,7 +1191,7 @@ describe('Private Execution test suite', () => {
 
     it('Throws when version is incorrectly set', async () => {
       // We set the version in the tx context to a different value than the one we pass via args so the simulator should throw
-      const unexpectedVersion = Fr.random();
+      const unexpectedVersion = Math.floor(Math.random() * 2 ** 32);
       await expect(() =>
         runSimulator({ artifact, msgSender: owner, args, txContext: { chainId, version: unexpectedVersion } }),
       ).rejects.toThrow('Invalid version');

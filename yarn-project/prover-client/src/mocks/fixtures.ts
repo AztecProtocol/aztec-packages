@@ -20,6 +20,7 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
+  type UInt32,
 } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
@@ -128,7 +129,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   return processedTx;
 };
 
-export const makeEmptyProcessedTx = async (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
+export const makeEmptyProcessedTx = async (builderDb: MerkleTreeOperations, chainId: Fr, version: UInt32) => {
   const header = await builderDb.buildInitialHeader();
   return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
 };
@@ -170,7 +171,7 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: 
 export const makeGlobals = (blockNumber: number) => {
   return new GlobalVariables(
     Fr.ZERO,
-    Fr.ZERO,
+    0,
     new Fr(blockNumber),
     Fr.ZERO,
     EthAddress.ZERO,
@@ -180,5 +181,5 @@ export const makeGlobals = (blockNumber: number) => {
 };
 
 export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): Promise<ProcessedTx> => {
-  return makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);
+  return makeEmptyProcessedTx(builderDb, Fr.ZERO, 0);
 };

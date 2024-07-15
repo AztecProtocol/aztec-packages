@@ -39,7 +39,7 @@ describe('TxRequest', () => {
       origin: AztecAddress.fromBigInt(1n),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), /*isPrivate=*/ true),
       argsHash: new Fr(3),
-      txContext: new TxContext(Fr.ZERO, Fr.ZERO, gasSettings),
+      txContext: new TxContext(Fr.ZERO, 0, gasSettings),
     });
 
     const hash = txRequest.hash().toString();

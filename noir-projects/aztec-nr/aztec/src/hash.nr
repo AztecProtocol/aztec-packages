@@ -40,7 +40,7 @@ pub fn compute_message_hash(
     sender: EthAddress,
     chain_id: Field,
     recipient: AztecAddress,
-    version: Field,
+    version: u32,
     content: Field,
     secret_hash: Field
 ) -> Field {
@@ -48,7 +48,7 @@ pub fn compute_message_hash(
     let sender_bytes = sender.to_field().to_be_bytes(32);
     let chain_id_bytes = chain_id.to_be_bytes(32);
     let recipient_bytes = recipient.to_field().to_be_bytes(32);
-    let version_bytes = version.to_be_bytes(32);
+    let version_bytes = (version as Field).to_be_bytes(32);
     let content_bytes = content.to_be_bytes(32);
     let secret_hash_bytes = secret_hash.to_be_bytes(32);
 

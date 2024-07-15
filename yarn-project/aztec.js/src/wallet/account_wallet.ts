@@ -1,5 +1,12 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CANONICAL_KEY_REGISTRY_ADDRESS,
+  Fq,
+  Fr,
+  type UInt32,
+  derivePublicKeyFromSecretKey,
+} from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
 
@@ -30,7 +37,7 @@ export class AccountWallet extends BaseWallet {
     return this.account.getChainId();
   }
 
-  getVersion(): Fr {
+  getVersion(): UInt32 {
     return this.account.getVersion();
   }
 

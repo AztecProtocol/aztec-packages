@@ -21,7 +21,7 @@ contract StaticChild {
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
             + context.chain_id()
-            + context.version()
+            + (context.version() as Field)
             + context.block_number()
             + context.timestamp() as Field;
 

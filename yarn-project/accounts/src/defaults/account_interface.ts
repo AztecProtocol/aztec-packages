@@ -1,7 +1,7 @@
 import { type AccountInterface, type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
 import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, type CompleteAddress, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, Fr, type UInt32 } from '@aztec/circuits.js';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
@@ -12,7 +12,7 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 export class DefaultAccountInterface implements AccountInterface {
   private entrypoint: EntrypointInterface;
   private chainId: Fr;
-  private version: Fr;
+  private version: UInt32;
 
   constructor(
     private authWitnessProvider: AuthWitnessProvider,
@@ -26,7 +26,7 @@ export class DefaultAccountInterface implements AccountInterface {
       nodeInfo.protocolVersion,
     );
     this.chainId = new Fr(nodeInfo.chainId);
-    this.version = new Fr(nodeInfo.protocolVersion);
+    this.version = nodeInfo.protocolVersion;
   }
 
   createTxExecutionRequest(execution: ExecutionRequestInit): Promise<TxExecutionRequest> {
@@ -49,7 +49,7 @@ export class DefaultAccountInterface implements AccountInterface {
     return this.chainId;
   }
 
-  getVersion(): Fr {
+  getVersion(): UInt32 {
     return this.version;
   }
 }

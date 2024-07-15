@@ -15,7 +15,7 @@ describe('e2e_authwit_tests', () => {
   let wallets: AccountWallet[];
 
   let chainId: Fr;
-  let version: Fr;
+  let version: UInt32;
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {

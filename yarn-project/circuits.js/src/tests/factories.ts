@@ -186,7 +186,7 @@ function makeNullifier(seed: number) {
  */
 export function makeTxContext(seed: number = 1): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
-  return new TxContext(new Fr(seed), Fr.ZERO, makeGasSettings());
+  return new TxContext(new Fr(seed), 0, makeGasSettings());
 }
 
 /**
@@ -844,7 +844,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
   if (blockNumber !== undefined) {
     return new GlobalVariables(
       fr(seed),
-      fr(seed + 1),
+      seed + 1,
       fr(blockNumber),
       fr(seed + 3),
       EthAddress.fromField(fr(seed + 4)),
@@ -854,7 +854,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
   }
   return new GlobalVariables(
     fr(seed),
-    fr(seed + 1),
+    seed + 1,
     fr(seed + 2),
     fr(seed + 3),
     EthAddress.fromField(fr(seed + 4)),

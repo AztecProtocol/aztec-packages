@@ -111,7 +111,7 @@ impl PrivateContext {
         self.inputs.tx_context.chain_id
     }
 
-    fn version(self) -> Field {
+    fn version(self) -> u32 {
         self.inputs.tx_context.version
     }
 

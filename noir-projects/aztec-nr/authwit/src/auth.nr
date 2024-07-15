@@ -289,7 +289,7 @@ pub fn compute_authwit_message_hash_from_call<N>(
     caller: AztecAddress,
     consumer: AztecAddress,
     chain_id: Field,
-    version: Field,
+    version: u32,
     selector: FunctionSelector,
     args: [Field; N]
 ) -> Field {
@@ -334,12 +334,12 @@ pub fn compute_authwit_nullifier(on_behalf_of: AztecAddress, inner_hash: Field) 
  * @param version The version of the chain that the message is being consumed on
  * @param inner_hash The hash of the "inner" message that is being consumed
  */
-pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, version: Field, inner_hash: Field) -> Field {
+pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, version: u32, inner_hash: Field) -> Field {
     pedersen_hash(
         [
         consumer.to_field(),
         chain_id,
-        version,
+        version as Field,
         inner_hash
     ],
         GENERATOR_INDEX__AUTHWIT_OUTER

@@ -18,14 +18,14 @@ contract Child {
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     #[aztec(private)]
     fn value(input: Field) -> Field {
-        input + context.chain_id() + context.version()
+        input + context.chain_id() + (context.version() as Field)
     }
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
     // Can only be called from this contract.
     #[aztec(private)]
     #[aztec(internal)]
     fn value_internal(input: Field) -> Field {
-        input + context.chain_id() + context.version()
+        input + context.chain_id() + (context.version() as Field)
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp
@@ -33,7 +33,7 @@ contract Child {
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
             + context.chain_id()
-            + context.version()
+            + (context.version() as Field)
             + context.block_number()
             + context.timestamp() as Field;
 

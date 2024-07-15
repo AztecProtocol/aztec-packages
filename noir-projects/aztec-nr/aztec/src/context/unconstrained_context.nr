@@ -4,7 +4,7 @@ use crate::oracle::storage::{raw_storage_read, storage_read};
 struct UnconstrainedContext {
     block_number: u32,
     contract_address: AztecAddress,
-    version: Field,
+    version: u32,
     chain_id: Field,
 }
 
@@ -29,7 +29,7 @@ impl UnconstrainedContext {
         self.contract_address
     }
 
-    fn version(self) -> Field {
+    fn version(self) -> u32 {
         self.version
     }
 
@@ -56,4 +56,4 @@ unconstrained fn block_number_oracle() -> u32 {}
 unconstrained fn chain_id_oracle() -> Field {}
 
 #[oracle(getVersion)]
-unconstrained fn version_oracle() -> Field {}
+unconstrained fn version_oracle() -> u32 {}

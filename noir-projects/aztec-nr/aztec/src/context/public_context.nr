@@ -141,8 +141,9 @@ impl PublicContext {
     fn chain_id(self) -> Field {
         chain_id()
     }
-    fn version(self) -> Field {
-        version()
+    fn version(self) -> u32 {
+        // TODO Change this to be u32 in the AVM simulator
+        version() as u32
     }
     fn block_number(self) -> Field {
         block_number()

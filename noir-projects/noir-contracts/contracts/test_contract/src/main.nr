@@ -389,7 +389,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn assert_private_global_vars(chain_id: Field, version: Field) {
+    fn assert_private_global_vars(chain_id: Field, version: u32) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
     }
@@ -435,7 +435,7 @@ contract Test {
     #[aztec(public)]
     fn assert_public_global_vars(
         chain_id: Field,
-        version: Field,
+        version: u32,
         block_number: Field,
         timestamp: u64,
         fee_per_da_gas: Field,

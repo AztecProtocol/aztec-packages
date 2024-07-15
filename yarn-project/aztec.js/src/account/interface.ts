@@ -1,5 +1,5 @@
 import { type AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress, type UInt32 } from '@aztec/circuits.js';
 import { type Fq, type Fr } from '@aztec/foundation/fields';
 
 import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
@@ -30,7 +30,7 @@ export interface AccountInterface extends EntrypointInterface, AuthWitnessProvid
   getChainId(): Fr;
 
   /** Returns the rollup version for this account */
-  getVersion(): Fr;
+  getVersion(): UInt32;
 }
 
 /**

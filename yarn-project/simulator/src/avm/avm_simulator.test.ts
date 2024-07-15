@@ -242,7 +242,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const functionSelector = FunctionSelector.random();
     const transactionFee = Fr.random();
     const chainId = Fr.random();
-    const version = Fr.random();
+    const version = Math.floor(Math.random() * 2 ** 32);
     const blockNumber = Fr.random();
     const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
     const feePerDaGas = Fr.random();
@@ -275,7 +275,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       ['functionSelector', functionSelector.toField(), 'get_function_selector'],
       ['transactionFee', transactionFee.toField(), 'get_transaction_fee'],
       ['chainId', chainId.toField(), 'get_chain_id'],
-      ['version', version.toField(), 'get_version'],
+      ['version', new Fr(version), 'get_version'],
       ['blockNumber', blockNumber.toField(), 'get_block_number'],
       ['timestamp', timestamp.toField(), 'get_timestamp'],
       ['feePerDaGas', feePerDaGas.toField(), 'get_fee_per_da_gas'],

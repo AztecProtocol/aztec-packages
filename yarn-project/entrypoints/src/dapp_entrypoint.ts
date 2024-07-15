@@ -36,7 +36,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), entrypointPackedArgs.hash]);
     const outerHash = computeAuthWitMessageHash(
       { consumer: this.dappEntrypointAddress, innerHash },
-      { chainId: new Fr(this.chainId), version: new Fr(this.version) },
+      { chainId: new Fr(this.chainId), version: this.version },
     );
 
     const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);

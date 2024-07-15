@@ -175,7 +175,7 @@ describe('L1Publisher integration', () => {
     const tx = mockTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
-    kernelOutput.constants.txContext.version = fr(config.version);
+    kernelOutput.constants.txContext.version = config.version;
     kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
@@ -272,7 +272,7 @@ describe('L1Publisher integration', () => {
             blockNumber: block.number,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
-            version: Number(block.header.globalVariables.version.toBigInt()),
+            version: block.header.globalVariables.version,
             coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
             gasFees: {
@@ -383,7 +383,7 @@ describe('L1Publisher integration', () => {
 
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
-        new Fr(config.version),
+        config.version,
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
@@ -474,7 +474,7 @@ describe('L1Publisher integration', () => {
 
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
-        new Fr(config.version),
+        config.version,
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,

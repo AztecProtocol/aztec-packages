@@ -42,7 +42,7 @@ describe('Environment getters', () => {
   const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
   const chainId = Fr.random();
-  const version = Fr.random();
+  const version = Math.floor(Math.random() * 2 ** 32);
   const blockNumber = Fr.random();
   const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
   const feePerDaGas = Fr.random();
@@ -75,7 +75,7 @@ describe('Environment getters', () => {
     [FunctionSelector, functionSelector.toField(), TypeTag.UINT32],
     [TransactionFee, transactionFee.toField()],
     [ChainId, chainId.toField()],
-    [Version, version.toField()],
+    [Version, new Fr(version)],
     [BlockNumber, blockNumber.toField()],
     [Timestamp, timestamp.toField(), TypeTag.UINT64],
     [FeePerDAGas, feePerDaGas.toField()],

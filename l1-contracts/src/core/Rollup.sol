@@ -36,7 +36,7 @@ contract Rollup is IRollup {
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
-  uint256 public immutable VERSION;
+  uint32 public immutable VERSION;
   IERC20 public immutable GAS_TOKEN;
 
   bytes32 public archive; // Root of the archive tree

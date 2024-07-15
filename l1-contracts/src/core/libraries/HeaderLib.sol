@@ -43,16 +43,16 @@ import {Hash} from "./Hash.sol";
  *  |                                                                                  |              |   }
  *  |                                                                                  |              |   GlobalVariables {
  *  | 0x0134                                                                           | 0x20         |     chainId
- *  | 0x0154                                                                           | 0x20         |     version
- *  | 0x0174                                                                           | 0x20         |     blockNumber
- *  | 0x0194                                                                           | 0x20         |     timestamp
- *  | 0x01b4                                                                           | 0x14         |     coinbase
- *  | 0x01c8                                                                           | 0x20         |     feeRecipient
- *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
- *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
+ *  | 0x0154                                                                           | 0x04         |     version
+ *  | 0x0158                                                                           | 0x20         |     blockNumber
+ *  | 0x0178                                                                           | 0x20         |     timestamp
+ *  | 0x0198                                                                           | 0x14         |     coinbase
+ *  | 0x01ac                                                                           | 0x20         |     feeRecipient
+ *  | 0x01cc                                                                           | 0x20         |     gasFees.feePerDaGas
+ *  | 0x01ec                                                                           | 0x20         |     gasFees.feePerL2Gas
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
- *  | 0x0228                                                                           | 0x20         | total_fees
+ *  | 0x20c                                                                           | 0x20         | total_fees
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -81,7 +81,7 @@ library HeaderLib {
 
   struct GlobalVariables {
     uint256 chainId;
-    uint256 version;
+    uint32 version;
     uint256 blockNumber;
     uint256 timestamp;
     address coinbase;
@@ -104,7 +104,7 @@ library HeaderLib {
     uint256 totalFees;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x248; // Header byte length
+  uint256 private constant HEADER_LENGTH = 0x22c; // Header byte length
 
   /**
    * @notice Validates the header
@@ -113,7 +113,7 @@ library HeaderLib {
    * @param _lastBlockTs - The timestamp of the last block
    * @param _archive - The expected archive root
    */
-  function validate(Header memory _header, uint256 _version, uint256 _lastBlockTs, bytes32 _archive)
+  function validate(Header memory _header, uint32 _version, uint256 _lastBlockTs, bytes32 _archive)
     internal
     view
   {
@@ -184,16 +184,16 @@ library HeaderLib {
 
     // Reading GlobalVariables
     header.globalVariables.chainId = uint256(bytes32(_header[0x0134:0x0154]));
-    header.globalVariables.version = uint256(bytes32(_header[0x0154:0x0174]));
-    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x0194:0x01b4]));
-    header.globalVariables.coinbase = address(bytes20(_header[0x01b4:0x01c8]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
-    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
-    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
+    header.globalVariables.version = uint32(bytes4(_header[0x0154:0x0158]));
+    header.globalVariables.blockNumber = uint256(bytes32(_header[0x0158:0x0178]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x0178:0x0198]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x0198:0x01ac]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01ac:0x01cc]);
+    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01cc:0x01ec]));
+    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x01ec:0x20c]));
 
     // Reading totalFees
-    header.totalFees = uint256(bytes32(_header[0x0228:0x0248]));
+    header.totalFees = uint256(bytes32(_header[0x20c:0x22c]));
 
     return header;
   }
@@ -223,7 +223,7 @@ library HeaderLib {
       uint256(_header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex)
     );
     fields[14] = bytes32(_header.globalVariables.chainId);
-    fields[15] = bytes32(_header.globalVariables.version);
+    fields[15] = bytes32(uint256(_header.globalVariables.version));
     fields[16] = bytes32(_header.globalVariables.blockNumber);
     fields[17] = bytes32(_header.globalVariables.timestamp);
     fields[18] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
