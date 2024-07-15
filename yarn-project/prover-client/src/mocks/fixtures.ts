@@ -21,7 +21,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -113,7 +113,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
     seed + 0x600,
   );
 
-  const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+  const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
   processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
   processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100000);
@@ -123,7 +123,6 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
   processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash());
   processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-  processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
   return processedTx;
 };

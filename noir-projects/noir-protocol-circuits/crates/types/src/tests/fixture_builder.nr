@@ -41,7 +41,7 @@ use crate::{
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
     recursion::{verification_key::VerificationKey, proof::{NestedRecursiveProof, RecursiveProof}},
-    grumpkin_point::GrumpkinPoint
+    point::Point
 };
 
 fn subarray<T, N, M>(arr: [T; N]) -> [T; M] {
@@ -80,7 +80,7 @@ struct FixtureBuilder {
     historical_header: Header,
     tx_context: TxContext,
     global_variables: GlobalVariables,
-    
+
     // Accumulated data.
     note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
@@ -128,7 +128,7 @@ struct FixtureBuilder {
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
     vk_tree_root: Field,
-    
+
     // Counters.
     min_revertible_side_effect_counter: u32,
     counter_start: u32,
@@ -294,7 +294,6 @@ impl FixtureBuilder {
             call_stack_item: self.to_private_call_stack_item(),
             public_call_stack: subarray(self.public_call_requests.storage),
             public_teardown_call_request: self.public_teardown_call_stack.storage[0],
-            proof: RecursiveProof::empty(),
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
@@ -337,10 +336,6 @@ impl FixtureBuilder {
             storage: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.log_hash).map(|l: EncryptedLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
             len: self.encrypted_logs_hashes.len()
         };
-        let unencrypted_logs_hashes = BoundedVec {
-            storage: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
-            len: self.unencrypted_logs_hashes.len()
-        };
 
         PublicAccumulatedDataBuilder {
             note_hashes,
@@ -348,7 +343,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs,
             note_encrypted_logs_hashes,
             encrypted_logs_hashes,
-            unencrypted_logs_hashes,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
             public_data_update_requests: self.public_data_update_requests,
             public_call_stack: self.public_call_requests,
             gas_used: self.gas_used
@@ -382,7 +377,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
@@ -421,7 +416,7 @@ impl FixtureBuilder {
 
     pub fn to_private_kernel_data(self) -> PrivateKernelData {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
-        PrivateKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
@@ -678,7 +673,7 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u32 {
+    pub fn add_request_for_key_validation(&mut self, pk_m: Point, sk_app: Field, sk_app_generator: Field) -> u32 {
         let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
@@ -756,13 +751,6 @@ impl FixtureBuilder {
     pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
         self.unencrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
-        self.unencrypted_log_preimages_length += length;
-    }
-
-    pub fn add_siloed_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let mut log_hash = LogHash { value: hash, counter: self.next_counter(), length }.scope(self.storage_contract_address);
-        log_hash.log_hash.value = silo_unencrypted_log_hash(log_hash);
-        self.unencrypted_logs_hashes.push(log_hash);
         self.unencrypted_log_preimages_length += length;
     }
 
@@ -957,7 +945,7 @@ impl FixtureBuilder {
 
     fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndGenerator {
         let value_offset = 3030 + self.value_offset + index as Field;
-        let request = KeyValidationRequest { pk_m: GrumpkinPoint { x: value_offset, y: 1 + value_offset }, sk_app: 2 + value_offset };
+        let request = KeyValidationRequest { pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false }, sk_app: 2 + value_offset };
         KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
     }
 

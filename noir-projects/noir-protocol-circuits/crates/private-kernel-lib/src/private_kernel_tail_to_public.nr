@@ -7,7 +7,8 @@ use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     constants::{
     PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX
+    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX
 }
 };
 
@@ -18,6 +19,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_BIG_INDEX,
     PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
     PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -36,9 +38,8 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         // Validate inputs.
         PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
         if !std::runtime::is_unconstrained() {
-            // verify/aggregate the previous kernel
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
@@ -63,8 +64,8 @@ mod tests {
         log_hash::{LogHash, NoteLogHash}
     },
         address::{AztecAddress, EthAddress}, hash::{silo_note_hash, silo_nullifier},
-        tests::fixture_builder::FixtureBuilder, utils::{arrays::array_eq},
-        grumpkin_point::GrumpkinPoint, constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INNER_INDEX}
+        tests::fixture_builder::FixtureBuilder, utils::{arrays::array_eq}, point::Point,
+        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INNER_INDEX}
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -324,7 +325,11 @@ mod tests {
     #[test(should_fail_with="Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_key_validation(GrumpkinPoint::new(1, 2), 27, GENERATOR_INDEX__TSK_M);
+        let _void = builder.previous_kernel.add_request_for_key_validation(
+            Point { x: 1, y: 2, is_infinite: false },
+            27,
+            GENERATOR_INDEX__TSK_M
+        );
         builder.failed();
     }
 
@@ -443,13 +448,10 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

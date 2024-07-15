@@ -27,6 +27,7 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
+  ClientIvcProof,
   CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -37,7 +38,6 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
@@ -127,9 +127,11 @@ import {
   RootRollupInputs,
   RootRollupPublicInputs,
   ScopedKeyValidationRequestAndGenerator,
+  ScopedLogHash,
   ScopedReadRequest,
   StateDiffHints,
   StateReference,
+  TUBE_PROOF_LENGTH,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -168,6 +170,10 @@ function makeEncryptedLogHash(seed: number) {
 
 function makeNoteLogHash(seed: number) {
   return new NoteLogHash(fr(seed + 3), seed + 1, fr(seed + 2), seed);
+}
+
+function makeScopedLogHash(seed: number) {
+  return new ScopedLogHash(makeLogHash(seed), makeAztecAddress(seed + 3));
 }
 
 function makeNoteHash(seed: number) {
@@ -346,7 +352,7 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // note encrypted logs hash
     fr(seed + 0x800), // encrypted logs hash
-    fr(seed + 0x900), // unencrypted logs hash
+    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     fr(seed + 0xa00), // note_encrypted_log_preimages_length
     fr(seed + 0xb00), // encrypted_log_preimages_length
     fr(seed + 0xc00), // unencrypted_log_preimages_length
@@ -378,7 +384,7 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty), // note encrypted logs hashes
     tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x900, LogHash.empty), // unencrypted logs hashes
+    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs hashes
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
@@ -572,15 +578,15 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1));
+  return new Point(fr(seed), fr(seed + 1), false);
 }
 
 /**
- * Creates an arbitrary grumpkin private key.
+ * Creates an arbitrary grumpkin scalar.
  * @param seed - Seed to generate the values.
- * @returns A GrumpkinPrivateKey.
+ * @returns A GrumpkinScalar.
  */
-export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+export function makeGrumpkinScalar(seed = 1): GrumpkinScalar {
   return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
@@ -609,7 +615,7 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
 export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
   return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x80),
+    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x80),
     VerificationKeyData.makeFake(),
     0x42,
     makeTuple(VK_TREE_HEIGHT, fr, 0x1000),
@@ -695,14 +701,18 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
+  return new PublicKernelCircuitPrivateInputs(
+    makePublicKernelData(seed),
+    ClientIvcProof.empty(),
+    makePublicCallData(seed + 0x1000),
+  );
 }
 
 export function makeCombineHints(seed = 1): CombineHints {
   return CombineHints.from({
     sortedNoteHashes: makeTuple(MAX_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x100),
     sortedNoteHashesIndexes: makeTuple(MAX_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
-    sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x300),
+    sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
     sortedUnencryptedLogsHashesIndexes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, i => i, seed + 0x400),
     sortedPublicDataUpdateRequests: makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -749,7 +759,7 @@ export function makePublicKernelInputsWithTweak(
   const kernelCircuitPublicInputs = makePublicKernelCircuitPublicInputs(seed, false);
   const previousKernel = makePublicKernelData(seed, kernelCircuitPublicInputs);
   const publicCall = makePublicCallData(seed + 0x1000);
-  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, publicCall);
+  const publicKernelInputs = new PublicKernelCircuitPrivateInputs(previousKernel, ClientIvcProof.empty(), publicCall);
   if (tweak) {
     tweak(publicKernelInputs);
   }

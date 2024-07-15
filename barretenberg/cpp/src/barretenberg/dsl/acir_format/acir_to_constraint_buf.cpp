@@ -628,7 +628,8 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
                     uint32_t block_id = arg.block_id.value;
-                    block_id_to_block_constraint[block_id] = std::make_pair(block, std::vector<size_t>());
+                    std::vector<size_t> opcode_indices = { i };
+                    block_id_to_block_constraint[block_id] = std::make_pair(block, opcode_indices);
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryOp>) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
@@ -735,14 +736,14 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
                                         bool honk_recursion)
 {
-    auto bytecode = get_bytecode(bytecode_path);
-    auto constraint_systems =
+    std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
+    std::vector<AcirFormat> constraint_systems =
         program_buf_to_acir_format(bytecode,
                                    honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                                     // Remove honk recursion flag
 
-    auto witness_data = get_bytecode(witness_path);
-    auto witness_stack = witness_buf_to_witness_stack(witness_data);
+    std::vector<uint8_t> witness_data = get_bytecode(witness_path);
+    WitnessVectorStack witness_stack = witness_buf_to_witness_stack(witness_data);
 
     return { constraint_systems, witness_stack };
 }

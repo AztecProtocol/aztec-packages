@@ -24,7 +24,6 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Header,
   KernelCircuitPublicInputs,
@@ -152,7 +151,7 @@ import type {
   Gas as GasNoir,
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
-  GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
+  EmbeddedCurveScalar as GrumpkinScalarNoir,
   Header as HeaderNoir,
   KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KernelData as KernelDataNoir,
@@ -168,7 +167,7 @@ import type {
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
   Field as NoirField,
-  GrumpkinPoint as NoirPoint,
+  EmbeddedCurvePoint as NoirPoint,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
   NoteHash as NoteHashNoir,
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
@@ -289,6 +288,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
   return {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
+    is_infinite: point.isInfinite,
   };
 }
 
@@ -298,18 +298,18 @@ export function mapPointToNoir(point: Point): NoirPoint {
  * @returns The point.
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
-  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
+  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y), point.is_infinite);
 }
 
 /**
- * Maps a GrumpkinPrivateKey to a noir GrumpkinPrivateKey.
- * @param privateKey - The GrumpkinPrivateKey.
- * @returns The noir GrumpkinPrivateKey.
+ * Maps a GrumpkinScalar to a noir GrumpkinScalar.
+ * @param privateKey - The GrumpkinScalar.
+ * @returns The noir GrumpkinScalar.
  */
-export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): GrumpkinPrivateKeyNoir {
+export function mapGrumpkinScalarToNoir(privateKey: GrumpkinScalar): GrumpkinScalarNoir {
   return {
-    high: mapFieldToNoir(privateKey.high),
-    low: mapFieldToNoir(privateKey.low),
+    hi: mapFieldToNoir(privateKey.hi),
+    lo: mapFieldToNoir(privateKey.lo),
   };
 }
 
@@ -320,18 +320,18 @@ export function mapGrumpkinPrivateKeyToNoir(privateKey: GrumpkinPrivateKey): Gru
  */
 export function mapKeyValidationHintToNoir(hint: KeyValidationHint): KeyValidationHintNoir {
   return {
-    sk_m: mapGrumpkinPrivateKeyToNoir(hint.skM),
+    sk_m: mapGrumpkinScalarToNoir(hint.skM),
     request_index: mapNumberToNoir(hint.requestIndex),
   };
 }
 
 /**
- * Maps a noir GrumpkinPrivateKey to a GrumpkinPrivateKey.
- * @param privateKey - The noir GrumpkinPrivateKey.
- * @returns The GrumpkinPrivateKey.
+ * Maps a noir GrumpkinScalar to a GrumpkinScalar.
+ * @param privateKey - The noir GrumpkinScalar.
+ * @returns The GrumpkinScalar.
  */
-export function mapGrumpkinPrivateKeyFromNoir(privateKey: GrumpkinPrivateKeyNoir): GrumpkinPrivateKey {
-  return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.high), mapFieldFromNoir(privateKey.low));
+export function mapGrumpkinScalarFromNoir(privateKey: GrumpkinScalarNoir): GrumpkinScalar {
+  return GrumpkinScalar.fromHighLow(mapFieldFromNoir(privateKey.hi), mapFieldFromNoir(privateKey.lo));
 }
 
 /**
@@ -976,7 +976,6 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
     public_call_stack: mapTuple(privateCallData.publicCallStack, mapCallRequestToNoir),
     public_teardown_call_request: mapCallRequestToNoir(privateCallData.publicTeardownCallRequest),
-    proof: mapRecursiveProofToNoir(privateCallData.proof),
     vk: mapVerificationKeyToNoir(privateCallData.vk),
     function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
@@ -1299,7 +1298,11 @@ export function mapPublicAccumulatedDataFromNoir(
       mapLogHashFromNoir,
     ),
     mapTupleFromNoir(publicAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
-    mapTupleFromNoir(publicAccumulatedData.unencrypted_logs_hashes, MAX_UNENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
+    mapTupleFromNoir(
+      publicAccumulatedData.unencrypted_logs_hashes,
+      MAX_UNENCRYPTED_LOGS_PER_TX,
+      mapScopedLogHashFromNoir,
+    ),
     mapTupleFromNoir(
       publicAccumulatedData.public_data_update_requests,
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1323,7 +1326,7 @@ export function mapPublicAccumulatedDataToNoir(
     l2_to_l1_msgs: mapTuple(publicAccumulatedData.l2ToL1Msgs, mapFieldToNoir),
     note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
     encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapLogHashToNoir),
-    unencrypted_logs_hashes: mapTuple(publicAccumulatedData.unencryptedLogsHashes, mapLogHashToNoir),
+    unencrypted_logs_hashes: mapTuple(publicAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
     public_data_update_requests: mapTuple(
       publicAccumulatedData.publicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,
@@ -1388,7 +1391,11 @@ export function mapCombinedAccumulatedDataFromNoir(
     mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapFieldFromNoir(combinedAccumulatedData.note_encrypted_logs_hash),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_logs_hash),
-    mapFieldFromNoir(combinedAccumulatedData.unencrypted_logs_hash),
+    mapTupleFromNoir(
+      combinedAccumulatedData.unencrypted_logs_hashes,
+      MAX_UNENCRYPTED_LOGS_PER_TX,
+      mapScopedLogHashFromNoir,
+    ),
     mapFieldFromNoir(combinedAccumulatedData.note_encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
@@ -1410,7 +1417,7 @@ export function mapCombinedAccumulatedDataToNoir(
     l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapFieldToNoir),
     note_encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogsHash),
     encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.encryptedLogsHash),
-    unencrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.unencryptedLogsHash),
+    unencrypted_logs_hashes: mapTuple(combinedAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
     note_encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogPreimagesLength),
     encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
@@ -1552,7 +1559,6 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
 export function mapPrivateKernelDataToNoir(privateKernelInnerData: PrivateKernelData): PrivateKernelDataNoir {
   return {
     public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(privateKernelInnerData.publicInputs),
-    proof: mapRecursiveProofToNoir(privateKernelInnerData.proof),
     vk: mapVerificationKeyToNoir(privateKernelInnerData.vk),
     vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
     vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
@@ -1699,7 +1705,7 @@ export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsN
   return {
     sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapNoteHashToNoir),
     sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
-    sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapLogHashToNoir),
+    sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapScopedLogHashToNoir),
     sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
     sorted_public_data_update_requests: mapTuple(
       combineHints.sortedPublicDataUpdateRequests,
