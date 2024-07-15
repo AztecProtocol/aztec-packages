@@ -13,6 +13,8 @@ env:
   DEPLOY_TAG: devnet
   FILE_PATH: ./l1-contracts/addresses.txt
   L1_CHAIN_ID: 677692
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_L1_CHAIN_ID: 677692
@@ -53,8 +55,6 @@ jobs:
         # Run the build steps for each image with version and arch, push to dockerhub
         run: |
           earthly-ci \
-          --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-          --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
           --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
 
       - name: Check if L1 contracts need deployment
