@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721054392670,
+  "lastUpdate": 1721054540014,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -82612,6 +82612,78 @@ window.BENCHMARK_DATA = {
             "value": 164004811,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164004811 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "09299e34082047ec0e84ee3229381ff25e3b85e5",
+          "message": "chore(ci): recover from earthly bug with --no-cache, build images from registry (#7462)\n\nThis tries to get a handle on the cache bug by both not reading build\r\nimages from inline cache, and restarting with `--no-cache` if there's a\r\ngraph edge bug\r\n\r\n- rely on pushed build-images from registry instead of earthly inline\r\ncache\r\n- only notify on CI failure in slack if it master is failing on the\r\nrerun\r\n- pump up timeouts as now anything might run --no-cache\r\n- set up ARM CI like normal CI but with just one e2e test (fix a blocker\r\nfor this with a permission kludge) including with reruns and notifying\r\non second run",
+          "timestamp": "2024-07-15T15:26:57+01:00",
+          "tree_id": "84ef251f25b034864e4e1775d9edf6e927fc25cf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/09299e34082047ec0e84ee3229381ff25e3b85e5"
+        },
+        "date": 1721054533518,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13640.718278000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9560.508574 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4786.605318,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4323.896869 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41309.971550999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41309971000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14567.736556000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14567737000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4490538842,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4490538842 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200132796,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200132796 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3703404045,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3703404045 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164501324,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164501324 ns\nthreads: 1"
           }
         ]
       }
