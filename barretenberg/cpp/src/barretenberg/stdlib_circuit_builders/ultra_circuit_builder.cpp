@@ -1839,7 +1839,7 @@ void UltraCircuitBuilder_<Arithmetization>::process_non_native_field_multiplicat
             c.b[j] = this->real_variable_index[c.b[j]];
         }
     }
-    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications);
+    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications, this);
 
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {

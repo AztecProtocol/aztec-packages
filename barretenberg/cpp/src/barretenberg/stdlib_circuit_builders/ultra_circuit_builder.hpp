@@ -198,29 +198,46 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     struct cached_partial_non_native_field_multiplication {
         std::array<uint32_t, 5> a;
         std::array<uint32_t, 5> b;
-        FF lo_0;
-        FF hi_0;
-        FF hi_1;
+        uint32_t lo_0;
+        uint32_t hi_0;
+        uint32_t hi_1;
 
         bool operator==(const cached_partial_non_native_field_multiplication& other) const
         {
             bool valid = true;
-            for (size_t i = 0; i < 5; ++i) {
+            for (size_t i = 0; i < 4; ++i) {
                 valid = valid && (a[i] == other.a[i]);
                 valid = valid && (b[i] == other.b[i]);
             }
             return valid;
         }
 
-        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec)
+        /**
+         * @brief Dedupilcate cache entries which represent multiplication of the same witnesses
+         *
+         * @details While a and b witness vectors are the same, lo_0, hi_0 and hi_1 can vary, so we have to connect them
+         * or there is a vulnerability
+         *
+         * @param vec
+         * @param circuit_builder
+         */
+        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec,
+                                UltraCircuitBuilder_<Arithmetization>* circuit_builder)
         {
             std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
 
             std::vector<cached_partial_non_native_field_multiplication> uniqueVec;
 
             for (const auto& item : vec) {
-                if (seen.insert(item).second) {
+                auto [existing_element, not_in_set] = seen.insert(item);
+                // Memorize if not in set yet
+                if (not_in_set) {
                     uniqueVec.push_back(item);
+                } else {
+                    // If we already have a representative, we need to connect the outputs together
+                    circuit_builder->assert_equal(item.lo_0, (*existing_element).lo_0);
+                    circuit_builder->assert_equal(item.hi_0, (*existing_element).hi_0);
+                    circuit_builder->assert_equal(item.hi_1, (*existing_element).hi_1);
                 }
             }
 
