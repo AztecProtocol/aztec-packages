@@ -273,8 +273,8 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 393;
-global NESTED_RECURSIVE_PROOF_LENGTH = 393;
+global RECURSIVE_PROOF_LENGTH = 409;
+global NESTED_RECURSIVE_PROOF_LENGTH = 409;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
 global VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;

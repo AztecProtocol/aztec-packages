@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   type AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -900,7 +901,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     if (!vkData) {
       throw new Error(`Invalid verification key for ${circuitType}`);
     }
-    const numPublicInputs = vkData.numPublicInputs;
+    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
     // const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
     //   ? vkData.numPublicInputs

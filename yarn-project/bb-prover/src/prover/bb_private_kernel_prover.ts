@@ -5,6 +5,7 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
+  AGGREGATION_OBJECT_LENGTH,
   ClientIvcProof,
   Fr,
   type PrivateCircuitPublicInputs,
@@ -350,7 +351,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     ]);
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
-    const numPublicInputs = vkData.numPublicInputs;
+    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     // const numPublicInputs =
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
     //   circuitType === 'App' ? vkData.numPublicInputs : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
