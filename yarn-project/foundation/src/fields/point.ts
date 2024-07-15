@@ -42,7 +42,7 @@ export class Point {
       try {
         return Point.fromXAndSign(Fr.random(), randomBoolean());
       } catch (e: any) {
-        if (e.message !== 'The given x-coordinate is not on the Grumpkin curve') {
+        if (!(e instanceof NotOnCurveError)) {
           throw e;
         }
         // The random point is not on the curve - we try again
@@ -117,7 +117,7 @@ export class Point {
 
     // If y is null, the x-coordinate is not on the curve
     if (y === null) {
-      throw new Error('The given x-coordinate is not on the Grumpkin curve');
+      throw new NotOnCurveError();
     }
 
     const yPositiveBigInt = y.toBigInt() > (Fr.MODULUS - 1n) / 2n ? Fr.MODULUS - y.toBigInt() : y.toBigInt();
@@ -262,4 +262,11 @@ export function isPoint(obj: object): obj is Point {
   }
   const point = obj as Point;
   return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
+}
+
+class NotOnCurveError extends Error {
+  constructor() {
+    super('The given x-coordinate is not on the Grumpkin curve');
+    this.name = 'NotOnCurveError';
+  }
 }
