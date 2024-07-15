@@ -94,15 +94,32 @@ template <class Curve> class CommitmentKey {
             std::views::filter([](int i) { return i % 2 == 0; }) |       // create a view of the even indices only
             std::views::transform([point_table](size_t i) { return point_table[i]; }); // extract even srs
 
-        info("Internal points:");
-        for (auto element : srs_view) {
-            info(element);
-        }
-
         return srs_view;
     }
 
-    // SrsViewType get_srs_view() const { return srs_view; }
+    Commitment commit_sparse(std::span<const Fr> polynomial)
+    {
+        // BB_OP_COUNT_TIME();
+        const size_t degree = polynomial.size();
+        ASSERT(degree <= srs->get_monomial_size());
+        // Create a view of the even elements of the point table (i.e. the raw srs points)
+        auto srs_view = get_srs_view();
+
+        std::vector<Fr> scalars;
+        std::vector<G1> points;
+
+        size_t point_idx = 0;
+        for (auto point : srs_view) {
+            const Fr& scalar = polynomial[point_idx++];
+            if (!scalar.is_zero()) {
+                scalars.emplace_back(scalar);
+                points.emplace_back(point);
+            }
+        }
+
+        return scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+            scalars.data(), points.data(), scalars.size(), pippenger_runtime_state);
+    }
 };
 
 } // namespace bb

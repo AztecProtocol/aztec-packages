@@ -194,4 +194,30 @@ TYPED_TEST(CommitmentKeyTest, SrsViewCommit)
     EXPECT_EQ(pippenger_result, normal_result);
 }
 
+TYPED_TEST(CommitmentKeyTest, SrsViewCommitSparse)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 10;
+
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+
+    const size_t num_nonzero = 2;
+    Polynomial poly{ num_points };
+    for (size_t i = 0; i < num_nonzero; ++i) {
+        size_t idx = (i + 1) * (i + 1) % num_points;
+        poly[idx] = Fr::random_element();
+    }
+
+    G1 normal_result = key->commit(poly);
+
+    G1 pippenger_result = key->commit_sparse(poly);
+
+    EXPECT_EQ(pippenger_result, normal_result);
+}
+
 } // namespace bb

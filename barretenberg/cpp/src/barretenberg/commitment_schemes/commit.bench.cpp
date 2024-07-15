@@ -17,15 +17,15 @@ template <typename Curve> std::shared_ptr<CommitmentKey<Curve>> create_commitmen
     return std::make_shared<CommitmentKey<Curve>>(num_points);
 }
 
-template <typename Curve>
-Polynomial<typename Curve::ScalarField> sparse_random_poly(const size_t size, const size_t num_nonzero)
+template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, const size_t num_nonzero)
 {
-    using Fr = typename Curve::ScalarField;
-    auto polynomial = Polynomial<Fr>(size);
+    auto polynomial = Polynomial<FF>(size);
 
     for (size_t i = 0; i < num_nonzero; i++) {
-        polynomial[i] = Fr::random_element();
+        polynomial[i] = FF::random_element();
     }
+
+    return polynomial;
 }
 
 template <typename Curve>
@@ -77,52 +77,33 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     }
 }
 
-// template <typename Curve> void bench_commit_sparse_processed(::benchmark::State& state)
-// {
-//     using G1 = typename Curve::AffineElement;
-//     using Fr = typename Curve::ScalarField;
-//     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
-
-//     const size_t num_points = 1 << state.range(0);
-//     const size_t num_nonzero = 4;
-
-//     auto polynomial = sparse_random_poly<Curve>(num_points, num_nonzero);
-
-//     auto srs_view = key->get_srs_view();
-
-//     ASSERT(polynomial.size() == srs_view.size());
-
-//     // auto zipped = zip_view(polynomial, srs);
-
-//     std::vector<Fr> scalars;
-//     std::vector<G1> points;
-
-//     for (auto [scalar, point] : zip_view(polynomial, srs)) {
-//         if (!scalar.is_zero()) {
-//             scalars.emplace_back(scalar);
-//             points.emplace_back(point);
-//         }
-//     }
-
-//     info(scalars.size());
-
-//     for (auto _ : state) {
-//         benchmark::DoNotOptimize(key->commit(polynomial));
-//     }
-// }
-
 template <typename Curve> void bench_commit_sparse_random(::benchmark::State& state)
 {
     using Fr = typename Curve::ScalarField;
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    const size_t num_nonzero = 4;
+    const size_t num_nonzero = 100;
 
-    auto polynomial = sparse_random_poly<Curve>(num_points, num_nonzero);
+    auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
         key->commit(polynomial);
+    }
+}
+
+template <typename Curve> void bench_commit_sparse_random_preprocessed(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+
+    const size_t num_points = 1 << state.range(0);
+    const size_t num_nonzero = 100;
+
+    auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
+
+    for (auto _ : state) {
+        key->commit_sparse(polynomial);
     }
 }
 
@@ -143,10 +124,10 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
 
 BENCHMARK(bench_commit_zero<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_processed<curve::BN254>)
-//     ->DenseRange(14, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse_random<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
+    ->DenseRange(14, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_random<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
 
 } // namespace bb
