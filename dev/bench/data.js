@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721059066362,
+  "lastUpdate": 1721060218840,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -82888,6 +82888,78 @@ window.BENCHMARK_DATA = {
             "value": 164330092,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164330092 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dcfb4646e745e51e53feb1edaf1db0b0efe0e5d4",
+          "message": "chore(master): Release 0.46.6 (#7471)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.46.6</summary>\r\n\r\n##\r\n[0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.5...aztec-package-v0.46.6)\r\n(2024-07-15)\r\n\r\n\r\n### Features\r\n\r\n* Modular CLI + `aztec test`\r\n([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426))\r\n([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.46.6</summary>\r\n\r\n##\r\n[0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.5...barretenberg.js-v0.46.6)\r\n(2024-07-15)\r\n\r\n\r\n### Features\r\n\r\n* Modular CLI + `aztec test`\r\n([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426))\r\n([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.46.6</summary>\r\n\r\n##\r\n[0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.46.5...aztec-packages-v0.46.6)\r\n(2024-07-15)\r\n\r\n\r\n### Features\r\n\r\n* Modular CLI + `aztec test`\r\n([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426))\r\n([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Aws secrets in docs CI\r\n([#7470](https://github.com/AztecProtocol/aztec-packages/issues/7470))\r\n([3b2acc7](https://github.com/AztecProtocol/aztec-packages/commit/3b2acc75dd8efbd938cad1d2e8a7e88a41d83afd))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.46.6</summary>\r\n\r\n##\r\n[0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.46.5...barretenberg-v0.46.6)\r\n(2024-07-15)\r\n\r\n\r\n### Features\r\n\r\n* Modular CLI + `aztec test`\r\n([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426))\r\n([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-07-15T15:57:13Z",
+          "tree_id": "a995c5c02fd3107522e177da6664b9b413e2ccb0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dcfb4646e745e51e53feb1edaf1db0b0efe0e5d4"
+        },
+        "date": 1721060212214,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13643.262671000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9668.372727 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4742.04094400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4367.093466999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41529.510700000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41529511000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14477.507597,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14477508000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4432696456,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4432696456 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198896625,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 198896625 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3658550855,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3658550855 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164384597,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164384597 ns\nthreads: 1"
           }
         ]
       }
