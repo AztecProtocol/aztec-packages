@@ -74,11 +74,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         witness_commitments.w_o = commitment_key->commit(proving_key.polynomials.w_o);
     }
 
-    info("Wires:");
-    instance_inspector::count_non_zero(proving_key.polynomials.w_l);
-    instance_inspector::count_non_zero(proving_key.polynomials.w_r);
-    instance_inspector::count_non_zero(proving_key.polynomials.w_o);
-
     auto wire_comms = witness_commitments.get_wires();
     auto wire_labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < 3; ++idx) {
@@ -89,17 +84,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         // Commit to Goblin ECC op wires
         {
             BB_OP_COUNT_TIME_NAME("COMMIT::ecc_op_wires");
-            witness_commitments.ecc_op_wire_1 = commitment_key->commit(proving_key.polynomials.ecc_op_wire_1);
-            witness_commitments.ecc_op_wire_2 = commitment_key->commit(proving_key.polynomials.ecc_op_wire_2);
-            witness_commitments.ecc_op_wire_3 = commitment_key->commit(proving_key.polynomials.ecc_op_wire_3);
-            witness_commitments.ecc_op_wire_4 = commitment_key->commit(proving_key.polynomials.ecc_op_wire_4);
+            witness_commitments.ecc_op_wire_1 = commitment_key->commit_sparse(proving_key.polynomials.ecc_op_wire_1);
+            witness_commitments.ecc_op_wire_2 = commitment_key->commit_sparse(proving_key.polynomials.ecc_op_wire_2);
+            witness_commitments.ecc_op_wire_3 = commitment_key->commit_sparse(proving_key.polynomials.ecc_op_wire_3);
+            witness_commitments.ecc_op_wire_4 = commitment_key->commit_sparse(proving_key.polynomials.ecc_op_wire_4);
         }
-
-        info("ECC op wires:");
-        instance_inspector::count_non_zero(proving_key.polynomials.ecc_op_wire_1);
-        instance_inspector::count_non_zero(proving_key.polynomials.ecc_op_wire_2);
-        instance_inspector::count_non_zero(proving_key.polynomials.ecc_op_wire_3);
-        instance_inspector::count_non_zero(proving_key.polynomials.ecc_op_wire_4);
 
         auto op_wire_comms = witness_commitments.get_ecc_op_wires();
         auto labels = commitment_labels.get_ecc_op_wires();
@@ -110,12 +99,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         // Commit to DataBus columns and corresponding read counts
         {
             BB_OP_COUNT_TIME_NAME("COMMIT::databus");
-            witness_commitments.calldata = commitment_key->commit(proving_key.polynomials.calldata);
+            witness_commitments.calldata = commitment_key->commit_sparse(proving_key.polynomials.calldata);
             witness_commitments.calldata_read_counts =
-                commitment_key->commit(proving_key.polynomials.calldata_read_counts);
-            witness_commitments.return_data = commitment_key->commit(proving_key.polynomials.return_data);
+                commitment_key->commit_sparse(proving_key.polynomials.calldata_read_counts);
+            witness_commitments.return_data = commitment_key->commit_sparse(proving_key.polynomials.return_data);
             witness_commitments.return_data_read_counts =
-                commitment_key->commit(proving_key.polynomials.return_data_read_counts);
+                commitment_key->commit_sparse(proving_key.polynomials.return_data_read_counts);
         }
 
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata, witness_commitments.calldata);
@@ -181,24 +170,19 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);
 
-    info("Lookup inverses:");
-    instance_inspector::count_non_zero(proving_key.polynomials.lookup_inverses);
-
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsGoblinFlavor<Flavor>) {
         {
             BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
-            witness_commitments.calldata_inverses = commitment_key->commit(proving_key.polynomials.calldata_inverses);
+            witness_commitments.calldata_inverses =
+                commitment_key->commit_sparse(proving_key.polynomials.calldata_inverses);
             witness_commitments.return_data_inverses =
-                commitment_key->commit(proving_key.polynomials.return_data_inverses);
+                commitment_key->commit_sparse(proving_key.polynomials.return_data_inverses);
         }
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata_inverses,
                                      witness_commitments.calldata_inverses);
         transcript->send_to_verifier(domain_separator + commitment_labels.return_data_inverses,
                                      witness_commitments.return_data_inverses);
-        info("Databus inverses:");
-        instance_inspector::count_non_zero(proving_key.polynomials.calldata_inverses);
-        instance_inspector::count_non_zero(proving_key.polynomials.return_data_inverses);
     }
 }
 
@@ -214,8 +198,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
         BB_OP_COUNT_TIME_NAME("COMMIT::z_perm");
         witness_commitments.z_perm = commitment_key->commit(proving_key.polynomials.z_perm);
     }
-    info("Z_Perm:");
-    instance_inspector::count_non_zero(proving_key.polynomials.z_perm);
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
 }
 
