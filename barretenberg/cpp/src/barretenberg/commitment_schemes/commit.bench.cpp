@@ -69,11 +69,33 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
+    const size_t num_nonzero = 2;
+
     auto polynomial = Polynomial<Fr>(num_points);
-    polynomial[25] = 1;
-    polynomial[22] = 1;
+    for (size_t i = 0; i < num_nonzero; i++) {
+        polynomial[i] = 1;
+    }
+
     for (auto _ : state) {
         key->commit(polynomial);
+    }
+}
+
+template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+
+    const size_t num_points = 1 << state.range(0);
+    const size_t num_nonzero = 2;
+
+    auto polynomial = Polynomial<Fr>(num_points);
+    for (size_t i = 0; i < num_nonzero; i++) {
+        polynomial[i] = 1;
+    }
+
+    for (auto _ : state) {
+        key->commit_sparse(polynomial);
     }
 }
 
@@ -83,7 +105,7 @@ template <typename Curve> void bench_commit_sparse_random(::benchmark::State& st
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    const size_t num_nonzero = 100;
+    const size_t num_nonzero = 5;
 
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
@@ -98,7 +120,7 @@ template <typename Curve> void bench_commit_sparse_random_preprocessed(::benchma
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    const size_t num_nonzero = 100;
+    const size_t num_nonzero = 5;
 
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
@@ -124,6 +146,9 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
 
 BENCHMARK(bench_commit_zero<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
+    ->DenseRange(14, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse_random<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
     ->DenseRange(14, MAX_LOG_NUM_POINTS)
