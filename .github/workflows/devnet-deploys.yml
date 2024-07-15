@@ -77,19 +77,6 @@ jobs:
             const fileChanged = changedFiles.some(file => file.startsWith('iac/mainnet-fork'));
             return fileChanged
 
-      - name: "Build & Push cli image"
-        if: steps.check_l1_changes.outputs.result == 'true'
-        timeout-minutes: 40
-        # Run the build steps for each image with version and arch, push to dockerhub
-        run: |
-          earthly-ci --no-output --push ./yarn-project+export-cli --DIST_TAG=${{ env.DEPLOY_TAG }}
-
-      - name: "Build & Push mainnet-fork image"
-        if: steps.check_fork_changes.outputs.result == 'true'
-        timeout-minutes: 40
-        run: |
-          earthly-ci --no-output --push ./iac/mainnet-fork/+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
-
   terraform_deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -125,8 +112,8 @@ jobs:
       - name: Deploy L1 Contracts
         if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
         run: |
-          docker pull aztecprotocol/cli:${{ env.DEPLOY_TAG }}
-          docker run aztecprotocol/cli:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
+          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
             --private-key ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
             --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
             --chain-id ${{ env.CHAIN_ID }} \

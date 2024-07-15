@@ -26,7 +26,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     goblin.merge(circuit);
 
     // Construct the prover instance for circuit
-    prover_instance = std::make_shared<ProverInstance>(circuit, structured_flag);
+    prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
     // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
     max_block_sizes.update(circuit);
@@ -58,6 +58,25 @@ ClientIVC::Proof ClientIVC::prove()
 {
     max_block_sizes.print(); // print minimum structured sizes for each block
     return { fold_output.proof, decider_prove(), goblin.prove() };
+};
+
+bool ClientIVC::verify(const Proof& proof,
+                       const std::shared_ptr<VerifierInstance>& accumulator,
+                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
+                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
+{
+    // Goblin verification (merge, eccvm, translator)
+    GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
+    bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
+
+    // Decider verification
+    ClientIVC::FoldingVerifier folding_verifier({ accumulator, final_verifier_instance });
+    auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
+
+    ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
+    bool decision = decider_verifier.verify_proof(proof.decider_proof);
+    return goblin_verified && decision;
 }
 
 /**
@@ -68,19 +87,9 @@ ClientIVC::Proof ClientIVC::prove()
  */
 bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
 {
-    // Goblin verification (merge, eccvm, translator)
-    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
-    bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
-
-    // Decider verification
-    ClientIVC::FoldingVerifier folding_verifier({ verifier_instances[0], verifier_instances[1] });
-    auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
-
-    ClientIVC::DeciderVerifier decider_verifier(verifier_accumulator);
-    bool decision = decider_verifier.verify_proof(proof.decider_proof);
-    return goblin_verified && decision;
+    auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    return verify(proof, verifier_instances[0], verifier_instances[1], eccvm_vk, translator_vk);
 }
 
 /**
@@ -116,10 +125,10 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
         vkeys.emplace_back(instance_vk);
     }
 
-    // Reset the scheme so it can be reused for actual accumulation, maintaining the structured trace flag as is
-    bool structured = structured_flag;
+    // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
+    TraceStructure structure = trace_structure;
     *this = ClientIVC();
-    this->structured_flag = structured;
+    this->trace_structure = structure;
 
     return vkeys;
 }
