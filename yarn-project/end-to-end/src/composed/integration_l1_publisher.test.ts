@@ -165,7 +165,7 @@ describe('L1Publisher integration', () => {
     const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(
       prevHeader,
       new Fr(chainId),
-      new Fr(config.version),
+      config.version,
       getVKTreeRoot(),
     );
     return tx;
