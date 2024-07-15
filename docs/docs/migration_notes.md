@@ -23,7 +23,7 @@ Sandbox commands have been cleaned up and simplified. Doing `aztec-up` now gets 
 
 * `aztec test [options]`: runs `aztec start --txe && aztec-nargo test --use-legacy --oracle-resolver http://aztec:8081 --silence-warnings [options]` via docker-compose allowing users to easily run contract tests using TXE
 
-## 0.45.0
+## 0.45.0
 ### [Aztec.nr] Remove unencrypted logs from private
 They leak privacy so is a footgun!
 
