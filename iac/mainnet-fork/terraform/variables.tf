@@ -18,6 +18,6 @@ variable "DEPLOY_TAG" {
   type = string
 }
 
-variable "CHAIN_ID" {
+variable "L1_CHAIN_ID" {
   type = string
 }

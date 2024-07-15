@@ -34,8 +34,8 @@ export const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
   .default(`http://${LOCALHOST}:8080`)
   .makeOptionMandatory(true);
 
-export const chainIdOption = new Option('-c, --chain-id <number>', 'Chain ID of the ethereum host')
-  .env('CHAIN_ID')
+export const chainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID of the ethereum host')
+  .env('L1_CHAIN_ID')
   .default('31337')
   .argParser(value => {
     const parsedValue = Number(value);

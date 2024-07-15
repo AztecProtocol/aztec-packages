@@ -96,7 +96,7 @@ describe('L1Publisher integration', () => {
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.chainId).chainInfo.id;
+  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;

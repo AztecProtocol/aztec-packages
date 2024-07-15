@@ -12,10 +12,10 @@ env:
   GIT_COMMIT: ${{ github.sha }}
   DEPLOY_TAG: devnet
   FILE_PATH: ./l1-contracts/addresses.txt
-  CHAIN_ID: 677692
+  L1_CHAIN_ID: 677692
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
-  TF_VAR_CHAIN_ID: 677692
+  TF_VAR_L1_CHAIN_ID: 677692
   TF_VAR_BOOTNODE_1_PRIVATE_KEY: ${{ secrets.BOOTNODE_1_PRIVATE_KEY }}
   TF_VAR_BOOTNODE_2_PRIVATE_KEY: ${{ secrets.BOOTNODE_2_PRIVATE_KEY }}
   TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}
@@ -116,7 +116,7 @@ jobs:
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
             --private-key ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
             --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
-            --chain-id ${{ env.CHAIN_ID }} \
+            --chain-id ${{ env.L1_CHAIN_ID }} \
             | tee ${{ env.FILE_PATH }}
           ./.github/scripts/extract_l1_addresses.sh ${{ env.FILE_PATH }}
 

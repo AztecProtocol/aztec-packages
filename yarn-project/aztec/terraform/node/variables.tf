@@ -14,7 +14,7 @@ variable "SEQ_2_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
 
-variable "CHAIN_ID" {
+variable "L1_CHAIN_ID" {
   type    = string
   default = 677692
 }

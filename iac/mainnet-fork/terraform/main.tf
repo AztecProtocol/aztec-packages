@@ -132,8 +132,8 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
           value = "${var.INFURA_API_KEY}"
         },
         {
-          name  = "CHAIN_ID"
-          value = "${var.CHAIN_ID}"
+          name  = "L1_CHAIN_ID"
+          value = "${var.L1_CHAIN_ID}"
         },
         {
           name  = "SNAPSHOT_FREQUENCY"

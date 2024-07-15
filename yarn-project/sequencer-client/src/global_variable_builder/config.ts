@@ -11,7 +11,7 @@ export interface GlobalReaderConfig {
   /**
    * The chain ID of the ethereum host.
    */
-  chainId: number;
+  l1ChainId: number;
 
   /**
    * The deployed l1 contract addresses

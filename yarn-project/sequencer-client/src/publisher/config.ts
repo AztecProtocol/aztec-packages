@@ -17,7 +17,7 @@ export interface TxSenderConfig {
   /**
    * The chain ID of the ethereum host.
    */
-  chainId?: number;
+  l1ChainId?: number;
 
   /**
    * The number of confirmations required.

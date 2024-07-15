@@ -293,8 +293,8 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_ENABLED)
         },
         {
-          name  = "CHAIN_ID"
-          value = var.CHAIN_ID
+          name  = "L1_CHAIN_ID"
+          value = var.L1_CHAIN_ID
         },
         {
           name  = "PEER_ID_PRIVATE_KEY"
