@@ -1,4 +1,4 @@
-import { Fr, GrumpkinScalar } from './fields.js';
+import { Fq, Fr, GrumpkinScalar } from './fields.js';
 
 describe('GrumpkinScalar Serialization', () => {
   // Test case for GrumpkinScalar.fromHighLow
@@ -185,12 +185,20 @@ describe('Bn254 arithmetic', () => {
   });
 
   describe('Square root', () => {
-    it('Should return the correct square root', () => {
-      const a = new Fr(16);
-      const expected = new Fr(4);
+    it('Should return the correct square root for Fr', () => {
+      const a = Fr.random();
+      const squared = a.mul(a);
 
-      const actual = a.sqrt();
-      expect(actual).toEqual(expected);
+      const actual = squared.sqrt();
+      expect(actual!.mul(actual!)).toEqual(squared);
+    });
+
+    it('Should return the correct square root for Fq', () => {
+      const a = Fq.random();
+      const squared = a.mul(a);
+
+      const actual = squared.sqrt();
+      expect(actual!.mul(actual!)).toEqual(squared);
     });
   });
 

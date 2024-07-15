@@ -63,17 +63,4 @@ WASM_EXPORT void ecc_grumpkin__reduce512_buffer_mod_circuit_modulus(uint8_t* inp
     write(result, target_output.lo);
 }
 
-WASM_EXPORT void grumpkin_fr_sqrt(uint8_t const* input, uint8_t* result)
-{
-    using serialize::write;
-    auto input_fr = from_buffer<grumpkin::fr>(input);
-    auto [is_sqr, root] = input_fr.sqrt();
-
-    uint8_t* is_sqrt_result_ptr = result;
-    uint8_t* root_result_ptr = result + 1;
-
-    write(is_sqrt_result_ptr, is_sqr);
-    write(root_result_ptr, root);
-}
-
 // NOLINTEND(cert-dcl37-c, cert-dcl51-cpp, bugprone-reserved-identifier)
