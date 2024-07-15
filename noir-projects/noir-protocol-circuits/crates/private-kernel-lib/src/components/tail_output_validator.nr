@@ -14,7 +14,8 @@ use dep::types::{
     compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
     silo_note_hash, silo_nullifier
 },
-    traits::is_empty, utils::arrays::assert_sorted_transformed_value_array
+    traits::is_empty,
+    utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_array_with_order_hints}
 };
 
 struct TailOutputValidator {
@@ -137,15 +138,14 @@ impl TailOutputValidator {
 
         // unencrypted_log_hashes
 
-        assert_sorted_transformed_value_array(
-            self.previous_kernel.end.unencrypted_logs_hashes,
+        assert_sorted_array_with_order_hints(
             self.previous_kernel.end.unencrypted_logs_hashes,
             hints.sorted_unencrypted_log_hashes,
             hints.sorted_unencrypted_log_hash_hints
         );
 
         assert_eq(
-            hints.sorted_unencrypted_log_hashes.map(|log: ScopedLogHash| log.expose_to_public()), self.output.end.unencrypted_logs, "mismatch unencrypted_logs"
+            hints.sorted_unencrypted_log_hashes.map(|log: ScopedLogHash| log.expose_to_public()), self.output.end.unencrypted_logs_hashes, "mismatch unencrypted_logs_hashes"
         );
     }
 

@@ -113,7 +113,7 @@ fn validate_accumulated_values_unencrypted_log_hashes_unordered_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch unencrypted_logs")]
+#[test(should_fail_with="mismatch unencrypted_logs_hashes")]
 fn validate_accumulated_values_unencrypted_log_hashes_wrong_order_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 

@@ -175,7 +175,7 @@ mod tests {
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
         assert_eq(
-            public_inputs.end.unencrypted_logs, builder.previous_kernel.unencrypted_logs_hashes.storage.map(|log: ScopedLogHash| log.expose_to_public())
+            public_inputs.end.unencrypted_logs_hashes, builder.previous_kernel.unencrypted_logs_hashes.storage.map(|log: ScopedLogHash| log.expose_to_public())
         );
     }
 

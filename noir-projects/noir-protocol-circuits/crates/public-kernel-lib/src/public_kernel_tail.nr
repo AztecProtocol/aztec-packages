@@ -419,7 +419,7 @@ mod tests {
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
         assert_eq(
-            public_inputs.end.unencrypted_logs, builder.previous_revertible.unencrypted_logs_hashes.storage
+            public_inputs.end.unencrypted_logs_hashes, builder.previous_revertible.unencrypted_logs_hashes.storage
         );
     }
 

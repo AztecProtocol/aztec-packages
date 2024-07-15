@@ -34,7 +34,7 @@ struct CombinedAccumulatedData {
 
     note_encrypted_logs_hash: Field,
     encrypted_logs_hash: Field,
-    unencrypted_logs: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
+    unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -120,7 +120,7 @@ impl CombinedAccumulatedData {
             l2_to_l1_msgs: array_merge(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs),
             note_encrypted_logs_hash,
             encrypted_logs_hash,
-            unencrypted_logs: combine_hints.sorted_unencrypted_logs_hashes,
+            unencrypted_logs_hashes: combine_hints.sorted_unencrypted_logs_hashes,
             note_encrypted_log_preimages_length,
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
@@ -138,7 +138,7 @@ impl Empty for CombinedAccumulatedData {
             l2_to_l1_msgs: [0; MAX_L2_TO_L1_MSGS_PER_TX],
             note_encrypted_logs_hash: 0,
             encrypted_logs_hash: 0,
-            unencrypted_logs: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+            unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             note_encrypted_log_preimages_length: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
@@ -157,8 +157,8 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
     fields.extend_from_array(self.l2_to_l1_msgs);
     fields.push(self.note_encrypted_logs_hash);
     fields.push(self.encrypted_logs_hash);
-    for i in 0..self.unencrypted_logs.len() {
-      fields.extend_from_array(self.unencrypted_logs[i].serialize());
+    for i in 0..self.unencrypted_logs_hashes.len() {
+      fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
     }
     fields.push(self.note_encrypted_log_preimages_length);
     fields.push(self.encrypted_log_preimages_length);
@@ -186,7 +186,7 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         l2_to_l1_msgs: reader.read_array([0; MAX_L2_TO_L1_MSGS_PER_TX]),
         note_encrypted_logs_hash: reader.read(),
         encrypted_logs_hash: reader.read(),
-        unencrypted_logs: reader.read_struct_array(ScopedLogHash::deserialize, [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
+        unencrypted_logs_hashes: reader.read_struct_array(ScopedLogHash::deserialize, [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
         note_encrypted_log_preimages_length: reader.read(),
         encrypted_log_preimages_length: reader.read(),
         unencrypted_log_preimages_length: reader.read(),
@@ -205,7 +205,7 @@ impl Eq for CombinedAccumulatedData {
     (self.l2_to_l1_msgs == other.l2_to_l1_msgs) &
     (self.note_encrypted_logs_hash == other.note_encrypted_logs_hash) &
     (self.encrypted_logs_hash == other.encrypted_logs_hash) &
-    (self.unencrypted_logs == other.unencrypted_logs) &
+    (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
     (self.note_encrypted_log_preimages_length == other.note_encrypted_log_preimages_length) &
     (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
     (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &

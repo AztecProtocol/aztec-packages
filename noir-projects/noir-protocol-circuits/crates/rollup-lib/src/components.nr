@@ -112,8 +112,8 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-fn scope_and_hash_unencrypted_logs(unencrypted_logs: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
-    let scoped_logs = unencrypted_logs.map(
+fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+    let scoped_logs = unencrypted_logs_hashes.map(
         |log: ScopedLogHash| {
         LogHash {
             value: silo_unencrypted_log_hash(log),
@@ -163,7 +163,7 @@ pub fn compute_tx_effects_hash(
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
     let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
     let encrypted_logs_hash = combined.encrypted_logs_hash;
-    let unencrypted_logs_hash = scope_and_hash_unencrypted_logs(combined.unencrypted_logs);
+    let unencrypted_logs_hash = scope_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
 
     let mut offset = 0;
 
