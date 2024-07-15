@@ -10,6 +10,7 @@ import { Fr } from './fields.js';
 export class Point {
   static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
+  static COMPRESSED_SIZE_IN_BYTES = Fr.SIZE_IN_BYTES + 1;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -37,7 +38,17 @@ export class Point {
    * @returns A randomly generated Point instance.
    */
   static random() {
-    return Point.fromXAndSign(Fr.random(), randomBoolean());
+    while (true) {
+      try {
+        return Point.fromXAndSign(Fr.random(), randomBoolean());
+      } catch (e: any) {
+        if (e.message !== 'The given x-coordinate is not on the Grumpkin curve') {
+          throw e;
+        }
+        // The random point is not on the curve - we try again
+        continue;
+      }
+    }
   }
 
   /**
@@ -50,6 +61,18 @@ export class Point {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), false);
+  }
+
+  /**
+   * Create a Point instance from a compressed buffer.
+   * The input 'buffer' should have exactly 33 bytes representing the x coordinate and the sign of the y coordinate.
+   *
+   * @param buffer - The buffer containing the x coordinate and the sign of the y coordinate.
+   * @returns A Point instance.
+   */
+  static fromCompressedBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return this.fromXAndSign(Fr.fromBuffer(reader), reader.readBoolean());
   }
 
   /**
@@ -147,6 +170,14 @@ export class Point {
       throw new Error(`Invalid buffer length for Point: ${buf.length}`);
     }
     return buf;
+  }
+
+  /**
+   * Converts the Point instance to a compressed Buffer representation of the coordinates.
+   * @returns A Buffer representation of the Point instance
+   */
+  toCompressedBuffer() {
+    return serializeToBuffer(this.toXAndSign());
   }
 
   /**

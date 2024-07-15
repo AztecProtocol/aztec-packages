@@ -18,4 +18,18 @@ describe('Point', () => {
   it('creates a valid random point', () => {
     expect(Point.random().isOnGrumpkin()).toBeTruthy();
   });
+
+  it('converts to and from buffer', () => {
+    const p = Point.random();
+    const p2 = Point.fromBuffer(p.toBuffer());
+
+    expect(p.equals(p2)).toBeTruthy();
+  });
+
+  it('converts to and from compressed buffer', () => {
+    const p = Point.random();
+    const p2 = Point.fromCompressedBuffer(p.toCompressedBuffer());
+
+    expect(p.equals(p2)).toBeTruthy();
+  });
 });
