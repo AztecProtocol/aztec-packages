@@ -28,7 +28,16 @@ jobs:
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
 
       - timeout-minutes: 25
-        run: earthly-ci --no-output ./docs/+deploy-prod --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }} --COMMIT_TAG=${{ inputs.tag }}
+        run: |
+          touch .secrets
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" > .secrets
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .secrets
+
+          earthly-ci --no-output ./docs/+deploy-prod \
+          --secret-file-path .secrets \
+          --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+          --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }} \
+          --COMMIT_TAG=${{ inputs.tag }}
 
   pdf:
     needs: setup

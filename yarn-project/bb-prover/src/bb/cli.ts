@@ -14,9 +14,9 @@ const { BB_WORKING_DIRECTORY, BB_BINARY_PATH } = process.env;
  * @returns The CLI.
  */
 export function getProgram(log: LogFn): Command {
-  const program = new Command();
+  const program = new Command('bb-cli');
 
-  program.name('bb-cli').description('CLI for interacting with Barretenberg.');
+  program.description('CLI for interacting with Barretenberg.');
 
   program
     .command('protocol-circuits')

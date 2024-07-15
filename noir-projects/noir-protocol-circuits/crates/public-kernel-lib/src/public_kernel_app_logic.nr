@@ -47,9 +47,8 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         if !dep::std::runtime::is_unconstrained() {
-            // verify the previous kernel proof
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
@@ -85,7 +84,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
             let reverted_call_request = remaining_calls.pop();
             // even though we reverted, we still need to make sure the correct call was made
-            // but don't do the full `validate_call_against_request` because 
+            // but don't do the full `validate_call_against_request` because
             // that makes a bunch of assertions that we don't want to make
             // e.g. that msg_sender is self in the case of internal.
             // We don't want to make those checks because we already know we reverted,
@@ -111,15 +110,12 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
-        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        read_request::ReadRequest
+        note_hash::{NoteHash, ScopedNoteHash}, log_hash::ScopedLogHash,
+        nullifier::{Nullifier, ScopedNullifier}, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        hash::{
-        compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_unencrypted_log_hash
-    },
+        hash::{compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::arrays::{array_eq, array_length}, traits::is_empty
@@ -210,7 +206,7 @@ mod tests {
 
         // the key difference in this test versus those that use builder.execute()
         // is that we do not add a public call request to the previous kernel.
-        // this means that when we call `to_public_kernel_data` below, 
+        // this means that when we call `to_public_kernel_data` below,
         // it will say needs_app_logic is false
 
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(true);
@@ -304,7 +300,7 @@ mod tests {
         builder.public_call.public_inputs.nullifiers.extend_from_array(current);
 
         let siloed = current.map(
-            |current: Nullifier| 
+            |current: Nullifier|
         Nullifier { value: compute_siloed_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
         );
 
@@ -362,11 +358,12 @@ mod tests {
         );
         let prev_data = builder.previous_kernel.to_public_accumulated_data();
 
-        let mut expected_unencrypted_logs = [
-            prev_data.unencrypted_logs_hashes[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        let expected_unencrypted_logs = [
+            prev_data.unencrypted_logs_hashes[0], ScopedLogHash {
+                log_hash: builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0],
+                contract_address: builder.public_call.contract_address
+            }
         ];
-        // silo the new log hash
-        expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
         let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
 
@@ -636,13 +633,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }
