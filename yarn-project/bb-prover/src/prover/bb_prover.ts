@@ -950,7 +950,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const json = JSON.parse(proofString);
 
-    const numPublicInputs = vkData.numPublicInputs;
+    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     if (numPublicInputs === 0) {
       throw new Error(`Tube proof should have public inputs (e.g. the number of public inputs from PrivateKernelTail)`);
     }
