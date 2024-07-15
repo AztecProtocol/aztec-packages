@@ -4,16 +4,16 @@ use dep::protocol_types::{
     traits::is_empty
 };
 use crate::{
-    context::PrivateContext,
+    context::{PrivateContext, UnconstrainedContext},
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
     keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}},
-    state_vars::{shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter}
+    state_vars::{shared_mutable::{shared_mutable::SharedMutable, shared_mutable_private_getter::SharedMutablePrivateGetter}}
 };
 
 global DELAY = 5;
 
 // docs:start:key-getters
-trait KeyGetters {
+trait KeyGettersPrivate {
   fn get_npk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
   fn get_ivpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
   fn get_ovpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
@@ -21,7 +21,7 @@ trait KeyGetters {
   fn get_npk_m_hash(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Field;
 }
 
-impl KeyGetters for Header {
+impl KeyGettersPrivate for Header {
     fn get_npk_m(self, context: &mut PrivateContext, address: AztecAddress) -> Point {
         get_master_key(context, address, NULLIFIER_INDEX, self)
     }
@@ -43,6 +43,77 @@ impl KeyGetters for Header {
     }
 }
 // docs:end:key-getters
+
+trait KeyGettersUnconstrained {
+  fn get_npk_m(context: UnconstrainedContext, address: AztecAddress) -> Point;
+  fn get_ivpk_m(context: UnconstrainedContext, address: AztecAddress) -> Point;
+  fn get_ovpk_m(context: UnconstrainedContext, address: AztecAddress) -> Point;
+  fn get_tpk_m(context: UnconstrainedContext, address: AztecAddress) -> Point;
+  fn get_npk_m_hash(context: UnconstrainedContext, address: AztecAddress) -> Field;
+}
+
+impl KeyGettersUnconstrained for UnconstrainedContext {
+    fn get_npk_m(self, address: AztecAddress) -> Point {
+        get_master_key_unconstrained(self, address, NULLIFIER_INDEX)
+    }
+
+    fn get_ivpk_m(self, address: AztecAddress) -> Point {
+        get_master_key_unconstrained(self, address, INCOMING_INDEX)
+    }
+
+    fn get_ovpk_m(self, address: AztecAddress) -> Point {
+        get_master_key_unconstrained(self, address, OUTGOING_INDEX)
+    }
+
+    fn get_tpk_m(self, address: AztecAddress) -> Point {
+        get_master_key_unconstrained(self, address, TAGGING_INDEX)
+    }
+
+    fn get_npk_m_hash(self, address: AztecAddress) -> Field {
+        get_master_key_unconstrained(self, address, NULLIFIER_INDEX).hash()
+    }
+}
+
+fn get_master_key_unconstrained(
+    context: UnconstrainedContext,
+    address: AztecAddress,
+    key_index: Field,
+) -> Point {
+    let key = fetch_key_from_registry_unconstrained(context, key_index, address);
+    if is_empty(key) {
+        // Keys were not registered in registry yet --> fetch key from PXE
+        let keys = fetch_and_constrain_keys(address);
+        // Return the corresponding to index
+        keys.get_key_by_index(key_index)
+    } else {
+        // Keys were registered --> return the key
+        key
+    }
+}
+
+fn fetch_key_from_registry_unconstrained(
+    context: UnconstrainedContext,
+    key_index: Field,
+    address: AztecAddress,
+) -> Point {
+    let x_coordinate_map_slot = key_index * 2 + 1;
+    let y_coordinate_map_slot = x_coordinate_map_slot + 1;
+    let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
+    let y_coordinate_derived_slot = derive_storage_slot_in_map(y_coordinate_map_slot, address);
+
+    let x_coordinate = SharedMutable::get_current_value_in_unconstrained_other(
+        context,
+        AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+        x_coordinate_derived_slot
+    );
+    let y_coordinate = SharedMutable::get_current_value_in_unconstrained_other(
+        context,
+        AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+        y_coordinate_derived_slot
+    );
+
+    Point { x: x_coordinate, y: y_coordinate, is_infinite: false }
+}
 
 fn get_master_key(
     context: &mut PrivateContext,
@@ -73,18 +144,16 @@ fn fetch_key_from_registry(
     let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
     let y_coordinate_derived_slot = derive_storage_slot_in_map(y_coordinate_map_slot, address);
 
-    let x_coordinate_registry: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
+    let x_coordinate = SharedMutable::get_current_value_in_private_other::<Field, 5>(
         context,
         AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
         x_coordinate_derived_slot
     );
-    let y_coordinate_registry: SharedMutablePrivateGetter<Field, DELAY> = SharedMutablePrivateGetter::new(
+    let y_coordinate = SharedMutable::get_current_value_in_private_other::<Field, 5>(
         context,
         AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
         y_coordinate_derived_slot
     );
-    let x_coordinate = x_coordinate_registry.get_value_in_private(header);
-    let y_coordinate = y_coordinate_registry.get_value_in_private(header);
 
     Point { x: x_coordinate, y: y_coordinate, is_infinite: false }
 }
