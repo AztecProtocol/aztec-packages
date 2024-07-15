@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721079548590,
+  "lastUpdate": 1721079640001,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -84052,6 +84052,78 @@ window.BENCHMARK_DATA = {
             "value": 165569812,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 165569812 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a6c7f2521a5955acce290da96b1c233a5c9551a",
+          "message": "chore(avm): more stats and codegen cleanup (#7475)\n\n* Add trace size stats and proof sections time tracking\n* Use `bb:constexpr_for` instead of custom template that did the same\n\nExample public transfer\n```\nbytecode size: 31218\ncalldata size: 6\npublic_inputs size: 481\nhints.storage_value_hints size: 2\nhints.note_hash_exists_hints size: 0\nhints.nullifier_exists_hints size: 1\nhints.l1_to_l2_message_exists_hints size: 0\nhints.externalcall_hints size: 0\nhints.contract_instance_hints size: 0\nusing cached crs of size 8388609 at \"/mnt/user-data/facundo/.bb-crs/bn254_g1.dat\"\nDeserialized 2524 instructions\n------- GENERATING TRACE -------\nTrace sizes before padding:\n        main_trace_size: 1638\n        mem_trace_size: 3880\n        alu_trace_size: 811\n        range_check_size: 65536\n        conv_trace_size: 1\n        lookup_table_size: 0\n        sha256_trace_size: 0\n        poseidon2_trace_size: 0\n        pedersen_trace_size: 4\n        gas_trace_size: 1620\n        fixed_gas_table_size: 65\n        slice_trace_size: 7\nFinal trace size: 65537\n------- PROVING EXECUTION -------\nproof written to: \"/mnt/user-data/facundo/tmp-8Q3xgk/proof\"\nvk written to: \"/mnt/user-data/facundo/tmp-8Q3xgk/vk\"\nvk as fields written to: \"/mnt/user-data/facundo/tmp-8Q3xgk/vk_fields.json\"\n------- STATS -------\nincl_main_tag_err_ms: 78\nincl_mem_tag_err_ms: 79\nkernel_output_lookup_ms: 79\nlookup_byte_lengths_ms: 75\nlookup_byte_operations_ms: 81\nlookup_cd_value_ms: 77\nlookup_div_u16_0_ms: 100\nlookup_div_u16_1_ms: 98\nlookup_div_u16_2_ms: 99\nlookup_div_u16_3_ms: 97\nlookup_div_u16_4_ms: 99\nlookup_div_u16_5_ms: 103\nlookup_div_u16_6_ms: 97\nlookup_div_u16_7_ms: 97\nlookup_into_kernel_ms: 83\nlookup_mem_rng_chk_hi_ms: 79\nlookup_mem_rng_chk_lo_ms: 95\nlookup_mem_rng_chk_mid_ms: 108\nlookup_opcode_gas_ms: 78\nlookup_pow_2_0_ms: 84\nlookup_pow_2_1_ms: 79\nlookup_ret_value_ms: 82\nlookup_u16_0_ms: 107\nlookup_u16_10_ms: 107\nlookup_u16_11_ms: 96\nlookup_u16_12_ms: 96\nlookup_u16_13_ms: 97\nlookup_u16_14_ms: 103\nlookup_u16_1_ms: 95\nlookup_u16_2_ms: 96\nlookup_u16_3_ms: 97\nlookup_u16_4_ms: 98\nlookup_u16_5_ms: 111\nlookup_u16_6_ms: 99\nlookup_u16_7_ms: 97\nlookup_u16_8_ms: 97\nlookup_u16_9_ms: 96\nlookup_u8_0_ms: 79\nlookup_u8_1_ms: 77\nperm_main_alu_ms: 82\nperm_main_bin_ms: 76\nperm_main_conv_ms: 75\nperm_main_mem_a_ms: 80\nperm_main_mem_b_ms: 77\nperm_main_mem_c_ms: 75\nperm_main_mem_d_ms: 77\nperm_main_mem_ind_addr_a_ms: 76\nperm_main_mem_ind_addr_b_ms: 77\nperm_main_mem_ind_addr_c_ms: 74\nperm_main_mem_ind_addr_d_ms: 76\nperm_main_pedersen_ms: 75\nperm_main_pos2_perm_ms: 79\nperm_main_slice_ms: 74\nperm_slice_mem_ms: 80\nprove/check_circuit: 5120\nprove/execute_log_derivative_inverse_commitments_round_ms: 532\nprove/execute_log_derivative_inverse_round_ms: 5199\nprove/execute_pcs_rounds_ms: 413\nprove/execute_relation_check_rounds_ms: 1328\nprove/execute_wire_commitments_round_ms: 1742\nprove/gen_trace: 850\nrange_check_da_gas_hi_ms: 98\nrange_check_da_gas_lo_ms: 103\nrange_check_l2_gas_hi_ms: 100\nrange_check_l2_gas_lo_ms: 98\n```",
+          "timestamp": "2024-07-15T22:25:17+01:00",
+          "tree_id": "1c75cbd33d458fa3824ba446b0f75a9ce047100a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a6c7f2521a5955acce290da96b1c233a5c9551a"
+        },
+        "date": 1721079633662,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13651.144404000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9748.873731 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4785.459121000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4351.956769 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41293.058041,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41293058000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14720.095881000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14720095000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4498445487,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4498445487 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199597298,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199597298 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3695980955,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3695980955 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164231903,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164231903 ns\nthreads: 1"
           }
         ]
       }
