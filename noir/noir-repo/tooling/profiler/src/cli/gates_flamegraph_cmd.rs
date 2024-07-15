@@ -28,7 +28,6 @@ pub(crate) struct GatesFlamegraphCommand {
 }
 
 pub(crate) fn run(args: GatesFlamegraphCommand) -> eyre::Result<()> {
-    dbg!(&args.backend_extra_args);
     run_with_provider(
         &PathBuf::from(args.artifact_path),
         &BackendGatesProvider {
