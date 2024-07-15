@@ -111,8 +111,7 @@ contract AppSubscription {
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
-        let header = context.get_header();
-        let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
+        let subscriber_npk_m_hash = context.get_npk_m_hash(subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), subscriber_address));

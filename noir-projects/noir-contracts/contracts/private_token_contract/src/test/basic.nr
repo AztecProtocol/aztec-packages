@@ -43,7 +43,7 @@ unconstrained fn setup_refund_success() {
     let user_randomness = 42;
     let fee_payer_randomness = 123;
     let mut context = env.private();
-    let recipient_npk_m_hash = context.get_header().get_npk_m_hash(&mut context, recipient);
+    let recipient_npk_m_hash = context.get_npk_m_hash(recipient);
 
     let setup_refund_from_call_interface = PrivateToken::at(token_contract_address).setup_refund(
         recipient_npk_m_hash, // fee payer
@@ -59,8 +59,8 @@ unconstrained fn setup_refund_success() {
 
     env.call_private_void(setup_refund_from_call_interface);
     let mut context = env.private();
-    let owner_npk_m_hash = context.get_header().get_npk_m_hash(&mut context, owner);
-    let recipient_npk_m_hash = context.get_header().get_npk_m_hash(&mut context, recipient);
+    let owner_npk_m_hash = context.get_npk_m_hash(owner);
+    let recipient_npk_m_hash = context.get_npk_m_hash(recipient);
 
     // when the refund was set up, we would've broken the note worth mint_amount, and added back a note worth
     // mint_amount - funded_amount

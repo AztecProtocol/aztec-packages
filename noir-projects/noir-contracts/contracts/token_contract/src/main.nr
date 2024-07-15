@@ -329,10 +329,9 @@ contract Token {
 
         // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
         // be needed twice.
-        let header = context.get_header();
-        let from_ovpk = header.get_ovpk_m(&mut context, from);
-        let from_ivpk = header.get_ivpk_m(&mut context, from);
-        let to_ivpk = header.get_ivpk_m(&mut context, to);
+        let from_ovpk = context.get_ovpk_m(from);
+        let from_ivpk = context.get_ivpk_m(from);
+        let to_ivpk = context.get_ivpk_m(to);
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk));
@@ -368,10 +367,9 @@ contract Token {
 
         // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
         // be needed twice.
-        let header = context.get_header();
-        let from_ovpk = header.get_ovpk_m(&mut context, from);
-        let from_ivpk = header.get_ivpk_m(&mut context, from);
-        let to_ivpk = header.get_ivpk_m(&mut context, to);
+        let from_ovpk = context.get_ovpk_m(from);
+        let from_ivpk = context.get_ivpk_m(from);
+        let to_ivpk = context.get_ivpk_m(to);
 
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance

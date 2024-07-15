@@ -17,8 +17,7 @@ pub fn increment(
     recipient: AztecAddress,
     outgoing_viewer: AztecAddress
 ) {
-    let header = balance.context.get_header();
-    let recipient_npk_m_hash = header.get_npk_m_hash(balance.context, recipient);
+    let recipient_npk_m_hash = balance.context.get_npk_m_hash(recipient);
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.

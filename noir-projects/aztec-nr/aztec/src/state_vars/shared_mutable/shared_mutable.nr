@@ -254,6 +254,22 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> {
         context.set_tx_max_block_number(block_horizon);
         value_change.get_current_at(historical_block_number)
     }
+
+    pub fn get_historical_value_in_private_other<T_OTHER, INITIAL_DELAY_OTHER>(
+        header: Header,
+        address: AztecAddress,
+        storage_slot: Field
+    ) -> T_OTHER where T_OTHER: FromField + ToField + Eq {
+        // When reading the current value in private we construct a historical state proof for the public value.
+        // However, since this value might change, we must constrain the maximum transaction block number as this proof
+        // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
+        // current delay and any scheduled delay changes.
+        let dummy: SharedMutable<T_OTHER, INITIAL_DELAY_OTHER, ()> = SharedMutable::new((), storage_slot);
+
+        let (value_change, _, historical_block_number): (ScheduledValueChange<T_OTHER>, ScheduledDelayChange<INITIAL_DELAY_OTHER>, u32) = dummy.historical_read_from_public_storage(header, address);
+
+        value_change.get_current_at(historical_block_number)
+    }
 }
 
 impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
