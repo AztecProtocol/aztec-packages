@@ -29,7 +29,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -140,6 +140,7 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       l2QueueSize: 10,
+      worldStateProvenBlocksOnly: false,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
@@ -183,14 +184,13 @@ describe('L1Publisher integration', () => {
       seed + 0x500,
     );
 
-    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+    const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
     processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
     processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
     processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };

@@ -14,5 +14,11 @@
       "localRoot": "${workspaceFolder}",
       "sourceMaps": true
     },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach",
+      "port": 9229
+    }
   ]
 }

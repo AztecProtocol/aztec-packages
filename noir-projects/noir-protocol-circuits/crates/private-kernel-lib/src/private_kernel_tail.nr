@@ -6,7 +6,8 @@ use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
     constants::{
     PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX
+    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX
 }
 };
 
@@ -17,6 +18,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_BIG_INDEX,
     PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
     PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
 struct PrivateKernelTailCircuitPrivateInputs {
@@ -35,9 +37,8 @@ impl PrivateKernelTailCircuitPrivateInputs {
         // Validate inputs.
         PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail();
         if !std::runtime::is_unconstrained() {
-            // verify/aggregate the previous kernel
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
@@ -59,13 +60,11 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas,
+        log_hash::ScopedLogHash
     },
         address::{AztecAddress, EthAddress}, scalar::Scalar,
-        hash::{
-        sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash,
-        compute_siloed_unencrypted_log_hash
-    },
+        hash::{sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash},
         tests::fixture_builder::FixtureBuilder, utils::{arrays::array_length},
         traits::{Empty, is_empty}, point::Point
     };
@@ -175,23 +174,9 @@ mod tests {
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
-        let siloed_unencrypted_logs_hashes = [
-            compute_siloed_unencrypted_log_hash(
-                builder.previous_kernel.storage_contract_address,
-                prev_unencrypted_logs_hash
-            ), compute_siloed_unencrypted_log_hash(
-                builder.previous_kernel.storage_contract_address,
-                unencrypted_logs_hash
-            )
-        ];
-        // noir-fmt:ignore
-        let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = siloed_unencrypted_logs_hashes[0]
-            .to_be_bytes(32)
-            .append(siloed_unencrypted_logs_hashes[1].to_be_bytes(32))
-            .append(&[0; MAX_UNENCRYPTED_LOGS_PER_TX * 32 - 64])
-            .as_array();
-        let expected_unencrypted_logs_hash = sha256_to_field(hash_bytes);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(
+            public_inputs.end.unencrypted_logs_hashes, builder.previous_kernel.unencrypted_logs_hashes.storage.map(|log: ScopedLogHash| log.expose_to_public())
+        );
     }
 
     unconstrained fn compute_hash_bytes(
@@ -333,7 +318,11 @@ mod tests {
     #[test(should_fail_with="Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_key_validation(Point::new(1, 2, false), 27, GENERATOR_INDEX__IVSK_M);
+        let _void = builder.previous_kernel.add_request_for_key_validation(
+            Point { x: 1, y: 2, is_infinite: false },
+            27,
+            GENERATOR_INDEX__IVSK_M
+        );
         builder.failed();
     }
 
@@ -425,13 +414,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PrivateKernelTailInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

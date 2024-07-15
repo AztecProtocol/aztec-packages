@@ -7,6 +7,7 @@ import {
   PublicKernelType,
   Tx,
   type TxEffect,
+  UnencryptedTxL2Logs,
   makeEmptyProcessedTx,
   makePaddingProcessedTx,
   mapPublicKernelToCircuitName,
@@ -43,6 +44,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  TubeInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
@@ -449,11 +451,7 @@ export class ProvingOrchestrator {
    * @param provingState - The proving state being worked on
    */
   private async prepareTransaction(tx: ProcessedTx, provingState: ProvingState) {
-    // Pass the private kernel tail vk here as the previous one.
-    // If there are public functions then this key will be overwritten once the public tail has been proven
-    const previousKernelVerificationKey = ProtocolCircuitVks.PrivateKernelTailArtifact;
-
-    const txInputs = await this.prepareBaseRollupInputs(provingState, tx, previousKernelVerificationKey);
+    const txInputs = await this.prepareBaseRollupInputs(provingState, tx);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
@@ -558,13 +556,28 @@ export class ProvingOrchestrator {
   private async prepareBaseRollupInputs(
     provingState: ProvingState | undefined,
     tx: ProcessedTx,
-    kernelVk: VerificationKeyData,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
     if (!provingState?.verifyState()) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
-    const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db, kernelVk);
+
+    const getBaseInputsEmptyTx = async () => {
+      const inputs = {
+        header: await this.db.buildInitialHeader(),
+        chainId: tx.data.constants.globalVariables.chainId,
+        version: tx.data.constants.globalVariables.version,
+        vkTreeRoot: tx.data.constants.vkTreeRoot,
+      };
+
+      const proof = await this.prover.getEmptyTubeProof(inputs);
+      return await buildBaseRollupInput(tx, proof.proof, provingState.globalVariables, this.db, proof.verificationKey);
+    };
+    const getBaseInputsNonEmptyTx = async () => {
+      const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
+      return await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
+    };
+    const inputs = tx.isEmpty ? await getBaseInputsEmptyTx() : await getBaseInputsNonEmptyTx();
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };
@@ -636,15 +649,17 @@ export class ProvingOrchestrator {
       );
       return;
     }
-    if (
-      !tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
-        .toBuffer()
-        .equals(tx.processedTx.unencryptedLogs.hash())
-    ) {
+
+    const txUnencryptedLogs = UnencryptedTxL2Logs.hashSiloedLogs(
+      tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHashes
+        .filter(log => !log.isEmpty())
+        .map(log => log.getSiloedHash()),
+    );
+    if (!txUnencryptedLogs.equals(tx.processedTx.unencryptedLogs.hash())) {
       provingState.reject(
-        `Unencrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.unencryptedLogs.hash())}`,
+        `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogs)} === ${Fr.fromBuffer(
+          tx.processedTx.unencryptedLogs.hash(),
+        )}`,
       );
       return;
     }
@@ -970,6 +985,7 @@ export class ProvingOrchestrator {
       result => {
         const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(
           functionIndex,
+          // PUBLIC KERNEL: I want to pass a client ivc proof into here?
           result.proof,
           result.verificationKey,
         );
