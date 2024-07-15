@@ -102,10 +102,11 @@ export class Point {
 
   /**
    * Uses the x coordinate and isPositive flag (+/-) to reconstruct the point.
-   * @dev The y coordinate can be derived from the x coordinate and the sign flag by solving the grumpkin curve
+   * @dev The y coordinate can be derived from the x coordinate and the "sign" flag by solving the grumpkin curve
    * equation for y.
    * @param x - The x coordinate of the point
-   * @param sign - The sign of the y coordinate
+   * @param sign - The "sign" of the y coordinate - note that this is not a sign as is known in integer arithmetic.
+   * Instead it is a boolean flag that determines whether the y coordinate is <= (Fr.MODULUS - 1) / 2
    * @returns The point as an array of 2 fields
    */
   static fromXAndSign(x: Fr, sign: boolean) {
