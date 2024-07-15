@@ -1,4 +1,4 @@
-import { poseidon2Hash } from '../crypto/index.js';
+import { poseidon2Hash, randomBoolean } from '../crypto/index.js';
 import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
@@ -37,8 +37,7 @@ export class Point {
    * @returns A randomly generated Point instance.
    */
   static random() {
-    // TODO make this return an actual point on curve.
-    return new Point(Fr.random(), Fr.random(), false);
+    return Point.fromXAndSign(Fr.random(), randomBoolean());
   }
 
   /**

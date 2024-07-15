@@ -14,4 +14,8 @@ describe('Point', () => {
 
     expect(p.equals(p2)).toBeTruthy();
   });
+
+  it('creates a valid random point', () => {
+    expect(Point.random().isOnGrumpkin()).toBeTruthy();
+  });
 });
