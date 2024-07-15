@@ -14,7 +14,15 @@ template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
         3, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
         3  // Prime subrelation (checks result in native field)
     };
-
+    /**
+     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 3> SUBRELATION_WITNESS_DEGREES{
+        2, // Lower wide limb subrelation (checks result is 0 mod 2¹³⁶)
+        2, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
+        2  // Prime subrelation (checks result in native field)
+    };
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *

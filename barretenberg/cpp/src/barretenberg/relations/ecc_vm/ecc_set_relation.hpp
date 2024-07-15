@@ -17,6 +17,14 @@ template <typename FF_> class ECCVMSetRelationImpl {
         21, // grand product construction sub-relation
         21  // left-shiftable polynomial sub-relation
     };
+    /**
+     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
+        20, // grand product construction sub-relation
+        20  // left-shiftable polynomial sub-relation
+    };
 
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
     {

@@ -1,3 +1,4 @@
+
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
 
@@ -20,6 +21,11 @@ template <typename FF_> class ECCVMPointTableRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6 };
+    /**
+     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 6> SUBRELATION_WITNESS_DEGREES{ 5, 5, 5, 5, 5, 5 };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

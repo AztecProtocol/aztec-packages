@@ -13,7 +13,14 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         7, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };
-
+    /**
+     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
+        6, // grand product construction sub-relation
+        2  // left-shiftable polynomial sub-relation
+    };
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 

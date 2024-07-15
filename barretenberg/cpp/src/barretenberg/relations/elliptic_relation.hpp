@@ -13,6 +13,14 @@ template <typename FF_> class EllipticRelationImpl {
         6, // x-coordinate sub-relation
         6, // y-coordinate sub-relation
     };
+    /**
+     * @brief Total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
+        3, // x-coordinate sub-relation
+        3, // y-coordinate sub-relation (because of point doubling)
+    };
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero

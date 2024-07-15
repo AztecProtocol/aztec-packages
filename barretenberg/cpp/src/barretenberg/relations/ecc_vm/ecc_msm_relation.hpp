@@ -41,6 +41,13 @@ template <typename FF_> class ECCVMMSMRelationImpl {
     static constexpr std::array<size_t, 36> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+    /**
+     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 36> SUBRELATION_WITNESS_DEGREES{ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                                                                         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                                                                         7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7 };
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,

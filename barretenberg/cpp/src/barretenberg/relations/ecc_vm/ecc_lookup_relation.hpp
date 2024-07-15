@@ -21,6 +21,14 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         LENGTH, // grand product construction sub-relation
         LENGTH  // left-shiftable polynomial sub-relation
     };
+    /**
+     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
+        LENGTH - 1, // grand product construction sub-relation
+        LENGTH - 1  // left-shiftable polynomial sub-relation
+    };
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
