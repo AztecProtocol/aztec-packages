@@ -81,9 +81,7 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     note: Note
 ) -> [u8; M] where Note: NoteInterface<N, NB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    // TODO(benesjan): how to mock this?
-    // let eph_sk: Scalar = fr_to_fq(unsafe_rand());
-    let eph_sk: Scalar = fr_to_fq(0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538);
+    let eph_sk: Scalar = fr_to_fq(unsafe_rand());
     let eph_pk = derive_public_key(eph_sk);
 
     // TODO: (#7177) This value needs to be populated!
@@ -172,13 +170,11 @@ fn compute_ivpk_app(ivpk: Point, contract_address: AztecAddress) -> Point {
 
 mod test {
     use crate::{
-        encrypted_logs::payload::{compute_encrypted_event_log, compute_encrypted_note_log},
+        encrypted_logs::payload::compute_encrypted_note_log,
         test::mocks::mock_note::{MockNoteBuilder, MockNote}
     };
-    use dep::protocol_types::{
-        address::AztecAddress, scalar::Scalar, point::{Point, pub_key_to_bytes},
-        constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash
-    };
+    use dep::protocol_types::{address::AztecAddress, point::Point};
+    use std::test::OracleMock;
 
     #[test]
     fn test_compute_encrypted_note_log() {
@@ -198,6 +194,9 @@ mod test {
 
         let note_value = 0x301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5c;
         let note = MockNoteBuilder::new(note_value).contract_address(contract_address).storage_slot(storage_slot).build();
+
+        let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
+        OracleMock::mock("unsafe_rand").returns([eph_sk]);
 
         let log: [u8; 512] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
 
