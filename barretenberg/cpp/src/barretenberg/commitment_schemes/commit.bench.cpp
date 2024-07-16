@@ -1,12 +1,7 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
-#include <algorithm>
 #include <benchmark/benchmark.h>
-#include <iostream>
-#include <ranges>
-#include <vector>
 
 namespace bb {
 

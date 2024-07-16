@@ -89,7 +89,7 @@ template <class Curve> class CommitmentKey {
      * @details Iterate through the {point, scalar} pairs that define the inputs to the commitment MSM, maintain (copy)
      * only those for which the scalar is nonzero, then perform the MSM on the reduced inputs.
      * @warning Method makes a copy of all {point, scalar} pairs that comprise the reduced input. Will not be efficient
-     * in terms of memory or computation for polynomials beyond a certain sparseness threeshold.
+     * in terms of memory or computation for polynomials beyond a certain sparseness threshold.
      *
      * @param polynomial
      * @return Commitment
