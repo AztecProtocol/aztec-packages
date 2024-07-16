@@ -196,7 +196,7 @@ mod test {
         let note = MockNoteBuilder::new(note_value).contract_address(contract_address).storage_slot(storage_slot).build();
 
         let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-        OracleMock::mock("unsafe_rand").returns([eph_sk]);
+        OracleMock::mock("getRandomField").returns(eph_sk);
 
         let log: [u8; 512] = compute_encrypted_note_log(contract_address, storage_slot, ovsk_app, ovpk_m, ivpk_m, note);
 
