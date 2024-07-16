@@ -389,8 +389,8 @@ pub fn update_fn_signatures_in_contract_interface(
                         if !value.is_zero() {
                             Err((
                                 AztecMacroError::CouldNotGenerateContractInterface {
-                                    secondary_message: Some(format!(
-                                        "Function signature argument must be a placeholder with value 0")),
+                                    secondary_message: Some(
+                                        "Function signature argument must be a placeholder with value 0".to_string()),
                                 },
                                 file_id,
                             ))
