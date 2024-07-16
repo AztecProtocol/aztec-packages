@@ -2819,6 +2819,9 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_aux().emplace_back(0);
     block.q_poseidon2_external().emplace_back(1);
     block.q_poseidon2_internal().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        block.pad_additional();
+    }
     this->check_selector_length_consistency();
     ++this->num_gates;
 }
@@ -2844,6 +2847,9 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     block.q_aux().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(1);
+    if constexpr (HasAdditionalSelectors<Arithmetization>) {
+        block.pad_additional();
+    }
     this->check_selector_length_consistency();
     ++this->num_gates;
 }
