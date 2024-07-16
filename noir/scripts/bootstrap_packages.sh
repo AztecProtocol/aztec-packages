@@ -15,6 +15,8 @@ PROJECTS=(
   @noir-lang/acvm_js
   @noir-lang/types
   @noir-lang/noirc_abi
+  @noir-lang/noir_codegen
+  @noir-lang/noir_js
 )
 INCLUDE=$(printf " --include %s" "${PROJECTS[@]}")
 
@@ -32,3 +34,7 @@ for PROJECT in "${PROJECTS[@]}"; do
   PPATH=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"$PROJECT\").location")
   tar zxfv noir-repo/$PPATH/package.tgz -C packages && mv packages/package packages/${PROJECT#*/}
 done
+
+if [ -x $ROOT/scripts/fix_incremental_ts.sh ]; then
+  $ROOT/scripts/fix_incremental_ts.sh
+fi

@@ -1,10 +1,10 @@
-import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { FUNCTION_DATA_LENGTH, GeneratorIndex } from '../constants.gen.js';
-import { ContractFunctionDao } from '../types/contract_function_dao.js';
+import { type ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /** Function description for circuit. */
 export class FunctionData {
@@ -18,7 +18,7 @@ export class FunctionData {
   static fromAbi(abi: FunctionAbi | ContractFunctionDao): FunctionData {
     return new FunctionData(
       FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      abi.functionType === FunctionType.SECRET,
+      abi.functionType === FunctionType.PRIVATE,
     );
   }
 
@@ -49,6 +49,15 @@ export class FunctionData {
   }
 
   /**
+   * Returns whether this instance is equal to another.
+   * @param other
+   * @returns
+   */
+  equals(other: FunctionData): boolean {
+    return this.selector.equals(other.selector) && this.isPrivate === other.isPrivate;
+  }
+
+  /**
    * Returns a new instance of FunctionData with zero function selector.
    * @param args - Arguments to pass to the constructor.
    * @returns A new instance of FunctionData with zero function selector.
@@ -56,6 +65,8 @@ export class FunctionData {
   public static empty(args?: {
     /** Indicates whether the function is private or public. */
     isPrivate?: boolean;
+    /** Indicates whether the function can alter state or not. */
+    isStatic?: boolean;
   }): FunctionData {
     return new FunctionData(FunctionSelector.empty(), args?.isPrivate ?? false);
   }
@@ -67,7 +78,7 @@ export class FunctionData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionData {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionData(reader.readObject(FunctionSelector), reader.readBoolean());
+    return new FunctionData(reader.readObject(FunctionSelector), /*isPrivate=*/ reader.readBoolean());
   }
 
   static fromFields(fields: Fr[] | FieldReader): FunctionData {
@@ -80,9 +91,6 @@ export class FunctionData {
   }
 
   hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(field => field.toBuffer()),
-      GeneratorIndex.FUNCTION_DATA,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.FUNCTION_DATA);
   }
 }

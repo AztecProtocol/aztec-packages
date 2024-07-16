@@ -26,49 +26,25 @@ template <typename Curve_> class KZG {
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point
      *
      * @param ck The commitment key which has a commit function, the srs and pippenger_runtime_state
-     * @param opening_pair OpeningPair = {r, v = p(r)}
-     * @param polynomial The witness whose opening proof needs to be computed
+     * @param opening_claim {p, (r, v = p(r))} where p is the witness polynomial whose opening proof needs to be
+     * computed
      * @param prover_transcript Prover transcript
      */
-    // template <typename Transcript>
+    template <typename Transcript>
     static void compute_opening_proof(std::shared_ptr<CK> ck,
-                                      const OpeningPair<Curve>& opening_pair,
-                                      const Polynomial& polynomial,
-                                      //   const std::shared_ptr<NativeTranscript>& prover_trancript)
-                                      const auto& prover_trancript)
+                                      const ProverOpeningClaim<Curve>& opening_claim,
+                                      const std::shared_ptr<Transcript>& prover_trancript)
     {
-        Polynomial quotient = polynomial;
-        quotient[0] -= opening_pair.evaluation;
+        Polynomial quotient = opening_claim.polynomial;
+        OpeningPair<Curve> pair = opening_claim.opening_pair;
+        quotient[0] -= pair.evaluation;
         // Computes the coefficients for the quotient polynomial q(X) = (p(X) - v) / (X - r) through an FFT
-        quotient.factor_roots(opening_pair.challenge);
+        quotient.factor_roots(pair.challenge);
         auto quotient_commitment = ck->commit(quotient);
         // TODO(#479): for now we compute the KZG commitment directly to unify the KZG and IPA interfaces but in the
         // future we might need to adjust this to use the incoming alternative to work queue (i.e. variation of
         // pthreads) or even the work queue itself
         prover_trancript->send_to_verifier("KZG:W", quotient_commitment);
-    };
-
-    /**
-     * @brief Computes the KZG verification for an opening claim of a single polynomial commitment
-     *
-     * @param vk is the verification key which has a pairing check function
-     * @param claim OpeningClaim ({r, v}, C)
-     * @return  e(P₀,[1]₁)e(P₁,[x]₂)≡ [1]ₜ where
-     *      - P₀ = C − v⋅[1]₁ + r⋅[x]₁
-     *      - P₁ = [Q(x)]₁
-     */
-    // template <typename Transcript>
-    static bool verify(const std::shared_ptr<VK>& vk,
-                       const OpeningClaim<Curve>& claim,
-                       //    const std::shared_ptr<NativeTranscript>& verifier_transcript)
-                       const auto& verifier_transcript)
-    {
-        auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
-        auto lhs = claim.commitment - (GroupElement::one() * claim.opening_pair.evaluation) +
-                   (quotient_commitment * claim.opening_pair.challenge);
-        auto rhs = -quotient_commitment;
-
-        return vk->pairing_check(lhs, rhs);
     };
 
     /**
@@ -81,7 +57,9 @@ template <typename Curve_> class KZG {
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
      *      - P₁ = [W(x)]₁
      */
-    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim, const auto& verifier_transcript)
+    template <typename Transcript>
+    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim,
+                                             const std::shared_ptr<Transcript>& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 
@@ -106,7 +84,6 @@ template <typename Curve_> class KZG {
         }
 
         auto P_1 = -quotient_commitment;
-
         return { P_0, P_1 };
     };
 };

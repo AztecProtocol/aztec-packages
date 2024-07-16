@@ -1,17 +1,22 @@
-import { AztecAddress } from '@aztec/circuits.js';
-import { L1ContractAddresses, NULL_KEY } from '@aztec/ethereum';
+import { type AllowedElement } from '@aztec/circuit-types';
+import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { type L1ContractAddresses, NULL_KEY } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { Hex } from 'viem';
+import { type Hex } from 'viem';
 
-import { GlobalReaderConfig } from './global_variable_builder/index.js';
-import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
-import { SequencerConfig } from './sequencer/config.js';
+import { type GlobalReaderConfig } from './global_variable_builder/index.js';
+import { type PublisherConfig, type TxSenderConfig } from './publisher/config.js';
+import { type SequencerConfig } from './sequencer/config.js';
 
 /** Chain configuration. */
 type ChainConfig = {
   /** The chain id of the ethereum host. */
-  chainId: number;
+  l1ChainId: number;
   /** The version of the rollup. */
   version: number;
 };
@@ -32,14 +37,16 @@ export function getConfigEnvVars(): SequencerClientConfig {
   const {
     SEQ_PUBLISHER_PRIVATE_KEY,
     ETHEREUM_HOST,
-    CHAIN_ID,
+    L1_CHAIN_ID,
     VERSION,
-    API_KEY,
     SEQ_REQUIRED_CONFIRMATIONS,
     SEQ_PUBLISH_RETRY_INTERVAL_MS,
     SEQ_TX_POLLING_INTERVAL_MS,
     SEQ_MAX_TX_PER_BLOCK,
     SEQ_MIN_TX_PER_BLOCK,
+    SEQ_ALLOWED_SETUP_FN,
+    SEQ_ALLOWED_TEARDOWN_FN,
+    SEQ_MAX_BLOCK_SIZE_IN_BYTES,
     AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
@@ -51,6 +58,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     FEE_RECIPIENT,
     ACVM_WORKING_DIRECTORY,
     ACVM_BINARY_PATH,
+    ENFORCE_FEES = '',
   } = process.env;
 
   const publisherPrivateKey: Hex = SEQ_PUBLISHER_PRIVATE_KEY
@@ -72,13 +80,14 @@ export function getConfigEnvVars(): SequencerClientConfig {
   };
 
   return {
+    enforceFees: ['1', 'true'].includes(ENFORCE_FEES),
     rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : '',
-    chainId: CHAIN_ID ? +CHAIN_ID : 31337, // 31337 is the default chain id for anvil
+    l1ChainId: L1_CHAIN_ID ? +L1_CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     version: VERSION ? +VERSION : 1, // 1 is our default version
-    apiKey: API_KEY,
     requiredConfirmations: SEQ_REQUIRED_CONFIRMATIONS ? +SEQ_REQUIRED_CONFIRMATIONS : 1,
     l1BlockPublishRetryIntervalMS: SEQ_PUBLISH_RETRY_INTERVAL_MS ? +SEQ_PUBLISH_RETRY_INTERVAL_MS : 1_000,
     transactionPollingIntervalMS: SEQ_TX_POLLING_INTERVAL_MS ? +SEQ_TX_POLLING_INTERVAL_MS : 1_000,
+    maxBlockSizeInBytes: SEQ_MAX_BLOCK_SIZE_IN_BYTES ? +SEQ_MAX_BLOCK_SIZE_IN_BYTES : undefined,
     l1Contracts: addresses,
     publisherPrivateKey,
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
@@ -88,5 +97,97 @@ export function getConfigEnvVars(): SequencerClientConfig {
     feeRecipient: FEE_RECIPIENT ? AztecAddress.fromString(FEE_RECIPIENT) : undefined,
     acvmWorkingDirectory: ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : undefined,
     acvmBinaryPath: ACVM_BINARY_PATH ? ACVM_BINARY_PATH : undefined,
+    allowedInSetup: SEQ_ALLOWED_SETUP_FN
+      ? parseSequencerAllowList(SEQ_ALLOWED_SETUP_FN)
+      : getDefaultAllowedSetupFunctions(),
+    allowedInTeardown: SEQ_ALLOWED_TEARDOWN_FN
+      ? parseSequencerAllowList(SEQ_ALLOWED_TEARDOWN_FN)
+      : getDefaultAllowedTeardownFunctions(),
   };
+}
+
+/**
+ * Parses a string to a list of allowed elements.
+ * Each encoded is expected to be of one of the following formats
+ * `I:${address}`
+ * `I:${address}:${selector}`
+ * `C:${classId}`
+ * `C:${classId}:${selector}`
+ *
+ * @param value The string to parse
+ * @returns A list of allowed elements
+ */
+export function parseSequencerAllowList(value: string): AllowedElement[] {
+  const entries: AllowedElement[] = [];
+
+  if (!value) {
+    return entries;
+  }
+
+  for (const val of value.split(',')) {
+    const [typeString, identifierString, selectorString] = val.split(':');
+    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+
+    if (typeString === 'I') {
+      if (selector) {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+        });
+      }
+    } else if (typeString === 'C') {
+      if (selector) {
+        entries.push({
+          classId: Fr.fromString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          classId: Fr.fromString(identifierString),
+        });
+      }
+    }
+  }
+
+  return entries;
+}
+
+function getDefaultAllowedSetupFunctions(): AllowedElement[] {
+  return [
+    // needed for authwit support
+    {
+      address: AuthRegistryAddress,
+    },
+    // needed for claiming on the same tx as a spend
+    {
+      address: GasTokenAddress,
+      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+    },
+    // needed for private transfers via FPC
+    {
+      classId: getContractClassFromArtifact(TokenContractArtifact).id,
+      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+    },
+    {
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
+    },
+  ];
+}
+
+function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
+  return [
+    {
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
+    },
+    {
+      classId: getContractClassFromArtifact(FPCContract.artifact).id,
+      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
+    },
+  ];
 }

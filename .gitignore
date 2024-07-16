@@ -18,3 +18,11 @@ cmake-build-debug
 .DS_Store
 
 **/*.dockerignore
+
+# Earthly
+.arg
+.secret
+.bb_tmp
+
+# Terraform
+*.tfvars

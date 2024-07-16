@@ -1,8 +1,9 @@
-import { AccountInterface, AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
-import { AuthWitness, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
+import { type AccountInterface, type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { type EntrypointInterface, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
+import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, type CompleteAddress, Fr } from '@aztec/circuits.js';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
-import { NodeInfo } from '@aztec/types/interfaces';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
 /**
  * Default implementation for an account interface. Requires that the account uses the default
@@ -10,26 +11,30 @@ import { NodeInfo } from '@aztec/types/interfaces';
  */
 export class DefaultAccountInterface implements AccountInterface {
   private entrypoint: EntrypointInterface;
+  private chainId: Fr;
+  private version: Fr;
 
   constructor(
     private authWitnessProvider: AuthWitnessProvider,
     private address: CompleteAddress,
-    nodeInfo: Pick<NodeInfo, 'chainId' | 'protocolVersion'>,
+    nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'protocolVersion'>,
   ) {
     this.entrypoint = new DefaultAccountEntrypoint(
       address.address,
       authWitnessProvider,
-      nodeInfo.chainId,
+      nodeInfo.l1ChainId,
       nodeInfo.protocolVersion,
     );
+    this.chainId = new Fr(nodeInfo.l1ChainId);
+    this.version = new Fr(nodeInfo.protocolVersion);
   }
 
-  createTxExecutionRequest(executions: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest> {
-    return this.entrypoint.createTxExecutionRequest(executions, fee);
+  createTxExecutionRequest(execution: ExecutionRequestInit): Promise<TxExecutionRequest> {
+    return this.entrypoint.createTxExecutionRequest(execution);
   }
 
-  createAuthWit(message: Fr): Promise<AuthWitness> {
-    return this.authWitnessProvider.createAuthWit(message);
+  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+    return this.authWitnessProvider.createAuthWit(messageHash);
   }
 
   getCompleteAddress(): CompleteAddress {
@@ -38,5 +43,13 @@ export class DefaultAccountInterface implements AccountInterface {
 
   getAddress(): AztecAddress {
     return this.address.address;
+  }
+
+  getChainId(): Fr {
+    return this.chainId;
+  }
+
+  getVersion(): Fr {
+    return this.version;
   }
 }

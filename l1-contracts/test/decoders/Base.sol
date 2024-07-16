@@ -37,6 +37,9 @@ contract DecoderBase is Test {
     bytes body;
     DecodedHeader decodedHeader;
     bytes header;
+    // Note: The following could be decoded from body but having it explicitaly here makes tests more robust against
+    // decoder changes
+    uint32 numTxs;
     bytes32 publicInputsHash;
     bytes32 txsEffectsHash;
   }
@@ -48,11 +51,17 @@ contract DecoderBase is Test {
     StateReference stateReference;
   }
 
+  struct GasFees {
+    uint256 feePerDaGas;
+    uint256 feePerL2Gas;
+  }
+
   struct GlobalVariables {
     uint256 blockNumber;
     uint256 chainId;
     address coinbase;
     bytes32 feeRecipient;
+    GasFees gasFees;
     uint256 timestamp;
     uint256 version;
   }
@@ -64,8 +73,8 @@ contract DecoderBase is Test {
 
   struct ContentCommitment {
     bytes32 inHash;
+    uint256 numTxs;
     bytes32 outHash;
-    uint256 txTreeHeight;
     bytes32 txsEffectsHash;
   }
 

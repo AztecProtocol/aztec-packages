@@ -25,7 +25,7 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       expect(mapFieldFromNoir(mapFieldToNoir(field))).toEqual(field);
     });
 
-    const point = new Point(new Fr(27n), new Fr(28n));
+    const point = new Point(new Fr(27n), new Fr(28n), false);
 
     it('should map points', () => {
       expect(mapPointFromNoir(mapPointToNoir(point))).toEqual(point);
@@ -47,7 +47,7 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       expect(mapFunctionSelectorFromNoir(mapFunctionSelectorToNoir(functionSelector))).toEqual(functionSelector);
     });
 
-    const functionData = new FunctionData(functionSelector, true);
+    const functionData = new FunctionData(functionSelector, /*isPrivate=*/ true);
 
     it('should map function data', () => {
       expect(mapFunctionDataFromNoir(mapFunctionDataToNoir(functionData))).toEqual(functionData);

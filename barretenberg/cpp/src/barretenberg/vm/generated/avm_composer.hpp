@@ -1,14 +1,13 @@
-
-
 #pragma once
 
-#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_prover.hpp"
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
+
 class AvmComposer {
   public:
     using Flavor = AvmFlavor;
@@ -62,7 +61,7 @@ class AvmComposer {
 
     void compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
+        proving_key->commitment_key = std::make_shared<CommitmentKey>(circuit_size);
     };
 };
 

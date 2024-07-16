@@ -12,6 +12,7 @@ trap handle_sigchild SIGCHLD
 
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
+HONK=${HONK:-false}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
@@ -36,6 +37,12 @@ cd acir_tests
 
 # Convert them to array
 SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
+
+# if HONK is false, we should skip verify_honk_proof
+if [ "$HONK" = false ]; then
+    # Insert the new item into the array
+    SKIP_ARRAY+=(verify_honk_proof)
+fi
 
 function test() {
   cd $1
@@ -73,7 +80,7 @@ else
       continue
     fi
 
-    if [[ ! -f ./$TEST_NAME/target/acir.gz || ! -f ./$TEST_NAME/target/witness.gz ]]; then
+    if [[ ! -f ./$TEST_NAME/target/program.json || ! -f ./$TEST_NAME/target/witness.gz ]]; then
       echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
       continue
     fi

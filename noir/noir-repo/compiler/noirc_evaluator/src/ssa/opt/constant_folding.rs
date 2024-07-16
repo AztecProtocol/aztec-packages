@@ -6,9 +6,8 @@
 //!   by the [`DataFlowGraph`] automatically as new instructions are pushed.
 //! - Check whether any input values have been constrained to be equal to a value of a simpler form
 //!   by a [constrain instruction][Instruction::Constrain]. If so, replace the input value with the simpler form.
-//! - Check whether the instruction is [pure][Instruction::is_pure()]
-//!   and there exists a duplicate instruction earlier in the same block.
-//!   If so, the instruction can be replaced with the results of this previous instruction.
+//! - Check whether the instruction [can_be_replaced][Instruction::can_be_replaced()]
+//!   by duplicate instruction earlier in the same block.
 //!
 //! These operations are done in parallel so that they can each benefit from each other
 //! without the need for multiple passes.
@@ -22,7 +21,7 @@
 //! different blocks are merged, i.e. after the [`flatten_cfg`][super::flatten_cfg] pass.
 use std::collections::HashSet;
 
-use acvm::FieldElement;
+use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 
 use crate::ssa::{
@@ -88,12 +87,16 @@ struct Context {
     block_queue: Vec<BasicBlockId>,
 }
 
+/// HashMap from (Instruction, side_effects_enabled_var) to the results of the instruction.
+/// Stored as a two-level map to avoid cloning Instructions during the `.get` call.
+type InstructionResultCache = HashMap<Instruction, HashMap<Option<ValueId>, Vec<ValueId>>>;
+
 impl Context {
     fn fold_constants_in_block(&mut self, function: &mut Function, block: BasicBlockId) {
         let instructions = function.dfg[block].take_instructions();
 
         // Cache of instructions without any side-effects along with their outputs.
-        let mut cached_instruction_results: HashMap<Instruction, Vec<ValueId>> = HashMap::default();
+        let mut cached_instruction_results = HashMap::default();
 
         // Contains sets of values which are constrained to be equivalent to each other.
         //
@@ -125,7 +128,7 @@ impl Context {
         dfg: &mut DataFlowGraph,
         block: BasicBlockId,
         id: InstructionId,
-        instruction_result_cache: &mut HashMap<Instruction, Vec<ValueId>>,
+        instruction_result_cache: &mut InstructionResultCache,
         constraint_simplification_mappings: &mut HashMap<ValueId, HashMap<ValueId, ValueId>>,
         side_effects_enabled_var: &mut ValueId,
     ) {
@@ -135,7 +138,9 @@ impl Context {
         let old_results = dfg.instruction_results(id).to_vec();
 
         // If a copy of this instruction exists earlier in the block, then reuse the previous results.
-        if let Some(cached_results) = instruction_result_cache.get(&instruction) {
+        if let Some(cached_results) =
+            Self::get_cached(dfg, instruction_result_cache, &instruction, *side_effects_enabled_var)
+        {
             Self::replace_result_ids(dfg, &old_results, cached_results);
             return;
         }
@@ -151,6 +156,7 @@ impl Context {
             dfg,
             instruction_result_cache,
             constraint_simplification_mapping,
+            *side_effects_enabled_var,
         );
 
         // If we just inserted an `Instruction::EnableSideEffects`, we need to update `side_effects_enabled_var`
@@ -225,8 +231,9 @@ impl Context {
         instruction: Instruction,
         instruction_results: Vec<ValueId>,
         dfg: &DataFlowGraph,
-        instruction_result_cache: &mut HashMap<Instruction, Vec<ValueId>>,
+        instruction_result_cache: &mut InstructionResultCache,
         constraint_simplification_mapping: &mut HashMap<ValueId, ValueId>,
+        side_effects_enabled_var: ValueId,
     ) {
         if self.use_constraint_info {
             // If the instruction was a constraint, then create a link between the two `ValueId`s
@@ -257,10 +264,17 @@ impl Context {
             }
         }
 
-        // If the instruction doesn't have side-effects, cache the results so we can reuse them if
-        // the same instruction appears again later in the block.
-        if instruction.is_pure(dfg) {
-            instruction_result_cache.insert(instruction, instruction_results);
+        // If the instruction doesn't have side-effects and if it won't interact with enable_side_effects during acir_gen,
+        // we cache the results so we can reuse them if the same instruction appears again later in the block.
+        if instruction.can_be_deduplicated(dfg, self.use_constraint_info) {
+            let use_predicate =
+                self.use_constraint_info && instruction.requires_acir_gen_predicate(dfg);
+            let predicate = use_predicate.then_some(side_effects_enabled_var);
+
+            instruction_result_cache
+                .entry(instruction)
+                .or_default()
+                .insert(predicate, instruction_results);
         }
     }
 
@@ -274,6 +288,25 @@ impl Context {
             dfg.set_value_from_id(*old_result, *new_result);
         }
     }
+
+    fn get_cached<'a>(
+        dfg: &DataFlowGraph,
+        instruction_result_cache: &'a mut InstructionResultCache,
+        instruction: &Instruction,
+        side_effects_enabled_var: ValueId,
+    ) -> Option<&'a Vec<ValueId>> {
+        let results_for_instruction = instruction_result_cache.get(instruction);
+
+        // See if there's a cached version with no predicate first
+        if let Some(results) = results_for_instruction.and_then(|map| map.get(&None)) {
+            return Some(results);
+        }
+
+        let predicate =
+            instruction.requires_acir_gen_predicate(dfg).then_some(side_effects_enabled_var);
+
+        results_for_instruction.and_then(|map| map.get(&predicate))
+    }
 }
 
 #[cfg(test)]
@@ -283,13 +316,13 @@ mod test {
     use crate::ssa::{
         function_builder::FunctionBuilder,
         ir::{
-            function::RuntimeType,
             instruction::{Binary, BinaryOp, Instruction, TerminatorInstruction},
             map::Id,
             types::Type,
             value::{Value, ValueId},
         },
     };
+    use acvm::{acir::AcirField, FieldElement};
 
     #[test]
     fn simple_constant_fold() {
@@ -305,7 +338,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::field());
 
         let one = builder.field_constant(1u128);
@@ -361,7 +394,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::unsigned(16));
         let v1 = builder.add_parameter(Type::unsigned(16));
 
@@ -415,7 +448,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::unsigned(16));
         let v1 = builder.add_parameter(Type::unsigned(16));
 
@@ -471,7 +504,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::field());
         let one = builder.field_constant(1u128);
         let v1 = builder.insert_binary(v0, BinaryOp::Add, one);
@@ -518,7 +551,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::unsigned(16));
 
         let v1 = builder.insert_cast(v0, Type::unsigned(32));
@@ -547,6 +580,73 @@ mod test {
     }
 
     #[test]
+    fn constant_index_array_access_deduplication() {
+        // fn main f0 {
+        //   b0(v0: [Field; 4], v1: u32, v2: bool, v3: bool):
+        //     enable_side_effects v2
+        //     v4 = array_get v0 u32 0
+        //     v5 = array_get v0 v1
+        //     enable_side_effects v3
+        //     v6 = array_get v0 u32 0
+        //     v7 = array_get v0 v1
+        //     constrain v4 v6
+        // }
+        //
+        // After constructing this IR, we run constant folding which should replace the second constant-index array get
+        // with a reference to the results to the first. This then allows us to optimize away
+        // the constrain instruction as both inputs are known to be equal.
+        //
+        let main_id = Id::test_new(0);
+
+        // Compiling main
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
+
+        let v0 = builder.add_parameter(Type::Array(Rc::new(vec![Type::field()]), 4));
+        let v1 = builder.add_parameter(Type::unsigned(32));
+        let v2 = builder.add_parameter(Type::unsigned(1));
+        let v3 = builder.add_parameter(Type::unsigned(1));
+
+        let zero = builder.numeric_constant(FieldElement::zero(), Type::length_type());
+
+        builder.insert_enable_side_effects_if(v2);
+        let v4 = builder.insert_array_get(v0, zero, Type::field());
+        let _v5 = builder.insert_array_get(v0, v1, Type::field());
+
+        builder.insert_enable_side_effects_if(v3);
+        let v6 = builder.insert_array_get(v0, zero, Type::field());
+        let _v7 = builder.insert_array_get(v0, v1, Type::field());
+
+        builder.insert_constrain(v4, v6, None);
+
+        let ssa = builder.finish();
+
+        println!("{ssa}");
+
+        let main = ssa.main();
+        let instructions = main.dfg[main.entry_block()].instructions();
+        assert_eq!(instructions.len(), 7);
+
+        // Expected output:
+        //
+        // fn main f0 {
+        //   b0(v0: [Field; 4], v1: u32, v2: bool, v3: bool):
+        //     enable_side_effects v2
+        //     v10 = array_get v0 u32 0
+        //     v11 = array_get v0 v1
+        //     enable_side_effects v3
+        //     v12 = array_get v0 v1
+        // }
+        let ssa = ssa.fold_constants();
+
+        println!("{ssa}");
+
+        let main = ssa.main();
+        let instructions = main.dfg[main.entry_block()].instructions();
+
+        assert_eq!(instructions.len(), 5);
+    }
+
+    #[test]
     fn constraint_decomposition() {
         // fn main f0 {
         //   b0(v0: u1, v1: u1, v2: u1):
@@ -562,7 +662,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder = FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir);
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::bool());
         let v1 = builder.add_parameter(Type::bool());
         let v2 = builder.add_parameter(Type::bool());
@@ -607,5 +707,138 @@ mod test {
         assert_eq!(main.dfg[instructions[3]], Instruction::Constrain(v0, v_true, None));
         assert_eq!(main.dfg[instructions[4]], Instruction::Constrain(v1, v_true, None));
         assert_eq!(main.dfg[instructions[5]], Instruction::Constrain(v2, v_false, None));
+    }
+
+    // Regression for #4600
+    #[test]
+    fn array_get_regression() {
+        // fn main f0 {
+        //   b0(v0: u1, v1: u64):
+        //     enable_side_effects_if v0
+        //     v2 = array_get [Field 0, Field 1], index v1
+        //     v3 = not v0
+        //     enable_side_effects_if v3
+        //     v4 = array_get [Field 0, Field 1], index v1
+        // }
+        //
+        // We want to make sure after constant folding both array_gets remain since they are
+        // under different enable_side_effects_if contexts and thus one may be disabled while
+        // the other is not. If one is removed, it is possible e.g. v4 is replaced with v2 which
+        // is disabled (only gets from index 0) and thus returns the wrong result.
+        let main_id = Id::test_new(0);
+
+        // Compiling main
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
+        let v0 = builder.add_parameter(Type::bool());
+        let v1 = builder.add_parameter(Type::unsigned(64));
+
+        builder.insert_enable_side_effects_if(v0);
+
+        let zero = builder.field_constant(0u128);
+        let one = builder.field_constant(1u128);
+
+        let typ = Type::Array(Rc::new(vec![Type::field()]), 2);
+        let array = builder.array_constant(vec![zero, one].into(), typ);
+
+        let _v2 = builder.insert_array_get(array, v1, Type::field());
+        let v3 = builder.insert_not(v0);
+
+        builder.insert_enable_side_effects_if(v3);
+        let _v4 = builder.insert_array_get(array, v1, Type::field());
+
+        // Expected output is unchanged
+        let ssa = builder.finish();
+        let main = ssa.main();
+        let instructions = main.dfg[main.entry_block()].instructions();
+        let starting_instruction_count = instructions.len();
+        assert_eq!(starting_instruction_count, 5);
+
+        let ssa = ssa.fold_constants();
+        let main = ssa.main();
+        let instructions = main.dfg[main.entry_block()].instructions();
+        let ending_instruction_count = instructions.len();
+        assert_eq!(starting_instruction_count, ending_instruction_count);
+    }
+
+    #[test]
+    fn deduplicate_instructions_with_predicates() {
+        // fn main f0 {
+        //   b0(v0: bool, v1: bool, v2: [u32; 2]):
+        //     enable_side_effects v0
+        //     v3 = array_get v2, index u32 0
+        //     v4 = array_set v2, index u32 1, value: u32 2
+        //     v5 = array_get v4, index u32 0
+        //     constrain_eq v3, v5
+        //     enable_side_effects v1
+        //     v6 = array_get v2, index u32 0
+        //     v7 = array_set v2, index u32 1, value: u32 2
+        //     v8 = array_get v7, index u32 0
+        //     constrain_eq v6, v8
+        //     enable_side_effects v0
+        //     v9 = array_get v2, index u32 0
+        //     v10 = array_set v2, index u32 1, value: u32 2
+        //     v11 = array_get v10, index u32 0
+        //     constrain_eq v9, v11
+        // }
+        let main_id = Id::test_new(0);
+
+        // Compiling main
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
+
+        let v0 = builder.add_parameter(Type::bool());
+        let v1 = builder.add_parameter(Type::bool());
+        let v2 = builder.add_parameter(Type::Array(Rc::new(vec![Type::field()]), 2));
+
+        let zero = builder.numeric_constant(0u128, Type::length_type());
+        let one = builder.numeric_constant(1u128, Type::length_type());
+        let two = builder.numeric_constant(2u128, Type::length_type());
+
+        builder.insert_enable_side_effects_if(v0);
+        let v3 = builder.insert_array_get(v2, zero, Type::length_type());
+        let v4 = builder.insert_array_set(v2, one, two);
+        let v5 = builder.insert_array_get(v4, zero, Type::length_type());
+        builder.insert_constrain(v3, v5, None);
+
+        builder.insert_enable_side_effects_if(v1);
+        let v6 = builder.insert_array_get(v2, zero, Type::length_type());
+        let v7 = builder.insert_array_set(v2, one, two);
+        let v8 = builder.insert_array_get(v7, zero, Type::length_type());
+        builder.insert_constrain(v6, v8, None);
+
+        // We expect all these instructions after the 'enable side effects' instruction to be removed.
+        builder.insert_enable_side_effects_if(v0);
+        let v9 = builder.insert_array_get(v2, zero, Type::length_type());
+        let v10 = builder.insert_array_set(v2, one, two);
+        let v11 = builder.insert_array_get(v10, zero, Type::length_type());
+        builder.insert_constrain(v9, v11, None);
+
+        let ssa = builder.finish();
+        println!("{ssa}");
+
+        let main = ssa.main();
+        let instructions = main.dfg[main.entry_block()].instructions();
+        assert_eq!(instructions.len(), 15);
+
+        // Expected output:
+        //
+        // fn main f0 {
+        //   b0(v0: bool, v1: bool, v2: [Field; 2]):
+        //     enable_side_effects v0
+        //     v3 = array_get v2, index Field 0
+        //     v4 = array_set v2, index Field 1, value: Field 2
+        //     v5 = array_get v4, index Field 0
+        //     constrain_eq v3, v5
+        //     enable_side_effects v1
+        //     v7 = array_set v2, index Field 1, value: Field 2
+        //     v8 = array_get v7, index Field 0
+        //     constrain_eq v3, v8
+        //     enable_side_effects v0
+        // }
+        let ssa = ssa.fold_constants_using_constraints();
+        println!("{ssa}");
+
+        let main = ssa.main();
+        let instructions = main.dfg[main.entry_block()].instructions();
+        assert_eq!(instructions.len(), 10);
     }
 }

@@ -1,5 +1,5 @@
 import { BarretenbergSync } from '@aztec/bb.js';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 /**
  * Grumpkin elliptic curve operations.
@@ -37,6 +37,19 @@ export class Grumpkin {
   }
 
   /**
+   * Add two points.
+   * @param a - Point a in the addition
+   * @param b - Point b to add to a
+   * @returns Result of the addition.
+   */
+  public add(a: Point, b: Point): Point {
+    this.wasm.writeMemory(0, a.toBuffer());
+    this.wasm.writeMemory(64, b.toBuffer());
+    this.wasm.call('ecc_grumpkin__add', 0, 64, 128);
+    return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(128, 192)));
+  }
+
+  /**
    * Multiplies a set of points by a scalar.
    * @param points - Points to multiply.
    * @param scalar - Scalar to multiply by.
@@ -59,7 +72,7 @@ export class Grumpkin {
 
     const parsedResult: Point[] = [];
     for (let i = 0; i < pointsByteLength; i += 64) {
-      parsedResult.push(Point.fromBuffer(result.slice(i, i + 64)));
+      parsedResult.push(Point.fromBuffer(result.subarray(i, i + 64)));
     }
     return parsedResult;
   }

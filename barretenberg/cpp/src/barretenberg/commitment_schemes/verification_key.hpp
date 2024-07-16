@@ -29,18 +29,18 @@ template <class Curve> class VerifierCommitmentKey;
  * @tparam curve::BN254
  */
 template <> class VerifierCommitmentKey<curve::BN254> {
+  public:
     using Curve = curve::BN254;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
-
-  public:
-    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 
     VerifierCommitmentKey()
     {
         srs::init_crs_factory("../srs_db/ignition");
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
     };
+
+    Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
     /**
      * @brief verifies a pairing equation over 2 points using the verifier SRS
@@ -58,6 +58,9 @@ template <> class VerifierCommitmentKey<curve::BN254> {
 
         return (result == Curve::TargetField::one());
     }
+
+  private:
+    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 };
 
 /**
@@ -66,12 +69,10 @@ template <> class VerifierCommitmentKey<curve::BN254> {
  * @tparam curve::Grumpkin
  */
 template <> class VerifierCommitmentKey<curve::Grumpkin> {
+  public:
     using Curve = curve::Grumpkin;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
-
-  public:
-    VerifierCommitmentKey() = delete;
 
     /**
      * @brief Construct a new IPA Verification Key object from existing SRS
@@ -83,10 +84,22 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
     VerifierCommitmentKey(size_t num_points, const std::shared_ptr<bb::srs::factories::CrsFactory<Curve>>& crs_factory)
         : pippenger_runtime_state(num_points)
         , srs(crs_factory->get_verifier_crs(num_points))
-
     {}
 
+    VerifierCommitmentKey(size_t num_points)
+        : pippenger_runtime_state(num_points)
+    {
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
+    }
+
+    Commitment get_g1_identity() { return srs->get_g1_identity(); }
+
+    Commitment* get_monomial_points() { return srs->get_monomial_points(); }
+
     bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
+
+  private:
     std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
 };
 

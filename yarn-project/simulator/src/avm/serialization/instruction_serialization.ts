@@ -3,7 +3,7 @@ import { strict as assert } from 'assert';
 import { BufferCursor } from './buffer_cursor.js';
 
 /**
- * All AVM opcodes. (Keep in sync with cpp counterpart code avm_opcode.hpp).
+ * All AVM opcodes. (Keep in sync with cpp counterpart code avm_opcode.hpp and rs in opcodes.rs).
  * Source: https://yp-aztec.netlify.app/docs/public-vm/instruction-set
  */
 export enum Opcode {
@@ -26,24 +26,20 @@ export enum Opcode {
   // Execution environment
   ADDRESS,
   STORAGEADDRESS,
-  ORIGIN,
   SENDER,
-  PORTAL,
-  FEEPERL1GAS,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
-  CONTRACTCALLDEPTH,
+  FUNCTIONSELECTOR,
+  TRANSACTIONFEE,
   CHAINID,
   VERSION,
   BLOCKNUMBER,
   TIMESTAMP,
   COINBASE,
-  BLOCKL1GASLIMIT,
+  FEEPERL2GAS,
+  FEEPERDAGAS,
   BLOCKL2GASLIMIT,
   BLOCKDAGASLIMIT,
   CALLDATACOPY,
   // Gas
-  L1GASLEFT,
   L2GASLEFT,
   DAGASLEFT,
   // Control flow
@@ -64,6 +60,7 @@ export enum Opcode {
   EMITNULLIFIER,
   L1TOL2MSGEXISTS,
   HEADERMEMBER,
+  GETCONTRACTINSTANCE,
   EMITUNENCRYPTEDLOG,
   SENDL2TOL1MSG,
   // External calls
@@ -72,11 +69,17 @@ export enum Opcode {
   DELEGATECALL,
   RETURN,
   REVERT,
+  // Misc
+  DEBUGLOG,
   // Gadgets
   KECCAK,
-  POSEIDON,
+  POSEIDON2,
   SHA256, // temp - may be removed, but alot of contracts rely on it
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
+  ECADD,
+  MSM,
+  // Conversion
+  TORADIXLE,
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.

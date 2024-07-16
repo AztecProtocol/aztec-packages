@@ -48,6 +48,21 @@ avm-transpiler:
   rebuildPatterns:
     - ^avm-transpiler/
     - ^noir/
+  dependencies:
+    - noir
+  multiarch: host
+
+aztec-nargo:
+  buildDir: .
+  dockerfile: aztec-nargo/Dockerfile
+  rebuildPatterns:
+    - ^aztec-nargo/
+    - ^avm-transpiler/
+    - ^noir/
+  dependencies:
+    - avm-transpiler
+    - noir
+  multiarch: buildx
 
 # Compiles all aztec noir projects using nargo and the avm-transpiler.
 noir-projects:
@@ -55,6 +70,16 @@ noir-projects:
   dependencies:
     - noir
     - avm-transpiler
+    - barretenberg-x86_64-linux-clang
+
+# Compiles all aztec noir projects using nargo and the avm-transpiler, then tests them using the TXE.
+noir-projects-tests:
+  buildDir: noir-projects
+  dockerfile: Dockerfile.test
+  dependencies:
+    - noir
+    - avm-transpiler
+    - yarn-project
 
 # Uses nargo to compile all the noir test programs, used to test bb and bb.js.
 noir-compile-acir-tests:
@@ -82,12 +107,6 @@ barretenberg-x86_64-linux-clang-assert:
 barretenberg-x86_64-linux-clang-fuzzing:
   buildDir: barretenberg/cpp
   dockerfile: dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing
-  rebuildPatterns: .rebuild_patterns
-
-# Builds all of barretenberg with gcc. Ensures compiler compatibility.
-barretenberg-x86_64-linux-gcc:
-  buildDir: barretenberg/cpp
-  dockerfile: dockerfiles/Dockerfile.x86_64-linux-gcc
   rebuildPatterns: .rebuild_patterns
 
 # Builds barretenberg.wasm (single and multithreaded builds).
@@ -153,13 +172,29 @@ yarn-project-test:
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
-    - ^yarn-project/cli/aztec-cli
   dependencies:
     - bb.js
     - noir-packages
     - l1-contracts
     - noir-projects
     - barretenberg-x86_64-linux-clang
+    - noir
+
+# Runs all prover-client checks and tests.
+prover-client-test:
+  buildDir: yarn-project
+  projectDir: yarn-project/prover-client
+  dockerfile: Dockerfile.test
+  rebuildPatterns:
+    - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
+    - ^yarn-project/Dockerfile$
+  dependencies:
+    - bb.js
+    - noir-packages
+    - l1-contracts
+    - noir-projects
+    - barretenberg-x86_64-linux-clang
+    - noir
 
 # Builds all of yarn-project, with all developer dependencies.
 # Creates a runnable container used to run tests and formatting checks.
@@ -168,7 +203,6 @@ yarn-project:
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
-    - ^yarn-project/cli/aztec-cli
   dependencies:
     - bb.js
     - noir-packages
@@ -186,18 +220,9 @@ aztec:
     - yarn-project
   multiarch: buildx
 
-# Aztec faucet server. Has these dependencies because it's part of workspace. Consider moving out?
-aztec-faucet:
+aztec-builder:
   buildDir: yarn-project
-  projectDir: yarn-project/aztec-faucet
-  dependencies:
-    - bb.js
-    - noir-packages
-
-# A runnable container, sets entrypoint to be the aztec-cli entrypoint.
-cli:
-  buildDir: yarn-project
-  projectDir: yarn-project/cli
+  projectDir: yarn-project/builder
   dependencies:
     - yarn-project
   multiarch: buildx
@@ -227,10 +252,6 @@ end-to-end:
   runDependencies:
     - aztec
 
-mainnet-fork:
-  buildDir: iac/mainnet-fork
-  projectDir: iac/mainnet-fork
-
 docs:
   buildDir: .
   dockerfile: docs/Dockerfile
@@ -246,8 +267,3 @@ docs:
     - noir-packages
     - l1-contracts
     - noir-projects
-
-yellow-paper:
-  buildDir: yellow-paper
-  rebuildPatterns:
-    - ^yellow-paper/

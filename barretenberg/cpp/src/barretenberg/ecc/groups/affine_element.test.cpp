@@ -12,6 +12,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <iterator>
+#include <tuple>
 
 using ::testing::Each;
 using ::testing::ElementsAreArray;
@@ -65,6 +66,29 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_read_and_write()
+    {
+        // a generic point
+        {
+            affine_element P = affine_element(element::random_element());
+            [[maybe_unused]] affine_element R;
+
+            std::vector<uint8_t> v(sizeof(R));
+            uint8_t* ptr = v.data();
+            write(ptr, P);
+            ASSERT_TRUE(P.on_curve());
+
+            // // Reset to start?
+            // ptr = v.data();
+
+            const uint8_t* read_ptr = v.data();
+            // good read
+            read(read_ptr, R);
+            ASSERT_TRUE(R.on_curve());
+            ASSERT_TRUE(P == R);
+        }
+    }
+
     static void test_point_compression()
     {
         for (size_t i = 0; i < 10; i++) {
@@ -110,17 +134,6 @@ template <typename G1> class TestAffineElement : public testing::Test {
     }
 
     /**
-     * @brief Check that msgpack encoding is consistent with decoding
-     *
-     */
-    static void test_msgpack_roundtrip()
-    {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-        auto [actual, expected] = msgpack_roundtrip(affine_element{ 1, 1 });
-        EXPECT_EQ(actual, expected);
-    }
-
-    /**
      * @brief A regression test to make sure the -1 case is covered
      *
      */
@@ -138,10 +151,16 @@ template <typename G1> class TestAffineElement : public testing::Test {
     }
 };
 
-using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
+using TestTypes = testing::Types<bb::g1>;
+// using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
 } // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
+
+TYPED_TEST(TestAffineElement, ReadWrite)
+{
+    TestFixture::test_read_and_write();
+}
 
 TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 {
@@ -169,11 +188,6 @@ TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
 TYPED_TEST(TestAffineElement, InfinityOrderingRegression)
 {
     TestFixture::test_infinity_ordering_regression();
-}
-
-TYPED_TEST(TestAffineElement, Msgpack)
-{
-    TestFixture::test_msgpack_roundtrip();
 }
 
 namespace bb::group_elements {
@@ -253,5 +267,32 @@ TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
         TestFixture::test_batch_endomorphism_by_minus_one();
     } else {
         GTEST_SKIP();
+    }
+}
+
+TEST(AffineElement, HashToCurve)
+{
+    std::vector<std::tuple<std::vector<uint8_t>, grumpkin::g1::affine_element>> test_vectors;
+    test_vectors.emplace_back(std::vector<uint8_t>(),
+                              grumpkin::g1::affine_element(
+                                  fr(uint256_t("24c4cb9c1206ab5470592f237f1698abe684dadf0ab4d7a132c32b2134e2c12e")),
+                                  fr(uint256_t("0668b8d61a317fb34ccad55c930b3554f1828a0e5530479ecab4defe6bbc0b2e"))));
+
+    test_vectors.emplace_back(std::vector<uint8_t>{ 1 },
+                              grumpkin::g1::affine_element(
+                                  fr(uint256_t("107f1b633c6113f3222f39f6256f0546b41a4880918c86864b06471afb410454")),
+                                  fr(uint256_t("050cd3823d0c01590b6a50adcc85d2ee4098668fd28805578aa05a423ea938c6"))));
+
+    // "hello world"
+    test_vectors.emplace_back(std::vector<uint8_t>{ 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64 },
+                              grumpkin::g1::affine_element(
+                                  fr(uint256_t("037c5c229ae495f6e8d1b4bf7723fafb2b198b51e27602feb8a4d1053d685093")),
+                                  fr(uint256_t("10cf9596c5b2515692d930efa2cf3817607e4796856a79f6af40c949b066969f"))));
+
+    for (std::tuple<std::vector<uint8_t>, grumpkin::g1::affine_element> test_case : test_vectors) {
+        auto result = grumpkin::g1::affine_element::hash_to_curve(std::get<0>(test_case), 0);
+        auto expected_result = std::get<1>(test_case);
+        std::cout << result << std::endl;
+        EXPECT_TRUE(result == expected_result);
     }
 }

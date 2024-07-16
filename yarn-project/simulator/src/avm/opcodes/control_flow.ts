@@ -1,7 +1,8 @@
 import type { AvmContext } from '../avm_context.js';
-import { IntegralValue } from '../avm_memory_types.js';
+import { type IntegralValue } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
+import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
 export class Jump extends Instruction {
@@ -14,8 +15,12 @@ export class Jump extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
+    context.machineState.consumeGas(this.gasCost());
+
     context.machineState.pc = this.jumpOffset;
+
+    context.machineState.memory.assert({});
   }
 }
 
@@ -35,8 +40,13 @@ export class JumpI extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
-    const condition = context.machineState.memory.getAs<IntegralValue>(this.condOffset);
+  public async execute(context: AvmContext): Promise<void> {
+    const memoryOperations = { reads: 1, indirect: this.indirect };
+    const memory = context.machineState.memory.track(this.type);
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
+
+    const [condOffset] = Addressing.fromWire(this.indirect).resolve([this.condOffset], memory);
+    const condition = memory.getAs<IntegralValue>(condOffset);
 
     // TODO: reconsider this casting
     if (condition.toBigInt() == 0n) {
@@ -44,6 +54,8 @@ export class JumpI extends Instruction {
     } else {
       context.machineState.pc = this.loc;
     }
+
+    memory.assert(memoryOperations);
   }
 }
 
@@ -57,9 +69,13 @@ export class InternalCall extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
+    context.machineState.consumeGas(this.gasCost());
+
     context.machineState.internalCallStack.push(context.machineState.pc + 1);
     context.machineState.pc = this.loc;
+
+    context.machineState.memory.assert({});
   }
 }
 
@@ -73,11 +89,15 @@ export class InternalReturn extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  public async execute(context: AvmContext): Promise<void> {
+    context.machineState.consumeGas(this.gasCost());
+
     const jumpOffset = context.machineState.internalCallStack.pop();
     if (jumpOffset === undefined) {
       throw new InstructionExecutionError('Internal call stack empty!');
     }
     context.machineState.pc = jumpOffset;
+
+    context.machineState.memory.assert({});
   }
 }

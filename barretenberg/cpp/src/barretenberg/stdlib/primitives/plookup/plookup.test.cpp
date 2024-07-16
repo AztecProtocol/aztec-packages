@@ -2,6 +2,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/bitop/rotate.hpp"
+#include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -22,7 +23,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-// TODO FIX FIX
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/953): Re-enable these tests
 // TEST(stdlib_plookup, pedersen_lookup_left)
 // {
 //     Builder builder = Builder();

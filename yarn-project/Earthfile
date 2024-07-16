@@ -1,114 +1,283 @@
 VERSION 0.8
-FROM node:18.19.0
-RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# copy bb-js and noir-packages
-COPY ../barretenberg/ts/+build/build /build/barretenberg/ts
-COPY ../noir/+packages/packages /build/noir/packages
-# install acvm binary
-COPY ../noir/+nargo/acvm /usr/bin/acvm
-COPY --dir ../noir-projects/+build/. /build/noir-projects
-COPY ../l1-contracts/+build/out /build/l1-contracts/out
-
-WORKDIR /build/yarn-project
-# copy source
-COPY --keep-ts --dir * *.json .yarn .yarnrc.yml .
-
-# We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
-# walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
-# correctly for portalled packages, is to use --preserve-symlinks when running node.
-# This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
-# Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
-# by initialising the module more than once. So at present I don't see a viable alternative.
-RUN ln -s /build/yarn-project/node_modules /build/node_modules
-
-# Target for main build process
-build:
-    ARG EARTHLY_CI
-    # TODO: Replace puppeteer with puppeteer-core to avoid this.
-    # TODO encapsulate in bash script for cleanliness
-    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    IF $EARTHLY_CI # Don't cache CI builds.
-        RUN ./bootstrap.sh && yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
-    ELSE
-        ENV YARN_CACHE_FOLDER /build/yarn-cache
-        # Use a mount for incremental builds locally.
-        RUN --mount type=cache,target=/build/node_modules_cache --mount type=cache,target=/build/yarn-cache \
-            mkdir -p node_modules_cache && \
-            mv node_modules_cache node_modules && \
-            ./bootstrap.sh && \
-            yarn workspaces focus @aztec/cli @aztec/aztec --production && \
-            cp -r node_modules node_modules_cache
+deps:
+    LOCALLY
+    LET packages = $(git ls-files "**/package*.json" package*.json)
+    LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
+    FROM ../build-images+from-registry
+    # copy bb, bb-js and noir-packages
+    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/
+    COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
+    COPY ../noir/+packages/packages /usr/src/noir/packages
+    WORKDIR /usr/src/yarn-project
+    COPY --dir .yarn .yarnrc.yml yarn.lock .
+    FOR file IN $packages
+        COPY $file $file
     END
-    SAVE ARTIFACT /build
+    RUN yarn install --immutable
+    FOR file IN $tsconfigs
+        COPY $file $file
+    END
+    COPY scripts/update_package_jsons.mjs scripts/update_package_jsons.mjs
+    RUN yarn prepare:check
 
-# TODO versioning flow at end before publish?
-# ENV COMMIT_TAG=$EARTHLY_BUILD_SHA
-# RUN ./scripts/version_packages.sh
+    # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+    # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+    # correctly for portalled packages, is to use --preserve-symlinks when running node.
+    # This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+    # Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+    # by initialising the module more than once. So at present I don't see a viable alternative.
+    RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
-# run:
-#     FROM node:18.19.1-slim
-#     ARG COMMIT_TAG=""
-#     ENV COMMIT_TAG=$COMMIT_TAG
-#     COPY --from=builder /build /build
-#     WORKDIR /build/yarn-project
-#     ENTRYPOINT ["yarn"]
+build:
+    # Prefetch targets to not wait for +deps.
+    BUILD ../barretenberg/cpp/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+nargo
+    BUILD ../noir-projects/+build
+    BUILD ../l1-contracts/+build
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages
+    FROM +deps
+
+    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
+    COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
+    COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
+
+    WORKDIR /usr/src/yarn-project
+    COPY . .
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN ./bootstrap.sh full
+
+build-dev:
+    FROM +build
+    SAVE ARTIFACT /usr/src /usr/src
+
+bb-cli:
+    FROM +build
+
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+
+    RUN yarn workspaces focus @aztec/bb-prover --production && yarn cache clean
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        aztec.js/dest/main.js \
+        end-to-end \
+        **/src
+
+    # yarn symlinks the binary to node_modules/.bin
+    ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
+
+# helper target to generate vks in parallel
+verification-key:
+    ARG circuit="RootRollupArtifact"
+    FROM +bb-cli
+
+    # this needs to be exported as an env var for RUN to pick it up
+    ENV CIRCUIT=$circuit
+    RUN --entrypoint write-vk -c $CIRCUIT
+
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+protocol-verification-keys:
+    LOCALLY
+    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
+
+    FOR circuit IN $circuits
+        BUILD +verification-key --circuit=$circuit
+    END
+
+    # this could be FROM scratch
+    # but FOR doesn't work without /bin/sh
+    FROM ubuntu:noble
+    WORKDIR /usr/src/bb
+
+    FOR circuit IN $circuits
+        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
+    END
+
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+rollup-verifier-contract:
+    FROM +bb-cli
+    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
+    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraVerifier.sol
+    SAVE ARTIFACT /usr/src/bb /usr/src/bb
+
+txe:
+    FROM +build
+    RUN yarn workspaces focus @aztec/txe --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser
+    SAVE ARTIFACT /usr/src /usr/src
+
+aztec-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/aztec @aztec/builder --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        aztec.js/dest/main.js \
+        end-to-end \
+        **/src
+    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+    SAVE ARTIFACT /usr/src /usr/src
 
 aztec:
-    FROM +build
-    # ENV vars for using native ACVM simulation
-    ENV ACVM_BINARY_PATH="/usr/bin/acvm" ACVM_WORKING_DIRECTORY="/tmp/acvm"
-    ENTRYPOINT ["node", "--no-warnings", "/build/yarn-project/aztec/dest/bin/index.js"]
-    EXPOSE 8080
-    # TODO(AD) the following are the biggest node modules bundled, should they be deleted as they are build tools?
-    # 25840   @jest
-    # 31544   typescript
-    # 62368   @types
+    FROM ubuntu:noble
+    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    COPY +aztec-prod/usr/src /usr/src
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
+    LET port=8080
+    ENV PORT=$port
+    HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
+        CMD curl -fsSd '{\"jsonrpc\":\"2.0\",\"method\":\"pxe_getNodeInfo\",\"id\":1}' http://127.0.0.1:$port
+    EXPOSE $port
 
-    # The version has been updated in yarn-project.
-    # Adding COMMIT_TAG here to rebuild versioned image.
-    ARG COMMIT_TAG=""
+aztec-faucet-build:
+    FROM +build
+    RUN yarn workspaces focus @aztec/aztec-faucet --production && yarn cache clean
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        aztec.js/dest/main.js \
+        end-to-end \
+        **/src
+    SAVE ARTIFACT /usr/src /usr/src
+
+aztec-faucet:
+    FROM ubuntu:noble
+    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    COPY +aztec-faucet-build/usr/src /usr/src
+    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec-faucet/dest/bin/index.js"]
+    LET port=8080
+
+export-aztec-faucet:
+    FROM +aztec-faucet
+    ARG DIST_TAG="latest"
+    ARG ARCH
+    SAVE IMAGE --push aztecprotocol/aztec-faucet:${DIST_TAG}${ARCH:+-$ARCH}
+
+# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
+end-to-end-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser
+    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+    SAVE ARTIFACT /usr/src /usr/src
+
+anvil:
+    FROM ../build-images+from-registry
+    SAVE ARTIFACT /opt/foundry/bin/anvil
+
+end-to-end-base:
+    FROM ubuntu:noble
+    # add repository for chromium
+    RUN apt-get update && apt-get install -y software-properties-common \
+        && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
+        && apt-get install -y wget gnupg \
+        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+        && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
+        && rm -rf /var/lib/apt/lists/*
+    ENV CHROME_BIN="/usr/bin/chromium"
+    ENV PATH=/opt/foundry/bin:$PATH
+    ENV HARDWARE_CONCURRENCY=""
+    ENV BB_WORKING_DIRECTORY=/usr/src/bb
+    ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+    ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+    ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+    ENV PROVER_AGENT_CONCURRENCY=8
+    RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+
+    RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
 
 end-to-end:
-    # compilation artifacts for end-to-end
-    # TODO encapsulate in bash script for cleanliness
-    ARG EARTHLY_CI
-    IF $EARTHLY_CI # Don't cache CI builds.
-        RUN ./bootstrap.sh && \
-            yarn workspace @aztec/end-to-end run build:web && \
-            yarn workspaces focus @aztec/end-to-end --production \
-            && yarn cache clean
-    ELSE
-        ENV YARN_CACHE_FOLDER /yarn_cache
-        # TODO copy to other targets
-        # Use a mount for incremental builds locally.
-        # We cache NPM installs, typescript metadata and dest folders.
-        # TODO(AD): find safe way to cache noir contracts
-        RUN   --mount type=cache,target=/node_cache \
-              --mount type=cache,target=/yarn_cache \
-            mkdir -p /node_cache/node_modules && mv /node_cache/node_modules . && \
-            cp -r /node_cache/* . >/dev/null || echo "fresh build" && \
-            ./bootstrap.sh && \
-            yarn workspace @aztec/end-to-end run build:web && \
-            yarn workspaces focus @aztec/end-to-end --production && \
-            cp -r node_modules /node_cache/node_modules && \
-            cp -r --parents */dest /node_cache && \
-            find . -name '*.tsbuildinfo' -exec cp --parents {} /node_cache \;
-    END
-    SAVE ARTIFACT /build
+    FROM +end-to-end-base
 
-    # Build web bundle for browser tests
-    RUN yarn workspace @aztec/end-to-end run build:web
-    RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
-    SAVE ARTIFACT /build
-
-end-to-end-minimal: 
-    # end to end test runner
-    BUILD +aztec
-    FROM node:18.19.1-slim
-    RUN apt-get update && apt-get install jq chromium -y
-    ENV CHROME_BIN="/usr/bin/chromium"
-    COPY +end-to-end/build /build
-    WORKDIR /build/yarn-project/end-to-end
+    COPY +anvil/anvil /opt/foundry/bin/anvil
+    COPY +end-to-end-prod/usr/src /usr/src
+    WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
-    SAVE IMAGE aztecprotocol/cache:end-to-end
+
+scripts-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
+
+all:
+    BUILD +aztec
+    BUILD +end-to-end
+
+export-aztec:
+    ARG EARTHLY_GIT_HASH
+    FROM +aztec
+    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+
+export-aztec-arch:
+    FROM +aztec
+    ARG DIST_TAG="latest"
+    ARG ARCH
+    SAVE IMAGE --push aztecprotocol/aztec:${DIST_TAG}${ARCH:+-$ARCH}
+
+export-end-to-end:
+    ARG EARTHLY_GIT_HASH
+    FROM +end-to-end
+    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+
+export-e2e-test-images:
+    BUILD +export-aztec
+    BUILD +export-end-to-end
+
+format-check:
+    FROM +build
+    RUN yarn formatting
+
+test:
+    FROM +build
+    RUN yarn test
+
+run-e2e:
+    ARG test
+    ARG debug=""
+    FROM +end-to-end
+    RUN DEBUG=$debug yarn test $test
+
+prover-client-test:
+    FROM +build
+    ARG test
+    ARG debug=""
+    RUN cd prover-client && DEBUG=$debug yarn test $test

@@ -25,15 +25,20 @@ mod instructions;
 
 pub(crate) use instructions::BrilligBinaryOp;
 
-use self::{artifact::BrilligArtifact, registers::BrilligRegistersContext};
+use self::{
+    artifact::BrilligArtifact, debug_show::DebugToString, registers::BrilligRegistersContext,
+};
 use crate::ssa::ir::dfg::CallStack;
-use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
+use acvm::{
+    acir::brillig::{MemoryAddress, Opcode as BrilligOpcode},
+    AcirField,
+};
 use debug_show::DebugShow;
 
 /// The Brillig VM does not apply a limit to the memory address space,
-/// As a convention, we take use 64 bits. This means that we assume that
-/// memory has 2^64 memory slots.
-pub(crate) const BRILLIG_MEMORY_ADDRESSING_BIT_SIZE: u32 = 64;
+/// As a convention, we take use 32 bits. This means that we assume that
+/// memory has 2^32 memory slots.
+pub(crate) const BRILLIG_MEMORY_ADDRESSING_BIT_SIZE: u32 = 32;
 
 // Registers reserved in runtime for special purposes.
 pub(crate) enum ReservedRegisters {
@@ -73,8 +78,8 @@ impl ReservedRegisters {
 
 /// Brillig context object that is used while constructing the
 /// Brillig bytecode.
-pub(crate) struct BrilligContext {
-    obj: BrilligArtifact,
+pub(crate) struct BrilligContext<F> {
+    obj: BrilligArtifact<F>,
     /// Tracks register allocations
     registers: BrilligRegistersContext,
     /// Context label, must be unique with respect to the function
@@ -88,9 +93,9 @@ pub(crate) struct BrilligContext {
     debug_show: DebugShow,
 }
 
-impl BrilligContext {
+impl<F: AcirField + DebugToString> BrilligContext<F> {
     /// Initial context state
-    pub(crate) fn new(enable_debug_trace: bool) -> BrilligContext {
+    pub(crate) fn new(enable_debug_trace: bool) -> BrilligContext<F> {
         BrilligContext {
             obj: BrilligArtifact::default(),
             registers: BrilligRegistersContext::new(),
@@ -102,12 +107,12 @@ impl BrilligContext {
     }
 
     /// Adds a brillig instruction to the brillig byte code
-    fn push_opcode(&mut self, opcode: BrilligOpcode) {
+    fn push_opcode(&mut self, opcode: BrilligOpcode<F>) {
         self.obj.push_opcode(opcode);
     }
 
     /// Returns the artifact
-    pub(crate) fn artifact(self) -> BrilligArtifact {
+    pub(crate) fn artifact(self) -> BrilligArtifact<F> {
         self.obj
     }
 
@@ -122,7 +127,7 @@ pub(crate) mod tests {
     use std::vec;
 
     use acvm::acir::brillig::{
-        ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, Value, ValueOrArray,
+        ForeignCallParam, ForeignCallResult, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
     };
     use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};
@@ -135,12 +140,12 @@ pub(crate) mod tests {
 
     pub(crate) struct DummyBlackBoxSolver;
 
-    impl BlackBoxFunctionSolver for DummyBlackBoxSolver {
+    impl BlackBoxFunctionSolver<FieldElement> for DummyBlackBoxSolver {
         fn schnorr_verify(
             &self,
             _public_key_x: &FieldElement,
             _public_key_y: &FieldElement,
-            _signature: &[u8],
+            _signature: &[u8; 64],
             _message: &[u8],
         ) -> Result<bool, BlackBoxResolutionError> {
             Ok(true)
@@ -159,21 +164,24 @@ pub(crate) mod tests {
         ) -> Result<FieldElement, BlackBoxResolutionError> {
             Ok(6_u128.into())
         }
-        fn fixed_base_scalar_mul(
+        fn multi_scalar_mul(
             &self,
-            _low: &FieldElement,
-            _high: &FieldElement,
-        ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-            Ok((4_u128.into(), 5_u128.into()))
+            _points: &[FieldElement],
+            _scalars_lo: &[FieldElement],
+            _scalars_hi: &[FieldElement],
+        ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
+            Ok((4_u128.into(), 5_u128.into(), 0_u128.into()))
         }
 
         fn ec_add(
             &self,
             _input1_x: &FieldElement,
             _input1_y: &FieldElement,
+            _input1_infinite: &FieldElement,
             _input2_x: &FieldElement,
             _input2_y: &FieldElement,
-        ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+            _input2_infinite: &FieldElement,
+        ) -> Result<(FieldElement, FieldElement, FieldElement), BlackBoxResolutionError> {
             panic!("Path not trodden by this test")
         }
 
@@ -186,17 +194,17 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn create_context() -> BrilligContext {
+    pub(crate) fn create_context() -> BrilligContext<FieldElement> {
         let mut context = BrilligContext::new(true);
         context.enter_context("test");
         context
     }
 
     pub(crate) fn create_entry_point_bytecode(
-        context: BrilligContext,
+        context: BrilligContext<FieldElement>,
         arguments: Vec<BrilligParameter>,
         returns: Vec<BrilligParameter>,
-    ) -> GeneratedBrillig {
+    ) -> GeneratedBrillig<FieldElement> {
         let artifact = context.artifact();
         let mut entry_point_artifact =
             BrilligContext::new_entry_point_artifact(arguments, returns, "test".to_string());
@@ -205,9 +213,9 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn create_and_run_vm(
-        calldata: Vec<Value>,
-        bytecode: &[BrilligOpcode],
-    ) -> (VM<'_, DummyBlackBoxSolver>, usize, usize) {
+        calldata: Vec<FieldElement>,
+        bytecode: &[BrilligOpcode<FieldElement>],
+    ) -> (VM<'_, FieldElement, DummyBlackBoxSolver>, usize, usize) {
         let mut vm = VM::new(calldata, bytecode, vec![], &DummyBlackBoxSolver);
 
         let status = vm.process_opcodes();
@@ -234,20 +242,20 @@ pub(crate) mod tests {
         let mut context = BrilligContext::new(true);
         let r_stack = ReservedRegisters::free_memory_pointer();
         // Start stack pointer at 0
-        context.usize_const_instruction(r_stack, Value::from(ReservedRegisters::len() + 3));
+        context.usize_const_instruction(r_stack, FieldElement::from(ReservedRegisters::len() + 3));
         let r_input_size = MemoryAddress::from(ReservedRegisters::len());
         let r_array_ptr = MemoryAddress::from(ReservedRegisters::len() + 1);
         let r_output_size = MemoryAddress::from(ReservedRegisters::len() + 2);
         let r_equality = MemoryAddress::from(ReservedRegisters::len() + 3);
-        context.usize_const_instruction(r_input_size, Value::from(12_usize));
+        context.usize_const_instruction(r_input_size, FieldElement::from(12_usize));
         // copy our stack frame to r_array_ptr
         context.mov_instruction(r_array_ptr, r_stack);
         context.foreign_call_instruction(
             "make_number_sequence".into(),
             &[ValueOrArray::MemoryAddress(r_input_size)],
-            &[HeapValueType::Simple],
+            &[HeapValueType::Simple(32)],
             &[ValueOrArray::HeapVector(HeapVector { pointer: r_stack, size: r_output_size })],
-            &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple] }],
+            &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple(32)] }],
         );
         // push stack frame by r_returned_size
         context.memory_op_instruction(r_stack, r_output_size, r_stack, BrilligBinaryOp::Add);
@@ -262,12 +270,13 @@ pub(crate) mod tests {
         // uses unresolved jumps which requires a block to be constructed in SSA and
         // we don't need this for Brillig IR tests
         context.push_opcode(BrilligOpcode::JumpIf { condition: r_equality, location: 8 });
-        context.push_opcode(BrilligOpcode::Trap);
+        context.push_opcode(BrilligOpcode::Trap { revert_data: HeapArray::default() });
 
         context.stop_instruction();
 
-        let bytecode = context.artifact().finish().byte_code;
-        let number_sequence: Vec<Value> = (0_usize..12_usize).map(Value::from).collect();
+        let bytecode: Vec<BrilligOpcode<FieldElement>> = context.artifact().finish().byte_code;
+        let number_sequence: Vec<FieldElement> =
+            (0_usize..12_usize).map(FieldElement::from).collect();
         let mut vm = VM::new(
             vec![],
             &bytecode,

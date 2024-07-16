@@ -1,27 +1,30 @@
 use dep::authwit::auth_witness;
-use dep::aztec::protocol_types::{address::PartialAddress, grumpkin_point::GrumpkinPoint};
+use dep::aztec::{
+    protocol_types::{address::PartialAddress, utils::arr_copy_slice},
+    keys::{PublicKeys, PUBLIC_KEYS_LENGTH}
+};
 
 struct AuthWitness {
-    owner: GrumpkinPoint,
+    keys: PublicKeys,
     signature: [u8; 64],
     partial_address: PartialAddress,
 }
 
 impl AuthWitness {
-    fn deserialize(values: [Field; 67]) -> Self {
+    fn deserialize(values: [Field; 77]) -> Self {
         let mut signature = [0; 64];
         for i in 0..64 {
-            signature[i] = values[i + 2] as u8;
+            signature[i] = values[i + PUBLIC_KEYS_LENGTH] as u8;
         }
         Self {
-            owner: GrumpkinPoint::new(values[0], values[1]),
+            keys: PublicKeys::deserialize(arr_copy_slice(values, [0; PUBLIC_KEYS_LENGTH], 0)),
             signature,
-            partial_address: PartialAddress::from_field(values[66])
+            partial_address: PartialAddress::from_field(values[76])
         }
     }
 }
 
 unconstrained pub fn get_auth_witness(message_hash: Field) -> AuthWitness {
-    let witness: [Field; 67] = auth_witness::get_auth_witness(message_hash);
+    let witness: [Field; 77] = auth_witness::get_auth_witness(message_hash);
     AuthWitness::deserialize(witness)
 }

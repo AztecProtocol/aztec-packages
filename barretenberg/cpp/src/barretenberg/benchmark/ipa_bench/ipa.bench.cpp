@@ -43,7 +43,7 @@ void ipa_open(State& state) noexcept
         auto prover_transcript = std::make_shared<NativeTranscript>();
         state.ResumeTiming();
         // Compute proof
-        IPA<Curve>::compute_opening_proof(ck, opening_pair, poly, prover_transcript);
+        IPA<Curve>::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
         // Store info for verifier
         prover_transcripts[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2] = prover_transcript;
         opening_claims[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2] = opening_claim;
@@ -60,7 +60,7 @@ void ipa_verify(State& state) noexcept
         auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
         state.ResumeTiming();
-        auto result = IPA<Curve>::verify(vk, opening_claim, verifier_transcript);
+        auto result = IPA<Curve>::reduce_verify(vk, opening_claim, verifier_transcript);
         ASSERT(result);
     }
 }

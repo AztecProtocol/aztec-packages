@@ -1,5 +1,5 @@
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { ExtendedNote, Fr, Note, computeMessageSecretHash, createPXEClient } from '@aztec/aztec.js';
+import { ExtendedNote, Fr, Note, computeSecretHash, createPXEClient } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { getToken } from './contracts.mjs';
@@ -20,7 +20,7 @@ async function showPrivateBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPrivateBalances
-    const balance = await token.methods.balance_of_private(account.address).view();
+    const balance = await token.methods.balance_of_private(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
   // docs:end:showPrivateBalances
@@ -34,11 +34,11 @@ async function mintPrivateFunds(pxe) {
 
   const mintAmount = 20n;
   const secret = Fr.random();
-  const secretHash = await computeMessageSecretHash(secret);
+  const secretHash = await computeSecretHash(secret);
   const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
-  const storageSlot = new Fr(5);
-  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+  const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
+  const noteTypeId = token.artifact.notes['TransparentNote'].id;
 
   const note = new Note([new Fr(mintAmount), secretHash]);
   const extendedNote = new ExtendedNote(
@@ -79,7 +79,7 @@ async function showPublicBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPublicBalances
-    const balance = await token.methods.balance_of_public(account.address).view();
+    const balance = await token.methods.balance_of_public(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
   // docs:end:showPublicBalances

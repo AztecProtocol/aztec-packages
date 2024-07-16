@@ -1,10 +1,10 @@
 import {
-  ABIParameter,
-  ABIParameterVisibility,
-  ABIType,
-  DebugFileMap,
-  DebugInfo,
-  EventAbi,
+  type ABIParameter,
+  type ABIParameterVisibility,
+  type AbiType,
+  type AbiValue,
+  type DebugFileMap,
+  type DebugInfo,
 } from '@aztec/foundation/abi';
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
@@ -12,29 +12,36 @@ export const AZTEC_PUBLIC_ATTRIBUTE = 'aztec(public)';
 export const AZTEC_PUBLIC_VM_ATTRIBUTE = 'aztec(public-vm)';
 export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';
 export const AZTEC_INITIALIZER_ATTRIBUTE = 'aztec(initializer)';
+export const AZTEC_VIEW_ATTRIBUTE = 'aztec(view)';
 
-/** The witness indices of the parameters. */
-type ParamWitnessIndices = { /** Start */ start: number; /** End */ end: number };
+/**
+ * An error could be a custom error of any regular type or a formatted string error.
+ */
+export type AbiErrorType =
+  | {
+      error_kind: 'fmtstring';
+      length: number;
+      item_types: AbiType[];
+    }
+  | ({ error_kind: 'custom' } & AbiType);
 
 /** The ABI of an Aztec.nr function. */
 export interface NoirFunctionAbi {
   /** The parameters of the function. */
   parameters: ABIParameter[];
-  /** The witness indices of the parameters. Indexed by parameter name. */
-  param_witnesses: { [key: string]: undefined | ParamWitnessIndices[] };
   /** The return type of the function. */
   return_type: {
     /**
      * The type of the return value.
      */
-    abi_type: ABIType;
+    abi_type: AbiType;
     /**
      * The visibility of the return value.
      */
     visibility: ABIParameterVisibility;
   };
-  /** The witness indices of the return type. */
-  return_witnesses: number[];
+  /** Mapping of error selector => error type */
+  error_types: Record<string, AbiErrorType>;
 }
 
 /**
@@ -68,7 +75,10 @@ export interface NoirCompiledContract {
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
   /** The events of the contract */
-  events: EventAbi[];
+  outputs: {
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, AbiValue[]>;
+  };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
 }

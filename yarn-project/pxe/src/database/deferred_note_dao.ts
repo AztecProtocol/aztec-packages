@@ -1,5 +1,6 @@
 import { Note, TxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, PublicKey, Vector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, Point, type PublicKey, Vector } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/foundation/abi';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
@@ -9,7 +10,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
  */
 export class DeferredNoteDao {
   constructor(
-    /** The public key associated with this note */
+    /** IvpkM or OvpkM (depending on if incoming or outgoing) the note was encrypted with. */
     public publicKey: PublicKey,
     /** The note as emitted from the Noir contract. */
     public note: Note,
@@ -18,24 +19,24 @@ export class DeferredNoteDao {
     /** The specific storage location of the note on the contract. */
     public storageSlot: Fr,
     /** The type ID of the note on the contract. */
-    public noteTypeId: Fr,
+    public noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. Equal to the first nullifier */
     public txHash: TxHash,
     /** New note hashes in this transaction, one of which belongs to this note */
-    public newNoteHashes: Fr[],
+    public noteHashes: Fr[],
     /** The next available leaf index for the note hash tree for this transaction */
     public dataStartIndexForTx: number,
   ) {}
 
   toBuffer(): Buffer {
     return serializeToBuffer(
-      this.publicKey.toBuffer(),
-      this.note.toBuffer(),
-      this.contractAddress.toBuffer(),
-      this.storageSlot.toBuffer(),
-      this.noteTypeId.toBuffer(),
-      this.txHash.toBuffer(),
-      new Vector(this.newNoteHashes),
+      this.publicKey,
+      this.note,
+      this.contractAddress,
+      this.storageSlot,
+      this.noteTypeId,
+      this.txHash,
+      new Vector(this.noteHashes),
       this.dataStartIndexForTx,
     );
   }
@@ -46,7 +47,7 @@ export class DeferredNoteDao {
       reader.readObject(Note),
       reader.readObject(AztecAddress),
       reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readObject(NoteSelector),
       reader.readObject(TxHash),
       reader.readVector(Fr),
       reader.readNumber(),

@@ -1,9 +1,9 @@
-import { AztecAddress, Fr, FunctionData, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionData, FunctionSelector, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AuthWitness } from './auth_witness.js';
-import { PackedArguments } from './packed_arguments.js';
+import { PackedValues } from './packed_values.js';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.
@@ -15,24 +15,24 @@ export class TxExecutionRequest {
      */
     public origin: AztecAddress,
     /**
-     * Function data representing the function to call.
-     * TODO(#3417): Remove this field and replace with a function selector.
+     * Selector of the function to call.
      */
-    public functionData: FunctionData,
+    public functionSelector: FunctionSelector,
     /**
-     * The hash of the entry point arguments.
+     * The hash of arguments of first call to be executed (usually account entrypoint).
+     * @dev This hash is a pointer to `argsOfCalls` unordered array.
      */
-    public argsHash: Fr,
+    public firstCallArgsHash: Fr,
     /**
      * Transaction context.
      */
     public txContext: TxContext,
     /**
-     * These packed arguments will be used during transaction simulation.
-     * For example, a call to an account contract might contain as many packed arguments
-     * as relayed function calls, and one for the entrypoint.
+     * An unordered array of packed arguments for each call in the transaction.
+     * @dev These arguments are accessed in Noir via oracle and constrained against the args hash. The length of
+     * the array is equal to the number of function calls in the transaction (1 args per 1 call).
      */
-    public packedArguments: PackedArguments[],
+    public argsOfCalls: PackedValues[],
     /**
      * Transient authorization witnesses for authorizing the execution of one or more actions during this tx.
      * These witnesses are not expected to be stored in the local witnesses database of the PXE.
@@ -41,16 +41,22 @@ export class TxExecutionRequest {
   ) {}
 
   toTxRequest(): TxRequest {
-    return new TxRequest(this.origin, this.functionData, this.argsHash, this.txContext);
+    return new TxRequest(
+      this.origin,
+      // Entrypoints must be private as as defined by the protocol.
+      new FunctionData(this.functionSelector, true /* isPrivate */),
+      this.firstCallArgsHash,
+      this.txContext,
+    );
   }
 
   static getFields(fields: FieldsOf<TxExecutionRequest>) {
     return [
       fields.origin,
-      fields.functionData,
-      fields.argsHash,
+      fields.functionSelector,
+      fields.firstCallArgsHash,
       fields.txContext,
-      fields.packedArguments,
+      fields.argsOfCalls,
       fields.authWitnesses,
     ] as const;
   }
@@ -66,10 +72,10 @@ export class TxExecutionRequest {
   toBuffer() {
     return serializeToBuffer(
       this.origin,
-      this.functionData,
-      this.argsHash,
+      this.functionSelector,
+      this.firstCallArgsHash,
       this.txContext,
-      new Vector(this.packedArguments),
+      new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
     );
   }
@@ -91,10 +97,10 @@ export class TxExecutionRequest {
     const reader = BufferReader.asReader(buffer);
     return new TxExecutionRequest(
       reader.readObject(AztecAddress),
-      reader.readObject(FunctionData),
+      reader.readObject(FunctionSelector),
       Fr.fromBuffer(reader),
       reader.readObject(TxContext),
-      reader.readVector(PackedArguments),
+      reader.readVector(PackedValues),
       reader.readVector(AuthWitness),
     );
   }

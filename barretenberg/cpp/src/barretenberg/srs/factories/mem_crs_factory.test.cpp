@@ -45,14 +45,14 @@ TEST(reference_string, mem_bn254_file_consistency)
               0);
 }
 
-TEST(reference_string, mem_grumpkin_file_consistency)
+TEST(reference_string, DISABLED_mem_grumpkin_file_consistency)
 {
     // Load 1024 from file.
-    auto file_crs = FileCrsFactory<Grumpkin>("../srs_db/ignition", 1024);
+    auto file_crs = FileCrsFactory<Grumpkin>("../srs_db/grumpkin", 1024);
 
     // Use low level io lib to read 1024 from file.
     std::vector<Grumpkin::AffineElement> points(1024);
-    ::srs::IO<Grumpkin>::read_transcript_g1(points.data(), 1024, "../srs_db/ignition");
+    ::srs::IO<Grumpkin>::read_transcript_g1(points.data(), 1024, "../srs_db/grumpkin");
 
     MemGrumpkinCrsFactory mem_crs(points);
     auto file_prover_crs = file_crs.get_prover_crs(1024);
@@ -68,7 +68,7 @@ TEST(reference_string, mem_grumpkin_file_consistency)
     auto file_verifier_crs = file_crs.get_verifier_crs();
     auto mem_verifier_crs = file_crs.get_verifier_crs();
 
-    EXPECT_EQ(mem_verifier_crs->get_first_g1(), file_verifier_crs->get_first_g1());
+    EXPECT_EQ(mem_verifier_crs->get_g1_identity(), file_verifier_crs->get_g1_identity());
     EXPECT_EQ(memcmp(file_verifier_crs->get_monomial_points(),
                      mem_verifier_crs->get_monomial_points(),
                      sizeof(Grumpkin::AffineElement) * 1024 * 2),

@@ -1,25 +1,36 @@
 import {
-  Body,
-  GetUnencryptedLogsResponse,
-  InboxLeaf,
-  L2Block,
-  L2BlockL2Logs,
-  LogFilter,
-  LogType,
-  TxEffect,
-  TxHash,
-  TxReceipt,
+  type Body,
+  type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type InboxLeaf,
+  type L2Block,
+  type L2BlockL2Logs,
+  type LogFilter,
+  type LogType,
+  type TxEffect,
+  type TxHash,
+  type TxReceipt,
+  type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type AztecKVStore } from '@aztec/kv-store';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
-import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import { DataRetrieval } from '../data_retrieval.js';
+import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
 import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
+import { ContractArtifactsStore } from './contract_artifacts_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
@@ -35,6 +46,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
+  #contractArtifactStore: ContractArtifactsStore;
 
   #log = createDebugLogger('aztec:archiver:data-store');
 
@@ -45,6 +57,15 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+    this.#contractArtifactStore = new ContractArtifactsStore(db);
+  }
+
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return Promise.resolve(this.#contractArtifactStore.getContractArtifact(address));
+  }
+
+  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    return this.#contractArtifactStore.addContractArtifact(address, contract);
   }
 
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -61,6 +82,14 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   async addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c)))).every(Boolean);
+  }
+
+  addFunctions(
+    contractClassId: Fr,
+    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+  ): Promise<boolean> {
+    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, unconstrainedFunctions);
   }
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
@@ -137,11 +166,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(
-    encryptedLogs: L2BlockL2Logs | undefined,
-    unencryptedLogs: L2BlockL2Logs | undefined,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean> {
-    return this.#logStore.addLogs(encryptedLogs, unencryptedLogs, blockNumber);
+    return this.#logStore.addLogs(noteEncryptedLogs, encryptedLogs, unencryptedLogs, blockNumber);
   }
 
   /**
@@ -154,12 +184,13 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  public getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
-    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message));
+  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
+    return Promise.resolve(this.#messageStore.getL1ToL2MessageIndex(l1ToL2Message, startIndex));
   }
 
   /**
@@ -182,7 +213,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(start: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  getLogs<TLogType extends LogType>(
+    start: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     try {
       return Promise.resolve(Array.from(this.#logStore.getLogs(start, limit, logType)));
     } catch (err) {
@@ -211,15 +246,21 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#blockStore.getSynchedL2BlockNumber());
   }
 
+  getProvenL2BlockNumber(): Promise<number> {
+    return Promise.resolve(this.#blockStore.getProvenL2BlockNumber());
+  }
+
+  async setProvenL2BlockNumber(blockNumber: number) {
+    await this.#blockStore.setProvenL2BlockNumber(blockNumber);
+  }
+
   /**
    * Gets the last L1 block number processed by the archiver
    */
-  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint> {
-    const blocks = this.#blockStore.getSynchedL1BlockNumber();
-    const messages = this.#messageStore.getSynchedL1BlockNumber();
+  getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
-      blocks,
-      messages,
+      blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
+      messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
     });
   }
 }

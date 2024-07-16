@@ -68,10 +68,13 @@
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
 #include <barretenberg/srs/global_crs.hpp>
 #include <concepts>
@@ -85,9 +88,9 @@ namespace bb {
  */
 class PrecomputedEntitiesBase {
   public:
-    size_t circuit_size;
-    size_t log_circuit_size;
-    size_t num_public_inputs;
+    uint64_t circuit_size;
+    uint64_t log_circuit_size;
+    uint64_t num_public_inputs;
     CircuitType circuit_type; // TODO(#392)
 };
 
@@ -98,8 +101,35 @@ class PrecomputedEntitiesBase {
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
  * from the other template paramter.
  */
+template <typename FF, typename CommitmentKey_> class ProvingKey_ {
+  public:
+    size_t circuit_size;
+    bool contains_recursive_proof;
+    std::vector<uint32_t> recursive_proof_public_input_indices;
+    bb::EvaluationDomain<FF> evaluation_domain;
+    std::shared_ptr<CommitmentKey_> commitment_key;
+    size_t num_public_inputs;
+    size_t log_circuit_size;
+
+    // Offset off the public inputs from the start of the execution trace
+    size_t pub_inputs_offset = 0;
+
+    // The number of public inputs has to be the same for all instances because they are
+    // folded element by element.
+    std::vector<FF> public_inputs;
+
+    ProvingKey_() = default;
+    ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
+    {
+        this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
+        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
+        this->circuit_size = circuit_size;
+        this->log_circuit_size = numeric::get_msb(circuit_size);
+        this->num_public_inputs = num_public_inputs;
+    };
+};
 template <typename PrecomputedPolynomials, typename WitnessPolynomials, typename CommitmentKey_>
-class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
+class ProvingKeyAvm_ : public PrecomputedPolynomials, public WitnessPolynomials {
   public:
     using Polynomial = typename PrecomputedPolynomials::DataType;
     using FF = typename Polynomial::FF;
@@ -110,9 +140,7 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
 
-    // offset due to placing zero wires at the start of execution trace
-    // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
-    // instances
+    // Offset off the public inputs from the start of the execution trace
     size_t pub_inputs_offset = 0;
 
     // The number of public inputs has to be the same for all instances because they are
@@ -128,8 +156,8 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
     auto get_witness_polynomials() { return WitnessPolynomials::get_all(); }
     auto get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
     auto get_selectors() { return PrecomputedPolynomials::get_selectors(); }
-    ProvingKey_() = default;
-    ProvingKey_(const size_t circuit_size, const size_t num_public_inputs)
+    ProvingKeyAvm_() = default;
+    ProvingKeyAvm_(const size_t circuit_size, const size_t num_public_inputs)
     {
         this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
         this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
@@ -151,12 +179,15 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
  * @brief Base verification key class.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
+ * @tparam VerifierCommitmentKey The PCS verification key
  */
 template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
+    using FF = typename VerifierCommitmentKey::Curve::ScalarField;
+    using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    size_t pub_inputs_offset = 0;
+    uint64_t pub_inputs_offset = 0;
 
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
@@ -166,17 +197,44 @@ class VerificationKey_ : public PrecomputedCommitments {
         this->num_public_inputs = num_public_inputs;
     };
 
-    template <typename ProvingKeyPtr> VerificationKey_(const ProvingKeyPtr& proving_key)
+    /**
+     * @brief Serialize verification key to field elements
+     *
+     * @return std::vector<FF>
+     */
+    std::vector<FF> to_field_elements()
     {
-        this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-        this->circuit_size = proving_key->circuit_size;
-        this->log_circuit_size = numeric::get_msb(this->circuit_size);
-        this->num_public_inputs = proving_key->num_public_inputs;
-        this->pub_inputs_offset = proving_key->pub_inputs_offset;
+        std::vector<FF> elements;
+        std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
+        elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
+        // do the same for the rest of the fields
+        std::vector<FF> num_public_inputs_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
+        elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
+        std::vector<FF> pub_inputs_offset_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
+        elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
 
-        for (auto [polynomial, commitment] : zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-            commitment = proving_key->commitment_key->commit(polynomial);
+        for (Commitment& comm : this->get_all()) {
+            std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
+            elements.insert(elements.end(), comm_elements.begin(), comm_elements.end());
         }
+        return elements;
+    }
+
+    uint256_t hash()
+    {
+        std::vector<FF> field_elements = to_field_elements();
+        std::vector<uint8_t> to_hash(field_elements.size() * sizeof(FF));
+
+        const auto convert_and_insert = [&to_hash](auto& vector) {
+            std::vector<uint8_t> buffer = to_buffer(vector);
+            to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
+        };
+
+        convert_and_insert(field_elements);
+
+        return from_buffer<uint256_t>(crypto::sha256(to_hash));
     }
 };
 
@@ -239,18 +297,23 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
  * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
+ * @tparam optimised Enable optimised version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_INSTANCES, size_t Index = 0>
+template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false, size_t Index = 0>
 static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using UnivariateTuple =
-            typename std::tuple_element_t<Index,
-                                          Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>;
-        return std::tuple_cat(std::tuple<UnivariateTuple>{},
-                              create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, NUM_INSTANCES, Index + 1>());
+            std::conditional_t<optimised,
+                               typename std::tuple_element_t<Index, Tuple>::
+                                   template OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>,
+                               typename std::tuple_element_t<Index, Tuple>::
+                                   template ProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>>;
+        return std::tuple_cat(
+            std::tuple<UnivariateTuple>{},
+            create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, NUM_INSTANCES, optimised, Index + 1>());
     }
 }
 
@@ -292,14 +355,13 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
 namespace bb {
 class UltraFlavor;
 class ECCVMFlavor;
-class GoblinUltraFlavor;
-
-// TODO(md): research this forward declaration pattern
-// - howing of file existence is enough
 class UltraKeccakFlavor;
-
+class MegaFlavor;
+class TranslatorFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
-template <typename BuilderType> class GoblinUltraRecursiveFlavor_;
+template <typename BuilderType> class MegaRecursiveFlavor_;
+template <typename BuilderType> class TranslatorRecursiveFlavor_;
+template <typename BuilderType> class ECCVMRecursiveFlavor_;
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -325,35 +387,45 @@ template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T> 
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, GoblinUltraFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+
 template <typename T> 
-concept IsGoblinFlavor = IsAnyOf<T, GoblinUltraFlavor,
-                                    GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                    GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
+                                    MegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                    MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename T> 
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                       UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
-                                       GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                       GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+                                       UltraRecursiveFlavor_<MegaCircuitBuilder>, 
+                                       UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                       MegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MegaRecursiveFlavor_<MegaCircuitBuilder>,
+MegaRecursiveFlavor_<CircuitSimulatorBN254>, 
+TranslatorRecursiveFlavor_<UltraCircuitBuilder>, 
+TranslatorRecursiveFlavor_<MegaCircuitBuilder>, 
+TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
+ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+
+template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
-                                                           UltraKeccakFlavor, 
-                                                           GoblinUltraFlavor, 
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+                                                           // Note(md): must be here to use oink prover
+                                                           UltraKeccakFlavor,
+                                                           MegaFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                                           UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
-                                                           GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                                           GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
-
-template <typename T> concept IsECCVMFlavor = IsAnyOf<T, ECCVMFlavor>;
+                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>, 
+                                                           UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>, 
+                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {

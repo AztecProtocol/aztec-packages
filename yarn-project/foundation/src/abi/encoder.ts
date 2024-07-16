@@ -1,5 +1,5 @@
 import { Fr } from '../fields/index.js';
-import { ABIType, FunctionAbi } from './abi.js';
+import { type AbiType, type FunctionAbi } from './abi.js';
 import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
 
 /**
@@ -11,7 +11,7 @@ class ArgumentEncoder {
 
   constructor(private abi: FunctionAbi, private args: any[]) {}
 
-  static typeSize(abiType: ABIType): number {
+  static typeSize(abiType: AbiType): number {
     switch (abiType.kind) {
       case 'field':
       case 'boolean':
@@ -36,7 +36,7 @@ class ArgumentEncoder {
    * @param arg - The value to encode.
    * @param name - Name.
    */
-  private encodeArgument(abiType: ABIType, arg: any, name?: string) {
+  private encodeArgument(abiType: AbiType, arg: any, name?: string) {
     if (arg === undefined || arg == null) {
       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
     }
@@ -46,6 +46,8 @@ class ArgumentEncoder {
           this.flattened.push(new Fr(BigInt(arg)));
         } else if (typeof arg === 'bigint') {
           this.flattened.push(new Fr(arg));
+        } else if (typeof arg === 'string') {
+          this.flattened.push(Fr.fromString(arg));
         } else if (typeof arg === 'boolean') {
           this.flattened.push(new Fr(arg ? 1n : 0n));
         } else if (typeof arg === 'object') {
@@ -103,7 +105,12 @@ class ArgumentEncoder {
         break;
       }
       case 'integer':
-        this.flattened.push(new Fr(arg));
+        if (typeof arg === 'string') {
+          const value = BigInt(arg);
+          this.flattened.push(new Fr(value));
+        } else {
+          this.flattened.push(new Fr(arg));
+        }
         break;
       default:
         throw new Error(`Unsupported type: ${abiType}`);

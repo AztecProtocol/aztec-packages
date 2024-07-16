@@ -1,23 +1,29 @@
 VERSION 0.8
-IMPORT ../noir AS noir
-# we rely on noir source, which this image has
-FROM noir+nargo
 
-# move noir contents to /build/noir
-RUN mv /build /noir && mkdir /build && mv /noir /build
-# work in avm-transpiler
-WORKDIR /build/avm-transpiler
+source:
+    # we rely on noir source, which this image has
+    FROM ../noir+nargo
 
-RUN apt-get update && apt-get install -y git
+    # move noir contents to /usr/src/noir
+    RUN mv /usr/src /noir && mkdir /usr/src && mv /noir /usr/src
+    # work in avm-transpiler
+    WORKDIR /usr/src/avm-transpiler
 
-COPY --keep-ts --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .
+    COPY --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .rustfmt.toml .
 
 build:
-    RUN ./scripts/bootstrap_native.sh
+    FROM +source
+    # build avm transpiler, and make sure the big build and deps folders don't hit cache
+    RUN ./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
+    SAVE ARTIFACT scripts/compile_then_transpile.sh
 
-run: 
-    #TODO needed?
-    FROM ubuntu:focal
-    COPY +build/avm-transpiler /build/avm-transpiler
-    ENTRYPOINT ["sh", "-c"]
+format:
+  FROM +source
+  RUN cargo fmt --check
+  RUN cargo clippy
+
+run:
+    FROM ubuntu:noble
+    COPY +build/avm-transpiler /usr/src/avm-transpiler
+    ENTRYPOINT ["/usr/src/avm-transpiler"]

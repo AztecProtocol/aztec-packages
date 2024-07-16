@@ -1,7 +1,9 @@
 #include "bigint_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -10,6 +12,8 @@
 #include <vector>
 
 namespace acir_format::tests {
+
+using Composer = plonk::UltraComposer;
 
 class BigIntTests : public ::testing::Test {
   protected:
@@ -169,9 +173,11 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .recursive = false,
+        .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -180,25 +186,28 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
     apply_constraints(constraint_system, contraints3);
     apply_constraints(constraint_system, contraints4);
     apply_constraints(constraint_system, contraints5);
+    mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
@@ -225,7 +234,7 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
 
     BigIntFromLeBytes from_le_bytes_constraint_bigint1{
         .inputs = { 1 },
-        .modulus = { 0x47, 0xFD, 0x7C, 0xD8, 0x16, 0x8C, 0x20, 0x3C, 0x8d, 0xca, 0x71, 0x68, 0x91, 0x6a, 0x81, 0x97, 
+        .modulus = { 0x47, 0xFD, 0x7C, 0xD8, 0x16, 0x8C, 0x20, 0x3C, 0x8d, 0xca, 0x71, 0x68, 0x91, 0x6a, 0x81, 0x97,
   0x5d, 0x58, 0x81, 0x81, 0xb6, 0x45, 0x50, 0xb8, 0x29, 0xa0, 0x31, 0xe1, 0x72, 0x4e, 0x64, 0x30, },
         .result = 1,
     };
@@ -237,9 +246,11 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
     AcirFormat constraint_system{
         .varnum = 5,
         .recursive = false,
+        .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -248,21 +259,23 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = { from_le_bytes_constraint_bigint1 },
         .bigint_to_le_bytes_constraints = { result2_to_le_bytes },
         .bigint_operations = { add_constraint },
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
-
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     WitnessVector witness{
         0, 3, 6, 3, 0,
@@ -290,9 +303,11 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .recursive = false,
+        .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -301,19 +316,21 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
@@ -324,6 +341,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
     constraint_system.bigint_operations.push_back(get<0>(contraints5));
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
@@ -347,9 +365,11 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .recursive = false,
+        .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -358,19 +378,21 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
@@ -381,6 +403,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
     constraint_system.bigint_operations.push_back(get<0>(contraints5));
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
@@ -425,9 +448,11 @@ TEST_F(BigIntTests, TestBigIntDIV)
     AcirFormat constraint_system{
         .varnum = 5,
         .recursive = false,
+        .num_acir_opcodes = 4,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
+        .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
@@ -436,21 +461,23 @@ TEST_F(BigIntTests, TestBigIntDIV)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
-        .fixed_base_scalar_mul_constraints = {},
+        .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
         .recursion_constraints = {},
+        .honk_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = { from_le_bytes_constraint_bigint1, from_le_bytes_constraint_bigint2 },
         .bigint_to_le_bytes_constraints = { result3_to_le_bytes },
         .bigint_operations = { div_constraint },
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
-
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     WitnessVector witness{
         0, 6, 3, 2, 0,

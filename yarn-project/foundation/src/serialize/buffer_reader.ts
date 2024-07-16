@@ -1,4 +1,4 @@
-import { Tuple } from './types.js';
+import { type Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -43,6 +43,11 @@ export class BufferReader {
     return new BufferReader(buf);
   }
 
+  /** Returns true if the underlying buffer has been consumed completely. */
+  public isEmpty(): boolean {
+    return this.index === this.buffer.length;
+  }
+
   /**
    * Reads a 32-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 4 bytes after reading the number.
@@ -50,6 +55,7 @@ export class BufferReader {
    * @returns The read 32-bit unsigned integer value.
    */
   public readNumber(): number {
+    this.#rangeCheck(4);
     this.index += 4;
     return this.buffer.readUint32BE(this.index - 4);
   }
@@ -71,6 +77,7 @@ export class BufferReader {
    * @returns The read 16 bit value.
    */
   public readUInt16(): number {
+    this.#rangeCheck(2);
     this.index += 2;
     return this.buffer.readUInt16BE(this.index - 2);
   }
@@ -82,6 +89,7 @@ export class BufferReader {
    * @returns The read 8 bit value.
    */
   public readUInt8(): number {
+    this.#rangeCheck(1);
     this.index += 1;
     return this.buffer.readUInt8(this.index - 1);
   }
@@ -94,6 +102,7 @@ export class BufferReader {
    * @returns A boolean value representing the byte at the current index.
    */
   public readBoolean(): boolean {
+    this.#rangeCheck(1);
     this.index += 1;
     return Boolean(this.buffer.at(this.index - 1));
   }
@@ -107,6 +116,7 @@ export class BufferReader {
    * @returns A new Buffer containing the read bytes.
    */
   public readBytes(n: number): Buffer {
+    this.#rangeCheck(n);
     this.index += n;
     return Buffer.from(this.buffer.subarray(this.index - n, this.index));
   }
@@ -210,6 +220,7 @@ export class BufferReader {
   public readBufferArray(size = -1): Buffer[] {
     const result: Buffer[] = [];
     const end = size >= 0 ? this.index + size : this.buffer.length;
+    this.#rangeCheck(end - this.index);
     while (this.index < end) {
       const item = this.readBuffer();
       result.push(item);
@@ -247,6 +258,7 @@ export class BufferReader {
    * @returns A Buffer with the next n bytes or the remaining bytes if n is not provided or exceeds the buffer length.
    */
   public peekBytes(n?: number): Buffer {
+    this.#rangeCheck(n || 0);
     return this.buffer.subarray(this.index, n ? this.index + n : undefined);
   }
 
@@ -271,6 +283,7 @@ export class BufferReader {
    */
   public readBuffer(): Buffer {
     const size = this.readNumber();
+    this.#rangeCheck(size);
     return this.readBytes(size);
   }
 
@@ -306,4 +319,23 @@ export class BufferReader {
   public getLength(): number {
     return this.buffer.length;
   }
+
+  #rangeCheck(numBytes: number) {
+    if (this.index + numBytes > this.buffer.length) {
+      throw new Error(
+        `Attempted to read beyond buffer length. Start index: ${this.index}, Num bytes to read: ${numBytes}, Buffer length: ${this.buffer.length}`,
+      );
+    }
+  }
+}
+
+/**
+ * A deserializer
+ */
+export interface FromBuffer<T> {
+  /**
+   * Deserializes an object from a buffer
+   * @param buffer - The buffer to deserialize.
+   */
+  fromBuffer(buffer: Buffer): T;
 }

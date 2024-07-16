@@ -3,6 +3,8 @@
 #include "schnorr.hpp"
 
 using namespace bb;
+using namespace bb::crypto;
+
 using affine_element = grumpkin::g1::affine_element;
 using multisig = crypto::schnorr_multisig<grumpkin::g1, KeccakHasher, Blake2sHasher>;
 using multisig_public_key = typename multisig::MultiSigPublicKey;
@@ -11,7 +13,7 @@ WASM_EXPORT void schnorr_compute_public_key(uint8_t const* private_key, uint8_t*
 {
     auto priv_key = from_buffer<grumpkin::fr>(private_key);
     grumpkin::g1::affine_element pub_key = grumpkin::g1::one * priv_key;
-    serialize::write(public_key_buf, pub_key);
+    write(public_key_buf, pub_key);
 }
 
 WASM_EXPORT void schnorr_negate_public_key(uint8_t const* public_key_buffer, uint8_t* output)
@@ -19,7 +21,7 @@ WASM_EXPORT void schnorr_negate_public_key(uint8_t const* public_key_buffer, uin
     // Negate the public key (effectively negating the y-coordinate of the public key) and return the resulting public
     // key.
     auto account_public_key = from_buffer<grumpkin::g1::affine_element>(public_key_buffer);
-    serialize::write(output, -account_public_key);
+    write(output, -account_public_key);
 }
 
 WASM_EXPORT void schnorr_construct_signature(uint8_t const* message_buf,
@@ -73,10 +75,10 @@ WASM_EXPORT void schnorr_multisig_validate_and_combine_signer_pubkeys(uint8_t co
     auto combined_key = multisig::validate_and_combine_signer_pubkeys(pubkeys);
 
     if (combined_key) {
-        serialize::write(combined_key_buf, *combined_key);
+        write(combined_key_buf, *combined_key);
         *success = true;
     } else {
-        serialize::write(combined_key_buf, affine_element::one());
+        write(combined_key_buf, affine_element::one());
         *success = false;
     }
 }

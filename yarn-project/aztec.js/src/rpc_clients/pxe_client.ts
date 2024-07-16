@@ -1,18 +1,20 @@
 import {
   AuthWitness,
+  EncryptedNoteL2BlockL2Logs,
   ExtendedNote,
   ExtendedUnencryptedL2Log,
   L2Block,
-  L2BlockL2Logs,
   LogId,
   Note,
   NullifierMembershipWitness,
-  PXE,
+  type PXE,
+  SimulatedTx,
   Tx,
   TxEffect,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -23,6 +25,7 @@ import {
   GrumpkinScalar,
   Point,
 } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/foundation/abi';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
 /**
@@ -52,8 +55,16 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       TxExecutionRequest,
       TxHash,
     },
-    { Tx, TxReceipt, L2BlockL2Logs, NullifierMembershipWitness },
+    {
+      EncryptedNoteL2BlockL2Logs,
+      NoteSelector,
+      NullifierMembershipWitness,
+      SimulatedTx,
+      Tx,
+      TxReceipt,
+      UnencryptedL2BlockL2Logs,
+    },
     false,
     'pxe',
     fetch,
-  );
+  ) as PXE;

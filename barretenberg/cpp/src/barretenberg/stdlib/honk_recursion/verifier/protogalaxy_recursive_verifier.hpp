@@ -1,11 +1,11 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra_recursive.hpp"
-#include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/recursive_instances.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
@@ -27,6 +27,13 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     static constexpr size_t NUM = VerifierInstances::NUM;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
+    struct VerifierInput {
+      public:
+        using Instance = NativeInstance;
+        std::shared_ptr<Instance> accumulator;
+        std::vector<std::shared_ptr<NativeVerificationKey>> instance_vks;
+    };
+
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     CommitmentLabels commitment_labels;
@@ -35,11 +42,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     VerifierInstances instances;
 
-    ProtoGalaxyRecursiveVerifier_(Builder* builder,
-                                  std::shared_ptr<NativeInstance>& accumulator,
-                                  const std::vector<std::shared_ptr<NativeVerificationKey>>& native_inst_vks)
+    ProtoGalaxyRecursiveVerifier_(Builder* builder, const VerifierInput& input_data)
         : builder(builder)
-        , instances(VerifierInstances(builder, accumulator, native_inst_vks)){};
+        , instances(VerifierInstances(builder, input_data.accumulator, input_data.instance_vks)){};
 
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
@@ -120,6 +125,41 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
         }
         return result;
     };
+
+    /**
+     * @brief Folds the witness commitments and verification key (part of ϕ) and stores the values in the accumulator.
+     *
+     *
+     */
+
+    void fold_commitments(std::vector<FF> lagranges,
+                          VerifierInstances& instances,
+                          std::shared_ptr<Instance>& accumulator)
+    {
+        size_t vk_idx = 0;
+        for (auto& expected_vk : accumulator->verification_key->get_all()) {
+            std::vector<Commitment> commitments;
+            for (auto& instance : instances) {
+                commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
+            }
+            // For ultra we need to enable edgecase prevention
+            expected_vk = Commitment::batch_mul(
+                commitments, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
+            vk_idx++;
+        }
+
+        size_t comm_idx = 0;
+        for (auto& comm : accumulator->witness_commitments.get_all()) {
+            std::vector<Commitment> commitments;
+            for (auto& instance : instances) {
+                commitments.emplace_back(instance->witness_commitments.get_all()[comm_idx]);
+            }
+            // For ultra we need to enable edgecase prevention
+            comm = Commitment::batch_mul(
+                commitments, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
+            comm_idx++;
+        }
+    }
 };
 
 } // namespace bb::stdlib::recursion::honk

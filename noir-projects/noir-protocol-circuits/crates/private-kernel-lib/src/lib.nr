@@ -1,10 +1,15 @@
+mod components;
 mod private_kernel_init;
 mod private_kernel_inner;
 mod private_kernel_tail;
+mod private_kernel_tail_to_public;
+mod private_kernel_empty;
+mod private_kernel_reset;
+mod tests;
 
 use private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
 use private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
+use private_kernel_reset::PrivateKernelResetCircuitPrivateInputs;
 use private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
-
-// TODO: rename to be precise as to what its common to.
-mod common;
+use private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
+use private_kernel_empty::PrivateKernelEmptyPrivateInputs;

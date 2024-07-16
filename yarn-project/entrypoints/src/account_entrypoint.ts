@@ -1,10 +1,10 @@
-import { AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
-import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, FunctionData, GeneratorIndex, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
+import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, GasSettings, TxContext } from '@aztec/circuits.js';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
-import { buildAppPayload, buildFeePayload, hashPayload } from './entrypoint_payload.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -18,22 +18,24 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(executions: FunctionCall[], feeOpts?: FeeOptions): Promise<TxExecutionRequest> {
-    const { payload: appPayload, packedArguments: appPackedArguments } = buildAppPayload(executions);
-    const { payload: feePayload, packedArguments: feePackedArguments } = await buildFeePayload(feeOpts);
+  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
+    const { calls, fee } = exec;
+    const appPayload = EntrypointPayload.fromAppExecution(calls);
+    const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [appPayload, feePayload]));
+    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [appPayload, feePayload]));
+    const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
 
-    const appAuthWitness = await this.auth.createAuthWit(hashPayload(appPayload, GeneratorIndex.SIGNATURE_PAYLOAD));
-    const feeAuthWitness = await this.auth.createAuthWit(hashPayload(feePayload, GeneratorIndex.FEE_PAYLOAD));
+    const appAuthWitness = await this.auth.createAuthWit(appPayload.hash());
+    const feeAuthWitness = await this.auth.createAuthWit(feePayload.hash());
 
     const txRequest = TxExecutionRequest.from({
-      argsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointPackedArgs.hash,
       origin: this.address,
-      functionData: FunctionData.fromAbi(abi),
-      txContext: TxContext.empty(this.chainId, this.version),
-      packedArguments: [...appPackedArguments, ...feePackedArguments, entrypointPackedArgs],
+      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
+      argsOfCalls: [...appPayload.packedArguments, ...feePayload.packedArguments, entrypointPackedArgs],
       authWitnesses: [appAuthWitness, feeAuthWitness],
     });
 
@@ -44,8 +46,9 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     return {
       name: 'entrypoint',
       isInitializer: false,
-      functionType: 'secret',
+      functionType: 'private',
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'app_payload',
@@ -80,6 +83,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },
                 },
@@ -122,11 +126,13 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },
                 },
               },
               { name: 'nonce', type: { kind: 'field' } },
+              { name: 'is_fee_payer', type: { kind: 'boolean' } },
             ],
           },
           visibility: 'public',

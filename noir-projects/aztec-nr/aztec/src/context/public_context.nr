@@ -1,295 +1,401 @@
-use crate::{
-    context::{inputs::PublicContextInputs, interface::ContextInterface},
-    messaging::process_l1_to_l2_message, oracle::{arguments, public_call::call_public_function_internal}
-};
-use dep::protocol_types::{
-    abis::{
-    global_variables::GlobalVariables, function_selector::FunctionSelector,
-    private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-},
-    address::{AztecAddress, EthAddress},
-    constants::{
-    MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-    NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
-},
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    hash::hash_args, header::Header, messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
-};
+use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
+use dep::protocol_types::address::{AztecAddress, EthAddress};
+use dep::protocol_types::constants::MAX_FIELD_VALUE;
+use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
+use dep::protocol_types::abis::function_selector::FunctionSelector;
+use crate::context::inputs::public_context_inputs::PublicContextInputs;
+use crate::context::gas::GasOpts;
 
 struct PublicContext {
     inputs: PublicContextInputs,
-    side_effect_counter: u32,
-
-    args_hash : Field,
-    return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
-
-    nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    nullifier_non_existent_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL>,
-    contract_storage_update_requests: BoundedVec<StorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
-    contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
-    public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
-
-    new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
-
-    unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
-    unencrypted_logs_preimages_length: Field,
-
-    // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
-    // previous to the one in which the tx is included.
-    historical_header: Header,
-    prover_address: AztecAddress,
-}
-
-impl ContextInterface for PublicContext {
-    fn msg_sender(self) -> AztecAddress {
-        self.inputs.call_context.msg_sender
-    }
-
-    fn this_address(self) -> AztecAddress {
-        self.inputs.call_context.storage_contract_address
-    }
-
-    fn this_portal_address(self) -> EthAddress {
-        self.inputs.call_context.portal_contract_address
-    }
-
-    fn chain_id(self) -> Field {
-        self.inputs.public_global_variables.chain_id
-    }
-
-    fn version(self) -> Field {
-        self.inputs.public_global_variables.version
-    }
-
-    fn selector(self) -> FunctionSelector {
-        self.inputs.call_context.function_selector
-    }
-
-    fn get_args_hash(self) -> Field {
-        self.args_hash
-    }
-
-    fn get_header(self) -> Header {
-        self.historical_header
-    }
-
-    fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        let side_effect = SideEffectLinkedToNoteHash {
-            value: nullifier,
-            note_hash: 0, // cannot nullify pending notes in public context
-            counter: self.side_effect_counter
-        };
-        self.new_nullifiers.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
-        PublicContext {
-            inputs,
-            side_effect_counter: inputs.start_side_effect_counter,
-            args_hash,
-            return_values: BoundedVec::new(),
-            nullifier_read_requests: BoundedVec::new(),
-            nullifier_non_existent_read_requests: BoundedVec::new(),
-            contract_storage_update_requests: BoundedVec::new(),
-            contract_storage_reads: BoundedVec::new(),
-            public_call_stack_hashes: BoundedVec::new(),
-            new_note_hashes: BoundedVec::new(),
-            new_nullifiers: BoundedVec::new(),
-            new_l2_to_l1_msgs: BoundedVec::new(),
-            unencrypted_logs_hash: BoundedVec::new(),
-            unencrypted_logs_preimages_length: 0,
-            historical_header: inputs.historical_header,
-            prover_address: AztecAddress::zero() // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-            // encrypted_logs_preimages: Vec::new(),
-            // unencrypted_logs_preimages: Vec::new(),
-        }
+    pub fn new(inputs: PublicContextInputs) -> Self {
+        PublicContext { inputs }
     }
 
-    pub fn block_number(self) -> Field {
-        self.inputs.public_global_variables.block_number
+    pub fn emit_unencrypted_log<T, N>(&mut self, log: T) where T: Serialize<N> {
+        emit_unencrypted_log(Serialize::serialize(log).as_slice());
     }
 
-    pub fn timestamp(self) -> Field {
-        self.inputs.public_global_variables.timestamp
+    pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
+        note_hash_exists(note_hash, leaf_index) == 1
     }
 
-    pub fn coinbase(self) -> EthAddress {
-        self.inputs.public_global_variables.coinbase
+    pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
+        l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
 
-    pub fn fee_recipient(self) -> AztecAddress {
-        self.inputs.public_global_variables.fee_recipient
+    fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
+        nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
-    pub fn finish(self) -> PublicCircuitPublicInputs {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
-        let unencrypted_log_preimages_length = 0;
-
-        // Compute the public call stack hashes
-        let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
-            call_context: self.inputs.call_context, // Done
-            args_hash: self.args_hash, // Done
-            nullifier_read_requests: self.nullifier_read_requests.storage,
-            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
-            contract_storage_update_requests: self.contract_storage_update_requests.storage,
-            contract_storage_reads: self.contract_storage_reads.storage,
-            return_values: self.return_values.storage,
-            new_note_hashes: self.new_note_hashes.storage,
-            new_nullifiers: self.new_nullifiers.storage,
-            public_call_stack_hashes: self.public_call_stack_hashes.storage,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            start_side_effect_counter: self.inputs.start_side_effect_counter,
-            end_side_effect_counter: self.side_effect_counter,
-            unencrypted_logs_hash,
-            unencrypted_log_preimages_length,
-            historical_header: self.inputs.historical_header,
-            prover_address: self.prover_address,
-            reverted: false
-        };
-        pub_circuit_pub_inputs
-    }
-
-    pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    pub fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_non_existent_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        let message = L2ToL1Message { recipient, content };
-        self.new_l2_to_l1_msgs.push(message);
-    }
-
-    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
-        let this = (*self).this_address();
-        let nullifier = process_l1_to_l2_message(
-            self.historical_header.state.l1_to_l2_message_tree.root,
-            this,
+    fn consume_l1_to_l2_message(
+        &mut self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        leaf_index: Field
+    ) {
+        let secret_hash = compute_secret_hash(secret);
+        let message_hash = compute_message_hash(
             sender,
             self.chain_id(),
+            /*recipient=*/ self.this_address(),
             self.version(),
             content,
-            secret
+            secret_hash
+        );
+        let nullifier = compute_message_nullifier(message_hash, secret, leaf_index);
+
+        assert(
+            !self.nullifier_exists(nullifier, self.this_address()), "L1-to-L2 message is already nullified"
+        );
+        assert(
+            self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message"
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, 0)
+        self.push_nullifier(nullifier, 0);
     }
 
-    pub fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
-        let _void1 = self;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+    fn message_portal(&mut self, recipient: EthAddress, content: Field) {
+        send_l2_to_l1_msg(recipient, content);
     }
 
-    pub fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
-        let _void1 = self;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
-    pub fn call_public_function<ARGS_COUNT>(
+    fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
-    }
-
-    pub fn static_call_public_function<ARGS_COUNT>(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
-    }
-
-    pub fn delegate_call_public_function<ARGS_COUNT>(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
-    }
-
-    pub fn call_public_function_no_args(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
-    }
-
-    pub fn static_call_public_function_no_args(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
-    }
-
-    pub fn delegate_call_public_function_no_args(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
-    }
-
-    pub fn call_public_function_with_packed_args(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args_hash: Field,
-        is_static_call: bool,
-        is_delegate_call: bool
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let side_effect_counter = self.side_effect_counter;
-        // TODO get next value from output of `call_public_function_internal`
-        self.side_effect_counter += 1;
-
-        call_public_function_internal(
+        args: [Field],
+        gas_opts: GasOpts
+    ) -> FunctionReturns<RETURNS_COUNT> {
+        let results = call(
+            gas_for_call(gas_opts),
             contract_address,
-            function_selector,
-            args_hash,
-            side_effect_counter,
-            is_static_call,
-            is_delegate_call
-        )
+            args,
+            function_selector.to_field()
+        );
+        let data_to_return: [Field; RETURNS_COUNT] = results.0;
+        let success: u8 = results.1;
+        assert(success == 1, "Nested call failed!");
+
+        FunctionReturns::new(data_to_return)
+    }
+
+    fn static_call_public_function<RETURNS_COUNT>(
+        self: &mut Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field],
+        gas_opts: GasOpts
+    ) -> FunctionReturns<RETURNS_COUNT> {
+        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
+            gas_for_call(gas_opts),
+            contract_address,
+            args,
+            function_selector.to_field()
+        );
+
+        assert(success == 1, "Nested static call failed!");
+        FunctionReturns::new(data_to_return)
+    }
+
+    fn delegate_call_public_function<RETURNS_COUNT>(
+        self: &mut Self,
+        contract_address: AztecAddress,
+        function_selector: FunctionSelector,
+        args: [Field]
+    ) -> FunctionReturns<RETURNS_COUNT> {
+        assert(false, "'delegate_call_public_function' not implemented!");
+        FunctionReturns::new([0; RETURNS_COUNT])
+    }
+
+    fn push_note_hash(&mut self, note_hash: Field) {
+        emit_note_hash(note_hash);
+    }
+    fn push_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
+        // Cannot nullify pending commitments in AVM, so `nullified_commitment` is not used
+        emit_nullifier(nullifier);
+    }
+
+    fn this_address(self) -> AztecAddress {
+        address()
+    }
+    pub fn storage_address(self) -> AztecAddress {
+        storage_address()
+    }
+    fn msg_sender(self) -> AztecAddress {
+        sender()
+    }
+    fn selector(self) -> FunctionSelector {
+        FunctionSelector::from_u32(function_selector())
+    }
+    fn get_args_hash(self) -> Field {
+        self.inputs.args_hash
+    }
+    fn transaction_fee(self) -> Field {
+        transaction_fee()
+    }
+
+    fn chain_id(self) -> Field {
+        chain_id()
+    }
+    fn version(self) -> Field {
+        version()
+    }
+    fn block_number(self) -> Field {
+        block_number()
+    }
+    fn timestamp(self) -> u64 {
+        timestamp()
+    }
+    pub fn fee_per_l2_gas(self) -> Field {
+        fee_per_l2_gas()
+    }
+    pub fn fee_per_da_gas(self) -> Field {
+        fee_per_da_gas()
+    }
+
+    fn l2_gas_left(self) -> Field {
+        l2_gas_left()
+    }
+    fn da_gas_left(self) -> Field {
+        da_gas_left()
+    }
+
+    fn raw_storage_read<N>(_self: Self, storage_slot: Field) -> [Field; N] {
+        storage_read(storage_slot)
+    }
+
+    fn storage_read<T, N>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+        T::deserialize(self.raw_storage_read(storage_slot))
+    }
+
+    fn raw_storage_write<N>(_self: Self, storage_slot: Field, values: [Field; N]) {
+        storage_write(storage_slot, values);
+    }
+
+    fn storage_write<T, N>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+        self.raw_storage_write(storage_slot, value.serialize());
+    }
+}
+
+// Helper functions
+fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
+    // It's ok to use the max possible gas here, because the gas will be
+    // capped by the gas left in the (STATIC)CALL instruction.
+    [
+        user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE),
+        user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)
+    ]
+}
+
+// Unconstrained opcode wrappers (do not use directly).
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6420): reconsider.
+unconstrained fn address() -> AztecAddress {
+    address_opcode()
+}
+unconstrained fn storage_address() -> AztecAddress {
+    storage_address_opcode()
+}
+unconstrained fn sender() -> AztecAddress {
+    sender_opcode()
+}
+unconstrained fn portal() -> EthAddress {
+    portal_opcode()
+}
+unconstrained fn function_selector() -> u32 {
+    function_selector_opcode()
+}
+unconstrained fn transaction_fee() -> Field {
+    transaction_fee_opcode()
+}
+unconstrained fn chain_id() -> Field {
+    chain_id_opcode()
+}
+unconstrained fn version() -> Field {
+    version_opcode()
+}
+unconstrained fn block_number() -> Field {
+    block_number_opcode()
+}
+unconstrained fn timestamp() -> u64 {
+    timestamp_opcode()
+}
+unconstrained fn fee_per_l2_gas() -> Field {
+    fee_per_l2_gas_opcode()
+}
+unconstrained fn fee_per_da_gas() -> Field {
+    fee_per_da_gas_opcode()
+}
+unconstrained fn l2_gas_left() -> Field {
+    l2_gas_left_opcode()
+}
+unconstrained fn da_gas_left() -> Field {
+    da_gas_left_opcode()
+}
+unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
+    note_hash_exists_opcode(note_hash, leaf_index)
+}
+unconstrained fn emit_note_hash(note_hash: Field) {
+    emit_note_hash_opcode(note_hash)
+}
+unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u8 {
+    nullifier_exists_opcode(nullifier, address)
+}
+unconstrained fn emit_nullifier(nullifier: Field) {
+    emit_nullifier_opcode(nullifier)
+}
+unconstrained fn emit_unencrypted_log(message: [Field]) {
+    emit_unencrypted_log_opcode(message)
+}
+unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {
+    l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
+}
+unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
+    send_l2_to_l1_msg_opcode(recipient, content)
+}
+unconstrained fn call<RET_SIZE>(
+    gas: [Field; 2],
+    address: AztecAddress,
+    args: [Field],
+    function_selector: Field
+) -> ([Field; RET_SIZE], u8) {
+    call_opcode(gas, address, args, function_selector)
+}
+unconstrained fn call_static<RET_SIZE>(
+    gas: [Field; 2],
+    address: AztecAddress,
+    args: [Field],
+    function_selector: Field
+) -> ([Field; RET_SIZE], u8) {
+    call_static_opcode(gas, address, args, function_selector)
+}
+
+unconstrained fn storage_read<N>(storage_slot: Field) -> [Field; N] {
+    storage_read_opcode(storage_slot, N)
+}
+
+unconstrained fn storage_write<N>(storage_slot: Field, values: [Field; N]) {
+    storage_write_opcode(storage_slot, values);
+}
+
+impl Empty for PublicContext {
+    fn empty() -> Self {
+        PublicContext::new(PublicContextInputs::empty())
+    }
+}
+
+// AVM oracles (opcodes) follow, do not use directly.
+#[oracle(avmOpcodeAddress)]
+unconstrained fn address_opcode() -> AztecAddress {}
+
+#[oracle(avmOpcodeStorageAddress)]
+unconstrained fn storage_address_opcode() -> AztecAddress {}
+
+#[oracle(avmOpcodeSender)]
+unconstrained fn sender_opcode() -> AztecAddress {}
+
+#[oracle(avmOpcodePortal)]
+unconstrained fn portal_opcode() -> EthAddress {}
+
+#[oracle(avmOpcodeFunctionSelector)]
+unconstrained fn function_selector_opcode() -> u32 {}
+
+#[oracle(avmOpcodeTransactionFee)]
+unconstrained fn transaction_fee_opcode() -> Field {}
+
+#[oracle(avmOpcodeChainId)]
+unconstrained fn chain_id_opcode() -> Field {}
+
+#[oracle(avmOpcodeVersion)]
+unconstrained fn version_opcode() -> Field {}
+
+#[oracle(avmOpcodeBlockNumber)]
+unconstrained fn block_number_opcode() -> Field {}
+
+#[oracle(avmOpcodeTimestamp)]
+unconstrained fn timestamp_opcode() -> u64 {}
+
+#[oracle(avmOpcodeFeePerL2Gas)]
+unconstrained fn fee_per_l2_gas_opcode() -> Field {}
+
+#[oracle(avmOpcodeFeePerDaGas)]
+unconstrained fn fee_per_da_gas_opcode() -> Field {}
+
+#[oracle(avmOpcodeL2GasLeft)]
+unconstrained fn l2_gas_left_opcode() -> Field {}
+
+#[oracle(avmOpcodeDaGasLeft)]
+unconstrained fn da_gas_left_opcode() -> Field {}
+
+#[oracle(avmOpcodeNoteHashExists)]
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
+
+#[oracle(avmOpcodeEmitNoteHash)]
+unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
+
+#[oracle(avmOpcodeNullifierExists)]
+unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u8 {}
+
+#[oracle(avmOpcodeEmitNullifier)]
+unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
+
+#[oracle(avmOpcodeEmitUnencryptedLog)]
+unconstrained fn emit_unencrypted_log_opcode(message: [Field]) {}
+
+#[oracle(avmOpcodeL1ToL2MsgExists)]
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
+
+#[oracle(avmOpcodeSendL2ToL1Msg)]
+unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
+
+#[oracle(avmOpcodeCall)]
+unconstrained fn call_opcode<RET_SIZE>(
+    gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
+    address: AztecAddress,
+    args: [Field],
+    // TODO(5110): consider passing in calldata directly
+    function_selector: Field
+) -> ([Field; RET_SIZE], u8) {}
+//    ^ return data      ^ success
+
+#[oracle(avmOpcodeStaticCall)]
+unconstrained fn call_static_opcode<RET_SIZE>(
+    gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
+    address: AztecAddress,
+    args: [Field],
+    // TODO(5110): consider passing in calldata directly
+    function_selector: Field
+) -> ([Field; RET_SIZE], u8) {}
+//    ^ return data      ^ success
+
+#[oracle(avmOpcodeStorageRead)]
+unconstrained fn storage_read_opcode<N>(storage_slot: Field, length: Field) -> [Field; N] {}
+
+#[oracle(avmOpcodeStorageWrite)]
+unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}
+
+struct FunctionReturns<N> {
+    values: [Field; N]
+}
+
+impl<N> FunctionReturns<N> {
+    pub fn new(values: [Field; N]) -> FunctionReturns<N> {
+        FunctionReturns { values }
+    }
+
+    pub fn assert_empty(returns: FunctionReturns<0>) {
+        assert(returns.values.len() == 0);
+    }
+
+    pub fn raw(self) -> [Field; N] {
+        self.values
+    }
+
+    pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
+        Deserialize::deserialize(self.raw())
     }
 }

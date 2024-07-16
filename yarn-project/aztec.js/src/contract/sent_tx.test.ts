@@ -1,6 +1,6 @@
-import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { type PXE, TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SentTx } from './sent_tx.js';
 
@@ -19,7 +19,7 @@ describe('SentTx', () => {
   describe('wait', () => {
     let txReceipt: TxReceipt;
     beforeEach(() => {
-      txReceipt = { status: TxStatus.MINED, blockNumber: 20 } as TxReceipt;
+      txReceipt = { status: TxStatus.SUCCESS, blockNumber: 20 } as TxReceipt;
       pxe.getTxReceipt.mockResolvedValue(txReceipt);
     });
 

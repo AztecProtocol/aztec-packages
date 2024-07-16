@@ -6,7 +6,7 @@ use crate::default::Default;
 // You must use constants generated for the native field
 // Rounds number should be ~ log(p)/log(exp)
 // For 254 bit primes, exponent 7 and 91 rounds seems to be recommended
-fn mimc<N>(x: Field, k: Field, constants: [Field; N], exp: Field) -> Field {
+fn mimc<let N: u32>(x: Field, k: Field, constants: [Field; N], exp: Field) -> Field {
     //round 0
     let mut t = x + k;
     let mut h = t.pow_32(exp);
@@ -116,7 +116,7 @@ global MIMC_BN254_CONSTANTS: [Field; MIMC_BN254_ROUNDS] = [
 
 //mimc implementation with hardcoded parameters for BN254 curve.
 #[field(bn254)]
-pub fn mimc_bn254<N>(array: [Field; N]) -> Field {
+pub fn mimc_bn254<let N: u32>(array: [Field; N]) -> Field {
     let exponent = 7;
     let mut r = 0;
     for elem in array {
@@ -126,9 +126,8 @@ pub fn mimc_bn254<N>(array: [Field; N]) -> Field {
     r
 }
 
-struct MimcHasher{
+struct MimcHasher {
     _state: [Field],
-    _len: u64,
 }
 
 impl Hasher for MimcHasher {
@@ -136,24 +135,22 @@ impl Hasher for MimcHasher {
     fn finish(self) -> Field {
         let exponent = 7;
         let mut r = 0;
-        for i in 0..self._len {
+        for i in 0..self._state.len() {
             let h = mimc(self._state[i], r, MIMC_BN254_CONSTANTS, exponent);
             r = r + self._state[i] + h;
         }
         r
     }
 
-    fn write(&mut self, input: [Field]){
-        self._state = self._state.append(input);
-        self._len += input.len();
+    fn write(&mut self, input: Field){
+        self._state = self._state.push_back(input);
     }
 }
 
 impl Default for MimcHasher{
     fn default() -> Self{
-        MimcHasher{
-            _state: [],
-            _len: 0,
+        MimcHasher {
+            _state: &[],
         }
     }
 }

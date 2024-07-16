@@ -22,16 +22,19 @@ pub use traits::*;
 pub use type_alias::*;
 
 use crate::{
+    node_interner::QuotedTypeId,
     parser::{ParserError, ParserErrorReason},
     token::IntType,
     BinaryTypeOperator,
 };
+use acvm::acir::AcirField;
 use iter_extended::vecmap;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Ord, PartialOrd)]
 pub enum IntegerBitSize {
     One,
     Eight,
+    Sixteen,
     ThirtyTwo,
     SixtyFour,
 }
@@ -48,6 +51,7 @@ impl From<IntegerBitSize> for u32 {
         match size {
             One => 1,
             Eight => 8,
+            Sixteen => 16,
             ThirtyTwo => 32,
             SixtyFour => 64,
         }
@@ -64,6 +68,7 @@ impl TryFrom<u32> for IntegerBitSize {
         match value {
             1 => Ok(One),
             8 => Ok(Eight),
+            16 => Ok(Sixteen),
             32 => Ok(ThirtyTwo),
             64 => Ok(SixtyFour),
             _ => Err(InvalidIntegerBitSizeError(value)),
@@ -83,11 +88,12 @@ impl core::fmt::Display for IntegerBitSize {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum UnresolvedTypeData {
     FieldElement,
-    Array(Option<UnresolvedTypeExpression>, Box<UnresolvedType>), // [4]Witness = Array(4, Witness)
+    Array(UnresolvedTypeExpression, Box<UnresolvedType>), // [Field; 4] = Array(4, Field)
+    Slice(Box<UnresolvedType>),
     Integer(Signedness, IntegerBitSize), // u32 = Integer(unsigned, ThirtyTwo)
     Bool,
     Expression(UnresolvedTypeExpression),
-    String(Option<UnresolvedTypeExpression>),
+    String(UnresolvedTypeExpression),
     FormatString(UnresolvedTypeExpression, Box<UnresolvedType>),
     Unit,
 
@@ -111,6 +117,13 @@ pub enum UnresolvedTypeData {
         /*env:*/ Box<UnresolvedType>,
     ),
 
+    // The type of quoted code for metaprogramming
+    Quoted(crate::QuotedType),
+
+    /// An already resolved type. These can only be parsed if they were present in the token stream
+    /// as a result of being spliced into a macro's token stream input.
+    Resolved(QuotedTypeId),
+
     Unspecified, // This is for when the user declares a variable without specifying it's type
     Error,
 }
@@ -125,13 +138,25 @@ pub struct UnresolvedType {
     pub span: Option<Span>,
 }
 
+/// Type wrapper for a member access
+pub struct UnaryRhsMemberAccess {
+    pub method_or_field: Ident,
+    pub method_call: Option<UnaryRhsMethodCall>,
+}
+
+pub struct UnaryRhsMethodCall {
+    pub turbofish: Option<Vec<UnresolvedType>>,
+    pub macro_call: bool,
+    pub args: Vec<Expression>,
+}
+
 /// The precursor to TypeExpression, this is the type that the parser allows
-/// to be used in the length position of an array type. Only constants, variables,
+/// to be used in the length position of an array type. Only constant integers, variables,
 /// and numeric binary operators are allowed here.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum UnresolvedTypeExpression {
     Variable(Path),
-    Constant(u64, Span),
+    Constant(u32, Span),
     BinaryOperation(
         Box<UnresolvedTypeExpression>,
         BinaryTypeOperator,
@@ -151,10 +176,8 @@ impl std::fmt::Display for UnresolvedTypeData {
         use UnresolvedTypeData::*;
         match self {
             FieldElement => write!(f, "Field"),
-            Array(len, typ) => match len {
-                None => write!(f, "[{typ}]"),
-                Some(len) => write!(f, "[{typ}; {len}]"),
-            },
+            Array(len, typ) => write!(f, "[{typ}; {len}]"),
+            Slice(typ) => write!(f, "[{typ}]"),
             Integer(sign, num_bits) => match sign {
                 Signedness::Signed => write!(f, "i{num_bits}"),
                 Signedness::Unsigned => write!(f, "u{num_bits}"),
@@ -181,10 +204,7 @@ impl std::fmt::Display for UnresolvedTypeData {
             }
             Expression(expression) => expression.fmt(f),
             Bool => write!(f, "bool"),
-            String(len) => match len {
-                None => write!(f, "str<_>"),
-                Some(len) => write!(f, "str<{len}>"),
-            },
+            String(len) => write!(f, "str<{len}>"),
             FormatString(len, elements) => write!(f, "fmt<{len}, {elements}"),
             Function(args, ret, env) => {
                 let args = vecmap(args, ToString::to_string).join(", ");
@@ -201,10 +221,12 @@ impl std::fmt::Display for UnresolvedTypeData {
                 }
             }
             MutableReference(element) => write!(f, "&mut {element}"),
+            Quoted(quoted) => write!(f, "{}", quoted),
             Unit => write!(f, "()"),
             Error => write!(f, "error"),
             Unspecified => write!(f, "unspecified"),
             Parenthesized(typ) => write!(f, "({typ})"),
+            Resolved(_) => write!(f, "(resolved type)"),
         }
     }
 }
@@ -242,6 +264,10 @@ impl UnresolvedType {
 
     pub fn unspecified() -> UnresolvedType {
         UnresolvedType { typ: UnresolvedTypeData::Unspecified, span: None }
+    }
+
+    pub(crate) fn is_type_expression(&self) -> bool {
+        matches!(&self.typ, UnresolvedTypeData::Expression(_))
     }
 }
 
@@ -299,12 +325,12 @@ impl UnresolvedTypeExpression {
         match expr.kind {
             ExpressionKind::Literal(Literal::Integer(int, sign)) => {
                 assert!(!sign, "Negative literal is not allowed here");
-                match int.try_to_u64() {
+                match int.try_to_u32() {
                     Some(int) => Ok(UnresolvedTypeExpression::Constant(int, expr.span)),
                     None => Err(expr),
                 }
             }
-            ExpressionKind::Variable(path) => Ok(UnresolvedTypeExpression::Variable(path)),
+            ExpressionKind::Variable(path, _) => Ok(UnresolvedTypeExpression::Variable(path)),
             ExpressionKind::Prefix(prefix) if prefix.operator == UnaryOp::Minus => {
                 let lhs = Box::new(UnresolvedTypeExpression::Constant(0, expr.span));
                 let rhs = Box::new(UnresolvedTypeExpression::from_expr_helper(prefix.rhs)?);
@@ -379,29 +405,6 @@ impl std::fmt::Display for Visibility {
             Self::Public => write!(f, "pub"),
             Self::Private => write!(f, "priv"),
             Self::DataBus => write!(f, "databus"),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-/// Represents whether the return value should compromise of unique witness indices such that no
-/// index occurs within the program's abi more than once.
-///
-/// This is useful for application stacks that require an uniform abi across across multiple
-/// circuits. When index duplication is allowed, the compiler may identify that a public input
-/// reaches the output unaltered and is thus referenced directly, causing the input and output
-/// witness indices to overlap. Similarly, repetitions of copied values in the output may be
-/// optimized away.
-pub enum Distinctness {
-    Distinct,
-    DuplicationAllowed,
-}
-
-impl std::fmt::Display for Distinctness {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Distinct => write!(f, "distinct"),
-            Self::DuplicationAllowed => write!(f, "duplication-allowed"),
         }
     }
 }

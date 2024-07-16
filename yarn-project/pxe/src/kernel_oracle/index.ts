@@ -1,18 +1,24 @@
-import { AztecNode, KeyStore } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  Fr,
-  FunctionSelector,
+  type AztecAddress,
+  type Fr,
+  type FunctionSelector,
+  type GrumpkinScalar,
   MembershipWitness,
-  NOTE_HASH_TREE_HEIGHT,
-  Point,
+  type NOTE_HASH_TREE_HEIGHT,
+  type Point,
+  VK_TREE_HEIGHT,
+  type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { type Tuple } from '@aztec/foundation/serialize';
+import { type KeyStore } from '@aztec/key-store';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
@@ -20,7 +26,12 @@ import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
  * A data oracle that provides information needed for simulating a transaction.
  */
 export class KernelOracle implements ProvingDataOracle {
-  constructor(private contractDataOracle: ContractDataOracle, private keyStore: KeyStore, private node: AztecNode) {}
+  constructor(
+    private contractDataOracle: ContractDataOracle,
+    private keyStore: KeyStore,
+    private node: AztecNode,
+    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+  ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataOracle.getContractInstance(address);
@@ -39,11 +50,12 @@ export class KernelOracle implements ProvingDataOracle {
     return await this.contractDataOracle.getFunctionMembershipWitness(contractAddress, selector);
   }
 
-  public async getVkMembershipWitness() {
-    return await this.contractDataOracle.getVkMembershipWitness();
+  public getVkMembershipWitness(vk: VerificationKeyAsFields) {
+    const leafIndex = getVKIndex(vk);
+    return Promise.resolve(new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)));
   }
 
-  async getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
+  async getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
     const path = await this.node.getNoteHashSiblingPath('latest', leafIndex);
     return new MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>(
       path.pathSize,
@@ -61,7 +73,11 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterNullifierSecretKey(nullifierPublicKey: Point) {
-    return this.keyStore.getNullifierSecretKeyFromPublicKey(nullifierPublicKey);
+  public getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinScalar> {
+    return this.keyStore.getMasterSecretKey(masterPublicKey);
+  }
+
+  public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
+    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
   }
 }

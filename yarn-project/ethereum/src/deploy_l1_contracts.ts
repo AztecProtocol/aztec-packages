@@ -1,23 +1,26 @@
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { DebugLogger } from '@aztec/foundation/log';
+import { type Fr } from '@aztec/foundation/fields';
+import { type DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  Account,
-  Chain,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Chain,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
   getContract,
   http,
 } from 'viem';
-import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
+import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
-import { L1ContractAddresses } from './l1_contract_addresses.js';
+import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -31,7 +34,6 @@ export type DeployL1Contracts = {
    * Public Client Type.
    */
   publicClient: PublicClient<HttpTransport, Chain>;
-
   /**
    * The currently deployed l1 contract addresses
    */
@@ -87,12 +89,41 @@ export interface L1ContractArtifactsForDeployment {
 }
 
 /**
- * Deploys the aztec L1 contracts; Rollup, Contract Deployment Emitter & (optionally) Decoder Helper.
+ * Creates a wallet and a public viem client for interacting with L1.
+ * @param rpcUrl - RPC URL to connect to L1.
+ * @param mnemonicOrHdAccount - Mnemonic or account for the wallet client.
+ * @param chain - Optional chain spec (defaults to local foundry).
+ * @returns - A wallet and a public client.
+ */
+export function createL1Clients(
+  rpcUrl: string,
+  mnemonicOrHdAccount: string | HDAccount | PrivateKeyAccount,
+  chain: Chain = foundry,
+): { publicClient: PublicClient<HttpTransport, Chain>; walletClient: WalletClient<HttpTransport, Chain, Account> } {
+  const hdAccount =
+    typeof mnemonicOrHdAccount === 'string' ? mnemonicToAccount(mnemonicOrHdAccount) : mnemonicOrHdAccount;
+
+  const walletClient = createWalletClient({
+    account: hdAccount,
+    chain,
+    transport: http(rpcUrl),
+  });
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  });
+
+  return { walletClient, publicClient };
+}
+
+/**
+ * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
  * @param rpcUrl - URL of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
  * @param contractsToDeploy - The set of L1 artifacts to be deployed
+ * @param args - Arguments for initialization of L1 contracts
  * @returns A list of ETH addresses of the deployed contracts.
  */
 export const deployL1Contracts = async (
@@ -101,8 +132,9 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
+  args: { l2GasTokenAddress: AztecAddress; vkTreeRoot: Fr },
 ): Promise<DeployL1Contracts> => {
-  logger('Deploying contracts...');
+  logger.debug('Deploying contracts...');
 
   const walletClient = createWalletClient({
     account,
@@ -120,16 +152,7 @@ export const deployL1Contracts = async (
     contractsToDeploy.registry.contractAbi,
     contractsToDeploy.registry.contractBytecode,
   );
-  logger(`Deployed Registry at ${registryAddress}`);
-
-  const outboxAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.outbox.contractAbi,
-    contractsToDeploy.outbox.contractBytecode,
-    [getAddress(registryAddress.toString())],
-  );
-  logger(`Deployed Outbox at ${outboxAddress}`);
+  logger.info(`Deployed Registry at ${registryAddress}`);
 
   const availabilityOracleAddress = await deployL1Contract(
     walletClient,
@@ -137,18 +160,32 @@ export const deployL1Contracts = async (
     contractsToDeploy.availabilityOracle.contractAbi,
     contractsToDeploy.availabilityOracle.contractBytecode,
   );
-  logger(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
+  logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
+
+  const gasTokenAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.gasToken.contractAbi,
+    contractsToDeploy.gasToken.contractBytecode,
+  );
+
+  logger.info(`Deployed Gas Token at ${gasTokenAddress}`);
 
   const rollupAddress = await deployL1Contract(
     walletClient,
     publicClient,
     contractsToDeploy.rollup.contractAbi,
     contractsToDeploy.rollup.contractBytecode,
-    [getAddress(registryAddress.toString()), getAddress(availabilityOracleAddress.toString())],
+    [
+      getAddress(registryAddress.toString()),
+      getAddress(availabilityOracleAddress.toString()),
+      getAddress(gasTokenAddress.toString()),
+      args.vkTreeRoot.toString(),
+    ],
   );
-  logger(`Deployed Rollup at ${rollupAddress}`);
+  logger.info(`Deployed Rollup at ${rollupAddress}`);
 
-  // Inbox is immutable and is deployed from Rollup's constructor so we just fetch it from the contract.
+  // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
   let inboxAddress!: EthAddress;
   {
     const rollup = getContract({
@@ -158,6 +195,18 @@ export const deployL1Contracts = async (
     });
     inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
   }
+  logger.info(`Inbox available at ${inboxAddress}`);
+
+  let outboxAddress!: EthAddress;
+  {
+    const rollup = getContract({
+      address: getAddress(rollupAddress.toString()),
+      abi: contractsToDeploy.rollup.contractAbi,
+      client: publicClient,
+    });
+    outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
+  }
+  logger.info(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
@@ -171,16 +220,6 @@ export const deployL1Contracts = async (
   );
 
   // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
-  const gasTokenAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.gasToken.contractAbi,
-    contractsToDeploy.gasToken.contractBytecode,
-  );
-
-  logger(`Deployed Gas Token at ${gasTokenAddress}`);
-
-  // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
   const gasPortalAddress = await deployL1Contract(
     walletClient,
     publicClient,
@@ -188,7 +227,35 @@ export const deployL1Contracts = async (
     contractsToDeploy.gasPortal.contractBytecode,
   );
 
-  logger(`Deployed Gas Portal at ${gasPortalAddress}`);
+  logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
+
+  const gasPortal = getContract({
+    address: gasPortalAddress.toString(),
+    abi: contractsToDeploy.gasPortal.contractAbi,
+    client: walletClient,
+  });
+
+  await publicClient.waitForTransactionReceipt({
+    hash: await gasPortal.write.initialize([
+      registryAddress.toString(),
+      gasTokenAddress.toString(),
+      args.l2GasTokenAddress.toString(),
+    ]),
+  });
+
+  logger.info(
+    `Initialized Gas Portal at ${gasPortalAddress} to bridge between L1 ${gasTokenAddress} to L2 ${args.l2GasTokenAddress}`,
+  );
+
+  // fund the rollup contract with gas tokens
+  const gasToken = getContract({
+    address: gasTokenAddress.toString(),
+    abi: contractsToDeploy.gasToken.contractAbi,
+    client: walletClient,
+  });
+  const receipt = await gasToken.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
+  await publicClient.waitForTransactionReceipt({ hash: receipt });
+  logger.info(`Funded rollup contract with gas tokens`);
 
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
@@ -230,10 +297,14 @@ export async function deployL1Contract(
     args,
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
-    throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);
+    throw new Error(
+      `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
+        typeof val === 'bigint' ? String(val) : val,
+      )}`,
+    );
   }
 
   return EthAddress.fromString(receipt.contractAddress!);

@@ -1,4 +1,5 @@
 mod hash;
+mod aes128;
 mod array;
 mod slice;
 mod merkle;
@@ -6,9 +7,7 @@ mod schnorr;
 mod ecdsa_secp256k1;
 mod ecdsa_secp256r1;
 mod eddsa;
-mod grumpkin_scalar;
-mod grumpkin_scalar_mul;
-mod scalar_mul;
+mod embedded_curve_ops;
 mod sha256;
 mod sha512;
 mod field;
@@ -26,7 +25,9 @@ mod default;
 mod prelude;
 mod uint128;
 mod bigint;
-mod internal;
+mod runtime;
+mod meta;
+mod append;
 
 // Oracle calls are required to be wrapped in an unconstrained function
 // Thus, the only argument to the `println` oracle is expected to always be an ident
@@ -48,6 +49,11 @@ pub fn verify_proof<N>(verification_key: [Field], proof: [Field], public_inputs:
 // Useful for debugging for-loop bounds.
 #[builtin(assert_constant)]
 pub fn assert_constant<T>(x: T) {}
+
+// Asserts that the given value is both true and known at compile-time
+#[builtin(static_assert)]
+pub fn static_assert<let N: u32>(predicate: bool, message: str<N>) {}
+
 // from_field and as_field are private since they are not valid for every type.
 // `as` should be the default for users to cast between primitive types, and in the future
 // traits can be used to work with generic types.
@@ -69,3 +75,7 @@ pub fn wrapping_sub<T>(x: T, y: T) -> T {
 pub fn wrapping_mul<T>(x: T, y: T) -> T {
     crate::from_field(crate::as_field(x) * crate::as_field(y))
 }
+
+#[builtin(as_witness)]
+pub fn as_witness(x: Field) {}
+

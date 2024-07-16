@@ -1,23 +1,24 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
-import { ABIParameterVisibility, FunctionAbi, FunctionType } from './abi.js';
+import { type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {
   it('serializes fields as fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isInitializer: true,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -31,8 +32,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -41,7 +43,7 @@ describe('abi/encoder', () => {
             length: 2,
             type: { kind: 'field' },
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -55,8 +57,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -64,7 +67,7 @@ describe('abi/encoder', () => {
             kind: 'string',
             length: 4,
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -80,8 +83,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
@@ -95,7 +99,7 @@ describe('abi/encoder', () => {
               },
             ],
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -115,8 +119,9 @@ describe('abi/encoder', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'contract_class',
@@ -130,7 +135,7 @@ describe('abi/encoder', () => {
               },
             ],
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
@@ -146,62 +151,63 @@ describe('abi/encoder', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
     };
     const args = ['garbage'];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid argument "garbage" of type field');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid hex-encoded string: "garbage"');
   });
 
   it('throws when passing string argument as integer', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'isOwner',
           type: {
-            sign: 'value',
+            sign: 'signed',
             width: 5,
             kind: 'integer',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],
     };
     const args = ['garbage'];
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(
-      `Type 'string' with value 'garbage' passed to BaseField ctor.`,
-    );
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(`Cannot convert garbage to a BigInt`);
   });
 
   it('throws when passing object argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
-      functionType: FunctionType.SECRET,
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
+      isStatic: false,
       parameters: [
         {
           name: 'owner',
           type: {
             kind: 'field',
           },
-          visibility: ABIParameterVisibility.SECRET,
+          visibility: 'private',
         },
       ],
       returnTypes: [],

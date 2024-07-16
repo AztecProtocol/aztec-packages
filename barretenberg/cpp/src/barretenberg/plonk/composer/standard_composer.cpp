@@ -4,9 +4,9 @@
 #include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
 #include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget.hpp"
 #include "barretenberg/plonk/proof_system/widgets/transition_widgets/arithmetic_widget.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -41,7 +41,7 @@ std::shared_ptr<plonk::proving_key> StandardComposer::compute_proving_key(Circui
         subgroup_size, circuit_constructor.public_inputs.size(), crs, CircuitType::STANDARD);
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
-    Trace::populate(circuit_constructor, circuit_proving_key);
+    Trace::populate(circuit_constructor, *circuit_proving_key);
 
     // Make all selectors nonzero
     enforce_nonzero_selector_polynomials(circuit_constructor, circuit_proving_key.get());

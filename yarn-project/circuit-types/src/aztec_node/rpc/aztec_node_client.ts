@@ -1,16 +1,22 @@
 import { FunctionSelector, Header } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
+import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
-import { AztecNode } from '../../interfaces/aztec-node.js';
+import { type AztecNode } from '../../interfaces/aztec-node.js';
 import { NullifierMembershipWitness } from '../../interfaces/nullifier_tree.js';
 import { L2Block } from '../../l2_block.js';
-import { ExtendedUnencryptedL2Log, L2BlockL2Logs, LogId } from '../../logs/index.js';
+import {
+  EncryptedNoteL2BlockL2Logs,
+  ExtendedUnencryptedL2Log,
+  LogId,
+  UnencryptedL2BlockL2Logs,
+} from '../../logs/index.js';
+import { PublicDataWitness } from '../../public_data_witness.js';
 import { SiblingPath } from '../../sibling_path/index.js';
-import { Tx, TxHash, TxReceipt } from '../../tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
 
 /**
@@ -34,11 +40,20 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       TxEffect,
       LogId,
       TxHash,
+      PublicDataWitness,
       SiblingPath,
     },
-    { Tx, TxReceipt, L2BlockL2Logs, NullifierMembershipWitness },
+    {
+      EncryptedNoteL2BlockL2Logs,
+      NoteSelector,
+      NullifierMembershipWitness,
+      PublicSimulationOutput,
+      Tx,
+      TxReceipt,
+      UnencryptedL2BlockL2Logs,
+    },
     false,
     'node',
     fetch,
-  );
+  ) as AztecNode;
 }

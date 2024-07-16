@@ -1,10 +1,13 @@
 barretenberg_module(
     stdlib_honk_recursion
-    proof_system
+    stdlib_circuit_builders
     stdlib_pedersen_commitment
     stdlib_blake3s
     ultra_honk
-    translator_vm
     stdlib_poseidon2
     protogalaxy
+    goblin
+    translator_vm_recursion
+    eccvm_recursion
+    client_ivc
 )

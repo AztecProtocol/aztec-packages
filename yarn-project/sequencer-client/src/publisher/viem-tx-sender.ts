@@ -1,14 +1,15 @@
-import { L2Block } from '@aztec/circuit-types';
+import { type L2Block } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import {
-  GetContractReturnType,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type GetContractReturnType,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
@@ -16,15 +17,16 @@ import {
   hexToBytes,
   http,
 } from 'viem';
-import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import * as chains from 'viem/chains';
 
-import { TxSenderConfig } from './config.js';
+import { type TxSenderConfig } from './config.js';
 import {
-  L1PublisherTxSender,
-  MinimalTransactionReceipt,
-  L1ProcessArgs as ProcessTxArgs,
-  TransactionStats,
+  type L1PublisherTxSender,
+  type L1SubmitProofArgs,
+  type MinimalTransactionReceipt,
+  type L1ProcessArgs as ProcessTxArgs,
+  type TransactionStats,
 } from './l1-publisher.js';
 
 /**
@@ -45,8 +47,8 @@ export class ViemTxSender implements L1PublisherTxSender {
   private account: PrivateKeyAccount;
 
   constructor(config: TxSenderConfig) {
-    const { rpcUrl, apiKey, publisherPrivateKey, l1Contracts } = config;
-    const chain = createEthereumChain(rpcUrl, apiKey);
+    const { rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
+    const chain = createEthereumChain(rpcUrl, chainId);
     this.account = privateKeyToAccount(publisherPrivateKey);
     const walletClient = createWalletClient({
       account: this.account,
@@ -71,13 +73,27 @@ export class ViemTxSender implements L1PublisherTxSender {
     });
   }
 
+  getSenderAddress(): Promise<EthAddress> {
+    return Promise.resolve(EthAddress.fromString(this.account.address));
+  }
+
+  async getSubmitterAddressForBlock(blockNumber: number): Promise<EthAddress> {
+    try {
+      const submitter = await this.rollupContract.read.whoseTurnIsIt([BigInt(blockNumber)]);
+      return EthAddress.fromString(submitter);
+    } catch (err) {
+      this.log.warn(`Failed to get submitter for block ${blockNumber}: ${err}`);
+      return EthAddress.ZERO;
+    }
+  }
+
   async getCurrentArchive(): Promise<Buffer> {
     const archive = await this.rollupContract.read.archive();
     return Buffer.from(archive.replace('0x', ''), 'hex');
   }
 
   checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
-    const args = [`0x${block.body.getTxsEffectsHash().toString('hex')}`] as const;
+    const args = [`0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`] as const;
     return this.availabilityOracleContract.read.isAvailable(args);
   }
 
@@ -114,7 +130,7 @@ export class ViemTxSender implements L1PublisherTxSender {
       };
     }
 
-    this.log(`Receipt not found for tx hash ${txHash}`);
+    this.log.debug(`Receipt not found for tx hash ${txHash}`);
     return undefined;
   }
 
@@ -142,12 +158,7 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [
-      `0x${encodedData.header.toString('hex')}`,
-      `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.body.toString('hex')}`,
-      `0x${encodedData.proof.toString('hex')}`,
-    ] as const;
+    const args = [`0x${encodedData.header.toString('hex')}`, `0x${encodedData.archive.toString('hex')}`] as const;
 
     const gas = await this.rollupContract.estimateGas.process(args, {
       account: this.account,
@@ -156,6 +167,31 @@ export class ViemTxSender implements L1PublisherTxSender {
       gas,
       account: this.account,
     });
+    return hash;
+  }
+
+  /**
+   * Sends a tx to the L1 rollup contract with a proof. Returns once the tx has been mined.
+   * @param encodedData - Serialized data for the proof.
+   * @returns The hash of the mined tx.
+   */
+  async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
+    const { header, archive, aggregationObject, proof } = submitProofArgs;
+    const args = [
+      `0x${header.toString('hex')}`,
+      `0x${archive.toString('hex')}`,
+      `0x${aggregationObject.toString('hex')}`,
+      `0x${proof.toString('hex')}`,
+    ] as const;
+
+    const gas = await this.rollupContract.estimateGas.submitProof(args, {
+      account: this.account,
+    });
+    const hash = await this.rollupContract.write.submitProof(args, {
+      gas,
+      account: this.account,
+    });
+
     return hash;
   }
 

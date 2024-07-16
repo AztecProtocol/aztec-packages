@@ -1,7 +1,7 @@
 #include "./plookup.hpp"
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 namespace bb {
 class UltraPlonkBuilder;
@@ -77,7 +77,7 @@ field_t<Builder> plookup_read<Builder>::read_from_2_to_1_table(const MultiTableI
                                                                const field_t<Builder>& key_a,
                                                                const field_t<Builder>& key_b)
 {
-    const auto lookup = get_lookup_accumulators(id, key_a, key_b, true);
+    const auto lookup = get_lookup_accumulators(id, key_a, key_b, /*is_2_to_1_lookup=*/true);
 
     return lookup[ColumnIdx::C3][0];
 }
@@ -91,5 +91,6 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
 }
 
 template class plookup_read<bb::UltraCircuitBuilder>;
-template class plookup_read<bb::GoblinUltraCircuitBuilder>;
+template class plookup_read<bb::MegaCircuitBuilder>;
+template class plookup_read<bb::CircuitSimulatorBN254>;
 } // namespace bb::stdlib

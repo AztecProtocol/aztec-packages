@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '../constants.gen.js';
@@ -16,6 +16,10 @@ export class PartialStateReference {
     /** Snapshot of the public data tree. */
     public readonly publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
+
+  getSize() {
+    return this.noteHashTree.getSize() + this.nullifierTree.getSize() + this.publicDataTree.getSize();
+  }
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialStateReference {
     const reader = BufferReader.asReader(buffer);

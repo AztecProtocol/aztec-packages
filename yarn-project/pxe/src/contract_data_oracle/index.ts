@@ -1,17 +1,17 @@
-import { AztecAddress, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 import {
-  ContractArtifact,
-  FunctionArtifact,
-  FunctionDebugMetadata,
-  FunctionSelector,
+  type ContractArtifact,
+  type FunctionArtifact,
+  type FunctionDebugMetadata,
+  type FunctionSelector,
   getFunctionDebugMetadata,
 } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
-import { ContractClass, ContractInstance } from '@aztec/types/contracts';
+import { type ContractClass, type ContractInstance } from '@aztec/types/contracts';
 
-import { ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
-import { ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
+import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
+import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
@@ -50,20 +50,6 @@ export class ContractDataOracle {
   public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact> {
     const tree = await this.getTreeForClassId(contractClassId);
     return tree.getArtifact();
-  }
-
-  /**
-   * Retrieve the portal contract address associated with the given contract address.
-   * This function searches for the corresponding contract tree in the local cache and returns the portal contract address.
-   * If the contract tree is not found in the cache, it fetches the contract data from the database and creates a new ContractTree instance.
-   * Throws an error if the contract address is not found in the database.
-   *
-   * @param contractAddress - The AztecAddress of the contract whose portal contract address needs to be retrieved.
-   * @returns A Promise that resolves to the portal contract address.
-   */
-  public async getPortalContractAddress(contractAddress: AztecAddress) {
-    const instance = await this.getContractInstance(contractAddress);
-    return instance.portalContractAddress;
   }
 
   /**
@@ -145,18 +131,11 @@ export class ContractDataOracle {
     return tree.getFunctionMembershipWitness(selector);
   }
 
-  /**
-   * Retrieve the membership witness corresponding to a verification key.
-   * This function currently returns a random membership witness of the specified height,
-   * which is a placeholder implementation until a concrete membership witness calculation
-   * is implemented.
-   *
-   * @param vk - The VerificationKey for which the membership witness is needed.
-   * @returns A Promise that resolves to the MembershipWitness instance.
-   */
-  public async getVkMembershipWitness() {
-    // TODO
-    return await Promise.resolve(MembershipWitness.random(VK_TREE_HEIGHT));
+  public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    const { name: contractName } = tree.getArtifact();
+    const { name: functionName } = tree.getFunctionArtifact(selector);
+    return `${contractName}:${functionName}`;
   }
 
   /**

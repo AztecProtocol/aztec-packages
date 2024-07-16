@@ -1,9 +1,9 @@
 import { L2Block } from '@aztec/circuit-types';
+import { sleep } from '@aztec/foundation/sleep';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { sleep } from '../utils.js';
-import { L1Publisher, L1PublisherTxSender, MinimalTransactionReceipt } from './l1-publisher.js';
+import { L1Publisher, type L1PublisherTxSender, type MinimalTransactionReceipt } from './l1-publisher.js';
 
 describe('L1Publisher', () => {
   let txSender: MockProxy<L1PublisherTxSender>;
@@ -17,7 +17,6 @@ describe('L1Publisher', () => {
   let archive: Buffer;
   let txsEffectsHash: Buffer;
   let body: Buffer;
-  let proof: Buffer;
 
   let publisher: L1Publisher;
 
@@ -28,7 +27,6 @@ describe('L1Publisher', () => {
     archive = l2Block.archive.root.toBuffer();
     txsEffectsHash = l2Block.body.getTxsEffectsHash();
     body = l2Block.body.toBuffer();
-    proof = Buffer.alloc(0);
 
     txSender = mock<L1PublisherTxSender>();
 
@@ -56,7 +54,7 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body, proof });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(processTxHash);
   });
 

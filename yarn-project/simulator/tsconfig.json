@@ -16,7 +16,19 @@
       "path": "../foundation"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../types"
+    },
+    {
+      "path": "../world-state"
     },
     {
       "path": "../kv-store"

@@ -6,9 +6,9 @@ import compress from 'koa-compress';
 import Router from 'koa-router';
 
 import { createDebugLogger } from '../../log/index.js';
-import { JsonClassConverterInput, StringClassConverterInput } from '../class_converter.js';
+import { type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { convertBigintsInObj } from '../convert.js';
-import { ClassMaps, JsonProxy } from './json_proxy.js';
+import { type ClassMaps, JsonProxy } from './json_proxy.js';
 
 /**
  * JsonRpcServer.
@@ -25,7 +25,7 @@ export class JsonRpcServer {
     private objectClassMap: JsonClassConverterInput,
     /** List of methods to disallow from calling remotely */
     public readonly disallowedMethods: string[] = [],
-    private log = createDebugLogger('aztec:foundation:json-rpc:server'),
+    private log = createDebugLogger('json-rpc:server'),
   ) {
     this.proxy = new JsonProxy(handler, stringClassMap, objectClassMap);
   }
@@ -226,7 +226,7 @@ export type ServerList = {
  */
 export function createNamespacedJsonRpcServer(
   servers: ServerList,
-  log = createDebugLogger('aztec:foundation:json-rpc:multi-server'),
+  log = createDebugLogger('json-rpc:multi-server'),
 ): JsonRpcServer {
   const handler = {} as any;
   const disallowedMethods: string[] = [];

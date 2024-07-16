@@ -1,29 +1,39 @@
 import {
-  Body,
-  GetUnencryptedLogsResponse,
-  InboxLeaf,
-  L2Block,
-  L2BlockL2Logs,
-  LogFilter,
-  LogType,
-  TxEffect,
-  TxHash,
-  TxReceipt,
+  type Body,
+  type EncryptedL2BlockL2Logs,
+  type EncryptedNoteL2BlockL2Logs,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type InboxLeaf,
+  type L2Block,
+  type L2BlockL2Logs,
+  type LogFilter,
+  type LogType,
+  type TxEffect,
+  type TxHash,
+  type TxReceipt,
+  type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type Fr } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
-import { DataRetrieval } from './data_retrieval.js';
+import { type DataRetrieval } from './data_retrieval.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
  */
 export type ArchiverL1SynchPoint = {
-  /** The last L1 block that added a new L2 block.  */
-  blocks: bigint;
-  /** The last L1 block that added L1 -> L2 messages from the Inbox. */
-  messages: bigint;
+  /** Number of the last L1 block that added a new L2 block.  */
+  blocksSynchedTo: bigint;
+  /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
+  messagesSynchedTo: bigint;
 };
 
 /**
@@ -77,14 +87,16 @@ export interface ArchiverDataStore {
 
   /**
    * Append new logs to the store's list.
+   * @param noteEncryptedLogs - The note encrypted logs to be added to the store.
    * @param encryptedLogs - The encrypted logs to be added to the store.
    * @param unencryptedLogs - The unencrypted logs to be added to the store.
    * @param blockNumber - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
   addLogs(
-    encryptedLogs: L2BlockL2Logs | undefined,
-    unencryptedLogs: L2BlockL2Logs | undefined,
+    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
+    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
+    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
     blockNumber: number,
   ): Promise<boolean>;
 
@@ -103,11 +115,12 @@ export interface ArchiverDataStore {
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined>;
+  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.
@@ -116,7 +129,11 @@ export interface ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -132,9 +149,21 @@ export interface ArchiverDataStore {
   getSynchedL2BlockNumber(): Promise<number>;
 
   /**
+   * Gets the number of the latest proven L2 block processed.
+   * @returns The number of the latest proven L2 block processed.
+   */
+  getProvenL2BlockNumber(): Promise<number>;
+
+  /**
+   * Stores the number of the latest proven L2 block processed.
+   * @param l2BlockNumber - The number of the latest proven L2 block processed.
+   */
+  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
+
+  /**
    * Gets the synch point of the archiver
    */
-  getSynchedL1BlockNumbers(): Promise<ArchiverL1SynchPoint>;
+  getSynchPoint(): Promise<ArchiverL1SynchPoint>;
 
   /**
    * Add new contract classes from an L2 block to the store's list.
@@ -159,6 +188,15 @@ export interface ArchiverDataStore {
   addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
+   * Adds private functions to a contract class.
+   */
+  addFunctions(
+    contractClassId: Fr,
+    privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
+    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+  ): Promise<boolean>;
+
+  /**
    * Returns a contract instance given its address, or undefined if not exists.
    * @param address - Address of the contract.
    */
@@ -166,4 +204,7 @@ export interface ArchiverDataStore {
 
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
+
+  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
+  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
 }

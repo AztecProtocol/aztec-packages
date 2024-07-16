@@ -1,10 +1,9 @@
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ROLLUP_VK_TREE_HEIGHT } from '../../constants.gen.js';
+import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { Proof } from '../proof.js';
-import { UInt32 } from '../shared.js';
-import { VerificationKey } from '../verification_key.js';
+import { RecursiveProof } from '../recursive_proof.js';
+import { VerificationKeyAsFields } from '../verification_key.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 
 /**
@@ -19,19 +18,15 @@ export class PreviousRollupData {
     /**
      * The proof of the base or merge rollup circuit.
      */
-    public proof: Proof,
+    public proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
     /**
      * The verification key of the base or merge rollup circuit.
      */
-    public vk: VerificationKey,
-    /**
-     * The index of the rollup circuit's vk in a big tree of rollup circuit vks.
-     */
-    public vkIndex: UInt32,
+    public vk: VerificationKeyAsFields,
     /**
      * Sibling path of the rollup circuit's vk in a big tree of rollup circuit vks.
      */
-    public vkSiblingPath: MembershipWitness<typeof ROLLUP_VK_TREE_HEIGHT>,
+    public vkWitness: MembershipWitness<typeof VK_TREE_HEIGHT>,
   ) {}
 
   /**
@@ -39,6 +34,21 @@ export class PreviousRollupData {
    * @returns The buffer of the serialized previous rollup data.
    */
   public toBuffer(): Buffer {
-    return serializeToBuffer(this.baseOrMergeRollupPublicInputs, this.proof, this.vk, this.vkIndex, this.vkSiblingPath);
+    return serializeToBuffer(this.baseOrMergeRollupPublicInputs, this.proof, this.vk, this.vkWitness);
+  }
+
+  /**
+   * Deserializes previous rollup data from a buffer.
+   * @param buffer - A buffer to deserialize from.
+   * @returns A new PreviousRollupData instance.
+   */
+  public static fromBuffer(buffer: Buffer | BufferReader): PreviousRollupData {
+    const reader = BufferReader.asReader(buffer);
+    return new PreviousRollupData(
+      reader.readObject(BaseOrMergeRollupPublicInputs),
+      RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
+      reader.readObject(VerificationKeyAsFields),
+      MembershipWitness.fromBuffer(reader, VK_TREE_HEIGHT),
+    );
   }
 }

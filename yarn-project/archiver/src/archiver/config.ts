@@ -1,4 +1,4 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -21,6 +21,11 @@ export interface ArchiverConfig {
    * The key for the ethereum node.
    */
   apiKey?: string;
+
+  /**
+   * The L1 chain's ID
+   */
+  l1ChainId: number;
 
   /**
    * The polling interval in ms for retrieving new L2 blocks and encrypted logs.
@@ -54,6 +59,7 @@ export interface ArchiverConfig {
 export function getConfigEnvVars(): ArchiverConfig {
   const {
     ETHEREUM_HOST,
+    L1_CHAIN_ID,
     ARCHIVER_POLLING_INTERVAL_MS,
     ARCHIVER_VIEM_POLLING_INTERVAL_MS,
     AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
@@ -81,7 +87,8 @@ export function getConfigEnvVars(): ArchiverConfig {
       : EthAddress.ZERO,
   };
   return {
-    rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
+    rpcUrl: ETHEREUM_HOST || '',
+    l1ChainId: L1_CHAIN_ID ? +L1_CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
     viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
     apiKey: API_KEY,

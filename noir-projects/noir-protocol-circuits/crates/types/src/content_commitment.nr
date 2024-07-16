@@ -1,23 +1,23 @@
 use crate::{
-    constants::{NUM_FIELDS_PER_SHA256, CONTENT_COMMITMENT_LENGTH},
-    traits::{Deserialize, Empty, Hash, Serialize}, utils::{arr_copy_slice}
+    constants::CONTENT_COMMITMENT_LENGTH, traits::{Deserialize, Empty, Hash, Serialize},
+    utils::arr_copy_slice
 };
 
 struct ContentCommitment {
-  tx_tree_height: Field,
-  txs_effects_hash: [Field; NUM_FIELDS_PER_SHA256],
-  in_hash: [Field; NUM_FIELDS_PER_SHA256],
-  out_hash: [Field; NUM_FIELDS_PER_SHA256],
+  num_txs: Field,
+  txs_effects_hash: Field,
+  in_hash: Field,
+  out_hash: Field,
 }
 
 impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
   fn serialize(self) -> [Field; CONTENT_COMMITMENT_LENGTH] {
     let mut fields: BoundedVec<Field, CONTENT_COMMITMENT_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array([self.tx_tree_height]);
-    fields.extend_from_array(self.txs_effects_hash);
-    fields.extend_from_array(self.in_hash);
-    fields.extend_from_array(self.out_hash);
+    fields.push(self.num_txs);
+    fields.push(self.txs_effects_hash);
+    fields.push(self.in_hash);
+    fields.push(self.out_hash);
 
     fields.storage
   }
@@ -25,19 +25,16 @@ impl Serialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
 
 impl Deserialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
   fn deserialize(serialized: [Field; CONTENT_COMMITMENT_LENGTH]) -> Self {
-    let tx_tree_height = serialized[0];
-    let mut offset = 1;
+    let num_txs = serialized[0];
 
-    let txs_effects_hash = arr_copy_slice(serialized, [0; NUM_FIELDS_PER_SHA256], offset);
-    offset = offset + NUM_FIELDS_PER_SHA256;
+    let txs_effects_hash = serialized[1];
 
-    let in_hash = arr_copy_slice(serialized, [0; NUM_FIELDS_PER_SHA256], offset);
-    offset = offset + NUM_FIELDS_PER_SHA256;
+    let in_hash = serialized[2];
 
-    let out_hash = arr_copy_slice(serialized, [0; NUM_FIELDS_PER_SHA256], offset);
+    let out_hash = serialized[3];
 
     Self {
-      tx_tree_height,
+      num_txs,
       txs_effects_hash,
       in_hash,
       out_hash,
@@ -48,17 +45,17 @@ impl Deserialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
 impl Empty for ContentCommitment {
   fn empty() -> Self {
     Self {
-      tx_tree_height: 0,
-      txs_effects_hash: [0; NUM_FIELDS_PER_SHA256],
-      in_hash: [0; NUM_FIELDS_PER_SHA256],
-      out_hash: [0; NUM_FIELDS_PER_SHA256],
+      num_txs: 0,
+      txs_effects_hash: 0,
+      in_hash: 0,
+      out_hash: 0,
     }
   }
 }
 
 impl Eq for ContentCommitment {
   fn eq(self, other: Self) -> bool {
-    (self.tx_tree_height == other.tx_tree_height)
+    (self.num_txs == other.num_txs)
       & (self.txs_effects_hash == other.txs_effects_hash)
       & (self.in_hash == other.in_hash)
       & (self.out_hash == other.out_hash)

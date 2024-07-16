@@ -1,9 +1,13 @@
 #pragma once
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
+
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 #include <string>
-#include <unordered_map>
 
 namespace bb::avm_trace {
 
@@ -40,20 +44,17 @@ enum class OpCode : uint8_t {
     // Execution Environment
     ADDRESS,
     STORAGEADDRESS,
-    ORIGIN,
     SENDER,
-    PORTAL,
-    FEEPERL1GAS,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
-    CONTRACTCALLDEPTH,
+    FUNCTIONSELECTOR,
+    TRANSACTIONFEE,
     // Execution Environment - Globals
     CHAINID,
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
-    BLOCKL1GASLIMIT,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
@@ -61,7 +62,6 @@ enum class OpCode : uint8_t {
 
     // Machine State
     // Machine State - Gas
-    L1GASLEFT,
     L2GASLEFT,
     DAGASLEFT,
     // Machine State - Internal Control Flow
@@ -83,6 +83,7 @@ enum class OpCode : uint8_t {
     EMITNULLIFIER,   // Notes & Nullifiers
     L1TOL2MSGEXISTS, // Messages
     HEADERMEMBER,    // Archive tree & Headers
+    GETCONTRACTINSTANCE,
 
     // Accrued Substate
     EMITUNENCRYPTEDLOG,
@@ -95,18 +96,45 @@ enum class OpCode : uint8_t {
     RETURN,
     REVERT,
 
+    // Misc
+    DEBUGLOG,
+
     // Gadgets
     KECCAK,
-    POSEIDON,
+    POSEIDON2,
+    SHA256,
+    PEDERSEN,
+    ECADD,
+    MSM,
+    // Conversions
+    TORADIXLE,
+    // Future Gadgets -- pending changes in noir
+    SHA256COMPRESSION,
+    KECCAKF1600, // Here for when we eventually support this
+
+    // Sentinel
+    LAST_OPCODE_SENTINEL,
 };
 
 class Bytecode {
   public:
     static bool is_valid(uint8_t byte);
-    static bool has_in_tag(OpCode);
-    static const std::unordered_map<OpCode, size_t> OPERANDS_NUM;
 };
 
+// Look into whether we can do something with concepts here to enable OpCode as a parameter
+template <typename T>
+    requires(std::unsigned_integral<T>)
+std::string to_hex(T value)
+{
+    std::ostringstream stream;
+    auto num_bytes = static_cast<uint64_t>(sizeof(T));
+    auto mask = static_cast<uint64_t>((static_cast<uint128_t>(1) << (num_bytes * 8)) - 1);
+    auto padding = static_cast<int>(num_bytes * 2);
+    stream << std::setfill('0') << std::setw(padding) << std::hex << (value & mask);
+    return stream.str();
+}
 std::string to_hex(OpCode opcode);
+
+std::string to_string(OpCode opcode);
 
 } // namespace bb::avm_trace

@@ -1,25 +1,21 @@
 #pragma once
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+// #define LOG_CHALLENGES
+// #define LOG_INTERACTIONS
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
-
-// #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
+#include <concepts>
 
 namespace bb {
 
 template <typename T, typename... U>
-concept Loggable = (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> ||
-                    std::same_as<T, bb::g1::affine_element> || std::same_as<T, grumpkin::g1::affine_element> ||
-                    std::same_as<T, uint32_t>);
+concept Loggable =
+    (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, bb::g1::affine_element> ||
+     std::same_as<T, grumpkin::g1::affine_element> || std::same_as<T, uint32_t>);
 
 // class TranscriptManifest;
 class TranscriptManifest {
@@ -65,10 +61,7 @@ class TranscriptManifest {
 struct NativeTranscriptParams {
     using Fr = bb::fr;
     using Proof = HonkProof;
-    static inline Fr hash(const std::vector<Fr>& data)
-    {
-        return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
-    }
+    static Fr hash(const std::vector<Fr>& data);
     template <typename T> static inline T convert_challenge(const Fr& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
@@ -443,6 +436,7 @@ inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
     return result_fr;
 }
 
+// TODO(md): Maybe make solidity generic over the transcript
 // TODO(md): We want to use the keccak transcript for solidity - types may change here!
 struct SolidityTranscriptParams {
     // Note fr here is actually a uint256_t
@@ -471,6 +465,6 @@ struct SolidityTranscriptParams {
     }
 };
 
-} // namespace bb
-
 using SolidityTranscript = BaseTranscript<SolidityTranscriptParams>;
+
+} // namespace bb

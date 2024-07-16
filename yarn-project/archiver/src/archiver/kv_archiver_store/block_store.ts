@@ -1,10 +1,10 @@
-import { L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { L2Block, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap, AztecSingleton, Range } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
 
-import { DataRetrieval } from '../data_retrieval.js';
-import { BlockBodyStore } from './block_body_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
+import { type BlockBodyStore } from './block_body_store.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -21,6 +21,9 @@ export class BlockStore {
   #blocks: AztecMap<number, BlockStorage>;
   /** Stores L1 block number in which the last processed L2 block was included */
   #lastSynchedL1Block: AztecSingleton<bigint>;
+
+  /** Stores last proven L2 block number */
+  #lastProvenL2Block: AztecSingleton<number>;
 
   /** Index mapping transaction hash (as a string) to its location in a block */
   #txIndex: AztecMap<string, BlockIndexValue>;
@@ -39,6 +42,7 @@ export class BlockStore {
     this.#txIndex = db.openMap('archiver_tx_index');
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
+    this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
   }
 
   /**
@@ -54,7 +58,7 @@ export class BlockStore {
           archive: block.archive.toBuffer(),
         });
 
-        block.getTxs().forEach((tx, i) => {
+        block.body.txEffects.forEach((tx, i) => {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         });
       }
@@ -119,7 +123,7 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber);
-    return block?.getTx(txIndex);
+    return block?.body.txEffects[txIndex];
   }
 
   /**
@@ -134,7 +138,16 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber)!;
-    return new TxReceipt(txHash, TxStatus.MINED, '', block.hash().toBuffer(), block.number);
+    const tx = block.body.txEffects[txIndex];
+
+    return new TxReceipt(
+      txHash,
+      TxReceipt.statusFromRevertCode(tx.revertCode),
+      '',
+      tx.transactionFee.toBigInt(),
+      block.hash().toBuffer(),
+      block.number,
+    );
   }
 
   /**
@@ -172,13 +185,20 @@ export class BlockStore {
     return this.#lastSynchedL1Block.get() ?? 0n;
   }
 
+  getProvenL2BlockNumber(): number {
+    return this.#lastProvenL2Block.get() ?? 0;
+  }
+
+  async setProvenL2BlockNumber(blockNumber: number) {
+    await this.#lastProvenL2Block.set(blockNumber);
+  }
+
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
     }
 
     if (start < INITIAL_L2_BLOCK_NUM) {
-      this.#log(`Clamping start block ${start} to ${INITIAL_L2_BLOCK_NUM}`);
       start = INITIAL_L2_BLOCK_NUM;
     }
 

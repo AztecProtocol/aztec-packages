@@ -1,10 +1,7 @@
+# :warning: This is not an actively developed repository, it is a mirror. See https://github.com/AztecProtocol/aztec-packages :warning:
+# :warning: **https://github.com/AztecProtocol/barretenberg is a mirror-only repository, please only use https://github.com/AztecProtocol/aztec-packages. Do not use this for any purpose other than reference.** :warning: </span>
+
 ## Barretenberg, an optimized elliptic curve library for the bn128 curve, and PLONK SNARK prover
-
-Barretenberg aims to be a stand-alone and well-specified library, but please see https://github.com/AztecProtocol/aztec-packages/edit/master/barretenberg for the authoritative source of this code.
-The separate repository https://github.com/AztecProtocol/barretenberg is available if working on barretenberg independently of Aztec, however it is encouraged to develop in the context of Aztec to see if it will cause issues for Aztec end-to-end tests.
-**Currently, merging only occurs in aztec-packages. This is a mirror-only repository until it matures. Legacy release merges need an admin**
-As the spec solidifies, this should be less of an issue. Aztec and Barretenberg are currently under heavy development.
-
 **This code is highly experimental, use at your own risk!**
 
 ### Benchmarks!
@@ -287,3 +284,68 @@ python3 -m http.server <port>
 ```
 
 and tunnel the port through ssh.
+
+### Debugging Verifification Failures
+
+The CicuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.
+If you are in a scenario where you have a failing call to check_circuit and wish to get more information out of it than just the gate index, you can use this feature to get a stack trace, see example below.
+
+Usage instructions:
+- On ubuntu (or our mainframe accounts) use `sudo apt-get install libdw-dev` to support trace printing
+- Use `cmake --preset clang16-dbg-fast-circuit-check-traces` and `cmake --build --preset clang16-dbg-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
+- Run any case where you have a failing check_circuit call, you will now have a stack trace illuminating where this constraint was added in code.
+
+Caveats:
+- This works best for code that is not overly generic, i.e. where just the sequence of function calls carries a lot of information. It is possible to tag extra data along with the stack trace, this can be done as a followup, please leave feedback if desired.
+- There are certain functions like `assert_equals` that can cause gates that occur _before_ them to fail. If this would be useful to automatically report, please leave feedback.
+
+Example:
+```
+[ RUN      ] standard_circuit_constructor.test_check_circuit_broken
+Stack trace (most recent call last):
+#4    Source "_deps/gtest-src/googletest/src/gtest.cc", line 2845, in Run
+       2842:   if (!Test::HasFatalFailure() && !Test::IsSkipped()) {
+       2843:     // This doesn't throw as all user code that can throw are wrapped into
+       2844:     // exception handling code.
+      >2845:     test->Run();
+       2846:   }
+       2847:
+       2848:   if (test != nullptr) {
+#3    Source "_deps/gtest-src/googletest/src/gtest.cc", line 2696, in Run
+       2693:   // GTEST_SKIP().
+       2694:   if (!HasFatalFailure() && !IsSkipped()) {
+       2695:     impl->os_stack_trace_getter()->UponLeavingGTest();
+      >2696:     internal::HandleExceptionsInMethodIfSupported(this, &Test::TestBody,
+       2697:                                                   "the test body");
+       2698:   }
+#2  | Source "_deps/gtest-src/googletest/src/gtest.cc", line 2657, in HandleSehExceptionsInMethodIfSupported<testing::Test, void>
+    |  2655: #if GTEST_HAS_EXCEPTIONS
+    |  2656:     try {
+    | >2657:       return HandleSehExceptionsInMethodIfSupported(object, method, location);
+    |  2658:     } catch (const AssertionException&) {  // NOLINT
+    |  2659:       // This failure was reported already.
+      Source "_deps/gtest-src/googletest/src/gtest.cc", line 2621, in HandleExceptionsInMethodIfSupported<testing::Test, void>
+       2618:   }
+       2619: #else
+       2620:   (void)location;
+      >2621:   return (object->*method)();
+       2622: #endif  // GTEST_HAS_SEH
+       2623: }
+#1    Source "/mnt/user-data/adam/aztec-packages/barretenberg/cpp/src/barretenberg/circuit_checker/standard_circuit_builder.test.cpp", line 464, in TestBody
+        461:     uint32_t d_idx = circuit_constructor.add_variable(d);
+        462:     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+        463:
+      > 464:     circuit_constructor.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });
+        465:
+        466:     bool result = CircuitChecker::check(circuit_constructor);
+        467:     EXPECT_EQ(result, false);
+#0    Source "/mnt/user-data/adam/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/standard_circuit_builder.cpp", line 22, in create_add_gate
+         19: {
+         20:     this->assert_valid_variables({ in.a, in.b, in.c });
+         21:
+      >  22:     blocks.arithmetic.populate_wires(in.a, in.b, in.c);
+         23:     blocks.arithmetic.q_m().emplace_back(FF::zero());
+         24:     blocks.arithmetic.q_1().emplace_back(in.a_scaling);
+         25:     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
+gate number4
+```

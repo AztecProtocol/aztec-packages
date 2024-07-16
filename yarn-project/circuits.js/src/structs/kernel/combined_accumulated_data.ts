@@ -1,34 +1,20 @@
-import { makeTuple } from '@aztec/foundation/array';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugOnlyLogger } from '@aztec/foundation/log';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 import {
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NUM_FIELDS_PER_SHA256,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
-import { CallRequest } from '../call_request.js';
+import { Gas } from '../gas.js';
+import { ScopedLogHash } from '../log_hash.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
-import { SideEffect, SideEffectLinkedToNoteHash, sideEffectCmp } from '../side_effects.js';
-
-const log = createDebugOnlyLogger('aztec:combined_accumulated_data');
 
 /**
  * Data that is accumulated during the execution of the transaction.
@@ -38,33 +24,34 @@ export class CombinedAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * Current private call stack.
-     */
-    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    /**
-     * Current public call stack.
-     */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    /**
+     * Accumulated encrypted note logs hash from all the previous kernel iterations.
+     * Note: Truncated to 31 bytes to fit in Fr.
+     */
+    public noteEncryptedLogsHash: Fr,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public encryptedLogsHash: Fr,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    /**
+     * Total accumulated length of the encrypted note log preimages emitted in all the previous kernel iterations
+     */
+    public noteEncryptedLogPreimagesLength: Fr,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -77,21 +64,49 @@ export class CombinedAccumulatedData {
      * All the public data update requests made in this transaction.
      */
     public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+
+    /** Gas used during this transaction */
+    public gasUsed: Gas,
   ) {}
 
-  toBuffer() {
-    return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.privateCallStack,
-      this.publicCallStack,
-      this.newL2ToL1Msgs,
-      this.encryptedLogsHash,
-      this.unencryptedLogsHash,
-      this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
-      this.publicDataUpdateRequests,
+  getSize() {
+    return (
+      arraySerializedSizeOfNonEmpty(this.noteHashes) +
+      arraySerializedSizeOfNonEmpty(this.nullifiers) +
+      arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
+      this.noteEncryptedLogsHash.size +
+      this.encryptedLogsHash.size +
+      arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
+      this.noteEncryptedLogPreimagesLength.size +
+      this.encryptedLogPreimagesLength.size +
+      this.unencryptedLogPreimagesLength.size +
+      arraySerializedSizeOfNonEmpty(this.publicDataUpdateRequests) +
+      this.gasUsed.toBuffer().length
     );
+  }
+
+  static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
+    return [
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.noteEncryptedLogsHash,
+      fields.encryptedLogsHash,
+      fields.unencryptedLogsHashes,
+      fields.noteEncryptedLogPreimagesLength,
+      fields.encryptedLogPreimagesLength,
+      fields.unencryptedLogPreimagesLength,
+      fields.publicDataUpdateRequests,
+      fields.gasUsed,
+    ] as const;
+  }
+
+  static from(fields: FieldsOf<CombinedAccumulatedData>): CombinedAccumulatedData {
+    return new CombinedAccumulatedData(...CombinedAccumulatedData.getFields(fields));
+  }
+
+  toBuffer() {
+    return serializeToBuffer(...CombinedAccumulatedData.getFields(this));
   }
 
   toString() {
@@ -106,16 +121,17 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
+      reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
+      reader.readObject(Gas),
     );
   }
 
@@ -130,477 +146,48 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
+      makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
+      makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      Fr.zero(),
+      Fr.zero(),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-    );
-  }
-
-  /**
-   *
-   * @param nonRevertible the non-revertible accumulated data
-   * @param revertible the revertible accumulated data
-   * @returns a new CombinedAccumulatedData object, squashing the two inputs, and condensing arrays
-   */
-  public static recombine(
-    nonRevertible: PublicAccumulatedNonRevertibleData,
-    revertible: PublicAccumulatedRevertibleData,
-    reverted: boolean,
-  ): CombinedAccumulatedData {
-    if (reverted && !revertible.isEmpty()) {
-      log(inspect(revertible));
-      throw new Error('Revertible data should be empty if the transaction is reverted');
-    }
-
-    const newNoteHashes = padArrayEnd(
-      [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes].filter(x => !x.isEmpty()).sort(sideEffectCmp),
-      SideEffect.empty(),
-      MAX_NEW_NOTE_HASHES_PER_TX,
-    );
-
-    const newNullifiers = padArrayEnd(
-      [...nonRevertible.newNullifiers, ...revertible.newNullifiers].filter(x => !x.isEmpty()).sort(sideEffectCmp),
-      SideEffectLinkedToNoteHash.empty(),
-      MAX_NEW_NULLIFIERS_PER_TX,
-    );
-
-    const publicCallStack = padArrayEnd(
-      [...nonRevertible.publicCallStack, ...revertible.publicCallStack].filter(x => !x.isEmpty()),
-      CallRequest.empty(),
-      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    );
-
-    const nonSquashedWrites = [
-      ...revertible.publicDataUpdateRequests,
-      ...nonRevertible.publicDataUpdateRequests,
-    ].filter(x => !x.isEmpty());
-
-    const squashedWrites = Array.from(
-      nonSquashedWrites
-        .reduce<Map<string, PublicDataUpdateRequest>>((acc, curr) => {
-          acc.set(curr.leafSlot.toString(), curr);
-          return acc;
-        }, new Map())
-        .values(),
-    );
-
-    const publicDataUpdateRequests = padArrayEnd(
-      squashedWrites,
-      PublicDataUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
-
-    return new CombinedAccumulatedData(
-      newNoteHashes,
-      newNullifiers,
-      revertible.privateCallStack,
-      publicCallStack,
-      revertible.newL2ToL1Msgs,
-      revertible.encryptedLogsHash,
-      revertible.unencryptedLogsHash,
-      revertible.encryptedLogPreimagesLength,
-      revertible.unencryptedLogPreimagesLength,
-      publicDataUpdateRequests,
-    );
-  }
-}
-
-export class PublicAccumulatedRevertibleData {
-  constructor(
-    /**
-     * The new note hashes made in this transaction.
-     */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_REVERTIBLE_NOTE_HASHES_PER_TX>,
-    /**
-     * The new nullifiers made in this transaction.
-     */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
-    /**
-     * Current private call stack.
-     */
-    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    /**
-     * Current public call stack.
-     */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-    /**
-     * All the new L2 to L1 messages created in this transaction.
-     */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
-    /**
-     * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
-     */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
-    /**
-     * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
-     */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
-    /**
-     * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
-     */
-    public encryptedLogPreimagesLength: Fr,
-    /**
-     * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
-     */
-    public unencryptedLogPreimagesLength: Fr,
-    /**
-     * All the public data update requests made in this transaction.
-     */
-    public publicDataUpdateRequests: Tuple<
-      PublicDataUpdateRequest,
-      typeof MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    >,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.privateCallStack,
-      this.publicCallStack,
-      this.newL2ToL1Msgs,
-      this.encryptedLogsHash,
-      this.unencryptedLogsHash,
-      this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
-      this.publicDataUpdateRequests,
-    );
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  isEmpty(): boolean {
-    return (
-      this.newNoteHashes.every(x => x.isEmpty()) &&
-      this.newNullifiers.every(x => x.isEmpty()) &&
-      this.privateCallStack.every(x => x.isEmpty()) &&
-      this.publicCallStack.every(x => x.isEmpty()) &&
-      this.newL2ToL1Msgs.every(x => x.isZero()) &&
-      this.encryptedLogsHash.every(x => x.isZero()) &&
-      this.unencryptedLogsHash.every(x => x.isZero()) &&
-      this.encryptedLogPreimagesLength.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.publicDataUpdateRequests.every(x => x.isEmpty())
+      Gas.empty(),
     );
   }
 
   [inspect.custom]() {
-    // print out the non-empty fields
-    return `PublicAccumulatedRevertibleData {
-  newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
-  newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],
-  privateCallStack: [${this.privateCallStack.map(h => h.toString()).join(', ')}],
-  publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
-  newL2ToL1Msgs: [${this.newL2ToL1Msgs.map(h => h.toString()).join(', ')}],
-  encryptedLogsHash: [${this.encryptedLogsHash.map(h => h.toString()).join(', ')}],
-  unencryptedLogsHash: [${this.unencryptedLogsHash.map(h => h.toString()).join(', ')}],
-  encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength}
-  unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength}
-  publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
-}`;
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer or reader to read from.
-   * @returns Deserialized object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(
-      reader.readArray(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
-      reader.readArray(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      reader.readArray(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-    );
-  }
-
-  static fromPrivateAccumulatedRevertibleData(finalData: PrivateAccumulatedRevertibleData) {
-    return new this(
-      padArrayEnd(finalData.newNoteHashes, SideEffect.empty(), MAX_REVERTIBLE_NOTE_HASHES_PER_TX),
-      padArrayEnd(finalData.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_REVERTIBLE_NULLIFIERS_PER_TX),
-      finalData.privateCallStack,
-      padArrayEnd(finalData.publicCallStack, CallRequest.empty(), MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX),
-      finalData.newL2ToL1Msgs,
-      finalData.encryptedLogsHash,
-      finalData.unencryptedLogsHash,
-      finalData.encryptedLogPreimagesLength,
-      finalData.unencryptedLogPreimagesLength,
-      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-    );
-  }
-
-  /**
-   * Deserializes from a string, corresponding to a write in cpp.
-   * @param str - String to read from.
-   * @returns Deserialized object.
-   */
-  static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static empty() {
-    return new this(
-      makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
-      Fr.zero(),
-      Fr.zero(),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-    );
-  }
-}
-
-/**
- * Specific accumulated data structure for the final ordering private kernel circuit. It is included
- *  in the final public inputs of private kernel circuit.
- */
-export class PrivateAccumulatedRevertibleData {
-  constructor(
-    /**
-     * The new note hashes made in this transaction.
-     */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_REVERTIBLE_NOTE_HASHES_PER_TX>,
-    /**
-     * The new nullifiers made in this transaction.
-     */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_REVERTIBLE_NULLIFIERS_PER_TX>,
-    /**
-     * Current private call stack.
-     * TODO(#3417): Given this field must empty, should we just remove it?
-     */
-    public privateCallStack: Tuple<CallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-    /**
-     * Current public call stack.
-     */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-    /**
-     * All the new L2 to L1 messages created in this transaction.
-     */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
-    /**
-     * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
-     */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
-    /**
-     * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
-     */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
-    /**
-     * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
-     */
-    public encryptedLogPreimagesLength: Fr,
-    /**
-     * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
-     */
-    public unencryptedLogPreimagesLength: Fr,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.privateCallStack,
-      this.publicCallStack,
-      this.newL2ToL1Msgs,
-      this.encryptedLogsHash,
-      this.unencryptedLogsHash,
-      this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
-    );
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer or reader to read from.
-   * @returns Deserialized object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedRevertibleData {
-    const reader = BufferReader.asReader(buffer);
-    return new PrivateAccumulatedRevertibleData(
-      reader.readArray(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
-      reader.readArray(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-    );
-  }
-
-  /**
-   * Deserializes from a string, corresponding to a write in cpp.
-   * @param str - String to read from.
-   * @returns Deserialized object.
-   */
-  static fromString(str: string) {
-    return PrivateAccumulatedRevertibleData.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static empty() {
-    return new PrivateAccumulatedRevertibleData(
-      makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
-      Fr.zero(),
-      Fr.zero(),
-    );
-  }
-}
-
-export class PrivateAccumulatedNonRevertibleData {
-  constructor(
-    /**
-     * The new non-revertible commitments made in this transaction.
-     */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX>,
-    /**
-     * The new non-revertible nullifiers made in this transaction.
-     */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
-    /**
-     * Current public call stack that will produce non-revertible side effects.
-     */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.newNoteHashes, this.newNullifiers, this.publicCallStack);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedNonRevertibleData {
-    const reader = BufferReader.asReader(buffer);
-    return new PrivateAccumulatedNonRevertibleData(
-      reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
-      reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
-    );
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  static fromString(str: string) {
-    return PrivateAccumulatedNonRevertibleData.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static empty() {
-    return new PrivateAccumulatedNonRevertibleData(
-      makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-    );
-  }
-}
-
-export class PublicAccumulatedNonRevertibleData {
-  constructor(
-    /**
-     * The new non-revertible commitments made in this transaction.
-     */
-    public newNoteHashes: Tuple<SideEffect, typeof MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX>,
-    /**
-     * The new non-revertible nullifiers made in this transaction.
-     */
-    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX>,
-    /**
-     * Current public call stack that will produce non-revertible side effects.
-     */
-    public publicCallStack: Tuple<CallRequest, typeof MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
-    /**
-     * All the public data update requests made in this transaction.
-     */
-    public publicDataUpdateRequests: Tuple<
-      PublicDataUpdateRequest,
-      typeof MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    >,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.publicCallStack,
-      this.publicDataUpdateRequests,
-    );
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(
-      reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
-      reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
-      reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
-      reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-    );
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  static empty() {
-    return new this(
-      makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-    );
-  }
-
-  static fromPrivateAccumulatedNonRevertibleData(data: PrivateAccumulatedNonRevertibleData) {
-    return new this(
-      data.newNoteHashes,
-      data.newNullifiers,
-      data.publicCallStack,
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-    );
-  }
-
-  [inspect.custom]() {
-    return `PublicAccumulatedNonRevertibleData {
-  newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
-  newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],
-  publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
-  publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
-}`;
+    return `CombinedAccumulatedData {
+      noteHashes: [${this.noteHashes
+        .filter(x => !x.isZero())
+        .map(x => inspect(x))
+        .join(', ')}],
+      nullifiers: [${this.nullifiers
+        .filter(x => !x.isZero())
+        .map(x => inspect(x))
+        .join(', ')}],
+      l2ToL1Msgs: [${this.l2ToL1Msgs
+        .filter(x => !x.isZero())
+        .map(x => inspect(x))
+        .join(', ')}],
+      noteEncryptedLogsHash: ${this.noteEncryptedLogsHash.toString()},
+      encryptedLogsHash: ${this.encryptedLogsHash.toString()},
+      unencryptedLogsHashes: : [${this.unencryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}],
+      noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
+      encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
+      unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
+      publicDataUpdateRequests: [${this.publicDataUpdateRequests
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}],
+      gasUsed: ${inspect(this.gasUsed)}
+    }`;
   }
 }

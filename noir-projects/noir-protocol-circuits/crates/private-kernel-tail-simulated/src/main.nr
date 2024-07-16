@@ -1,6 +1,6 @@
 use dep::private_kernel_lib::PrivateKernelTailCircuitPrivateInputs;
-use dep::types::PrivateKernelTailCircuitPublicInputs;
+use dep::types::KernelCircuitPublicInputs;
 
-unconstrained fn main(input: PrivateKernelTailCircuitPrivateInputs) -> distinct pub PrivateKernelTailCircuitPublicInputs {
-    input.native_private_kernel_circuit_tail()
+unconstrained fn main(input: PrivateKernelTailCircuitPrivateInputs) -> pub KernelCircuitPublicInputs {
+    input.execute()
 }

@@ -1,6 +1,9 @@
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
+
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -63,7 +66,7 @@ TEST(ultra_circuit_constructor, create_gates_from_plookup_accumulators)
 
         grumpkin::g1::affine_element base_point = plookup::fixed_base::table::LHS_GENERATOR_POINT;
         std::vector<uint8_t> input_buf;
-        serialize::write(input_buf, base_point);
+        write(input_buf, base_point);
         const auto offset_generators =
             grumpkin::g1::derive_generators(input_buf, plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE);
 
@@ -100,6 +103,22 @@ TEST(ultra_circuit_constructor, create_gates_from_plookup_accumulators)
 
     bool result = CircuitChecker::check(circuit_builder);
     EXPECT_EQ(result, true);
+}
+
+TEST(ultra_circuit_constructor, bad_lookup_failure)
+{
+    UltraCircuitBuilder builder;
+    MockCircuits::add_lookup_gates(builder);
+
+    // Erroneously set a non-zero wire value to zero in one of the lookup gates
+    for (auto& wire_3_witness_idx : builder.blocks.lookup.w_o()) {
+        if (wire_3_witness_idx != builder.zero_idx) {
+            wire_3_witness_idx = builder.zero_idx;
+            break;
+        }
+    }
+
+    EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 TEST(ultra_circuit_constructor, base_case)
@@ -321,7 +340,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
     fr h = fr(8);
 
     {
-        UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+        UltraCircuitBuilder circuit_constructor;
         auto a_idx = circuit_constructor.add_variable(a);
         auto b_idx = circuit_constructor.add_variable(b);
         auto c_idx = circuit_constructor.add_variable(c);
@@ -337,7 +356,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
     }
 
     {
-        UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+        UltraCircuitBuilder circuit_constructor;
         auto a_idx = circuit_constructor.add_variable(a);
         auto b_idx = circuit_constructor.add_variable(b);
         auto c_idx = circuit_constructor.add_variable(c);
@@ -353,7 +372,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
         EXPECT_EQ(result, false);
     }
     {
-        UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+        UltraCircuitBuilder circuit_constructor;
         auto a_idx = circuit_constructor.add_variable(a);
         auto b_idx = circuit_constructor.add_variable(b);
         auto c_idx = circuit_constructor.add_variable(c);
@@ -369,7 +388,7 @@ TEST(ultra_circuit_constructor, sort_with_edges_gate)
         EXPECT_EQ(result, false);
     }
     {
-        UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
+        UltraCircuitBuilder circuit_constructor;
         auto a_idx = circuit_constructor.add_variable(a);
         auto c_idx = circuit_constructor.add_variable(c);
         auto d_idx = circuit_constructor.add_variable(d);

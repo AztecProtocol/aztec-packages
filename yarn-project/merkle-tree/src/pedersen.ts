@@ -1,5 +1,6 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Hasher } from '@aztec/types/interfaces';
+import { Fr } from '@aztec/foundation/fields';
+import { type Hasher } from '@aztec/types/interfaces';
 
 /**
  * A helper class encapsulating Pedersen hash functionality.
@@ -12,7 +13,7 @@ export class Pedersen implements Hasher {
    * purposes.
    */
   public hash(lhs: Uint8Array, rhs: Uint8Array): Buffer {
-    return pedersenHash([Buffer.from(lhs), Buffer.from(rhs)]).toBuffer();
+    return pedersenHash([Fr.fromBuffer(Buffer.from(lhs)), Fr.fromBuffer(Buffer.from(rhs))]).toBuffer();
   }
 
   /*
@@ -20,6 +21,7 @@ export class Pedersen implements Hasher {
    * purposes.
    */
   public hashInputs(inputs: Buffer[]): Buffer {
-    return pedersenHash(inputs).toBuffer();
+    const inputFields = inputs.map(i => Fr.fromBuffer(i));
+    return pedersenHash(inputFields).toBuffer();
   }
 }

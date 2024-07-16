@@ -1,15 +1,19 @@
-mod avm;
 mod context;
 mod deploy;
+mod generators;
 mod hash;
-mod hasher;
 mod history;
 mod initializer;
-mod key;
-mod log;
+mod keys;
 mod messaging;
 mod note;
+mod event;
 mod oracle;
 mod state_vars;
 mod prelude;
+mod encrypted_logs;
+mod unencrypted_logs;
 use dep::protocol_types;
+mod utils;
+
+mod test;

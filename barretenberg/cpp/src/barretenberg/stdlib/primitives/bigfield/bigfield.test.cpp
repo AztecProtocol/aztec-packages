@@ -1,5 +1,4 @@
-#include <gtest/gtest.h>
-
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
@@ -12,8 +11,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include <gtest/gtest.h>
 #include <memory>
 #include <utility>
 
@@ -514,6 +512,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                                fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
             fq_ct e = (a - b) * (c - d);
             fq expected = (inputs[0] - inputs[1]) * (inputs[2] - inputs[3]);
+
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
 
@@ -841,10 +840,83 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq_ct ret = fq_ct::div_check_denominator_nonzero({}, a_ct);
         EXPECT_NE(ret.get_context(), nullptr);
     }
+
+    static void test_inversion()
+    {
+        fq_ct a = fq_ct(-7);
+        fq_ct a_inverse = a.invert();
+        fq_ct a_inverse_division = fq_ct(1) / a;
+
+        fq a_native = fq(-7);
+        fq a_native_inverse = a_native.invert();
+        EXPECT_EQ(bb::fq((a.get_value() % uint512_t(bb::fq::modulus)).lo), a_native);
+        EXPECT_EQ(bb::fq((a_inverse.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);
+        EXPECT_EQ(bb::fq((a_inverse_division.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);
+    }
+
+    static void test_assert_equal_not_equal()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+
+            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+
+            fq_ct two(witness_ct(&builder, fr(2)),
+                      witness_ct(&builder, fr(0)),
+                      witness_ct(&builder, fr(0)),
+                      witness_ct(&builder, fr(0)));
+            fq_ct t0 = a + a;
+            fq_ct t1 = a * two;
+
+            t0.assert_equal(t1);
+            t0.assert_is_not_equal(c);
+            t0.assert_is_not_equal(d);
+            stdlib::bool_t<Builder> is_equal_a = t0 == t1;
+            stdlib::bool_t<Builder> is_equal_b = t0 == c;
+            EXPECT_TRUE(is_equal_a.get_value());
+            EXPECT_FALSE(is_equal_b.get_value());
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_pow()
+    {
+        Builder builder;
+
+        fq base_val(engine.get_random_uint256());
+        uint32_t exponent_val = engine.get_random_uint32();
+        fq expected = base_val.pow(exponent_val);
+
+        fq_ct base(&builder, static_cast<uint256_t>(base_val));
+        fq_ct result = base.pow(exponent_val);
+        EXPECT_EQ(fq(result.get_value()), expected);
+
+        fr_ct exponent = witness_ct(&builder, exponent_val);
+        result = base.pow(exponent);
+        EXPECT_EQ(fq(result.get_value()), expected);
+
+        info("num gates = ", builder.get_num_gates());
+        bool check_result = CircuitChecker::check(builder);
+        EXPECT_EQ(check_result, true);
+    }
 };
 
 // Define types for which the above tests will be constructed.
-typedef testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder> CircuitTypes;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 TYPED_TEST(stdlib_bigfield, badmul)
@@ -928,6 +1000,21 @@ TYPED_TEST(stdlib_bigfield, conditional_select_regression)
 TYPED_TEST(stdlib_bigfield, division_context)
 {
     TestFixture::test_division_context();
+}
+
+TYPED_TEST(stdlib_bigfield, inverse)
+{
+    TestFixture::test_inversion();
+}
+
+TYPED_TEST(stdlib_bigfield, assert_equal_not_equal)
+{
+    TestFixture::test_assert_equal_not_equal();
+}
+
+TYPED_TEST(stdlib_bigfield, pow)
+{
+    TestFixture::test_pow();
 }
 
 // // This test was disabled before the refactor to use TYPED_TEST's/

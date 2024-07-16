@@ -1,9 +1,8 @@
-import React, { lazy, Suspense } from 'react';
+import React from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 
 import headerPic from '@site/static/img/homepage_header_pic.png';
-import { BeatLoader } from 'react-spinners';
 
 export default function Landing() {
   return (
@@ -34,38 +33,6 @@ export default function Landing() {
             <div className="homepage_cta_container">
               <Link to="/docs" target="_blank" rel="noopener noreferrer">
                 <button className="cta-button button button--primary button--lg homepage_cta">Read the Docs</button>
-              </Link>
-            </div>
-          </div>
-
-          <div className="homepage_cta_lj_container">
-            <div className="homepage_cta_container">
-              <h2 className="homepage_h2">Learn</h2>
-              <Link to="/docs/getting_started/installation" target="_blank" rel="noopener noreferrer">
-                <button className="cta-button button button--primary button--lg homepage_cta">Try Noir</button>
-              </Link>
-              <Link to="/docs" target="_blank" rel="noopener noreferrer">
-                <button className="cta-button button button--secondary button--lg homepage_cta">
-                  Noir Cryptography
-                </button>
-              </Link>
-            </div>
-            <div className="homepage_cta_container">
-              <h2 className="homepage_h2">Coming from...</h2>
-              <Link to="/docs/how_to/how-to-solidity-verifier" target="_blank" rel="noopener noreferrer">
-                <button className="cta-button button button--primary button--lg homepage_cta">Solidity</button>
-              </Link>
-              <Link to="/docs" target="_blank" rel="noopener noreferrer">
-                <button className="cta-button button button--secondary button--lg homepage_cta">Aztec</button>
-              </Link>
-            </div>
-            <div className="homepage_cta_container">
-              <h2 className="homepage_h2">New to Everything</h2>
-              <Link to="/docs" target="_blank" rel="noopener noreferrer">
-                <button className="cta-button button button--primary button--lg homepage_cta">Noir Basics</button>
-              </Link>
-              <Link to="/docs/tutorials/noirjs_app" target="_blank" rel="noopener noreferrer">
-                <button className="cta-button button button--secondary button--lg homepage_cta">NoirJS</button>
               </Link>
             </div>
           </div>

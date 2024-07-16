@@ -1,13 +1,13 @@
-import { Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
+import { type Tx, type TxExecutionRequest, type TxHash, type TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
-import { L1ContractAddresses } from '@aztec/ethereum';
-import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { NodeInfo } from '@aztec/types/interfaces';
+import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type ContractArtifact, type DecodedReturn, FunctionType } from '@aztec/foundation/abi';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ContractInstanceWithAddress } from '../index.js';
-import { Wallet } from '../wallet/index.js';
+import { type ContractInstanceWithAddress } from '../index.js';
+import { type Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -20,7 +20,7 @@ describe('Contract Class', () => {
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
-  const mockViewResultValue = 1;
+  const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
     availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
@@ -32,9 +32,16 @@ describe('Contract Class', () => {
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
-    chainId: 1,
+    l1ChainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
+    protocolContractAddresses: {
+      classRegisterer: AztecAddress.random(),
+      gasToken: AztecAddress.random(),
+      instanceDeployer: AztecAddress.random(),
+      keyRegistry: AztecAddress.random(),
+      multiCallEntrypoint: AztecAddress.random(),
+    },
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -43,8 +50,9 @@ describe('Contract Class', () => {
       {
         name: 'bar',
         isInitializer: false,
-        functionType: FunctionType.SECRET,
+        functionType: FunctionType.PRIVATE,
         isInternal: false,
+        isStatic: false,
         debugSymbols: '',
         parameters: [
           {
@@ -52,32 +60,34 @@ describe('Contract Class', () => {
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.PUBLIC,
+            visibility: 'public',
           },
           {
             name: 'value',
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.SECRET,
+            visibility: 'private',
           },
         ],
         returnTypes: [],
-        bytecode: '0af',
+        bytecode: Buffer.alloc(8, 0xfa),
       },
       {
         name: 'baz',
         isInitializer: false,
-        functionType: FunctionType.OPEN,
+        isStatic: false,
+        functionType: FunctionType.PUBLIC,
         isInternal: false,
         parameters: [],
         returnTypes: [],
-        bytecode: '0be',
+        bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
       {
         name: 'qux',
         isInitializer: false,
+        isStatic: false,
         functionType: FunctionType.UNCONSTRAINED,
         isInternal: false,
         parameters: [
@@ -86,22 +96,27 @@ describe('Contract Class', () => {
             type: {
               kind: 'field',
             },
-            visibility: ABIParameterVisibility.PUBLIC,
+            visibility: 'public',
           },
         ],
         returnTypes: [
           {
             kind: 'integer',
-            sign: '',
+            sign: 'unsigned',
             width: 32,
           },
         ],
-        bytecode: '0cd',
+        bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
       },
     ],
-    events: [],
+    outputs: {
+      structs: {},
+      globals: {},
+    },
     fileMap: {},
+    storageLayout: {},
+    notes: {},
   };
 
   beforeEach(() => {
@@ -113,10 +128,10 @@ describe('Contract Class', () => {
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.viewTx.mockResolvedValue(mockViewResultValue);
+    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as DecodedReturn);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
-    wallet.simulateTx.mockResolvedValue(mockTx);
+    wallet.proveTx.mockResolvedValue(mockTx);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 
@@ -137,22 +152,16 @@ describe('Contract Class', () => {
 
   it('should call view on an unconstrained function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).view({
+    const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
-    expect(wallet.viewTx).toHaveBeenCalledTimes(1);
-    expect(wallet.viewTx).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
-    expect(result).toBe(mockViewResultValue);
+    expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
+    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
+    expect(result).toBe(mockUnconstrainedResultValue);
   });
 
   it('should not call create on an unconstrained function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
-  });
-
-  it('should not call view on a secret or open function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    expect(() => fooContract.methods.bar().view()).toThrow();
-    expect(() => fooContract.methods.baz().view()).toThrow();
   });
 });

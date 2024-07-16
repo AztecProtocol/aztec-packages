@@ -1,4 +1,4 @@
-import { L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum';
 
 /**
  * The configuration of the rollup transaction publisher.
@@ -15,9 +15,9 @@ export interface TxSenderConfig {
   rpcUrl: string;
 
   /**
-   * The API key of the ethereum host.
+   * The chain ID of the ethereum host.
    */
-  apiKey?: string;
+  l1ChainId: number;
 
   /**
    * The number of confirmations required.

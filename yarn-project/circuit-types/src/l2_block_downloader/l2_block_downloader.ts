@@ -3,8 +3,8 @@ import { MemoryFifo, Semaphore, SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
-import { L2Block } from '../l2_block.js';
-import { L2BlockSource } from '../l2_block_source.js';
+import { type L2Block } from '../l2_block.js';
+import { type L2BlockSource } from '../l2_block_source.js';
 
 const log = createDebugLogger('aztec:l2_block_downloader');
 
@@ -19,12 +19,23 @@ export class L2BlockDownloader {
   private running = false;
   private from = 0;
   private interruptibleSleep = new InterruptibleSleep();
-  private semaphore: Semaphore;
-  private jobQueue = new SerialQueue();
-  private blockQueue = new MemoryFifo<L2Block[]>();
+  private readonly semaphore: Semaphore;
+  private readonly jobQueue = new SerialQueue();
+  private readonly blockQueue = new MemoryFifo<L2Block[]>();
+  private readonly proven: boolean;
+  private readonly pollIntervalMS: number;
 
-  constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number, private pollIntervalMS = 10000) {
-    this.semaphore = new Semaphore(maxQueueSize);
+  constructor(
+    private l2BlockSource: L2BlockSource,
+    opts: {
+      maxQueueSize: number;
+      proven?: boolean;
+      pollIntervalMS?: number;
+    },
+  ) {
+    this.pollIntervalMS = opts.pollIntervalMS ?? 1000;
+    this.proven = opts.proven ?? false;
+    this.semaphore = new Semaphore(opts.maxQueueSize);
   }
 
   /**
@@ -62,7 +73,7 @@ export class L2BlockDownloader {
   private async collectBlocks() {
     let totalBlocks = 0;
     while (true) {
-      const blocks = await this.l2BlockSource.getBlocks(this.from, 10);
+      const blocks = await this.l2BlockSource.getBlocks(this.from, 10, this.proven);
       if (!blocks.length) {
         return totalBlocks;
       }

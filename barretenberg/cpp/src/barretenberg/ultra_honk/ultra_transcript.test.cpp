@@ -1,8 +1,8 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -55,19 +55,20 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
         manifest_expected.add_entry(round, "W_O", frs_per_G);
-        manifest_expected.add_challenge(round, "eta");
+        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
 
         round++;
-        manifest_expected.add_entry(round, "SORTED_ACCUM", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "W_4", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
+        manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
-        manifest_expected.add_entry(round, "Z_LOOKUP", frs_per_G);
 
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "Sumcheck:alpha_" + std::to_string(i);
+            std::string label = "alpha_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
         }
@@ -78,7 +79,7 @@ class UltraTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
@@ -90,7 +91,7 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
         }
@@ -140,7 +141,7 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = construct_ultra_honk_manifest(instance->proving_key->circuit_size);
+    auto manifest_expected = construct_ultra_honk_manifest(instance->proving_key.circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
@@ -226,7 +227,7 @@ TEST_F(UltraTranscriptTests, StructureTest)
 
     Flavor::Commitment one_group_val = Flavor::Commitment::one();
     FF rand_val = FF::random_element();
-    prover.transcript->sorted_accum_comm = one_group_val * rand_val; // choose random object to modify
+    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
@@ -234,5 +235,5 @@ TEST_F(UltraTranscriptTests, StructureTest)
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript();
-    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript->sorted_accum_comm), one_group_val * rand_val);
+    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }

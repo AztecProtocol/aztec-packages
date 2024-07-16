@@ -1,74 +1,70 @@
-import { UnencryptedL2Log } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, L2ToL1Message } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress, type FunctionSelector, type Gas } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { SerializableContractInstance } from '@aztec/types/contracts';
 
-import { HostStorage } from './host_storage.js';
-import { Nullifiers } from './nullifiers.js';
+import { type TracedContractInstance } from '../../public/side_effect_trace.js';
+import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { type AvmContractCallResult } from '../avm_contract_call_result.js';
+import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import { type HostStorage } from './host_storage.js';
+import { NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
-import { WorldStateAccessTrace } from './trace.js';
-import { TracedL1toL2MessageCheck, TracedNoteHashCheck, TracedNullifierCheck } from './trace_types.js';
-
-/**
- * Data held within the journal
- */
-export type JournalData = {
-  noteHashChecks: TracedNoteHashCheck[];
-  newNoteHashes: Fr[];
-  nullifierChecks: TracedNullifierCheck[];
-  newNullifiers: Fr[];
-  l1ToL2MessageChecks: TracedL1toL2MessageCheck[];
-
-  newL1Messages: L2ToL1Message[];
-  newLogs: UnencryptedL2Log[];
-
-  /** contract address -\> key -\> value */
-  currentStorageValue: Map<bigint, Map<bigint, Fr>>;
-
-  /** contract address -\> key -\> value[] (stored in order of access) */
-  storageWrites: Map<bigint, Map<bigint, Fr[]>>;
-  /** contract address -\> key -\> value[] (stored in order of access) */
-  storageReads: Map<bigint, Map<bigint, Fr[]>>;
-};
 
 /**
  * A class to manage persistable AVM state for contract calls.
  * Maintains a cache of the current world state,
- * a trace of all world state accesses, and a list of accrued substate items.
+ * a trace of all side effects.
  *
- * The simulator should make any world state and accrued substate queries through this object.
+ * The simulator should make any world state / tree queries through this object.
  *
  * Manages merging of successful/reverted child state into current state.
  */
 export class AvmPersistableStateManager {
-  /** Reference to node storage */
-  public readonly hostStorage: HostStorage;
+  private readonly log: DebugLogger = createDebugLogger('aztec:avm_simulator:state_manager');
 
-  /** World State */
-  /** Public storage, including cached writes */
-  private publicStorage: PublicStorage;
-  /** Nullifier set, including cached/recently-emitted nullifiers */
-  private nullifiers: Nullifiers;
+  constructor(
+    /** Reference to node storage */
+    private readonly hostStorage: HostStorage,
+    /** Side effect trace */
+    private readonly trace: PublicSideEffectTraceInterface,
+    /** Public storage, including cached writes */
+    // TODO(5818): make private once no longer accessed in executor
+    public readonly publicStorage: PublicStorage,
+    /** Nullifier set, including cached/recently-emitted nullifiers */
+    private readonly nullifiers: NullifierManager,
+  ) {}
 
-  /** World State Access Trace */
-  private trace: WorldStateAccessTrace;
-
-  /** Accrued Substate **/
-  private newL1Messages: L2ToL1Message[] = [];
-  private newLogs: UnencryptedL2Log[] = [];
-
-  constructor(hostStorage: HostStorage, parent?: AvmPersistableStateManager) {
-    this.hostStorage = hostStorage;
-    this.publicStorage = new PublicStorage(hostStorage.publicStateDb, parent?.publicStorage);
-    this.nullifiers = new Nullifiers(hostStorage.commitmentsDb, parent?.nullifiers);
-    this.trace = new WorldStateAccessTrace(parent?.trace);
+  /**
+   * Create a new state manager with some preloaded pending siloed nullifiers
+   */
+  public static newWithPendingSiloedNullifiers(
+    hostStorage: HostStorage,
+    trace: PublicSideEffectTraceInterface,
+    pendingSiloedNullifiers: Fr[],
+  ) {
+    const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(
+      hostStorage.commitmentsDb,
+      pendingSiloedNullifiers,
+    );
+    return new AvmPersistableStateManager(
+      hostStorage,
+      trace,
+      /*publicStorage=*/ new PublicStorage(hostStorage.publicStateDb),
+      /*nullifiers=*/ parentNullifiers.fork(),
+    );
   }
 
   /**
    * Create a new state manager forked from this one
    */
   public fork() {
-    return new AvmPersistableStateManager(this.hostStorage, this);
+    return new AvmPersistableStateManager(
+      this.hostStorage,
+      this.trace.fork(),
+      this.publicStorage.fork(),
+      this.nullifiers.fork(),
+    );
   }
 
   /**
@@ -79,9 +75,9 @@ export class AvmPersistableStateManager {
    * @param value - the value being written to the slot
    */
   public writeStorage(storageAddress: Fr, slot: Fr, value: Fr) {
+    this.log.debug(`Storage write (address=${storageAddress}, slot=${slot}): value=${value}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(storageAddress, slot, value);
-    // Trace all storage writes (even reverted ones)
     this.trace.tracePublicStorageWrite(storageAddress, slot, value);
   }
 
@@ -93,9 +89,26 @@ export class AvmPersistableStateManager {
    * @returns the latest value written to slot, or 0 if never written to before
    */
   public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const [_exists, value] = await this.publicStorage.read(storageAddress, slot);
-    // We want to keep track of all performed reads (even reverted ones)
-    this.trace.tracePublicStorageRead(storageAddress, slot, value);
+    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+    this.log.debug(
+      `Storage read  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+    );
+    this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
+    return Promise.resolve(value);
+  }
+
+  /**
+   * Read from public storage, don't trace the read.
+   *
+   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param slot - the slot in the contract's storage being read from
+   * @returns the latest value written to slot, or 0 if never written to before
+   */
+  public async peekStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
+    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+    this.log.debug(
+      `Storage peek  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+    );
     return Promise.resolve(value);
   }
 
@@ -111,7 +124,8 @@ export class AvmPersistableStateManager {
   public async checkNoteHashExists(storageAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
     const gotLeafIndex = await this.hostStorage.commitmentsDb.getCommitmentIndex(noteHash);
     const exists = gotLeafIndex === leafIndex.toBigInt();
-    this.trace.traceNoteHashCheck(storageAddress, noteHash, exists, leafIndex);
+    this.log.debug(`noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex}, exists: ${exists}.`);
+    this.trace.traceNoteHashCheck(storageAddress, noteHash, leafIndex, exists);
     return Promise.resolve(exists);
   }
 
@@ -119,8 +133,9 @@ export class AvmPersistableStateManager {
    * Write a note hash, trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(noteHash: Fr) {
-    this.trace.traceNewNoteHash(/*storageAddress*/ Fr.ZERO, noteHash);
+  public writeNoteHash(storageAddress: Fr, noteHash: Fr) {
+    this.log.debug(`noteHashes(${storageAddress}) += @${noteHash}.`);
+    this.trace.traceNewNoteHash(storageAddress, noteHash);
   }
 
   /**
@@ -131,7 +146,10 @@ export class AvmPersistableStateManager {
    */
   public async checkNullifierExists(storageAddress: Fr, nullifier: Fr): Promise<boolean> {
     const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(storageAddress, nullifier);
-    this.trace.traceNullifierCheck(storageAddress, nullifier, exists, isPending, leafIndex);
+    this.log.debug(
+      `nullifiers(${storageAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
+    );
+    this.trace.traceNullifierCheck(storageAddress, nullifier, leafIndex, exists, isPending);
     return Promise.resolve(exists);
   }
 
@@ -141,6 +159,7 @@ export class AvmPersistableStateManager {
    * @param nullifier - the unsiloed nullifier to write
    */
   public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
+    this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
     await this.nullifiers.append(storageAddress, nullifier);
     // Trace all nullifier creations (even reverted ones)
@@ -153,16 +172,13 @@ export class AvmPersistableStateManager {
    * @param msgLeafIndex - the message leaf index to use in the check
    * @returns exists - whether the message exists in the L1 to L2 Messages tree
    */
-  public async checkL1ToL2MessageExists(msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
-    let exists = false;
-    try {
-      const gotMessage = await this.hostStorage.commitmentsDb.getL1ToL2MembershipWitness(msgHash);
-      exists = gotMessage !== undefined && gotMessage.index == msgLeafIndex.toBigInt();
-    } catch {
-      // error getting message - doesn't exist!
-      exists = false;
-    }
-    this.trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, exists);
+  public async checkL1ToL2MessageExists(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
+    const valueAtIndex = await this.hostStorage.commitmentsDb.getL1ToL2LeafValue(msgLeafIndex.toBigInt());
+    const exists = valueAtIndex?.equals(msgHash) ?? false;
+    this.log.debug(
+      `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
+    );
+    this.trace.traceL1ToL2MessageCheck(contractAddress, msgHash, msgLeafIndex, exists);
     return Promise.resolve(exists);
   }
 
@@ -171,61 +187,88 @@ export class AvmPersistableStateManager {
    * @param recipient - L1 contract address to send the message to.
    * @param content - Message content.
    */
-  public writeL1Message(recipient: EthAddress | Fr, content: Fr) {
-    const recipientAddress = recipient instanceof EthAddress ? recipient : EthAddress.fromField(recipient);
-    this.newL1Messages.push(new L2ToL1Message(recipientAddress, content));
+  public writeL2ToL1Message(recipient: Fr, content: Fr) {
+    this.log.debug(`L1Messages(${recipient}) += ${content}.`);
+    this.trace.traceNewL2ToL1Message(recipient, content);
   }
 
-  public writeLog(contractAddress: Fr, event: Fr, log: Fr[]) {
-    this.newLogs.push(
-      new UnencryptedL2Log(
-        AztecAddress.fromField(contractAddress),
-        EventSelector.fromField(event),
-        Buffer.concat(log.map(f => f.toBuffer())),
-      ),
+  /**
+   * Write an unencrypted log
+   * @param contractAddress - address of the contract that emitted the log
+   * @param event - log event selector
+   * @param log - log contents
+   */
+  public writeUnencryptedLog(contractAddress: Fr, log: Fr[]) {
+    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
+    this.trace.traceUnencryptedLog(contractAddress, log);
+  }
+
+  /**
+   * Get a contract instance.
+   * @param contractAddress - address of the contract instance to retrieve.
+   * @returns the contract instance with an "exists" flag
+   */
+  public async getContractInstance(contractAddress: Fr): Promise<TracedContractInstance> {
+    let exists = true;
+    const aztecAddress = AztecAddress.fromField(contractAddress);
+    let instance = await this.hostStorage.contractsDb.getContractInstance(aztecAddress);
+    if (instance === undefined) {
+      instance = SerializableContractInstance.empty().withAddress(aztecAddress);
+      exists = false;
+    }
+    this.log.debug(
+      `Get Contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
     );
+    const tracedInstance = { ...instance, exists };
+    this.trace.traceGetContractInstance(tracedInstance);
+    return Promise.resolve(tracedInstance);
   }
 
   /**
-   * Accept nested world state modifications, merging in its trace and accrued substate
+   * Accept nested world state modifications
    */
-  public acceptNestedCallState(nestedJournal: AvmPersistableStateManager) {
-    // Merge Public Storage
-    this.publicStorage.acceptAndMerge(nestedJournal.publicStorage);
-
-    // Merge World State Access Trace
-    this.trace.acceptAndMerge(nestedJournal.trace);
-
-    // Accrued Substate
-    this.newL1Messages = this.newL1Messages.concat(nestedJournal.newL1Messages);
-    this.newLogs = this.newLogs.concat(nestedJournal.newLogs);
+  public acceptNestedCallState(nestedState: AvmPersistableStateManager) {
+    this.publicStorage.acceptAndMerge(nestedState.publicStorage);
+    this.nullifiers.acceptAndMerge(nestedState.nullifiers);
   }
 
   /**
-   * Reject nested world state, merging in its trace, but not accepting any state modifications
+   * Get a contract's bytecode from the contracts DB
    */
-  public rejectNestedCallState(nestedJournal: AvmPersistableStateManager) {
-    // Merge World State Access Trace
-    this.trace.acceptAndMerge(nestedJournal.trace);
+  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
+    return await this.hostStorage.contractsDb.getBytecode(contractAddress, selector);
   }
 
   /**
-   * Access the current state of the journal
-   *
-   * @returns a JournalData object
+   * Accept the nested call's state and trace the nested call
    */
-  public flush(): JournalData {
-    return {
-      noteHashChecks: this.trace.noteHashChecks,
-      newNoteHashes: this.trace.newNoteHashes,
-      nullifierChecks: this.trace.nullifierChecks,
-      newNullifiers: this.trace.newNullifiers,
-      l1ToL2MessageChecks: this.trace.l1ToL2MessageChecks,
-      newL1Messages: this.newL1Messages,
-      newLogs: this.newLogs,
-      currentStorageValue: this.publicStorage.getCache().cachePerContract,
-      storageReads: this.trace.publicStorageReads,
-      storageWrites: this.trace.publicStorageWrites,
-    };
+  public async processNestedCall(
+    nestedState: AvmPersistableStateManager,
+    nestedEnvironment: AvmExecutionEnvironment,
+    startGasLeft: Gas,
+    endGasLeft: Gas,
+    bytecode: Buffer,
+    avmCallResults: AvmContractCallResult,
+  ) {
+    if (!avmCallResults.reverted) {
+      this.acceptNestedCallState(nestedState);
+    }
+    const functionName =
+      (await nestedState.hostStorage.contractsDb.getDebugFunctionName(
+        nestedEnvironment.address,
+        nestedEnvironment.functionSelector,
+      )) ?? `${nestedEnvironment.address}:${nestedEnvironment.functionSelector}`;
+
+    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
+
+    this.trace.traceNestedCall(
+      nestedState.trace,
+      nestedEnvironment,
+      startGasLeft,
+      endGasLeft,
+      bytecode,
+      avmCallResults,
+      functionName,
+    );
   }
 }

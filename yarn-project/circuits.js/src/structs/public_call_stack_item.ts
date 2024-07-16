@@ -1,13 +1,13 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex } from '../constants.gen.js';
-import { CallContext } from './call_context.js';
-import { CallRequest, CallerContext } from './call_request.js';
+import { type CallContext } from './call_context.js';
+import { CallRequest } from './call_request.js';
+import { CallerContext } from './caller_context.js';
 import { FunctionData } from './function_data.js';
+import { PublicCallStackItemCompressed } from './public_call_stack_item_compressed.js';
 import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
 
 /**
@@ -84,21 +84,32 @@ export class PublicCallStackItem {
     return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
   }
 
-  /**
-   * Computes this call stack item hash.
-   * @returns Hash.
-   */
-  public hash() {
+  getCompressed(): PublicCallStackItemCompressed {
+    let publicInputsToHash = this.publicInputs;
     if (this.isExecutionRequest) {
+      // An execution request (such as an enqueued call from private) is hashed with
+      // only the publicInput members present in a PublicCallRequest.
+      // This allows us to check that the request (which is created/hashed before
+      // side-effects and output info are unknown for public calls) matches the call
+      // being processed by a kernel iteration.
+      // WARNING: This subset of publicInputs that is set here must align with
+      // `parse_public_call_stack_item_from_oracle` in enqueue_public_function_call.nr
+      // and `PublicCallStackItem::as_execution_request()` in public_call_stack_item.ts
       const { callContext, argsHash } = this.publicInputs;
-      this.publicInputs = PublicCircuitPublicInputs.empty();
-      this.publicInputs.callContext = callContext;
-      this.publicInputs.argsHash = argsHash;
+      publicInputsToHash = PublicCircuitPublicInputs.empty();
+      publicInputsToHash.callContext = callContext;
+      publicInputsToHash.argsHash = argsHash;
     }
 
-    return pedersenHash(
-      [this.contractAddress, this.functionData.hash(), this.publicInputs.hash()].map(f => f.toBuffer()),
-      GeneratorIndex.CALL_STACK_ITEM,
+    return new PublicCallStackItemCompressed(
+      this.contractAddress,
+      publicInputsToHash.callContext,
+      this.functionData,
+      publicInputsToHash.argsHash,
+      publicInputsToHash.returnsHash,
+      publicInputsToHash.revertCode,
+      publicInputsToHash.startGasLeft,
+      publicInputsToHash.endGasLeft,
     );
   }
 
@@ -113,9 +124,16 @@ export class PublicCallStackItem {
 
     const currentCallContext = this.publicInputs.callContext;
     const callerContext = currentCallContext.isDelegateCall
-      ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
+      ? new CallerContext(
+          parentCallContext.msgSender,
+          parentCallContext.storageContractAddress,
+          parentCallContext.isStaticCall,
+        )
       : CallerContext.empty();
     // todo: populate side effect counters correctly
-    return new CallRequest(this.hash(), parentCallContext.storageContractAddress, callerContext, Fr.ZERO, Fr.ZERO);
+
+    const hash = this.getCompressed().hash();
+
+    return new CallRequest(hash, parentCallContext.storageContractAddress, callerContext, Fr.ZERO, Fr.ZERO);
   }
 }

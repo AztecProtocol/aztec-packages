@@ -1,7 +1,7 @@
 import { Fr, NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { Hasher } from '@aztec/types/interfaces';
+import { type Hasher } from '@aztec/types/interfaces';
 
 import { Pedersen, newTree } from '../index.js';
 import { StandardIndexedTreeWithAppend } from '../standard_indexed_tree/test/standard_indexed_tree_with_append.js';
@@ -9,7 +9,15 @@ import { IndexedTreeSnapshotBuilder } from './indexed_tree_snapshot.js';
 import { describeSnapshotBuilderTestSuite } from './snapshot_builder_test_suite.js';
 
 class NullifierTree extends StandardIndexedTreeWithAppend {
-  constructor(db: AztecKVStore, hasher: Hasher, name: string, depth: number, size: bigint = 0n, root?: Buffer) {
+  constructor(
+    db: AztecKVStore,
+    hasher: Hasher,
+    name: string,
+    depth: number,
+    size: bigint = 0n,
+    _noop: any,
+    root?: Buffer,
+  ) {
     super(db, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
   }
 }
@@ -21,7 +29,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   beforeEach(async () => {
     db = openTmpStore();
-    tree = await newTree(NullifierTree, db, new Pedersen(), 'test', 4);
+    tree = await newTree(NullifierTree, db, new Pedersen(), 'test', { fromBuffer: (b: Buffer) => b }, 4);
     snapshotBuilder = new IndexedTreeSnapshotBuilder(db, tree, NullifierLeafPreimage);
   });
 
@@ -36,7 +44,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   describe('getSnapshot', () => {
     it('returns historical leaf data', async () => {
-      await tree.appendLeaves([Buffer.from('a'), Buffer.from('b'), Buffer.from('c')]);
+      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const expectedLeavesAtBlock1 = await Promise.all([
         tree.getLatestLeafPreimageCopy(0n, false),
@@ -51,7 +59,7 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
       await snapshotBuilder.snapshot(1);
 
-      await tree.appendLeaves([Buffer.from('d'), Buffer.from('e'), Buffer.from('f')]);
+      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const expectedLeavesAtBlock2 = [
         tree.getLatestLeafPreimageCopy(0n, false),
@@ -90,12 +98,12 @@ describe('IndexedTreeSnapshotBuilder', () => {
 
   describe('findIndexOfPreviousValue', () => {
     it('returns the index of the leaf with the closest value to the given value', async () => {
-      await tree.appendLeaves([Buffer.from('a'), Buffer.from('f'), Buffer.from('d')]);
+      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
       const snapshot = await snapshotBuilder.snapshot(1);
       const historicalPrevValue = tree.findIndexOfPreviousKey(2n, false);
 
-      await tree.appendLeaves([Buffer.from('c'), Buffer.from('b'), Buffer.from('e')]);
+      await tree.appendLeaves([Fr.random().toBuffer(), Fr.random().toBuffer(), Fr.random().toBuffer()]);
       await tree.commit();
 
       expect(snapshot.findIndexOfPreviousKey(2n)).toEqual(historicalPrevValue);

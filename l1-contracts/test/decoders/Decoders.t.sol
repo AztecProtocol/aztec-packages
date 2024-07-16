@@ -5,17 +5,11 @@ pragma solidity >=0.8.18;
 import {DecoderBase} from "./Base.sol";
 
 import {Hash} from "../../src/core/libraries/Hash.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
-import {MessagesDecoderHelper} from "./helpers/MessagesDecoderHelper.sol";
 import {TxsDecoderHelper} from "./helpers/TxsDecoderHelper.sol";
 import {HeaderLib} from "../../src/core/libraries/HeaderLib.sol";
-
-import {MessagesDecoder} from "../../src/core/libraries/decoders/MessagesDecoder.sol";
-import {TxsDecoder} from "../../src/core/libraries/decoders/TxsDecoder.sol";
-
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
+import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
@@ -25,12 +19,10 @@ import {AvailabilityOracle} from "../../src/core/availability_oracle/Availabilit
  */
 contract DecodersTest is DecoderBase {
   HeaderLibHelper internal headerHelper;
-  MessagesDecoderHelper internal messagesHelper;
   TxsDecoderHelper internal txsHelper;
 
   function setUp() public virtual {
     headerHelper = new HeaderLibHelper();
-    messagesHelper = new MessagesDecoderHelper();
     txsHelper = new TxsDecoderHelper();
   }
 
@@ -63,17 +55,24 @@ contract DecodersTest is DecoderBase {
         assertEq(
           header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
         );
+        assertEq(
+          header.globalVariables.gasFees.feePerDaGas,
+          globalVariables.gasFees.feePerDaGas,
+          "Invalid gasFees.feePerDaGas"
+        );
+        assertEq(
+          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
+        );
+        assertEq(
+          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
+        );
       }
 
       // ContentCommitment
       {
         DecoderBase.ContentCommitment memory contentCommitment = referenceHeader.contentCommitment;
 
-        assertEq(
-          header.contentCommitment.txTreeHeight,
-          contentCommitment.txTreeHeight,
-          "Invalid txTreeSize"
-        );
+        assertEq(header.contentCommitment.numTxs, contentCommitment.numTxs, "Invalid txTreeSize");
         assertEq(
           header.contentCommitment.txsEffectsHash,
           contentCommitment.txsEffectsHash,
@@ -152,21 +151,6 @@ contract DecodersTest is DecoderBase {
       );
     }
 
-    // Messages
-    {
-      (,,, bytes32[] memory msgsL2ToL1Msgs) = messagesHelper.decode(data.block.body);
-
-      // assertEq(msgsL2ToL1MsgsHash, b.l2ToL1MessagesHash, "Invalid l2ToL1MsgsHash");
-
-      // L2 -> L1 messages
-      assertEq(
-        msgsL2ToL1Msgs.length, data.messages.l2ToL1Messages.length, "Invalid l2ToL1Msgs length"
-      );
-      for (uint256 i = 0; i < msgsL2ToL1Msgs.length; i++) {
-        assertEq(msgsL2ToL1Msgs[i], data.messages.l2ToL1Messages[i], "Invalid l2ToL1Msgs messages");
-      }
-    }
-
     // Txs
     {
       bytes32 txsEffectsHash = txsHelper.decode(data.block.body);
@@ -186,39 +170,44 @@ contract DecodersTest is DecoderBase {
     bytes memory iterationLogsLength = hex"00000000"; // 4 empty bytes indicating that length of this iteration's logs is 0
     bytes memory encodedLogs = abi.encodePacked(kernelLogsLength, iterationLogsLength);
 
-    (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
-
-    bytes32 kernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHash = sha256(new bytes(0));
-
-    bytes32 referenceLogsHash =
-      sha256(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+    (bytes32 logsHash, uint256 bytesAdvanced, uint256 logsLength) =
+      txsHelper.computeKernelLogsHash(encodedLogs);
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
+    assertEq(logsLength, 0, "Incorrect logs length");
+    assertEq(logsHash, bytes32(0), "Incorrect logs hash");
   }
 
   function testComputeKernelLogs1Iteration() public {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS ||
     // K_LOGS_LEN = 4 + 8 = 12 (hex"0000000c")
     // I1_LOGS_LEN = 8 (hex"00000008")
-    // I1_LOGS = 8 bytes (hex"0000000493e78a70") // Note: 00000004 is the length of 1 log within function logs
-    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
+    // I1_LOGS = 8 bytes (hex"0000000493e78a70")
+    bytes memory firstFunctionCallLogs = hex"93e78a70";
+    // First, prefix logs with a masked address to mimic siloing
+    bytes32 maskedAddress = hex"11";
     // Prefix logs with length of kernel logs (12) and length of iteration 1 logs (8)
-    bytes memory encodedLogs = abi.encodePacked(hex"0000000c00000008", firstFunctionCallLogs);
-    (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
+    // Note: 00000004 is the length of 1 log within function logs
+    // Note: 00000024 is the length of 1 log plus its masked address
+    bytes memory encodedLogs =
+      abi.encodePacked(hex"0000002c00000028", hex"00000024", maskedAddress, firstFunctionCallLogs);
+    (bytes32 logsHash, uint256 bytesAdvanced, uint256 logsLength) =
+      txsHelper.computeKernelLogsHash(encodedLogs);
 
-    // Zero because this is the first iteration
-    bytes32 previousKernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHashFirstCall = sha256(firstFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashFirstCall = Hash.sha256ToField(firstFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashFirstCallSiloed =
+      Hash.sha256ToField(bytes.concat(maskedAddress, privateCircuitPublicInputsLogsHashFirstCall));
 
-    bytes32 referenceLogsHash = sha256(
+    bytes32 referenceLogsHash = Hash.sha256ToField(
       abi.encodePacked(
-        previousKernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHashFirstCall
+        privateCircuitPublicInputsLogsHashFirstCallSiloed,
+        new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32)
       )
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    // We take 40 as the user does not pay for the gas of the overall len or masked address
+    assertEq(logsLength, encodedLogs.length - 40, "Incorrect logs length");
     assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
   }
 
@@ -229,25 +218,45 @@ contract DecodersTest is DecoderBase {
     // I1_LOGS = 8 random bytes (hex"0000000493e78a70")
     // I2_LOGS_LEN = 20 (hex"00000014")
     // I2_LOGS = 20 bytes (hex"0000001006a86173c86c6d3f108eefc36e7fb014")
-    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
-    bytes memory secondFunctionCallLogs = hex"0000001006a86173c86c6d3f108eefc36e7fb014";
+    bytes memory firstFunctionCallLogs = hex"93e78a70";
+    // First, prefix logs with a masked address to mimic siloing
+    bytes32 firstCallMaskedAddress = hex"11";
+    bytes memory secondFunctionCallLogs = hex"06a86173c86c6d3f108eefc36e7fb014";
+    bytes32 secondCallMaskedAddress = hex"12";
     bytes memory encodedLogs = abi.encodePacked(
-      hex"0000002400000008", firstFunctionCallLogs, hex"00000014", secondFunctionCallLogs
+      hex"0000006400000028",
+      hex"00000024",
+      firstCallMaskedAddress,
+      firstFunctionCallLogs,
+      hex"00000034",
+      hex"00000030",
+      secondCallMaskedAddress,
+      secondFunctionCallLogs
     );
-    (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
+    (bytes32 logsHash, uint256 bytesAdvanced, uint256 logsLength) =
+      txsHelper.computeKernelLogsHash(encodedLogs);
 
-    bytes32 referenceLogsHashFromIteration1 =
-      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+    bytes32 referenceLogsHashFromIteration1 = Hash.sha256ToField(firstFunctionCallLogs);
+    bytes32 referenceLogsHashFromIteration1Siloed =
+      Hash.sha256ToField(bytes.concat(firstCallMaskedAddress, referenceLogsHashFromIteration1));
 
-    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall =
+      Hash.sha256ToField(secondFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashSecondCallSiloed = Hash.sha256ToField(
+      bytes.concat(secondCallMaskedAddress, privateCircuitPublicInputsLogsHashSecondCall)
+    );
 
-    bytes32 referenceLogsHashFromIteration2 = sha256(
+    bytes32 referenceLogsHashFromIteration2 = Hash.sha256ToField(
       abi.encodePacked(
-        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+        referenceLogsHashFromIteration1Siloed,
+        privateCircuitPublicInputsLogsHashSecondCallSiloed,
+        new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - 64)
       )
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    // We take 76 as the user does not pay for the gas of the parent len bytes or masked addresses
+    assertEq(logsLength, encodedLogs.length - 76, "Incorrect logs length");
     assertEq(logsHash, referenceLogsHashFromIteration2, "Incorrect logs hash");
   }
 
@@ -260,37 +269,69 @@ contract DecodersTest is DecoderBase {
     // I2_LOGS = 0 bytes (hex"")
     // I3_LOGS_LEN = 20 (hex"00000014")
     // I3_LOGS = 20 random bytes (hex"0000001006a86173c86c6d3f108eefc36e7fb014")
-    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
+    bytes memory firstFunctionCallLogs = hex"93e78a70";
+    // First, prefix logs with a masked address to mimic siloing
+    bytes32 firstCallMaskedAddress = hex"11";
     bytes memory secondFunctionCallLogs = hex"";
-    bytes memory thirdFunctionCallLogs = hex"0000001006a86173c86c6d3f108eefc36e7fb014";
+    bytes memory thirdFunctionCallLogs = hex"06a86173c86c6d3f108eefc36e7fb014";
+    bytes32 thirdCallMaskedAddress = hex"12";
     bytes memory encodedLogs = abi.encodePacked(
-      hex"0000002800000008",
+      hex"0000006800000028",
+      hex"00000024",
+      firstCallMaskedAddress,
       firstFunctionCallLogs,
       hex"00000000",
       secondFunctionCallLogs,
-      hex"00000014",
+      hex"00000034",
+      hex"00000030",
+      thirdCallMaskedAddress,
       thirdFunctionCallLogs
     );
-    (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
+    (bytes32 logsHash, uint256 bytesAdvanced, uint256 logsLength) =
+      txsHelper.computeKernelLogsHash(encodedLogs);
 
-    bytes32 referenceLogsHashFromIteration1 =
-      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+    bytes32 referenceLogsHashFromIteration1 = Hash.sha256ToField(firstFunctionCallLogs);
+    bytes32 referenceLogsHashFromIteration1Siloed =
+      Hash.sha256ToField(bytes.concat(firstCallMaskedAddress, referenceLogsHashFromIteration1));
 
-    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
+    // Note: as of resolving #5017, we now hash logs inside the circuits
+    // Following the YP, we skip any zero length logs, hence no use of secondFunctionCallLogs here
 
-    bytes32 referenceLogsHashFromIteration2 = sha256(
+    bytes32 privateCircuitPublicInputsLogsHashThirdCall = Hash.sha256ToField(thirdFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashThirdCallSiloed = Hash.sha256ToField(
+      bytes.concat(thirdCallMaskedAddress, privateCircuitPublicInputsLogsHashThirdCall)
+    );
+
+    bytes32 referenceLogsHashFromIteration3 = Hash.sha256ToField(
       abi.encodePacked(
-        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
+        referenceLogsHashFromIteration1Siloed,
+        privateCircuitPublicInputsLogsHashThirdCallSiloed,
+        new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - 64)
       )
     );
 
-    bytes32 privateCircuitPublicInputsLogsHashThirdCall = sha256(thirdFunctionCallLogs);
-
-    bytes32 referenceLogsHashFromIteration3 = sha256(
-      abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
-    );
-
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
+    // We take 80 as the user does not pay for the gas of the parent len bytes or masked addresses
+    assertEq(logsLength, encodedLogs.length - 80, "Incorrect logs length");
     assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
+  }
+
+  function testTxsDecoderCorrectlyComputesNumTxEffectsToPad() public {
+    // Minimum num txs is 2 so when there are no real txs we need to pad to 2
+    uint32 numTxEffects = 0;
+    uint32 paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 1;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 1 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 3;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 0, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 17;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 0, "Incorrect number of tx effects to pad");
   }
 }

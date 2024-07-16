@@ -7,15 +7,14 @@ import http from 'http';
 import Koa from 'koa';
 import cors from 'koa-cors';
 import Router from 'koa-router';
-import { Hex, http as ViemHttp, createWalletClient, parseEther } from 'viem';
+import { type Hex, http as ViemHttp, createPublicClient, createWalletClient, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const {
   FAUCET_PORT = 8082,
   API_PREFIX = '',
-  API_KEY = '',
   RPC_URL = '',
-  CHAIN_ID = '',
+  L1_CHAIN_ID = '',
   PRIVATE_KEY = '',
   INTERVAL = '',
   ETH_AMOUNT = '',
@@ -24,8 +23,7 @@ const {
 const logger = createDebugLogger('aztec:faucet');
 
 const rpcUrl = RPC_URL;
-const apiKey = API_KEY;
-const chainId = +CHAIN_ID;
+const l1ChainId = +L1_CHAIN_ID;
 const privateKey: Hex = PRIVATE_KEY ? createHex(PRIVATE_KEY) : NULL_KEY;
 const interval = +INTERVAL;
 const mapping: { [key: Hex]: Date } = {};
@@ -60,11 +58,15 @@ function checkThrottle(address: Hex) {
  * @param address - Address to receive some ETH
  */
 async function transferEth(address: string) {
-  const chain = createEthereumChain(rpcUrl, apiKey);
+  const chain = createEthereumChain(rpcUrl, l1ChainId);
 
   const account = privateKeyToAccount(privateKey);
   const walletClient = createWalletClient({
     account: account,
+    chain: chain.chainInfo,
+    transport: ViemHttp(chain.rpcUrl),
+  });
+  const publicClient = createPublicClient({
     chain: chain.chainInfo,
     transport: ViemHttp(chain.rpcUrl),
   });
@@ -76,6 +78,7 @@ async function transferEth(address: string) {
       to: hexAddress,
       value: parseEther(ETH_AMOUNT),
     });
+    await publicClient.waitForTransactionReceipt({ hash });
     mapping[hexAddress] = new Date();
     logger.info(`Sent ${ETH_AMOUNT} ETH to ${hexAddress} in tx ${hash}`);
   } catch (error) {
@@ -109,8 +112,8 @@ function createRouter(apiPrefix: string) {
 async function main() {
   logger.info(`Setting up Aztec Faucet...`);
 
-  const chain = createEthereumChain(rpcUrl, apiKey);
-  if (chain.chainInfo.id !== chainId) {
+  const chain = createEthereumChain(rpcUrl, l1ChainId);
+  if (chain.chainInfo.id !== l1ChainId) {
     throw new Error(`Incorrect chain id, expected ${chain.chainInfo.id}`);
   }
 

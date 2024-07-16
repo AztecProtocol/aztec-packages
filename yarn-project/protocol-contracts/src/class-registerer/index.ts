@@ -1,17 +1,17 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, REGISTERER_CONTRACT_ADDRESS } from '@aztec/circuits.js';
 
-import { ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
+import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
 import { ContractClassRegistererArtifact } from './artifact.js';
 
 /** Returns the canonical deployment of the class registerer contract. */
 export function getCanonicalClassRegisterer(): ProtocolContract {
-  return getCanonicalProtocolContract(ContractClassRegistererArtifact, 1);
+  const contract = getCanonicalProtocolContract(ContractClassRegistererArtifact, 1);
+  if (!contract.address.equals(ClassRegistererAddress)) {
+    throw new Error(
+      `Incorrect address for class registerer (got ${contract.address.toString()} but expected ${ClassRegistererAddress.toString()}).`,
+    );
+  }
+  return contract;
 }
 
-/**
- * Address of the canonical class registerer.
- * @remarks This should not change often, hence we hardcode it to save from having to recompute it every time.
- */
-export const ClassRegistererAddress = AztecAddress.fromString(
-  '0x2140db629d95644ef26140fa5ae87749ae28d373176af9a2e458052ced96c7b3',
-);
+export const ClassRegistererAddress = AztecAddress.fromBigInt(REGISTERER_CONTRACT_ADDRESS);

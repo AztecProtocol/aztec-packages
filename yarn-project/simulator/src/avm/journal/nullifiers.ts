@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -8,24 +9,53 @@ import type { CommitmentsDB } from '../../index.js';
  * Maintains a nullifier cache, and ensures that existence checks fall back to the correct source.
  * When a contract call completes, its cached nullifier set can be merged into its parent's.
  */
-export class Nullifiers {
-  /** Cached nullifiers. */
-  private cache: NullifierCache;
-  /** Parent's nullifier cache. Checked on cache-miss. */
-  private readonly parentCache: NullifierCache | undefined;
-  /** Reference to node storage. Checked on parent cache-miss. */
-  private readonly hostNullifiers: CommitmentsDB;
+export class NullifierManager {
+  constructor(
+    /** Reference to node storage. Checked on parent cache-miss. */
+    private readonly hostNullifiers: CommitmentsDB,
+    /** Cached nullifiers. */
+    private readonly cache: NullifierCache = new NullifierCache(),
+    /** Parent nullifier manager to fall back on */
+    private readonly parent?: NullifierManager,
+  ) {}
 
-  constructor(hostNullifiers: CommitmentsDB, parent?: Nullifiers) {
-    this.hostNullifiers = hostNullifiers;
-    this.parentCache = parent?.cache;
-    this.cache = new NullifierCache();
+  /**
+   * Create a new nullifiers manager with some preloaded pending siloed nullifiers
+   */
+  public static newWithPendingSiloedNullifiers(hostNullifiers: CommitmentsDB, pendingSiloedNullifiers: Fr[]) {
+    const cache = new NullifierCache(pendingSiloedNullifiers);
+    return new NullifierManager(hostNullifiers, cache);
+  }
+
+  /**
+   * Create a new nullifiers manager forked from this one
+   */
+  public fork() {
+    return new NullifierManager(this.hostNullifiers, new NullifierCache(), this);
+  }
+
+  /**
+   * Get a nullifier's existence in this' cache or parent's (recursively).
+   * DOES NOT CHECK HOST STORAGE!
+   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param nullifier - the nullifier to check for
+   * @returns exists: whether the nullifier exists in cache here or in parent's
+   */
+  private checkExistsHereOrParent(storageAddress: Fr, nullifier: Fr): boolean {
+    // First check this cache
+    let existsAsPending = this.cache.exists(storageAddress, nullifier);
+    // Then try parent's nullifier cache
+    if (!existsAsPending && this.parent) {
+      // Note: this will recurse to grandparent/etc until a cache-hit is encountered.
+      existsAsPending = this.parent.checkExistsHereOrParent(storageAddress, nullifier);
+    }
+    return existsAsPending;
   }
 
   /**
    * Get a nullifier's existence status.
    * 1. Check cache.
-   * 2. Check parent's cache.
+   * 2. Check parent cache.
    * 3. Fall back to the host state.
    * 4. Not found! Nullifier does not exist.
    *
@@ -39,12 +69,8 @@ export class Nullifiers {
     storageAddress: Fr,
     nullifier: Fr,
   ): Promise<[/*exists=*/ boolean, /*isPending=*/ boolean, /*leafIndex=*/ Fr]> {
-    // First check this cache
-    let existsAsPending = this.cache.exists(storageAddress, nullifier);
-    // Then check parent's cache
-    if (!existsAsPending && this.parentCache) {
-      existsAsPending = this.parentCache?.exists(storageAddress, nullifier);
-    }
+    // Check this cache and parent's (recursively)
+    const existsAsPending = this.checkExistsHereOrParent(storageAddress, nullifier);
     // Finally try the host's Aztec state (a trip to the database)
     // If the value is found in the database, it will be associated with a leaf index!
     let leafIndex: bigint | undefined = undefined;
@@ -78,7 +104,7 @@ export class Nullifiers {
    *
    * @param incomingNullifiers - the incoming cached nullifiers to merge into this instance's
    */
-  public acceptAndMerge(incomingNullifiers: Nullifiers) {
+  public acceptAndMerge(incomingNullifiers: NullifierManager) {
     this.cache.acceptAndMerge(incomingNullifiers.cache);
   }
 }
@@ -95,6 +121,16 @@ export class NullifierCache {
    * each entry being a nullifier.
    */
   private cachePerContract: Map<bigint, Set<bigint>> = new Map();
+  private siloedNullifiers: Set<bigint> = new Set();
+
+  /**
+   * @parem siloedNullifierFrs: optional list of pending siloed nullifiers to initialize this cache with
+   */
+  constructor(siloedNullifierFrs?: Fr[]) {
+    if (siloedNullifierFrs !== undefined) {
+      siloedNullifierFrs.forEach(nullifier => this.siloedNullifiers.add(nullifier.toBigInt()));
+    }
+  }
 
   /**
    * Check whether a nullifier exists in the cache.
@@ -104,8 +140,10 @@ export class NullifierCache {
    * @returns whether the nullifier is found in the cache
    */
   public exists(storageAddress: Fr, nullifier: Fr): boolean {
-    const exists = this.cachePerContract.get(storageAddress.toBigInt())?.has(nullifier.toBigInt());
-    return exists ? true : false;
+    const exists =
+      this.cachePerContract.get(storageAddress.toBigInt())?.has(nullifier.toBigInt()) ||
+      this.siloedNullifiers.has(siloNullifier(AztecAddress.fromField(storageAddress), nullifier).toBigInt());
+    return !!exists;
   }
 
   /**
@@ -115,16 +153,17 @@ export class NullifierCache {
    * @param nullifier - the nullifier to stage
    */
   public append(storageAddress: Fr, nullifier: Fr) {
+    if (this.exists(storageAddress, nullifier)) {
+      throw new NullifierCollisionError(
+        `Nullifier ${nullifier} at contract ${storageAddress} already exists in cache.`,
+      );
+    }
+
     let nullifiersForContract = this.cachePerContract.get(storageAddress.toBigInt());
     // If this contract's nullifier set has no cached nullifiers, create a new Set to store them
     if (!nullifiersForContract) {
       nullifiersForContract = new Set();
       this.cachePerContract.set(storageAddress.toBigInt(), nullifiersForContract);
-    }
-    if (nullifiersForContract.has(nullifier.toBigInt())) {
-      throw new NullifierCollisionError(
-        `Nullifier ${nullifier} at contract ${storageAddress} already exists in cache.`,
-      );
     }
     nullifiersForContract.add(nullifier.toBigInt());
   }
@@ -139,6 +178,8 @@ export class NullifierCache {
    * @param incomingNullifiers - the incoming cached nullifiers to merge into this instance's
    */
   public acceptAndMerge(incomingNullifiers: NullifierCache) {
+    // Merge siloed nullifiers.
+    this.siloedNullifiers = new Set([...this.siloedNullifiers, ...incomingNullifiers.siloedNullifiers]);
     // Iterate over all contracts with staged writes in the child.
     for (const [incomingAddress, incomingCacheAtContract] of incomingNullifiers.cachePerContract) {
       const thisCacheAtContract = this.cachePerContract.get(incomingAddress);

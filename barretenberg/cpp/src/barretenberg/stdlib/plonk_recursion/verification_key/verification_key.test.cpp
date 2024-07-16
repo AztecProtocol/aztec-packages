@@ -2,15 +2,16 @@
 
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+using namespace bb;
+using namespace bb::plonk;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
-
-using namespace bb::plonk;
 
 /**
  * @brief A test fixture that will let us generate VK data and run tests

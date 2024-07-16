@@ -5,6 +5,8 @@ const childProcess = require("child_process");
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
 
+const { generateInstructionSet } = require("./InstructionSet/genMarkdown");
+
 async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   const files = fs.readdirSync(docsDir);
   const contentUpdates = [];
@@ -17,7 +19,7 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
       contentUpdates.push(processMarkdownFilesInDir(rootDir, filepath, regex));
     } else if (
       stat.isFile() &&
-      (file.endsWith(".md") || file.endsWith(".mdx"))
+      (file.endsWith(".md") || file.endsWith(".mdx") || file.endsWith(".json"))
     ) {
       const markdownContent = fs.readFileSync(filepath, "utf-8");
 
@@ -117,6 +119,8 @@ async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
 }
 
 async function run() {
+  await generateInstructionSet();
+
   const rootDir = path.join(__dirname, "../../../");
   const docsDir = path.join(rootDir, "docs", "docs");
   const destDir = path.join(rootDir, "docs", "processed-docs");

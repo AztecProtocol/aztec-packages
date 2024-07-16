@@ -4,7 +4,7 @@
 
 namespace bb {
 
-template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
+template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
   public:
     using FF = FF_;
 
@@ -14,9 +14,27 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
         3, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
         3  // Prime subrelation (checks result in native field)
     };
-
     /**
-     * @brief Expression for the computation of Goblin Translator accumulator in integers through 68-bit limbs and
+     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
+     */
+    static constexpr std::array<size_t, 3> SUBRELATION_WITNESS_DEGREES{
+        2, // Lower wide limb subrelation (checks result is 0 mod 2¹³⁶)
+        2, // Higher wide limb subrelation (checks result is 0 in higher mod 2¹³⁶),
+        2  // Prime subrelation (checks result in native field)
+    };
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lagrange_odd_in_minicircuit.is_zero();
+    }
+    /**
+     * @brief Expression for the computation of Translator accumulator in integers through 68-bit limbs and
      * native field (prime) limb
      * @details This relation is a part of system of relations that enforce a formula in non-native field (base field of
      * bn254 curve Fp (p - modulus of Fp)). We are trying to compute:
@@ -68,7 +86,7 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
      * All of these subrelations are multiplied by lagrange_odd_in_minicircuit, which is a polynomial with 1 at each odd
      * index less than the size of the mini-circuit (16 times smaller than the final circuit and the only part over
      * which we need to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry
-     * (operation) occupies 2 rows in bn254 transcripts. So the Goblin Translator VM has a 2-row cycle and we need to
+     * (operation) occupies 2 rows in bn254 transcripts. So the Translator VM has a 2-row cycle and we need to
      * switch the checks being performed depending on which row we are at right now. We have half a cycle of
      * accumulation, where we perform this computation, and half a cycle where we just copy accumulator data.
      *
@@ -84,7 +102,6 @@ template <typename FF_> class GoblinTranslatorNonNativeFieldRelationImpl {
                            const FF& scaling_factor);
 };
 
-template <typename FF>
-using GoblinTranslatorNonNativeFieldRelation = Relation<GoblinTranslatorNonNativeFieldRelationImpl<FF>>;
+template <typename FF> using TranslatorNonNativeFieldRelation = Relation<TranslatorNonNativeFieldRelationImpl<FF>>;
 
 } // namespace bb

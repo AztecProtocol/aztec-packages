@@ -1,15 +1,16 @@
+#include "barretenberg/vm/generated/avm_prover.hpp"
 
-
-#include "avm_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/proof_system/library/grand_product_library.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+
+#include "barretenberg/vm/avm_trace/stats.hpp"
 
 namespace bb {
 
@@ -23,7 +24,7 @@ using FF = Flavor::FF;
  * @param input_manifest Input manifest
  *
  * @tparam settings Settings class.
- * */
+ */
 AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key)
     : key(input_key)
     , commitment_key(commitment_key)
@@ -51,15 +52,45 @@ void AvmProver::execute_preamble_round()
 }
 
 /**
- * @brief Compute commitments to the first three wires
+ * @brief Compute commitments to all of the witness wires (apart from the logderivative inverse wires)
  *
  */
 void AvmProver::execute_wire_commitments_round()
 {
-    auto wire_polys = key->get_wires();
+    // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
+    // logderivative phase)
+    auto wire_polys = prover_polynomials.get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+    }
+}
+
+void AvmProver::execute_log_derivative_inverse_round()
+{
+    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamm;
+
+    auto prover_polynomials = ProverPolynomials(*key);
+    bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
+        using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
+        AVM_TRACK_TIME(Relation::NAME + std::string("_ms"),
+                       (compute_logderivative_inverse<Flavor, Relation>(
+                           prover_polynomials, relation_parameters, key->circuit_size)));
+    });
+}
+
+void AvmProver::execute_log_derivative_inverse_commitments_round()
+{
+    // Commit to all logderivative inverse polynomials
+    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
+        commitment = commitment_key->commit(key_poly);
+    }
+
+    // Send all commitments to the verifier
+    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), witness_commitments.get_derived())) {
+        transcript->send_to_verifier(label, commitment);
     }
 }
 
@@ -85,48 +116,48 @@ void AvmProver::execute_relation_check_rounds()
 /**
  * @brief Execute the ZeroMorph protocol to prove the multilinear evaluations produced by Sumcheck
  * @details See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the unrolled protocol.
- *
- * */
-void AvmProver::execute_zeromorph_rounds()
+ */
+void AvmProver::execute_pcs_rounds()
 {
-    ZeroMorph::prove(prover_polynomials.get_unshifted(),
-                     prover_polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations.get_unshifted(),
-                     sumcheck_output.claimed_evaluations.get_shifted(),
-                     sumcheck_output.challenge,
-                     commitment_key,
-                     transcript);
+    auto prover_opening_claim = ZeroMorph::prove(key->circuit_size,
+                                                 prover_polynomials.get_unshifted(),
+                                                 prover_polynomials.get_to_be_shifted(),
+                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                 sumcheck_output.claimed_evaluations.get_shifted(),
+                                                 sumcheck_output.challenge,
+                                                 commitment_key,
+                                                 transcript);
+    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
-HonkProof& AvmProver::export_proof()
+HonkProof AvmProver::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-HonkProof& AvmProver::construct_proof()
+HonkProof AvmProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
 
     // Compute wire commitments
-    execute_wire_commitments_round();
+    AVM_TRACK_TIME("prove/execute_wire_commitments_round_ms", execute_wire_commitments_round());
 
-    // TODO: not implemented for codegen just yet
-    // Compute sorted list accumulator and commitment
-    // execute_log_derivative_commitments_round();
+    // Compute sorted list accumulator
+    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_round_ms", execute_log_derivative_inverse_round());
 
-    // Fiat-Shamir: bbeta & gamma
-    // Compute grand product(s) and commitments.
-    // execute_grand_product_computation_round();
+    // Compute commitments to logderivative inverse polynomials
+    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_commitments_round_ms",
+                   execute_log_derivative_inverse_commitments_round());
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
-    execute_relation_check_rounds();
+    AVM_TRACK_TIME("prove/execute_relation_check_rounds_ms", execute_relation_check_rounds());
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    execute_zeromorph_rounds();
+    AVM_TRACK_TIME("prove/execute_pcs_rounds_ms", execute_pcs_rounds());
 
     return export_proof();
 }

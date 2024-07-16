@@ -1,20 +1,22 @@
 use acvm::{
     acir::brillig::{
-        BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapValueType, MemoryAddress,
-        Opcode as BrilligOpcode, Value, ValueOrArray,
+        BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapValueType, MemoryAddress,
+        Opcode as BrilligOpcode, ValueOrArray,
     },
+    acir::AcirField,
     FieldElement,
 };
 
 use super::{
     artifact::UnresolvedJumpLocation,
     brillig_variable::{BrilligArray, BrilligVector, SingleAddrVariable},
+    debug_show::DebugToString,
     BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 
 /// Low level instructions of the brillig IR, used by the brillig ir codegens and brillig_gen
 /// Printed using debug_slow
-impl BrilligContext {
+impl<F: AcirField + DebugToString> BrilligContext<F> {
     /// Processes a binary instruction according `operation`.
     ///
     /// This method will compute lhs <operation> rhs
@@ -41,9 +43,8 @@ impl BrilligContext {
     ) {
         self.debug_show.not_instruction(input.address, input.bit_size, result.address);
         // Compile !x as ((-1) - x)
-        let u_max = FieldElement::from(2_i128).pow(&FieldElement::from(input.bit_size as i128))
-            - FieldElement::one();
-        let max = self.make_constant(Value::from(u_max), input.bit_size);
+        let u_max = F::from(2_u128).pow(&F::from(input.bit_size as u128)) - F::one();
+        let max = self.make_constant(u_max, input.bit_size);
 
         self.binary(max, input, result, BrilligBinaryOp::Sub);
         self.deallocate_single_addr(max);
@@ -62,7 +63,7 @@ impl BrilligContext {
             SingleAddrVariable::new_usize(rhs),
             SingleAddrVariable::new(
                 destination,
-                BrilligContext::binary_result_bit_size(op, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE),
+                Self::binary_result_bit_size(op, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE),
             ),
             op,
         );
@@ -75,15 +76,8 @@ impl BrilligContext {
         result: SingleAddrVariable,
         operation: BrilligBinaryOp,
     ) {
-        assert!(
-            lhs.bit_size == rhs.bit_size,
-            "Not equal bit size for lhs and rhs: lhs {}, rhs {}",
-            lhs.bit_size,
-            rhs.bit_size
-        );
         let is_field_op = lhs.bit_size == FieldElement::max_num_bits();
-        let expected_result_bit_size =
-            BrilligContext::binary_result_bit_size(operation, lhs.bit_size);
+        let expected_result_bit_size = Self::binary_result_bit_size(operation, lhs.bit_size);
         assert!(
             result.bit_size == expected_result_bit_size,
             "Expected result bit size to be {}, got {} for operation {:?}",
@@ -215,33 +209,10 @@ impl BrilligContext {
         );
     }
 
-    /// Emits brillig bytecode to jump to a trap condition if `condition`
-    /// is false.
-    pub(crate) fn constrain_instruction(
-        &mut self,
-        condition: SingleAddrVariable,
-        assert_message: Option<String>,
-    ) {
-        self.debug_show.constrain_instruction(condition.address);
-
-        assert!(condition.bit_size == 1);
-
-        let (next_section, next_label) = self.reserve_next_section_label();
-        self.add_unresolved_jump(
-            BrilligOpcode::JumpIf { condition: condition.address, location: 0 },
-            next_label,
-        );
-        self.push_opcode(BrilligOpcode::Trap);
-        if let Some(assert_message) = assert_message {
-            self.obj.add_assert_message_to_last_opcode(assert_message);
-        }
-        self.enter_section(next_section);
-    }
-
     /// Adds a unresolved `Jump` to the bytecode.
     fn add_unresolved_jump(
         &mut self,
-        jmp_instruction: BrilligOpcode,
+        jmp_instruction: BrilligOpcode<F>,
         destination: UnresolvedJumpLocation,
     ) {
         self.obj.add_unresolved_jump(jmp_instruction, destination);
@@ -359,6 +330,25 @@ impl BrilligContext {
         self.push_opcode(BrilligOpcode::Mov { destination, source });
     }
 
+    /// Emits a conditional `mov` instruction.
+    ///
+    /// Copies the value at `source` into `destination`
+    pub(crate) fn conditional_mov_instruction(
+        &mut self,
+        destination: MemoryAddress,
+        condition: MemoryAddress,
+        source_a: MemoryAddress,
+        source_b: MemoryAddress,
+    ) {
+        self.debug_show.conditional_mov_instruction(destination, condition, source_a, source_b);
+        self.push_opcode(BrilligOpcode::ConditionalMov {
+            destination,
+            source_a,
+            source_b,
+            condition,
+        });
+    }
+
     /// Cast truncates the value to the given bit size and converts the type of the value in memory to that bit size.
     pub(crate) fn cast_instruction(
         &mut self,
@@ -378,21 +368,23 @@ impl BrilligContext {
     }
 
     /// Stores the value of `constant` in the `result` register
-    pub(crate) fn const_instruction(&mut self, result: SingleAddrVariable, constant: Value) {
+    pub(crate) fn const_instruction(&mut self, result: SingleAddrVariable, constant: F) {
         self.debug_show.const_instruction(result.address, constant);
         self.constant(result, constant);
     }
 
-    fn constant(&mut self, result: SingleAddrVariable, constant: Value) {
-        if result.bit_size > 128 && !constant.to_field().fits_in_u128() {
-            let high = Value::from(FieldElement::from_be_bytes_reduce(
-                constant
-                    .to_field()
-                    .to_be_bytes()
-                    .get(0..16)
-                    .expect("FieldElement::to_be_bytes() too short!"),
-            ));
-            let low = Value::from(constant.to_u128());
+    fn constant(&mut self, result: SingleAddrVariable, constant: F) {
+        assert!(
+            result.bit_size >= constant.num_bits(),
+            "Constant {} does not fit in bit size {}",
+            constant,
+            result.bit_size
+        );
+        if result.bit_size > 128 && constant.num_bits() > 128 {
+            let high = F::from_be_bytes_reduce(
+                constant.to_be_bytes().get(0..16).expect("FieldElement::to_be_bytes() too short!"),
+            );
+            let low = F::from(constant.to_u128());
             let high_register = SingleAddrVariable::new(self.allocate_register(), 254);
             let low_register = SingleAddrVariable::new(self.allocate_register(), 254);
             let intermediate_register = SingleAddrVariable::new(self.allocate_register(), 254);
@@ -400,7 +392,7 @@ impl BrilligContext {
             self.constant(low_register, low);
             // I want to multiply high by 2^128, but I can't get that big constant in.
             // So I'll multiply by 2^64 twice.
-            self.constant(intermediate_register, Value::from(1_u128 << 64));
+            self.constant(intermediate_register, F::from(1_u128 << 64));
             self.binary(high_register, intermediate_register, high_register, BrilligBinaryOp::Mul);
             self.binary(high_register, intermediate_register, high_register, BrilligBinaryOp::Mul);
             // Now we can add.
@@ -418,14 +410,14 @@ impl BrilligContext {
         }
     }
 
-    pub(crate) fn usize_const_instruction(&mut self, result: MemoryAddress, constant: Value) {
+    pub(crate) fn usize_const_instruction(&mut self, result: MemoryAddress, constant: F) {
         self.const_instruction(SingleAddrVariable::new_usize(result), constant);
     }
 
     /// Returns a register which holds the value of a constant
     pub(crate) fn make_constant_instruction(
         &mut self,
-        constant: Value,
+        constant: F,
         bit_size: u32,
     ) -> SingleAddrVariable {
         let var = SingleAddrVariable::new(self.allocate_register(), bit_size);
@@ -433,17 +425,14 @@ impl BrilligContext {
         var
     }
 
-    fn make_constant(&mut self, constant: Value, bit_size: u32) -> SingleAddrVariable {
+    fn make_constant(&mut self, constant: F, bit_size: u32) -> SingleAddrVariable {
         let var = SingleAddrVariable::new(self.allocate_register(), bit_size);
         self.constant(var, constant);
         var
     }
 
     /// Returns a register which holds the value of an usize constant
-    pub(crate) fn make_usize_constant_instruction(
-        &mut self,
-        constant: Value,
-    ) -> SingleAddrVariable {
+    pub(crate) fn make_usize_constant_instruction(&mut self, constant: F) -> SingleAddrVariable {
         let register = self.allocate_register();
         self.usize_const_instruction(register, constant);
         SingleAddrVariable::new_usize(register)
@@ -462,6 +451,12 @@ impl BrilligContext {
             size: calldata_size,
             offset,
         });
+    }
+
+    pub(super) fn trap_instruction(&mut self, revert_data: HeapArray) {
+        self.debug_show.trap_instruction(revert_data);
+
+        self.push_opcode(BrilligOpcode::Trap { revert_data });
     }
 }
 

@@ -1,78 +1,61 @@
-use dep::aztec::prelude::{
-    AztecAddress, NoteInterface, NoteGetterOptions, NoteViewerOptions, NoteHeader, PrivateContext,
-    PrivateSet, Map, emit_encrypted_log
+use dep::aztec::{
+    prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash},
+    note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
+    keys::getters::get_nsk_app
 };
-use dep::aztec::{note::utils::compute_note_hash_for_consumption, hash::pedersen_hash};
-use dep::aztec::oracle::{rand::rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key};
 
 trait OwnedNote {
-    fn new(amount: U128, owner: AztecAddress) -> Self;
+    fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
     fn get_amount(self) -> U128;
-    fn get_owner(self) -> AztecAddress;
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
+// TOKEN_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
+global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 #[aztec(note)]
 struct TokenNote {
-    // the amount of tokens in the note
+    // The amount of tokens in the note
     amount: U128,
-    // the provider of secrets for the nullifier. The owner (recipient) to ensure that the note 
-    // can be privately spent. When nullifier secret and encryption private key is same 
-    // we can simply use the owner for this one.
-    owner: AztecAddress,
-    // randomness of the note to hide contents.
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    npk_m_hash: Field,
+    // Randomness of the note to hide its contents
     randomness: Field,
 }
 
-impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
+impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:start:nullifier
-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = context.request_nsk_app(self.npk_m_hash);
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
     // docs:end:nullifier
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = get_nsk_app(self.npk_m_hash);
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
-
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
-      // We only bother inserting the note if non-empty to save funds on gas.
-      if !(self.amount == U128::from_integer(0)) {
-          let encryption_pub_key = get_public_key(self.owner);
-          emit_encrypted_log(
-              context,
-              (*context).this_address(),
-              slot,
-              Self::get_note_type_id(),
-              encryption_pub_key,
-              self.serialize_content(),
-          );
-      }
-    }
- }
+}
 
 impl OwnedNote for TokenNote {
-    fn new(amount: U128, owner: AztecAddress) -> Self {
+    fn new(amount: U128, owner_npk_m_hash: Field) -> Self {
         Self {
             amount,
-            owner,
-            randomness: rand(),
+            npk_m_hash: owner_npk_m_hash,
+            randomness: unsafe_rand(),
             header: NoteHeader::empty(),
         }
     }
@@ -80,9 +63,12 @@ impl OwnedNote for TokenNote {
     fn get_amount(self) -> U128 {
         self.amount
     }
+}
 
-    fn get_owner(self) -> AztecAddress {
-        self.owner
+impl Eq for TokenNote {
+    fn eq(self, other: Self) -> bool {
+        (self.amount == other.amount) &
+        (self.npk_m_hash == other.npk_m_hash) &
+        (self.randomness == other.randomness)
     }
-
 }

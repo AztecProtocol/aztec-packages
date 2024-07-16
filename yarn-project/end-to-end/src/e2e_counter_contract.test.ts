@@ -1,38 +1,36 @@
-import { AccountWallet, AztecAddress, CompleteAddress, DebugLogger } from '@aztec/aztec.js';
+import { type AccountWallet, type AztecAddress, type DebugLogger } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_counter_contract', () => {
   let wallet: AccountWallet;
-  let accounts: CompleteAddress[];
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
   let counterContract: CounterContract;
   let owner: AztecAddress;
+  let outgoingViewer: AztecAddress;
 
   beforeAll(async () => {
     // Setup environment
-    ({
-      teardown,
-      accounts,
-      wallets: [wallet],
-      logger,
-    } = await setup(1));
-    owner = accounts[0].address;
+    ({ teardown, wallet, logger } = await setup(1));
+    owner = wallet.getAddress();
+    // Setting the outgoing viewer to owner to not have to bother with setting up another account.
+    outgoingViewer = owner;
 
-    counterContract = await CounterContract.deploy(wallet, 0, owner).send().deployed();
+    counterContract = await CounterContract.deploy(wallet, 0, owner, outgoingViewer).send().deployed();
 
-    logger(`Counter contract deployed at ${counterContract.address}`);
-  }, 25_000);
+    logger.info(`Counter contract deployed at ${counterContract.address}`);
+  });
 
   afterAll(() => teardown());
 
   describe('increments', () => {
     it('counts', async () => {
-      await counterContract.methods.increment(owner).send().wait();
-      expect(await counterContract.methods.get_counter(owner).view()).toBe(1n);
+      const receipt = await counterContract.methods.increment(owner, outgoingViewer).send().wait();
+      expect(await counterContract.methods.get_counter(owner).simulate()).toBe(1n);
+      expect(receipt.transactionFee).toBeGreaterThan(0n);
     });
   });
 });

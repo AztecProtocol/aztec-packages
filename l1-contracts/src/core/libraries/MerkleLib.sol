@@ -3,6 +3,7 @@
 pragma solidity >=0.8.18;
 
 import {Errors} from "../libraries/Errors.sol";
+import {Hash} from "../libraries/Hash.sol";
 
 /**
  * @title Merkle Library
@@ -40,14 +41,74 @@ library MerkleLib {
       bool isRight = (indexAtHeight & 1) == 1;
 
       subtreeRoot = isRight
-        ? sha256(bytes.concat(_path[height], subtreeRoot))
-        : sha256(bytes.concat(subtreeRoot, _path[height]));
+        ? Hash.sha256ToField(bytes.concat(_path[height], subtreeRoot))
+        : Hash.sha256ToField(bytes.concat(subtreeRoot, _path[height]));
       /// @notice - We divide by two here to get the index of the parent of the current subtreeRoot in its own layer
       indexAtHeight >>= 1;
     }
 
     if (subtreeRoot != _expectedRoot) {
-      revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot);
+      revert Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot, _leaf, _index);
     }
+  }
+
+  /**
+   * @notice Computes the minimum and maximum path size of an unbalanced tree.
+   * @dev Follows structure of rollup circuits by greedy filling subtrees.
+   * @param _numTxs - The number of txs to form into subtrees.
+   * @return (min, max) - The min and max path sizes.
+   */
+  function computeMinMaxPathLength(uint256 _numTxs) internal pure returns (uint256, uint256) {
+    uint256 numTxs = _numTxs < 2 ? 2 : _numTxs;
+    uint256 numSubtrees = 0;
+    uint256 currentSubtreeSize = 1;
+    uint256 currentSubtreeHeight = 0;
+    uint256 firstSubtreeHeight;
+    uint256 finalSubtreeHeight;
+    while (numTxs != 0) {
+      // If size & txs == 0, the subtree doesn't exist for this number of txs
+      if (currentSubtreeSize & numTxs == 0) {
+        currentSubtreeSize <<= 1;
+        currentSubtreeHeight++;
+        continue;
+      }
+      // Assign the smallest rightmost subtree height
+      if (numSubtrees == 0) finalSubtreeHeight = currentSubtreeHeight;
+      // Assign the largest leftmost subtree height
+      if (numTxs - currentSubtreeSize == 0) firstSubtreeHeight = currentSubtreeHeight;
+      numTxs -= currentSubtreeSize;
+      currentSubtreeSize <<= 1;
+      currentSubtreeHeight++;
+      numSubtrees++;
+    }
+    if (numSubtrees == 1) {
+      // We have a balanced tree
+      return (firstSubtreeHeight, firstSubtreeHeight);
+    }
+    uint256 min = finalSubtreeHeight + numSubtrees - 1;
+    uint256 max = firstSubtreeHeight + 1;
+    return (min, max);
+  }
+
+  /**
+   * @notice Calculates a tree height from the amount of elements in the tree
+   * @dev - This mirrors the function in TestUtil, but assumes _size is an exact power of 2 or = 1
+   * @param _size - The number of elements in the tree
+   */
+  function calculateTreeHeightFromSize(uint256 _size) internal pure returns (uint256) {
+    /// We need the height of the tree that will contain all of our leaves,
+    /// hence the next highest power of two from the amount of leaves - Math.ceil(Math.log2(x))
+    uint256 height = 0;
+
+    if (_size == 1) {
+      return 0;
+    }
+
+    /// While size > 1, we divide by two, and count how many times we do this; producing a rudimentary way of calculating Math.Floor(Math.log2(x))
+    while (_size > 1) {
+      _size >>= 1;
+      height++;
+    }
+    return height;
   }
 }

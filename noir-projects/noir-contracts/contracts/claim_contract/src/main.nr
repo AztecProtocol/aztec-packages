@@ -1,14 +1,12 @@
 contract Claim {
-    mod interfaces;
-
     use dep::aztec::{
-        history::note_inclusion::prove_note_inclusion,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable
     };
     use dep::value_note::value_note::ValueNote;
-    use interfaces::Token;
+    use dep::token::Token;
 
+    #[aztec(storage)]
     struct Storage {
       // Address of a contract based on whose notes we distribute the rewards
       target_contract: SharedImmutable<AztecAddress>,
@@ -30,19 +28,20 @@ contract Claim {
         assert(
             target_address == proof_note.header.contract_address, "Note does not correspond to the target contract"
         );
-        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
-        prove_note_inclusion(proof_note, context);
+        let header = context.get_header();
+        header.prove_note_inclusion(proof_note);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
-        // Note: The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
+        // Note: Only the owner of the npk_m will be able to produce the nsk_app and compute this nullifier.
+        // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
         // the address of a contract it was emitted from.
-        context.push_new_nullifier(proof_note.compute_nullifier(&mut context), 0);
+        let (_, nullifier) = proof_note.compute_note_hash_and_nullifier(&mut context);
+        context.push_nullifier(nullifier, 0);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        let reward_token = Token::at(storage.reward_token.read_private());
-        reward_token.mint_public(&mut context, recipient, proof_note.value);
+        Token::at(storage.reward_token.read_private()).mint_public(recipient, proof_note.value).enqueue(&mut context);
     }
 }

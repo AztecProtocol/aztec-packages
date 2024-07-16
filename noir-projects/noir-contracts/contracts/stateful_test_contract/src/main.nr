@@ -3,11 +3,11 @@ contract StatefulTest {
     use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        deploy::{deploy_contract as aztec_deploy_contract}, context::{PublicContext, Context},
-        oracle::get_contract_instance::get_contract_instance,
-        initializer::assert_is_initialized,
+        deploy::deploy_contract as aztec_deploy_contract, context::{PublicContext, gas::GasOpts},
+        oracle::get_contract_instance::get_contract_instance, initializer::assert_is_initialized_private
     };
 
+    #[aztec(storage)]
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         public_values: Map<AztecAddress, PublicMutable<Field>>,
@@ -15,45 +15,52 @@ contract StatefulTest {
 
     #[aztec(private)]
     #[aztec(initializer)]
-    fn constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
-        let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
-    }
-
-    #[aztec(public)]
-    #[aztec(initializer)]
-    fn public_constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
-        let _res = context.call_public_function(context.this_address(), selector, [owner.to_field(), value]);
+    fn constructor(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+        StatefulTest::at(context.this_address()).create_note_no_init_check(owner, outgoing_viewer, value).call(&mut context);
     }
 
     #[aztec(private)]
-    fn create_note(owner: AztecAddress, value: Field) {
+    #[aztec(initializer)]
+    fn wrong_constructor() {
+        let selector = FunctionSelector::from_signature("not_exists(Field)");
+        let _res = context.call_public_function(context.this_address(), selector, [42]);
+    }
+
+    // Having _ignored_arg here as it makes the params the same as for the private constructor which makes
+    // contract_class_registration tests way less cluttered. This is a test contract. Don't judge me.
+    #[aztec(public)]
+    #[aztec(initializer)]
+    fn public_constructor(owner: AztecAddress, _ignored_arg: AztecAddress, value: Field) {
+        StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
+    }
+
+    #[aztec(private)]
+    fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(loc, value, owner);
+            increment(loc, value, owner, outgoing_viewer);
         }
     }
 
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn create_note_no_init_check(owner: AztecAddress, value: Field) {
+    fn create_note_no_init_check(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(loc, value, owner);
+            increment(loc, value, owner, outgoing_viewer);
         }
     }
 
     #[aztec(private)]
     fn destroy_and_create(recipient: AztecAddress, amount: Field) {
-        assert_is_initialized(&mut context);
+        assert_is_initialized_private(&mut context);
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(sender_notes, amount, sender);
+        decrement(sender_notes, amount, sender, context.msg_sender());
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(recipient_notes, amount, recipient);
+        increment(recipient_notes, amount, recipient, context.msg_sender());
     }
 
     #[aztec(private)]
@@ -62,10 +69,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(sender_notes, amount, sender);
+        decrement(sender_notes, amount, sender, context.msg_sender());
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(recipient_notes, amount, recipient);
+        increment(recipient_notes, amount, recipient, context.msg_sender());
     }
 
     #[aztec(public)]
@@ -88,7 +95,10 @@ contract StatefulTest {
         balance_utils::get_balance(owner_balance)
     }
 
-    unconstrained fn get_public_value(owner: AztecAddress) -> pub Field {
+    #[aztec(public)]
+    #[aztec(noinitcheck)]
+    #[aztec(view)]
+    fn get_public_value(owner: AztecAddress) -> pub Field {
         storage.public_values.at(owner).read()
     }
 }

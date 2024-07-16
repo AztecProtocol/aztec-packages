@@ -1,45 +1,44 @@
-use crate::abis::{
-    accumulated_data::CombinedAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
-    kernel_circuit_public_inputs::{
-    private_kernel_inner_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
-    private_kernel_tail_circuit_public_inputs::PrivateKernelTailCircuitPublicInputs
+use crate::{
+    abis::{
+    accumulated_data::PrivateAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
+    kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    validation_requests::validation_requests_builder::ValidationRequestsBuilder,
+    call_request::CallRequest
 },
-    validation_requests::validation_requests_builder::ValidationRequestsBuilder
+    address::AztecAddress, traits::Empty
 };
 
-use crate::mocked::AggregationObject;
-
 struct PrivateKernelCircuitPublicInputsBuilder {
-    aggregation_object: AggregationObject,
     min_revertible_side_effect_counter: u32,
     validation_requests: ValidationRequestsBuilder,
-    end: CombinedAccumulatedDataBuilder,
+    end: PrivateAccumulatedDataBuilder,
     constants: CombinedConstantData,
-    is_private: bool,
+    public_teardown_call_request: CallRequest,
+    fee_payer: AztecAddress
 }
 
 impl PrivateKernelCircuitPublicInputsBuilder {
-    pub fn to_inner(self) -> PrivateKernelInnerCircuitPublicInputs {
-        PrivateKernelInnerCircuitPublicInputs {
-            aggregation_object: self.aggregation_object,
+    pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
+        PrivateKernelCircuitPublicInputs {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             validation_requests: self.validation_requests.finish(),
             end: self.end.finish(),
             constants: self.constants,
-            is_private: self.is_private
+            public_teardown_call_request: self.public_teardown_call_request,
+            fee_payer: self.fee_payer
         }
     }
+}
 
-    pub fn to_tail(self) -> PrivateKernelTailCircuitPublicInputs {
-        let (end_non_revertible, end) = self.end.split(self.min_revertible_side_effect_counter);
-        PrivateKernelTailCircuitPublicInputs {
-            aggregation_object: self.aggregation_object,
-            end_non_revertible,
-            end,
-            constants: self.constants,
-            needs_setup: end_non_revertible.needs_setup(),
-            needs_app_logic: end.needs_app_logic(),
-            needs_teardown: end_non_revertible.needs_teardown()
+impl Empty for PrivateKernelCircuitPublicInputsBuilder {
+    fn empty() -> Self {
+        PrivateKernelCircuitPublicInputsBuilder {
+            min_revertible_side_effect_counter: 0,
+            validation_requests: ValidationRequestsBuilder::empty(),
+            end: PrivateAccumulatedDataBuilder::empty(),
+            constants: CombinedConstantData::empty(),
+            public_teardown_call_request: CallRequest::empty(),
+            fee_payer: AztecAddress::empty()
         }
     }
 }

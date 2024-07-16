@@ -75,7 +75,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
         alpha_pow *= alpha;
     }
 
-    auto batched_commitment = Commitment::batch_mul(commitments, scalars);
+    auto batched_commitment = Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
@@ -84,7 +84,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     return pairing_points;
 }
 
-template class MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
+template class MergeRecursiveVerifier_<MegaCircuitBuilder>;
 template class MergeRecursiveVerifier_<UltraCircuitBuilder>;
 
 } // namespace bb::stdlib::recursion::goblin

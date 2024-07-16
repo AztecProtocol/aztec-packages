@@ -1,5 +1,8 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
+import { GlobalVariables } from '../global_variables.js';
 import { Header } from '../header.js';
 import { TxContext } from '../tx_context.js';
 
@@ -8,9 +11,7 @@ import { TxContext } from '../tx_context.js';
  */
 export class CombinedConstantData {
   constructor(
-    /**
-     * Header of a block whose state is used during execution (not the block the transaction is included in).
-     */
+    /** Header of a block whose state is used during execution (not the block the transaction is included in). */
     public historicalHeader: Header,
     /**
      * Context of the transaction.
@@ -21,10 +22,30 @@ export class CombinedConstantData {
      * protocol to execute and prove the transaction.
      */
     public txContext: TxContext,
+    /**
+     * Root of the vk tree for the protocol circuits.
+     */
+    public vkTreeRoot: Fr,
+
+    /** Present when output by a public kernel, empty otherwise. */
+    public globalVariables: GlobalVariables,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.historicalHeader, this.txContext);
+    return serializeToBuffer(this.historicalHeader, this.txContext, this.vkTreeRoot, this.globalVariables);
+  }
+
+  getSize() {
+    return this.historicalHeader.getSize() + this.txContext.getSize() + this.globalVariables.getSize();
+  }
+
+  static from({
+    historicalHeader,
+    txContext,
+    vkTreeRoot,
+    globalVariables,
+  }: FieldsOf<CombinedConstantData>): CombinedConstantData {
+    return new CombinedConstantData(historicalHeader, txContext, vkTreeRoot, globalVariables);
   }
 
   /**
@@ -34,10 +55,25 @@ export class CombinedConstantData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): CombinedConstantData {
     const reader = BufferReader.asReader(buffer);
-    return new CombinedConstantData(reader.readObject(Header), reader.readObject(TxContext));
+    return new CombinedConstantData(
+      reader.readObject(Header),
+      reader.readObject(TxContext),
+      Fr.fromBuffer(reader),
+      reader.readObject(GlobalVariables),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): CombinedConstantData {
+    const reader = FieldReader.asReader(fields);
+    return new CombinedConstantData(
+      reader.readObject(Header),
+      reader.readObject(TxContext),
+      reader.readField(),
+      reader.readObject(GlobalVariables),
+    );
   }
 
   static empty() {
-    return new CombinedConstantData(Header.empty(), TxContext.empty());
+    return new CombinedConstantData(Header.empty(), TxContext.empty(), Fr.ZERO, GlobalVariables.empty());
   }
 }

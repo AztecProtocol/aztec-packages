@@ -72,7 +72,7 @@ inline void output_vk_sol_ultra_honk(
     print_g1(key->q_m, "qm");
     print_g1(key->q_c, "qc");
     print_g1(key->q_arith, "qArith");
-    print_g1(key->q_sort, "qSort");
+    print_g1(key->q_delta_range, "qDeltaRange");
     print_g1(key->q_elliptic, "qElliptic");
     print_g1(key->q_aux, "qAux");
     print_g1(key->q_lookup, "qLookup");

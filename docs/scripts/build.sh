@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
+echo "Running with ENV set to: $ENV"
+
 # Helper function for building packages in yarn project
 build_package() {
   local package_name="$1"
@@ -43,9 +45,16 @@ if [ -n "$NETLIFY" ]; then
   yarn
 fi
 
+# Clean
+echo Cleaning...
+yarn clean
+
 # Now build the docsite
 echo Building docsite...
-echo "Generating Aztec.nr reference docs..."
-node ./src/preprocess/generate_aztecnr_reference.js
-echo "Generated Aztec.nr reference docs"
-yarn preprocess && yarn typedoc && yarn docusaurus build
+echo "Processing..."
+yarn preprocess
+yarn typedoc
+sh scripts/move_processed.sh
+
+echo "Building..."
+yarn docusaurus build

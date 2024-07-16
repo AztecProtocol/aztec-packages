@@ -1,9 +1,8 @@
 #pragma once
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -13,7 +12,6 @@ template <typename Flavor> class UltraVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit UltraVerifier_(const std::shared_ptr<Transcript>& transcript,
@@ -33,6 +31,6 @@ template <typename Flavor> class UltraVerifier_ {
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
 using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor>;
-using GoblinUltraVerifier = UltraVerifier_<GoblinUltraFlavor>;
+using MegaVerifier = UltraVerifier_<MegaFlavor>;
 
 } // namespace bb

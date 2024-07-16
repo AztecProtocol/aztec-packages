@@ -3,7 +3,7 @@
 
 namespace bb {
 
-template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
+template <typename FF_> class TranslatorPermutationRelationImpl {
   public:
     using FF = FF_;
     // 1 + polynomial degree of this relation
@@ -13,7 +13,15 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
         7, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };
-
+    /**
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
+        6, // grand product construction sub-relation
+        1  // left-shiftable polynomial sub-relation
+    };
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
@@ -80,7 +88,6 @@ template <typename FF_> class GoblinTranslatorPermutationRelationImpl {
                            const FF& scaling_factor);
 };
 
-template <typename FF>
-using GoblinTranslatorPermutationRelation = Relation<GoblinTranslatorPermutationRelationImpl<FF>>;
+template <typename FF> using TranslatorPermutationRelation = Relation<TranslatorPermutationRelationImpl<FF>>;
 
 } // namespace bb

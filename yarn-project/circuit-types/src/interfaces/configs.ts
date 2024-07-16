@@ -1,4 +1,11 @@
-import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
+
+type AllowedInstance = { address: AztecAddress };
+type AllowedInstanceFunction = { address: AztecAddress; selector: FunctionSelector };
+type AllowedClass = { classId: Fr };
+type AllowedClassFunction = { classId: Fr; selector: FunctionSelector };
+
+export type AllowedElement = AllowedInstance | AllowedInstanceFunction | AllowedClass | AllowedClassFunction;
 
 /**
  * The sequencer configuration.
@@ -18,4 +25,12 @@ export interface SequencerConfig {
   acvmWorkingDirectory?: string;
   /** The path to the ACVM binary */
   acvmBinaryPath?: string;
+  /** The list of functions calls allowed to run in setup */
+  allowedInSetup?: AllowedElement[];
+  /** The list of functions calls allowed to run teardown */
+  allowedInTeardown?: AllowedElement[];
+  /** Max block size */
+  maxBlockSizeInBytes?: number;
+  /** Whether to require every tx to have a fee payer */
+  enforceFees?: boolean;
 }

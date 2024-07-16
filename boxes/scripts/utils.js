@@ -52,11 +52,13 @@ export async function getAvailableContracts() {
   }
 }
 
-export async function clone({ path, choice, type }) {
-  const appName = await input({
-    message: `Your ${type} name:`,
-    default: `my-aztec-${type}`,
-  });
+export async function clone({ path, choice, type, name }) {
+  if (!name) {
+    name = await input({
+      message: `Your ${type} name:`,
+      default: `my-aztec-${type}`,
+    });
+  }
 
   spinner.text = `Cloning the ${type} code...`;
   try {
@@ -68,7 +70,7 @@ export async function clone({ path, choice, type }) {
     );
     emitter.on("info", ({ message }) => debug(message));
     emitter.on("warn", ({ message }) => error(message));
-    await emitter.clone(`./${appName}`);
+    await emitter.clone(`./${name}`);
 
     if (type === "contract") {
       spinner.text = `Cloning default contract project...`;
@@ -78,15 +80,15 @@ export async function clone({ path, choice, type }) {
       );
       baseEmitter.on("info", debug);
       baseEmitter.on("warn", error);
-      await baseEmitter.clone(`./${appName}/base`);
-      await fs.cp(`./${appName}/base`, `./${appName}`, {
+      await baseEmitter.clone(`./${name}/base`);
+      await fs.cp(`./${name}/base`, `./${name}`, {
         recursive: true,
         force: true,
       });
-      await fs.rm(`./${appName}/base`, { recursive: true, force: true });
+      await fs.rm(`./${name}/base`, { recursive: true, force: true });
     }
     spinner.succeed();
-    return `./${appName}`;
+    return `./${name}`;
   } catch (e) {
     spinner.fail();
     error(e);
@@ -197,7 +199,7 @@ export async function replacePaths({ rootDir, prefix = "" }) {
           replaces.push(
             new Promise(async (resolve, reject) => {
               let content = parse(await fs.readFile(filePath, "utf8"));
-
+              if (!content.dependencies) return;
               Object.keys(content.dependencies).forEach((dep) => {
                 const directory = content.dependencies[dep].path.replace(
                   /^(..\/)+/,
@@ -222,6 +224,7 @@ export async function replacePaths({ rootDir, prefix = "" }) {
           replaces.push(
             new Promise(async (resolve, reject) => {
               let content = JSON.parse(await fs.readFile(filePath, "utf8"));
+              if (!content.dependencies) return;
               Object.keys(content.dependencies)
                 .filter((deps) => deps.match("@aztec"))
                 // "master" actually means "latest" for the npm release

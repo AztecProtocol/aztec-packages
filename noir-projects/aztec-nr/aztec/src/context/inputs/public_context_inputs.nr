@@ -1,15 +1,16 @@
-use crate::context::globals::public_global_variables::PublicGlobalVariables;
+use dep::protocol_types::traits::Empty;
 
-use dep::protocol_types::{abis::call_context::CallContext, header::Header};
-
-// PublicContextInputs are expected to be provided to each public function
-// docs:start:public-context-inputs
+// These inputs will likely go away once the AVM processes 1 public kernel per enqueued call.
 struct PublicContextInputs {
-    call_context: CallContext,
-    historical_header: Header,
-
-    public_global_variables: PublicGlobalVariables,
-
-    start_side_effect_counter: u32,
+    args_hash: Field,
+    is_static_call: bool
 }
-// docs:end:public-context-inputs
+
+impl Empty for PublicContextInputs {
+    fn empty() -> Self {
+        PublicContextInputs {
+            args_hash: 0,
+            is_static_call: false
+        }
+    }
+}

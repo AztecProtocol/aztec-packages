@@ -1,10 +1,7 @@
 import debug from 'debug';
-import isNode from 'detect-node';
-import { isatty } from 'tty';
 
-import { LogData, LogFn } from './log_fn.js';
+import { type LogData, type LogFn } from './log_fn.js';
 
-// Matches a subset of Winston log levels
 const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : ('info' as const);
 
@@ -14,7 +11,10 @@ const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : 
 export type LogLevel = (typeof LogLevels)[number];
 
 const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-const currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
+export const currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
+
+const namespaces = process.env.DEBUG ?? 'aztec:*';
+debug.enable(namespaces);
 
 /** Log function that accepts an exception object */
 type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
@@ -28,7 +28,7 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
  * Intended as a drop-in replacement for the debug module.
  */
-export type DebugLogger = LogFn & Logger;
+export type DebugLogger = Logger;
 
 /**
  * Creates a new DebugLogger for the current module, defaulting to the LOG_LEVEL env var.
@@ -39,9 +39,6 @@ export type DebugLogger = LogFn & Logger;
  */
 export function createDebugLogger(name: string): DebugLogger {
   const debugLogger = debug(name);
-  if (currentLevel === 'debug') {
-    debugLogger.enabled = true;
-  }
 
   const logger = {
     silent: () => {},
@@ -79,40 +76,9 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?
   }
 
   msg = data ? `${msg} ${fmtLogData(data)}` : msg;
-  if (debug.enabled) {
-    if (level !== 'debug') {
-      msg = `${level.toUpperCase()} ${msg}`;
-    }
-    debug(msg);
-  } else if (LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
-    printLog(`${getPrefix(debug, level)} ${msg}`);
+  if (debug.enabled && LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
+    debug('[%s] %s', level.toUpperCase(), msg);
   }
-}
-
-/**
- * Returns a log prefix that emulates that of npm debug. Uses colors if in node and in a tty.
- * @param debugLogger - Instance of npm debug logger.
- * @param level - Intended log level (printed out if strictly above current log level).
- * @returns Log prefix.
- */
-function getPrefix(debugLogger: debug.Debugger, level: LogLevel) {
-  const levelLabel = currentLevel !== level ? ` ${level.toUpperCase()}` : '';
-  const prefix = `${debugLogger.namespace.replace(/^aztec:/, '')}${levelLabel}`;
-  if (!isNode || !isatty(process.stderr.fd)) {
-    return prefix;
-  }
-  const colorIndex = debug.selectColor(debugLogger.namespace) as number;
-  const colorCode = '\u001B[3' + (colorIndex < 8 ? colorIndex : '8;5;' + colorIndex);
-  return `  ${colorCode};1m${prefix}\u001B[0m`;
-}
-
-/**
- * Outputs to console error.
- * @param msg - What to log.
- */
-function printLog(msg: string) {
-  // eslint-disable-next-line no-console
-  console.error(msg);
 }
 
 /**
@@ -132,6 +98,6 @@ function fmtErr(msg: string, err?: Error | unknown): string {
  */
 function fmtLogData(data?: LogData): string {
   return Object.entries(data ?? {})
-    .map(([key, value]) => `${key}=${value}`)
+    .map(([key, value]) => `${key}=${typeof value === 'object' && 'toString' in value ? value.toString() : value}`)
     .join(' ');
 }

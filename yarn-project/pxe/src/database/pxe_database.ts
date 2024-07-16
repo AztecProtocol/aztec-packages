@@ -1,14 +1,15 @@
-import { NoteFilter } from '@aztec/circuit-types';
-import { CompleteAddress, Header, PublicKey } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type IncomingNotesFilter, type OutgoingNotesFilter } from '@aztec/circuit-types';
+import { type CompleteAddress, type Header, type PublicKey } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/foundation/fields';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
-import { ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { DeferredNoteDao } from './deferred_note_dao.js';
-import { NoteDao } from './note_dao.js';
+import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
+import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
+import { type DeferredNoteDao } from './deferred_note_dao.js';
+import { type IncomingNoteDao } from './incoming_note_dao.js';
+import { type OutgoingNoteDao } from './outgoing_note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -46,26 +47,39 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   popCapsule(): Promise<Fr[] | undefined>;
 
   /**
-   * Gets notes based on the provided filter.
+   * Gets incoming notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<NoteDao[]>;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
+
+  /**
+   * Gets outgoing notes.
+   * @returns The outgoing notes.
+   */
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<OutgoingNoteDao[]>;
 
   /**
    * Adds a note to DB.
    * @param note - The note to add.
    */
-  addNote(note: NoteDao): Promise<void>;
+  addNote(note: IncomingNoteDao): Promise<void>;
+
+  /**
+   * Adds a nullified note to DB.
+   * @param note - The note to add.
+   */
+  addNullifiedNote(note: IncomingNoteDao): Promise<void>;
 
   /**
    * Adds an array of notes to DB.
    * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param notes - An array of notes.
+   * @param incomingNotes - An array of notes which were decrypted as incoming.
+   * @param outgoingNotes - An array of notes which were decrypted as outgoing.
    */
-  addNotes(notes: NoteDao[]): Promise<void>;
+  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[]): Promise<void>;
 
   /**
    * Add notes to the database that are intended for us, but we don't yet have the contract.
@@ -93,7 +107,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<NoteDao[]>;
+  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]>;
 
   /**
    * Gets the most recently processed block number.
@@ -133,14 +147,14 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   addCompleteAddress(address: CompleteAddress): Promise<boolean>;
 
   /**
-   * Retrieves the complete address corresponding to the provided aztec address.
-   * @param address - The aztec address of the complete address contract.
-   * @returns A promise that resolves to a CompleteAddress instance if the address is found, or undefined if not found.
+   * Retrieve the complete address associated to a given address.
+   * @param account - The account address.
+   * @returns A promise that resolves to a CompleteAddress instance if found, or undefined if not found.
    */
-  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the list of complete address added to this database
+   * Retrieves the list of complete addresses added to this database
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
   getCompleteAddresses(): Promise<CompleteAddress[]>;
@@ -150,7 +164,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param publicKey - The public key to set the synched block number for.
    * @param blockNumber - The block number to set.
    */
-  setSynchedBlockNumberForPublicKey(publicKey: PublicKey, blockNumber: number): Promise<boolean>;
+  setSynchedBlockNumberForPublicKey(publicKey: PublicKey, blockNumber: number): Promise<void>;
 
   /**
    * Get the synched block number for a given public key.
@@ -162,5 +176,5 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Returns the estimated size in bytes of this db.
    * @returns The estimated size in bytes of this db.
    */
-  estimateSize(): number;
+  estimateSize(): Promise<number>;
 }

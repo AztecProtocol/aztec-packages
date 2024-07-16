@@ -3,12 +3,9 @@ use crate::{
     append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
     global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
 },
-    constants::{
-    GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, NUM_FIELDS_PER_SHA256, STATE_REFERENCE_LENGTH,
-    CONTENT_COMMITMENT_LENGTH
-},
+    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH, CONTENT_COMMITMENT_LENGTH},
     hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
-    utils::{arr_copy_slice}, content_commitment::ContentCommitment
+    utils::arr_copy_slice, content_commitment::ContentCommitment
 };
 
 // docs:start:header
@@ -17,6 +14,7 @@ struct Header {
     content_commitment: ContentCommitment,
     state: StateReference,
     global_variables: GlobalVariables,
+    total_fees: Field
 }
 // docs:end:header
 
@@ -25,7 +23,8 @@ impl Eq for Header {
         self.last_archive.eq(other.last_archive) &
         self.content_commitment.eq(other.content_commitment) &
         self.state.eq(other.state) &
-        self.global_variables.eq(other.global_variables)
+        self.global_variables.eq(other.global_variables) &
+        self.total_fees.eq(other.total_fees)
     }
 }
 
@@ -37,6 +36,7 @@ impl Serialize<HEADER_LENGTH> for Header {
         fields.extend_from_array(self.content_commitment.serialize());
         fields.extend_from_array(self.state.serialize());
         fields.extend_from_array(self.global_variables.serialize());
+        fields.push(self.total_fees);
 
         fields.storage
     }
@@ -56,12 +56,16 @@ impl Deserialize<HEADER_LENGTH> for Header {
         offset = offset + STATE_REFERENCE_LENGTH;
 
         let global_variables_fields = arr_copy_slice(serialized, [0; GLOBAL_VARIABLES_LENGTH], offset);
+        offset = offset + GLOBAL_VARIABLES_LENGTH;
+
+        let total_fees = serialized[offset];
 
         Header {
             last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
             content_commitment: ContentCommitment::deserialize(content_commitment_fields),
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
+            total_fees
         }
     }
 }
@@ -73,6 +77,7 @@ impl Empty for Header {
             content_commitment: ContentCommitment::empty(),
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
+            total_fees: 0
         }
     }
 }
@@ -85,7 +90,7 @@ impl Hash for Header {
 
 #[test]
 fn serialization_of_empty() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::empty();
     let serialized = header.serialize();
     let deserialized = Header::deserialize(serialized);
     assert(header.eq(deserialized));
@@ -93,13 +98,13 @@ fn serialization_of_empty() {
 
 #[test]
 fn hash_smoke() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::empty();
     let _hashed = header.hash();
 }
 
 #[test]
 fn empty_hash_is_zero() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::empty();
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test

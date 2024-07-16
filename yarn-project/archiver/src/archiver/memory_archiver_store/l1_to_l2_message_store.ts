@@ -1,18 +1,17 @@
-import { InboxLeaf } from '@aztec/circuit-types';
+import { type InboxLeaf } from '@aztec/circuit-types';
 import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 
 /**
  * A simple in-memory implementation of an L1 to L2 message store.
  */
 export class L1ToL2MessageStore {
   /**
-   * A map containing the entry key to the corresponding L1 to L2
-   * messages (and the number of times the message has been seen).
+   * A map pointing from a key in a "blockNum-messageIndex" format to the corresponding L1 to L2 message hash.
    */
   protected store: Map<string, Fr> = new Map();
 
@@ -50,17 +49,21 @@ export class L1ToL2MessageStore {
   }
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getMessageIndex(l1ToL2Message: Fr): bigint | undefined {
+  getMessageIndex(l1ToL2Message: Fr, startIndex: bigint): bigint | undefined {
     for (const [key, message] of this.store.entries()) {
       if (message.equals(l1ToL2Message)) {
-        const [blockNumber, messageIndex] = key.split('-');
+        const keyParts = key.split('-');
+        const [blockNumber, messageIndex] = [BigInt(keyParts[0]), BigInt(keyParts[1])];
         const indexInTheWholeTree =
-          (BigInt(blockNumber) - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) +
-          BigInt(messageIndex);
+          (blockNumber - BigInt(INITIAL_L2_BLOCK_NUM)) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) + messageIndex;
+        if (indexInTheWholeTree < startIndex) {
+          continue;
+        }
         return indexInTheWholeTree;
       }
     }

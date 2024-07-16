@@ -74,8 +74,11 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             low_accumulator = context->decompose_into_base4_accumulators(
                 low_bits_in.witness_index, static_cast<size_t>(NUM_LIMB_BITS * 2), "bigfield: low_bits_in too large.");
             mid_index = static_cast<size_t>((NUM_LIMB_BITS / 2) - 1);
-            // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb value
-            limb_1.witness_index = low_accumulator[mid_index];
+            // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb
+            // value
+            if constexpr (!IsSimulator<Builder>) {
+                limb_1.witness_index = low_accumulator[mid_index];
+            }
             // We can get the first half bits of low_bits_in from the variables we already created
             limb_0 = (low_bits_in - (limb_1 * shift_1));
         }
@@ -112,7 +115,10 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.witness_index,
                                                                           static_cast<size_t>(num_high_limb_bits),
                                                                           "bigfield: high_bits_in too large.");
-            limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+
+            if constexpr (!IsSimulator<Builder>) {
+                limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+            }
             limb_2 = (high_bits_in - (limb_3 * shift_1));
         }
     } else {
@@ -959,6 +965,79 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 }
 
 /**
+ * @brief Raise a bigfield to a power of an exponent. Note that the exponent must not exceed 32 bits and is
+ * implicitly range constrained. The exponent is turned into a field_t witness for the underlying pow method
+ * to work.
+ *
+ * @returns this ** (exponent)
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
+ */
+
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
+{
+    auto* ctx = get_context() ? get_context() : nullptr;
+
+    return pow(witness_t<Builder>(ctx, exponent));
+}
+
+/**
+ * @brief Raise a bigfield to a power of an exponent (field_t) that must be a witness. Note that the exponent must not
+ * exceed 32 bits and is implicitly range constrained.
+ *
+ * @returns this ** (exponent)
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
+ */
+template <typename Builder, typename T>
+bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
+{
+    auto* ctx = get_context() ? get_context() : exponent.get_context();
+    uint256_t exponent_value = exponent.get_value();
+    if constexpr (IsSimulator<Builder>) {
+        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
+            ctx->failure("field_t::pow exponent accumulator incorrect");
+        }
+        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
+        return native(get_value()).pow(exponent_value & MASK_32_BITS);
+    }
+
+    bool exponent_constant = exponent.is_constant();
+    std::vector<bool_t<Builder>> exponent_bits(32);
+    for (size_t i = 0; i < exponent_bits.size(); ++i) {
+        uint256_t value_bit = exponent_value & 1;
+        bool_t<Builder> bit;
+        bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
+        exponent_bits[31 - i] = (bit);
+        exponent_value >>= 1;
+    }
+
+    if (!exponent_constant) {
+        field_t<Builder> exponent_accumulator(ctx, 0);
+        for (const auto& bit : exponent_bits) {
+            exponent_accumulator += exponent_accumulator;
+            exponent_accumulator += bit;
+        }
+        exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+    }
+    bigfield accumulator(ctx, 1);
+    bigfield mul_coefficient = *this - 1;
+    for (size_t digit_idx = 0; digit_idx < 32; ++digit_idx) {
+        accumulator *= accumulator;
+        const bigfield bit(field_t<Builder>(exponent_bits[digit_idx]),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
+                           /*can_overflow=*/true);
+        accumulator *= (mul_coefficient * bit + 1);
+    }
+    accumulator.self_reduce();
+    return accumulator;
+}
+
+/**
  * Compute a * b + ...to_add = c mod p
  *
  * @param to_mul Bigfield element to multiply by
@@ -1563,6 +1642,63 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
 }
 
 /**
+ * @brief Validate whether two bigfield elements are equal to each other
+ * @details To evaluate whether `(a == b)`, we use result boolean `r` to evaluate the following logic:
+ *          (n.b all algebra involving bigfield elements is done in the bigfield)
+ *              1. If `r == 1` , `a - b == 0`
+ *              2. If `r == 0`, `a - b` posesses an inverse `I` i.e. `(a - b) * I - 1 == 0`
+ *          We efficiently evaluate this logic by evaluating a single expression `(a - b)*X = Y`
+ *          We use conditional assignment logic to define `X, Y` to be the following:
+ *              If `r == 1` then `X = 1, Y = 0`
+ *              If `r == 0` then `X = I, Y = 1`
+ *          This allows us to evaluate `operator==` using only 1 bigfield multiplication operation.
+ *          We can check the product equals 0 or 1 by directly evaluating the binary basis/prime basis limbs of Y.
+ *          i.e. if `r == 1` then `(a - b)*X` should have 0 for all limb values
+ *               if `r == 0` then `(a - b)*X` should have 1 in the least significant binary basis limb and 0 elsewhere
+ * @tparam Builder
+ * @tparam T
+ * @param other
+ * @return bool_t<Builder>
+ */
+template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::operator==(const bigfield& other) const
+{
+    Builder* ctx = context ? context : other.get_context();
+    auto lhs = get_value() % modulus_u512;
+    auto rhs = other.get_value() % modulus_u512;
+    bool is_equal_raw = (lhs == rhs);
+    if (!ctx) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/660): null context _should_ mean that both are
+        // constant, but we check with an assertion to be sure.
+        ASSERT(is_constant() == other.is_constant());
+        return is_equal_raw;
+    }
+    bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
+
+    bigfield diff = (*this) - other;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512 value
+    // fits in a u256, subtract off modulus until u256 fits into finite field)
+    native diff_native = native((diff.get_value() % modulus_u512).lo);
+    native inverse_native = is_equal_raw ? 0 : diff_native.invert();
+
+    bigfield inverse = bigfield::from_witness(ctx, inverse_native);
+
+    bigfield multiplicand = bigfield::conditional_assign(is_equal, one(), inverse);
+
+    bigfield product = diff * multiplicand;
+
+    field_t result = field_t<Builder>::conditional_assign(is_equal, 0, 1);
+
+    product.prime_basis_limb.assert_equal(result);
+    product.binary_basis_limbs[0].element.assert_equal(result);
+    product.binary_basis_limbs[1].element.assert_equal(0);
+    product.binary_basis_limbs[2].element.assert_equal(0);
+    product.binary_basis_limbs[3].element.assert_equal(0);
+
+    return is_equal;
+}
+
+/**
  * REDUCTION CHECK
  *
  * When performing bigfield operations, we need to ensure the maximum value is less than:
@@ -1676,9 +1812,18 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     // TODO(kesha): Merge this with assert_is_in_field
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are allowed via ASSERT
-    if (is_constant()) {
+    if constexpr (IsSimulator<Builder>) {
+        if (get_value() >= static_cast<uint512_t>(upper_limit)) {
+            context->failure("Bigfield assert_less_than failed in simulation.");
+        }
         return;
     }
+
+    if (is_constant()) {
+        ASSERT(get_value() < static_cast<uint512_t>(upper_limit));
+        return;
+    }
+
     ASSERT(upper_limit != 0);
     // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1 from
     // the limit
@@ -1743,44 +1888,75 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
 {
     Builder* ctx = this->context ? this->context : other.context;
 
-    if (is_constant() && other.is_constant()) {
-        std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
+    if constexpr (IsSimulator<Builder>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
         return;
-    } else if (other.is_constant()) {
-        // evaluate a strict equality - make sure *this is reduced first, or an honest prover
-        // might not be able to satisfy these constraints.
-        field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
-        field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
-        field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
-        field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
-        field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
-        t0.assert_is_zero();
-        t1.assert_is_zero();
-        t2.assert_is_zero();
-        t3.assert_is_zero();
-        t4.assert_is_zero();
-        return;
-    } else if (is_constant()) {
-        other.assert_equal(*this);
-        return;
+    } else {
+        if (is_constant() && other.is_constant()) {
+            std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
+                      << std::endl;
+            return;
+        } else if (other.is_constant()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
+            // evaluate a strict equality - make sure *this is reduced first, or an honest prover
+            // might not be able to satisfy these constraints.
+            field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
+            field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
+            field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
+            field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
+            field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
+            t0.assert_is_zero();
+            t1.assert_is_zero();
+            t2.assert_is_zero();
+            t3.assert_is_zero();
+            t4.assert_is_zero();
+            return;
+        } else if (is_constant()) {
+            other.assert_equal(*this);
+            return;
+        } else {
+            if (is_constant() && other.is_constant()) {
+                std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
+                          << std::endl;
+                return;
+            } else if (other.is_constant()) {
+                // evaluate a strict equality - make sure *this is reduced first, or an honest prover
+                // might not be able to satisfy these constraints.
+                field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
+                field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
+                field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
+                field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
+                field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
+                t0.assert_is_zero();
+                t1.assert_is_zero();
+                t2.assert_is_zero();
+                t3.assert_is_zero();
+                t4.assert_is_zero();
+                return;
+            } else if (is_constant()) {
+                other.assert_equal(*this);
+                return;
+            }
+
+            bigfield diff = *this - other;
+            const uint512_t diff_val = diff.get_value();
+            const uint512_t modulus(target_basis.modulus);
+
+            const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
+            if (remainder_512 != 0) {
+                std::cerr << "bigfield: remainder not zero!" << std::endl;
+            }
+            ASSERT(remainder_512 == 0);
+            bigfield quotient;
+
+            const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
+            quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
+                                witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
+                                false,
+                                num_quotient_bits);
+            unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
+        }
     }
-
-    bigfield diff = *this - other;
-    const uint512_t diff_val = diff.get_value();
-    const uint512_t modulus(target_basis.modulus);
-
-    const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
-    if (remainder_512 != 0)
-        std::cerr << "bigfield: remainder not zero!" << std::endl;
-    ASSERT(remainder_512 == 0);
-    bigfield quotient;
-
-    const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
-    quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
-                        witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
-                        false,
-                        num_quotient_bits);
-    unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
 }
 
 // construct a proof that points are different mod p, when they are different mod r

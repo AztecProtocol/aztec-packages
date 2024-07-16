@@ -1,17 +1,29 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { NodeInfo } from '@aztec/types/interfaces';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fq,
+  type Fr,
+  type PartialAddress,
+  type Point,
+} from '@aztec/circuits.js';
+import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
+import {
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  type ProtocolContractAddresses,
+} from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { AuthWitness } from '../auth_witness.js';
-import { L2Block } from '../l2_block.js';
-import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
-import { ExtendedNote } from '../notes/index.js';
-import { NoteFilter } from '../notes/note_filter.js';
-import { Tx, TxHash, TxReceipt } from '../tx/index.js';
-import { TxEffect } from '../tx_effect.js';
-import { TxExecutionRequest } from '../tx_execution_request.js';
-import { SyncStatus } from './sync-status.js';
+import { type AuthWitness } from '../auth_witness.js';
+import { type L2Block } from '../l2_block.js';
+import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
+import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
+import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
+import { type NoteProcessorStats } from '../stats/stats.js';
+import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type TxEffect } from '../tx_effect.js';
+import { type TxExecutionRequest } from '../tx_execution_request.js';
+import { type SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
 /**
@@ -36,6 +48,13 @@ export interface PXE {
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
 
   /**
+   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
+   * @param messageHash - The hash of the message for which to get the auth witness.
+   * @returns The serialized auth witness for the given message hash.
+   */
+  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
+
+  /**
    * Adding a capsule to the capsule dispenser.
    * @param capsule - An array of field elements representing the capsule.
    * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
@@ -48,11 +67,11 @@ export interface PXE {
    * the chain and store those that correspond to the registered account. Will do nothing if the
    * account is already registered.
    *
-   * @param privKey - Private key of the corresponding user master public key.
+   * @param secretKey - Secret key of the corresponding user master public key.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress>;
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
@@ -99,6 +118,18 @@ export interface PXE {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
+   * Rotates master nullifier keys.
+   * @param address - The address of the account we want to rotate our key for.
+   * @param newNskM - The new master nullifier secret key we want to use.
+   * @remarks - One should not use this function directly without also calling the canonical key registry to rotate
+   * the new master nullifier secret key's derived master nullifier public key.
+   * Therefore, it is preferred to use rotateNullifierKeys on AccountWallet, as that handles the call to the Key Registry as well.
+   *
+   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
+   */
+  rotateNskM(address: AztecAddress, newNskM: Fq): Promise<void>;
+
+  /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
    *
    * @param artifact - The build artifact for the contract class.
@@ -132,11 +163,32 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+
+  /**
+   * Simulates a transaction based on the provided preauthenticated execution request.
+   * This will run a local simulation of private execution (and optionally of public as well), assemble
+   * the zero-knowledge proof for the private execution, and return the transaction object along
+   * with simulation results (return values).
+   *
+   *
+   * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
+   * In that case, the transaction returned is only potentially ready to be sent to the network for execution.
+   *
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @returns A simulated transaction object that includes a transaction that is potentially ready
+   * to be sent to the network for execution, along with public and private return values.
+   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
+   */
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
-   * @param tx - The transaction as created via `simulateTx`.
+   * @param tx - The transaction as created via `proveTx`.
    * @returns A hash of the transaction, used to identify it.
    */
   sendTx(tx: Tx): Promise<TxHash>;
@@ -172,11 +224,18 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
-   * Gets notes of accounts registered in this PXE based on the provided filter.
+   * Gets incoming notes of accounts registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]>;
 
   /**
    * Finds the nonce(s) for a given note.
@@ -195,6 +254,16 @@ export interface PXE {
   addNote(note: ExtendedNote): Promise<void>;
 
   /**
+   * Adds a nullified note to the database.
+   * @throws If the note hash of the note doesn't exist in the tree.
+   * @param note - The note to add.
+   * @dev We are not deriving a nullifier in this function since that would require having the nullifier secret key
+   * which is undesirable. Instead, we are just adding the note to the database as nullified and the nullifier is set
+   * to 0 in the db.
+   */
+  addNullifiedNote(note: ExtendedNote): Promise<void>;
+
+  /**
    * Get the given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
@@ -202,7 +271,7 @@ export interface PXE {
   getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
-   * Simulate the execution of a view (read-only) function on a deployed contract without actually modifying state.
+   * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
    * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
    * The function takes function name and arguments as parameters, along with the contract address
    * and optionally the sender's address.
@@ -213,7 +282,7 @@ export interface PXE {
    * @param from - (Optional) The msg sender to set for the call.
    * @returns The result of the view function call, structured based on the function ABI.
    */
-  viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
+  simulateUnconstrained(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -234,6 +303,11 @@ export interface PXE {
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
+
+  /**
+   * Returns information about this PXE.
+   */
+  getPXEInfo(): Promise<PXEInfo>;
 
   /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
@@ -263,7 +337,13 @@ export interface PXE {
   getSyncStatus(): Promise<SyncStatus>;
 
   /**
-   * Returns a Contact Instance given its address, which includes the contract class identifier, portal address,
+   * Returns the note processor stats.
+   * @returns The note processor stats for notes for each public key being tracked.
+   */
+  getSyncStats(): Promise<{ [key: string]: NoteProcessorStats }>;
+
+  /**
+   * Returns a Contact Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
    * @param address - Deployment address of the contract.
@@ -277,6 +357,12 @@ export interface PXE {
    * @param id - Identifier of the class.
    */
   getContractClass(id: Fr): Promise<ContractClassWithId | undefined>;
+
+  /**
+   * Returns the contract artifact associated to a contract class.
+   * @param id - Identifier of the class.
+   */
+  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined>;
 
   /**
    * Queries the node to check whether the contract class with the given id has been publicly registered.
@@ -293,5 +379,53 @@ export interface PXE {
    * TODO(@spalladino): Same notes as above.
    */
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
+
+  /**
+   * Returns the events of a specified type given search parameters.
+   * @param type - The type of the event to search for—Encrypted, or Unencrypted.
+   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
+   * @param from - The block number to search from.
+   * @param limit - The amount of blocks to search.
+   * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
+   * @returns - The deserialized events.
+   */
+  getEvents<T>(
+    type: EventType,
+    eventMetadata: EventMetadata<T>,
+    from: number,
+    limit: number,
+    vpks: Point[],
+  ): Promise<T[]>;
 }
 // docs:end:pxe-interface
+
+/**
+ * The shape of the event generated on the Contract.
+ */
+export interface EventMetadata<T> {
+  decode(payload: L1EventPayload): T | undefined;
+  eventSelector: EventSelector;
+  fieldNames: string[];
+}
+
+/**
+ * This is used in getting events via the filter
+ */
+export enum EventType {
+  Encrypted = 'Encrypted',
+  Unencrypted = 'Unencrypted',
+}
+
+/**
+ * Provides basic information about the running PXE.
+ */
+export interface PXEInfo {
+  /**
+   * Version as tracked in the aztec-packages repository.
+   */
+  pxeVersion: string;
+  /**
+   * Protocol contract addresses
+   */
+  protocolContractAddresses: ProtocolContractAddresses;
+}

@@ -1,2 +1,0 @@
-mod private_global_variables;
-mod public_global_variables;

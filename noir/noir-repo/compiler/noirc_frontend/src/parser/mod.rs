@@ -11,22 +11,21 @@ mod labels;
 #[allow(clippy::module_inception)]
 mod parser;
 
-use crate::token::{Keyword, Token};
-use crate::{ast::ImportStatement, Expression, NoirStruct};
-use crate::{
-    Ident, LetStatement, ModuleDeclaration, NoirFunction, NoirTrait, NoirTraitImpl, NoirTypeAlias,
-    Recoverable, StatementKind, TypeImpl, UseTree,
+use crate::ast::{
+    Expression, Ident, ImportStatement, LetStatement, ModuleDeclaration, NoirFunction, NoirStruct,
+    NoirTrait, NoirTraitImpl, NoirTypeAlias, Recoverable, StatementKind, TypeImpl, UseTree,
 };
+use crate::token::{Keyword, Token};
 
 use chumsky::prelude::*;
 use chumsky::primitive::Container;
 pub use errors::ParserError;
 pub use errors::ParserErrorReason;
 use noirc_errors::Span;
-pub use parser::parse_program;
+pub use parser::{expression, parse_program, top_level_items};
 
 #[derive(Debug, Clone)]
-pub(crate) enum TopLevelStatement {
+pub enum TopLevelStatement {
     Function(NoirFunction),
     Module(ModuleDeclaration),
     Import(UseTree),
@@ -46,7 +45,7 @@ pub trait NoirParser<T>: Parser<Token, T, Error = ParserError> + Sized + Clone {
 impl<P, T> NoirParser<T> for P where P: Parser<Token, T, Error = ParserError> + Clone {}
 
 // ExprParser just serves as a type alias for NoirParser<Expression> + Clone
-trait ExprParser: NoirParser<Expression> {}
+pub trait ExprParser: NoirParser<Expression> {}
 impl<P> ExprParser for P where P: NoirParser<Expression> {}
 
 fn parenthesized<P, T>(parser: P) -> impl NoirParser<T>
@@ -97,14 +96,14 @@ where
 /// Sequence the two parsers.
 /// Fails if the first parser fails, otherwise forces
 /// the second parser to succeed while logging any errors.
-fn then_commit<'a, P1, P2, T1, T2: 'a>(
+fn then_commit<'a, P1, P2, T1, T2>(
     first_parser: P1,
     second_parser: P2,
 ) -> impl NoirParser<(T1, T2)> + 'a
 where
     P1: NoirParser<T1> + 'a,
     P2: NoirParser<T2> + 'a,
-    T2: Clone + Recoverable,
+    T2: Clone + Recoverable + 'a,
 {
     let second_parser = skip_then_retry_until(second_parser)
         .map_with_span(|option, span| option.unwrap_or_else(|| Recoverable::error(span)));
@@ -112,14 +111,15 @@ where
     first_parser.then(second_parser)
 }
 
-fn then_commit_ignore<'a, P1, P2, T1: 'a, T2: 'a>(
+fn then_commit_ignore<'a, P1, P2, T1, T2>(
     first_parser: P1,
     second_parser: P2,
 ) -> impl NoirParser<T1> + 'a
 where
     P1: NoirParser<T1> + 'a,
     P2: NoirParser<T2> + 'a,
-    T2: Clone,
+    T1: 'a,
+    T2: Clone + 'a,
 {
     let second_parser = skip_then_retry_until(second_parser);
     first_parser.then_ignore(second_parser)
@@ -140,10 +140,10 @@ where
     first_parser.ignore_then(second_parser)
 }
 
-fn skip_then_retry_until<'a, P, T: 'a>(parser: P) -> impl NoirParser<Option<T>> + 'a
+fn skip_then_retry_until<'a, P, T>(parser: P) -> impl NoirParser<Option<T>> + 'a
 where
     P: NoirParser<T> + 'a,
-    T: Clone,
+    T: Clone + 'a,
 {
     let terminators = [
         Token::EOF,
@@ -197,7 +197,7 @@ fn parameter_name_recovery<T: Recoverable + Clone>() -> impl NoirParser<T> {
 }
 
 fn top_level_statement_recovery() -> impl NoirParser<TopLevelStatement> {
-    none_of([Token::Semicolon, Token::RightBrace, Token::EOF])
+    none_of([Token::RightBrace, Token::EOF])
         .repeated()
         .ignore_then(one_of([Token::Semicolon]))
         .map(|_| TopLevelStatement::Error)

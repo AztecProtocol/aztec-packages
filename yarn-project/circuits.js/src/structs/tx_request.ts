@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex, TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
@@ -13,21 +13,13 @@ import { TxContext } from './tx_context.js';
  */
 export class TxRequest {
   constructor(
-    /**
-     * Sender.
-     */
+    /** Sender. */
     public origin: AztecAddress,
-    /**
-     * Function data representing the function to call.
-     */
+    /** Function data representing the function to call. */
     public functionData: FunctionData,
-    /**
-     * Pedersen hash of function arguments.
-     */
+    /** Pedersen hash of function arguments. */
     public argsHash: Fr,
-    /**
-     * Transaction context.
-     */
+    /** Transaction context. */
     public txContext: TxContext,
   ) {}
 
@@ -71,10 +63,7 @@ export class TxRequest {
   }
 
   hash() {
-    return pedersenHash(
-      this.toFields().map(field => field.toBuffer()),
-      GeneratorIndex.TX_REQUEST,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.TX_REQUEST);
   }
 
   static empty() {

@@ -15,11 +15,11 @@ global MAX_LOAD_FACTOR_DEN0MINATOR = 4;
 // Size of the underlying table must be known at compile time.
 // It is advised to select capacity N as a power of two, or a prime number 
 // because utilized probing scheme is best tailored for it.
-struct HashMap<K, V, N, B> {
+struct HashMap<K, V, let N: u32, B> {
     _table: [Slot<K, V>; N],
 
     // Amount of valid elements in the map.
-    _len: u64,
+    _len: u32,
 
     _build_hasher: B
 }
@@ -77,7 +77,7 @@ impl<K, V> Slot<K, V> {
 // While conducting lookup, we iterate attempt from 0 to N - 1 due to heuristic,
 // that if we have went that far without finding desired, 
 // it is very unlikely to be after - performance will be heavily degraded.
-impl<K, V, N, B, H> HashMap<K, V, N, B> {
+impl<K, V, let N: u32, B, H> HashMap<K, V, N, B> {
     // Creates a new instance of HashMap with specified BuildHasher.
     // docs:start:with_hasher
     pub fn with_hasher(_build_hasher: B) -> Self
@@ -262,14 +262,14 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
 
     // Amount of active key-value entries.
     // docs:start:len
-    pub fn len(self) -> u64 {
+    pub fn len(self) -> u32 {
         // docs:end:len
         self._len
     }
 
     // Get the compile-time map capacity.
     // docs:start:capacity
-    pub fn capacity(_self: Self) -> u64 {
+    pub fn capacity(_self: Self) -> u32 {
         // docs:end:capacity
         N
     }
@@ -288,11 +288,11 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
         let mut result = Option::none();
 
         let hash = self.hash(key);
-        let mut break = false;
+        let mut should_break = false;
 
         for attempt in 0..N {
-            if !break {
-                let index = self.quadratic_probe(hash, attempt as u64);
+            if !should_break {
+                let index = self.quadratic_probe(hash, attempt as u32);
                 let slot = self._table[index];
 
                 // Not marked as deleted and has key-value.
@@ -300,7 +300,7 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
                     let (current_key, value) = slot.key_value_unchecked();
                     if current_key == key {
                         result = Option::some(value);
-                        break = true;
+                        should_break = true;
                     }
                 }
             }
@@ -324,11 +324,11 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
         self.assert_load_factor();
 
         let hash = self.hash(key);
-        let mut break = false;
+        let mut should_break = false;
 
         for attempt in 0..N {
-            if !break {
-                let index = self.quadratic_probe(hash, attempt as u64);
+            if !should_break {
+                let index = self.quadratic_probe(hash, attempt as u32);
                 let mut slot = self._table[index];
                 let mut insert = false;
 
@@ -346,7 +346,7 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
                 if insert {
                     slot.set(key, value);
                     self._table[index] = slot;
-                    break = true;
+                    should_break = true;
                 }
             }
         }
@@ -364,11 +364,11 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
         H: Hasher {
         // docs:end:remove
         let hash = self.hash(key);
-        let mut break = false;
+        let mut should_break = false;
 
         for attempt in 0..N {
-            if !break {
-                let index = self.quadratic_probe(hash, attempt as u64);
+            if !should_break {
+                let index = self.quadratic_probe(hash, attempt as u32);
                 let mut slot = self._table[index];
 
                 // Not marked as deleted and has key-value.
@@ -378,7 +378,7 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
                         slot.mark_deleted();
                         self._table[index] = slot;
                         self._len -= 1;
-                        break = true;
+                        should_break = true;
                     }
                 }
             }
@@ -389,21 +389,21 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
     fn hash(
         self,
         key: K
-    ) -> u64
+    ) -> u32
     where
         K: Hash,
         B: BuildHasher<H>,
         H: Hasher {
         let mut hasher = self._build_hasher.build_hasher();
         key.hash(&mut hasher);
-        hasher.finish() as u64
+        hasher.finish() as u32
     }
 
     // Probing scheme: quadratic function.
     // We use 0.5 constant near variadic attempt and attempt^2 monomials.
     // This ensures good uniformity of distribution for table sizes
     // equal to prime numbers or powers of two. 
-    fn quadratic_probe(_self: Self, hash: u64, attempt: u64) -> u64 {
+    fn quadratic_probe(_self: Self, hash: u32, attempt: u32) -> u32 {
         (hash + (attempt + attempt * attempt) / 2) % N
     }
 
@@ -424,7 +424,7 @@ impl<K, V, N, B, H> HashMap<K, V, N, B> {
 // equal sets of key-value entries, 
 // thus one is a subset of the other and vice versa.
 // docs:start:eq
-impl<K, V, N, B, H> Eq for HashMap<K, V, N, B>
+impl<K, V, let N: u32, B, H> Eq for HashMap<K, V, N, B>
 where
     K: Eq + Hash,
     V: Eq,
@@ -460,7 +460,7 @@ where
 }
 
 // docs:start:default
-impl<K, V, N, B, H> Default for HashMap<K, V, N, B>
+impl<K, V, let N: u32, B, H> Default for HashMap<K, V, N, B>
 where
     B: BuildHasher<H> + Default,
     H: Hasher + Default

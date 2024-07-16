@@ -1,13 +1,11 @@
 import {
-  AccountWallet,
-  CheatCodes,
-  CompleteAddress,
-  DebugLogger,
+  type AccountWallet,
+  type CheatCodes,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   Note,
-  computeAuthWitMessageHash,
-  computeMessageSecretHash,
+  computeSecretHash,
 } from '@aztec/aztec.js';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -19,7 +17,7 @@ import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/i
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
   let wallet: AccountWallet;
-  let accounts: CompleteAddress[];
+
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
@@ -35,25 +33,25 @@ describe('e2e_lending_contract', () => {
   let lendingSim: LendingSimulator;
 
   const deployContracts = async () => {
-    logger(`Deploying price feed contract...`);
+    logger.info(`Deploying price feed contract...`);
     const priceFeedContract = await PriceFeedContract.deploy(wallet).send().deployed();
-    logger(`Price feed deployed to ${priceFeedContract.address}`);
+    logger.info(`Price feed deployed to ${priceFeedContract.address}`);
 
-    logger(`Deploying collateral asset feed contract...`);
-    const collateralAsset = await TokenContract.deploy(wallet, accounts[0], 'TokenName', 'TokenSymbol', 18)
+    logger.info(`Deploying collateral asset feed contract...`);
+    const collateralAsset = await TokenContract.deploy(wallet, wallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
       .send()
       .deployed();
-    logger(`Collateral asset deployed to ${collateralAsset.address}`);
+    logger.info(`Collateral asset deployed to ${collateralAsset.address}`);
 
-    logger(`Deploying stable coin contract...`);
-    const stableCoin = await TokenContract.deploy(wallet, accounts[0], 'TokenName', 'TokenSymbol', 18)
+    logger.info(`Deploying stable coin contract...`);
+    const stableCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
       .send()
       .deployed();
-    logger(`Stable coin asset deployed to ${stableCoin.address}`);
+    logger.info(`Stable coin asset deployed to ${stableCoin.address}`);
 
-    logger(`Deploying L2 public contract...`);
+    logger.info(`Deploying L2 public contract...`);
     const lendingContract = await LendingContract.deploy(wallet).send().deployed();
-    logger(`CDP deployed at ${lendingContract.address}`);
+    logger.info(`CDP deployed at ${lendingContract.address}`);
 
     await collateralAsset.methods.set_minter(lendingContract.address, true).send().wait();
     await stableCoin.methods.set_minter(lendingContract.address, true).send().wait();
@@ -62,11 +60,11 @@ describe('e2e_lending_contract', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, cheatCodes: cc, wallet, accounts } = await setup(1));
+    ({ teardown, logger, cheatCodes: cc, wallet } = await setup(1));
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    await publicDeployAccounts(wallet, accounts);
+    await publicDeployAccounts(wallet, [wallet]);
 
-    lendingAccount = new LendingAccount(accounts[0].address, new Fr(42));
+    lendingAccount = new LendingAccount(wallet.getAddress(), new Fr(42));
 
     // Also specified in `noir-contracts/contracts/lending_contract/src/main.nr`
     const rate = 1268391679n;
@@ -75,10 +73,10 @@ describe('e2e_lending_contract', () => {
       lendingAccount,
       rate,
       lendingContract,
-      new TokenSimulator(collateralAsset, logger, [lendingContract.address, ...accounts.map(a => a.address)]),
-      new TokenSimulator(stableCoin, logger, [lendingContract.address, ...accounts.map(a => a.address)]),
+      new TokenSimulator(collateralAsset, wallet, logger, [lendingContract.address, wallet.getAddress()]),
+      new TokenSimulator(stableCoin, wallet, logger, [lendingContract.address, wallet.getAddress()]),
     );
-  }, 200_000);
+  }, 300_000);
 
   afterAll(() => teardown());
 
@@ -97,23 +95,20 @@ describe('e2e_lending_contract', () => {
       const mintAmount = 10000n;
       for (const asset of assets) {
         const secret = Fr.random();
-        const secretHash = computeMessageSecretHash(secret);
+        const secretHash = computeSecretHash(secret);
 
         const a = asset.methods.mint_public(lendingAccount.address, mintAmount).send();
         const b = asset.methods.mint_private(mintAmount, secretHash).send();
         await Promise.all([a, b].map(tx => tx.wait()));
 
-        const storageSlot = new Fr(5);
-        const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
         const note = new Note([new Fr(mintAmount), secretHash]);
         const txHash = await b.getTxHash();
         const extendedNote = new ExtendedNote(
           note,
-          accounts[0].address,
+          wallet.getAddress(),
           asset.address,
-          storageSlot,
-          noteTypeId,
+          TokenContract.storage.pending_shields.slot,
+          TokenContract.notes.TransparentNote.id,
           txHash,
         );
         await wallet.addNote(extendedNote);
@@ -133,7 +128,7 @@ describe('e2e_lending_contract', () => {
 
   it('Initialize the contract', async () => {
     await lendingSim.prepare();
-    logger('Initializing contract');
+    logger.info('Initializing contract');
     await lendingContract.methods
       .init(priceFeedContract.address, 8000, collateralAsset.address, stableCoin.address)
       .send()
@@ -156,7 +151,7 @@ describe('e2e_lending_contract', () => {
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the private collateral.
-      logger('Depositing 🥸 : 💰 -> 🏦');
+      logger.info('Depositing 🥸 : 💰 -> 🏦');
       await lendingContract.methods
         .deposit_private(
           lendingAccount.address,
@@ -185,7 +180,7 @@ describe('e2e_lending_contract', () => {
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the public collateral.
-      logger('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
+      logger.info('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
       await lendingContract.methods
         .deposit_private(
           lendingAccount.address,
@@ -230,7 +225,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - increase the public collateral.
 
-      logger('Depositing: 💰 -> 🏦');
+      logger.info('Depositing: 💰 -> 🏦');
       await lendingContract.methods
         .deposit_public(depositAmount, nonce, lendingAccount.address, collateralAsset.address)
         .send()
@@ -250,7 +245,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - increase the private debt.
 
-      logger('Borrow 🥸 : 🏦 -> 🍌');
+      logger.info('Borrow 🥸 : 🏦 -> 🍌');
       await lendingContract.methods
         .borrow_private(lendingAccount.secret, lendingAccount.address, borrowAmount)
         .send()
@@ -268,7 +263,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - increase the public debt.
 
-      logger('Borrow: 🏦 -> 🍌');
+      logger.info('Borrow: 🏦 -> 🍌');
       await lendingContract.methods.borrow_public(lendingAccount.address, borrowAmount).send().wait();
     });
   });
@@ -291,7 +286,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - decrease the private debt.
 
-      logger('Repay 🥸 : 🍌 -> 🏦');
+      logger.info('Repay 🥸 : 🍌 -> 🏦');
       await lendingContract.methods
         .repay_private(lendingAccount.address, repayAmount, nonce, lendingAccount.secret, 0n, stableCoin.address)
         .send()
@@ -315,7 +310,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - decrease the public debt.
 
-      logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
+      logger.info('Repay 🥸  on behalf of public: 🍌 -> 🏦');
       await lendingContract.methods
         .repay_private(lendingAccount.address, repayAmount, nonce, 0n, lendingAccount.address, stableCoin.address)
         .send()
@@ -324,15 +319,19 @@ describe('e2e_lending_contract', () => {
 
     it('Repay: 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
-
       const nonce = Fr.random();
-      const messageHash = computeAuthWitMessageHash(
-        lendingContract.address,
-        stableCoin.methods.burn_public(lendingAccount.address, repayAmount, nonce).request(),
-      );
 
       // Add it to the wallet as approved
-      await wallet.setPublicAuthWit(messageHash, true).send().wait();
+      await wallet
+        .setPublicAuthWit(
+          {
+            caller: lendingContract.address,
+            action: stableCoin.methods.burn_public(lendingAccount.address, repayAmount, nonce).request(),
+          },
+          true,
+        )
+        .send()
+        .wait();
 
       await lendingSim.progressTime(TIME_JUMP);
       lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
@@ -343,7 +342,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - decrease the public debt.
 
-      logger('Repay: 🍌 -> 🏦');
+      logger.info('Repay: 🍌 -> 🏦');
       await lendingContract.methods
         .repay_public(repayAmount, nonce, lendingAccount.address, stableCoin.address)
         .send()
@@ -363,7 +362,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - decrease the public collateral.
 
-      logger('Withdraw: 🏦 -> 💰');
+      logger.info('Withdraw: 🏦 -> 💰');
       await lendingContract.methods.withdraw_public(lendingAccount.address, withdrawAmount).send().wait();
     });
 
@@ -378,7 +377,7 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - decrease the private collateral.
 
-      logger('Withdraw 🥸 : 🏦 -> 💰');
+      logger.info('Withdraw 🥸 : 🏦 -> 💰');
       await lendingContract.methods
         .withdraw_private(lendingAccount.secret, lendingAccount.address, withdrawAmount)
         .send()
@@ -388,9 +387,9 @@ describe('e2e_lending_contract', () => {
     describe('failure cases', () => {
       it('withdraw more than possible to revert', async () => {
         // Withdraw more than possible to test the revert.
-        logger('Withdraw: trying to withdraw more than possible');
+        logger.info('Withdraw: trying to withdraw more than possible');
         await expect(
-          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).simulate(),
+          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).prove(),
         ).rejects.toThrow();
       });
     });

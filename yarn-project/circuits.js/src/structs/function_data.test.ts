@@ -9,7 +9,7 @@ describe('FunctionData', () => {
 
   beforeAll(() => {
     setupCustomSnapshotSerializers(expect);
-    functionData = new FunctionData(new FunctionSelector(123), true);
+    functionData = new FunctionData(new FunctionSelector(123), /*isPrivate=*/ true);
   });
 
   it(`serializes to buffer and deserializes it back`, () => {
@@ -24,7 +24,7 @@ describe('FunctionData', () => {
     expect(fields.length).toBe(FUNCTION_DATA_LENGTH);
   });
 
-  it('computes empty inputs hash', () => {
+  it('computes empty function data hash', () => {
     const data = FunctionData.empty();
     const hash = data.hash();
     expect(hash).toMatchSnapshot();

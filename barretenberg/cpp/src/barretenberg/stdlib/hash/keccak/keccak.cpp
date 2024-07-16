@@ -3,6 +3,8 @@
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
 namespace bb::stdlib {
 
 using namespace bb::plookup;
@@ -124,7 +126,7 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
             // We need to provide a key/value object for this lookup in order for the Builder
             // to compute the plookup sorted list commitment
             const auto [input_quotient, input_slice] = input.divmod(divisor);
-            lookup.key_entries.push_back(
+            lookup.lookup_entries.push_back(
                 { { static_cast<uint64_t>(input_slice), 0 }, { normalized_slice, normalized_msb } });
 
             // reduce the input and output by 11^{bit_slice}
@@ -814,14 +816,21 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
 
     ASSERT(uint256_t(num_bytes.get_value()) <= input.size());
 
-    if (ctx == nullptr) {
-        // if buffer is constant compute hash and return w/o creating constraints
+    const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
         byte_array_ct output(nullptr, 32);
         const std::vector<uint8_t> result = hash_native(input.get_value());
         for (size_t i = 0; i < 32; ++i) {
             output.set_byte(i, result[i]);
         }
         return output;
+    };
+
+    if constexpr (IsSimulator<Builder>) {
+        return constant_case();
+    }
+
+    if (ctx == nullptr) {
+        return constant_case();
     }
 
     // convert the input byte array into 64-bit keccak lanes (+ apply padding)
@@ -906,9 +915,10 @@ template <typename Builder> void generate_keccak_test_circuit(Builder& builder, 
     }
 }
 
+template class keccak<bb::CircuitSimulatorBN254>;
 template class keccak<bb::UltraCircuitBuilder>;
-template class keccak<bb::GoblinUltraCircuitBuilder>;
+template class keccak<bb::MegaCircuitBuilder>;
 template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
-template void generate_keccak_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
+template void generate_keccak_test_circuit(bb::MegaCircuitBuilder&, size_t);
 
 } // namespace bb::stdlib

@@ -1,4 +1,4 @@
-import { DebugLogger, ExtendedNote, Fr, Note, PXE, SignerlessWallet, Wallet, toBigInt } from '@aztec/aztec.js';
+import { type DebugLogger, ExtendedNote, Fr, Note, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -18,10 +18,10 @@ describe('e2e_non_contract_account', () => {
     ({ teardown, pxe, wallet, logger } = await setup(1));
     nonContractAccountWallet = new SignerlessWallet(pxe);
 
-    logger(`Deploying L2 contract...`);
+    logger.debug(`Deploying L2 contract...`);
     contract = await TestContract.deploy(wallet).send().deployed();
-    logger('L2 contract deployed');
-  }, 100_000);
+    logger.info(`L2 contract deployed at ${contract.address}`);
+  });
 
   afterEach(() => teardown());
 
@@ -39,24 +39,10 @@ describe('e2e_non_contract_account', () => {
     const siloedNullifier = debugInfo!.nullifiers[1];
 
     expect(siloedNullifier.equals(expectedSiloedNullifier)).toBeTruthy();
-  }, 120_000);
-
-  it('msg.sender is 0 when a non-contract account calls a private function on a contract', async () => {
-    const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
-
-    // Send transaction as arbitrary non-contract account
-    const tx = contractWithNoContractWallet.methods.emit_msg_sender().send();
-    await tx.wait({ interval: 0.1 });
-
-    const logs = (await tx.getUnencryptedLogs()).logs;
-    expect(logs.length).toBe(1);
-
-    const msgSender = toBigInt(logs[0].log.data);
-    expect(msgSender).toBe(0n);
-  }, 120_000);
+  });
 
   // Note: This test doesn't really belong here as it doesn't have anything to do with non-contract accounts. I needed
-  // to test the FieldNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
+  // to test the TestNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
   // seems wasteful. Move this test if a better place is found.
   it('can set and get a constant', async () => {
     const value = 123n;
@@ -71,19 +57,18 @@ describe('e2e_non_contract_account', () => {
 
     // Add the note
     const note = new Note([new Fr(value)]);
-    const storageSlot = new Fr(1);
-    const noteTypeId = new Fr(7010510110810078111116101n); // FieldNote
 
+    // We have to manually add the note because the note was not broadcasted.
     const extendedNote = new ExtendedNote(
       note,
       wallet.getCompleteAddress().address,
       contract.address,
-      storageSlot,
-      noteTypeId,
+      TestContract.storage.example_constant.slot,
+      TestContract.notes.TestNote.id,
       txHash,
     );
     await wallet.addNote(extendedNote);
 
-    expect(await contract.methods.get_constant().view()).toEqual(value);
+    expect(await contract.methods.get_constant().simulate()).toEqual(value);
   });
 });

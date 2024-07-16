@@ -15,7 +15,9 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
-    T eta = T(0);                        // Lookup
+    T eta = T(0);                        // Lookup + Aux Memory
+    T eta_two = T(0);                    // Lookup + Aux Memory
+    T eta_three = T(0);                  // Lookup + Aux Memory
     T beta = T(0);                       // Permutation + Lookup
     T gamma = T(0);                      // Permutation + Lookup
     T public_input_delta = T(0);         // Permutation
@@ -25,12 +27,10 @@ template <typename T> struct RelationParameters {
     // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
     // We can remove this by modifying the relation, but increases complexity
     T eccvm_set_permutation_delta = T(0);
-    std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR> accumulated_result = {
-        T(0), T(0), T(0), T(0)
-    }; // Goblin Translator
+    std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR> accumulated_result = { T(0), T(0), T(0), T(0) }; // Translator
     std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR> evaluation_input_x = {
         T(0), T(0), T(0), T(0), T(0)
-    }; // Goblin Translator
+    }; // Translator
     std::array<std::array<T, NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR>,
                NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR>
         batching_challenge_v = { { { T(0), T(0), T(0), T(0), T(0) },
@@ -38,13 +38,17 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) } } };
 
-    static constexpr int NUM_TO_FOLD = 5;
-    auto get_to_fold() { return RefArray{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta }; }
+    auto get_to_fold()
+    {
+        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    }
 
     static RelationParameters get_random()
     {
         RelationParameters result;
         result.eta = T::random_element();
+        result.eta_two = T::random_element();
+        result.eta_three = T::random_element();
         result.beta = T::random_element();
         result.beta_sqr = result.beta * result.beta;
         result.beta_cube = result.beta_sqr * result.beta;
@@ -74,5 +78,7 @@ template <typename T> struct RelationParameters {
 
         return result;
     }
+
+    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta);
 };
 } // namespace bb

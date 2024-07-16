@@ -2,7 +2,7 @@
 #include <iostream>
 #include <memory>
 
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -11,6 +11,8 @@
 #include "circuits/add_2_circuit.hpp"
 #include "circuits/blake_circuit.hpp"
 #include "circuits/ecdsa_circuit.hpp"
+
+namespace bb {
 
 using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
@@ -86,3 +88,4 @@ int main(int argc, char** argv)
     }
     return 0;
 }
+} // namespace bb

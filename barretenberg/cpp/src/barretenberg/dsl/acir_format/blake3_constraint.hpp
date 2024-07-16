@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -17,7 +17,7 @@ struct Blake3Input {
 
 struct Blake3Constraint {
     std::vector<Blake3Input> inputs;
-    std::vector<uint32_t> result;
+    std::array<uint32_t, 32> result;
 
     // For serialization, update with any new fields
     MSGPACK_FIELDS(inputs, result);

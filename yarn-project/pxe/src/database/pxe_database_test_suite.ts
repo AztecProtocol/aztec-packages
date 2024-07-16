@@ -1,14 +1,16 @@
-import { NoteFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { type IncomingNotesFilter, NoteStatus, type OutgoingNotesFilter, randomTxHash } from '@aztec/circuit-types';
+import { AztecAddress, CompleteAddress, INITIAL_L2_BLOCK_NUM, PublicKeys } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
-import { NoteDao } from './note_dao.js';
-import { randomNoteDao } from './note_dao.test.js';
-import { PxeDatabase } from './pxe_database.js';
+import { type IncomingNoteDao } from './incoming_note_dao.js';
+import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
+import { type OutgoingNoteDao } from './outgoing_note_dao.js';
+import { randomOutgoingNoteDao } from './outgoing_note_dao.test.js';
+import { type PxeDatabase } from './pxe_database.js';
 
 /**
  * A common test suite for a PXE database.
@@ -68,13 +70,13 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    describe('notes', () => {
+    describe('incoming notes', () => {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
       let storageSlots: Fr[];
-      let notes: NoteDao[];
+      let notes: IncomingNoteDao[];
 
-      const filteringTests: [() => NoteFilter, () => NoteDao[]][] = [
+      const filteringTests: [() => IncomingNotesFilter, () => IncomingNoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -92,7 +94,10 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
         [() => ({ txHash: randomTxHash() }), () => []],
 
-        [() => ({ owner: owners[0].address }), () => notes.filter(note => note.publicKey.equals(owners[0].publicKey))],
+        [
+          () => ({ owner: owners[0].address }),
+          () => notes.filter(note => note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey)),
+        ],
 
         [
           () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
@@ -104,86 +109,156 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
       ];
 
-      beforeEach(() => {
+      beforeEach(async () => {
         owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
         contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomNoteDao({
+          randomIncomingNoteDao({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
-            publicKey: owners[i % owners.length].publicKey,
+            ivpkM: owners[i % owners.length].publicKeys.masterIncomingViewingPublicKey,
             index: BigInt(i),
           }),
         );
-      });
 
-      beforeEach(async () => {
         for (const owner of owners) {
           await database.addCompleteAddress(owner);
         }
       });
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes);
-        await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
+        await database.addNotes(notes, []);
+        await expect(database.getIncomingNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
       it.each(filteringTests)('stores notes one by one and retrieves notes', async (getFilter, getExpected) => {
         for (const note of notes) {
           await database.addNote(note);
         }
-        await expect(database.getNotes(getFilter())).resolves.toEqual(getExpected());
+        await expect(database.getIncomingNotes(getFilter())).resolves.toEqual(getExpected());
       });
 
       it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
 
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
-          const notesToNullify = notes.filter(note => note.publicKey.equals(owner.publicKey));
+          const notesToNullify = notes.filter(note =>
+            note.ivpkM.equals(owner.publicKeys.masterIncomingViewingPublicKey),
+          );
           const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-          await expect(database.removeNullifiedNotes(nullifiers, owner.publicKey)).resolves.toEqual(notesToNullify);
+          await expect(
+            database.removeNullifiedNotes(nullifiers, owner.publicKeys.masterIncomingViewingPublicKey),
+          ).resolves.toEqual(notesToNullify);
         }
 
-        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
-          getExpected(),
-        );
+        await expect(
+          database.getIncomingNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+        ).resolves.toEqual(getExpected());
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
 
-        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const notesToNullify = notes.filter(note =>
+          note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
+        );
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
           notesToNullify,
         );
 
-        const actualNotesWithDefault = await database.getNotes({});
-        const actualNotesWithActive = await database.getNotes({ status: NoteStatus.ACTIVE });
+        const actualNotesWithDefault = await database.getIncomingNotes({});
+        const actualNotesWithActive = await database.getIncomingNotes({ status: NoteStatus.ACTIVE });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
       });
 
       it('returns active and nullified notes when requesting either', async () => {
-        await database.addNotes(notes);
+        await database.addNotes(notes, []);
 
-        const notesToNullify = notes.filter(note => note.publicKey.equals(owners[0].publicKey));
+        const notesToNullify = notes.filter(note =>
+          note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
+        );
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].publicKey)).resolves.toEqual(
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
           notesToNullify,
         );
 
-        const result = await database.getNotes({
+        const result = await database.getIncomingNotes({
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
         });
 
         // We have to compare the sorted arrays since the database does not return the same order as when originally
         // inserted combining active and nullified results.
         expect(result.sort()).toEqual([...notes].sort());
+      });
+    });
+
+    describe('outgoing notes', () => {
+      let owners: CompleteAddress[];
+      let contractAddresses: AztecAddress[];
+      let storageSlots: Fr[];
+      let notes: OutgoingNoteDao[];
+
+      const filteringTests: [() => OutgoingNotesFilter, () => OutgoingNoteDao[]][] = [
+        [() => ({}), () => notes],
+
+        [
+          () => ({ contractAddress: contractAddresses[0] }),
+          () => notes.filter(note => note.contractAddress.equals(contractAddresses[0])),
+        ],
+        [() => ({ contractAddress: AztecAddress.random() }), () => []],
+
+        [
+          () => ({ storageSlot: storageSlots[0] }),
+          () => notes.filter(note => note.storageSlot.equals(storageSlots[0])),
+        ],
+        [() => ({ storageSlot: Fr.random() }), () => []],
+
+        [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
+        [() => ({ txHash: randomTxHash() }), () => []],
+
+        [
+          () => ({ owner: owners[0].address }),
+          () => notes.filter(note => note.ovpkM.equals(owners[0].publicKeys.masterOutgoingViewingPublicKey)),
+        ],
+
+        [
+          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
+          () =>
+            notes.filter(
+              note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
+            ),
+        ],
+        [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
+      ];
+
+      beforeEach(async () => {
+        owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
+        contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
+        storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
+
+        notes = Array.from({ length: 10 }).map((_, i) =>
+          randomOutgoingNoteDao({
+            contractAddress: contractAddresses[i % contractAddresses.length],
+            storageSlot: storageSlots[i % storageSlots.length],
+            ovpkM: owners[i % owners.length].publicKeys.masterOutgoingViewingPublicKey,
+            index: BigInt(i),
+          }),
+        );
+
+        for (const owner of owners) {
+          await database.addCompleteAddress(owner);
+        }
+      });
+
+      it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
+        await database.addNotes([], notes);
+        await expect(database.getOutgoingNotes(getFilter())).resolves.toEqual(getExpected());
       });
     });
 
@@ -215,7 +290,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.skip('refuses to overwrite an address with a different public key', async () => {
         const address = CompleteAddress.random();
-        const otherAddress = new CompleteAddress(address.address, Point.random(), address.partialAddress);
+        const otherAddress = new CompleteAddress(
+          address.address,
+          new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
+          address.partialAddress,
+        );
 
         await database.addCompleteAddress(address);
         await expect(database.addCompleteAddress(otherAddress)).rejects.toThrow();

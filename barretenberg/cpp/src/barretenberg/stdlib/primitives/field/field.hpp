@@ -11,6 +11,7 @@ template <typename Builder> class field_t {
   public:
     using View = field_t;
 
+    using native = bb::fr;
     field_t(Builder* parent_context = nullptr);
     field_t(Builder* parent_context, const bb::fr& value);
 
@@ -125,8 +126,11 @@ template <typename Builder> class field_t {
 
     field_t sqr() const { return operator*(*this); }
 
-    // N.B. we implicitly range-constrain 'other' to be a 32-bit integer!
+    // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): Use of this function in ZM verifier is insecure.
+    field_t pow(size_t exponent) const;
 
     field_t operator+=(const field_t& other)
     {
@@ -265,7 +269,15 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    void set_public() const { context->set_public_input(normalize().witness_index); }
+    void set_public() const
+    {
+        if constexpr (IsSimulator<Builder>) {
+            auto value = normalize().get_value();
+            context->set_public_input(value);
+        } else {
+            context->set_public_input(normalize().witness_index);
+        }
+    }
 
     /**
      * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the
