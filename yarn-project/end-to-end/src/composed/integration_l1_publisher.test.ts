@@ -96,7 +96,7 @@ describe('L1Publisher integration', () => {
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
+  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
@@ -148,7 +148,6 @@ describe('L1Publisher integration', () => {
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
-      apiKey: '',
       requiredConfirmations: 1,
       l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
@@ -191,7 +190,6 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
