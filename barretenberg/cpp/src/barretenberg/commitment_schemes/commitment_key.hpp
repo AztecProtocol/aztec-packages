@@ -123,7 +123,7 @@ template <class Curve> class CommitmentKey {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
                     const G1& point = point_table[idx * 2];
-                    const G1& endo_point = point_table[idx * 2];
+                    const G1& endo_point = point_table[idx * 2 + 1];
                     thread_points[thread_idx].emplace_back(point);
                     thread_points[thread_idx].emplace_back(endo_point);
                 }
