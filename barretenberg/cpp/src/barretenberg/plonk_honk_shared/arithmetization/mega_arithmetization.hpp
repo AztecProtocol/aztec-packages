@@ -140,8 +140,8 @@ template <typename FF_> class MegaArith {
         void pad_additional()
         {
             q_busread().emplace_back(0);
-            q_poseidon2_external().emplace_back(0);
-            q_poseidon2_internal().emplace_back(0);
+            // q_poseidon2_external().emplace_back(0);
+            // q_poseidon2_internal().emplace_back(0);
         };
 
         /**
@@ -153,8 +153,9 @@ template <typename FF_> class MegaArith {
         void resize_additional(size_t new_size)
         {
             q_busread().resize(new_size);
-            q_poseidon2_external().resize(new_size);
-            q_poseidon2_internal().resize(new_size);
+            // WORKTODO: with this in ultra prolly we can delete these
+            // q_poseidon2_external().resize(new_size);
+            // q_poseidon2_internal().resize(new_size);
         };
     };
 

@@ -97,7 +97,6 @@ TEST_F(UltraHonkTests, StructuredTrace)
     // Construct an instance with a structured execution trace
     TraceStructure trace_structure = TraceStructure::SMALL_TEST;
     auto instance = std::make_shared<ProverInstance>(builder, trace_structure);
-    info(instance->proving_key.circuit_size);
     UltraProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);

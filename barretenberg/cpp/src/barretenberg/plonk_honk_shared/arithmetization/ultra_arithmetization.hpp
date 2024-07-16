@@ -21,8 +21,14 @@ template <typename FF_> class UltraArith {
         T elliptic;
         T aux;
         T lookup;
+        T poseidon_external;
+        T poseidon_internal;
 
-        auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
+        auto get()
+        {
+            return RefArray{ pub_inputs, arithmetic, delta_range,       elliptic,
+                             aux,        lookup,     poseidon_external, poseidon_internal };
+        }
 
         bool operator==(const UltraTraceBlocks& other) const = default;
     };
@@ -38,12 +44,14 @@ template <typename FF_> class UltraArith {
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;
             this->lookup = FIXED_SIZE;
+            this->poseidon_external = FIXED_SIZE;
+            this->poseidon_internal = FIXED_SIZE;
         }
     };
 
   public:
     static constexpr size_t NUM_WIRES = 4;
-    static constexpr size_t NUM_SELECTORS = 11;
+    static constexpr size_t NUM_SELECTORS = 13;
     using FF = FF_;
 
     class UltraTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
@@ -75,6 +83,8 @@ template <typename FF_> class UltraArith {
         auto& q_elliptic() { return this->selectors[8]; };
         auto& q_aux() { return this->selectors[9]; };
         auto& q_lookup_type() { return this->selectors[10]; };
+        auto& q_poseidon2_external() { return this->selectors[11]; };
+        auto& q_poseidon2_internal() { return this->selectors[12]; };
     };
 
     struct TraceBlocks : public UltraTraceBlocks<UltraTraceBlock> {
@@ -107,8 +117,8 @@ template <typename FF_> class UltraArith {
 
         auto get()
         {
-            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,
-                             this->elliptic,   this->aux,        this->lookup };
+            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,       this->elliptic,
+                             this->aux,        this->lookup,     this->poseidon_external, this->poseidon_internal };
         }
 
         void summarize() const
@@ -120,6 +130,9 @@ template <typename FF_> class UltraArith {
             info("elliptic   :\t", this->elliptic.size());
             info("auxiliary  :\t", this->aux.size());
             info("lookups    :\t", this->lookup.size());
+            info("poseidon ext  :\t", this->poseidon_external.size(), "/", this->poseidon_external.get_fixed_size());
+            info("poseidon int  :\t", this->poseidon_internal.size(), "/", this->poseidon_internal.get_fixed_size());
+            info("");
         }
 
         size_t get_total_structured_size()

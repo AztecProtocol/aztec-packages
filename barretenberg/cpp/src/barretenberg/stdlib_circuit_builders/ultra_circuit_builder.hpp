@@ -814,6 +814,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void process_RAM_array(const size_t ram_id);
     void process_RAM_arrays();
 
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
+    void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+
     uint256_t hash_circuit();
 
     msgpack::sbuffer export_circuit() override;
