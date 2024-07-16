@@ -1,5 +1,18 @@
-import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  NoFeePaymentMethod,
+  SignerlessWallet,
+  type WaitOpts,
+  createPXEClient,
+  makeFetch,
+} from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import {
+  CANONICAL_KEY_REGISTRY_ADDRESS,
+  GasSettings,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+} from '@aztec/circuits.js';
+import { bufferAsFields } from '@aztec/foundation/abi';
 import { type LogFn } from '@aztec/foundation/log';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
@@ -18,32 +31,44 @@ export async function bootstrap(rpcUrl: string, l1ChainId: number, log: LogFn) {
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));
 
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
-  const keyRegistryDeployParams = {
-    contractAddressSalt: canonicalKeyRegistry.instance.salt,
-    universalDeploy: true,
-  };
-  const keyRegistryTx = KeyRegistryContract.deploy(deployer);
+  const keyRegistry = await KeyRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
+    .deployed(waitOpts);
+  log(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
+
+  if (
+    !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
+    !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}, or they both do not equal CANONICAL_KEY_REGISTRY_ADDRESS`,
+    );
+  }
 
   const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
   const canonicalGasToken = getCanonicalGasToken();
-  const gasTokenDeployParams = {
-    contractAddressSalt: canonicalGasToken.instance.salt,
-    universalDeploy: true,
-  };
-  const gasTokenTx = GasTokenContract.deploy(deployer);
+  const publicBytecode = canonicalGasToken.contractClass.packedBytecode;
+  const encodedBytecode = bufferAsFields(publicBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  await pxe.addCapsule(encodedBytecode);
+  const gasToken = await GasTokenContract.at(canonicalGasToken.address, deployer);
+  await gasToken.methods
+    .deploy(
+      canonicalGasToken.contractClass.artifactHash,
+      canonicalGasToken.contractClass.privateFunctionsRoot,
+      canonicalGasToken.contractClass.publicBytecodeCommitment,
+      gasPortalAddress,
+    )
+    .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
+    .wait();
 
-  // prove these txs sequentially otherwise global fetch with default options times out with real proofs
-  await keyRegistryTx.prove(keyRegistryDeployParams);
-  const keyRegistry = await keyRegistryTx.send(keyRegistryDeployParams).deployed(waitOpts);
+  if (!gasToken.address.equals(canonicalGasToken.address)) {
+    throw new Error(
+      `Deployed Gas Token address ${gasToken.address} does not match expected address ${canonicalGasToken.address}`,
+    );
+  }
 
-  await gasTokenTx.prove(gasTokenDeployParams);
-  // also deploy the accounts sequentially otherwise there's too much data and publishing TxEffects fails
-  const gasToken = await gasTokenTx.send(gasTokenDeployParams).deployed(waitOpts);
-
-  log(`Key Registry deployed at canonical address ${keyRegistry.address.toString()}`);
-  log(`Gas token deployed at canonical address ${gasToken.address.toString()}`);
-
-  const portalSetTx = gasToken.methods.set_portal(gasPortalAddress);
-  await portalSetTx.prove();
-  portalSetTx.send();
+  if (!(await deployer.isContractPubliclyDeployed(canonicalGasToken.address))) {
+    throw new Error(`Failed to deploy Gas Token to ${canonicalGasToken.address}`);
+  }
+  log(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
 }
