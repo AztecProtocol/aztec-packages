@@ -87,7 +87,7 @@ export function getConfigEnvVars(): ArchiverConfig {
       : EthAddress.ZERO,
   };
   return {
-    rpcUrl: ETHEREUM_HOST || '',
+    rpcUrl: ETHEREUM_HOST || 'http://0.0.0.0:8545',
     l1ChainId: L1_CHAIN_ID ? +L1_CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
     viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
