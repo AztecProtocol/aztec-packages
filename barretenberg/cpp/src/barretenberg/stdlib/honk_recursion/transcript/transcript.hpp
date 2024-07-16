@@ -16,6 +16,10 @@ template <typename Builder> struct StdlibTranscriptParams {
             ASSERT(!data.empty() && data[0].get_context() != nullptr);
             Builder* builder = data[0].get_context();
             return stdlib::poseidon2<Builder>::hash(*builder, data);
+        } else if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+            ASSERT(!data.empty() && data[0].get_context() != nullptr);
+            Builder* builder = data[0].get_context();
+            return stdlib::poseidon2<Builder>::hash(*builder, data);
         } else {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1035): Add constraints for hashing in Ultra
             using NativeFr = bb::fr;
