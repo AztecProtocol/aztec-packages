@@ -59,7 +59,7 @@ describe('L1 Note Payload', () => {
       const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
       const storageSlot = new Fr(0x0fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e6599n);
       const noteValue = new Fr(0x301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5cn);
-      const noteTypeId = new NoteSelector(0xbff497d0);
+      const noteTypeId = new NoteSelector(0);
 
       const payload = new L1NotePayload(
         new Note([
