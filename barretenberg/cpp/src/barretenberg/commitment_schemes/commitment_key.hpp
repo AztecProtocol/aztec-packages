@@ -18,7 +18,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <ranges>
 #include <string_view>
 
 namespace bb {
@@ -96,7 +95,7 @@ template <class Curve> class CommitmentKey {
      */
     Commitment commit_sparse(std::span<const Fr> polynomial)
     {
-        // BB_OP_COUNT_TIME();
+        BB_OP_COUNT_TIME();
         const size_t degree = polynomial.size();
         ASSERT(degree <= srs->get_monomial_size());
 
