@@ -993,8 +993,7 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 
 /**
  * @brief Raise a bigfield to a power of an exponent. Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained. The exponent is turned into a field_t witness for the underlying pow method
- * to work.
+ * implicitly range constrained.
  *
  * @returns this ** (exponent)
  *
@@ -1004,9 +1003,33 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
 {
-    auto* ctx = get_context() ? get_context() : nullptr;
+    // Just return one immediately
 
-    return pow(witness_t<Builder>(ctx, exponent));
+    if (exponent == 0) {
+        return bigfield(uint256_t(1));
+    }
+
+    bool accumulator_initialized = false;
+    bigfield accumulator;
+    bigfield running_power = *this;
+    auto shifted_exponent = exponent;
+
+    // Square and multiply
+    while (shifted_exponent != 0) {
+        if (shifted_exponent & 1) {
+            if (!accumulator_initialized) {
+                accumulator = running_power;
+                accumulator_initialized = true;
+            } else {
+                accumulator *= running_power;
+            }
+        }
+        if (shifted_exponent != 0) {
+            running_power = running_power.sqr();
+        }
+        shifted_exponent >>= 1;
+    }
+    return accumulator;
 }
 
 /**

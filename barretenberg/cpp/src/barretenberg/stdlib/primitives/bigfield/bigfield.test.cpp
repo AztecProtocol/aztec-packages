@@ -998,21 +998,69 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 
         fq base_val(engine.get_random_uint256());
         uint32_t exponent_val = engine.get_random_uint32();
-        fq expected = base_val.pow(exponent_val);
+        // Set the high bit
+        exponent_val |= static_cast<uint32_t>(1) << 31;
+        fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
+        auto base_witness = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        // This also tests for the case where the exponent is zero
+        for (size_t i = 0; i <= 32; i += 4) {
+            auto current_exponent_val = exponent_val >> i;
+            fq expected = base_val.pow(current_exponent_val);
 
-        fq_ct base(&builder, static_cast<uint256_t>(base_val));
-        fq_ct result = base.pow(exponent_val);
-        EXPECT_EQ(fq(result.get_value()), expected);
+            // Check for constant bigfield element with constant exponent
+            fq_ct result_constant_base = base_constant.pow(current_exponent_val);
+            EXPECT_EQ(fq(result_constant_base.get_value()), expected);
 
-        fr_ct exponent = witness_ct(&builder, exponent_val);
-        base.set_origin_tag(submitted_value_origin_tag);
-        exponent.set_origin_tag(challenge_origin_tag);
-        result = base.pow(exponent);
-        EXPECT_EQ(fq(result.get_value()), expected);
+            // Check for witness exponent with constant base
+            fr_ct witness_exponent = witness_ct(&builder, current_exponent_val);
+            auto result_witness_exponent = base_constant.pow(witness_exponent);
+            EXPECT_EQ(fq(result_witness_exponent.get_value()), expected);
 
-        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+            // Check for witness base with constant exponent
+            fq_ct result_witness_base = base_witness.pow(current_exponent_val);
+            EXPECT_EQ(fq(result_witness_base.get_value()), expected);
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+            // Check for all witness
+            base_witness.set_origin_tag(submitted_value_origin_tag);
+            witness_exponent.set_origin_tag(challenge_origin_tag);
+
+            fq_ct result_all_witness = base_witness.pow(witness_exponent);
+            EXPECT_EQ(fq(result_all_witness.get_value()), expected);
+            EXPECT_EQ(result_all_witness.get_origin_tag(), first_two_merged_tag);
+        }
+
+        bool check_result = CircuitChecker::check(builder);
+        EXPECT_EQ(check_result, true);
+    }
+
+    static void test_pow_one()
+    {
+        Builder builder;
+
+        fq base_val(engine.get_random_uint256());
+
+        uint32_t current_exponent_val = 1;
+        fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
+        auto base_witness = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq expected = base_val.pow(current_exponent_val);
+
+        // Check for constant bigfield element with constant exponent
+        fq_ct result_constant_base = base_constant.pow(current_exponent_val);
+        EXPECT_EQ(fq(result_constant_base.get_value()), expected);
+
+        // Check for witness exponent with constant base
+        fr_ct witness_exponent = witness_ct(&builder, current_exponent_val);
+        auto result_witness_exponent = base_constant.pow(witness_exponent);
+        EXPECT_EQ(fq(result_witness_exponent.get_value()), expected);
+
+        // Check for witness base with constant exponent
+        fq_ct result_witness_base = base_witness.pow(current_exponent_val);
+        EXPECT_EQ(fq(result_witness_base.get_value()), expected);
+
+        // Check for all witness
+        fq_ct result_all_witness = base_witness.pow(witness_exponent);
+        EXPECT_EQ(fq(result_all_witness.get_value()), expected);
+
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
@@ -1123,6 +1171,16 @@ TYPED_TEST(stdlib_bigfield, pow)
 {
     TestFixture::test_pow();
 }
+
+TYPED_TEST(stdlib_bigfield, pow_one)
+{
+    TestFixture::test_pow_one();
+}
+
+// TYPED_TEST(stdlib_bigfield, nonnormalized_field_bug_regression)
+// {
+//     TestFixture::test_nonnormalized_field_bug_regression();
+// }
 
 // // This test was disabled before the refactor to use TYPED_TEST's/
 // TEST(stdlib_bigfield, DISABLED_test_div_against_constants)
