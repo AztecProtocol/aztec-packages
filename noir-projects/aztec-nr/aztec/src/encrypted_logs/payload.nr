@@ -114,7 +114,6 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     }
     // Then we fill in the rest as the incoming body ciphertext
     let size = M - 400;
-    // dep::std::println(size);
     assert_eq(size, incoming_body_ciphertext.len(), "ciphertext length mismatch");
     for i in 0..size {
         encrypted_bytes[400 + i] = incoming_body_ciphertext[i];
