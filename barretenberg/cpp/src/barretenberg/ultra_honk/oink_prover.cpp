@@ -86,7 +86,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_ecc_op_wires(),
                                                              proving_key.polynomials.get_ecc_op_wires(),
                                                              commitment_labels.get_ecc_op_wires())) {
-            commitment = commitment_key->commit_sparse(polynomial);
+            {
+                BB_OP_COUNT_TIME_NAME("COMMIT::ecc_op_wires");
+                commitment = commitment_key->commit_sparse(polynomial);
+            }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
 
@@ -94,7 +97,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_databus_entities(),
                                                              proving_key.polynomials.get_databus_entities(),
                                                              commitment_labels.get_databus_entities())) {
-            commitment = commitment_key->commit_sparse(polynomial);
+            {
+                BB_OP_COUNT_TIME_NAME("COMMIT::databus");
+                commitment = commitment_key->commit_sparse(polynomial);
+            }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
     }

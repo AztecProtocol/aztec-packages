@@ -12,8 +12,6 @@
 
 namespace bb {
 
-// constexpr size_t COMMITMENT_TEST_NUM_POINTS = 4096;
-
 template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
     using CK = CommitmentKey<Curve>;
 

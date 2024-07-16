@@ -46,7 +46,6 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
         monomials_ = scalar_multiplication::point_table_alloc<typename Curve::AffineElement>(num_points);
 
         srs::IO<Curve>::read_transcript_g1(monomials_.get(), num_points, path);
-        // WORKTODO
         scalar_multiplication::generate_pippenger_point_table<Curve>(monomials_.get(), monomials_.get(), num_points);
     };
 
