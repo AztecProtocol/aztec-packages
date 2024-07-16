@@ -22,6 +22,7 @@ unconstrained fn get_height(input: u32, start: u8) -> u8 {
 // MerkleTree on the full array of elements N, but is slightly cheaper on-chain
 // and cleaner elsewhere.
 impl<N> VariableMerkleTree {
+    // TODO(#7218): Revert to fixed height tree for outbox
     // Example - tx_0 with 3 msgs | tx_1 with 2 msgs creates:
     //               
     //        tx0oh           tx1oh
@@ -36,8 +37,6 @@ impl<N> VariableMerkleTree {
         let height = get_height(num_non_empty_leaves, 0);
         let next_power_2 = 2 << height;
         let prev_power_2 = next_power_2 / 2;
-        // If we have no num_non_empty_leaves, we use a 'tree' of 2 leaves
-        // TODO perhaps we just return 0 in this case?
         assert(
             (num_non_empty_leaves == 0)
             | (num_non_empty_leaves == 1)
@@ -45,7 +44,12 @@ impl<N> VariableMerkleTree {
         );
         assert(num_non_empty_leaves <= next_power_2);
         // hash base layer
-        let mut stop = false;
+        // If we have no num_non_empty_leaves, we return 0
+        let mut stop = if num_non_empty_leaves == 0 {
+            true
+        } else {
+            false
+        };
         let mut nodes = [0; N];
         for i in 0..N / 2 {
             // stop after non zero leaves
@@ -124,9 +128,8 @@ mod tests {
     #[test]
     fn test_0_elems() {
         let items = [0; 100];
-        let expected_root = accumulate_sha256([items[0], items[1]]);
         let tree = VariableMerkleTree::new_sha(items, 0);
-        assert_eq(tree.root, expected_root);
+        assert_eq(tree.root, 0);
     }
 
     #[test]
