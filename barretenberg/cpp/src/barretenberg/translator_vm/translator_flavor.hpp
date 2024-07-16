@@ -33,8 +33,7 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
-
-    // This flavor is not adjusted to ZK sumcheck
+    // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 
@@ -79,7 +78,7 @@ class TranslatorFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
-    // The total number of witnesses including shifts
+    // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESSES = 177;
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;

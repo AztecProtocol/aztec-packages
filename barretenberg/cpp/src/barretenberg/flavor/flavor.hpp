@@ -294,12 +294,10 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
 }
 
 /**
- * @brief Takes a Tuple of objects in the Relation class and recursively computes the maximum zk partial subrelation
- length among all
- * subrelations of given relations.
- *
- * @details This method is needed for the computation of the size of
- * Round Univariates needed in zk-Sumcheck.
+ * @brief Takes a Tuple of objects in the Relation class and recursively computes the maximum among partial subrelation
+ lengths incremented by corresponding subrelation witness degrees over all
+ * subrelations of given relations. This method is required to compute the size of
+ * Round Univariates in ZK Sumcheck.
  * @tparam Tuple
  * @tparam Index
  * @return constexpr size_t
@@ -358,7 +356,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_su
 }
 
 /**
- * @brief Recursive utility function to construct a container for the subrelation accumulators of zk-sumcheck prover.
+ * @brief Recursive utility function to construct a container for the subrelation accumulators of ZK Sumcheck prover.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
  * tuple is determined by the corresponding zk subrelation length, i.e. by the subrelation partial length corrected by

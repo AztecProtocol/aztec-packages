@@ -37,6 +37,8 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
+
+    // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = 85;
 
@@ -49,7 +51,7 @@ class ECCVMFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
-    // The total number of witnesses including shifts
+    // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESSES = 113;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;

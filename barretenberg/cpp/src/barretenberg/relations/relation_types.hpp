@@ -71,7 +71,7 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
     }
 };
 /**
- * @brief The metod that adjusts the subrelation partial lengths for ZK Flavors.
+ * @brief This metod adjusts the subrelation partial lengths to ZK Flavors.
  *
  * @tparam RelationImpl
  * @return consteval
