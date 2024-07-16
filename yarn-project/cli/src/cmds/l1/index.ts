@@ -30,7 +30,14 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(l1ChainIdOption)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
-      await deployL1Contracts(options.rpcUrl, options.chainId, options.privateKey, options.mnemonic, log, debugLogger);
+      await deployL1Contracts(
+        options.rpcUrl,
+        options.l1ChainId,
+        options.privateKey,
+        options.mnemonic,
+        log,
+        debugLogger,
+      );
     });
 
   program
@@ -100,7 +107,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         recipient,
         options.rpcUrl,
         options.l1RpcUrl,
-        options.chainId,
+        options.l1ChainId,
         options.mnemonic,
         log,
         debugLogger,
@@ -120,7 +127,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(l1ChainIdOption)
     .action(async (who, options) => {
       const { getL1Balance } = await import('./get_l1_balance.js');
-      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.chainId, log, debugLogger);
+      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.l1ChainId, log, debugLogger);
     });
 
   return program;

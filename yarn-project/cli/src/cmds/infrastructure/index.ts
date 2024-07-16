@@ -12,7 +12,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(l1ChainIdOption)
     .action(async options => {
       const { bootstrap } = await import('./bootstrap.js');
-      await bootstrap(options.rpcUrl, options.chainId, log);
+      await bootstrap(options.rpcUrl, options.l1ChainId, log);
     });
 
   program
@@ -41,7 +41,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         mnemonic: options.mnemonic,
         rpcUrl: options.rpcUrl,
         l1RpcUrl: options.l1RpcUrl,
-        chainId: options.chainId ?? '',
+        chainId: options.l1ChainId,
         blockNumber: options.blockNumber,
         log,
         debugLogger,
