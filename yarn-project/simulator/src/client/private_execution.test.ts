@@ -26,7 +26,7 @@ import {
   PublicDataTreeLeafPreimage,
   StateReference,
   TxContext,
-  UInt32,
+  type UInt32,
   computeAppNullifierSecretKey,
   computeOvskApp,
   deriveKeys,
