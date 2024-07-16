@@ -15,7 +15,7 @@ import {
   CompleteAddress,
   GasSettings,
   GeneratorIndex,
-  type GrumpkinPrivateKey,
+  type GrumpkinScalar,
   Header,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -90,10 +90,10 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  let ownerNskM: GrumpkinPrivateKey;
-  let ownerOvskM: GrumpkinPrivateKey;
-  let recipientNskM: GrumpkinPrivateKey;
-  let recipientOvskM: GrumpkinPrivateKey;
+  let ownerNskM: GrumpkinScalar;
+  let ownerOvskM: GrumpkinScalar;
+  let recipientNskM: GrumpkinScalar;
+  let recipientOvskM: GrumpkinScalar;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -564,8 +564,11 @@ describe('Private Execution test suite', () => {
       expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
-      const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
-      expect(result.callStackItem.publicInputs.privateCallRequests[0].hash).toEqual(expectedCallStackItemHash);
+      expect(
+        result.callStackItem.publicInputs.privateCallRequests[0].matchesStackItem(
+          result.nestedExecutions[0].callStackItem,
+        ),
+      ).toBeTruthy();
     });
   });
 
@@ -888,7 +891,6 @@ describe('Private Execution test suite', () => {
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 2,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -896,11 +898,11 @@ describe('Private Execution test suite', () => {
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 1,
         }),
+        sideEffectCounter: 2,
       });
 
-      const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().hash();
+      const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().getCompressed().hash();
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
       expect(result.enqueuedPublicFunctionCalls[0]).toEqual(publicCallRequest);

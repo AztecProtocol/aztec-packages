@@ -27,17 +27,15 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  type Proof,
   PublicDataUpdateRequest,
-  getMockVerificationKeys,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -89,7 +87,6 @@ describe('L1Publisher integration', () => {
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
-  let l2Proof: Proof;
 
   let builder: TxProver;
   let builderDb: MerkleTrees;
@@ -99,7 +96,7 @@ describe('L1Publisher integration', () => {
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
+  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
@@ -143,15 +140,14 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       l2QueueSize: 10,
+      worldStateProvenBlocksOnly: false,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, getMockVerificationKeys(), worldStateSynchronizer, new NoopTelemetryClient());
-    l2Proof = makeEmptyProof();
+    builder = await TxProver.new(config, worldStateSynchronizer, new NoopTelemetryClient());
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
-      apiKey: '',
       requiredConfirmations: 1,
       l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
@@ -165,7 +161,12 @@ describe('L1Publisher integration', () => {
   });
 
   const makeEmptyProcessedTx = () => {
-    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
+    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(
+      prevHeader,
+      new Fr(chainId),
+      new Fr(config.version),
+      getVKTreeRoot(),
+    );
     return tx;
   };
 
@@ -174,6 +175,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
+    kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -181,14 +183,13 @@ describe('L1Publisher integration', () => {
       seed + 0x500,
     );
 
-    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+    const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
     processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
     processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
     processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -405,7 +406,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], l2Proof);
+      await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -425,12 +426,7 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x`, // empty aggregation object
-          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
-        ],
+        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
       });
       expect(ethTx.input).toEqual(expectedData);
 
@@ -495,7 +491,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], l2Proof);
+      await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -515,12 +511,7 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x`, // empty aggregation object
-          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
-        ],
+        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
       });
       expect(ethTx.input).toEqual(expectedData);
     }

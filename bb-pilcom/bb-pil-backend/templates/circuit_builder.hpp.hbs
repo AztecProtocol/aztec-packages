@@ -14,21 +14,10 @@
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 
-// This already imports the relations and permutations. For now we rely on the transitive includes.
+#include "barretenberg/vm/generated/{{snakeCase name}}_full_row.hpp"
 #include "barretenberg/vm/generated/{{snakeCase name}}_flavor.hpp"
 
 namespace bb {
-
-template <typename FF>
-struct {{name}}FullRow {
-    {{#each all_cols as |col|}}
-    FF {{col}}{};
-    {{/each}}
-    
-    [[maybe_unused]] static std::vector<std::string> names();
-};
-
-template <typename FF> std::ostream& operator<<(std::ostream& os, {{name}}FullRow<FF> const& row);
 
 class {{name}}CircuitBuilder {
     public:
@@ -61,9 +50,9 @@ class {{name}}CircuitBuilder {
               {{/each}}
             }
 
-            {{#each to_be_shifted as |poly|}}
-            polys.{{poly}}_shift = Polynomial(polys.{{poly}}.shifted());
-            {{/each}}
+            for (auto [shifted, to_be_shifted] : zip_view(polys.get_shifted(), polys.get_to_be_shifted())) {
+                shifted = to_be_shifted.shifted();
+            }
 
             return polys;
         }
@@ -164,8 +153,7 @@ class {{name}}CircuitBuilder {
 
             // Wait for lookup evaluations to complete
             for (auto& future : relation_futures) {
-                int result = future.get();
-                if (!result) {
+                if (!future.get()) {
                     return false;
                 }
             }
@@ -173,7 +161,6 @@ class {{name}}CircuitBuilder {
             return true;
         }
     
-
         [[nodiscard]] size_t get_num_gates() const { return rows.size(); }
 
         [[nodiscard]] size_t get_circuit_subgroup_size() const

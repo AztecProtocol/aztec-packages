@@ -12,36 +12,48 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
-#include "barretenberg/vm/{{snakeCase name}}_trace/stats.hpp"
+#include "barretenberg/vm/generated/{{snakeCase name}}_flavor_settings.hpp"
 
 // Relations
 {{#each relation_file_names as |r|}}
 #include "barretenberg/relations/generated/{{snakeCase ../name}}/{{r}}.hpp"
 {{/each}}
 
-// Lookup relations
-#include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+// Lookup and permutation relations
 {{#each lookups as |r|}}
 #include "barretenberg/relations/generated/{{snakeCase ../name}}/{{r}}.hpp"
 {{/each}}
+
+// Metaprogramming to concatenate tuple types.
+template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
+
+// The entities that will be used in the flavor.
+// clang-format off
+#define PRECOMPUTED_ENTITIES {{#each fixed as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define WIRE_ENTITIES {{#each witness_without_inverses as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define DERIVED_WITNESS_ENTITIES {{#each lookups as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define SHIFTED_ENTITIES {{#each shifted as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
+#define TO_BE_SHIFTED(e) {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}e.{{item}}{{/each}}
+#define ALL_ENTITIES PRECOMPUTED_ENTITIES, WIRE_ENTITIES, DERIVED_WITNESS_ENTITIES, SHIFTED_ENTITIES
+// clang-format on
 
 namespace bb {
 
 class {{name}}Flavor {
   public: 
-    using Curve = curve::BN254;
-    using G1 = Curve::Group;
-    using PCS = KZG<Curve>;
+    using Curve = {{name}}FlavorSettings::Curve;
+    using G1 = {{name}}FlavorSettings::G1;
+    using PCS = {{name}}FlavorSettings::PCS;
 
-    using FF = G1::subgroup_field;
-    using Polynomial = bb::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
-    using GroupElement = G1::element;
-    using Commitment = G1::affine_element;
-    using CommitmentHandle = G1::affine_element;
-    using CommitmentKey = bb::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using RelationSeparator = FF;
+    using FF = {{name}}FlavorSettings::FF;
+    using Polynomial = {{name}}FlavorSettings::Polynomial;
+    using PolynomialHandle = {{name}}FlavorSettings::PolynomialHandle;
+    using GroupElement = {{name}}FlavorSettings::GroupElement;
+    using Commitment = {{name}}FlavorSettings::Commitment;
+    using CommitmentHandle = {{name}}FlavorSettings::CommitmentHandle;
+    using CommitmentKey = {{name}}FlavorSettings::CommitmentKey;
+    using VerifierCommitmentKey = {{name}}FlavorSettings::VerifierCommitmentKey;
+    using RelationSeparator = {{name}}FlavorSettings::RelationSeparator;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = {{len fixed}}; 
     static constexpr size_t NUM_WITNESS_ENTITIES = {{len witness}};
@@ -49,12 +61,17 @@ class {{name}}Flavor {
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = {{len all_cols_and_shifts}};
 
-    using Relations = std::tuple<
+    using MainRelations = std::tuple<
       // Relations
-      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{../name}}_vm::{{item}}<FF>{{/each}},
+      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{../name}}_vm::{{item}}<FF>{{/each}}
+    >;
+
+    using LookupRelations = std::tuple<
       // Lookups
       {{#each lookups as |item|}}{{#if @index}},{{/if}}{{item}}_relation<FF>{{/each}}
     >;
+
+    using Relations = tuple_cat_t<MainRelations, LookupRelations>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -78,11 +95,9 @@ class {{name}}Flavor {
         public:
           using DataType = DataType_;
 
-          DEFINE_FLAVOR_MEMBERS(DataType, {{#each fixed as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}})
+          DEFINE_FLAVOR_MEMBERS(DataType, PRECOMPUTED_ENTITIES)
 
-          RefVector<DataType> get_selectors() { return {
-            {{#each fixed as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}}
-          }; }
+          RefVector<DataType> get_selectors() { return get_all(); }
           RefVector<DataType> get_sigma_polynomials() { return {}; }
           RefVector<DataType> get_id_polynomials() { return {}; }
           RefVector<DataType> get_table_polynomials() { return {}; }
@@ -91,33 +106,32 @@ class {{name}}Flavor {
       template <typename DataType>
       class WireEntities {
         public:
-          DEFINE_FLAVOR_MEMBERS(DataType, {{#each witness_without_inverses as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}})
+          DEFINE_FLAVOR_MEMBERS(DataType, WIRE_ENTITIES)
       };
 
       template <typename DataType>
       class DerivedWitnessEntities {
         public:
-          DEFINE_FLAVOR_MEMBERS(DataType, {{#each lookups as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}})
+          DEFINE_FLAVOR_MEMBERS(DataType, DERIVED_WITNESS_ENTITIES)
       };
 
       template <typename DataType>
       class ShiftedEntities {
         public:
-          DEFINE_FLAVOR_MEMBERS(DataType, {{#each shifted as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}})
+          DEFINE_FLAVOR_MEMBERS(DataType, SHIFTED_ENTITIES)
       };
 
       template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
       static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities) {
-          return RefArray{
-            {{#each to_be_shifted as |item|}}{{#if @index}},{{/if}}entities.{{item}}{{/each}}
-          };
+          return RefArray{ TO_BE_SHIFTED(entities) };
       }
 
       template <typename DataType>
         class WitnessEntities: public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
             public:
                 DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
-                auto get_wires() { return WireEntities<DataType>::get_all(); };
+                auto get_wires() { return WireEntities<DataType>::get_all(); }
+                auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
       };
 
       template <typename DataType>
@@ -125,12 +139,6 @@ class {{name}}Flavor {
                     , public WitnessEntities<DataType>
                     , public ShiftedEntities<DataType> {
         public:
-          AllEntities()
-                    : PrecomputedEntities<DataType>{}
-                    , WitnessEntities<DataType>{}
-                    , ShiftedEntities<DataType>{}
-                      {}
-
           DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
           
           auto get_unshifted() {
@@ -148,28 +156,39 @@ class {{name}}Flavor {
           using Base = ProvingKey{{name}}_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
           using Base::Base;
 
-          RefVector<DataType> get_to_be_shifted() { return {
-            {{#each to_be_shifted as |item|}}{{#if @index}},{{/if}}{{item}}{{/each}}
-          }; }
-
-          void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
-          {
-            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
-
-            {{#each lookups as |item|}}
-            AVM_TRACK_TIME("compute_logderivative_inverse/{{item}}_ms", (bb::compute_logderivative_inverse<{{../name}}Flavor, {{item}}_relation<FF>>(prover_polynomials, relation_parameters, this->circuit_size)));
-            {{/each}}
-          }
+          auto get_to_be_shifted() { 
+            return {{name}}Flavor::get_to_be_shifted<DataType>(*this);
+           }
       };
 
       using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
+      {{!-- Used by sumcheck --}}
       class AllValues : public AllEntities<FF> {
         public:
           using Base = AllEntities<FF>;
           using Base::Base;
       };
-  
+
+      {{!-- Used by get_row, logderivs, etc --}}
+      class AllConstRefValues {
+        public:
+          using DataType = const FF&;
+
+          {{!-- 
+          We define the flavor members here again to avoid having to make this class inherit from AllEntities.
+          If we did inherit from AllEntities, we have to define a special constructor for AllEntities, and all
+          the classes that AllEntities inherits from, in cascade.
+          --}}
+          DEFINE_FLAVOR_MEMBERS(DataType, ALL_ENTITIES)
+
+          AllConstRefValues(const RefArray<FF const, {{len all_cols_and_shifts}}>& il) :
+            {{#each (join fixed witness_without_inverses lookups shifted) as |item|}}
+            {{item}}(il[{{@index}}]){{#unless @last}},{{/unless}}
+            {{/each}}
+          {}
+      };
+
       /**
       * @brief A container for the prover polynomials handles.
       */
@@ -200,13 +219,24 @@ class {{name}}Flavor {
           * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
           * represents one row in the execution trace.
           */
-          [[nodiscard]] AllValues get_row(size_t row_idx) const
+          [[nodiscard]] AllConstRefValues get_row(size_t row_idx) const
           {
-              AllValues result;
-              for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                  result_field = polynomial[row_idx];
+              {{!--
+              // TODO: try to make something like this work.
+              // Right now it's too risky because it relies on the order of the columns in `get_all()`.
+              RefArray all_cols = get_all();
+              std::array<const FF*, {{len all_cols_and_shifts}}> refs;
+              for (size_t i = 0; i < refs.size(); ++i) {
+                  refs[i] = &all_cols[i][row_idx];
               }
-            return result;
+              // Note: the order of the constructor must match the order of the columns in `get_all()`!
+              return AllConstRefValues(refs);
+               --}}
+              return AllConstRefValues(RefArray{
+                {{#each (join fixed witness_without_inverses lookups shifted) as |item|}}
+                {{item}}[row_idx]{{#unless @last}},{{/unless}}
+                {{/each}}
+              });
           }
       };
 
@@ -253,7 +283,7 @@ class {{name}}Flavor {
               using Base = AllEntities<std::string>;
 
           public:
-              CommitmentLabels() : AllEntities<std::string>()
+              CommitmentLabels()
           {
               {{#each all_cols as |item|}}
               Base::{{item}} = "{{shoutySnakeCase item}}";
@@ -278,9 +308,7 @@ class {{name}}Flavor {
       public:
         uint32_t circuit_size;
 
-        {{#each witness as |w|}}
-        Commitment {{w}};
-        {{/each}}
+        std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -300,10 +328,9 @@ class {{name}}Flavor {
             circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             size_t log_n = numeric::get_msb(circuit_size);
 
-            {{#each witness as |w|}}
-            {{w}} = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            {{/each}}
-
+            for (auto& commitment : commitments) {
+                commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            }
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
@@ -326,10 +353,9 @@ class {{name}}Flavor {
 
             serialize_to_buffer(circuit_size, Transcript::proof_data);
 
-            {{#each witness as |w|}}
-            serialize_to_buffer<Commitment>({{w}}, Transcript::proof_data);
-            {{/each}}
-
+            for (const auto& commitment : commitments) {
+                serialize_to_buffer(commitment, Transcript::proof_data);
+            }
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);
             }

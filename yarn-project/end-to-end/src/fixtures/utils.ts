@@ -28,7 +28,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { type BBNativeProofCreator } from '@aztec/bb-prover';
+import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
@@ -57,6 +57,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
@@ -139,6 +140,7 @@ export const setupL1Contracts = async (
 
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
     l2GasTokenAddress: GasTokenAddress,
+    vkTreeRoot: getVKTreeRoot(),
   });
 
   return l1Data;
@@ -159,7 +161,7 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativeProofCreator,
+  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -232,14 +234,14 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
+  const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
   // this contract might already have been deployed
   // the following deploying functions are idempotent
   await deployCanonicalKeyRegistry(
     new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
   );
   await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   if (enableGas) {
@@ -387,18 +389,18 @@ export async function setup(
 
   logger.verbose('Deploying key registry...');
   await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   logger.verbose('Deploying auth registry...');
   await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   if (enableGas) {
     logger.verbose('Deploying gas token...');
     await deployCanonicalGasToken(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
   }
 

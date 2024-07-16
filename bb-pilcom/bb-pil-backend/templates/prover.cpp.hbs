@@ -2,12 +2,15 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+
+#include "barretenberg/vm/{{snakeCase name}}_trace/stats.hpp"
 
 namespace bb {
 
@@ -70,17 +73,26 @@ void {{name}}Prover::execute_log_derivative_inverse_round()
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
 
-    key->compute_logderivative_inverses(relation_parameters);
+    auto prover_polynomials = ProverPolynomials(*key);
+    bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
+        using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
+        AVM_TRACK_TIME(Relation::NAME + std::string("_ms"),
+                       (compute_logderivative_inverse<Flavor, Relation>(
+                           prover_polynomials, relation_parameters, key->circuit_size)));
+    });
+}
 
+void {{name}}Prover::execute_log_derivative_inverse_commitments_round()
+{
     // Commit to all logderivative inverse polynomials
-    {{#each lookups as |l|}}
-    witness_commitments.{{l}} = commitment_key->commit(key->{{l}});
-    {{/each}}
+    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
+       commitment = commitment_key->commit(key_poly);
+    }
 
     // Send all commitments to the verifier
-    {{#each lookups as |l|}}
-    transcript->send_to_verifier(commitment_labels.{{l}}, witness_commitments.{{l}});
-    {{/each}}
+    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), witness_commitments.get_derived())) {
+       transcript->send_to_verifier(label, commitment);
+    }
 }
 
 /**
@@ -131,18 +143,21 @@ HonkProof {{name}}Prover::construct_proof()
     execute_preamble_round();
 
     // Compute wire commitments
-    execute_wire_commitments_round();
+    AVM_TRACK_TIME("prove/execute_wire_commitments_round_ms", execute_wire_commitments_round());
 
-    // Compute sorted list accumulator and commitment
-    execute_log_derivative_inverse_round();
+    // Compute sorted list accumulator
+    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_round_ms", execute_log_derivative_inverse_round());
+
+    // Compute commitments to logderivative inverse polynomials
+    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_commitments_round_ms", execute_log_derivative_inverse_commitments_round());
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
-    execute_relation_check_rounds();
+    AVM_TRACK_TIME("prove/execute_relation_check_rounds_ms", execute_relation_check_rounds());
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    execute_pcs_rounds();
+    AVM_TRACK_TIME("prove/execute_pcs_rounds_ms", execute_pcs_rounds());
 
     return export_proof();
 }

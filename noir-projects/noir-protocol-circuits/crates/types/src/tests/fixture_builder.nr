@@ -41,7 +41,7 @@ use crate::{
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
     recursion::{verification_key::VerificationKey, proof::{NestedRecursiveProof, RecursiveProof}},
-    grumpkin_point::GrumpkinPoint
+    point::Point
 };
 
 fn subarray<T, N, M>(arr: [T; N]) -> [T; M] {
@@ -80,7 +80,7 @@ struct FixtureBuilder {
     historical_header: Header,
     tx_context: TxContext,
     global_variables: GlobalVariables,
-    
+
     // Accumulated data.
     note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
@@ -127,7 +127,8 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
-    
+    vk_tree_root: Field,
+
     // Counters.
     min_revertible_side_effect_counter: u32,
     counter_start: u32,
@@ -176,6 +177,20 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
+        self.vk_index = vk_index;
+        let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+
+        let vk_hash = vk_tree.leaves[vk_index];
+        self.vk.hash = vk_hash;
+
+        self.vk_path = vk_tree.get_sibling_path(vk_index);
+
+        self.vk_tree_root = vk_tree.get_root();
+
+        *self
+    }
+
     pub fn is_delegate_call(&mut self) -> Self {
         self.is_delegate_call = true;
         self.storage_contract_address = fixtures::contracts::parent_contract.address;
@@ -192,6 +207,7 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
             global_variables: self.global_variables
         }
     }
@@ -211,13 +227,12 @@ impl FixtureBuilder {
             storage_contract_address: self.storage_contract_address,
             function_selector: self.function_data.selector,
             is_delegate_call: self.is_delegate_call,
-            is_static_call: self.is_static_call,
-            side_effect_counter: self.counter_start
+            is_static_call: self.is_static_call
         }
     }
 
     pub fn build_private_call_request(self) -> ScopedPrivateCallRequest {
-        let hash = self.to_private_call_stack_item().hash();
+        let item = self.to_private_call_stack_item();
         let is_delegate_call = self.is_delegate_call;
         let mut caller_context = CallerContext::empty();
         caller_context.is_static_call = self.is_static_call;
@@ -226,7 +241,11 @@ impl FixtureBuilder {
             caller_context.storage_contract_address = self.storage_contract_address;
         };
         PrivateCallRequest {
-            hash,
+            target: item.contract_address,
+            call_context: item.public_inputs.call_context,
+            function_data: item.function_data,
+            args_hash: item.public_inputs.args_hash,
+            returns_hash: item.public_inputs.returns_hash,
             caller_context,
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter
@@ -275,7 +294,6 @@ impl FixtureBuilder {
             call_stack_item: self.to_private_call_stack_item(),
             public_call_stack: subarray(self.public_call_requests.storage),
             public_teardown_call_request: self.public_teardown_call_stack.storage[0],
-            proof: RecursiveProof::empty(),
             vk: self.vk,
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
@@ -318,10 +336,6 @@ impl FixtureBuilder {
             storage: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.log_hash).map(|l: EncryptedLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
             len: self.encrypted_logs_hashes.len()
         };
-        let unencrypted_logs_hashes = BoundedVec {
-            storage: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.log_hash),
-            len: self.unencrypted_logs_hashes.len()
-        };
 
         PublicAccumulatedDataBuilder {
             note_hashes,
@@ -329,7 +343,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs,
             note_encrypted_logs_hashes,
             encrypted_logs_hashes,
-            unencrypted_logs_hashes,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
             public_data_update_requests: self.public_data_update_requests,
             public_call_stack: self.public_call_requests,
             gas_used: self.gas_used
@@ -363,7 +377,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
             note_encrypted_logs_hash: self.note_encrypted_logs_hash,
             encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
@@ -402,7 +416,7 @@ impl FixtureBuilder {
 
     pub fn to_private_kernel_data(self) -> PrivateKernelData {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
-        PrivateKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
+        PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
@@ -434,13 +448,7 @@ impl FixtureBuilder {
 
     pub fn to_public_kernel_data(self, revertible: bool) -> PublicKernelData {
         let public_inputs = self.to_public_kernel_circuit_public_inputs(revertible);
-        PublicKernelData {
-            public_inputs,
-            proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-            vk_index: self.vk_index,
-            vk_path: self.vk_path
-        }
+        PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
@@ -463,25 +471,23 @@ impl FixtureBuilder {
         KernelData {
             public_inputs,
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
+            vk: self.vk,
             vk_index: self.vk_index,
             vk_path: self.vk_path
         }
     }
 
-    pub fn add_new_note_hash(&mut self, value: Field, nullifier_counter: u32) {
-        self.note_hashes.push(
-            NoteHash { value, counter: self.next_counter() }.scope(nullifier_counter, self.storage_contract_address)
-        );
+    pub fn add_new_note_hash(&mut self, value: Field) {
+        self.note_hashes.push(NoteHash { value, counter: self.next_counter() }.scope(self.storage_contract_address));
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
         // First nullifier is tx hash.
         let tx_hash = self.nullifiers.get(0).value();
         let index = self.note_hashes.len();
-        let note_hash = NoteHash { value, counter: 0 }.scope(0, self.storage_contract_address);
+        let note_hash = NoteHash { value, counter: 0 }.scope(self.storage_contract_address);
         let siloed_value = silo_note_hash(note_hash, tx_hash, index);
-        self.add_new_note_hash(siloed_value, 0);
+        self.add_new_note_hash(siloed_value);
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -489,7 +495,7 @@ impl FixtureBuilder {
         for i in 0..self.note_hashes.max_len() {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                self.add_new_note_hash(value, 0);
+                self.add_new_note_hash(value);
             }
         }
     }
@@ -509,7 +515,7 @@ impl FixtureBuilder {
         for i in 0..self.note_hashes.max_len() {
             if i < num_note_hashes {
                 let value = self.mock_note_hash_value(index_offset + i);
-                self.add_new_note_hash(value, 0);
+                self.add_new_note_hash(value);
                 let (log_hash, length) = self.mock_note_encrypted_log(index_offset + i);
                 self.add_note_encrypted_log_hash(log_hash, length, self.counter - 1);
             }
@@ -667,7 +673,7 @@ impl FixtureBuilder {
         new_read_request_index
     }
 
-    pub fn add_request_for_key_validation(&mut self, pk_m: GrumpkinPoint, sk_app: Field, sk_app_generator: Field) -> u32 {
+    pub fn add_request_for_key_validation(&mut self, pk_m: Point, sk_app: Field, sk_app_generator: Field) -> u32 {
         let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };
         let request_and_generator = KeyValidationRequestAndGenerator { request, sk_app_generator };
@@ -748,13 +754,6 @@ impl FixtureBuilder {
         self.unencrypted_log_preimages_length += length;
     }
 
-    pub fn add_siloed_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let mut log_hash = LogHash { value: hash, counter: self.next_counter(), length }.scope(self.storage_contract_address);
-        log_hash.log_hash.value = silo_unencrypted_log_hash(log_hash);
-        self.unencrypted_logs_hashes.push(log_hash);
-        self.unencrypted_log_preimages_length += length;
-    }
-
     pub fn append_unencrypted_log_hashes(&mut self, num: u32) {
         let index_offset = self.unencrypted_logs_hashes.len();
         for i in 0..self.unencrypted_logs_hashes.max_len() {
@@ -786,7 +785,33 @@ impl FixtureBuilder {
         self.unencrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn add_private_call_request(&mut self, hash: Field, is_delegate_call: bool) {
+    pub fn add_private_call_from_call_stack_item(&mut self, item: PrivateCallStackItem) {
+        let mut caller_context = CallerContext::empty();
+        let is_delegate_call = item.public_inputs.call_context.is_delegate_call;
+        caller_context.is_static_call = self.is_static_call;
+        if is_delegate_call {
+            caller_context.msg_sender = self.msg_sender;
+            caller_context.storage_contract_address = self.storage_contract_address;
+        }
+        let start_counter = item.public_inputs.start_side_effect_counter;
+        let end_counter = item.public_inputs.end_side_effect_counter;
+        self.counter = end_counter + 1;
+
+        self.private_call_requests.push(
+            PrivateCallRequest {
+            target: item.contract_address,
+            call_context: item.public_inputs.call_context,
+            function_data: item.function_data,
+            args_hash: item.public_inputs.args_hash,
+            returns_hash: item.public_inputs.returns_hash,
+            caller_context,
+            start_side_effect_counter: start_counter,
+            end_side_effect_counter: end_counter
+        }.scope(self.contract_address)
+        );
+    }
+
+    pub fn add_private_call_request(&mut self, args_hash: Field, is_delegate_call: bool) {
         let mut caller_context = CallerContext::empty();
         caller_context.is_static_call = self.is_static_call;
         if is_delegate_call {
@@ -796,8 +821,23 @@ impl FixtureBuilder {
         let start_counter = self.next_counter();
         let end_counter = start_counter + 10;
         self.counter = end_counter + 1;
+
+        let target = AztecAddress::empty();
+        let call_context = CallContext::empty();
+        let function_data = FunctionData::empty();
+        let returns_hash = 0;
+
         self.private_call_requests.push(
-            PrivateCallRequest { hash, caller_context, start_side_effect_counter: start_counter, end_side_effect_counter: end_counter }.scope(self.contract_address)
+            PrivateCallRequest {
+            target,
+            call_context,
+            function_data,
+            args_hash,
+            returns_hash,
+            caller_context,
+            start_side_effect_counter: start_counter,
+            end_side_effect_counter: end_counter
+        }.scope(self.contract_address)
         );
     }
 
@@ -905,7 +945,7 @@ impl FixtureBuilder {
 
     fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndGenerator {
         let value_offset = 3030 + self.value_offset + index as Field;
-        let request = KeyValidationRequest { pk_m: GrumpkinPoint { x: value_offset, y: 1 + value_offset }, sk_app: 2 + value_offset };
+        let request = KeyValidationRequest { pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false }, sk_app: 2 + value_offset };
         KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
     }
 
@@ -977,6 +1017,10 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
+
+    fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+    }
 }
 
 impl Empty for FixtureBuilder {
@@ -1026,6 +1070,7 @@ impl Empty for FixtureBuilder {
             vk: VerificationKey::empty(),
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
+            vk_tree_root: FixtureBuilder::vk_tree_root(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,
