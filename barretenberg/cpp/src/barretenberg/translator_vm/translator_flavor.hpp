@@ -34,6 +34,8 @@ class TranslatorFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
 
+    // This flavor is not adjusted to ZK sumcheck
+    static constexpr bool HasZK = false;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
@@ -77,6 +79,8 @@ class TranslatorFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
+    // The total number of witnesses including shifts
+    static constexpr size_t NUM_ALL_WITNESSES = 177;
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -717,6 +721,13 @@ class TranslatorFlavor {
             result.insert(result.end(), special.begin(), special.end());
             return result;
         }
+        // Get witness polynomials including shifts. This getter is required by ZK-Sumcheck.
+        auto get_all_witnesses()
+        {
+            return concatenate(ShiftedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
+        };
+        // Get all non-witness polynomials. In this case, contains only PrecomputedEntities.
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
 
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {

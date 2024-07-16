@@ -33,6 +33,8 @@ class UltraFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
+    // This flavor is not adjusted to ZK sumcheck
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -42,6 +44,7 @@ class UltraFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
+    static constexpr size_t NUM_ALL_WITNESSES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -215,6 +218,33 @@ class UltraFlavor {
                              this->w_r,     this->w_o,     this->w_4,     this->z_perm };
         };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        // getter for shifted tables
+        auto get_shifted_tables()
+        {
+            return RefArray{ this->table_1_shift, // column 0
+                             this->table_2_shift, // column 1
+                             this->table_3_shift, // column 2
+                             this->table_4_shift };
+        };
+        // getter for ALL witnesses including shifted ones
+        auto get_all_witnesses()
+        {
+            return RefArray{ this->w_l,
+                             this->w_r,
+                             this->w_o,
+                             this->w_4,
+                             this->z_perm,
+                             this->w_l_shift,
+                             this->w_r_shift,
+                             this->w_o_shift,
+                             this->w_4_shift,
+                             this->lookup_inverses,
+                             this->lookup_read_counts,
+                             this->lookup_read_tags,
+                             this->z_perm_shift };
+        };
+        // getter for the complement of all witnesses inside all entities
+        auto get_non_witnesses() { return concatenate(get_precomputed(), get_shifted_tables()); };
     };
 
   public:

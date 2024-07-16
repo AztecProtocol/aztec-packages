@@ -119,6 +119,8 @@ class AvmFlavor {
     using CommitmentKey = AvmFlavorSettings::CommitmentKey;
     using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
     using RelationSeparator = AvmFlavorSettings::RelationSeparator;
+    // This flavor would not be used with ZK sumcheck
+    static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
     static constexpr size_t NUM_WITNESS_ENTITIES = 409;
@@ -126,6 +128,8 @@ class AvmFlavor {
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 485;
+
+    static constexpr size_t NUM_ALL_WITNESSES = 483;
 
     using MainRelations = std::tuple<
         // Relations

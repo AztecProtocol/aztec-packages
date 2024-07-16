@@ -37,7 +37,7 @@ class ECCVMFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
-
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = 85;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -49,6 +49,8 @@ class ECCVMFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
+    // The total number of witnesses including shifts
+    static constexpr size_t NUM_ALL_WITNESSES = 113;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -312,6 +314,14 @@ class ECCVMFlavor {
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
+        // the getter for all witnesses including derived and shifted ones
+        auto get_all_witnesses()
+        {
+            return concatenate(ShiftedEntities<DataType>::get_all(),
+                               WireEntities<DataType>::get_all(),
+                               DerivedWitnessEntities<DataType>::get_all());
+        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:
