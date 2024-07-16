@@ -76,7 +76,7 @@ fn test_status_program_compile_pass(
     test_function: &TestFunction,
     abi: Abi,
     debug: Vec<DebugInfo>,
-    circuit_execution: Result<WitnessStack<FieldElement>, NargoError>,
+    circuit_execution: Result<WitnessStack<FieldElement>, NargoError<FieldElement>>,
 ) -> TestStatus {
     let circuit_execution_err = match circuit_execution {
         // Circuit execution was successful; ie no errors or unsatisfied constraints
@@ -128,7 +128,7 @@ fn check_expected_failure_message(
     };
 
     let expected_failure_message_matches =
-        matches!(&failed_assertion, Some(message) if message == expected_failure_message);
+        matches!(&failed_assertion, Some(message) if message.contains(expected_failure_message));
     if expected_failure_message_matches {
         return TestStatus::Pass;
     }

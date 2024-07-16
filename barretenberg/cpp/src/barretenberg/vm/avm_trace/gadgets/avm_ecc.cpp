@@ -2,12 +2,8 @@
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 
 namespace bb::avm_trace {
-using element = grumpkin::g1::affine_element;
 
-AvmEccTraceBuilder::AvmEccTraceBuilder()
-{
-    ecc_trace.reserve(AVM_TRACE_SIZE);
-}
+using element = grumpkin::g1::affine_element;
 
 std::vector<AvmEccTraceBuilder::EccTraceEntry> AvmEccTraceBuilder::finalize()
 {
@@ -26,6 +22,23 @@ element AvmEccTraceBuilder::embedded_curve_add(element lhs, element rhs, uint32_
     std::tuple<FF, FF, bool> p2 = { rhs.x, rhs.y, rhs.is_point_at_infinity() };
     std::tuple<FF, FF, bool> result_tuple = { result.x, result.y, result.is_point_at_infinity() };
     ecc_trace.push_back({ clk, p1, p2, result_tuple });
+
+    return result;
+}
+
+element AvmEccTraceBuilder::variable_msm(const std::vector<element>& points,
+                                         const std::vector<grumpkin::fr>& scalars,
+                                         uint32_t clk)
+{
+    // Replace this with pippenger if/when we have the time
+    auto result = grumpkin::g1::affine_point_at_infinity;
+    for (size_t i = 0; i < points.size(); ++i) {
+        result = result + points[i] * scalars[i];
+    }
+
+    std::tuple<FF, FF, bool> result_tuple = { result.x, result.y, result.is_point_at_infinity() };
+
+    ecc_trace.push_back({ .clk = clk, .result = result_tuple });
 
     return result;
 }

@@ -1,5 +1,94 @@
 # Changelog
 
+## [0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.5...aztec-package-v0.46.6) (2024-07-15)
+
+
+### Features
+
+* Modular CLI + `aztec test` ([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426)) ([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))
+
+## [0.46.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.4...aztec-package-v0.46.5) (2024-07-14)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.3...aztec-package-v0.46.4) (2024-07-11)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.2...aztec-package-v0.46.3) (2024-07-11)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.1...aztec-package-v0.46.2) (2024-07-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.0...aztec-package-v0.46.1) (2024-07-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.1...aztec-package-v0.46.0) (2024-07-09)
+
+
+### Features
+
+* VK tree ([#6914](https://github.com/AztecProtocol/aztec-packages/issues/6914)) ([8631237](https://github.com/AztecProtocol/aztec-packages/commit/863123729fed0f4a150e634f52da06ac6b581162))
+
+## [0.45.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.0...aztec-package-v0.45.1) (2024-07-04)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.45.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.44.0...aztec-package-v0.45.0) (2024-07-02)
+
+
+### Bug Fixes
+
+* Devnet deployment issues ([#7197](https://github.com/AztecProtocol/aztec-packages/issues/7197)) ([9cf4904](https://github.com/AztecProtocol/aztec-packages/commit/9cf49048eefd1f02d22c6b4a8db100b863f39f84))
+
+## [0.44.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.43.0...aztec-package-v0.44.0) (2024-06-26)
+
+
+### Features
+
+* Add OpenTelemetry to node ([#7102](https://github.com/AztecProtocol/aztec-packages/issues/7102)) ([6bf2b72](https://github.com/AztecProtocol/aztec-packages/commit/6bf2b7269fddb5bd7fe4c567710146b4969d2845))
+* Devnet deployments ([#7024](https://github.com/AztecProtocol/aztec-packages/issues/7024)) ([fa70876](https://github.com/AztecProtocol/aztec-packages/commit/fa70876a17b981e6ffa4bece390186b1231ba4fe))
+* Track spans ([#7129](https://github.com/AztecProtocol/aztec-packages/issues/7129)) ([924c3f8](https://github.com/AztecProtocol/aztec-packages/commit/924c3f8809b30d16e81eed5e467aa79ee7074f77))
+
+## [0.43.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.42.0...aztec-package-v0.43.0) (2024-06-18)
+
+
+### Features
+
+* Auth registry ([#7035](https://github.com/AztecProtocol/aztec-packages/issues/7035)) ([cea0b3b](https://github.com/AztecProtocol/aztec-packages/commit/cea0b3b29c2f7c37eb07c226a06534f92518cea6))
+* Nuking last hardcoded note type ids ([#7069](https://github.com/AztecProtocol/aztec-packages/issues/7069)) ([a23fd0b](https://github.com/AztecProtocol/aztec-packages/commit/a23fd0ba1604a5308fd77ed45a5b1d20da13f405)), closes [#5833](https://github.com/AztecProtocol/aztec-packages/issues/5833)
+
+
+### Miscellaneous
+
+* Move gas bridge initialization into L1 contracts deployment ([#6912](https://github.com/AztecProtocol/aztec-packages/issues/6912)) ([26a1fc4](https://github.com/AztecProtocol/aztec-packages/commit/26a1fc4bcec04434b61651e2f527938a14f3ac3a))
+* Rename p2p vars ([#6916](https://github.com/AztecProtocol/aztec-packages/issues/6916)) ([ae7d757](https://github.com/AztecProtocol/aztec-packages/commit/ae7d75764fc704daae67be882e0e9f09a0a9407c))
+* Terraform Updates ([#6887](https://github.com/AztecProtocol/aztec-packages/issues/6887)) ([33a3870](https://github.com/AztecProtocol/aztec-packages/commit/33a3870d06ae8bb5d08dbbd9f72a62e0811e5e7d))
+* Transfer and transferfrom to save constrains for simpler cases ([#7013](https://github.com/AztecProtocol/aztec-packages/issues/7013)) ([612b972](https://github.com/AztecProtocol/aztec-packages/commit/612b9724a419224c72cd823c889ece4ae8f00ab0))
+* Updated devnet terraform ([#6927](https://github.com/AztecProtocol/aztec-packages/issues/6927)) ([4692fb0](https://github.com/AztecProtocol/aztec-packages/commit/4692fb034f22bb62593d257777b7b545993c27ab))
+
 ## [0.42.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.41.0...aztec-package-v0.42.0) (2024-06-04)
 
 

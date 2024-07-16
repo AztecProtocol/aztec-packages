@@ -1,10 +1,12 @@
 VERSION 0.8
 
 source:
-  FROM ../build-images+build
+  FROM ../build-images+from-registry
 
   # Install nargo
   COPY ../noir/+nargo/nargo /usr/bin/nargo
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
   WORKDIR /usr/src/noir-projects
 
@@ -22,29 +24,51 @@ build-contracts:
 
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
   SAVE ARTIFACT noir-contracts
-  
+
 build-protocol-circuits:
+  LOCALLY
+  LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
   FROM +source
-  RUN cd noir-protocol-circuits && NARGO=nargo ./bootstrap.sh
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
+      bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
+  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT noir-protocol-circuits
 
 build:
   FROM +source
   BUILD +build-contracts
   BUILD +build-protocol-circuits
-  
+
   COPY +build-contracts/noir-contracts ./noir-contracts
   COPY +build-protocol-circuits/noir-protocol-circuits ./noir-protocol-circuits
-  
+
   SAVE ARTIFACT aztec-nr
   SAVE ARTIFACT noir-contracts
   SAVE ARTIFACT noir-protocol-circuits
 
 test:
-  FROM +build
-  RUN cd noir-protocol-circuits && nargo test --silence-warnings
-  RUN cd aztec-nr && nargo test --silence-warnings
-  RUN cd noir-contracts && nargo test --silence-warnings
+  FROM ../yarn-project/+txe
+
+  # Install nargo
+  COPY ../noir/+nargo/nargo /usr/bin/nargo
+
+  COPY +build/. /usr/src/noir-projects
+
+  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings
+
+  RUN cd /usr/src/yarn-project/txe && yarn start & \
+      # Wait for TXE to initialize
+      sleep 5 && \
+      cd /usr/src/noir-projects/aztec-nr && \
+      NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
+
+  RUN cd /usr/src/yarn-project/txe && yarn start & \
+      # Wait for TXE to initialize
+      sleep 5 && \
+      cd /usr/src/noir-projects/noir-contracts && \
+      # We need to increase the timeout since all tests running in parallel hammer TXE at the same time and processing slows down, leading to timeouts
+      # The only way we currently have to batch tests is via RAYON_NUM_THREADS, which is not ideal
+      NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
 
 format:
   FROM +build
@@ -59,7 +83,7 @@ format:
   RUN nargo fmt --check
 
 gates-report:
-  FROM +build
+  FROM +build-protocol-circuits
   WORKDIR /usr/src/noir-projects
 
   COPY ./gates_report.sh ./gates_report.sh
@@ -67,5 +91,5 @@ gates-report:
 
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
   RUN ./gates_report.sh
-   
+
   SAVE ARTIFACT ./noir-protocol-circuits/gates_report.json gates_report.json

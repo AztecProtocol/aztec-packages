@@ -6,7 +6,7 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact, type EventSelector } from '@aztec/foundation/abi';
 import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
@@ -17,8 +17,8 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
-import { type ExtendedNote } from '../notes/index.js';
-import { type NoteFilter } from '../notes/note_filter.js';
+import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
+import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
@@ -224,11 +224,18 @@ export interface PXE {
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
-   * Gets notes of accounts registered in this PXE based on the provided filter.
+   * Gets incoming notes of accounts registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getNotes(filter: NoteFilter): Promise<ExtendedNote[]>;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+
+  /**
+   * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
+   * @param filter - The filter to apply to the notes.
+   * @returns The requested notes.
+   */
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]>;
 
   /**
    * Finds the nonce(s) for a given note.
@@ -374,14 +381,21 @@ export interface PXE {
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Returns the events of a specified type.
+   * Returns the events of a specified type given search parameters.
+   * @param type - The type of the event to search for—Encrypted, or Unencrypted.
+   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
-   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
-   * @param ivpk - The incoming viewing public key that corresponds to the incoming viewing secret key that can decrypt the log.
+   * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
    * @returns - The deserialized events.
    */
-  getEvents<T>(from: number, limit: number, eventMetadata: EventMetadata<T>, ivpk: Point): Promise<T[]>;
+  getEvents<T>(
+    type: EventType,
+    eventMetadata: EventMetadata<T>,
+    from: number,
+    limit: number,
+    vpks: Point[],
+  ): Promise<T[]>;
 }
 // docs:end:pxe-interface
 
@@ -390,8 +404,16 @@ export interface PXE {
  */
 export interface EventMetadata<T> {
   decode(payload: L1EventPayload): T | undefined;
-  functionSelector: FunctionSelector;
+  eventSelector: EventSelector;
   fieldNames: string[];
+}
+
+/**
+ * This is used in getting events via the filter
+ */
+export enum EventType {
+  Encrypted = 'Encrypted',
+  Unencrypted = 'Unencrypted',
 }
 
 /**

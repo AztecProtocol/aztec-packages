@@ -31,6 +31,15 @@ template <typename Curve> class FileCrsFactory : public CrsFactory<Curve> {
 
 template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
   public:
+    /**
+     * @brief Construct a prover CRS populated with a pippenger point table based on the SRS elements
+     * @details Allocates space in monomials_ for 2 * num_points affine elements, populates the first num_points with
+     * the raw SRS elements P_i, then overwrites the same memory with the 'pippenger point table' which contains the raw
+     * elements P_i at even indices and the endomorphism point (\beta * P_i.x, -P_i.y) at odd indices.
+     *
+     * @param num_points
+     * @param path
+     */
     FileProverCrs(const size_t num_points, std::string const& path)
         : num_points(num_points)
     {
@@ -62,10 +71,10 @@ template <> class FileVerifierCrs<curve::BN254> : public VerifierCrs<curve::BN25
     virtual ~FileVerifierCrs();
     Curve::G2AffineElement get_g2x() const override { return g2_x; };
     pairing::miller_lines const* get_precomputed_g2_lines() const override { return precomputed_g2_lines; };
-    Curve::AffineElement get_first_g1() const override { return first_g1; };
+    Curve::AffineElement get_g1_identity() const override { return g1_identity; };
 
   private:
-    Curve::AffineElement first_g1;
+    Curve::AffineElement g1_identity;
     Curve::G2AffineElement g2_x;
     pairing::miller_lines* precomputed_g2_lines;
 };
@@ -78,10 +87,10 @@ template <> class FileVerifierCrs<curve::Grumpkin> : public VerifierCrs<curve::G
     virtual ~FileVerifierCrs() = default;
     Curve::AffineElement* get_monomial_points() const override;
     size_t get_monomial_size() const override;
-    Curve::AffineElement get_first_g1() const override { return first_g1; };
+    Curve::AffineElement get_g1_identity() const override { return g1_identity; };
 
   private:
-    Curve::AffineElement first_g1;
+    Curve::AffineElement g1_identity;
     size_t num_points;
     std::shared_ptr<Curve::AffineElement[]> monomials_;
 };

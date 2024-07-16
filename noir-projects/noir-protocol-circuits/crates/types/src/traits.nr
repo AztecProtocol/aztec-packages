@@ -1,4 +1,3 @@
-use dep::std::cmp::Eq;
 use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
@@ -111,3 +110,9 @@ trait Deserialize<N> {
     fn deserialize(fields: [Field; N]) -> Self;
 }
 // docs:end:deserialize
+
+impl<N> Deserialize<N> for [Field; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields
+    }
+}

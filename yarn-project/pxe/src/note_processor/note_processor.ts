@@ -1,11 +1,6 @@
 import { type AztecNode, L1NotePayload, type L2Block, TaggedLog } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
-import {
-  type AztecAddress,
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  type PublicKey,
-} from '@aztec/circuits.js';
+import { type AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -44,7 +39,8 @@ export class NoteProcessor {
     seen: 0,
     decryptedIncoming: 0,
     decryptedOutgoing: 0,
-    deferred: 0,
+    deferredIncoming: 0,
+    deferredOutgoing: 0,
     failed: 0,
     blocks: 0,
     txs: 0,
@@ -115,9 +111,8 @@ export class NoteProcessor {
 
     const blocksAndNotes: ProcessedData[] = [];
     // Keep track of notes that we couldn't process because the contract was not found.
-    // Note that there are no deferred outgoing notes because we don't need the contract there for anything since we
-    // are not attempting to derive a nullifier.
-    const deferredNoteDaosIncoming: DeferredNoteDao[] = [];
+    const deferredIncomingNotes: DeferredNoteDao[] = [];
+    const deferredOutgoingNotes: DeferredNoteDao[] = [];
 
     const ivskM = await this.keyStore.getMasterSecretKey(this.ivpkM);
     const ovskM = await this.keyStore.getMasterSecretKey(this.ovpkM);
@@ -128,7 +123,7 @@ export class NoteProcessor {
       const { txLogs } = block.body.noteEncryptedLogs;
       const dataStartIndexForBlock =
         block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-        block.body.numberOfTxsIncludingPadded * MAX_NEW_NOTE_HASHES_PER_TX;
+        block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
@@ -138,8 +133,8 @@ export class NoteProcessor {
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
-        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_NOTE_HASHES_PER_TX;
-        const newNoteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
+        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
+        const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
@@ -156,19 +151,23 @@ export class NoteProcessor {
                 outgoingTaggedNote &&
                 !incomingTaggedNote.payload.equals(outgoingTaggedNote.payload)
               ) {
-                throw new Error('Incoming and outgoing note payloads do not match.');
+                throw new Error(
+                  `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
+                    incomingTaggedNote.payload,
+                  )}, Outgoing: ${JSON.stringify(outgoingTaggedNote.payload)}`,
+                );
               }
 
               const payload = incomingTaggedNote?.payload || outgoingTaggedNote?.payload;
 
               const txHash = block.body.txEffects[indexOfTxInABlock].txHash;
-              const { incomingNote, outgoingNote, incomingDeferredNote } = await produceNoteDaos(
+              const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
                 this.simulator,
                 incomingTaggedNote ? this.ivpkM : undefined,
                 outgoingTaggedNote ? this.ovpkM : undefined,
                 payload,
                 txHash,
-                newNoteHashes,
+                noteHashes,
                 dataStartIndexForTx,
                 excludedIndices,
                 this.log,
@@ -183,8 +182,12 @@ export class NoteProcessor {
                 this.stats.decryptedOutgoing++;
               }
               if (incomingDeferredNote) {
-                deferredNoteDaosIncoming.push(incomingDeferredNote);
-                this.stats.deferred++;
+                deferredIncomingNotes.push(incomingDeferredNote);
+                this.stats.deferredIncoming++;
+              }
+              if (outgoingDeferredNote) {
+                deferredOutgoingNotes.push(outgoingDeferredNote);
+                this.stats.deferredOutgoing++;
               }
 
               if (incomingNote == undefined && outgoingNote == undefined && incomingDeferredNote == undefined) {
@@ -203,7 +206,7 @@ export class NoteProcessor {
     }
 
     await this.processBlocksAndNotes(blocksAndNotes);
-    await this.processDeferredNotes(deferredNoteDaosIncoming);
+    await this.processDeferredNotes(deferredIncomingNotes, deferredOutgoingNotes);
 
     const syncedToBlock = blocks[blocks.length - 1].number;
     await this.db.setSynchedBlockNumberForPublicKey(this.ivpkM, syncedToBlock);
@@ -237,10 +240,10 @@ export class NoteProcessor {
       });
     }
 
-    const newNullifiers: Fr[] = blocksAndNotes.flatMap(b =>
+    const nullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
-    const removedNotes = await this.db.removeNullifiedNotes(newNullifiers, this.ivpkM);
+    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, this.ivpkM);
     removedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${
@@ -253,14 +256,25 @@ export class NoteProcessor {
   /**
    * Store the given deferred notes in the database for later decoding.
    *
-   * @param deferredNoteDaos - notes that are intended for us but we couldn't process because the contract was not found.
+   * @param deferredIncomingNotes - incoming notes that are intended for us but we couldn't process because the contract was not found.
+   * @param deferredOutgoingNotes - outgoing notes that we couldn't process because the contract was not found.
    */
-  private async processDeferredNotes(deferredNoteDaos: DeferredNoteDao[]) {
-    if (deferredNoteDaos.length) {
-      await this.db.addDeferredNotes(deferredNoteDaos);
-      deferredNoteDaos.forEach(noteDao => {
+  private async processDeferredNotes(
+    deferredIncomingNotes: DeferredNoteDao[],
+    deferredOutgoingNotes: DeferredNoteDao[],
+  ) {
+    if (deferredIncomingNotes.length || deferredOutgoingNotes.length) {
+      await this.db.addDeferredNotes([...deferredIncomingNotes, ...deferredOutgoingNotes]);
+      deferredIncomingNotes.forEach(noteDao => {
         this.log.verbose(
-          `Deferred note for contract ${noteDao.contractAddress} at slot ${
+          `Deferred incoming note for contract ${noteDao.contractAddress} at slot ${
+            noteDao.storageSlot
+          } in tx ${noteDao.txHash.toString()}`,
+        );
+      });
+      deferredOutgoingNotes.forEach(noteDao => {
+        this.log.verbose(
+          `Deferred outgoing note for contract ${noteDao.contractAddress} at slot ${
             noteDao.storageSlot
           } in tx ${noteDao.txHash.toString()}`,
         );
@@ -272,45 +286,60 @@ export class NoteProcessor {
    * Retry decoding the given deferred notes because we now have the contract code.
    *
    * @param deferredNoteDaos - notes that we have previously deferred because the contract was not found
-   * @returns An array of incoming notes that were successfully decoded.
+   * @returns An object containing arrays of incoming and outgoing notes that were successfully decoded.
    *
    * @remarks Caller is responsible for making sure that we have the contract for the
    * deferred notes provided: we will not retry notes that fail again.
    */
-  public async decodeDeferredNotes(deferredNoteDaos: DeferredNoteDao[]): Promise<IncomingNoteDao[]> {
+  public async decodeDeferredNotes(deferredNoteDaos: DeferredNoteDao[]): Promise<{
+    incomingNotes: IncomingNoteDao[];
+    outgoingNotes: OutgoingNoteDao[];
+  }> {
     const excludedIndices: Set<number> = new Set();
     const incomingNotes: IncomingNoteDao[] = [];
+    const outgoingNotes: OutgoingNoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
-      const { ivpkM, note, contractAddress, storageSlot, noteTypeId, txHash, newNoteHashes, dataStartIndexForTx } =
+      const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, noteHashes, dataStartIndexForTx } =
         deferredNote;
       const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
-      if (!ivpkM.equals(this.ivpkM)) {
-        // The note is not for this account, so we skip it.
+      const isIncoming = publicKey.equals(this.ivpkM);
+      const isOutgoing = publicKey.equals(this.ovpkM);
+
+      if (!isIncoming && !isOutgoing) {
+        // The note does not belong to this note processor
         continue;
       }
 
-      const { incomingNote } = await produceNoteDaos(
+      const { incomingNote, outgoingNote } = await produceNoteDaos(
         this.simulator,
-        this.ivpkM,
-        undefined,
+        isIncoming ? this.ivpkM : undefined,
+        isOutgoing ? this.ovpkM : undefined,
         payload,
         txHash,
-        newNoteHashes,
+        noteHashes,
         dataStartIndexForTx,
         excludedIndices,
         this.log,
       );
 
-      if (!incomingNote) {
-        throw new Error('Deferred note could not be decoded.');
+      if (isIncoming) {
+        if (!incomingNote) {
+          throw new Error('Deferred incoming note could not be decoded');
+        }
+        incomingNotes.push(incomingNote);
+        this.stats.decryptedIncoming++;
       }
-
-      incomingNotes.push(incomingNote);
-      this.stats.decryptedIncoming++;
+      if (outgoingNote) {
+        if (!outgoingNote) {
+          throw new Error('Deferred outgoing note could not be decoded');
+        }
+        outgoingNotes.push(outgoingNote);
+        this.stats.decryptedOutgoing++;
+      }
     }
 
-    return incomingNotes;
+    return { incomingNotes, outgoingNotes };
   }
 }

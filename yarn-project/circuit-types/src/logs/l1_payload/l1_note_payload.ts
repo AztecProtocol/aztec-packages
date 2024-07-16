@@ -1,4 +1,5 @@
-import { AztecAddress, type GrumpkinPrivateKey, type KeyValidationRequest, type PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, type GrumpkinScalar, type KeyValidationRequest, type PublicKey } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -28,7 +29,7 @@ export class L1NotePayload extends L1Payload {
     /**
      * Type identifier for the underlying note, required to determine how to compute its hash and nullifier.
      */
-    public noteTypeId: Fr,
+    public noteTypeId: NoteSelector,
   ) {
     super();
   }
@@ -44,7 +45,7 @@ export class L1NotePayload extends L1Payload {
       reader.readObject(Note),
       reader.readObject(AztecAddress),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readObject(NoteSelector),
     );
   }
 
@@ -62,10 +63,10 @@ export class L1NotePayload extends L1Payload {
    * @returns A random L1NotePayload object.
    */
   static random(contract = AztecAddress.random()) {
-    return new L1NotePayload(Note.random(), contract, Fr.random(), Fr.random());
+    return new L1NotePayload(Note.random(), contract, Fr.random(), NoteSelector.random());
   }
 
-  public encrypt(ephSk: GrumpkinPrivateKey, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
+  public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
     return super._encrypt(
       this.contractAddress,
       ephSk,
@@ -88,7 +89,7 @@ export class L1NotePayload extends L1Payload {
    * @param ivsk - The incoming viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinPrivateKey) {
+  public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
     const reader = BufferReader.asReader(input);
 
@@ -114,7 +115,7 @@ export class L1NotePayload extends L1Payload {
    * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinPrivateKey) {
+  public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
     const reader = BufferReader.asReader(input);
 
