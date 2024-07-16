@@ -22,7 +22,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { makeProof } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
@@ -81,7 +80,7 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [
-        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), makeProof(), []))),
+        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), []))),
         [],
         [],
       ],
@@ -148,7 +147,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -186,7 +185,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -214,7 +213,7 @@ describe('sequencer', () => {
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
-    const doubleSpendNullifier = doubleSpendTx.data.forRollup!.end.newNullifiers[0].toBuffer();
+    const doubleSpendNullifier = doubleSpendTx.data.forRollup!.end.nullifiers[0].toBuffer();
     merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: any) => {
       return Promise.resolve(
         treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
@@ -229,7 +228,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -268,7 +267,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -307,7 +306,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 

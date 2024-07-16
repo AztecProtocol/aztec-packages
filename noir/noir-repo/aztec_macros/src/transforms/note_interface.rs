@@ -100,7 +100,9 @@ pub fn generate_note_interface_impl(module: &mut SortedModule) -> Result<(), Azt
             })
             .collect::<Result<Vec<_>, _>>()?;
         let [note_serialized_len, note_bytes_len]: [_; 2] =
-            note_interface_generics.try_into().unwrap();
+            note_interface_generics.try_into().expect(
+                "NoteInterface must be generic over 2 types, NOTE_FIELDS_LEN and NOTE_BYTES_LEN",
+            );
 
         // Automatically inject the header field if it's not present
         let (header_field_name, _) = if let Some(existing_header) =
@@ -562,7 +564,9 @@ fn generate_note_properties_struct_source(
         .iter()
         .filter_map(|(field_name, _)| {
             if field_name != note_header_field_name {
-                Some(format!("{}: aztec::note::note_getter_options::PropertySelector", field_name))
+                Some(format!(
+                    "{field_name}: dep::aztec::note::note_getter_options::PropertySelector"
+                ))
             } else {
                 None
             }
@@ -667,7 +671,9 @@ fn generate_note_deserialize_content_source(
                     )
                 }
             } else {
-                format!("{}: aztec::note::note_header::NoteHeader::empty()", note_header_field_name)
+                format!(
+                    "{note_header_field_name}: dep::aztec::note::note_header::NoteHeader::empty()"
+                )
             }
         })
         .collect::<Vec<String>>()

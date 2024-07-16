@@ -1,5 +1,3 @@
-
-
 #pragma once
 
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
@@ -9,6 +7,7 @@
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
+
 class AvmComposer {
   public:
     using Flavor = AvmFlavor;

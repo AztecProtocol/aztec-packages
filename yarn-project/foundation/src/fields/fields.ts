@@ -1,3 +1,5 @@
+import { BarretenbergSync } from '@aztec/bb.js';
+
 import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
@@ -170,11 +172,12 @@ function random<T extends BaseField>(f: DerivedField<T>): T {
  */
 function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
   const withoutPrefix = buf.replace(/^0x/i, '');
-  const buffer = Buffer.from(withoutPrefix, 'hex');
-
-  if (buffer.length === 0 && withoutPrefix.length > 0) {
+  const checked = withoutPrefix.match(/^[0-9A-F]+$/i)?.[0];
+  if (checked === undefined) {
     throw new Error(`Invalid hex-encoded string: "${buf}"`);
   }
+
+  const buffer = Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
 
   return new f(buffer);
 }
@@ -189,11 +192,14 @@ export interface Fr {
 
 /**
  * Fr field class.
+ * @dev This class is used to represent elements of BN254 scalar field or elements in the base field of Grumpkin.
+ * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
 export class Fr extends BaseField {
   static ZERO = new Fr(0n);
   static ONE = new Fr(1n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
+  static MAX_FIELD_VALUE = new Fr(this.MODULUS - 1n);
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
     super(value);
@@ -227,6 +233,11 @@ export class Fr extends BaseField {
     return fromBufferReduce(buffer, Fr);
   }
 
+  /**
+   * Creates a Fr instance from a hex string.
+   * @param buf - a hex encoded string.
+   * @returns the Fr instance
+   */
   static fromString(buf: string) {
     return fromHexString(buf, Fr);
   }
@@ -272,6 +283,25 @@ export class Fr extends BaseField {
     return new Fr(this.toBigInt() / rhs.toBigInt());
   }
 
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  sqrt(): Fr | null {
+    const wasm = BarretenbergSync.getSingleton().getWasm();
+    wasm.writeMemory(0, this.toBuffer());
+    wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
+    const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
+    const isSqrt = isSqrtBuf[0] === 1;
+    if (!isSqrt) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+
+    const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1));
+    return Fr.fromBuffer(rootBuf);
+  }
+
   toJSON() {
     return {
       type: 'Fr',
@@ -293,6 +323,8 @@ export interface Fq {
 
 /**
  * Fq field class.
+ * @dev This class is used to represent elements of BN254 base field or elements in the scalar field of Grumpkin.
+ * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
 export class Fq extends BaseField {
   static ZERO = new Fq(0n);
@@ -304,11 +336,11 @@ export class Fq extends BaseField {
     return `Fq<${this.toString()}>`;
   }
 
-  get low(): Fr {
+  get lo(): Fr {
     return new Fr(this.toBigInt() & Fq.LOW_MASK);
   }
 
-  get high(): Fr {
+  get hi(): Fr {
     return new Fr(this.toBigInt() >> Fq.HIGH_SHIFT);
   }
 
@@ -336,6 +368,11 @@ export class Fq extends BaseField {
     return fromBufferReduce(buffer, Fq);
   }
 
+  /**
+   * Creates a Fq instance from a hex string.
+   * @param buf - a hex encoded string.
+   * @returns the Fq instance
+   */
   static fromString(buf: string) {
     return fromHexString(buf, Fq);
   }

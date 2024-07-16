@@ -1,6 +1,5 @@
-
-
 #pragma once
+
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -12,7 +11,6 @@
 namespace bb {
 
 class AvmProver {
-
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
     using PCS = Flavor::PCS;
@@ -31,6 +29,7 @@ class AvmProver {
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_log_derivative_inverse_round();
+    void execute_log_derivative_inverse_commitments_round();
     void execute_relation_check_rounds();
     void execute_pcs_rounds();
 

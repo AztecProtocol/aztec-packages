@@ -96,7 +96,8 @@ export class TXE implements TypedOracle {
   ) {
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
     this.contractAddress = AztecAddress.random();
-    this.msgSender = AztecAddress.fromField(new Fr(0));
+    // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
+    this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
   }
 
   // Utils
@@ -111,6 +112,10 @@ export class TXE implements TypedOracle {
 
   getMsgSender() {
     return this.msgSender;
+  }
+
+  getFunctionSelector() {
+    return this.functionSelector;
   }
 
   setMsgSender(msgSender: Fr) {
@@ -175,7 +180,6 @@ export class TXE implements TypedOracle {
     inputs.historicalHeader.state = stateReference;
     inputs.callContext.msgSender = this.msgSender;
     inputs.callContext.storageContractAddress = this.contractAddress;
-    inputs.callContext.sideEffectCounter = sideEffectsCounter;
     inputs.callContext.isStaticCall = isStaticCall;
     inputs.callContext.isDelegateCall = isDelegateCall;
     inputs.startSideEffectCounter = sideEffectsCounter;
@@ -185,11 +189,10 @@ export class TXE implements TypedOracle {
 
   getPublicContextInputs() {
     const inputs = {
-      functionSelector: FunctionSelector.fromField(new Fr(0)),
       argsHash: new Fr(0),
       isStaticCall: false,
       toFields: function () {
-        return [this.functionSelector.toField(), this.argsHash, new Fr(this.isStaticCall)];
+        return [this.argsHash, new Fr(this.isStaticCall)];
       },
     };
     return inputs;
@@ -434,13 +437,40 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
+  async avmOpcodeStorageRead(slot: Fr, length: Fr) {
+    const db = this.trees.asLatest();
+
+    const result = [];
+
+    for (let i = 0; i < length.toNumber(); i++) {
+      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot.add(new Fr(i))).toBigInt();
+
+      const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+      if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+        result.push(Fr.ZERO);
+        continue;
+      }
+
+      const preimage = (await db.getLeafPreimage(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        lowLeafResult.index,
+      )) as PublicDataTreeLeafPreimage;
+
+      result.push(preimage.value);
+    }
+    return result;
+  }
+
   async storageRead(
     contractAddress: Fr,
     startStorageSlot: Fr,
-    blockNumber: number, // TODO(#7230): use block number
+    blockNumber: number,
     numberOfElements: number,
   ): Promise<Fr[]> {
-    const db = this.trees.asLatest();
+    const db =
+      blockNumber === (await this.getBlockNumber())
+        ? this.trees.asLatest()
+        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
 
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
@@ -587,12 +617,12 @@ export class TXE implements TypedOracle {
 
       await this.addNullifiers(
         targetContractAddress,
-        publicInputs.newNullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
+        publicInputs.nullifiers.filter(nullifier => !nullifier.isEmpty()).map(nullifier => nullifier.value),
       );
 
       await this.addNoteHashes(
         targetContractAddress,
-        publicInputs.newNoteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
+        publicInputs.noteHashes.filter(noteHash => !noteHash.isEmpty()).map(noteHash => noteHash.value),
       );
 
       return callStackItem;
@@ -690,8 +720,7 @@ export class TXE implements TypedOracle {
       Gas.test(),
       TxContext.empty(),
       /* pendingNullifiers */ [],
-      /* transactionFee */ Fr.ZERO,
-      callContext.sideEffectCounter,
+      /* transactionFee */ Fr.ONE,
     );
   }
 
@@ -713,7 +742,6 @@ export class TXE implements TypedOracle {
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;
     callContext.functionSelector = this.functionSelector;
-    callContext.sideEffectCounter = this.sideEffectsCounter;
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
     callContext.isDelegateCall = isDelegateCall;
@@ -755,7 +783,6 @@ export class TXE implements TypedOracle {
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;
     callContext.functionSelector = this.functionSelector;
-    callContext.sideEffectCounter = sideEffectCounter;
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
     callContext.isDelegateCall = isDelegateCall;
@@ -797,7 +824,6 @@ export class TXE implements TypedOracle {
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;
     callContext.functionSelector = this.functionSelector;
-    callContext.sideEffectCounter = sideEffectCounter;
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
     callContext.isDelegateCall = isDelegateCall;
@@ -820,7 +846,6 @@ export class TXE implements TypedOracle {
     const parentCallContext = CallContext.empty();
     parentCallContext.msgSender = currentMessageSender;
     parentCallContext.functionSelector = currentFunctionSelector;
-    parentCallContext.sideEffectCounter = sideEffectCounter;
     parentCallContext.storageContractAddress = currentContractAddress;
     parentCallContext.isStaticCall = isStaticCall;
     parentCallContext.isDelegateCall = isDelegateCall;
@@ -830,19 +855,29 @@ export class TXE implements TypedOracle {
       contractAddress: targetContractAddress,
       functionSelector,
       callContext,
+      sideEffectCounter,
       args,
     });
   }
 
   setPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+    isStaticCall: boolean,
+    isDelegateCall: boolean,
   ): Promise<PublicCallRequest> {
-    throw new Error('Method not implemented.');
+    // Definitely not right, in that the teardown should always be last.
+    // But useful for executing flows.
+    return this.enqueuePublicFunctionCall(
+      targetContractAddress,
+      functionSelector,
+      argsHash,
+      sideEffectCounter,
+      isStaticCall,
+      isDelegateCall,
+    );
   }
 
   aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {

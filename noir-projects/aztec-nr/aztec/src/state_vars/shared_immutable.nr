@@ -23,14 +23,9 @@ impl<T, Context> SharedImmutable<T, Context> {
     }
 }
 
-impl<T> SharedImmutable<T, &mut PublicContext> {
+impl<T, T_SERIALIZED_LEN> SharedImmutable<T, &mut PublicContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
     // Intended to be only called once. 
-    pub fn initialize<T_SERIALIZED_LEN>(self, value: T) where T: Serialize<T_SERIALIZED_LEN> {
-        // TODO(#4738): Uncomment the following assert
-        // assert(
-        //     self.context.public.unwrap_unchecked().is_deployment(), "SharedImmutable can only be initialized during contract deployment"
-        // );
-
+    pub fn initialize(self, value: T) {
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
         let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot;
         let init_field: Field = self.context.storage_read(initialization_slot);
@@ -41,19 +36,19 @@ impl<T> SharedImmutable<T, &mut PublicContext> {
         self.context.storage_write(self.storage_slot, value);
     }
 
-    pub fn read_public<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
+    pub fn read_public(self) -> T {
         self.context.storage_read(self.storage_slot)
     }
 }
 
-impl<T> SharedImmutable<T, UnconstrainedContext> {
-    unconstrained pub fn read_public<T_SERIALIZED_LEN>(self) -> T where T: Deserialize<T_SERIALIZED_LEN> {
+impl<T, T_SERIALIZED_LEN> SharedImmutable<T, UnconstrainedContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
+    unconstrained pub fn read_public(self) -> T {
         self.context.storage_read(self.storage_slot)
     }
 }
 
-impl<T> SharedImmutable<T, &mut PrivateContext> {
-    pub fn read_private<T_SERIALIZED_LEN>(self) -> T  where T: Deserialize<T_SERIALIZED_LEN> {
+impl<T, T_SERIALIZED_LEN> SharedImmutable<T, &mut PrivateContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
+    pub fn read_private(self) -> T {
         let header = self.context.get_header();
         let mut fields = [0; T_SERIALIZED_LEN];
 

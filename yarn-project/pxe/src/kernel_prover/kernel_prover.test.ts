@@ -1,24 +1,21 @@
-import { Note, type ProofCreator } from '@aztec/circuit-types';
+import { Note, type PrivateKernelProver } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
   MembershipWitness,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   NoteHash,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
-  RECURSIVE_PROOF_LENGTH,
   ScopedNoteHash,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   VerificationKeyAsFields,
-  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { NoteSelector } from '@aztec/foundation/abi';
@@ -35,7 +32,7 @@ import { type ProvingDataOracle } from './proving_data_oracle.js';
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
-  let proofCreator: ReturnType<typeof mock<ProofCreator>>;
+  let proofCreator: ReturnType<typeof mock<PrivateKernelProver>>;
   let prover: KernelProver;
   let dependencies: { [name: string]: string[] } = {};
 
@@ -56,8 +53,8 @@ describe('Kernel Prover', () => {
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.newNoteHashes = makeTuple(
-      MAX_NEW_NOTE_HASHES_PER_CALL,
+    publicInputs.noteHashes = makeTuple(
+      MAX_NOTE_HASHES_PER_CALL,
       i =>
         i < newNoteIndices.length
           ? new NoteHash(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), 0)
@@ -84,59 +81,57 @@ describe('Kernel Prover', () => {
     };
   };
 
-  const createProofOutput = (newNoteIndices: number[]) => {
+  const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
+    const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
       noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
-        0,
         contractAddress,
       );
     }
 
-    publicInputs.end.newNoteHashes = noteHashes;
+    publicInputs.end.noteHashes = noteHashes;
     return {
       publicInputs,
-      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
+      outputWitness: new Map(),
     };
   };
 
-  const createProofOutputFinal = (newNoteIndices: number[]) => {
+  const simulateProofOutputFinal = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => Fr.ZERO);
+    const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, () => Fr.ZERO);
     for (let i = 0; i < newNoteIndices.length; i++) {
       noteHashes[i] = generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]);
     }
-    publicInputs.forRollup!.end.newNoteHashes = noteHashes;
+    publicInputs.forRollup!.end.noteHashes = noteHashes;
 
     return {
       publicInputs,
-      proof: makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
+      outputWitness: new Map(),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
-  const createAppCircuitProofOutput = () => {
+  const computeAppCircuitVerificationKeyOutput = () => {
     return {
-      proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
       verificationKey: VerificationKeyAsFields.makeEmpty(),
     };
   };
 
   const expectExecution = (fns: string[]) => {
-    const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(args =>
+    const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
     );
-    const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(args =>
+    const callStackItemsInner = proofCreator.simulateProofInner.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.callStackItem.functionData.selector.value),
     );
 
-    expect(proofCreator.createProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
-    expect(proofCreator.createProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
+    expect(proofCreator.simulateProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
+    expect(proofCreator.simulateProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
     expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
-    proofCreator.createProofInner.mockClear();
-    proofCreator.createProofInit.mockClear();
+    proofCreator.simulateProofInner.mockClear();
+    proofCreator.simulateProofInit.mockClear();
   };
 
   const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
@@ -159,15 +154,15 @@ describe('Kernel Prover', () => {
       privateFunctionsRoot: Fr.random(),
     });
 
-    proofCreator = mock<ProofCreator>();
+    proofCreator = mock<PrivateKernelProver>();
     proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
-      Promise.resolve(publicInputs.newNoteHashes.map(com => createFakeSiloedCommitment(com.value))),
+      Promise.resolve(publicInputs.noteHashes.map(com => createFakeSiloedCommitment(com.value))),
     );
-    proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
-    proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));
-    proofCreator.createProofReset.mockResolvedValue(createProofOutput([]));
-    proofCreator.createProofTail.mockResolvedValue(createProofOutputFinal([]));
-    proofCreator.createAppCircuitProof.mockResolvedValue(createAppCircuitProofOutput());
+    proofCreator.simulateProofInit.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateProofInner.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateProofReset.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateProofTail.mockResolvedValue(simulateProofOutputFinal([]));
+    proofCreator.computeAppCircuitVerificationKey.mockResolvedValue(computeAppCircuitVerificationKeyOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });

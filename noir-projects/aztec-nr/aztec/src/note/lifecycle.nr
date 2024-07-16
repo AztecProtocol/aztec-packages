@@ -1,4 +1,3 @@
-use dep::protocol_types::grumpkin_point::GrumpkinPoint;
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
@@ -30,7 +29,7 @@ pub fn create_note<Note, N, M>(
         == 0
     );
 
-    context.push_new_note_hash(inner_note_hash);
+    context.push_note_hash(inner_note_hash);
 
     NoteEmission::new(*note)
 }
@@ -46,7 +45,7 @@ pub fn create_note_hash_from_public<Note, N, M>(
     note.set_header(header);
     let inner_note_hash = compute_inner_note_hash(*note);
 
-    context.push_new_note_hash(inner_note_hash);
+    context.push_note_hash(inner_note_hash);
 }
 
 pub fn destroy_note<Note, N, M>(
@@ -71,5 +70,5 @@ pub fn destroy_note<Note, N, M>(
     let nullifier_counter = context.side_effect_counter;
     assert(notify_nullified_note(nullifier, note_hash_for_consumption, nullifier_counter) == 0);
 
-    context.push_new_nullifier(nullifier, note_hash_for_consumption)
+    context.push_nullifier(nullifier, note_hash_for_consumption)
 }

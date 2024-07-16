@@ -1,13 +1,13 @@
 use dep::protocol_types::{
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, grumpkin_point::GrumpkinPoint, traits::Deserialize
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
-use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext, PrivateVoidCallInterface};
 use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer, TestAccount}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::{hash_args, hash_args_array};
@@ -30,6 +30,14 @@ impl TestEnvironment {
         cheatcodes::get_block_number()
     }
 
+    fn contract_address(self) -> AztecAddress {
+        cheatcodes::get_contract_address()
+    }
+
+    fn impersonate(self, address: AztecAddress) {
+        cheatcodes::set_contract_address(address)
+    }
+
     fn advance_block_to(&mut self, block_number: u32) {
         let difference = block_number - cheatcodes::get_block_number();
         self.advance_block_by(difference);
@@ -40,11 +48,17 @@ impl TestEnvironment {
     }
 
     fn public(self) -> PublicContext {
-        PublicContext::empty()
+        let mut inputs = cheatcodes::get_public_context_inputs();
+        PublicContext::new(inputs)
     }
 
     fn private(&mut self) -> PrivateContext {
         self.private_at(cheatcodes::get_block_number())
+    }
+
+    // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
+    fn unkonstrained(self) -> UnconstrainedContext {
+        UnconstrainedContext::new()
     }
 
     fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
@@ -159,16 +173,19 @@ impl TestEnvironment {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = cheatcodes::get_contract_address();
+        let original_fn_selector = cheatcodes::get_function_selector();
         let target_address = call_interface.get_contract_address();
+        let fn_selector = call_interface.get_selector();
 
+        cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.selector = call_interface.get_selector().to_field();
         inputs.args_hash = hash_args(call_interface.get_args());
         inputs.is_static_call = call_interface.get_is_static();
         let result = original_fn(inputs);
 
+        cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
         result

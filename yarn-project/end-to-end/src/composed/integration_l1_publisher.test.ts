@@ -22,22 +22,20 @@ import {
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  type Proof,
   PublicDataUpdateRequest,
-  getMockVerificationKeys,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -89,7 +87,6 @@ describe('L1Publisher integration', () => {
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
-  let l2Proof: Proof;
 
   let builder: TxProver;
   let builderDb: MerkleTrees;
@@ -99,7 +96,7 @@ describe('L1Publisher integration', () => {
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
+  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
@@ -143,19 +140,19 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       l2QueueSize: 10,
+      worldStateProvenBlocksOnly: false,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, getMockVerificationKeys(), worldStateSynchronizer, new NoopTelemetryClient());
-    l2Proof = makeEmptyProof();
+    builder = await TxProver.new(config, worldStateSynchronizer, new NoopTelemetryClient());
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
-      apiKey: '',
       requiredConfirmations: 1,
       l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
       l1BlockPublishRetryIntervalMS: 100,
+      l1ChainId: 31337,
     });
 
     coinbase = config.coinbase || EthAddress.random();
@@ -165,7 +162,12 @@ describe('L1Publisher integration', () => {
   });
 
   const makeEmptyProcessedTx = () => {
-    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
+    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(
+      prevHeader,
+      new Fr(chainId),
+      new Fr(config.version),
+      getVKTreeRoot(),
+    );
     return tx;
   };
 
@@ -174,6 +176,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
+    kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -181,14 +184,13 @@ describe('L1Publisher integration', () => {
       seed + 0x500,
     );
 
-    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+    const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
-    processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100);
-    processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
-    processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-    processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+    processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
+    processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
+    processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
+    processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
@@ -262,7 +264,7 @@ describe('L1Publisher integration', () => {
           contentCommitment: {
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
-            txTreeHeight: Number(block.header.contentCommitment.txTreeHeight.toBigInt()),
+            numTxs: Number(block.header.contentCommitment.numTxs),
             txsEffectsHash: `0x${block.header.contentCommitment.txsEffectsHash.toString('hex').padStart(64, '0')}`,
           },
           globalVariables: {
@@ -370,12 +372,12 @@ describe('L1Publisher integration', () => {
       }
 
       // Ensure that each transaction has unique (non-intersecting nullifier values)
-      const totalNullifiersPerBlock = 4 * MAX_NEW_NULLIFIERS_PER_TX;
+      const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
       const txs = [
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
       ];
 
       const globalVariables = new GlobalVariables(
@@ -396,7 +398,7 @@ describe('L1Publisher integration', () => {
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+      const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
       const [emptyRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
 
@@ -405,7 +407,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], l2Proof);
+      await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -425,12 +427,7 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x`, // empty aggregation object
-          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
-        ],
+        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
       });
       expect(ethTx.input).toEqual(expectedData);
 
@@ -439,7 +436,7 @@ describe('L1Publisher integration', () => {
       expect(newToConsume).toEqual(toConsume + 1n);
       toConsume = newToConsume;
 
-      const treeHeight = Math.ceil(Math.log2(newL2ToL1MsgsArray.length));
+      const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
 
       const tree = new StandardTree(
         openTmpStore(true),
@@ -449,7 +446,7 @@ describe('L1Publisher integration', () => {
         0n,
         Fr,
       );
-      await tree.appendLeaves(newL2ToL1MsgsArray);
+      await tree.appendLeaves(l2ToL1MsgsArray);
 
       const expectedRoot = tree.getRoot(true);
       const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
@@ -484,6 +481,7 @@ describe('L1Publisher integration', () => {
         GasFees.empty(),
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
+      await builder.setBlockCompleted();
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
@@ -494,7 +492,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], l2Proof);
+      await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -514,12 +512,7 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x`, // empty aggregation object
-          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
-        ],
+        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
       });
       expect(ethTx.input).toEqual(expectedData);
     }

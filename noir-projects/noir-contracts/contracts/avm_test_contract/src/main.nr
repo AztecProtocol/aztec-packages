@@ -24,11 +24,11 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul};
+    use std::embedded_curve_ops::multi_scalar_mul;
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
+    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH, point::Point, scalar::Scalar};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::context::gas::GasOpts;
@@ -136,8 +136,8 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn elliptic_curve_add_and_double() -> EmbeddedCurvePoint {
-        let g = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+    fn elliptic_curve_add_and_double() -> Point {
+        let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -145,10 +145,10 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn variable_base_msm() -> [Field; 3] {
-        let g = EmbeddedCurvePoint { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
-        let scalar = EmbeddedCurveScalar { lo: 3, hi: 0 };
-        let scalar2 = EmbeddedCurveScalar { lo: 20, hi: 0 };
+    fn variable_base_msm() -> Point {
+        let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
+        let scalar = Scalar { lo: 3, hi: 0 };
+        let scalar2 = Scalar { lo: 20, hi: 0 };
         let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
         triple_g
     }
@@ -273,13 +273,8 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn get_fee_per_l2_gas() -> Field {
-        context.fee_per_l2_gas()
-    }
-
-    #[aztec(public)]
-    fn get_fee_per_da_gas() -> Field {
-        context.fee_per_da_gas()
+    fn get_function_selector() -> FunctionSelector {
+        context.selector()
     }
 
     #[aztec(public)]
@@ -305,6 +300,16 @@ contract AvmTest {
     #[aztec(public)]
     fn get_timestamp() -> u64 {
         context.timestamp()
+    }
+
+    #[aztec(public)]
+    fn get_fee_per_l2_gas() -> Field {
+        context.fee_per_l2_gas()
+    }
+
+    #[aztec(public)]
+    fn get_fee_per_da_gas() -> Field {
+        context.fee_per_da_gas()
     }
 
     #[aztec(public)]
@@ -351,13 +356,13 @@ contract AvmTest {
     // Use the standard context interface to emit a new note hash
     #[aztec(public)]
     fn new_note_hash(note_hash: Field) {
-        context.push_new_note_hash(note_hash);
+        context.push_note_hash(note_hash);
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn new_nullifier(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // Use the standard context interface to check for a nullifier
@@ -374,7 +379,7 @@ contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn emit_nullifier_and_check(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         let exists = context.nullifier_exists(nullifier, context.storage_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
@@ -382,9 +387,9 @@ contract AvmTest {
     // Create the same nullifier twice (shouldn't work!)
     #[aztec(public)]
     fn nullifier_collision(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         // Can't do this twice!
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     #[aztec(public)]
@@ -430,13 +435,13 @@ contract AvmTest {
 
     #[aztec(public)]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
     #[aztec(public)]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 

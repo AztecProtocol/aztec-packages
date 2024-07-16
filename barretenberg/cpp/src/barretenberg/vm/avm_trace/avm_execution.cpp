@@ -11,9 +11,9 @@
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/avm_trace/stats.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
-#include "barretenberg/vm/generated/avm_flavor.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -65,7 +65,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
 
     std::vector<FF> returndata;
-    auto trace = gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    std::vector<Row> trace;
+    AVM_TRACK_TIME("prove/gen_trace",
+                   (trace = gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints)));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -73,16 +75,19 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    circuit_builder.check_circuit();
+    AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
 
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
 
-    // Proof structure: public_inputs | calldata_size | calldata | raw proof
+    vinfo("------- PROVING EXECUTION -------");
+    // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
     HonkProof proof(public_inputs_vec);
     proof.emplace_back(calldata.size());
     proof.insert(proof.end(), calldata.begin(), calldata.end());
+    proof.emplace_back(returndata.size());
+    proof.insert(proof.end(), returndata.begin(), returndata.end());
     auto raw_proof = prover.construct_proof();
     proof.insert(proof.end(), raw_proof.begin(), raw_proof.end());
     // TODO(#4887): Might need to return PCS vk when full verify is supported
@@ -133,19 +138,21 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
     std::array<FF, KERNEL_INPUTS_LENGTH>& kernel_inputs = std::get<KERNEL_INPUTS>(public_inputs);
 
-    // Copy the call context items
-    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR];                   // Sender
-    kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
+    // Copy items from PublicCircuitPublicInputs vector to public input columns
+    // PublicCircuitPublicInputs - CallContext
+    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR]; // Sender
+    // NOTE: address has same position as storage address (they are the same for now...)
+    // kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
     kernel_inputs[STORAGE_ADDRESS_SELECTOR] = public_inputs_vec[STORAGE_ADDRESS_SELECTOR]; // Storage Address
+    kernel_inputs[FUNCTION_SELECTOR_SELECTOR] = public_inputs_vec[FUNCTION_SELECTOR_SELECTOR];
 
-    // Global variables
+    // PublicCircuitPublicInputs - GlobalVariables
     kernel_inputs[CHAIN_ID_SELECTOR] = public_inputs_vec[CHAIN_ID_OFFSET];         // Chain ID
     kernel_inputs[VERSION_SELECTOR] = public_inputs_vec[VERSION_OFFSET];           // Version
     kernel_inputs[BLOCK_NUMBER_SELECTOR] = public_inputs_vec[BLOCK_NUMBER_OFFSET]; // Block Number
     kernel_inputs[TIMESTAMP_SELECTOR] = public_inputs_vec[TIMESTAMP_OFFSET];       // Timestamp
     kernel_inputs[COINBASE_SELECTOR] = public_inputs_vec[COINBASE_OFFSET];         // Coinbase
-
-    // Fees
+    // PublicCircuitPublicInputs - GlobalVariables - GasFees
     kernel_inputs[FEE_PER_DA_GAS_SELECTOR] = public_inputs_vec[FEE_PER_DA_GAS_OFFSET];
     kernel_inputs[FEE_PER_L2_GAS_SELECTOR] = public_inputs_vec[FEE_PER_L2_GAS_OFFSET];
 
@@ -163,7 +170,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     // We copy each type of the kernel outputs into their respective columns, each has differeing lengths / data
     // For NOTEHASHEXISTS
     for (size_t i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
+        size_t dest_offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NOTE_HASH_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -171,7 +178,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For NULLIFIEREXISTS
     for (size_t i = 0; i < MAX_NULLIFIER_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_NULLIFIER_EXISTS_OFFSET + i;
+        size_t dest_offset = START_NULLIFIER_EXISTS_OFFSET + i;
         size_t pcpi_offset = PCPI_NULLIFIER_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -180,7 +187,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For NULLIFIEREXISTS - non existent
     for (size_t i = 0; i < MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_NULLIFIER_NON_EXISTS_OFFSET + i;
+        size_t dest_offset = START_NULLIFIER_NON_EXISTS_OFFSET + i;
         size_t pcpi_offset = PCPI_NULLIFIER_NON_EXISTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -189,7 +196,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For L1TOL2MSGEXISTS
     for (size_t i = 0; i < MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + i;
+        size_t dest_offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_L1_TO_L2_MSG_READ_REQUESTS_OFFSET + (i * READ_REQUEST_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -197,7 +204,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For SSTORE
     for (size_t i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_SSTORE_WRITE_OFFSET + i;
+        size_t dest_offset = START_SSTORE_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_PUBLIC_DATA_UPDATE_OFFSET + (i * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH);
 
         // slot, value, side effect
@@ -207,7 +214,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For SLOAD
     for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_SLOAD_WRITE_OFFSET + i;
+        size_t dest_offset = START_SLOAD_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_PUBLIC_DATA_READ_OFFSET + (i * CONTRACT_STORAGE_READ_LENGTH);
 
         // slot, value, side effect
@@ -216,24 +223,24 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
     // For EMITNOTEHASH
-    for (size_t i = 0; i < MAX_NEW_NOTE_HASHES_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_NOTE_HASH_WRITE_OFFSET + i;
+    for (size_t i = 0; i < MAX_NOTE_HASHES_PER_CALL; i++) {
+        size_t dest_offset = START_EMIT_NOTE_HASH_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_NOTE_HASHES_OFFSET + (i * NOTE_HASH_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
     }
     // For EMITNULLIFIER
-    for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_NULLIFIER_WRITE_OFFSET + i;
+    for (size_t i = 0; i < MAX_NULLIFIERS_PER_CALL; i++) {
+        size_t dest_offset = START_EMIT_NULLIFIER_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_NULLIFIERS_OFFSET + (i * NULLIFIER_LENGTH);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
     }
     // For EMITL2TOL1MSG
-    for (size_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_L2_TO_L1_MSG_WRITE_OFFSET + i;
+    for (size_t i = 0; i < MAX_L2_TO_L1_MSGS_PER_CALL; i++) {
+        size_t dest_offset = START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_L2_TO_L1_MSGS_OFFSET + (i * L2_TO_L1_MESSAGE_LENGTH);
 
         // Note: unorthadox order
@@ -243,7 +250,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     }
     // For EMITUNENCRYPTEDLOG
     for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
-        size_t dest_offset = AvmKernelTraceBuilder::START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
+        size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
         size_t pcpi_offset = PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 2);
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
@@ -263,23 +270,28 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // crs_factory_);
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
-    // Proof structure: public_inputs | calldata_size | calldata | raw proof
+    // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
     std::vector<FF> public_inputs_vec;
     std::vector<FF> calldata;
+    std::vector<FF> returndata;
     std::vector<FF> raw_proof;
 
     // This can be made nicer using BB's serialize::read, probably.
     const auto public_inputs_offset = proof.begin();
     const auto calldata_size_offset = public_inputs_offset + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
     const auto calldata_offset = calldata_size_offset + 1;
-    const auto raw_proof_offset = calldata_offset + static_cast<int64_t>(uint64_t(*calldata_size_offset));
+    const auto returndata_size_offset = calldata_offset + static_cast<int64_t>(uint64_t(*calldata_size_offset));
+    const auto returndata_offset = returndata_size_offset + 1;
+    const auto raw_proof_offset = returndata_offset + static_cast<int64_t>(uint64_t(*returndata_size_offset));
 
     std::copy(public_inputs_offset, calldata_size_offset, std::back_inserter(public_inputs_vec));
-    std::copy(calldata_offset, raw_proof_offset, std::back_inserter(calldata));
+    std::copy(calldata_offset, returndata_size_offset, std::back_inserter(calldata));
+    std::copy(returndata_offset, raw_proof_offset, std::back_inserter(returndata));
     std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs, calldata);
+    std::vector<std::vector<FF>> public_inputs_columns =
+        copy_public_inputs_columns(public_inputs, calldata, returndata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
 }
 
@@ -356,12 +368,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-        case OpCode::FDIV:
-            trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
-                                  std::get<uint32_t>(inst.operands.at(1)),
-                                  std::get<uint32_t>(inst.operands.at(2)),
-                                  std::get<uint32_t>(inst.operands.at(3)));
-            break;
         case OpCode::DIV:
             trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
@@ -369,6 +375,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
+        case OpCode::FDIV:
+            trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint32_t>(inst.operands.at(1)),
+                                  std::get<uint32_t>(inst.operands.at(2)),
+                                  std::get<uint32_t>(inst.operands.at(3)));
+            break;
+
         // Compute - Comparators
         case OpCode::EQ:
             trace_builder.op_eq(std::get<uint8_t>(inst.operands.at(0)),
@@ -391,14 +404,8 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-        // Compute - Bitwise
-        case OpCode::NOT:
-            trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(2)),
-                                 std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
-            break;
 
+        // Compute - Bitwise
         case OpCode::AND:
             trace_builder.op_and(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
@@ -413,9 +420,21 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                 std::get<uint32_t>(inst.operands.at(4)),
                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-
         case OpCode::XOR:
             trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::NOT:
+            trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHL:
+            trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
                                  std::get<uint32_t>(inst.operands.at(4)),
@@ -428,13 +447,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-        case OpCode::SHL:
-            trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(2)),
-                                 std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<uint32_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
-            break;
+
             // Compute - Type Conversions
         case OpCode::CAST:
             trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
@@ -442,24 +455,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(3)),
                                   std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-            // Execution Environment - Calldata
-        case OpCode::CALLDATACOPY:
-            trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
-                                           std::get<uint32_t>(inst.operands.at(1)),
-                                           std::get<uint32_t>(inst.operands.at(2)),
-                                           std::get<uint32_t>(inst.operands.at(3)));
-            break;
-        // Machine State - Gas
-        case OpCode::L2GASLEFT:
-            trace_builder.op_l2gasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::DAGASLEFT:
-            trace_builder.op_dagasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
-        case OpCode::SENDER:
-            trace_builder.op_sender(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
+
+            // Execution Environment
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
         case OpCode::ADDRESS:
             trace_builder.op_address(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
@@ -467,18 +465,19 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_storage_address(std::get<uint8_t>(inst.operands.at(0)),
                                              std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::FEEPERL2GAS:
-            trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+        case OpCode::SENDER:
+            trace_builder.op_sender(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::FEEPERDAGAS:
-            trace_builder.op_fee_per_da_gas(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+        case OpCode::FUNCTIONSELECTOR:
+            trace_builder.op_function_selector(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::TRANSACTIONFEE:
             trace_builder.op_transaction_fee(std::get<uint8_t>(inst.operands.at(0)),
                                              std::get<uint32_t>(inst.operands.at(1)));
             break;
+
+            // Execution Environment - Globals
         case OpCode::CHAINID:
             trace_builder.op_chain_id(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
@@ -489,68 +488,37 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             trace_builder.op_block_number(std::get<uint8_t>(inst.operands.at(0)),
                                           std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::COINBASE:
-            trace_builder.op_coinbase(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
         case OpCode::TIMESTAMP:
             trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::NOTEHASHEXISTS:
-            trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                              std::get<uint32_t>(inst.operands.at(1)),
-                                              // TODO: leaf offset exists
-                                              // std::get<uint32_t>(inst.operands.at(2))
-                                              std::get<uint32_t>(inst.operands.at(3)));
+        case OpCode::COINBASE:
+            trace_builder.op_coinbase(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::EMITNOTEHASH:
-            trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
+        case OpCode::FEEPERL2GAS:
+            trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),
                                             std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::NULLIFIEREXISTS:
-            trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                              std::get<uint32_t>(inst.operands.at(1)),
-                                              // std::get<uint32_t>(inst.operands.at(2))
-                                              /**TODO: Address offset for siloing */
-                                              std::get<uint32_t>(inst.operands.at(3)));
-            break;
-        case OpCode::EMITNULLIFIER:
-            trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
+        case OpCode::FEEPERDAGAS:
+            trace_builder.op_fee_per_da_gas(std::get<uint8_t>(inst.operands.at(0)),
                                             std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::SLOAD:
-            trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
-                                   std::get<uint32_t>(inst.operands.at(1)),
-                                   std::get<uint32_t>(inst.operands.at(2)),
-                                   std::get<uint32_t>(inst.operands.at(3)));
+
+            // Execution Environment - Calldata
+        case OpCode::CALLDATACOPY:
+            trace_builder.op_calldata_copy(std::get<uint8_t>(inst.operands.at(0)),
+                                           std::get<uint32_t>(inst.operands.at(1)),
+                                           std::get<uint32_t>(inst.operands.at(2)),
+                                           std::get<uint32_t>(inst.operands.at(3)));
             break;
-        case OpCode::SSTORE:
-            trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)),
-                                    std::get<uint32_t>(inst.operands.at(3)));
+
+            // Machine State - Gas
+        case OpCode::L2GASLEFT:
+            trace_builder.op_l2gasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::L1TOL2MSGEXISTS:
-            trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
-                                                 std::get<uint32_t>(inst.operands.at(1)),
-                                                 // TODO: leaf offset exists
-                                                 // std::get<uint32_t>(inst.operands.at(2))
-                                                 std::get<uint32_t>(inst.operands.at(3)));
+        case OpCode::DAGASLEFT:
+            trace_builder.op_dagasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::GETCONTRACTINSTANCE:
-            trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
-                                                   std::get<uint32_t>(inst.operands.at(1)),
-                                                   std::get<uint32_t>(inst.operands.at(2)));
-            break;
-        case OpCode::EMITUNENCRYPTEDLOG:
-            trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint32_t>(inst.operands.at(1)),
-                                                  std::get<uint32_t>(inst.operands.at(2)));
-            break;
-        case OpCode::SENDL2TOL1MSG:
-            trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
-                                               std::get<uint32_t>(inst.operands.at(1)),
-                                               std::get<uint32_t>(inst.operands.at(2)));
-            break;
+
             // Machine State - Internal Control Flow
         case OpCode::JUMP:
             trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
@@ -566,6 +534,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::INTERNALRETURN:
             trace_builder.op_internal_return();
             break;
+
             // Machine State - Memory
         case OpCode::SET: {
             uint128_t val = 0;
@@ -607,20 +576,69 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(3)),
                                   std::get<uint32_t>(inst.operands.at(4)));
             break;
-            // Control Flow - Contract Calls
-        case OpCode::RETURN: {
-            auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
+
+            // World State
+        case OpCode::SLOAD:
+            trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
+                                   std::get<uint32_t>(inst.operands.at(1)),
+                                   std::get<uint32_t>(inst.operands.at(2)),
+                                   std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::SSTORE:
+            trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::NOTEHASHEXISTS:
+            trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                              std::get<uint32_t>(inst.operands.at(1)),
+                                              // TODO: leaf offset exists
+                                              // std::get<uint32_t>(inst.operands.at(2))
+                                              std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::EMITNOTEHASH:
+            trace_builder.op_emit_note_hash(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
+            break;
+        case OpCode::NULLIFIEREXISTS:
+            trace_builder.op_nullifier_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                              std::get<uint32_t>(inst.operands.at(1)),
+                                              // std::get<uint32_t>(inst.operands.at(2))
+                                              /**TODO: Address offset for siloing */
+                                              std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::EMITNULLIFIER:
+            trace_builder.op_emit_nullifier(std::get<uint8_t>(inst.operands.at(0)),
+                                            std::get<uint32_t>(inst.operands.at(1)));
+            break;
+
+        case OpCode::L1TOL2MSGEXISTS:
+            trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
+                                                 std::get<uint32_t>(inst.operands.at(1)),
+                                                 // TODO: leaf offset exists
+                                                 // std::get<uint32_t>(inst.operands.at(2))
+                                                 std::get<uint32_t>(inst.operands.at(3)));
+            break;
+        case OpCode::GETCONTRACTINSTANCE:
+            trace_builder.op_get_contract_instance(std::get<uint8_t>(inst.operands.at(0)),
+                                                   std::get<uint32_t>(inst.operands.at(1)),
+                                                   std::get<uint32_t>(inst.operands.at(2)));
+            break;
+
+            // Accrued Substate
+        case OpCode::EMITUNENCRYPTEDLOG:
+            trace_builder.op_emit_unencrypted_log(std::get<uint8_t>(inst.operands.at(0)),
+                                                  std::get<uint32_t>(inst.operands.at(1)),
+                                                  std::get<uint32_t>(inst.operands.at(2)));
+            break;
+        case OpCode::SENDL2TOL1MSG:
+            trace_builder.op_emit_l2_to_l1_msg(std::get<uint8_t>(inst.operands.at(0)),
                                                std::get<uint32_t>(inst.operands.at(1)),
                                                std::get<uint32_t>(inst.operands.at(2)));
-            returndata.insert(returndata.end(), ret.begin(), ret.end());
+            break;
 
-            break;
-        }
-        case OpCode::DEBUGLOG:
-            // We want a noop, but we need to execute something that both advances the PC,
-            // and adds a valid row to the trace.
-            trace_builder.op_jump(pc + 1);
-            break;
+            // Control Flow - Contract Calls
         case OpCode::CALL:
             trace_builder.op_call(std::get<uint8_t>(inst.operands.at(0)),
                                   std::get<uint32_t>(inst.operands.at(1)),
@@ -632,31 +650,31 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                   std::get<uint32_t>(inst.operands.at(7)),
                                   std::get<uint32_t>(inst.operands.at(8)));
             break;
-        case OpCode::TORADIXLE:
-            trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint32_t>(inst.operands.at(1)),
-                                         std::get<uint32_t>(inst.operands.at(2)),
-                                         std::get<uint32_t>(inst.operands.at(3)),
-                                         std::get<uint32_t>(inst.operands.at(4)));
-            break;
-        case OpCode::SHA256COMPRESSION:
-            trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
-                                                std::get<uint32_t>(inst.operands.at(1)),
-                                                std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)));
-            break;
-        case OpCode::SHA256:
-            trace_builder.op_sha256(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)),
-                                    std::get<uint32_t>(inst.operands.at(3)));
-            break;
-        case OpCode::POSEIDON2:
-            trace_builder.op_poseidon2_permutation(std::get<uint8_t>(inst.operands.at(0)),
-                                                   std::get<uint32_t>(inst.operands.at(1)),
-                                                   std::get<uint32_t>(inst.operands.at(2)));
+        case OpCode::RETURN: {
+            auto ret = trace_builder.op_return(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
+            returndata.insert(returndata.end(), ret.begin(), ret.end());
 
             break;
+        }
+        case OpCode::REVERT: {
+            auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
+            returndata.insert(returndata.end(), ret.begin(), ret.end());
+
+            break;
+        }
+
+            // Misc
+        case OpCode::DEBUGLOG:
+            // We want a noop, but we need to execute something that both advances the PC,
+            // and adds a valid row to the trace.
+            trace_builder.op_jump(pc + 1);
+            break;
+
+            // Gadgets
         case OpCode::KECCAK:
             trace_builder.op_keccak(std::get<uint8_t>(inst.operands.at(0)),
                                     std::get<uint32_t>(inst.operands.at(1)),
@@ -664,12 +682,17 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                     std::get<uint32_t>(inst.operands.at(3)));
 
             break;
-        case OpCode::KECCAKF1600:
-            trace_builder.op_keccakf1600(std::get<uint8_t>(inst.operands.at(0)),
-                                         std::get<uint32_t>(inst.operands.at(1)),
-                                         std::get<uint32_t>(inst.operands.at(2)),
-                                         std::get<uint32_t>(inst.operands.at(3)));
+        case OpCode::POSEIDON2:
+            trace_builder.op_poseidon2_permutation(std::get<uint8_t>(inst.operands.at(0)),
+                                                   std::get<uint32_t>(inst.operands.at(1)),
+                                                   std::get<uint32_t>(inst.operands.at(2)));
 
+            break;
+        case OpCode::SHA256:
+            trace_builder.op_sha256(std::get<uint8_t>(inst.operands.at(0)),
+                                    std::get<uint32_t>(inst.operands.at(1)),
+                                    std::get<uint32_t>(inst.operands.at(2)),
+                                    std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::PEDERSEN:
             trace_builder.op_pedersen_hash(std::get<uint8_t>(inst.operands.at(0)),
@@ -695,10 +718,30 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                           std::get<uint32_t>(inst.operands.at(3)),
                                           std::get<uint32_t>(inst.operands.at(4)));
             break;
-        case OpCode::REVERT:
-            trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)));
+
+            // Conversions
+        case OpCode::TORADIXLE:
+            trace_builder.op_to_radix_le(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint32_t>(inst.operands.at(1)),
+                                         std::get<uint32_t>(inst.operands.at(2)),
+                                         std::get<uint32_t>(inst.operands.at(3)),
+                                         std::get<uint32_t>(inst.operands.at(4)));
+            break;
+
+            // Future Gadgets -- pending changes in noir
+        case OpCode::SHA256COMPRESSION:
+            trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
+                                                std::get<uint32_t>(inst.operands.at(1)),
+                                                std::get<uint32_t>(inst.operands.at(2)),
+                                                std::get<uint32_t>(inst.operands.at(3)));
+            break;
+
+        case OpCode::KECCAKF1600:
+            trace_builder.op_keccakf1600(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint32_t>(inst.operands.at(1)),
+                                         std::get<uint32_t>(inst.operands.at(2)),
+                                         std::get<uint32_t>(inst.operands.at(3)));
+
             break;
         default:
             throw_or_abort("Don't know how to execute opcode " + to_hex(inst.op_code) + " at pc " + std::to_string(pc) +
@@ -707,7 +750,9 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         }
     }
 
-    return trace_builder.finalize();
+    auto trace = trace_builder.finalize();
+    vinfo("Final trace size: ", trace.size());
+    return trace;
 }
 
 } // namespace bb::avm_trace

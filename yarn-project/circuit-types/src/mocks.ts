@@ -1,18 +1,20 @@
 import {
   AztecAddress,
   CallRequest,
+  ClientIvcProof,
   GasSettings,
   LogHash,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedDataBuilder,
   PublicCallRequest,
+  ScopedLogHash,
   computeContractClassId,
   getContractClassFromArtifact,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import {
   makeCombinedAccumulatedData,
@@ -58,7 +60,7 @@ export const mockTx = (
     );
   }
 
-  const isForPublic = totalPublicCallRequests > 0;
+  const isForPublic = totalPublicCallRequests > 0 || publicTeardownCallRequest.isEmpty() === false;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   const noteEncryptedLogs = EncryptedNoteTxL2Logs.empty(); // Mock seems to have no new notes => no note logs
@@ -72,17 +74,17 @@ export const mockTx = (
     data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
     publicCallRequests = publicCallRequests.length
-      ? publicCallRequests.slice().sort((a, b) => b.callContext.sideEffectCounter - a.callContext.sideEffectCounter)
+      ? publicCallRequests.slice().sort((a, b) => b.sideEffectCounter - a.sideEffectCounter)
       : times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x100 + i));
 
     const revertibleBuilder = new PublicAccumulatedDataBuilder();
     const nonRevertibleBuilder = new PublicAccumulatedDataBuilder();
 
-    const nonRevertibleNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty);
+    const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
     nonRevertibleNullifiers[0] = firstNullifier;
 
     data.forPublic.endNonRevertibleData = nonRevertibleBuilder
-      .withNewNullifiers(nonRevertibleNullifiers)
+      .withNullifiers(nonRevertibleNullifiers)
       .withPublicCallStack(
         makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, i =>
           i < numberOfNonRevertiblePublicCallRequests
@@ -136,11 +138,14 @@ export const mockTx = (
       unencryptedLogs.functionLogs.forEach(functionLog => {
         functionLog.logs.forEach(log => {
           if (data.forPublic) {
-            const hash = new LogHash(
-              Fr.fromBuffer(log.getSiloedHash()),
-              i++,
-              // +4 for encoding the length of the buffer
-              new Fr(log.length + 4),
+            const hash = new ScopedLogHash(
+              new LogHash(
+                Fr.fromBuffer(log.hash()),
+                i++,
+                // +4 for encoding the length of the buffer
+                new Fr(log.length + 4),
+              ),
+              log.contractAddress,
             );
             // make the first log non-revertible
             if (functionCount === 0) {
@@ -154,15 +159,21 @@ export const mockTx = (
       });
     }
   } else {
-    data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
+    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
     data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash());
     data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
-    data.forRollup!.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
+    data.forRollup!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty);
+    unencryptedLogs.unrollLogs().forEach((log, i) => {
+      data.forRollup!.end.unencryptedLogsHashes[i] = new ScopedLogHash(
+        new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
+        log.contractAddress,
+      );
+    });
   }
 
   const tx = new Tx(
     data,
-    makeEmptyProof(),
+    ClientIvcProof.empty(),
     noteEncryptedLogs,
     encryptedLogs,
     unencryptedLogs,
