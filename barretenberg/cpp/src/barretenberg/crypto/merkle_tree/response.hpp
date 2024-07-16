@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include <exception>
 #include <functional>
 #include <memory>
@@ -19,9 +20,8 @@ struct TreeMetaResponse {
 };
 
 struct AddDataResponse {
-    index_t size, subtree_root_index;
-    fr root, subtree_root;
-    fr_sibling_path subtree_path;
+    index_t size;
+    fr root;
 };
 
 struct GetSiblingPathResponse {
@@ -32,10 +32,13 @@ template <typename LeafType> struct LowLeafWitnessData {
     IndexedLeaf<LeafType> leaf;
     index_t index;
     fr_sibling_path path;
+
+    MSGPACK_FIELDS(leaf, index, path);
 };
 
 template <typename LeafValueType> struct AddIndexedDataResponse {
     AddDataResponse add_data_result;
+    fr_sibling_path subtree_path;
     std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> sorted_leaves;
     std::shared_ptr<std::vector<LowLeafWitnessData<LeafValueType>>> low_leaf_witness_data;
 };

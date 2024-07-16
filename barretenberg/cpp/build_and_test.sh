@@ -1,5 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+
+TEST=${1:-*}
+
 cmake --build --preset default --target crypto_merkle_tree_tests
-#cmake --build --preset default --target world_state
-./build/bin/crypto_merkle_tree_tests --gtest_filter=PersistedIndexedTreeTest.*
-./build/bin/crypto_merkle_tree_tests --gtest_filter=PersistedAppendOnlyTreeTest*
-./build/bin/crypto_merkle_tree_tests --gtest_filter=LMDBStoreTest*
+./build/bin/crypto_merkle_tree_tests --gtest_filter=PersistedIndexedTreeTest.$TEST
+./build/bin/crypto_merkle_tree_tests --gtest_filter=PersistedAppendOnlyTreeTest.$TEST
+./build/bin/crypto_merkle_tree_tests --gtest_filter=LMDBStoreTest.$TEST

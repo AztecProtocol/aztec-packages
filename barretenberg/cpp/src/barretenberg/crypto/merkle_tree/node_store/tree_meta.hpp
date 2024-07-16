@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 #include <string>

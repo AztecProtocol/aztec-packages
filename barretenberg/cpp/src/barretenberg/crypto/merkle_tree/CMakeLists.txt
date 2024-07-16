@@ -1,13 +1,10 @@
+# merkle tree is agnostic to hash function
 barretenberg_module(
     crypto_merkle_tree
-    stdlib_primitives
-    stdlib_blake3s
-    stdlib_pedersen_hash
-    crypto_poseidon2
-    lmdb-lib
+    lmdb
 )
 
-add_dependencies(crypto_merkle_tree lmdb)
-add_dependencies(crypto_merkle_tree_objects lmdb)
-add_dependencies(crypto_merkle_tree_tests lmdb)
-add_dependencies(crypto_merkle_tree_test_objects lmdb)
+if (NOT FUZZING)
+    # but the tests use pedersen and poseidon
+    target_link_libraries(crypto_merkle_tree_tests PRIVATE stdlib_pedersen_hash stdlib_poseidon2)
+endif()

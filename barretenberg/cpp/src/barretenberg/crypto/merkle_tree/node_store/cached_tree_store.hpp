@@ -46,9 +46,7 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     CachedTreeStore& operator=(CachedTreeStore const& other) = delete;
     CachedTreeStore& operator=(CachedTreeStore const&& other) = delete;
 
-    std::pair<bool, index_t> find_low_value(const LeafValueType& new_value,
-                                            bool includeUncommitted,
-                                            ReadTransaction& tx) const;
+    std::pair<bool, index_t> find_low_value(const fr& new_leaf_key, bool includeUncommitted, ReadTransaction& tx) const;
 
     std::optional<IndexedLeafValueType> get_leaf(const index_t& index,
                                                  ReadTransaction& tx,
@@ -90,6 +88,8 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
 
     void rollback();
 
+    std::string get_name() const { return name; }
+
     ReadTransactionPtr createReadTransaction() const { return dataStore.createReadTransaction(); }
 
   private:
@@ -121,13 +121,13 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
 };
 
 template <typename PersistedStore, typename LeafValueType>
-std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_low_value(const LeafValueType& new_value,
+std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_low_value(const fr& new_leaf_key,
                                                                                         bool includeUncommitted,
                                                                                         ReadTransaction& tx) const
 {
-    uint256_t new_value_as_number = uint256_t(new_value.get_key());
+    uint256_t new_value_as_number = uint256_t(new_leaf_key);
     std::vector<uint8_t> data;
-    FrKeyType key(new_value.get_key());
+    FrKeyType key(new_leaf_key);
     tx.get_value_or_previous(key, data);
     Indices committed;
     msgpack::unpack((const char*)data.data(), data.size()).get().convert(committed);

@@ -4,6 +4,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
@@ -662,25 +663,34 @@ TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
     check_leaf(tree, 0, 4, false);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, append_leaves_returns_sibling_path)
+TEST_F(PersistedAppendOnlyTreeTest, returns_sibling_path)
 {
-    constexpr size_t depth = 10;
+    constexpr size_t depth = 4;
     std::string name = randomString();
     LMDBStore db(*_environment, name, false, false, IntegerKeyCmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
-    Signal signal;
-    auto completion = [&](const TypedResponse<AddDataResponse>& response) -> void {
-        EXPECT_EQ(response.success, true);
-        check_sibling_path(response.inner.root,
-                           response.inner.subtree_root,
-                           response.inner.subtree_root_index,
-                           response.inner.subtree_path);
-        signal.signal_level();
-    };
+    add_values(tree, { 30, 10, 20 });
+    memdb.update_element(0, 30);
+    memdb.update_element(1, 10);
+    memdb.update_element(2, 20);
 
-    tree.add_values({ 40, 30, 10, 20 }, completion);
-    signal.wait_for_level();
+    tree.get_subtree_sibling_path(
+        0,
+        [&](auto& resp) {
+            fr_sibling_path expected_sibling_path = memdb.get_sibling_path(3);
+            EXPECT_EQ(resp.inner.path, expected_sibling_path);
+        },
+        true);
+
+    tree.get_subtree_sibling_path(
+        2,
+        [&](auto& resp) {
+            fr_sibling_path expected_sibling_path = { memdb.get_node(2, 1), memdb.get_node(1, 1) };
+            EXPECT_EQ(resp.inner.path, expected_sibling_path);
+        },
+        true);
 }
