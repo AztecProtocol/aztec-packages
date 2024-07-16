@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721123612107,
+  "lastUpdate": 1721124876990,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -84396,6 +84396,78 @@ window.BENCHMARK_DATA = {
             "value": 167136023,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167136023 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "457a115ef5adce885a5456359c27db5d179eff34",
+          "message": "chore: included subrelation witness degrees in the relations relevant to zk-sumcheck (#7479)\n\nThe subrelation witness degrees are used in zk-sumcheck and affect the\r\nsizes of the univariates in the SumcheckTupleOfTuplesOfUnivariates as\r\nwell as the sizes of the sumcheck round univariates.\r\n\r\nIn several relations, I used upper bounds on the witness degrees which\r\nare simply given by the corresponding subrelation's length - 1.\r\nIndicated explicitly that those are upper bounds. Computed the precise\r\nconstants for the relations relevant to Mega.\r\n\r\nThe auxiliary and logderiv_lookup_relation contain a trick allowing to\r\nre-use the values accumulated by an accumulator of a different size\r\nusing ShortView.",
+          "timestamp": "2024-07-16T10:05:58Z",
+          "tree_id": "ae1c54f71942fd69dc397bcf740bf0df0b42e389",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/457a115ef5adce885a5456359c27db5d179eff34"
+        },
+        "date": 1721124870908,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13641.410442000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9662.744153000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4797.2406540000065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4361.276716999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41707.506316,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41707507000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14564.641547000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14564642000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4478427240,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4478427240 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199827377,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199827377 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3723314897,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3723314897 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 165095546,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 165095546 ns\nthreads: 1"
           }
         ]
       }
