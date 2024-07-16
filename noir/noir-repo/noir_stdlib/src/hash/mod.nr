@@ -8,11 +8,12 @@ use crate::uint128::U128;
 use crate::sha256::{digest, sha256_var};
 use crate::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul};
 
-#[foreign(sha256)]
 // docs:start:sha256
 pub fn sha256<let N: u32>(input: [u8; N]) -> [u8; 32]
 // docs:end:sha256
-{}
+{
+    crate::sha256::digest(input)
+}
 
 #[foreign(blake2s)]
 // docs:start:blake2s

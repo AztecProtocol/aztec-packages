@@ -120,7 +120,7 @@ const BaseGasCosts: Record<Opcode, Gas> = {
   // Gadgets
   [Opcode.KECCAK]: DefaultBaseGasCost,
   [Opcode.POSEIDON2]: DefaultBaseGasCost,
-  [Opcode.SHA256]: DefaultBaseGasCost,
+  [Opcode.SHA256COMPRESSION]: TemporaryDefaultGasCost,
   [Opcode.PEDERSEN]: DefaultBaseGasCost,
   [Opcode.ECADD]: DefaultBaseGasCost,
   [Opcode.MSM]: DefaultBaseGasCost,
