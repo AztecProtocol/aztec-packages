@@ -122,7 +122,7 @@ jobs:
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
             --private-key ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
             --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
-            --chain-id ${{ env.L1_CHAIN_ID }} \
+            --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             | tee ${{ env.FILE_PATH }}
           ./.github/scripts/extract_l1_addresses.sh ${{ env.FILE_PATH }}
 
