@@ -15,23 +15,25 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
 
   public:
     template <class CK> inline std::shared_ptr<CK> create_commitment_key(size_t num_points);
-
-    template <>
-    inline std::shared_ptr<CommitmentKey<curve::BN254>> create_commitment_key<CommitmentKey<curve::BN254>>(
-        const size_t num_points)
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
-    }
-
-    template <>
-    inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> create_commitment_key<CommitmentKey<curve::Grumpkin>>(
-        const size_t num_points)
-    {
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-        return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
-    }
 };
+
+template <>
+template <>
+std::shared_ptr<CommitmentKey<curve::BN254>> CommitmentKeyTest<curve::BN254>::create_commitment_key<
+    CommitmentKey<curve::BN254>>(const size_t num_points)
+{
+    srs::init_crs_factory("../srs_db/ignition");
+    return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
+}
+
+template <>
+template <>
+std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
+    CommitmentKey<curve::Grumpkin>>(const size_t num_points)
+{
+    srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
+}
 
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 
