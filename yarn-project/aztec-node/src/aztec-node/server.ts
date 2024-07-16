@@ -211,6 +211,10 @@ export class AztecNodeService implements AztecNode {
     return this.prover;
   }
 
+  public getBlockSource(): L2BlockSource {
+    return this.blockSource;
+  }
+
   /**
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.
@@ -252,6 +256,10 @@ export class AztecNodeService implements AztecNode {
    */
   public async getBlockNumber(): Promise<number> {
     return await this.blockSource.getBlockNumber();
+  }
+
+  public async getProvenBlockNumber(): Promise<number> {
+    return await this.blockSource.getProvenBlockNumber();
   }
 
   /**

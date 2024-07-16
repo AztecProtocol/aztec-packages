@@ -95,7 +95,7 @@ export class AztecKVTxPool implements TxPool {
         } satisfies TxAddedToPoolStats);
 
         const key = txHash.toString();
-        void this.#txs.set(txHash.toString(), tx.toBuffer());
+        void this.#txs.set(key, tx.toBuffer());
         if (!this.#minedTxs.has(key)) {
           // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
           void this.#pendingTxs.add(key);

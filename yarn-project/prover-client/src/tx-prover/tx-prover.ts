@@ -107,7 +107,9 @@ export class TxProver implements ProverClient {
         )
       : undefined;
 
-    const lastBlock = await blockSource.getBlock(-1);
+    // Use the first block to get the initial header. Note we cannot use the latest, since it may not be proven,
+    // and it would have an unknown archive tree root for prover clients (who follow the proven chain).
+    const lastBlock = await blockSource.getBlock(0);
     const initialHeader = lastBlock?.header ?? (await worldStateSynchronizer.getCommitted().buildInitialHeader());
 
     const prover = new TxProver(config, worldStateSynchronizer, telemetry, agent, initialHeader);

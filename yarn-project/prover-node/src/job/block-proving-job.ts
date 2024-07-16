@@ -3,6 +3,7 @@ import {
   EmptyTxValidator,
   type L2Block,
   type L2BlockSource,
+  PROVING_STATUS,
   type ProcessedTx,
   type Tx,
   type TxHash,
@@ -46,18 +47,36 @@ export class BlockProvingJob {
       const block = await this.getBlock(blockNumber);
       const globalVariables = block.header.globalVariables;
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
+      const txCount = block.body.numberOfTxsIncludingPadded;
       const l1ToL2Messages: Fr[] = []; // TODO: grab L1 to L2 messages for this block
 
-      this.log.debug(`Starting block processing`, { blockNumber: block.number, blockHash: block.hash().toString() });
-      await this.prover.startNewBlock(txHashes.length, globalVariables, l1ToL2Messages);
+      this.log.verbose(`Starting block processing`, {
+        number: block.number,
+        blockHash: block.hash().toString(),
+        lastArchive: block.header.lastArchive.root,
+        noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
+        nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
+        publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
+        historicalHeader: historicalHeader?.hash(),
+        ...globalVariables,
+      });
+      const provingTicket = await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
       const publicProcessor = await this.publicProcessorFactory.create(historicalHeader, globalVariables);
 
       const txs = await this.getTxs(txHashes);
-      const txCount = block.body.numberOfTxsIncludingPadded;
       await this.processTxs(publicProcessor, txs, txCount);
 
-      this.log.debug(`Processed all txs for block`, { blockNumber: block.number, blockHash: block.hash().toString() });
+      this.log.verbose(`Processed all txs for block`, {
+        blockNumber: block.number,
+        blockHash: block.hash().toString(),
+      });
+
       await this.prover.setBlockCompleted();
+
+      const result = await provingTicket.provingPromise;
+      if (result.status === PROVING_STATUS.FAILURE) {
+        throw new Error(`Block proving failed: ${result.reason}`);
+      }
 
       historicalHeader = block.header;
     }

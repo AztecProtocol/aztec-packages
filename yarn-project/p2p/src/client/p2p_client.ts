@@ -179,22 +179,23 @@ export class P2PClient implements P2P {
     this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
 
     // start looking for further blocks
-    const blockProcess = async () => {
+    const processLatest = async () => {
       while (!this.stopping) {
         await this.latestBlockDownloader.getBlocks().then(this.handleLatestL2Blocks.bind(this));
+      }
+    };
+    const processProven = async () => {
+      while (!this.stopping) {
         await this.provenBlockDownloader.getBlocks().then(this.handleProvenL2Blocks.bind(this));
       }
     };
-    this.runningPromise = blockProcess();
+
+    this.runningPromise = Promise.all([processLatest(), processProven()]).then(() => {});
     this.latestBlockDownloader.start(syncedLatestBlock);
     this.provenBlockDownloader.start(syncedLatestBlock);
     this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
 
     return this.syncPromise;
-  }
-
-  private isSyncedToStartPoint(latestBlock: number, provenBlock: number) {
-    return latestBlock >= this.latestBlockNumberAtStart && provenBlock >= this.provenBlockNumberAtStart;
   }
 
   /**
@@ -209,6 +210,7 @@ export class P2PClient implements P2P {
     await this.latestBlockDownloader.stop();
     await this.provenBlockDownloader.stop();
     this.log.debug('Stopped block downloader');
+    // TODO: This running promise will never resolve if there are no new blocks to sync.
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped.');

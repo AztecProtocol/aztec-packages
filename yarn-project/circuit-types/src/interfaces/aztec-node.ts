@@ -176,6 +176,13 @@ export interface AztecNode {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Fetches the latest proven block number.
+   * @returns The block number.
+   */
+  getProvenBlockNumber(): Promise<number>;
+
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.

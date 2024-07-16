@@ -413,6 +413,7 @@ __metadata:
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
+    "@aztec/prover-node": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
@@ -787,7 +788,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/prover-node@workspace:prover-node":
+"@aztec/prover-node@workspace:^, @aztec/prover-node@workspace:prover-node":
   version: 0.0.0-use.local
   resolution: "@aztec/prover-node@workspace:prover-node"
   dependencies:

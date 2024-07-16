@@ -20,6 +20,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const poolTx = pool.getTxByHash(tx1.getTxHash());
     expect(poolTx!.getTxHash()).toEqual(tx1.getTxHash());
     expect(pool.getTxStatus(tx1.getTxHash())).toEqual('pending');
+    expect(pool.getPendingTxHashes()).toEqual([tx1.getTxHash()]);
   });
 
   it('Removes txs from the pool', async () => {

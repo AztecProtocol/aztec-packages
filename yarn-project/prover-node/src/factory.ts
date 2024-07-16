@@ -1,5 +1,6 @@
-import { createArchiver } from '@aztec/archiver';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type Archiver, createArchiver } from '@aztec/archiver';
+import { type AztecNode } from '@aztec/circuit-types';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/utils';
 import { createProverClient } from '@aztec/prover-client';
 import { getL1Publisher } from '@aztec/sequencer-client';
@@ -10,18 +11,28 @@ import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig } from './config.js';
 import { ProverNode } from './prover-node.js';
+import { AztecNodeTxProvider } from './tx-provider/aztec-node-tx-provider.js';
 import { createTxProvider } from './tx-provider/factory.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
   config: ProverNodeConfig,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
-  log = createDebugLogger('aztec:prover'),
-  storeLog = createDebugLogger('aztec:prover:lmdb'),
+  deps: {
+    telemetry?: TelemetryClient;
+    log?: DebugLogger;
+    storeLog?: DebugLogger;
+    aztecNodeTxProvider?: AztecNode;
+    archiver?: Archiver;
+  } = {},
 ) {
+  const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+  const log = deps.log ?? createDebugLogger('aztec:prover');
+  const storeLog = deps.storeLog ?? createDebugLogger('aztec:prover:lmdb');
+
   const store = await createStore(config, config.l1Contracts.rollupAddress, storeLog);
 
-  const archiver = await createArchiver(config, store, telemetry, { blockUntilSync: true });
+  const archiver = deps.archiver ?? (await createArchiver(config, store, telemetry, { blockUntilSync: true }));
+  log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
   const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, store, archiver);
@@ -37,7 +48,9 @@ export async function createProverNode(
   const latestWorldState = worldStateSynchronizer.getLatest();
   const publicProcessorFactory = new PublicProcessorFactory(latestWorldState, archiver, simulationProvider, telemetry);
 
-  const txProvider = createTxProvider(config);
+  const txProvider = deps.aztecNodeTxProvider
+    ? new AztecNodeTxProvider(deps.aztecNodeTxProvider)
+    : createTxProvider(config);
 
   return new ProverNode(prover!, publicProcessorFactory, publisher, archiver, txProvider);
 }
