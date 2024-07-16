@@ -144,16 +144,15 @@ pub fn compute_l2_to_l1_hash(
     rollup_version_id: u32,
     chain_id: Field
 ) -> Field {
-    let mut bytes: BoundedVec<u8, 160> = BoundedVec::new();
+    let mut bytes: BoundedVec<u8, 120> = BoundedVec::new();
 
-    let inputs = [contract_address.to_field(), rollup_version_id as Field, recipient.to_field(), chain_id, content];
-    for i in 0..inputs.len() {
-        // TODO are bytes be in fr.to_buffer() ?
-        let item_bytes = inputs[i].to_be_bytes(32);
-        for j in 0..32 {
-            bytes.push(item_bytes[j]);
-        }
-    }
+    bytes.extend_from_array(contract_address.to_field().serialize_to_be_bytes());
+    bytes.extend_from_array(rollup_version_id.serialize_to_be_bytes());
+    bytes.extend_from_array(recipient.serialize_to_be_bytes());
+    bytes.extend_from_array(chain_id.serialize_to_be_bytes());
+    bytes.extend_from_array(content.serialize_to_be_bytes());
+
+    assert_eq(bytes.len(), 120);
 
     sha256_to_field(bytes.storage)
 }

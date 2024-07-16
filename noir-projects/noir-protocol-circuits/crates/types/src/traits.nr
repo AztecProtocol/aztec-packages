@@ -116,3 +116,39 @@ impl<N> Deserialize<N> for [Field; N] {
         fields
     }
 }
+
+trait SerializeToBytes<N> {
+    fn serialize_to_be_bytes(self) -> [u8; N];
+}
+
+impl SerializeToBytes<32> for Field {
+    fn serialize_to_be_bytes(self) -> [u8; 32] {
+        let mut result = [0; 32];
+        let bytes = self.to_be_bytes(32);
+        for i in 0..32 {
+            result[i] = bytes[i];
+        }
+        result
+    }
+}
+
+impl SerializeToBytes<8> for u64 {
+    fn serialize_to_be_bytes(self) -> [u8; 8] {
+        let bytes = (self as Field).to_be_bytes(8);
+  
+        [bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]
+    }
+}
+
+impl SerializeToBytes<4> for u32 {
+    fn serialize_to_be_bytes(self) -> [u8; 4] {
+        let bytes = (self as Field).to_be_bytes(4);
+        [bytes[0], bytes[1], bytes[2], bytes[3]]
+    }
+}
+
+impl SerializeToBytes<1> for u8 {
+    fn serialize_to_be_bytes(self) -> [u8; 1] {
+        [self]
+    }
+}
