@@ -28,7 +28,7 @@ template <typename Builder, typename T> class bigfield {
         Limb(const field_t<Builder>& input, const uint256_t max = uint256_t(0))
             : element(input)
         {
-            if (input.witness_index == IS_CONSTANT) {
+            if (input.is_constant()) {
                 maximum_value = uint256_t(input.additive_constant) + 1;
             } else if (max != uint256_t(0)) {
                 maximum_value = max;

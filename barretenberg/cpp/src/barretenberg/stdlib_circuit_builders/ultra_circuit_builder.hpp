@@ -21,12 +21,11 @@ namespace bb {
 
 template <typename FF> struct non_native_field_witnesses {
     // first 4 array elements = limbs
-    // 5th element = prime basis limb
-    std::array<uint32_t, 5> a;
-    std::array<uint32_t, 5> b;
-    std::array<uint32_t, 5> q;
-    std::array<uint32_t, 5> r;
-    std::array<FF, 5> neg_modulus;
+    std::array<uint32_t, 4> a;
+    std::array<uint32_t, 4> b;
+    std::array<uint32_t, 4> q;
+    std::array<uint32_t, 4> r;
+    std::array<FF, 4> neg_modulus;
     FF modulus;
 };
 
@@ -196,8 +195,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * repeatedly.
      */
     struct cached_partial_non_native_field_multiplication {
-        std::array<uint32_t, 5> a;
-        std::array<uint32_t, 5> b;
+        std::array<uint32_t, 4> a;
+        std::array<uint32_t, 4> b;
         uint32_t lo_0;
         uint32_t hi_0;
         uint32_t hi_1;
@@ -818,8 +817,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     std::array<uint32_t, 2> decompose_non_native_field_double_width_limb(
         const uint32_t limb_idx, const size_t num_limb_bits = (2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS));
-    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
-        const non_native_field_witnesses<FF>& input, const bool range_constrain_quotient_and_remainder = true);
+    std::array<uint32_t, 2> evaluate_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(const non_native_field_witnesses<FF>& input);
     typedef std::pair<uint32_t, FF> scaled_witness;
     typedef std::tuple<scaled_witness, scaled_witness, FF> add_simple;

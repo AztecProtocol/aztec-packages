@@ -1064,6 +1064,20 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
     }
+
+    static void test_nonnormalized_field_bug_regression()
+    {
+        auto builder = Builder();
+        fr_ct zero = witness_ct::create_constant_witness(&builder, fr::zero());
+        uint256_t two_to_68 = uint256_t(1) << fq_ct::NUM_LIMB_BITS;
+        // construct bigfield where the low limb has a non-trivial `additive_constant`
+        fq_ct z(zero + two_to_68, zero);
+        // assert invariant for every limb: actual value <= maximum value
+        // Failed in the past for for StandardCircuitBuilder
+        for (auto zi : z.binary_basis_limbs) {
+            EXPECT_LE(uint256_t(zi.element.get_value()), zi.maximum_value);
+        }
+    }
 };
 
 // Define types for which the above tests will be constructed.
@@ -1176,11 +1190,10 @@ TYPED_TEST(stdlib_bigfield, pow_one)
 {
     TestFixture::test_pow_one();
 }
-
-// TYPED_TEST(stdlib_bigfield, nonnormalized_field_bug_regression)
-// {
-//     TestFixture::test_nonnormalized_field_bug_regression();
-// }
+TYPED_TEST(stdlib_bigfield, nonnormalized_field_bug_regression)
+{
+    TestFixture::test_nonnormalized_field_bug_regression();
+}
 
 // // This test was disabled before the refactor to use TYPED_TEST's/
 // TEST(stdlib_bigfield, DISABLED_test_div_against_constants)

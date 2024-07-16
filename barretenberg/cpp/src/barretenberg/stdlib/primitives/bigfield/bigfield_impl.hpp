@@ -51,12 +51,12 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     field_t<Builder> limb_1(context);
     field_t<Builder> limb_2(context);
     field_t<Builder> limb_3(context);
-    if (low_bits_in.witness_index != IS_CONSTANT) {
+    if (!low_bits_in.is_constant()) {
         std::vector<uint32_t> low_accumulator;
         if constexpr (HasPlookup<Builder>) {
             // MERGE NOTE: this was the if constexpr block introduced in ecebe7643
             const auto limb_witnesses =
-                context->decompose_non_native_field_double_width_limb(low_bits_in.normalize().witness_index);
+                context->decompose_non_native_field_double_width_limb(low_bits_in.get_normalized_witness_index());
             limb_0.witness_index = limb_witnesses[0];
             limb_1.witness_index = limb_witnesses[1];
             field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
@@ -73,8 +73,9 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             // limb_1 = (low_bits_in - limb_0) * shift_right_1;
         } else {
             size_t mid_index;
-            low_accumulator = context->decompose_into_base4_accumulators(
-                low_bits_in.witness_index, static_cast<size_t>(NUM_LIMB_BITS * 2), "bigfield: low_bits_in too large.");
+            low_accumulator = context->decompose_into_base4_accumulators(low_bits_in.get_normalized_witness_index(),
+                                                                         static_cast<size_t>(NUM_LIMB_BITS * 2),
+                                                                         "bigfield: low_bits_in too large.");
             mid_index = static_cast<size_t>((NUM_LIMB_BITS / 2) - 1);
             // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb
             // value
@@ -103,18 +104,18 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     }
     // We create the high limb values similar to the low limb ones above
     const uint64_t num_high_limb_bits = NUM_LIMB_BITS + num_last_limb_bits;
-    if (high_bits_in.witness_index != IS_CONSTANT) {
+    if (!high_bits_in.is_constant()) {
 
         std::vector<uint32_t> high_accumulator;
         if constexpr (HasPlookup<Builder>) {
             const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-                high_bits_in.normalize().witness_index, (size_t)num_high_limb_bits);
+                high_bits_in.get_normalized_witness_index(), (size_t)num_high_limb_bits);
             limb_2.witness_index = limb_witnesses[0];
             limb_3.witness_index = limb_witnesses[1];
             field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
 
         } else {
-            high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.witness_index,
+            high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.get_normalized_witness_index(),
                                                                           static_cast<size_t>(num_high_limb_bits),
                                                                           "bigfield: high_bits_in too large.");
 
@@ -204,10 +205,10 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
         prime_limb.witness_index = ctx->add_variable(limb_0.get_value() + limb_1.get_value() * shift_1 +
                                                      limb_2.get_value() * shift_2 + limb_3.get_value() * shift_3);
         // evaluate prime basis limb with addition gate that taps into the 4th wire in the next gate
-        ctx->create_big_add_gate({ limb_1.witness_index,
-                                   limb_2.witness_index,
-                                   limb_3.witness_index,
-                                   prime_limb.witness_index,
+        ctx->create_big_add_gate({ limb_1.get_normalized_witness_index(),
+                                   limb_2.get_normalized_witness_index(),
+                                   limb_3.get_normalized_witness_index(),
+                                   prime_limb.get_normalized_witness_index(),
                                    shift_1,
                                    shift_2,
                                    shift_3,
@@ -216,7 +217,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                  true);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
         ctx->create_dummy_gate(
-            ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.witness_index);
+            ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
 
         uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
 
@@ -235,10 +236,14 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
             result.binary_basis_limbs[3].maximum_value = max_limb_value;
         }
         result.prime_basis_limb = prime_limb;
-        ctx->range_constrain_two_limbs(
-            limb_0.witness_index, limb_1.witness_index, (size_t)NUM_LIMB_BITS, (size_t)NUM_LIMB_BITS);
-        ctx->range_constrain_two_limbs(
-            limb_2.witness_index, limb_3.witness_index, (size_t)NUM_LIMB_BITS, (size_t)num_last_limb_bits);
+        ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
+                                       limb_1.get_normalized_witness_index(),
+                                       (size_t)NUM_LIMB_BITS,
+                                       (size_t)NUM_LIMB_BITS);
+        ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
+                                       limb_3.get_normalized_witness_index(),
+                                       (size_t)NUM_LIMB_BITS,
+                                       (size_t)num_last_limb_bits);
 
         return result;
     } else {
@@ -411,7 +416,11 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
             limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
             limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
             limbconst = limbconst || other.prime_basis_limb.is_constant();
-            limbconst = limbconst || (prime_basis_limb.witness_index == other.prime_basis_limb.witness_index);
+            limbconst =
+                limbconst || (prime_basis_limb.get_witness_index() ==
+                              other.prime_basis_limb
+                                  .get_witness_index()); // We are comparing if the bigfield elements are exactly the
+                                                         // same object, so we compare the unnormalized witness indices
             if (!limbconst) {
                 std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
                                                 binary_basis_limbs[0].element.multiplicative_constant };
@@ -624,7 +633,11 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
             limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
             limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
             limbconst = limbconst || other.prime_basis_limb.is_constant();
-            limbconst = limbconst || (prime_basis_limb.witness_index == other.prime_basis_limb.witness_index);
+            limbconst =
+                limbconst ||
+                (prime_basis_limb.witness_index ==
+                 other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we need
+                                                        // to compare the actual indices, not normalized ones
             if (!limbconst) {
                 std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
                                                 binary_basis_limbs[0].element.multiplicative_constant };
@@ -1893,10 +1906,10 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
     r2 = r2.normalize();
     r3 = r3.normalize();
     if constexpr (HasPlookup<Builder>) {
-        context->decompose_into_default_range(r0.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r1.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r2.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r3.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r3.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
     } else {
         context->decompose_into_base4_accumulators(
             r0.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_is_in_field range constraint 1.");
@@ -1968,19 +1981,23 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     r2 = r2.normalize();
     r3 = r3.normalize();
     if constexpr (Builder::CIRCUIT_TYPE == CircuitType::ULTRA) {
-        context->decompose_into_default_range(r0.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r1.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r2.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r3.witness_index, static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        context->decompose_into_default_range(r3.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
     } else {
-        context->decompose_into_base4_accumulators(
-            r0.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_less_than range constraint 1.");
-        context->decompose_into_base4_accumulators(
-            r1.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_less_than range constraint 2.");
-        context->decompose_into_base4_accumulators(
-            r2.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_less_than range constraint 3.");
-        context->decompose_into_base4_accumulators(
-            r3.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_less_than range constraint 4.");
+        context->decompose_into_base4_accumulators(r0.get_normalized_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: assert_less_than range constraint 1.");
+        context->decompose_into_base4_accumulators(r1.get_normalized_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: assert_less_than range constraint 2.");
+        context->decompose_into_base4_accumulators(r2.get_normalized_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: assert_less_than range constraint 3.");
+        context->decompose_into_base4_accumulators(r3.get_normalized_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: assert_less_than range constraint 4.");
     }
 }
 
@@ -2132,9 +2149,10 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
     if constexpr (HasPlookup<Builder>) {
-        context->decompose_into_default_range(quotient_limb.witness_index, static_cast<size_t>(maximum_quotient_bits));
+        context->decompose_into_default_range(quotient_limb.get_normalized_witness_index(),
+                                              static_cast<size_t>(maximum_quotient_bits));
     } else {
-        context->decompose_into_base4_accumulators(quotient_limb.witness_index,
+        context->decompose_into_base4_accumulators(quotient_limb.get_normalized_witness_index(),
                                                    static_cast<size_t>(maximum_quotient_bits),
                                                    "bigfield: quotient_limb too large.");
     }
@@ -2305,38 +2323,34 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
         bb::non_native_field_witnesses<bb::fr> witnesses{
             {
-                left.binary_basis_limbs[0].element.normalize().witness_index,
-                left.binary_basis_limbs[1].element.normalize().witness_index,
-                left.binary_basis_limbs[2].element.normalize().witness_index,
-                left.binary_basis_limbs[3].element.normalize().witness_index,
-                left.prime_basis_limb.witness_index,
+                left.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                left.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                left.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                left.binary_basis_limbs[3].element.get_normalized_witness_index(),
             },
             {
-                to_mul.binary_basis_limbs[0].element.normalize().witness_index,
-                to_mul.binary_basis_limbs[1].element.normalize().witness_index,
-                to_mul.binary_basis_limbs[2].element.normalize().witness_index,
-                to_mul.binary_basis_limbs[3].element.normalize().witness_index,
-                to_mul.prime_basis_limb.witness_index,
+                to_mul.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                to_mul.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                to_mul.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                to_mul.binary_basis_limbs[3].element.get_normalized_witness_index(),
             },
             {
-                quotient.binary_basis_limbs[0].element.normalize().witness_index,
-                quotient.binary_basis_limbs[1].element.normalize().witness_index,
-                quotient.binary_basis_limbs[2].element.normalize().witness_index,
-                quotient.binary_basis_limbs[3].element.normalize().witness_index,
-                quotient.prime_basis_limb.witness_index,
+                quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
             },
             {
-                remainder_limbs[0].normalize().witness_index,
-                remainder_limbs[1].normalize().witness_index,
-                remainder_limbs[2].normalize().witness_index,
-                remainder_limbs[3].normalize().witness_index,
-                remainder_prime_limb.witness_index,
+                remainder_limbs[0].get_normalized_witness_index(),
+                remainder_limbs[1].get_normalized_witness_index(),
+                remainder_limbs[2].get_normalized_witness_index(),
+                remainder_limbs[3].get_normalized_witness_index(),
             },
             { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
             modulus,
         };
         // N.B. this method also evaluates the prime field component of the non-native field mul
-        const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses, false);
+        const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
 
         bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
         field_t<Builder>::evaluate_polynomial_identity(left.prime_basis_limb,
@@ -2352,11 +2366,13 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         // if both the hi and lo output limbs have less than 70 bits, we can use our custom
         // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
         if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
-            ctx->range_constrain_two_limbs(
-                hi.witness_index, lo.witness_index, size_t(carry_lo_msb), size_t(carry_hi_msb));
+            ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
+                                           lo.get_normalized_witness_index(),
+                                           size_t(carry_lo_msb),
+                                           size_t(carry_hi_msb));
         } else {
-            ctx->decompose_into_default_range(hi.normalize().witness_index, carry_hi_msb);
-            ctx->decompose_into_default_range(lo.normalize().witness_index, carry_lo_msb);
+            ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
+            ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
         }
     } else {
         const field_t b0 = left.binary_basis_limbs[1].element.madd(
@@ -2451,7 +2467,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
             field_t carry_combined = carry_lo + (carry_hi * carry_lo_shift);
             carry_combined = carry_combined.normalize();
             const auto accumulators = ctx->decompose_into_base4_accumulators(
-                carry_combined.witness_index,
+                carry_combined.get_normalized_witness_index(),
                 static_cast<size_t>(carry_lo_msb + carry_hi_msb),
                 "bigfield: carry_combined too large in unsafe_evaluate_multiply_add.");
             field_t<Builder> accumulator_midpoint =
@@ -2460,10 +2476,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         } else {
             carry_lo = carry_lo.normalize();
             carry_hi = carry_hi.normalize();
-            ctx->decompose_into_base4_accumulators(carry_lo.witness_index,
+            ctx->decompose_into_base4_accumulators(carry_lo.get_normalized_witness_index(),
                                                    static_cast<size_t>(carry_lo_msb),
                                                    "bigfield: carry_lo too large in unsafe_evaluate_multiply_add.");
-            ctx->decompose_into_base4_accumulators(carry_hi.witness_index,
+            ctx->decompose_into_base4_accumulators(carry_hi.get_normalized_witness_index(),
                                                    static_cast<size_t>(carry_hi_msb),
                                                    "bigfield: carry_hi too large in unsafe_evaluate_multiply_add.");
         }
@@ -2645,28 +2661,24 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             if (i > 0) {
                 bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
                     {
-                        left[i].binary_basis_limbs[0].element.normalize().witness_index,
-                        left[i].binary_basis_limbs[1].element.normalize().witness_index,
-                        left[i].binary_basis_limbs[2].element.normalize().witness_index,
-                        left[i].binary_basis_limbs[3].element.normalize().witness_index,
-                        left[i].prime_basis_limb.witness_index,
+                        left[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
+                        left[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
+                        left[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
+                        left[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
                     },
                     {
-                        right[i].binary_basis_limbs[0].element.normalize().witness_index,
-                        right[i].binary_basis_limbs[1].element.normalize().witness_index,
-                        right[i].binary_basis_limbs[2].element.normalize().witness_index,
-                        right[i].binary_basis_limbs[3].element.normalize().witness_index,
-                        right[i].prime_basis_limb.witness_index,
+                        right[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
+                        right[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
+                        right[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
+                        right[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
                     },
                     {
-                        ctx->zero_idx,
                         ctx->zero_idx,
                         ctx->zero_idx,
                         ctx->zero_idx,
                         ctx->zero_idx,
                     },
                     {
-                        ctx->zero_idx,
                         ctx->zero_idx,
                         ctx->zero_idx,
                         ctx->zero_idx,
@@ -2741,38 +2753,34 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
         bb::non_native_field_witnesses<bb::fr> witnesses{
             {
-                left[0].binary_basis_limbs[0].element.normalize().witness_index,
-                left[0].binary_basis_limbs[1].element.normalize().witness_index,
-                left[0].binary_basis_limbs[2].element.normalize().witness_index,
-                left[0].binary_basis_limbs[3].element.normalize().witness_index,
-                left[0].prime_basis_limb.normalize().witness_index,
+                left[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
+                left[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
+                left[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
+                left[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
             },
             {
-                right[0].binary_basis_limbs[0].element.normalize().witness_index,
-                right[0].binary_basis_limbs[1].element.normalize().witness_index,
-                right[0].binary_basis_limbs[2].element.normalize().witness_index,
-                right[0].binary_basis_limbs[3].element.normalize().witness_index,
-                right[0].prime_basis_limb.normalize().witness_index,
+                right[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
+                right[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
+                right[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
+                right[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
             },
             {
-                quotient.binary_basis_limbs[0].element.normalize().witness_index,
-                quotient.binary_basis_limbs[1].element.normalize().witness_index,
-                quotient.binary_basis_limbs[2].element.normalize().witness_index,
-                quotient.binary_basis_limbs[3].element.normalize().witness_index,
-                quotient.prime_basis_limb.normalize().witness_index,
+                quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
             },
             {
-                remainder_limbs[0].normalize().witness_index,
-                remainder_limbs[1].normalize().witness_index,
-                remainder_limbs[2].normalize().witness_index,
-                remainder_limbs[3].normalize().witness_index,
-                remainder_prime_limb.normalize().witness_index,
+                remainder_limbs[0].get_normalized_witness_index(),
+                remainder_limbs[1].get_normalized_witness_index(),
+                remainder_limbs[2].get_normalized_witness_index(),
+                remainder_limbs[3].get_normalized_witness_index(),
             },
             { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
             modulus,
         };
 
-        const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses, false);
+        const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
 
         bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
 
@@ -2790,11 +2798,13 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         // if both the hi and lo output limbs have less than 70 bits, we can use our custom
         // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
         if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
-            ctx->range_constrain_two_limbs(
-                hi.witness_index, lo.witness_index, (size_t)carry_lo_msb, (size_t)carry_hi_msb);
+            ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
+                                           lo.get_normalized_witness_index(),
+                                           (size_t)carry_lo_msb,
+                                           (size_t)carry_hi_msb);
         } else {
-            ctx->decompose_into_default_range(hi.normalize().witness_index, carry_hi_msb);
-            ctx->decompose_into_default_range(lo.normalize().witness_index, carry_lo_msb);
+            ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
+            ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
         }
         /*  NOTE TO AUDITOR: An extraneous block
                if constexpr (HasPlookup<Builder>) {
@@ -2963,15 +2973,17 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         if constexpr (HasPlookup<Builder>) {
             carry_lo = carry_lo.normalize();
             carry_hi = carry_hi.normalize();
-            ctx->decompose_into_default_range(carry_lo.witness_index, static_cast<size_t>(carry_lo_msb));
-            ctx->decompose_into_default_range(carry_hi.witness_index, static_cast<size_t>(carry_hi_msb));
+            ctx->decompose_into_default_range(carry_lo.get_normalized_witness_index(),
+                                              static_cast<size_t>(carry_lo_msb));
+            ctx->decompose_into_default_range(carry_hi.get_normalized_witness_index(),
+                                              static_cast<size_t>(carry_hi_msb));
 
         } else {
             if ((carry_hi_msb + carry_lo_msb) < field_t<Builder>::modulus.get_msb()) {
                 field_t carry_combined = carry_lo + (carry_hi * carry_lo_shift);
                 carry_combined = carry_combined.normalize();
                 const auto accumulators = ctx->decompose_into_base4_accumulators(
-                    carry_combined.witness_index,
+                    carry_combined.get_normalized_witness_index(),
                     static_cast<size_t>(carry_lo_msb + carry_hi_msb),
                     "bigfield: carry_combined too large in unsafe_evaluate_multiple_multiply_add.");
                 field_t<Builder> accumulator_midpoint = field_t<Builder>::from_witness_index(
@@ -2981,11 +2993,11 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                 carry_lo = carry_lo.normalize();
                 carry_hi = carry_hi.normalize();
                 ctx->decompose_into_base4_accumulators(
-                    carry_lo.witness_index,
+                    carry_lo.get_normalized_witness_index(),
                     static_cast<size_t>(carry_lo_msb),
                     "bigfield: carry_lo too large in unsafe_evaluate_multiple_multiply_add.");
                 ctx->decompose_into_base4_accumulators(
-                    carry_hi.witness_index,
+                    carry_hi.get_normalized_witness_index(),
                     static_cast<size_t>(carry_hi_msb),
                     "bigfield: carry_hi too large in unsafe_evaluate_multiple_multiply_add.");
             }
@@ -3123,15 +3135,15 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
     if constexpr (HasPlookup<Builder>) {
         carry_lo = carry_lo.normalize();
         carry_hi = carry_hi.normalize();
-        ctx->decompose_into_default_range(carry_lo.witness_index, static_cast<size_t>(carry_lo_msb));
-        ctx->decompose_into_default_range(carry_hi.witness_index, static_cast<size_t>(carry_hi_msb));
+        ctx->decompose_into_default_range(carry_lo.get_normalized_witness_index(), static_cast<size_t>(carry_lo_msb));
+        ctx->decompose_into_default_range(carry_hi.get_normalized_witness_index(), static_cast<size_t>(carry_hi_msb));
 
     } else {
         if ((carry_hi_msb + carry_lo_msb) < field_t<Builder>::modulus.get_msb()) {
             field_t carry_combined = carry_lo + (carry_hi * carry_lo_shift);
             carry_combined = carry_combined.normalize();
             const auto accumulators = ctx->decompose_into_base4_accumulators(
-                carry_combined.witness_index,
+                carry_combined.get_normalized_witness_index(),
                 static_cast<size_t>(carry_lo_msb + carry_hi_msb),
                 "bigfield: carry_combined too large in unsafe_evaluate_square_add.");
             field_t<Builder> accumulator_midpoint =
@@ -3140,10 +3152,10 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
         } else {
             carry_lo = carry_lo.normalize();
             carry_hi = carry_hi.normalize();
-            ctx->decompose_into_base4_accumulators(carry_lo.witness_index,
+            ctx->decompose_into_base4_accumulators(carry_lo.get_normalized_witness_index(),
                                                    static_cast<size_t>(carry_lo_msb),
                                                    "bigfield: carry_lo too large in unsafe_evaluate_square_add.");
-            ctx->decompose_into_base4_accumulators(carry_hi.witness_index,
+            ctx->decompose_into_base4_accumulators(carry_hi.get_normalized_witness_index(),
                                                    static_cast<size_t>(carry_hi_msb),
                                                    "bigfield: carry_hi too large in unsafe_evaluate_square_add");
         }

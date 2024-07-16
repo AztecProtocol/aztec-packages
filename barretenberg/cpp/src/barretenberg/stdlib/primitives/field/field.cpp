@@ -509,6 +509,18 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     return result;
 }
 
+/**
+ * @brief Return an new element, where the in-circuit witness contains the actual represented value (multiplicative
+ * constant is 1 and additive_constant is 0)
+ *
+ * @details If the element is a constant or it is already normalized, just return the element itself
+ *
+ *@todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
+ *It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
+ *
+ * @tparam Builder
+ * @return field_t<Builder>
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 {
     if (witness_index == IS_CONSTANT ||
