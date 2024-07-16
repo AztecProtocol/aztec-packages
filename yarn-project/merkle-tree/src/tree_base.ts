@@ -8,7 +8,7 @@ import { type Hasher } from '@aztec/types/interfaces';
 import { HasherWithStats } from './hasher_with_stats.js';
 import { type MerkleTree } from './interfaces/merkle_tree.js';
 
-export const MAX_DEPTH = 254;
+const MAX_DEPTH = 254;
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 const encodeMeta = (root: Buffer, depth: number, size: bigint) => {

@@ -11,7 +11,6 @@ import { makeGlobalVariables, makeRootParityInput } from '@aztec/circuits.js/tes
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { JSTreeFactory } from '@aztec/merkle-tree';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -24,8 +23,7 @@ describe('prover/orchestrator', () => {
     let mockProver: MockProxy<ServerCircuitProver>;
     let actualDb: MerkleTreeOperations;
     beforeEach(async () => {
-      const kvStore = openTmpStore();
-      actualDb = await MerkleTrees.new(kvStore, await JSTreeFactory.init(kvStore)).then(t => t.asLatest());
+      actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
       mockProver = mock<ServerCircuitProver>();
       orchestrator = new ProvingOrchestrator(actualDb, mockProver);
     });

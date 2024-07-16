@@ -1,4 +1,4 @@
-import { MerkleTreeId, PublicDataWrite, TxEffect, type L2Block, type SiblingPath } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, PublicDataWrite, type SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -14,30 +14,33 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NullifierLeaf,
+  NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PublicDataTreeLeaf,
-  StateReference
+  PublicDataTreeLeafPreimage,
+  StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { createDebugLogger, type DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 import {
-  Pedersen,
-  type StandardIndexedTree,
-  StandardTree,
-  getTreeMeta,
-  loadTree,
-  newTree,
   type AppendOnlyTree,
   type BatchInsertionResult,
   type IndexedTree,
+  Pedersen,
+  StandardIndexedTree,
+  StandardTree,
   type UpdateOnlyTree,
-  type TreeFactory,
+  getTreeMeta,
+  loadTree,
+  newTree,
 } from '@aztec/merkle-tree';
+import { type Hasher } from '@aztec/types/interfaces';
 
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
@@ -55,6 +58,39 @@ import {
 } from './merkle_tree_operations.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
+/**
+ * The nullifier tree is an indexed tree.
+ */
+class NullifierTree extends StandardIndexedTree {
+  constructor(
+    store: AztecKVStore,
+    hasher: Hasher,
+    name: string,
+    depth: number,
+    size: bigint = 0n,
+    _noop: any,
+    root?: Buffer,
+  ) {
+    super(store, hasher, name, depth, size, NullifierLeafPreimage, NullifierLeaf, root);
+  }
+}
+
+/**
+ * The public data tree is an indexed tree.
+ */
+class PublicDataTree extends StandardIndexedTree {
+  constructor(
+    store: AztecKVStore,
+    hasher: Hasher,
+    name: string,
+    depth: number,
+    size: bigint = 0n,
+    _noop: any,
+    root?: Buffer,
+  ) {
+    super(store, hasher, name, depth, size, PublicDataTreeLeafPreimage, PublicDataTreeLeaf, root);
+  }
+}
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -71,42 +107,62 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param store - The db instance to use for data persistance.
    * @returns - A fully initialized MerkleTrees instance.
    */
-  public static async new(store: AztecKVStore, treeFactory: TreeFactory, log = createDebugLogger('aztec:merkle_trees')) {
+  public static async new(store: AztecKVStore, log = createDebugLogger('aztec:merkle_trees')) {
     const merkleTrees = new MerkleTrees(store, log);
-    await merkleTrees.#init(treeFactory);
+    await merkleTrees.#init();
     return merkleTrees;
   }
 
   /**
    * Initializes the collection of Merkle Trees.
    */
-  async #init(treeFactory: TreeFactory) {
+  async #init() {
     const fromDb = this.#isDbPopulated();
     const initializeTree = fromDb ? loadTree : newTree;
 
     const hasher = new Pedersen();
 
-    const nullifierTree = await treeFactory.createNullifierTree(`${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`, NULLIFIER_TREE_HEIGHT, INITIAL_NULLIFIER_TREE_SIZE);
-
-    const noteHashTree: AppendOnlyTree<Fr> = await treeFactory.createStandardTree(
-      `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
-      NOTE_HASH_TREE_HEIGHT,
-      1
+    const nullifierTree = await initializeTree(
+      NullifierTree,
+      this.store,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]}`,
+      {},
+      NULLIFIER_TREE_HEIGHT,
+      INITIAL_NULLIFIER_TREE_SIZE,
     );
-    const publicDataTree = await treeFactory.createPublicDataTree(
+    const noteHashTree: AppendOnlyTree<Fr> = await initializeTree(
+      StandardTree,
+      this.store,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE]}`,
+      Fr,
+      NOTE_HASH_TREE_HEIGHT,
+    );
+    const publicDataTree = await initializeTree(
+      PublicDataTree,
+      this.store,
+      hasher,
       `${MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE]}`,
+      {},
       PUBLIC_DATA_TREE_HEIGHT,
       INITIAL_PUBLIC_DATA_TREE_SIZE,
     );
-    const l1Tol2MessageTree: AppendOnlyTree<Fr> = await treeFactory.createStandardTree(
+    const l1Tol2MessageTree: AppendOnlyTree<Fr> = await initializeTree(
+      StandardTree,
+      this.store,
+      hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]}`,
+      Fr,
       L1_TO_L2_MSG_TREE_HEIGHT,
-      1
     );
-    const archive: AppendOnlyTree<Fr> = await treeFactory.createStandardTree(
+    const archive: AppendOnlyTree<Fr> = await initializeTree(
+      StandardTree,
+      this.store,
+      hasher,
       `${MerkleTreeId[MerkleTreeId.ARCHIVE]}`,
+      Fr,
       ARCHIVE_HEIGHT,
-      1,
     );
     this.trees = [nullifierTree, noteHashTree, publicDataTree, l1Tol2MessageTree, archive];
 

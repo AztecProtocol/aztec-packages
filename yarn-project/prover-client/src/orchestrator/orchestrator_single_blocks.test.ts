@@ -5,7 +5,6 @@ import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { JSTreeFactory } from '@aztec/merkle-tree';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
@@ -19,8 +18,7 @@ describe('prover/orchestrator/blocks', () => {
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
-    const kvStore = openTmpStore();
-    expectsDb = await MerkleTrees.new(kvStore, await JSTreeFactory.init(kvStore)).then(t => t.asLatest());
+    expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
   });
 
   afterEach(async () => {
