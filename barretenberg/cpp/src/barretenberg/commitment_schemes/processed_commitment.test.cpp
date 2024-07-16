@@ -48,7 +48,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparse)
     using Fr = Curve::ScalarField;
     using Polynomial = bb::Polynomial<Fr>;
 
-    const size_t num_points = 1 << 10;
+    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
     const size_t num_nonzero = 7;
 
     // Construct a sparse random polynomial
