@@ -108,7 +108,7 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
     };
 
     using InsertionGenerationCallback = std::function<void(const TypedResponse<InsertionGenerationResponse>&)>;
-    void generate_insertions(const std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>>& values_to_be_sorted,
+    void generate_insertions(const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
                              const InsertionGenerationCallback& completion);
 
     struct InsertionCompletionResponse {
@@ -450,7 +450,7 @@ void IndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
 
 template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::generate_insertions(
-    const std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>>& values_to_be_sorted,
+    const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
     const InsertionGenerationCallback& on_completion)
 {
     ExecuteAndReport<InsertionGenerationResponse>(
@@ -458,14 +458,16 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
             // The first thing we do is sort the values into descending order but maintain knowledge of their
             // orignal order
             struct {
-                bool operator()(std::pair<LeafValueType, size_t>& a, std::pair<LeafValueType, size_t>& b) const
+                bool operator()(std::pair<LeafValueType, index_t>& a, std::pair<LeafValueType, index_t>& b) const
                 {
-                    return uint256_t(a.first.get_key()) > uint256_t(b.first.get_key());
+                    uint256_t aValue = a.first.get_key();
+                    uint256_t bValue = b.first.get_key();
+                    return aValue == bValue ? a.second < b.second : aValue < bValue;
                 }
             } comp;
             std::sort(values_to_be_sorted->begin(), values_to_be_sorted->end(), comp);
 
-            std::vector<std::pair<LeafValueType, size_t>>& values = *values_to_be_sorted;
+            std::vector<std::pair<LeafValueType, index_t>>& values = *values_to_be_sorted;
 
             // Now that we have the sorted values we need to identify the leaves that need updating.
             // This is performed sequentially and is stored in this 'leaf_insertion' struct
