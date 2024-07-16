@@ -58,8 +58,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
     };
 
     /**
-     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
-     *
+     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * exceed the subrelation partial degree, which is given by LENGTH - 1 in this case.
      */
     static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_WITNESS_DEGREES{
         LENGTH - 1, // inverse polynomial correctness subrelation
@@ -90,6 +92,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.calldata_read_counts; }
+        static auto& read_tags(const AllEntities& in) { return in.calldata_read_tags; }
     };
 
     // Specialization for return data (bus_idx = 1)
@@ -99,6 +102,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.return_data_inverses; }
         static auto& inverses(const AllEntities& in) { return in.return_data_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.return_data_read_counts; }
+        static auto& read_tags(const AllEntities& in) { return in.return_data_read_tags; }
     };
 
     /**
@@ -112,8 +116,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <size_t bus_idx, typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
         auto read_selector = get_read_selector<FF, bus_idx>(row);
-        auto read_counts = BusData<bus_idx, AllValues>::read_counts(row);
-        return (read_selector == 1 || read_counts > 0);
+        auto read_tag = BusData<bus_idx, AllValues>::read_tags(row);
+        return (read_selector == 1 || read_tag == 1);
     }
 
     /**
@@ -128,10 +132,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
     {
         using View = typename Accumulator::View;
 
-        const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in);
-        const auto read_counts = View(BusData<bus_idx, AllEntities>::read_counts(in));
+        const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in);    // is this a read gate
+        const auto read_tag = View(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
 
-        return is_read_gate + read_counts - (is_read_gate * read_counts);
+        return is_read_gate + read_tag - (is_read_gate * read_tag);
     }
 
     /**

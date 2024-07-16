@@ -13,7 +13,8 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         7, // external poseidon2 round sub-relation for fourth value
     };
     /**
-     * @brief Total degrees of sub-relations considered as polynomials in witnesses.
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
      *
      */
     static constexpr std::array<size_t, 4> SUBRELATION_WITNESS_DEGREES{

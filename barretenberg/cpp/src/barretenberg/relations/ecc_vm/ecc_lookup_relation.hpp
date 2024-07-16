@@ -22,8 +22,10 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         LENGTH  // left-shiftable polynomial sub-relation
     };
     /**
-     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
-     *
+     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * exceed the subrelation partial degree given by LENGTH - 1.
      */
     static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
         LENGTH - 1, // grand product construction sub-relation

@@ -22,10 +22,14 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         LENGTH, // inverse construction sub-relation
         LENGTH  // log derivative lookup argument sub-relation
     };
-
+    /**
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
+     *
+     */
     static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        2, // read_term has witness degree 1, write_term does not carry witness info, inverses has witness degree 1
-        3, // write_inverse has witness degree 2, read_counts has witness degree 1
+        2, // inverse construction sub-relation
+        3, // log derivative lookup argument sub-relation
     };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1036): Scrutinize these adjustment factors. Counting
@@ -211,8 +215,13 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                            const FF& scaling_factor)
     {
         BB_OP_COUNT_TIME_NAME("Lookup::accumulate");
+        // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
+        // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
+        // longest
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+        // allows to re-use the values accumulated by the accumulator of the size smaller than
+        // the size of Accumulator declared above
         using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
 
         const auto inverses = View(in.lookup_inverses);                         // Degree 1

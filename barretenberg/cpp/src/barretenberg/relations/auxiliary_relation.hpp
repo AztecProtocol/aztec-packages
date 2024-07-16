@@ -40,7 +40,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
         6  // RAM consistency sub-relation 3
     };
     /**
-     * @brief Total degrees of sub-relations considered as polynomials in witnesses.
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
      *
      */
     static constexpr std::array<size_t, 6> SUBRELATION_WITNESS_DEGREES{
@@ -110,9 +111,12 @@ template <typename FF_> class AuxiliaryRelationImpl {
                                   const FF& scaling_factor)
     {
         BB_OP_COUNT_TIME_NAME("Auxiliary::accumulate");
-        // All subrelations have the same length so we use the same length view for all calculations
+        // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
+        // whereas in ZK Flavors, the accumulator corresponding to RAM consistency sub-relation 1 is the longest
         using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+        // allows to re-use the values accumulated by accumulators of the sizes smaller or equal to
+        // the size of Accumulator declared above
         using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         using ParameterView = GetParameterView<Parameters, View>;
 

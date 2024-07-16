@@ -37,7 +37,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
     };
 
     /**
-     * @brief Total Degrees of Ultra Permutation Sub-Relations considered as polynomials in witnesses.
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
      *
      */
     static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{

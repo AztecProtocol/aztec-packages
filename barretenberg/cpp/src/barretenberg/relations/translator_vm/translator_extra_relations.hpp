@@ -13,8 +13,10 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
         7 // opcode constraint relation
     };
     /**
-     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
-     *
+     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
      */
     static constexpr std::array<size_t, 1> SUBRELATION_WITNESS_DEGREES{
         6 // opcode constraint relation
@@ -64,8 +66,10 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
 
     };
     /**
-     * @brief Upper bound on total degrees of sub-relations considered as polynomials in witnesses.
-     *
+     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
+polynomials,
+     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
+     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
      */
     static constexpr std::array<size_t, 12> SUBRELATION_WITNESS_DEGREES{
         2, // transfer accumulator limb 0 at even index subrelation
