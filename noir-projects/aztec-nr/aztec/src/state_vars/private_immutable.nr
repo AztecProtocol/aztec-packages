@@ -11,7 +11,7 @@ use crate::state_vars::storage::Storage;
 // docs:start:struct
 struct PrivateImmutable<Note, Context> {
     context: Context,
-    storage_slot: Field,
+    storage_slot: Point,
 }
 // docs:end:struct
 
@@ -19,7 +19,7 @@ impl<T, Context> Storage<T> for PrivateImmutable<T, Context> {}
 
 impl<Note, Context> PrivateImmutable<Note, Context> {
     // docs:start:new
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+    pub fn new(context: Context, storage_slot: Point) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }

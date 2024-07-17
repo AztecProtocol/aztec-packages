@@ -4,7 +4,7 @@ use crate::state_vars::storage::Storage;
 // docs:start:map
 struct Map<K, V, Context> {
     context: Context,
-    storage_slot: Field,
+    storage_slot: Point,
     state_var_constructor: fn(Context, Field) -> V,
 }
 // docs:end:map
@@ -15,7 +15,7 @@ impl<K, V, Context> Map<K, V, Context> {
     // docs:start:new
     pub fn new(
         context: Context,
-        storage_slot: Field,
+        storage_slot: Point,
         state_var_constructor: fn(Context, Field) -> V
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");

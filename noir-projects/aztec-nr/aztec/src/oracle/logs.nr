@@ -28,7 +28,7 @@ unconstrained pub fn emit_encrypted_event_log<let M: u32>(
 #[oracle(computeEncryptedNoteLog)]
 unconstrained fn compute_encrypted_note_log_oracle<let N: u32, let M: u32>(
     _contract_address: AztecAddress,
-    _storage_slot: Field,
+    _storage_slot: Point,
     _note_type_id: Field,
     _ovsk_app: Field,
     _ovpk_m: Point,
@@ -39,7 +39,7 @@ unconstrained fn compute_encrypted_note_log_oracle<let N: u32, let M: u32>(
 
 unconstrained pub fn compute_encrypted_note_log<let N: u32, let M: u32>(
     contract_address: AztecAddress,
-    storage_slot: Field,
+    storage_slot: Point,
     note_type_id: Field,
     ovsk_app: Field,
     ovpk_m: Point,

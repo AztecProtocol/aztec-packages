@@ -178,7 +178,7 @@ fn generate_compute_note_hash_and_optionally_a_nullifier_source(
         unconstrained fn compute_note_hash_and_optionally_a_nullifier(
             contract_address: aztec::protocol_types::address::AztecAddress,
             nonce: Field,
-            storage_slot: Field,
+            storage_slot: Point,
             note_type_id: Field,
             compute_nullifier: bool,
             serialized_note: [Field; {}],
@@ -210,7 +210,7 @@ fn generate_compute_note_hash_and_optionally_a_nullifier_source(
             unconstrained fn compute_note_hash_and_optionally_a_nullifier(
                 contract_address: aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
-                storage_slot: Field,
+                storage_slot: Point,
                 note_type_id: Field,
                 compute_nullifier: bool,
                 serialized_note: [Field; {}],

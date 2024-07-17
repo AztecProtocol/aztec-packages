@@ -40,7 +40,7 @@ unconstrained pub fn notify_nullified_note<let N: u32>(
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
-    _storage_slot: Field,
+    _storage_slot: Point,
     _num_selects: u8,
     _select_by_indexes: [u8; N],
     _select_by_offsets: [u8; N],
@@ -59,7 +59,7 @@ unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
 ) -> [Field; S] {}
 
 unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
-    storage_slot: Field,
+    storage_slot: Point,
     num_selects: u8,
     select_by_indexes: [u8; N],
     select_by_offsets: [u8; N],

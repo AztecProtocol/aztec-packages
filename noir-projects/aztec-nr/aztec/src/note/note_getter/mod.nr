@@ -105,7 +105,7 @@ pub fn get_note<Note, let N: u32, let M: u32>(
 
 pub fn get_notes<Note, let N: u32, let M: u32, FILTER_ARGS>(
     context: &mut PrivateContext,
-    storage_slot: Field,
+    storage_slot: Point,
     options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
 ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     let opt_notes = get_notes_internal(storage_slot, options);
@@ -115,7 +115,7 @@ pub fn get_notes<Note, let N: u32, let M: u32, FILTER_ARGS>(
 
 fn constrain_get_notes_internal<Note, let N: u32, let M: u32, FILTER_ARGS>(
     context: &mut PrivateContext,
-    storage_slot: Field,
+    storage_slot: Point,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
 ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
@@ -183,7 +183,7 @@ unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: P
 }
 
 unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, FILTER_ARGS>(
-    storage_slot: Field,
+    storage_slot: Point,
     options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
@@ -215,7 +215,7 @@ unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, FILTER_ARGS>(
 }
 
 unconstrained pub fn view_notes<Note, let N: u32, let M: u32>(
-    storage_slot: Field,
+    storage_slot: Point,
     options: NoteViewerOptions<Note, N, M>
 ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> where Note: NoteInterface<N, M> {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) = flatten_options(options.selects, options.sorts);

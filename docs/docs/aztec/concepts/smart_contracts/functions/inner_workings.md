@@ -255,7 +255,7 @@ impl CustomNote {
         )
     }
 
-      fn to_be_bytes(self, storage_slot: Field) -> [u8; 128] {
+      fn to_be_bytes(self, storage_slot: Point) -> [u8; 128] {
             assert(128 == 2 * 32 + 64, "Note byte length must be equal to (serialized_length * 32) + 64 bytes");
             let serialized_note = self.serialize_content();
 

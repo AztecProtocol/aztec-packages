@@ -8,12 +8,12 @@ use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 struct EasyPrivateUint<Context> {
     context: Context,
     set: PrivateSet<ValueNote, Context>,
-    storage_slot: Field,
+    storage_slot: Point,
 }
 
 // Holds a note that can act similarly to an int.
 impl<Context> EasyPrivateUint<Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+    pub fn new(context: Context, storage_slot: Point) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         let set = PrivateSet::new(context, storage_slot);
         EasyPrivateUint { context, set, storage_slot }

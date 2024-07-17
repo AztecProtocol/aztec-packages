@@ -37,7 +37,7 @@ unconstrained pub fn deploy<let N: u32, let M: u32, let P: u32>(
     ContractInstance::deserialize(instance_fields)
 }
 
-unconstrained pub fn direct_storage_write<let N: u32>(contract_address: AztecAddress, storage_slot: Field, fields: [Field; N]) {
+unconstrained pub fn direct_storage_write<let N: u32>(contract_address: AztecAddress, storage_slot: Point, fields: [Field; N]) {
     let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
@@ -134,7 +134,7 @@ unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
 #[oracle(directStorageWrite)]
 unconstrained fn direct_storage_write_oracle<let N: u32>(
     _contract_address: AztecAddress,
-    _storage_slot: Field,
+    _storage_slot: Point,
     _values: [Field; N]
 ) -> [Field; N] {}
 

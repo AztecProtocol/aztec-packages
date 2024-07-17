@@ -66,7 +66,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_note_hash_for_read_request_from_inner_and_nonce(inner_note_hash, header.nonce);
+        let unique_note_hash = compute_note_hash_for_read_request_from_inner_and_nonce(inner_note_hash.x, header.nonce);
         compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of

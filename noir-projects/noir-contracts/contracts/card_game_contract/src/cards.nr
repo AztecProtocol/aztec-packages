@@ -95,7 +95,7 @@ pub fn filter_cards<N>(
 }
 
 impl<Context> Deck<Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+    pub fn new(context: Context, storage_slot: Point) -> Self {
         let set = PrivateSet { context, storage_slot };
         Deck { set }
     }

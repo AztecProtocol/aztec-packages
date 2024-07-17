@@ -14,7 +14,7 @@ struct BalancesMap<T, Context> {
 }
 
 impl<T, Context> BalancesMap<T, Context> {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+    pub fn new(context: Context, storage_slot: Point) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
             map: Map::new(

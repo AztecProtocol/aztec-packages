@@ -1,4 +1,7 @@
-use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface}};
+use crate::{
+    context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface},
+    utils::point::pub_key_to_bytes
+};
 
 use dep::protocol_types::{address::AztecAddress, point::Point, traits::Eq};
 
@@ -47,12 +50,12 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
       (0, 0)
     }
 
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
+    fn to_be_bytes(self, storage_slot: Point) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
       let serialized_note = self.serialize_content();
 
         let mut buffer: [u8; MOCK_NOTE_BYTES_LENGTH] = [0; MOCK_NOTE_BYTES_LENGTH];
 
-        let storage_slot_bytes = storage_slot.to_be_bytes(32);
+        let storage_slot_bytes = pub_key_to_bytes(storage_slot);
         let note_type_id_bytes = MockNote::get_note_type_id().to_be_bytes(32);
 
         for i in 0..32 {

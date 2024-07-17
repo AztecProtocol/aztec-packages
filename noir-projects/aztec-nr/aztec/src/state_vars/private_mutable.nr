@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash,
+    point::Point
+};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
@@ -11,7 +14,7 @@ use crate::state_vars::storage::Storage;
 // docs:start:struct
 struct PrivateMutable<Note, Context> {
     context: Context,
-    storage_slot: Field
+    storage_slot: Point
 }
 // docs:end:struct
 
@@ -21,7 +24,7 @@ impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
 
 impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+    pub fn new(context: Context, storage_slot: Point) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
@@ -37,7 +40,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     // For example, if the `compute_note_hash_and_nullifier()` method injects the secret key of a note owner into the computed nullifier's preimage.
     pub fn compute_initialization_nullifier(self) -> Field {
         pedersen_hash(
-            [self.storage_slot],
+            [self.storage_slot.x],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
     }

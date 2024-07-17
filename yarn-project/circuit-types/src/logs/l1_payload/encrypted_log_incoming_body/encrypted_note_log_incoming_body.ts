@@ -1,4 +1,4 @@
-import { Fr, type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
+import { Fr, Point, type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -6,7 +6,7 @@ import { Note } from '../payload.js';
 import { EncryptedLogIncomingBody } from './encrypted_log_incoming_body.js';
 
 export class EncryptedNoteLogIncomingBody extends EncryptedLogIncomingBody {
-  constructor(public storageSlot: Fr, public noteTypeId: NoteSelector, public note: Note) {
+  constructor(public storageSlot: Point, public noteTypeId: NoteSelector, public note: Note) {
     super();
   }
 
@@ -29,7 +29,7 @@ export class EncryptedNoteLogIncomingBody extends EncryptedLogIncomingBody {
    */
   public static fromBuffer(buf: Buffer): EncryptedNoteLogIncomingBody {
     const reader = BufferReader.asReader(buf);
-    const storageSlot = Fr.fromBuffer(reader);
+    const storageSlot = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
     const noteTypeId = NoteSelector.fromField(Fr.fromBuffer(reader));
 
     // 2 Fields (storage slot and note type id) are not included in the note buffer

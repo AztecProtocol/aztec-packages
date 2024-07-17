@@ -225,13 +225,13 @@ fn generate_note_to_be_bytes(
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
-        fn to_be_bytes(self: {1}, storage_slot: Field) -> [u8; {0}] {{
+        fn to_be_bytes(self: {1}, storage_slot: aztec::protocol_types::point::Point) -> [u8; {0}] {{
             assert({0} == {2} * 32 + 64, \"Note byte length must be equal to (serialized_length * 32) + 64 bytes\");
             let serialized_note = self.serialize_content();
 
             let mut buffer: [u8; {0}] = [0; {0}];
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
+            let storage_slot_bytes = aztec::utils::point::pub_key_to_bytes(storage_slot);
             let note_type_id_bytes = {1}::get_note_type_id().to_be_bytes(32);
 
             for i in 0..32 {{

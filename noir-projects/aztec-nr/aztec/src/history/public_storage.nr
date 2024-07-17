@@ -7,11 +7,11 @@ use std::merkle::compute_merkle_root;
 use crate::{context::PrivateContext, oracle::get_public_data_witness::get_public_data_witness};
 
 trait PublicStorageHistoricalRead {
-    fn public_storage_historical_read(header: Header, storage_slot: Field, contract_address: AztecAddress) -> Field;
+    fn public_storage_historical_read(header: Header, storage_slot: Point, contract_address: AztecAddress) -> Field;
 }
 
 impl PublicStorageHistoricalRead for Header { 
-    fn public_storage_historical_read(self, storage_slot: Field, contract_address: AztecAddress) -> Field {
+    fn public_storage_historical_read(self, storage_slot: Point, contract_address: AztecAddress) -> Field {
         // 1) Compute the leaf slot by siloing the storage slot with the contract address
         let public_value_leaf_slot = pedersen_hash(
             [contract_address.to_field(), storage_slot],

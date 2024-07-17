@@ -1,8 +1,12 @@
 use crate::{context::PublicContext, state_vars::public_immutable::PublicImmutable};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct};
-use dep::protocol_types::traits::Serialize;
+use dep::protocol_types::{point::Point, traits::Serialize};
 
-global storage_slot = 7;
+global storage_slot = Point {
+    x: 0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37,
+    y: 0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76,
+    is_infinite: false
+};
 
 fn setup() -> TestEnvironment {
     TestEnvironment::new()

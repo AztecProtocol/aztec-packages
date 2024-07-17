@@ -15,7 +15,7 @@ mod test;
 
 struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
-    storage_slot: Field,
+    storage_slot: Point,
 }
 
 // This will make the Aztec macros require that T implements the Serialize<N> trait, and allocate N storage slots to
@@ -52,7 +52,7 @@ fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [
 // The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
 // `schedule_delay_change`.
 impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
-    pub fn new(context: Context, storage_slot: Field) -> Self {
+    pub fn new(context: Context, storage_slot: Point) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
@@ -238,7 +238,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedCon
 
 unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     address: AztecAddress,
-    storage_slot: Field,
+    storage_slot: Point,
     block_number: u32
 ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>) where T: ToField + FromField + Eq {
     // This function cannot be part of the &mut PrivateContext impl because that'd mean that by passing `self` we'd also

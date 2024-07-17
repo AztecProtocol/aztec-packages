@@ -17,7 +17,7 @@ struct SharedMutablePrivateGetter<T, INITIAL_DELAY> {
     // The contract address of the contract we want to read from
     other_contract_address: AztecAddress,
     // The storage slot where the SharedMutable is stored on the other contract
-    storage_slot: Field,
+    storage_slot: Point,
 }
 
 // We have this as a view-only interface to reading Shared Mutables in other contracts.
@@ -26,7 +26,7 @@ impl<T, INITIAL_DELAY> SharedMutablePrivateGetter<T, INITIAL_DELAY>  where T: Fr
     pub fn new(
         context: &mut PrivateContext,
         other_contract_address: AztecAddress,
-        storage_slot: Field
+        storage_slot: Point
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         assert(other_contract_address.to_field() != 0, "Other contract address cannot be 0");

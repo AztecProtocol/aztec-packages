@@ -8,7 +8,7 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Des
 // docs:start:public_immutable_struct
 struct PublicImmutable<T, Context> {
     context: Context,
-    storage_slot: Field,
+    storage_slot: Point,
 }
 // docs:end:public_immutable_struct
 
@@ -19,7 +19,7 @@ impl<T, Context> PublicImmutable<T, Context> {
     pub fn new(
         // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         context: Context,
-        storage_slot: Field
+        storage_slot: Point
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicImmutable { context, storage_slot }

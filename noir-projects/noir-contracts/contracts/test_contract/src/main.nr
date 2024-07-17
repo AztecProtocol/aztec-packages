@@ -93,7 +93,7 @@ contract Test {
         value: Field,
         owner: AztecAddress,
         outgoing_viewer: AztecAddress,
-        storage_slot: Field
+        storage_slot: Point
     ) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
@@ -107,7 +107,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
+    fn call_get_notes(storage_slot: Point, active_or_nullified: bool) -> Field {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -123,7 +123,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [Field; 2] {
+    fn call_get_notes_many(storage_slot: Point, active_or_nullified: bool) -> [Field; 2] {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -138,7 +138,7 @@ contract Test {
         [notes.get(0).value, notes.get(1).value]
     }
 
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
+    unconstrained fn call_view_notes(storage_slot: Point, active_or_nullified: bool) -> pub Field {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -153,7 +153,7 @@ contract Test {
         notes.get(0).value
     }
 
-    unconstrained fn call_view_notes_many(storage_slot: Field, active_or_nullified: bool) -> pub [Field; 2] {
+    unconstrained fn call_view_notes_many(storage_slot: Point, active_or_nullified: bool) -> pub [Field; 2] {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -169,7 +169,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn call_destroy_note(storage_slot: Field) {
+    fn call_destroy_note(storage_slot: Point) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -416,7 +416,7 @@ contract Test {
     fn compute_incoming_log_body_ciphertext(
         secret: Scalar,
         point: Point,
-        storage_slot: Field,
+        storage_slot: Point,
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);

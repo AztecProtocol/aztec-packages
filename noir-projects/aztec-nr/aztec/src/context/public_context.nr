@@ -165,19 +165,19 @@ impl PublicContext {
         da_gas_left()
     }
 
-    fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
+    fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Point) -> [Field; N] {
         storage_read(storage_slot)
     }
 
-    fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+    fn storage_read<T, let N: u32>(self, storage_slot: Point) -> T where T: Deserialize<N> {
         T::deserialize(self.raw_storage_read(storage_slot))
     }
 
-    fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
+    fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Point, values: [Field; N]) {
         storage_write(storage_slot, values);
     }
 
-    fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+    fn storage_write<T, let N: u32>(self, storage_slot: Point, value: T) where T: Serialize<N> {
         self.raw_storage_write(storage_slot, value.serialize());
     }
 }
@@ -274,11 +274,11 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn storage_read<let N: u32>(storage_slot: Field) -> [Field; N] {
+unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
     storage_read_opcode(storage_slot, N as Field)
 }
 
-unconstrained fn storage_write<let N: u32>(storage_slot: Field, values: [Field; N]) {
+unconstrained fn storage_write<let N: u32>(storage_slot: Point, values: [Field; N]) {
     storage_write_opcode(storage_slot, values);
 }
 
@@ -373,10 +373,10 @@ unconstrained fn call_static_opcode<let RET_SIZE: u32>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<let N: u32>(storage_slot: Field, length: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode<let N: u32>(storage_index: Field, length: Field) -> [Field; N] {}
 
 #[oracle(avmOpcodeStorageWrite)]
-unconstrained fn storage_write_opcode<let N: u32>(storage_slot: Field, values: [Field; N]) {}
+unconstrained fn storage_write_opcode<let N: u32>(storage_index: Field, values: [Field; N]) {}
 
 struct FunctionReturns<let N: u32> {
     values: [Field; N]

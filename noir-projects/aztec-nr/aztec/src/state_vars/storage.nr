@@ -1,7 +1,7 @@
-use dep::protocol_types::traits::{Deserialize, Serialize};
+use dep::protocol_types::{point::Point, traits::{Deserialize, Serialize}};
 
 trait Storage<T> where T: Serialize<N> + Deserialize<N> {
-    fn get_storage_slot(self) -> Field {
+    fn get_storage_slot(self) -> Point {
         self.storage_slot
     }
 }
@@ -10,6 +10,6 @@ trait Storage<T> where T: Serialize<N> + Deserialize<N> {
 // Every entry in the storage struct will be exported in the compilation artifact as a 
 // Storable entity, containing the storage slot
 struct Storable {
-    slot: Field,
+    slot: Point,
 }
 

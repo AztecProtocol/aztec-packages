@@ -1,6 +1,6 @@
 import { AztecAddress, type GrumpkinScalar, type KeyValidationRequest, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { EncryptedNoteLogIncomingBody } from './encrypted_log_incoming_body/index.js';
@@ -25,7 +25,7 @@ export class L1NotePayload extends L1Payload {
     /**
      * Storage slot of the underlying note.
      */
-    public storageSlot: Fr,
+    public storageSlot: Point,
     /**
      * Type identifier for the underlying note, required to determine how to compute its hash and nullifier.
      */
@@ -44,7 +44,7 @@ export class L1NotePayload extends L1Payload {
     return new L1NotePayload(
       reader.readObject(Note),
       reader.readObject(AztecAddress),
-      Fr.fromBuffer(reader),
+      Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES)),
       reader.readObject(NoteSelector),
     );
   }
@@ -54,7 +54,7 @@ export class L1NotePayload extends L1Payload {
    * @returns Buffer representation of the L1NotePayload object.
    */
   toBuffer() {
-    return serializeToBuffer([this.note, this.contractAddress, this.storageSlot, this.noteTypeId]);
+    return serializeToBuffer([this.note, this.contractAddress, this.storageSlot.toCompressedBuffer(), this.noteTypeId]);
   }
 
   /**
@@ -63,7 +63,7 @@ export class L1NotePayload extends L1Payload {
    * @returns A random L1NotePayload object.
    */
   static random(contract = AztecAddress.random()) {
-    return new L1NotePayload(Note.random(), contract, Fr.random(), NoteSelector.random());
+    return new L1NotePayload(Note.random(), contract, Point.random(), NoteSelector.random());
   }
 
   public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {

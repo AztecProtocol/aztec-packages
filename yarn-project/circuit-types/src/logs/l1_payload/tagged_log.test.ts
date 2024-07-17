@@ -1,7 +1,7 @@
 import { AztecAddress, KeyValidationRequest, computeOvskApp, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { EncryptedL2Log } from '../encrypted_l2_log.js';
@@ -58,7 +58,11 @@ describe('L1 Note Payload', () => {
 
   it('encrypted tagged log matches Noir', () => {
     const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
-    const storageSlot = new Fr(0x0fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e6599n);
+    const storageSlot = new Point(
+      new Fr(0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37n),
+      new Fr(0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76n),
+      false,
+    );
     const noteValue = new Fr(0x301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5cn);
     const noteTypeId = new NoteSelector(0);
 

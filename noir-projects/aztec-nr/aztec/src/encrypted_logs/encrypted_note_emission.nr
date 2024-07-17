@@ -55,7 +55,7 @@ fn emit_with_keys<Note, let N: u32, let NB: u32, let M: u32>(
     ovpk: Point,
     ivpk: Point,
     recipient: AztecAddress,
-    inner_compute: fn(AztecAddress, Field, Field, Point, Point, AztecAddress, Note) -> ([u8; M], Field)
+    inner_compute: fn(AztecAddress, Point, Field, Point, Point, AztecAddress, Note) -> ([u8; M], Field)
 ) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     let note_header = note.get_header();
     let note_hash_counter = note_header.note_hash_counter;
