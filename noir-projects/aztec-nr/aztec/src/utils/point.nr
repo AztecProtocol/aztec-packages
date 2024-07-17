@@ -9,7 +9,7 @@ global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274
 /// We don't serialize the point at infinity flag because this function is used in situations where we do not want
 /// to waste the extra byte (encrypted log).
 pub fn point_to_bytes(pk: Point) -> [u8; 32] {
-    assert(!pk.is_infinite, "Point at infinity is not a valid public key.");
+    assert(!pk.is_infinite, "Cannot serialize point at infinity as bytes.");
 
     let mut result = pk.x.to_be_bytes(32);
 
