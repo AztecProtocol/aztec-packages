@@ -24,7 +24,7 @@ enum WIRE {
     Q_4,
     Q_M,
     Q_ARITH,
-    Q_SORT,
+    Q_RANGE,
     Q_ELLIPTIC,
     Q_AUX,
     Q_LOOKUP,
@@ -89,7 +89,7 @@ library Honk {
         G1Point qo;
         G1Point q4;
         G1Point qArith; // Arithmetic widget
-        G1Point qSort; // Gen perm sort
+        G1Point qRange; // Delta Range sort
         G1Point qAux; // Auxillary
         G1Point qElliptic; // Auxillary
         G1Point qLookup; // Lookup
@@ -122,10 +122,12 @@ library Honk {
         Honk.G1ProofPoint w2;
         Honk.G1ProofPoint w3;
         Honk.G1ProofPoint w4;
-        // Lookup helpers - classic plookup
-        Honk.G1ProofPoint sortedAccum;
+        // Lookup helpers - permutations
         Honk.G1ProofPoint zPerm;
-        Honk.G1ProofPoint zLookup;
+        // Lookup helpers - logup plookup
+        Honk.G1ProofPoint lookupReadCounts;
+        Honk.G1ProofPoint lookupReadTags;
+        Honk.G1ProofPoint lookupInverses;
         // Sumcheck
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;

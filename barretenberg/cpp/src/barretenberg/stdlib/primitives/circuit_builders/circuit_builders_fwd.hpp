@@ -12,7 +12,6 @@ construction in stdlib and contains macros for explicit instantiation.
 namespace bb {
 class StandardFlavor;
 class UltraFlavor;
-
 class UltraKeccakFlavor;
 
 class Bn254FrParams;

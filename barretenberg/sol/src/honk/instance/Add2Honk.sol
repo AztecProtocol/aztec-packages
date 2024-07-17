@@ -21,7 +21,7 @@ import {
 
 import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
 
-// Field arithmetic libraries - prevent littering the code with modmul / addmul
+// Field arithmetic libraries
 import {Fr, FrLib} from "../Fr.sol";
 
 struct Proof {
@@ -33,10 +33,12 @@ struct Proof {
     Honk.G1ProofPoint w2;
     Honk.G1ProofPoint w3;
     Honk.G1ProofPoint w4;
-    // Lookup helpers - classic plookup
-    Honk.G1ProofPoint sortedAccum;
+    // Lookup helpers - Permutations
     Honk.G1ProofPoint zPerm;
-    Honk.G1ProofPoint zLookup;
+    // Lookup helpers - logup
+    Honk.G1ProofPoint lookupReadCounts;
+    Honk.G1ProofPoint lookupReadTags;
+    Honk.G1ProofPoint lookupInverses;
     // Sumcheck
     Fr[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
     Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
@@ -49,6 +51,8 @@ struct Proof {
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     Fr eta;
+    Fr eta_two;
+    Fr eta_three;
     Fr beta;
     Fr gamma;
     Fr[NUMBER_OF_ALPHAS] alphas;
@@ -71,6 +75,7 @@ library TranscriptLib {
         view
         returns (Transcript memory t)
     {
+        // TODO: calcaulte full series of  eta;
         t.eta = generateEtaChallenge(proof, publicInputs);
 
         (t.beta, t.gamma) = generateBetaAndGammaChallenges(t.eta, proof);
@@ -125,16 +130,20 @@ library TranscriptLib {
         returns (Fr beta, Fr gamma)
     {
         // TODO(md): adjust round size when the proof points are generated correctly - 5
-        bytes32[9] memory round1;
+        bytes32[13] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
-        round1[1] = bytes32(proof.sortedAccum.x_0);
-        round1[2] = bytes32(proof.sortedAccum.x_1);
-        round1[3] = bytes32(proof.sortedAccum.y_0);
-        round1[4] = bytes32(proof.sortedAccum.y_1);
-        round1[5] = bytes32(proof.w4.x_0);
-        round1[6] = bytes32(proof.w4.x_1);
-        round1[7] = bytes32(proof.w4.y_0);
-        round1[8] = bytes32(proof.w4.y_1);
+        round1[1] = bytes32(proof.lookupReadCounts.x_0);
+        round1[2] = bytes32(proof.lookupReadCounts.x_1);
+        round1[3] = bytes32(proof.lookupReadCounts.y_0);
+        round1[4] = bytes32(proof.lookupReadCounts.y_1);
+        round1[5] = bytes32(proof.lookupReadTags.x_0);
+        round1[6] = bytes32(proof.lookupReadTags.x_1);
+        round1[7] = bytes32(proof.lookupReadTags.y_1);
+        round1[8] = bytes32(proof.lookupReadTags.y_1);
+        round1[9] = bytes32(proof.w4.x_0);
+        round1[10] = bytes32(proof.w4.x_1);
+        round1[11] = bytes32(proof.w4.y_0);
+        round1[12] = bytes32(proof.w4.y_1);
 
         beta = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
         gamma = FrLib.fromBytes32(keccak256(abi.encodePacked(beta)));
@@ -150,14 +159,14 @@ library TranscriptLib {
         // TODO(md): 5 post correct proof size fix
         uint256[9] memory alpha0;
         alpha0[0] = Fr.unwrap(previousChallenge);
+        alpha0[5] = proof.lookupInverses.x_0;
+        alpha0[6] = proof.lookupInverses.x_1;
+        alpha0[7] = proof.lookupInverses.y_0;
+        alpha0[8] = proof.lookupInverses.y_1;
         alpha0[1] = proof.zPerm.x_0;
         alpha0[2] = proof.zPerm.x_1;
         alpha0[3] = proof.zPerm.y_0;
         alpha0[4] = proof.zPerm.y_1;
-        alpha0[5] = proof.zLookup.x_0;
-        alpha0[6] = proof.zLookup.x_1;
-        alpha0[7] = proof.zLookup.y_0;
-        alpha0[8] = proof.zLookup.y_1;
 
         alphas[0] = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
 
@@ -238,7 +247,7 @@ library TranscriptLib {
     }
 }
 
-// Erros
+// Errors
 error PublicInputsLengthWrong();
 error SumcheckFailed();
 error ZeromorphFailed();
@@ -263,7 +272,7 @@ contract Add2HonkVerifier is IVerifier {
         t.publicInputsDelta =
             computePublicInputDelta(publicInputs, t.beta, t.gamma, vk.circuitSize, p.publicInputsOffset);
 
-        t.lookupGrandProductDelta = computeLookupGrandProductDelta(t.beta, t.gamma, vk.circuitSize);
+        // t.lookupGrandProductDelta = computeLookupGrandProductDelta(t.beta, t.gamma, vk.circuitSize);
 
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
@@ -313,6 +322,7 @@ contract Add2HonkVerifier is IVerifier {
         });
 
         // Lookup / Permutation Helper Commitments
+        // TODO(md): update the log deriv prover commitment rounds
         p.sortedAccum = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x1e0:0x200])),
             x_1: uint256(bytes32(proof[0x200:0x220])),
@@ -438,15 +448,15 @@ contract Add2HonkVerifier is IVerifier {
     }
 
     // Incorportate the original plookup construction into honk
-    function computeLookupGrandProductDelta(Fr beta, Fr gamma, uint256 domainSize)
-        internal
-        view
-        returns (Fr lookupGrandProductDelta)
-    {
-        Fr gammaByOnePlusBeta = gamma * (beta + Fr.wrap(1));
-        // TODO: dont like using ^ for exponent - might just make a function
-        lookupGrandProductDelta = gammaByOnePlusBeta ^ Fr.wrap(domainSize);
-    }
+    // function computeLookupGrandProductDelta(Fr beta, Fr gamma, uint256 domainSize)
+    //     internal
+    //     view
+    //     returns (Fr lookupGrandProductDelta)
+    // {
+    //     Fr gammaByOnePlusBeta = gamma * (beta + Fr.wrap(1));
+    //     // TODO: dont like using ^ for exponent - might just make a function
+    //     lookupGrandProductDelta = gammaByOnePlusBeta ^ Fr.wrap(domainSize);
+    // }
 
     uint256 constant ROUND_TARGET = 0;
 
@@ -559,7 +569,7 @@ contract Add2HonkVerifier is IVerifier {
         accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePermutationRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulateLookupRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        accumulateGenPermRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulateDeltaRangeRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
 
@@ -670,6 +680,45 @@ contract Add2HonkVerifier is IVerifier {
         Fr table_accum_shift;
     }
 
+    // TODO(md): calculate eta one two and three above
+    function accumulateLogDerivativeLookupRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal view {
+        Fr read_term;
+        Fr write_term;
+
+        // Calculate the write term (the table accumulation)
+        {
+            read_term = wire(p, WIRE.TABLE_1) + tp.gamma + (wire(p, WIRE.TABLE_2) * tp.eta) + (wire(p, WIRE.TABLE_3) * tp.eta_two) + (wire(p, WIRE.TABLE_4) * tp.era_three);
+        } 
+
+        // Calculate the write term 
+        {
+            Fr derived_entry_1 = wire(p, WIRE.W_1) + tp.gamma + wire(p, WIRE.Q_R) * wire(p, WIRE.W_1_SHIFT);
+            Fr derived_entry_2 = wire(p, WIRE.W_2) + wire(p, WIRE.Q_M) * wire(p, WIRE.W_2_SHIFT);
+            Fr derived_entry_3 = wire(p, WIRE.W_3) + wire(p, WIRE.Q_C) * wire(p, WIRE.W_3_SHIFT);
+        
+            write_term = derived_entry_1 + (derived_entry_2 * tp.eta) + (derived_entry_3 * tp.eta_two) + (wire(p, WIRE.Q_O) + tp.eta_three);
+        }
+
+        Fr read_inverse = wire(p, WIRE.LOOKUP_INVERSES) * write_term;
+        Fr write_inverse = wire(p, WIRE.LOOKUP_INVERSES) * read_term;
+
+        Fr inverse_exists_xor = wire(p, WIRE.LOOKUP_READ_TAGS) + wire(p, WIRE.Q_LOOKUP) - (wire(p, WIRE.LOOKUP_READ_TAGS) * wire(p, WIRE.Q_LOOKUP));
+
+        // Inverse calculated correctly relation
+        Fr accumulatorNone = read_term * write_term * wire(p, WIRE.LOOKUP_INVERSES) * inverse_exists_xor;
+        accumulatorNone = accumulatorNone * domainSep;
+
+
+        // Inverse 
+        Fr accumulatorOne = wire(p, WIRE.Q_LOOKUP) + read_inverse - wire(p, WIRE.LOOKUP_READ_COUNTS) * write_inverses;
+
+    }
+
     function accumulateLookupRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Transcript memory tp,
@@ -746,7 +795,7 @@ contract Add2HonkVerifier is IVerifier {
         }
     }
 
-    function accumulateGenPermRelation(
+    function accumulateDeltaRangeRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep

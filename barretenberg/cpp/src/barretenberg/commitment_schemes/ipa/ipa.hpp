@@ -605,7 +605,6 @@ template <typename Curve_> class IPA {
      * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
      * compute_opening_proof_internal \endlink.
      */
-    // template <typename Transcript>
     static void compute_opening_proof(const std::shared_ptr<CK>& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<NativeTranscript>& transcript)
