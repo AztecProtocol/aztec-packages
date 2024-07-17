@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, traits::{FromField, ToField}, point::Point, address::AztecAddress,
-    header::Header
+    hash::{pedersen_hash, poseidon2_hash}, traits::{FromField, ToField}, point::Point,
+    address::AztecAddress, header::Header
 };
 
 use crate::context::PrivateContext;

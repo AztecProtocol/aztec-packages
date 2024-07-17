@@ -44,10 +44,8 @@ mod test {
 
     use crate::{
         note::{note_header::NoteHeader, note_interface::NoteInterface},
-        encrypted_logs::incoming_body::EncryptedLogIncomingBody,
-        event::event_interface::EventInterface, oracle::unsafe_rand::unsafe_rand,
-        context::PrivateContext,
-        utils::point::point_to_bytes;
+        encrypted_logs::incoming_body::EncryptedLogIncomingBody, event::event_interface::EventInterface,
+        oracle::unsafe_rand::unsafe_rand, context::PrivateContext, utils::point::point_to_bytes
     };
 
     struct AddressNote {
@@ -123,10 +121,10 @@ mod test {
         );
 
         let storage_slot = Point {
-    x: 0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37,
-    y: 0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76,
-    is_infinite: false
-};
+            x: 0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37,
+            y: 0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76,
+            is_infinite: false
+        };
 
         let eph_sk = Scalar {
             lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,

@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, header::Header, address::AztecAddress,
+    hash::{pedersen_hash, poseidon2_hash}, header::Header, address::AztecAddress, point::Point,
     traits::{FromField, ToField}
 };
 
@@ -53,7 +53,6 @@ fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [
 // `schedule_delay_change`.
 impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 
@@ -75,15 +74,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledValueChange
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
-    fn get_value_change_storage_slot(self) -> Field {
+    fn get_value_change_storage_index(self) -> Field {
         pedersen_hash([self.storage_slot, 0], 0)
     }
 
-    fn get_delay_change_storage_slot(self) -> Field {
+    fn get_delay_change_storage_index(self) -> Field {
         pedersen_hash([self.storage_slot, 1], 0)
     }
 
-    fn get_hash_storage_slot(self) -> Field {
+    fn get_hash_storage_index(self) -> Field {
         pedersen_hash([self.storage_slot, 2], 0)
     }
 
@@ -105,7 +104,7 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
         let (value_change_hint, delay_change_hint) = get_public_storage_hints(address, self.storage_slot, historical_block_number);
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
-        let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
+        let hash = header.public_storage_historical_read(self.get_hash_storage_index(), address);
 
         // @todo This is written strangely to bypass a formatting issue with the if that is breaking ci.
         let (a, b, c) = if hash != 0 {
@@ -172,11 +171,11 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
     }
 
     fn read_value_change(self) -> ScheduledValueChange<T> {
-        self.context.storage_read(self.get_value_change_storage_slot())
+        self.context.storage_read(self.get_value_change_storage_index())
     }
 
     fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY> {
-        self.context.storage_read(self.get_delay_change_storage_slot())
+        self.context.storage_read(self.get_delay_change_storage_index())
     }
 
     fn write(
@@ -190,10 +189,10 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
         // produce a historical proof for the hash, which results in a single inclusion proof (as opposed to 4 in the
         // best case scenario in which T is a single field). Private shared mutable reads are assumed to be much more
         // frequent than public writes, so this tradeoff makes sense.
-        self.context.storage_write(self.get_value_change_storage_slot(), value_change);
-        self.context.storage_write(self.get_delay_change_storage_slot(), delay_change);
+        self.context.storage_write(self.get_value_change_storage_index(), value_change);
+        self.context.storage_write(self.get_delay_change_storage_index(), delay_change);
         self.context.storage_write(
-            self.get_hash_storage_slot(),
+            self.get_hash_storage_index(),
             SharedMutable::hash_scheduled_data(value_change, delay_change)
         );
     }
@@ -232,7 +231,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedCon
     }
 
     unconstrained fn read_value_change(self) -> ScheduledValueChange<T> {
-        self.context.storage_read(self.get_value_change_storage_slot())
+        self.context.storage_read(self.get_value_change_storage_index())
     }
 }
 
@@ -248,6 +247,6 @@ unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     let dummy: SharedMutable<T, INITIAL_DELAY, ()> = SharedMutable::new((), storage_slot);
 
     (
-        storage_read(address, dummy.get_value_change_storage_slot(), block_number), storage_read(address, dummy.get_delay_change_storage_slot(), block_number)
+        storage_read(address, dummy.get_value_change_storage_index(), block_number), storage_read(address, dummy.get_delay_change_storage_index(), block_number)
     )
 }

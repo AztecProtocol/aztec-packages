@@ -275,11 +275,11 @@ unconstrained fn call_static<let RET_SIZE: u32>(
 }
 
 unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
-    storage_read_opcode(storage_slot, N as Field)
+    storage_read_opcode(storage_slot.x, N as Field)
 }
 
 unconstrained fn storage_write<let N: u32>(storage_slot: Point, values: [Field; N]) {
-    storage_write_opcode(storage_slot, values);
+    storage_write_opcode(storage_slot.x, values);
 }
 
 impl Empty for PublicContext {

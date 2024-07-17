@@ -2,7 +2,7 @@ use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext}, oracle::storage::storage_read,
     state_vars::storage::Storage
 };
-use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
+use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, point::Point, traits::{Deserialize, Serialize}};
 
 // Just like PublicImmutable but with the ability to read from private functions.
 struct SharedImmutable<T, Context>{
@@ -18,7 +18,6 @@ impl<T, Context> SharedImmutable<T, Context> {
         context: Context,
         storage_slot: Point
     ) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 }
@@ -55,7 +54,7 @@ impl<T, T_SERIALIZED_LEN> SharedImmutable<T, &mut PrivateContext> where T: Seria
         for i in 0..fields.len() {
             fields[i] =
                 header.public_storage_historical_read(
-                    self.storage_slot + i as Field,
+                    self.storage_slot.x + i as Field,
                     (*self.context).this_address()
                 );
         }

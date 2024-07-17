@@ -231,7 +231,7 @@ fn generate_note_to_be_bytes(
 
             let mut buffer: [u8; {0}] = [0; {0}];
 
-            let storage_slot_bytes = aztec::utils::point::pub_key_to_bytes(storage_slot);
+            let storage_slot_bytes = aztec::utils::point::point_to_bytes(storage_slot);
             let note_type_id_bytes = {1}::get_note_type_id().to_be_bytes(32);
 
             for i in 0..32 {{

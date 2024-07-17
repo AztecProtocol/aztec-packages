@@ -1,4 +1,4 @@
-use dep::protocol_types::{hash::pedersen_hash, storage::map::derive_storage_slot_in_map, traits::ToField};
+use dep::protocol_types::{hash::pedersen_hash, point::Point, storage::map::derive_storage_slot_in_map, traits::ToField};
 use crate::state_vars::storage::Storage;
 
 // docs:start:map
@@ -18,7 +18,6 @@ impl<K, V, Context> Map<K, V, Context> {
         storage_slot: Point,
         state_var_constructor: fn(Context, Field) -> V
     ) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Map { context, storage_slot, state_var_constructor }
     }
     // docs:end:new
