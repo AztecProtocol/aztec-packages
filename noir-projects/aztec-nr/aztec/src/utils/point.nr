@@ -14,7 +14,7 @@ pub fn point_to_bytes(pk: Point) -> [u8; 32] {
     let mut result = pk.x.to_be_bytes(32);
 
     // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get
-    // the sign we check if the y coordinate is greater than the curve's order minus 1 divided by 2.
+    // the sign we check if the y coordinate is less or equal than the curve's order minus 1 divided by 2.
     if !BN254_FR_MODULUS_DIV_2.lt(pk.y) {
         // y is <= (modulus - 1) / 2 so we set the sign bit to 1
         // Here we leverage that field fits into 254 bits (log2(Fr.MODULUS) < 254) and given that we serialize Fr to 32
