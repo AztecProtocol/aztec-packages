@@ -145,7 +145,7 @@ jobs:
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
 
       - name: Taint node filesystem if L1 contracts are redeployed
-        if: needs.build.outputs.l1_contracts_changed == 'true'
+        if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
           terraform taint aws_efs_file_system.node_data_store
@@ -160,3 +160,24 @@ jobs:
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
           terraform apply -input=false -auto-approve
+
+      - name: Deploy PXE
+        working-directory: ./yarn-project/aztec/terraform/pxe
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
+          terraform apply -input=false -auto-approve
+
+  bootstrap:
+    runs-on: ubuntu-latest
+    needs: terraform_deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+      - name: Bootstrap devnet
+        run: |
+          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap \
+          --rpc-url https://api.aztec.network/ \
+            --l1-chain-id ${{ env.L1_CHAIN_ID }}
