@@ -19,7 +19,7 @@ import { EncryptedLogOutgoingBody } from './encrypted_log_outgoing_body.js';
 const HEADER_SIZE = 48;
 
 // The outgoing body is constant size of 144 bytes.
-// 129 bytes for the secret key, address, and public key, and 15 bytes padding to follow PKCS#7
+// 128 bytes for the secret key, address, and public key, and 16 bytes padding to follow PKCS#7
 const OUTGOING_BODY_SIZE = 144;
 /**
  * A class which wraps event data which is pushed on L1.
