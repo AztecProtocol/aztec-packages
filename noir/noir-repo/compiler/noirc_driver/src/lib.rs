@@ -104,11 +104,6 @@ pub struct CompileOptions {
     #[arg(long)]
     pub debug_comptime_in_file: Option<String>,
 
-    /// Enable printing results of comptime evaluation: provide a path suffix
-    /// for the module to debug, e.g. "package_name/src/main.nr"
-    #[arg(long)]
-    pub debug_comptime_in_file: Option<String>,
-
     /// Outputs the paths to any modified artifacts
     #[arg(long, hide = true)]
     pub show_artifact_paths: bool,
