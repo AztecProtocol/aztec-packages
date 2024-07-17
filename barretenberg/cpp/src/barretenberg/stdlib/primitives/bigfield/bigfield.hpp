@@ -25,15 +25,14 @@ template <typename Builder, typename T> class bigfield {
 
     struct Limb {
         Limb() {}
-        Limb(const field_t<Builder>& input, const uint256_t max = uint256_t(0))
+        Limb(const field_t<Builder>& input, const uint256_t& max = DEFAULT_MAXIMUM_LIMB)
             : element(input)
         {
             if (input.is_constant()) {
-                maximum_value = uint256_t(input.additive_constant) + 1;
-            } else if (max != uint256_t(0)) {
-                maximum_value = max;
+                maximum_value = uint256_t(input.additive_constant);
+                ASSERT(maximum_value <= max);
             } else {
-                maximum_value = DEFAULT_MAXIMUM_LIMB;
+                maximum_value = max;
             }
         }
         friend std::ostream& operator<<(std::ostream& os, const Limb& a)

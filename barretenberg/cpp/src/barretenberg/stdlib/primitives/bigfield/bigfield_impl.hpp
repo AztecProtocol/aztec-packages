@@ -1703,10 +1703,23 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     field_t limb_3 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[3].element * two) + to_add_3,
                                                                    binary_basis_limbs[3].element);
 
-    uint256_t max_limb_0 = binary_basis_limbs[0].maximum_value + to_add_0_u256 + t0;
-    uint256_t max_limb_1 = binary_basis_limbs[1].maximum_value + to_add_1_u256 + t1;
-    uint256_t max_limb_2 = binary_basis_limbs[2].maximum_value + to_add_2_u256 + t2;
-    uint256_t max_limb_3 = binary_basis_limbs[3].maximum_value + to_add_3_u256 - t3;
+    uint256_t maximum_negated_limb_0 = to_add_0_u256 + t0;
+    uint256_t maximum_negated_limb_1 = to_add_1_u256 + t1;
+    uint256_t maximum_negated_limb_2 = to_add_2_u256 + t2;
+    uint256_t maximum_negated_limb_3 = to_add_3_u256;
+
+    uint256_t max_limb_0 = binary_basis_limbs[0].maximum_value > maximum_negated_limb_0
+                               ? binary_basis_limbs[0].maximum_value
+                               : maximum_negated_limb_0;
+    uint256_t max_limb_1 = binary_basis_limbs[1].maximum_value > maximum_negated_limb_1
+                               ? binary_basis_limbs[1].maximum_value
+                               : maximum_negated_limb_1;
+    uint256_t max_limb_2 = binary_basis_limbs[2].maximum_value > maximum_negated_limb_2
+                               ? binary_basis_limbs[2].maximum_value
+                               : maximum_negated_limb_2;
+    uint256_t max_limb_3 = binary_basis_limbs[3].maximum_value > maximum_negated_limb_3
+                               ? binary_basis_limbs[3].maximum_value
+                               : maximum_negated_limb_3;
 
     bigfield result(ctx);
     result.binary_basis_limbs[0] = Limb(limb_0, max_limb_0);
