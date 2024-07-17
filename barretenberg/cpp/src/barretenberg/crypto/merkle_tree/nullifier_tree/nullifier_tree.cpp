@@ -20,9 +20,7 @@ NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, s
     zero_hashes_.resize(depth);
 
     // Create the zero hashes for the tree
-    auto current =
-        WrappedNullifierLeaf<HashingPolicy>(indexed_nullifier_leaf{ .value = 0, .nextIndex = 0, .nextValue = 0 })
-            .hash();
+    auto current = fr::zero();
     for (size_t i = 0; i < depth; ++i) {
         zero_hashes_[i] = current;
         current = HashingPolicy::hash_pair(current, current);
