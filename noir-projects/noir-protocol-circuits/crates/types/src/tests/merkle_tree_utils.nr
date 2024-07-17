@@ -104,7 +104,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
         left_supertree_branch[0] = std::hash::pedersen_hash([subtree.get_root(), zero_hashes[SUBTREE_HEIGHT-1]]);
         for i in 1..left_supertree_branch.len() {
             // TODO(md): far right of this yuck
-            left_supertree_branch[i] = std::hash::pedersen_hash([left_supertree_branch[i-1], zero_hashes[left_supertree_branch.len() -1 + i]]);
+            left_supertree_branch[i] = std::hash::pedersen_hash([left_supertree_branch[i-1], zero_hashes[SUBTREE_HEIGHT -1 + (i as u8)]]);
         }
 
         NonEmptyMerkleTree { subtree, zero_hashes, left_supertree_branch, _phantom_subtree_height: _subtree_height }
@@ -152,7 +152,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
 
         self.left_supertree_branch[0] = std::hash::pedersen_hash([self.subtree.get_root(), self.zero_hashes[SUBTREE_HEIGHT-1]]);
         for i in 1..self.left_supertree_branch.len() {
-            self.left_supertree_branch[i] = std::hash::pedersen_hash([self.left_supertree_branch[i-1], self.zero_hashes[self.left_supertree_branch.len()-1+i]]);
+            self.left_supertree_branch[i] = std::hash::pedersen_hash([self.left_supertree_branch[i-1], self.zero_hashes[SUBTREE_HEIGHT -1 + (i as u8)]]);
         }
     }
 
