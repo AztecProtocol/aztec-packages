@@ -91,7 +91,7 @@ export abstract class L1Payload {
    * @returns The decrypted log payload
    */
   protected static _decryptAsIncoming<T extends EncryptedLogIncomingBody>(
-    data: BufferReader | Buffer,
+    data: Buffer,
     ivsk: GrumpkinScalar,
     fromCiphertext: (incomingBodySlice: Buffer, ivsk: GrumpkinScalar, ephPk: Point) => T,
   ): [AztecAddress, T] {
@@ -127,7 +127,7 @@ export abstract class L1Payload {
    * @returns The decrypted log payload
    */
   protected static _decryptAsOutgoing<T extends EncryptedLogIncomingBody>(
-    data: BufferReader | Buffer,
+    data: Buffer,
     ovsk: GrumpkinScalar,
     fromCiphertext: (incomingBodySlice: Buffer, ivsk: GrumpkinScalar, ephPk: Point) => T,
   ): [AztecAddress, T] {
