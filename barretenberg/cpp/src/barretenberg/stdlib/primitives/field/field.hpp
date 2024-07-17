@@ -256,7 +256,7 @@ template <typename Builder> class field_t {
      * Constants do not need to be normalized, as there is no underlying 'witness'; a constant's value is
      * wholly tracked by `this.additive_constant`, so we definitely don't want to set that to 0!
      **/
-    field_t normalize() const;
+    [[nodiscard]] field_t normalize() const;
 
     bb::fr get_value() const;
 

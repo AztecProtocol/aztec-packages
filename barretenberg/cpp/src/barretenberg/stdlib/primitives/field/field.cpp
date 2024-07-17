@@ -77,7 +77,15 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     bool mul_constant_check = (multiplicative_constant == bb::fr::one());
     bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
     if ((!add_constant_check || !mul_constant_check) && !inverted_check) {
-        normalize();
+        auto normalized_element = normalize();
+        bb::fr witness = context->get_variable(normalized_element.get_witness_index());
+        ASSERT((witness == bb::fr::zero()) || (witness == bb::fr::one()));
+        bool_t<Builder> result(context);
+        result.witness_bool = (witness == bb::fr::one());
+        result.witness_inverted = false;
+        result.witness_index = normalized_element.get_witness_index();
+        context->create_bool_gate(normalized_element.get_witness_index());
+        return result;
     }
 
     bb::fr witness = context->get_variable(witness_index);
@@ -1201,7 +1209,6 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         // y_lo = (2**128 + p_lo) - sum_lo
         field_t<Builder> y_lo = (-sum) + (p_lo + shift);
         y_lo += shifted_high_limb;
-        y_lo.normalize();
 
         if constexpr (IsSimulator<Builder>) {
             fr sum_lo = shift + p_lo - y_lo.get_value();
