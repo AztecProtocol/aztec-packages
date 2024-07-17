@@ -47,7 +47,7 @@ mod test {
         encrypted_logs::incoming_body::EncryptedLogIncomingBody,
         event::event_interface::EventInterface, oracle::unsafe_rand::unsafe_rand,
         context::PrivateContext,
-        utils::point::pub_key_to_bytes;
+        utils::point::point_to_bytes;
     };
 
     struct AddressNote {
@@ -90,7 +90,7 @@ mod test {
 
             let mut buffer: [u8; ADDRESS_NOTE_BYTES_LEN] = [0; ADDRESS_NOTE_BYTES_LEN];
 
-            let storage_slot_bytes = pub_key_to_bytes(storage_slot);
+            let storage_slot_bytes = point_to_bytes(storage_slot);
             let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
 
             for i in 0..32 {

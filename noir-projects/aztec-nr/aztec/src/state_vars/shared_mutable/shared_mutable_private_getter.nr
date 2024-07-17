@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, traits::{FromField, ToField}, address::AztecAddress,
+    hash::{pedersen_hash, poseidon2_hash}, traits::{FromField, ToField}, point::Point, address::AztecAddress,
     header::Header
 };
 
@@ -28,7 +28,6 @@ impl<T, INITIAL_DELAY> SharedMutablePrivateGetter<T, INITIAL_DELAY>  where T: Fr
         other_contract_address: AztecAddress,
         storage_slot: Point
     ) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         assert(other_contract_address.to_field() != 0, "Other contract address cannot be 0");
         Self { context, other_contract_address, storage_slot }
     }

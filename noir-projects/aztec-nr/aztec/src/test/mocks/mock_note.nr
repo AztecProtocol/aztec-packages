@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface},
-    utils::point::pub_key_to_bytes
+    utils::point::point_to_bytes
 };
 
 use dep::protocol_types::{address::AztecAddress, point::Point, traits::Eq};
@@ -55,7 +55,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
 
         let mut buffer: [u8; MOCK_NOTE_BYTES_LENGTH] = [0; MOCK_NOTE_BYTES_LENGTH];
 
-        let storage_slot_bytes = pub_key_to_bytes(storage_slot);
+        let storage_slot_bytes = point_to_bytes(storage_slot);
         let note_type_id_bytes = MockNote::get_note_type_id().to_be_bytes(32);
 
         for i in 0..32 {

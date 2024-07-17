@@ -25,7 +25,6 @@ impl<T, Context> Storage<T> for PrivateMutable<T, Context> {}
 impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
     // docs:end:new

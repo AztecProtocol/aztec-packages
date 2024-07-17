@@ -134,7 +134,7 @@ unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
 #[oracle(directStorageWrite)]
 unconstrained fn direct_storage_write_oracle<let N: u32>(
     _contract_address: AztecAddress,
-    _storage_slot: Point,
+    _storage_slot: Field,
     _values: [Field; N]
 ) -> [Field; N] {}
 
