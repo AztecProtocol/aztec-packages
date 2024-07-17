@@ -18,9 +18,9 @@ import { EncryptedLogOutgoingBody } from './encrypted_log_outgoing_body.js';
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
 const HEADER_SIZE = 48;
 
-// The outgoing body is constant size of 176 bytes.
-// 160 bytes for the secret key, address, and public key, and 16 bytes padding to follow PKCS#7
-const OUTGOING_BODY_SIZE = 176;
+// The outgoing body is constant size of 144 bytes.
+// 129 bytes for the secret key, address, and public key, and 15 bytes padding to follow PKCS#7
+const OUTGOING_BODY_SIZE = 144;
 /**
  * A class which wraps event data which is pushed on L1.
  */
@@ -70,7 +70,7 @@ export abstract class L1Payload {
     );
 
     return Buffer.concat([
-      ephPk.toBuffer(),
+      ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
       outgoingBodyCiphertext,
@@ -91,13 +91,13 @@ export abstract class L1Payload {
    * @returns The decrypted log payload
    */
   protected static _decryptAsIncoming<T extends EncryptedLogIncomingBody>(
-    data: Buffer,
+    data: BufferReader | Buffer,
     ivsk: GrumpkinScalar,
     fromCiphertext: (incomingBodySlice: Buffer, ivsk: GrumpkinScalar, ephPk: Point) => T,
   ): [AztecAddress, T] {
     const reader = BufferReader.asReader(data);
 
-    const ephPk = reader.readObject(Point);
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
     const incomingHeader = EncryptedLogHeader.fromCiphertext(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
 
@@ -127,13 +127,13 @@ export abstract class L1Payload {
    * @returns The decrypted log payload
    */
   protected static _decryptAsOutgoing<T extends EncryptedLogIncomingBody>(
-    data: Buffer,
+    data: BufferReader | Buffer,
     ovsk: GrumpkinScalar,
     fromCiphertext: (incomingBodySlice: Buffer, ivsk: GrumpkinScalar, ephPk: Point) => T,
   ): [AztecAddress, T] {
     const reader = BufferReader.asReader(data);
 
-    const ephPk = reader.readObject(Point);
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
     reader.readBytes(HEADER_SIZE);
 
