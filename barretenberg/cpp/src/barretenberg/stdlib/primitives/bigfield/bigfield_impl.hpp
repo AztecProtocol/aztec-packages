@@ -2287,7 +2287,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                   (to_add[i].binary_basis_limbs[3].maximum_value << NUM_LIMB_BITS);
     }
     const uint512_t max_lo = max_r0 + (max_r1 << NUM_LIMB_BITS) + max_a0;
-    const uint512_t max_hi = max_r2 + (max_r3 << NUM_LIMB_BITS) + max_a1;
+    const uint512_t max_lo_carry = max_lo >> (2 * NUM_LIMB_BITS);
+    const uint512_t max_hi = max_r2 + (max_r3 << NUM_LIMB_BITS) + max_a1 + max_lo_carry;
 
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
@@ -2675,6 +2676,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         max_hi += product_hi;
     }
 
+    const uint512_t max_lo_carry = max_lo >> (2 * NUM_LIMB_BITS);
+    max_hi += max_lo_carry;
     // Compute the maximum number of bits in `max_lo` and `max_hi` - this defines the range constraint values we
     // will need to apply to validate our product
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
