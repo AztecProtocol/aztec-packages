@@ -30,7 +30,12 @@ pub fn blake3<let N: u32>(input: [u8; N]) -> [u8; 32]
 // docs:start:pedersen_commitment
 pub fn pedersen_commitment<let N: u32>(input: [Field; N]) -> EmbeddedCurvePoint {
     // docs:end:pedersen_commitment
-    pedersen_commitment_with_separator(input, 0)
+    let value = __pedersen_commitment_with_separator(input, 0);
+    if (value[0] == 0) & (value[1] == 0) {
+        EmbeddedCurvePoint { x: 0, y: 0, is_infinite: true }
+    } else {
+        EmbeddedCurvePoint { x: value[0], y: value[1], is_infinite: false }
+    }
 }
 
 fn pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> EmbeddedCurvePoint {
@@ -61,7 +66,7 @@ fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -
 pub fn pedersen_hash<let N: u32>(input: [Field; N]) -> Field
 // docs:end:pedersen_hash
 {
-    pedersen_hash_with_separator(input, 0)
+    __pedersen_hash_with_separator(input, 0)
 }
 
 #[field(bn254)]
@@ -70,6 +75,12 @@ fn derive_generators<let N: u32, let M: u32>(domain_separator_bytes: [u8; M], st
     crate::assert_constant(starting_index);
     __derive_generators(domain_separator_bytes, starting_index)
 }
+
+#[foreign(pedersen_hash)]
+pub fn __pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {}
+
+#[foreign(pedersen_commitment)]
+fn __pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> [Field; 2] {}
 
 #[builtin(derive_pedersen_generators)]
 #[field(bn254)]
