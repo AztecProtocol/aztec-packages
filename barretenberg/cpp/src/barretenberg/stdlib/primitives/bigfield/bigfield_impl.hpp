@@ -2468,8 +2468,15 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
         field_t lo = field_t<Builder>::from_witness_index(ctx, lo_idx) + borrow_lo;
         field_t hi = field_t<Builder>::from_witness_index(ctx, hi_idx);
-        const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
-        const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+        uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
+        uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+
+        if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
+            carry_lo_msb = 0;
+        }
+        if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
+            carry_hi_msb = 0;
+        }
 
         // if both the hi and lo output limbs have less than 70 bits, we can use our custom
         // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
@@ -2568,8 +2575,15 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         field_t<Builder>::evaluate_polynomial_identity(
             left.prime_basis_limb, to_mul.prime_basis_limb, quotient.prime_basis_limb * neg_prime, linear_terms);
 
-        const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
-        const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+        uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
+        uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+
+        if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
+            carry_lo_msb = 0;
+        }
+        if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
+            carry_hi_msb = 0;
+        }
 
         const bb::fr carry_lo_shift(uint256_t(uint256_t(1) << carry_lo_msb));
         if ((carry_hi_msb + carry_lo_msb) < field_t<Builder>::modulus.get_msb()) {
@@ -2934,8 +2948,15 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
         field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
 
-        const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
-        const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+        uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
+        uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
+
+        if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
+            carry_lo_msb = 0;
+        }
+        if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
+            carry_hi_msb = 0;
+        }
 
         // if both the hi and lo output limbs have less than 70 bits, we can use our custom
         // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
