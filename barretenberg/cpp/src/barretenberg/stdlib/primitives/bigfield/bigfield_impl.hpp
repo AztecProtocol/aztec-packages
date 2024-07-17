@@ -1279,19 +1279,20 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
             }
         };
 
-        // Compute the possible reduction updates
-        compute_updates(maximum_value_updates, mul_left, mul_right, number_of_products);
         auto compare_update_tuples = [](std::tuple<uint1024_t, size_t, size_t>& left_element,
                                         std::tuple<uint1024_t, size_t, size_t>& right_element) {
             return std::get<0>(left_element) > std::get<0>(right_element);
         };
 
-        // Sort the vector, larger values first
-        std::sort(maximum_value_updates.begin(), maximum_value_updates.end(), compare_update_tuples);
         // Now we loop through, reducing 1 element each time. This is costly in code, but allows us to use fewer
         // gates
 
         while (reduction_required) {
+            // Compute the possible reduction updates
+            compute_updates(maximum_value_updates, mul_left, mul_right, number_of_products);
+
+            // Sort the vector, larger values first
+            std::sort(maximum_value_updates.begin(), maximum_value_updates.end(), compare_update_tuples);
 
             // We choose the largest update
             auto [update_size, largest_update_product_index, multiplicand_index] = maximum_value_updates[0];
@@ -1305,19 +1306,14 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
                 mul_right[largest_update_product_index].self_reduce();
             }
 
-            reduction_required = std::get<0>(
-                get_quotient_reduction_info(max_values_left, max_values_right, to_add, { DEFAULT_MAXIMUM_REMAINDER }));
-
-            compute_updates(maximum_value_updates, mul_left, mul_right, number_of_products);
-
             for (size_t i = 0; i < number_of_products; i++) {
                 max_values_left[i] = mul_left[i].get_maximum_value();
                 max_values_right[i] = mul_right[i].get_maximum_value();
             }
-
-            // Sort the vector
-            std::sort(maximum_value_updates.begin(), maximum_value_updates.end(), compare_update_tuples);
+            reduction_required = std::get<0>(
+                get_quotient_reduction_info(max_values_left, max_values_right, to_add, { DEFAULT_MAXIMUM_REMAINDER }));
         }
+
         // Now we have reduced everything exactly to the point of no overflow. There is probably a way to use even
         // fewer reductions, but for now this will suffice.
     }
