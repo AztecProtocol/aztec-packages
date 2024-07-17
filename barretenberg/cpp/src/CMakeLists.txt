@@ -87,6 +87,7 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
+add_subdirectory(barretenberg/world_state)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
