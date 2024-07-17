@@ -120,7 +120,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                                                           "bigfield: high_bits_in too large.");
 
             if constexpr (!IsSimulator<Builder>) {
-                limb_3.witness_index = high_accumulator[static_cast<size_t>((num_last_limb_bits / 2) - 1)];
+                limb_3.witness_index = high_accumulator[static_cast<size_t>(((num_last_limb_bits + 1) / 2) - 1)];
             }
             limb_2 = (high_bits_in - (limb_3 * shift_1));
         }
