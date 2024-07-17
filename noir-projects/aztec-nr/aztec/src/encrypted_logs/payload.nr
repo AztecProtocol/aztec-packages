@@ -6,7 +6,7 @@ use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 use std::field::bytes32_to_field;
 
 use crate::oracle::unsafe_rand::unsafe_rand;
-use crate::utils::point::pub_key_to_bytes;
+use crate::utils::point::point_to_bytes;
 
 use crate::event::event_interface::EventInterface;
 use crate::note::note_interface::NoteInterface;
@@ -39,7 +39,7 @@ pub fn compute_encrypted_event_log<Event, NB, MB, OB>(
     let mut encrypted_bytes: [u8; OB] = [0; OB];
     // @todo We ignore the tags for now 
 
-    let eph_pk_bytes = pub_key_to_bytes(eph_pk);
+    let eph_pk_bytes = point_to_bytes(eph_pk);
     for i in 0..32 {
         encrypted_bytes[64 + i] = eph_pk_bytes[i];
     }
@@ -92,7 +92,7 @@ pub fn compute_encrypted_note_log<Note, N, NB, M>(
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now 
 
-    let eph_pk_bytes = pub_key_to_bytes(eph_pk);
+    let eph_pk_bytes = point_to_bytes(eph_pk);
     for i in 0..32 {
         encrypted_bytes[64 + i] = eph_pk_bytes[i];
     }

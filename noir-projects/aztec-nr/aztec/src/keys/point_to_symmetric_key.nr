@@ -1,5 +1,5 @@
 use dep::protocol_types::{constants::GENERATOR_INDEX__SYMMETRIC_KEY, scalar::Scalar, point::Point, utils::arr_copy_slice};
-use crate::utils::point::pub_key_to_bytes;
+use crate::utils::point::point_to_bytes;
 use std::{hash::sha256, embedded_curve_ops::multi_scalar_mul};
 
 // TODO(#5726): This function is called deriveAESSecret in TS. I don't like point_to_symmetric_key name much since
@@ -7,7 +7,7 @@ use std::{hash::sha256, embedded_curve_ops::multi_scalar_mul};
 pub fn point_to_symmetric_key(secret: Scalar, point: Point) -> [u8; 32] {
     let shared_secret: Point = multi_scalar_mul([point], [secret]);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061): make the func return Point struct directly
-    let shared_secret = pub_key_to_bytes(shared_secret);
+    let shared_secret = point_to_bytes(shared_secret);
     let mut shared_secret_bytes_with_separator = [0 as u8; 33];
     shared_secret_bytes_with_separator = arr_copy_slice(shared_secret, shared_secret_bytes_with_separator, 0);
     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;

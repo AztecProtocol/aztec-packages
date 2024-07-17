@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 use std::aes128::aes128_encrypt;
 
-use crate::{keys::point_to_symmetric_key::point_to_symmetric_key, utils::point::pub_key_to_bytes};
+use crate::{keys::point_to_symmetric_key::point_to_symmetric_key, utils::point::point_to_bytes};
 
 struct EncryptedLogOutgoingBody {
     eph_sk: Scalar,
@@ -27,7 +27,7 @@ impl EncryptedLogOutgoingBody {
         let serialized_eph_sk_low = self.eph_sk.lo.to_be_bytes(32);
 
         let address_bytes = self.recipient.to_field().to_be_bytes(32);
-        let serialized_recipient_ivpk = pub_key_to_bytes(self.recipient_ivpk);
+        let serialized_recipient_ivpk = point_to_bytes(self.recipient_ivpk);
 
         for i in 0..32 {
             buffer[i] = serialized_eph_sk_high[i];
