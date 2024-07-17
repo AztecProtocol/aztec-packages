@@ -1046,6 +1046,7 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
 {
     auto* ctx = get_context() ? get_context() : exponent.get_context();
     uint256_t exponent_value = exponent.get_value();
+
     if constexpr (IsSimulator<Builder>) {
         if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
             ctx->failure("field_t::pow exponent accumulator incorrect");
@@ -1056,34 +1057,37 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
         return result;
     }
 
-    bool exponent_constant = exponent.is_constant();
+    ASSERT(exponent_value.get_msb() < 32);
+    // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
+    if (exponent.is_constant()) {
+        return this->pow(static_cast<uint32_t>(exponent_value));
+    }
     std::vector<bool_t<Builder>> exponent_bits(32);
+    // Collect individual bits as bool_t's
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
-        bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
+        bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
     }
 
-    if (!exponent_constant) {
-        field_t<Builder> exponent_accumulator(ctx, 0);
-        for (const auto& bit : exponent_bits) {
-            exponent_accumulator += exponent_accumulator;
-            exponent_accumulator += bit;
-        }
-        exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+    field_t<Builder> exponent_accumulator(ctx, 0);
+
+    // Reconstruct the exponent from bits
+    for (const auto& bit : exponent_bits) {
+        exponent_accumulator += exponent_accumulator;
+        exponent_accumulator += field_t<Builder>(bit);
     }
+
+    // Ensure it's equal to the original
+    exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
     bigfield accumulator(ctx, 1);
-    bigfield mul_coefficient = *this - 1;
+    bigfield one(1);
+    // Compute the power with a square-and-multiply algorithm
     for (size_t digit_idx = 0; digit_idx < 32; ++digit_idx) {
         accumulator *= accumulator;
-        const bigfield bit(field_t<Builder>(exponent_bits[digit_idx]),
-                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
-                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
-                           field_t<Builder>(witness_t<Builder>(ctx, 0)),
-                           /*can_overflow=*/true);
-        accumulator *= (mul_coefficient * bit + 1);
+        accumulator *= one.conditional_select(*this, exponent_bits[digit_idx]);
     }
     accumulator.self_reduce();
     accumulator.set_origin_tag(OriginTag(get_origin_tag(), exponent.tag));
