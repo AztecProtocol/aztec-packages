@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721222990370,
+  "lastUpdate": 1721225461306,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -87268,6 +87268,78 @@ window.BENCHMARK_DATA = {
             "value": 164336874,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 164336874 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d5c066382a326fbc2c5f5c6844a9c6cc3a54738",
+          "message": "feat(avm): concurrency improvements (#7495)\n\nThis PR makes some changes to use the more standard `bb::parallel_for` instead of or custom solution.\n\nThis is nice because we can now control/experiment with concurrency limit by using the env variable `HARDWARE_CONCURRENCY` (which defaults to the number of cpus).\n\nI also added parallel computation of logderivative inverses **in the prover** which actually made a huge difference: took it from `5.1s` to `0.1`s and has now become negligible (with the # of cpus of the mainframe).\n\nBEFORE\n```\nprove/check_circuit: 5120\nprove/execute_log_derivative_inverse_commitments_round_ms: 532\n*** prove/execute_log_derivative_inverse_round_ms: 5199\nprove/execute_pcs_rounds_ms: 413\nprove/execute_relation_check_rounds_ms: 1328\nprove/execute_wire_commitments_round_ms: 1742\nprove/gen_trace: 850\n```\n\nAFTER\n```\nprove/check_circuit: 4859\nprove/execute_log_derivative_inverse_commitments_round_ms: 543\n*** prove/execute_log_derivative_inverse_round_ms: 162\nprove/execute_pcs_rounds_ms: 381\nprove/execute_relation_check_rounds_ms: 1089\nprove/execute_wire_commitments_round_ms: 1608\nprove/gen_trace: 755\n```\n\n---------\n\nWARNING: I had to update the handling of exception catching in the tests, because things get complicated w/threads. I mostly just changed the helper, but GTest does complain and we have to do sth about it eventually.\n\n> [WARNING] /mnt/user-data/facundo/aztec-packages/barretenberg/cpp/build/_deps/gtest-src/googletest/src/gtest-death-test.cc:1108:: Death tests use fork(), which is unsafe particularly in a threaded context. For this test, Google Test detected 192 threads. See https://github.com/google/googletest/blob/main/docs/advanced.md#death-tests-and-threads for more explanation and suggested solutions, especially if this is the last message you see before your test times out.\n\nFiled [this issue](https://github.com/AztecProtocol/aztec-packages/issues/7504).",
+          "timestamp": "2024-07-17T14:55:21+01:00",
+          "tree_id": "fb7f2eba42518b3a3ba5f82e1c3f3b113f13811f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d5c066382a326fbc2c5f5c6844a9c6cc3a54738"
+        },
+        "date": 1721225454728,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13589.221140000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9606.822814000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4791.183000000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4373.736035 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41191.777599,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41191777000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14657.657530999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14657657000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4465266363,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4465266363 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199141583,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 199141583 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3714788101,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3714788101 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 164312724,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 164312724 ns\nthreads: 1"
           }
         ]
       }
