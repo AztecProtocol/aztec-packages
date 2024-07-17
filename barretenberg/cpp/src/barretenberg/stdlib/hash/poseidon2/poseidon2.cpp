@@ -41,5 +41,6 @@ template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const std
 }
 template class poseidon2<bb::MegaCircuitBuilder>;
 template class poseidon2<bb::UltraCircuitBuilder>;
+template class poseidon2<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

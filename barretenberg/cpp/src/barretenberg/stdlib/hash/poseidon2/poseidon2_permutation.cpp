@@ -312,5 +312,6 @@ void Poseidon2Permutation<Params, Builder>::matrix_multiplication_external(
 
 template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, MegaCircuitBuilder>;
 template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, UltraCircuitBuilder>;
+template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib
