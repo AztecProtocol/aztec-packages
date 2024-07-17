@@ -60,6 +60,37 @@ template <typename Flavor> class SumcheckProverRound {
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
+    using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
+    /**
+     * @brief This structure is created for contain various polynomials and constants required by ZK Sumcheck.
+     *
+     */
+    struct ZKSumcheckData {
+        // The number of all witnesses including shifts and derived witnesses from flavors that have ZK,
+        // otherwise, set this constant to 0.
+        static constexpr size_t NUM_ALL_WITNESSES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESSES : 0;
+        // Array of random scalars used to hide the witness info from leaking through the claimed evaluations
+        using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESSES>;
+        // Auxiliary table that represents the evaluations of quadratic polynomials r_j * X(1-X) at 0,...,
+        // MAX_PARTIAL_RELATION_LENGTH - 1
+        using EvaluationMaskingTable = std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESSES>;
+        // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK
+        // Sumcheck.
+        static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
+        // Container for the Libra Univariates. Their number depends on the size of the circuit.
+        using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
+        // Container for the evaluations of Libra Univariates that have to be proven.
+        using ClaimedLibraEvaluations = std::vector<FF>;
+
+        EvalMaskingScalars eval_masking_scalars;
+        EvaluationMaskingTable masking_terms_evaluations;
+        LibraUnivariates libra_univariates;
+        FF libra_scaling_factor;
+        FF libra_challenge;
+        FF libra_running_sum;
+        ClaimedLibraEvaluations libra_evaluations;
+    };
+
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
     // Prover constructor
@@ -106,6 +137,36 @@ template <typename Flavor> class SumcheckProverRound {
             extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
         }
     }
+    /**
+     * @brief A variant of extend edges used by ZK Sumcheck.
+     *
+     * @details In the case when witness polynomials are masked, this method has to distinguish between witness and
+     * non-witness polynomials. The witness univariates obtained from witness multilinears are corrected by a masking
+     * quadratic term extended to the same length MAX_PARTIAL_RELATION_LENGTH.*
+     *
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    void extend_zk_edges(ExtendedEdges& extended_edges,
+                         ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                         size_t edge_idx,
+                         ZKSumcheckData zk_sumcheck_data)
+    {
+        // extend edges of witness polynomials and add correcting terms
+        for (auto [extended_edge, multivariate, masking_univariate] :
+             zip_view(extended_edges.get_all_witnesses(),
+                      multivariates.get_all_witnesses(),
+                      zk_sumcheck_data.masking_terms_evaluations)) {
+            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            extended_edge += masking_univariate;
+        };
+        // extend edges of public polynomials
+        for (auto [extended_edge, multivariate] :
+             zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
+            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+        };
+    }
 
     /**
      * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$  at \f$ X_{i } =
@@ -130,11 +191,13 @@ template <typename Flavor> class SumcheckProverRound {
      method \ref extend_and_batch_univariates "extend and batch univariates".
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> compute_univariate(
+    SumcheckRoundUnivariate compute_univariate(
+        const size_t round_idx,
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::PowPolynomial<FF>& pow_polynomial,
-        const RelationSeparator alpha)
+        const RelationSeparator alpha,
+        std::optional<ZKSumcheckData> zk_sumcheck_data = std::nullopt) // only submitted when Flavor HasZK
     {
         BB_OP_COUNT_TIME();
 
@@ -162,7 +225,11 @@ template <typename Flavor> class SumcheckProverRound {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
+                if constexpr (Flavor::HasZK) {
+                    extend_zk_edges(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data.value());
+                } else {
+                    extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
+                };
 
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
@@ -180,10 +247,20 @@ template <typename Flavor> class SumcheckProverRound {
         for (auto& accumulators : thread_univariate_accumulators) {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
-
+        // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
+        if constexpr (Flavor::HasZK) {
+            auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data.value(), round_idx);
+            // Batch the univariate contributions from each sub-relation to obtain the round univariate
+            auto round_univariate =
+                batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, pow_polynomial);
+            // Mask the round univariate
+            auto masked_round_univariate = round_univariate + libra_round_univariate;
+            return masked_round_univariate;
+        }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-            univariate_accumulators, alpha, pow_polynomial);
+        else {
+            return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, pow_polynomial);
+        }
     }
 
     /**
@@ -263,6 +340,34 @@ template <typename Flavor> class SumcheckProverRound {
         Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
     }
 
+    /**
+     * @brief Compute Libra round univariate expressed as follows
+\f{align}{
+        \texttt{libra_univariate}_i(X_i) =  \rho \cdot \sum_{\vec \ell \in \{0,1\}^{d-1 - i}} G(u_0,\ldots, u_{i-1},
+X_{i}, \vec \ell) = \rho \cdot 2^{d-1 - i}  \left( \sum_{j = 0}^{i-1} g_j(u_{j}) + g_{i}(X_i) + \sum_{j=i+1}^{d-1}
+\left(g_{j,0} + g_{j,1}\right) \right) \f} Therefore, the contribution of the \f$\texttt{libra_univariate}_{i}(X_{i})\f$
+at \f$X_{i} = k\f$ to \f$\tilde{S}^i(k)\f$, where \f$k=0,\ldots, \tilde{D}\f$, is given by the formula \f{align}{
+        \texttt{libra_univariate}_i(k) = \rho \cdot 2^{d-1-i} \left(\sum_{j = 0}^{i-1} g_j(u_{j}) + g_{i,k}+
+\sum_{j=i+1}^{d-1}\left(g_{j,0}+g_{j,1}\right)\right) =  \texttt{libra_table}_{i,k} + \texttt{libra_running_sum}.
+
+     *
+     * @param zk_sumcheck_data
+     * @param round_idx
+     * @return bb::Univariate<FF, ZK_BATCHED_LENGTH>
+     */
+    static SumcheckRoundUnivariate compute_libra_round_univariate(ZKSumcheckData zk_sumcheck_data, size_t round_idx)
+    {
+        SumcheckRoundUnivariate libra_round_univariate;
+        // select the i'th column of Libra book-keeping table
+        auto current_column = zk_sumcheck_data.libra_univariates[round_idx];
+        // the evaluation of Libra round univariate at k=0...D are equal to \f$\texttt{libra_univariates}_{i}(k)\f$
+        // corrected by the Libra running sum
+        for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; ++idx) {
+            libra_round_univariate.value_at(idx) = current_column.value_at(idx) + zk_sumcheck_data.libra_running_sum;
+        };
+        return libra_round_univariate;
+    }
+
   private:
     /**
      * @brief In Round \f$ i \f$, for a given point \f$ \vec \ell \in \{0,1\}^{d-1 - i}\f$, calculate the contribution
@@ -295,22 +400,8 @@ template <typename Flavor> class SumcheckProverRound {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-
-        // Check if the relation is skippable to speed up accumulation
-        if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
-            // If not, accumulate normally
-            Relation::accumulate(
-                std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
-        } else {
-            // If so, only compute the contribution if the relation is active
-            if (!Relation::skip(extended_edges)) {
-                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-                                     extended_edges,
-                                     relation_parameters,
-                                     scaling_factor);
-            }
-        }
-
+        Relation::accumulate(
+            std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
             accumulate_relation_univariates<relation_idx + 1>(
@@ -340,6 +431,7 @@ template <typename Flavor> class SumcheckVerifierRound {
   public:
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
+    using ClaimedLibraEvaluations = typename std::vector<FF>;
 
     bool round_failed = false;
     /**
@@ -352,6 +444,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
 
     FF target_total_sum = 0;
 
@@ -370,7 +463,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
+    bool check_sum(SumcheckRoundUnivariate& univariate)
     {
         FF total_sum = univariate.value_at(0) + univariate.value_at(1);
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
@@ -437,7 +530,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param round_challenge \f$ u_i\f$
      * @return FF \f$ \sigma_{i+1} = \tilde{S}^i(u_i)\f$
      */
-    FF compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, FF& round_challenge)
+    FF compute_next_target_sum(SumcheckRoundUnivariate& univariate, FF& round_challenge)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
         target_total_sum = univariate.evaluate(round_challenge);
@@ -473,7 +566,8 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
                                                   const bb::RelationParameters<FF>& relation_parameters,
                                                   const bb::PowPolynomial<FF>& pow_polynomial,
-                                                  const RelationSeparator alpha)
+                                                  const RelationSeparator alpha,
+                                                  std::optional<FF> full_libra_purported_value = std::nullopt)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
@@ -482,6 +576,9 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+        if constexpr (Flavor::HasZK) {
+            output += full_libra_purported_value.value();
+        };
         return output;
     }
 };
