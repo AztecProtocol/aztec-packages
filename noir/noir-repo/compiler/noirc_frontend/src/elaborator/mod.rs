@@ -1793,4 +1793,50 @@ impl<'context> Elaborator<'context> {
             }
         }
     }
+
+    fn setup_interpreter<'a>(
+        &'a mut self,
+        interpreter_errors: &'a mut Vec<InterpreterError>,
+    ) -> Interpreter {
+        Interpreter::new(
+            self.interner,
+            &mut self.comptime_scopes,
+            self.crate_id,
+            self.debug_comptime_in_file,
+            interpreter_errors,
+        )
+    }
+
+    fn debug_comptime<T: Display, F: FnMut(&mut NodeInterner) -> T>(
+        &mut self,
+        location: Location,
+        mut expr_f: F,
+    ) {
+        if Some(location.file) == self.debug_comptime_in_file {
+            let displayed_expr = expr_f(self.interner);
+            self.errors.push((
+                InterpreterError::debug_evaluate_comptime(displayed_expr, location).into(),
+                location.file,
+            ));
+        }
+    }
+
+    fn run_attributes_on_functions(
+        &mut self,
+        function_sets: &[UnresolvedFunctions],
+        generated_items: &mut CollectedItems,
+    ) {
+        for function_set in function_sets {
+            self.file = function_set.file_id;
+            self.self_type = function_set.self_type.clone();
+
+            for (local_module, function_id, function) in &function_set.functions {
+                self.local_module = *local_module;
+                let attributes = function.secondary_attributes();
+                let item = Value::FunctionDefinition(*function_id);
+                let span = function.span();
+                self.run_comptime_attributes_on_item(attributes, item, span, generated_items);
+            }
+        }
+    }
 }

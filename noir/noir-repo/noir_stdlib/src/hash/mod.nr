@@ -40,11 +40,10 @@ fn pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: 
         points[i] = from_field_unsafe(input[i]);
     }
     let generators = derive_generators("DEFAULT_DOMAIN_SEPARATOR".as_bytes(), separator);
-    let values = multi_scalar_mul(generators, points);
-    EmbeddedCurvePoint { x: values[0], y: values[1], is_infinite: values[2] as bool }
+    multi_scalar_mul(generators, points)
 }
 
-fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {
+fn pedersen_hash_with_separator_noir<let N: u32>(input: [Field; N], separator: u32) -> Field {
     let mut scalars: Vec<EmbeddedCurveScalar> = Vec::from_slice([EmbeddedCurveScalar { lo: 0, hi: 0 }; N].as_slice()); //Vec::new();
 
     for i in 0..N {
@@ -62,7 +61,7 @@ fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -
 pub fn pedersen_hash<let N: u32>(input: [Field; N]) -> Field
 // docs:end:pedersen_hash
 {
-    pedersen_hash_with_separator(input, 0)
+    __pedersen_hash_with_separator(input, 0)
 }
 
 #[field(bn254)]
@@ -71,6 +70,12 @@ fn derive_generators<let N: u32, let M: u32>(domain_separator_bytes: [u8; M], st
     crate::assert_constant(starting_index);
     __derive_generators(domain_separator_bytes, starting_index)
 }
+
+#[foreign(pedersen_hash)]
+pub fn __pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {}
+
+#[foreign(pedersen_commitment)]
+fn __pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> [Field; 2] {}
 
 #[builtin(derive_pedersen_generators)]
 #[field(bn254)]

@@ -123,8 +123,8 @@ contract PrivateToken {
         let to_npk_m_hash = header.get_npk_m_hash(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
-        storage.balances.add(to_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk));
+        storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk, from));
+        storage.balances.add(to_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk, to));
     }
 
     #[aztec(private)]
@@ -138,8 +138,8 @@ contract PrivateToken {
         let to_npk_m_hash = header.get_npk_m_hash(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
-        storage.balances.add(to_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk));
+        storage.balances.sub(from_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk, from));
+        storage.balances.add(to_npk_m_hash, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk, to));
     }
 
     #[aztec(private)]
@@ -174,8 +174,8 @@ contract PrivateToken {
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
         // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
         // to the user in the `complete_refund(...)` function.
-        // TODO(#7324): using npk_m_hash here does not work with key rotation
-        storage.balances.sub(user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk));
+        // TODO(#7324), TODO(#7323): using npk_m_hash here is vulnerable in 2 ways described in the linked issues.
+        storage.balances.sub(user_npk_m_hash, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk, user));
 
         // 4. We generate the refund points.
         let (fee_payer_point, user_point) = TokenNote::generate_refund_points(
@@ -190,22 +190,18 @@ contract PrivateToken {
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund(Field,Field,Field,Field)"),
-            [fee_payer_point.x, fee_payer_point.y, user_point.x, user_point.y]
+            FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool))"),
+            [
+            fee_payer_point.x, fee_payer_point.y, fee_payer_point.is_infinite as Field, user_point.x, user_point.y, user_point.is_infinite as Field
+        ]
         );
     }
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn complete_refund(
-        fee_payer_point_x: Field,
-        fee_payer_point_y: Field,
-        user_point_x: Field,
-        user_point_y: Field
-    ) {
+    fn complete_refund(fee_payer_point: Point, user_point: Point) {
         // 1. We get the final note content hashes by calling the `complete_refund` on the note.
-        let fee_payer_point = Point { x: fee_payer_point_x, y: fee_payer_point_y, is_infinite: false };
-        let user_point = Point { x: user_point_x, y: user_point_y, is_infinite: false };
+        // We use 1:1 exchange rate between fee juice and token. So using `tx_fee` is enough
         let tx_fee = context.transaction_fee();
         let (fee_payer_note_content_hash, user_note_content_hash) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
 

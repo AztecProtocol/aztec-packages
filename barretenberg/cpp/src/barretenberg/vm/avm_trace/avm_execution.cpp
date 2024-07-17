@@ -11,8 +11,10 @@
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
+#include "barretenberg/vm/avm_trace/stats.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -20,6 +22,7 @@
 #include <filesystem>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -29,6 +32,53 @@ using namespace bb;
 std::filesystem::path avm_dump_trace_path;
 
 namespace bb::avm_trace {
+namespace {
+
+template <typename K, typename V>
+std::vector<std::pair<K, V>> sorted_entries(const std::unordered_map<K, V>& map, bool invert = false)
+{
+    std::vector<std::pair<K, V>> entries;
+    entries.reserve(map.size());
+    for (const auto& [key, value] : map) {
+        entries.emplace_back(key, value);
+    }
+    std::sort(entries.begin(), entries.end(), [invert](const auto& a, const auto& b) {
+        bool r = a.first < b.first;
+        if (invert) {
+            r = !r;
+        }
+        return r;
+    });
+    return entries;
+}
+
+// Returns degree distribution information for main relations (e.g., not lookups/perms).
+std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relations_degrees()
+{
+    std::unordered_map<std::string, std::string> relations_degrees;
+
+    bb::constexpr_for<0, std::tuple_size_v<AvmFlavor::MainRelations>, 1>([&]<size_t i>() {
+        std::unordered_map<int, int> degree_distribution;
+        using Relation = std::tuple_element_t<i, AvmFlavor::Relations>;
+        for (const auto& len : Relation::SUBRELATION_PARTIAL_LENGTHS) {
+            degree_distribution[static_cast<int>(len - 1)]++;
+        }
+        std::string degrees_string;
+        auto entries = sorted_entries(degree_distribution, /*invert=*/true);
+        for (size_t n = 0; n < entries.size(); n++) {
+            const auto& [degree, count] = entries[n];
+            if (n > 0) {
+                degrees_string += ", ";
+            }
+            degrees_string += std::to_string(degree) + "°: " + std::to_string(count);
+        }
+        relations_degrees.insert({ Relation::NAME, std::move(degrees_string) });
+    });
+
+    return relations_degrees;
+}
+
+} // namespace
 
 /**
  * @brief Temporary routine to generate default public inputs (gas values) until we get
@@ -64,7 +114,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
 
     std::vector<FF> returndata;
-    auto trace = gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    std::vector<Row> trace;
+    AVM_TRACK_TIME("prove/gen_trace",
+                   (trace = gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints)));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -72,16 +124,19 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
-    circuit_builder.check_circuit();
+    AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
 
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
     auto verifier = composer.create_verifier(circuit_builder);
 
-    // Proof structure: public_inputs | calldata_size | calldata | raw proof
+    vinfo("------- PROVING EXECUTION -------");
+    // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
     HonkProof proof(public_inputs_vec);
     proof.emplace_back(calldata.size());
     proof.insert(proof.end(), calldata.begin(), calldata.end());
+    proof.emplace_back(returndata.size());
+    proof.insert(proof.end(), returndata.begin(), returndata.end());
     auto raw_proof = prover.construct_proof();
     proof.insert(proof.end(), raw_proof.begin(), raw_proof.end());
     // TODO(#4887): Might need to return PCS vk when full verify is supported
@@ -264,23 +319,28 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     // crs_factory_);
     // output_state.pcs_verification_key = std::move(pcs_verification_key);
 
-    // Proof structure: public_inputs | calldata_size | calldata | raw proof
+    // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
     std::vector<FF> public_inputs_vec;
     std::vector<FF> calldata;
+    std::vector<FF> returndata;
     std::vector<FF> raw_proof;
 
     // This can be made nicer using BB's serialize::read, probably.
     const auto public_inputs_offset = proof.begin();
     const auto calldata_size_offset = public_inputs_offset + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
     const auto calldata_offset = calldata_size_offset + 1;
-    const auto raw_proof_offset = calldata_offset + static_cast<int64_t>(uint64_t(*calldata_size_offset));
+    const auto returndata_size_offset = calldata_offset + static_cast<int64_t>(uint64_t(*calldata_size_offset));
+    const auto returndata_offset = returndata_size_offset + 1;
+    const auto raw_proof_offset = returndata_offset + static_cast<int64_t>(uint64_t(*returndata_size_offset));
 
     std::copy(public_inputs_offset, calldata_size_offset, std::back_inserter(public_inputs_vec));
-    std::copy(calldata_offset, raw_proof_offset, std::back_inserter(calldata));
+    std::copy(calldata_offset, returndata_size_offset, std::back_inserter(calldata));
+    std::copy(returndata_offset, raw_proof_offset, std::back_inserter(returndata));
     std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
     VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
-    std::vector<std::vector<FF>> public_inputs_columns = copy_public_inputs_columns(public_inputs, calldata);
+    std::vector<std::vector<FF>> public_inputs_columns =
+        copy_public_inputs_columns(public_inputs, calldata, returndata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
 }
 
@@ -647,11 +707,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
             break;
         }
-        case OpCode::REVERT:
-            trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)));
+        case OpCode::REVERT: {
+            auto ret = trace_builder.op_revert(std::get<uint8_t>(inst.operands.at(0)),
+                                               std::get<uint32_t>(inst.operands.at(1)),
+                                               std::get<uint32_t>(inst.operands.at(2)));
+            returndata.insert(returndata.end(), ret.begin(), ret.end());
+
             break;
+        }
 
             // Misc
         case OpCode::DEBUGLOG:
@@ -736,7 +799,37 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         }
     }
 
-    return trace_builder.finalize();
+    auto trace = trace_builder.finalize();
+    vinfo("Final trace size: ", trace.size());
+    vinfo("Number of columns: ", trace.front().SIZE);
+    const size_t total_elements = trace.front().SIZE * trace.size();
+    const size_t nonzero_elements = [&]() {
+        size_t count = 0;
+        for (auto const& row : trace) {
+            for (const auto& ff : row.as_vector()) {
+                if (!ff.is_zero()) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }();
+    vinfo("Number of non-zero elements: ",
+          nonzero_elements,
+          "/",
+          total_elements,
+          " (",
+          100 * nonzero_elements / total_elements,
+          "%)");
+    vinfo("Relation degrees: ", []() {
+        std::string result;
+        for (const auto& [key, value] : sorted_entries(get_relations_degrees())) {
+            result += "\n\t" + key + ": [" + value + "]";
+        }
+        return result;
+    }());
+
+    return trace;
 }
 
 } // namespace bb::avm_trace

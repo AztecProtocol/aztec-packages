@@ -12,8 +12,9 @@ library Constants {
   // Prime field modulus
   uint256 internal constant P =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
-  uint256 internal constant MAX_FIELD_VALUE = P - 1;
 
+  uint256 internal constant MAX_FIELD_VALUE =
+    21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
@@ -76,6 +77,7 @@ library Constants {
   uint256 internal constant PRIVATE_KERNEL_RESET_BIG_INDEX = 3;
   uint256 internal constant PRIVATE_KERNEL_RESET_MEDIUM_INDEX = 4;
   uint256 internal constant PRIVATE_KERNEL_RESET_SMALL_INDEX = 5;
+  uint256 internal constant PRIVATE_KERNEL_RESET_TINY_INDEX = 6;
   uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 10;
   uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 11;
   uint256 internal constant EMPTY_NESTED_INDEX = 12;
@@ -181,15 +183,15 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
   uint256 internal constant VALIDATION_REQUESTS_LENGTH = 1090;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 333;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 364;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 41;
   uint256 internal constant PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH = 15;
   uint256 internal constant CALL_REQUEST_LENGTH = 7;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1160;
   uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2300;
-  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 983;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3323;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 384;
+  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 991;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3339;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 415;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 11;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 28;
   uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH = 9;
@@ -204,9 +206,10 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 93;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 109;
-  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 393;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 393;
+  uint256 internal constant TUBE_PROOF_LENGTH = 393;
+  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;

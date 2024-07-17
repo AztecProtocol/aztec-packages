@@ -7,7 +7,7 @@ use dep::protocol_types::{
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
-use crate::context::{PrivateContext, PublicContext, PrivateVoidCallInterface};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext, PrivateVoidCallInterface};
 use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer, TestAccount}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::{hash_args, hash_args_array};
@@ -54,6 +54,11 @@ impl TestEnvironment {
 
     fn private(&mut self) -> PrivateContext {
         self.private_at(cheatcodes::get_block_number())
+    }
+
+    // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
+    fn unkonstrained(self) -> UnconstrainedContext {
+        UnconstrainedContext::new()
     }
 
     fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
@@ -116,11 +121,11 @@ impl TestEnvironment {
         address
     }
 
-    fn deploy<N>(self, path: str<N>) -> Deployer<N> {
+    fn deploy<let N: u32>(self, path: str<N>) -> Deployer<N> {
         Deployer { path, public_keys_hash: 0 }
     }
 
-    fn call_private<C, M, T, Env, N>(
+    fn call_private<C, let M: u32, T, Env, let N: u32>(
         self,
         call_interface: C
     ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
@@ -142,7 +147,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 
-    fn call_private_void<C, M, Env, N>(
+    fn call_private_void<C, let M: u32, Env, let N: u32>(
         self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -164,7 +169,10 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    fn call_public<C, M, T, Env, N>(self, call_interface: C) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
+    fn call_public<C, let M: u32, T, Env, let N: u32>(
+        self,
+        call_interface: C
+    ) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = cheatcodes::get_contract_address();
@@ -186,7 +194,10 @@ impl TestEnvironment {
         result
     }
 
-    fn assert_public_call_fails<C, M, T, Env, N>(self, call_interface: C) where C: CallInterface<M, PublicContextInputs, T, Env> {
+    fn assert_public_call_fails<C, let M: u32, T, Env, let N: u32>(
+        self,
+        call_interface: C
+    ) where C: CallInterface<M, PublicContextInputs, T, Env> {
         cheatcodes::assert_public_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -194,7 +205,10 @@ impl TestEnvironment {
         );
     }
 
-    fn assert_private_call_fails<C, M, T, Env, N>(self, call_interface: C) where C: CallInterface<M, PrivateContextInputs, T, Env> {
+    fn assert_private_call_fails<C, let M: u32, T, Env, let N: u32>(
+        self,
+        call_interface: C
+    ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -205,7 +219,7 @@ impl TestEnvironment {
         );
     }
 
-    pub fn store_note_in_cache<Note, N, M>(
+    pub fn store_note_in_cache<Note, let N: u32, let M: u32>(
         self,
         note: &mut Note,
         storage_slot: Field,

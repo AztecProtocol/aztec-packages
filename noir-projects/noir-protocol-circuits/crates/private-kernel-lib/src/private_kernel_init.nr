@@ -40,10 +40,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
         private_call_data_validator.validate_as_first_call();
         private_call_data_validator.validate_against_tx_request(self.tx_request);
         private_call_data_validator.validate(output.end.note_hashes);
-        if !std::runtime::is_unconstrained() {
-            // verify/aggregate the private call proof
-            self.private_call.verify();
-        }
 
         // Validate output.
         if !std::runtime::is_unconstrained() {
@@ -76,7 +72,7 @@ mod tests {
 
     impl PrivateKernelInitInputsBuilder {
         pub fn new() -> Self {
-            let private_call = FixtureBuilder::new();
+            let private_call = FixtureBuilder::new().is_first_call();
             let tx_request = private_call.build_tx_request();
             PrivateKernelInitInputsBuilder { tx_request, private_call }
         }
