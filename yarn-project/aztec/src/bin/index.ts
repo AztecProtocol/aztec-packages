@@ -1,5 +1,5 @@
 import { fileURLToPath } from '@aztec/aztec.js';
-import { injectCommands as injectBuilderCommands } from '@aztec/cli/builder';
+import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
@@ -23,7 +23,7 @@ async function main() {
   let program = new Command('aztec');
   program.description('Aztec command line interface').version(cliVersion);
   program = injectAztecCommands(program, userLog, debugLogger);
-  program = injectBuilderCommands(program, userLog);
+  program = injectBuilderCommands(program);
   program = injectContractCommands(program, userLog, debugLogger);
   program = injectInfrastructureCommands(program, userLog, debugLogger);
   program = injectL1Commands(program, userLog, debugLogger);
