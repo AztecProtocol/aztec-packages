@@ -2,16 +2,17 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
-import { API_KEY, ETHEREUM_HOST, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
+import { ETHEREUM_HOST, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
   program
     .command('bootstrap')
     .description('Bootstrap the blockchain')
     .addOption(pxeOption)
+    .addOption(l1ChainIdOption)
     .action(async options => {
       const { bootstrap } = await import('./bootstrap.js');
-      await bootstrap(options.rpcUrl, log);
+      await bootstrap(options.rpcUrl, options.l1ChainId, log);
     });
 
   program
@@ -24,7 +25,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic for the sender of the tx',
@@ -32,6 +32,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .option('--block-number <number>', 'Block number to query next sequencer for', parseOptionalInteger)
     .addOption(pxeOption)
+    .addOption(l1ChainIdOption)
     .action(async (command, who, options) => {
       const { sequencers } = await import('./sequencers.js');
       await sequencers({
@@ -40,7 +41,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         mnemonic: options.mnemonic,
         rpcUrl: options.rpcUrl,
         l1RpcUrl: options.l1RpcUrl,
-        apiKey: options.apiKey ?? '',
+        chainId: options.l1ChainId,
         blockNumber: options.blockNumber,
         log,
         debugLogger,
