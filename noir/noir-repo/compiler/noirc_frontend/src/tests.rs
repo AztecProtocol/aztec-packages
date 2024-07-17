@@ -100,13 +100,6 @@ fn assert_no_errors(src: &str) {
     }
 }
 
-fn assert_no_errors(src: &str) {
-    let errors = get_program_errors(src);
-    if !errors.is_empty() {
-        panic!("Expected no errors, got: {:?}", errors);
-    }
-}
-
 #[test]
 fn check_trait_implemented_for_all_t() {
     let src = "
