@@ -296,7 +296,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
     const auto [limb0, limb1] = reconstruct_two_limbs(ctx, lo_8_bytes, lolo_8_bytes, lo_split_byte);
     const auto [limb2, limb3] = reconstruct_two_limbs(ctx, hi_8_bytes, mid_8_bytes, mid_split_byte);
 
-    const auto res = bigfield(limb0, limb1, limb2, limb3, true);
+    const auto res = bigfield::unsafe_construct_from_limbs(limb0, limb1, limb2, limb3, true);
 
     const auto num_last_limb_bits = 256 - (NUM_LIMB_BITS * 3);
     res.binary_basis_limbs[3].maximum_value = (uint64_t(1) << num_last_limb_bits);

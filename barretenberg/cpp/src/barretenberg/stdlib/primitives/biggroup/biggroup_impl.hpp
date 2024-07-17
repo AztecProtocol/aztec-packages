@@ -93,7 +93,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
     // divide by zero error.
     // Note: if either inputs are points at infinity we will not use the result of this computation.
-    Fq safe_edgecase_denominator = Fq(field_t<C>(1), field_t<C>(0), field_t<C>(0), field_t<C>(0));
+    Fq safe_edgecase_denominator = Fq(1);
     lambda_denominator = Fq::conditional_assign(
         lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
@@ -163,7 +163,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
     // divide by zero error.
     // (if either inputs are points at infinity we will not use the result of this computation)
-    Fq safe_edgecase_denominator = Fq(field_t<C>(1), field_t<C>(0), field_t<C>(0), field_t<C>(0));
+    Fq safe_edgecase_denominator = Fq(1);
     lambda_denominator = Fq::conditional_assign(
         lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);

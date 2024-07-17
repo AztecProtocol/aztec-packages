@@ -973,10 +973,10 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                     witness_ct(&builder,
                                fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
-            fq_ct two(witness_ct(&builder, fr(2)),
-                      witness_ct(&builder, fr(0)),
-                      witness_ct(&builder, fr(0)),
-                      witness_ct(&builder, fr(0)));
+            fq_ct two = fq_ct::unsafe_construct_from_limbs(witness_ct(&builder, fr(2)),
+                                                           witness_ct(&builder, fr(0)),
+                                                           witness_ct(&builder, fr(0)),
+                                                           witness_ct(&builder, fr(0)));
             fq_ct t0 = a + a;
             fq_ct t1 = a * two;
 

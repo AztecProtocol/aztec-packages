@@ -95,40 +95,98 @@ template <typename Builder, typename T> class bigfield {
         : bigfield(nullptr, uint256_t(value))
     {}
 
-    // we assume the limbs have already been normalized!
-    bigfield(const field_t<Builder>& a,
-             const field_t<Builder>& b,
-             const field_t<Builder>& c,
-             const field_t<Builder>& d,
-             const bool can_overflow = false)
+    /**
+     * @brief Construct a bigfield element from binary limbs that are already reduced
+     *
+     * @details This API should only be used by bigfield and other stdlib members for efficiency and with extreme care.
+     * We need it in cases where we precompute and reduce the elements, for example, and then put them in a table
+     *
+     */
+    static bigfield unsafe_construct_from_limbs(const field_t<Builder>& a,
+                                                const field_t<Builder>& b,
+                                                const field_t<Builder>& c,
+                                                const field_t<Builder>& d,
+                                                const bool can_overflow = false)
     {
-        context = a.context;
-        binary_basis_limbs[0] = Limb(field_t(a));
-        binary_basis_limbs[1] = Limb(field_t(b));
-        binary_basis_limbs[2] = Limb(field_t(c));
-        binary_basis_limbs[3] =
+        bigfield result;
+        result.context = a.context;
+        result.binary_basis_limbs[0] = Limb(field_t(a));
+        result.binary_basis_limbs[1] = Limb(field_t(b));
+        result.binary_basis_limbs[2] = Limb(field_t(c));
+        result.binary_basis_limbs[3] =
             Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
-        prime_basis_limb =
-            (binary_basis_limbs[3].element * shift_3)
-                .add_two(binary_basis_limbs[2].element * shift_2, binary_basis_limbs[1].element * shift_1);
-        prime_basis_limb += (binary_basis_limbs[0].element);
+        result.prime_basis_limb = (result.binary_basis_limbs[3].element * shift_3)
+                                      .add_two(result.binary_basis_limbs[2].element * shift_2,
+                                               result.binary_basis_limbs[1].element * shift_1);
+        result.prime_basis_limb += (result.binary_basis_limbs[0].element);
+        return result;
     };
 
-    // we assume the limbs have already been normalized!
-    bigfield(const field_t<Builder>& a,
-             const field_t<Builder>& b,
-             const field_t<Builder>& c,
-             const field_t<Builder>& d,
-             const field_t<Builder>& prime_limb,
-             const bool can_overflow = false)
+    /**
+     * @brief Construct a bigfield element from binary limbs that are already reduced and ensure they are range
+     * constrained
+     *
+     */
+    static bigfield construct_from_limbs(const field_t<Builder>& a,
+                                         const field_t<Builder>& b,
+                                         const field_t<Builder>& c,
+                                         const field_t<Builder>& d,
+                                         const bool can_overflow = false)
     {
-        context = a.context;
-        binary_basis_limbs[0] = Limb(field_t(a));
-        binary_basis_limbs[1] = Limb(field_t(b));
-        binary_basis_limbs[2] = Limb(field_t(c));
-        binary_basis_limbs[3] =
+        bigfield result;
+        auto ctx = a.context;
+        result.context = a.context;
+        result.binary_basis_limbs[0] = Limb(field_t(a));
+        result.binary_basis_limbs[1] = Limb(field_t(b));
+        result.binary_basis_limbs[2] = Limb(field_t(c));
+        result.binary_basis_limbs[3] =
             Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
-        prime_basis_limb = prime_limb;
+        result.prime_basis_limb = (result.binary_basis_limbs[3].element * shift_3)
+                                      .add_two(result.binary_basis_limbs[2].element * shift_2,
+                                               result.binary_basis_limbs[1].element * shift_1);
+        result.prime_basis_limb += (result.binary_basis_limbs[0].element);
+        uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        if constexpr (HasPlookup<Builder>) {
+            ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                                           result.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                                           static_cast<size_t>(NUM_LIMB_BITS),
+                                           static_cast<size_t>(NUM_LIMB_BITS));
+            ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                                           result.binary_basis_limbs[3].element.get_normalized_witness_index(),
+                                           static_cast<size_t>(NUM_LIMB_BITS),
+                                           static_cast<size_t>(num_last_limb_bits));
+
+        } else {
+            a.create_range_constraint(NUM_LIMB_BITS);
+            b.create_range_constraint(NUM_LIMB_BITS);
+            c.create_range_constraint(NUM_LIMB_BITS);
+            d.create_range_constraint(num_last_limb_bits);
+        }
+        return result;
+    };
+    /**
+     * @brief Construct a bigfield element from binary limbs and a prime basis limb that are already reduced
+     *
+     * @details This API should only be used by bigfield and other stdlib members for efficiency and with extreme care.
+     * We need it in cases where we precompute and reduce the elements, for example, and then put them in a table
+     *
+     */
+    static bigfield unsafe_construct_from_limbs(const field_t<Builder>& a,
+                                                const field_t<Builder>& b,
+                                                const field_t<Builder>& c,
+                                                const field_t<Builder>& d,
+                                                const field_t<Builder>& prime_limb,
+                                                const bool can_overflow = false)
+    {
+        bigfield result;
+        result.context = a.context;
+        result.binary_basis_limbs[0] = Limb(field_t(a));
+        result.binary_basis_limbs[1] = Limb(field_t(b));
+        result.binary_basis_limbs[2] = Limb(field_t(c));
+        result.binary_basis_limbs[3] =
+            Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
+        result.prime_basis_limb = prime_limb;
+        return result;
     };
 
     bigfield(const byte_array<Builder>& bytes);
