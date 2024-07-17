@@ -2402,8 +2402,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
             ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                            lo.get_normalized_witness_index(),
-                                           size_t(carry_lo_msb),
-                                           size_t(carry_hi_msb));
+                                           size_t(carry_hi_msb),
+                                           size_t(carry_lo_msb));
         } else {
             ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
             ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
@@ -2853,8 +2853,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
             ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                            lo.get_normalized_witness_index(),
-                                           (size_t)carry_lo_msb,
-                                           (size_t)carry_hi_msb);
+                                           (size_t)carry_hi_msb,
+                                           (size_t)carry_lo_msb);
         } else {
             ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
             ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
