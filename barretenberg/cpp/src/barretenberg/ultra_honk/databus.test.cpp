@@ -11,18 +11,18 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
-using namespace bb;
-
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
+namespace bb {
 class DataBusTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
+    using Builder = MegaCircuitBuilder;
 
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
@@ -42,92 +42,93 @@ class DataBusTests : public ::testing::Test {
         GoblinMockCircuits::construct_simple_circuit(builder);
         return builder;
     }
+
+    /**
+     * @brief Test method for constructing a databus column and performing reads on it
+     * @details All individual bus columns (calldata, returndata etc.) behave the same way. This method facilitates
+     * testing each of them individually by allowing specification of the add and read methods for a given bus column
+     * type.
+     *
+     * @param add_bus_data Method for adding data to the given bus column
+     * @param read_bus_data Method for reading from a given bus column
+     * @return Builder
+     */
+    static Builder construct_circuit_with_databus_reads(
+        const std::function<void(Builder&, uint32_t)>& add_bus_data,
+        const std::function<uint32_t(Builder&, uint32_t)>& read_bus_data)
+    {
+        // Construct a circuit and add some ecc op gates and arithmetic gates
+        Builder builder = construct_test_builder();
+
+        const uint32_t NUM_BUS_ENTRIES = 5; // number of entries in the bus column
+        const uint32_t NUM_READS = 7;       // greater than size of bus to ensure duplicates
+
+        // Add some arbitrary values to the bus column
+        for (size_t i = 0; i < NUM_BUS_ENTRIES; ++i) {
+            FF val = FF::random_element();
+            uint32_t val_witness_idx = builder.add_variable(val);
+            add_bus_data(builder, val_witness_idx);
+        }
+
+        // Read from the bus at some random indices
+        for (size_t i = 0; i < NUM_READS; ++i) {
+            uint32_t read_idx = engine.get_random_uint32() % NUM_BUS_ENTRIES;
+            uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
+            read_bus_data(builder, read_idx_witness_idx);
+        }
+
+        return builder;
+    }
 };
 
 /**
  * @brief Test proof construction/verification for a circuit with calldata lookup gates
- * gates
  *
  */
 TEST_F(DataBusTests, CallDataRead)
 {
-    // Construct a circuit and add some ecc op gates and arithmetic gates
-    auto builder = construct_test_builder();
+    // Define the add and read methods for databus calldata
+    auto add_calldata = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata(witness_idx); };
+    auto read_calldata = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata(witness_idx); };
 
-    // Add some values to calldata
-    std::vector<FF> calldata_values = { 7, 10, 3, 12, 1 };
-    for (auto& val : calldata_values) {
-        builder.add_public_calldata(builder.add_variable(val));
-    }
-
-    // Define some raw indices at which to read calldata
-    std::vector<uint32_t> read_indices = { 1, 4 };
-
-    // Create some calldata read gates and store the variable indices of the result for later
-    std::vector<uint32_t> result_witness_indices;
-    for (uint32_t& read_idx : read_indices) {
-        // Create a variable corresponding to the index at which we want to read into calldata
-        uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
-
-        auto value_witness_idx = builder.read_calldata(read_idx_witness_idx);
-        result_witness_indices.emplace_back(value_witness_idx);
-    }
-
-    // Generally, we'll want to use the result of a read in some other operation. As an example, we construct a gate
-    // that shows the sum of the two values just read is equal to the expected sum.
-    FF expected_sum = 0;
-    for (uint32_t& read_idx : read_indices) {
-        expected_sum += calldata_values[read_idx];
-    }
-    builder.create_add_gate(
-        { result_witness_indices[0], result_witness_indices[1], builder.zero_idx, 1, 1, 0, -expected_sum });
+    Builder builder = construct_circuit_with_databus_reads(add_calldata, read_calldata);
 
     // Construct and verify Honk proof
-    bool result = construct_and_verify_proof(builder);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(construct_and_verify_proof(builder));
+}
+
+/**
+ * @brief Test proof construction/verification for a circuit with calldata_2 lookup gates
+ *
+ */
+TEST_F(DataBusTests, CallData2Read)
+{
+    // Define the add and read methods for databus calldata_2
+    auto add_calldata_2 = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata_2(witness_idx); };
+    auto read_calldata_2 = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata_2(witness_idx); };
+
+    Builder builder = construct_circuit_with_databus_reads(add_calldata_2, read_calldata_2);
+
+    // Construct and verify Honk proof
+    EXPECT_TRUE(construct_and_verify_proof(builder));
 }
 
 /**
  * @brief Test proof construction/verification for a circuit with return data lookup gates
- * gates
  *
  */
 TEST_F(DataBusTests, ReturnDataRead)
 {
-    // Construct a circuit and add some ecc op gates and arithmetic gates
-    auto builder = construct_test_builder();
+    // Define the add and read methods for databus return data
+    auto add_return_data = [](Builder& builder, uint32_t witness_idx) { builder.add_public_return_data(witness_idx); };
+    auto read_return_data = [](Builder& builder, uint32_t witness_idx) {
+        return builder.read_return_data(witness_idx);
+    };
 
-    // Add some values to return_data
-    std::vector<FF> return_data_values = { 7, 10, 3, 12, 1 };
-    for (auto& val : return_data_values) {
-        builder.add_public_return_data(builder.add_variable(val));
-    }
-
-    // Define some raw indices at which to read return_data
-    std::vector<uint32_t> read_indices = { 1, 4 };
-
-    // Create some return_data read gates and store the variable indices of the result for later
-    std::vector<uint32_t> result_witness_indices;
-    for (uint32_t& read_idx : read_indices) {
-        // Create a variable corresponding to the index at which we want to read into return_data
-        uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
-
-        auto value_witness_idx = builder.read_return_data(read_idx_witness_idx);
-        result_witness_indices.emplace_back(value_witness_idx);
-    }
-
-    // Generally, we'll want to use the result of a read in some other operation. As an example, we construct a gate
-    // that shows the sum of the two values just read is equal to the expected sum.
-    FF expected_sum = 0;
-    for (uint32_t& read_idx : read_indices) {
-        expected_sum += return_data_values[read_idx];
-    }
-    builder.create_add_gate(
-        { result_witness_indices[0], result_witness_indices[1], builder.zero_idx, 1, 1, 0, -expected_sum });
+    Builder builder = construct_circuit_with_databus_reads(add_return_data, read_return_data);
 
     // Construct and verify Honk proof
-    bool result = construct_and_verify_proof(builder);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(construct_and_verify_proof(builder));
 }
 
 /**
@@ -207,3 +208,5 @@ TEST_F(DataBusTests, CallDataDuplicateRead)
     bool result = construct_and_verify_proof(builder);
     EXPECT_TRUE(result);
 }
+
+} // namespace bb
