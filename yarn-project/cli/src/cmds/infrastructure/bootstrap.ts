@@ -29,11 +29,4 @@ export async function bootstrap(rpcUrl: string, l1ChainId: number, log: LogFn) {
   // Deploy Fee Juice
   const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
   await deployCanonicalL2GasToken(deployer, gasPortalAddress, log, waitOpts);
-
-  // Deploy Token
-  // const token = await TokenContract.deploy(deployer, deployer.getAddress(), 'DevCoin', 'DEV', 18n)
-  //   .send()
-  //   .deployed(waitOpts);
-
-  // log(`Deployed Token at ${token.address}`);
 }
