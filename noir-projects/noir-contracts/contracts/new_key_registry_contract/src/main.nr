@@ -16,7 +16,11 @@ contract NewKeyRegistry {
             Storage {
                 // Ideally we'd do KEY_REGISTRY_STORAGE_SLOT instead of hardcoding the 1 here, but that is currently
                 // causing compilation errors.
-                current_keys: Map::new(context, 1, |context, slot| { PublicMutable::new(context, slot) })
+                current_keys: Map::new(
+                    context,
+                    1,
+                    |context, slot| { PublicMutable::new(context, slot) }
+                )
             }
         }
     }
@@ -25,7 +29,6 @@ contract NewKeyRegistry {
     fn register_initial_keys(account: AztecAddress, partial_address: PartialAddress, keys: PublicKeys) {
         let computed_address = AztecAddress::compute(keys.hash(), partial_address);
         assert(computed_address.eq(account), "Computed address does not match supplied address");
-
 
         storage.current_keys.at(account).write(StoredKeys::new(keys));
     }
@@ -38,13 +41,13 @@ contract NewKeyRegistry {
             assert(nonce == 0, "invalid nonce");
         }
 
-		let account_key_storage = storage.current_keys.at(account);
+        let account_key_storage = storage.current_keys.at(account);
 
         // We read all other current keys so that we can compute the new hash - we can't update just the npk. This means
         // updating all keys at once costs the same as updating just one (unless setting public storage to its current
         // value is cheaper than changing it, e.g. EIP-2200).
-		let mut current_keys = account_key_storage.read().public_keys;
-		current_keys.npk_m = new_npk_m;
+        let mut current_keys = account_key_storage.read().public_keys;
+        current_keys.npk_m = new_npk_m;
 
         account_key_storage.write(StoredKeys::new(current_keys));
     }
