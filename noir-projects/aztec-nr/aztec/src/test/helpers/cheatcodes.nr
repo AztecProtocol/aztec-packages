@@ -10,24 +10,8 @@ unconstrained pub fn reset() {
     oracle_reset();
 }
 
-unconstrained pub fn get_chain_id() -> Field {
-    oracle_get_chain_id()
-}
-
-unconstrained pub fn get_version() -> Field {
-    oracle_get_version()
-}
-
-unconstrained pub fn get_contract_address() -> AztecAddress {
-    oracle_get_contract_address()
-}
-
 unconstrained pub fn set_contract_address(address: AztecAddress) {
     oracle_set_contract_address(address);
-}
-
-unconstrained pub fn get_block_number() -> u32 {
-    oracle_get_block_number()
 }
 
 unconstrained pub fn advance_blocks_by(blocks: u32) {
@@ -125,20 +109,8 @@ unconstrained pub fn set_fn_selector(selector: FunctionSelector) {
 #[oracle(reset)]
 fn oracle_reset() {}
 
-#[oracle(getChainId)]
-fn oracle_get_chain_id() -> Field {}
-
-#[oracle(getVersion)]
-fn oracle_get_version() -> Field {}
-
-#[oracle(getContractAddress)] 
-fn oracle_get_contract_address() -> AztecAddress {}
-
 #[oracle(setContractAddress)]
 fn oracle_set_contract_address(address: AztecAddress) {}
-
-#[oracle(getBlockNumber)]
-fn oracle_get_block_number() -> u32 {}
 
 #[oracle(advanceBlocksBy)]
 fn oracle_advance_blocks_by(blocks: u32) {}
