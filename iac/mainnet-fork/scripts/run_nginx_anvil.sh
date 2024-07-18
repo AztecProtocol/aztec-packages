@@ -2,7 +2,7 @@
 
 set -eum pipefail
 
-# Replace API_KEY in nginx config.
+# Replace API_KEY in nginx config
 echo "Replacing api key with $API_KEY in nginx config..."
 sed -i 's/{{API_KEY}}/'$API_KEY'/' /etc/nginx/gateway.conf
 
