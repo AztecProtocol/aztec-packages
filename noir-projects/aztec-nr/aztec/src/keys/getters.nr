@@ -4,10 +4,16 @@ use dep::protocol_types::{
     traits::is_empty
 };
 use crate::{
-    context::PrivateContext,
+    context::{PrivateContext, UnconstrainedContext},
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
-    keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}},
-    state_vars::{shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter}
+    keys::{
+    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, stored_keys::StoredKeys,
+    constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}
+},
+    state_vars::{
+    shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter,
+    public_mutable::PublicMutable, map::Map
+}
 };
 
 global DELAY = 5;
@@ -104,4 +110,36 @@ fn fetch_and_constrain_keys(address: AztecAddress) -> PublicKeys {
 // TODO(#6543)
 pub fn get_nsk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
+}
+
+pub fn get_current_keys(context: &mut PrivateContext, account: AztecAddress) -> PublicKeys {
+    let hinted_public_keys = key_registry_get_stored_keys_hint(account);
+
+    let base_storage_slot = derive_storage_slot_in_map(KEY_REGISTRY_STORAGE_SLOT, account);
+    let hash_storage_slot = base_storage_slot + PUBLIC_KEYS_LENGTH as Field;
+
+    let historical_header = context.get_header();
+    assert_eq(
+        hinted_public_keys.hash().inner, historical_header.public_storage_historical_read(hash_storage_slot, KEY_REGISTRY_CONTRACT_ADDRESS)
+    );
+
+    context.set_tx_max_block_number(historical_header.global_variables.block_number as u32 + KEY_REGISTRY_UPDATE_BLOCKS);
+
+    hinted_public_keys
+}
+
+global KEY_REGISTRY_CONTRACT_ADDRESS = AztecAddress { inner: 25 };
+global KEY_REGISTRY_STORAGE_SLOT = 1;
+global KEY_REGISTRY_UPDATE_BLOCKS = 5;
+
+unconstrained fn key_registry_get_stored_keys_hint(account: AztecAddress) -> PublicKeys {
+    let context = UnconstrainedContext::at(KEY_REGISTRY_CONTRACT_ADDRESS);
+    let keys_storage = Map::new(
+        context,
+        KEY_REGISTRY_STORAGE_SLOT,
+        |context, slot| { PublicMutable::new(context, slot) }
+    );
+
+    let stored_keys: StoredKeys = keys_storage.at(account).read();
+    stored_keys.public_keys
 }
