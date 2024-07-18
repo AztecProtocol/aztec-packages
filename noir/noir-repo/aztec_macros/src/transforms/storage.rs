@@ -173,7 +173,7 @@ pub fn generate_storage_field_constructor(
 ///
 /// To:
 ///
-/// impl<Context> Storage<Contex> {
+/// impl<Context> Storage<Context> {
 ///    fn init(context: Context) -> Self {
 ///        Storage {
 ///             a_map: Map::new(context, 0, |context, slot| {

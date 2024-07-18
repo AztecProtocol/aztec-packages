@@ -149,7 +149,11 @@ mod test {
     #[test]
     fn test_compute_encrypted_note_log() {
         let contract_address = AztecAddress::from_field(0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04);
-        let storage_slot = 0x0fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e6599;
+        let storage_slot = Point {
+            x: 0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37,
+            y: 0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76,
+            is_infinite: false
+        };
         let ovsk_app = 0x1b99ba138fa7ef8a2f122a98dd80c8ee70d447218dd780f45e165ac17ca38a5e;
         let ovpk_m = Point {
             x: 0x1961448682803198631f299340e4206bb12809d4bebbf012b30f59af73ba1a15,

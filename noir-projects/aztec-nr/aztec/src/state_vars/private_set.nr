@@ -20,7 +20,6 @@ impl<T, Context> Storage<T> for PrivateSet<T, Context> {}
 impl<Note, Context> PrivateSet<Note, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PrivateSet { context, storage_slot }
     }
     // docs:end:new

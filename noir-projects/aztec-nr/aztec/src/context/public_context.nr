@@ -2,6 +2,7 @@ use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nul
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
+use dep::protocol_types::point::Point;
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
