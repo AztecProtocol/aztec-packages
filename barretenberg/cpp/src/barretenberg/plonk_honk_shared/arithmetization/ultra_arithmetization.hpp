@@ -132,7 +132,6 @@ template <typename FF_> class UltraArith {
             info("lookups    :\t", this->lookup.size());
             info("poseidon ext  :\t", this->poseidon_external.size());
             info("poseidon int  :\t", this->poseidon_internal.size());
-            info("");
         }
 
         size_t get_total_structured_size()

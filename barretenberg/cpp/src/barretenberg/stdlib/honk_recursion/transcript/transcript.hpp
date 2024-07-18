@@ -18,23 +18,6 @@ template <typename Builder> struct StdlibTranscriptParams {
 
         Builder* builder = data[0].get_context();
         return stdlib::poseidon2<Builder>::hash(*builder, data);
-        // } else {
-        //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1035): Add constraints for hashing in Ultra
-        //     using NativeFr = bb::fr;
-        //     ASSERT(!data.empty() && data[0].get_context() != nullptr);
-        //     Builder* builder = data[0].get_context();
-
-        //     // call the native hash on the data
-        //     std::vector<NativeFr> native_data;
-        //     native_data.reserve(data.size());
-        //     for (const auto& fr : data) {
-        //         native_data.push_back(fr.get_value());
-        //     }
-        //     NativeFr hash_value = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(native_data);
-
-        //     Fr hash_field_ct = Fr::from_witness(builder, hash_value);
-        //     return hash_field_ct;
-        // }
     }
 
     template <typename T> static inline T convert_challenge(const Fr& challenge)

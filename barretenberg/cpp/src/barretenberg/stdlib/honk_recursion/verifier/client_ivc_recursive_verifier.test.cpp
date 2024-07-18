@@ -92,6 +92,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     EXPECT_TRUE(CircuitChecker::check(*builder));
 
+    // Print the number of gates post finalisation
     info("Recursive Verifier: num gates = ", builder->num_gates);
 }
 

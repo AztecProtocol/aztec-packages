@@ -937,5 +937,3 @@ TEST_F(UltraHonkTests, range_constraint_small_variable)
 
     prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
-
-// WORKTODO add tests with poseidon gate

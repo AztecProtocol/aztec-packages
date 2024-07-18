@@ -144,11 +144,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         bool broke(false);
         auto check_eq = [&broke](auto& p1, auto& p2) {
+            EXPECT_TRUE(p1.size() == p2.size());
             for (size_t idx = 0; idx < p1.size(); idx++) {
                 if (p1[idx] != p2[idx]) {
-                    info("bad values p1: ", p1[idx], "p2: ", p2[idx]);
                     broke = true;
-                    info("discrepancy at value index: ", idx);
                     break;
                 }
             }
@@ -168,6 +167,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             }
             block_idx++;
         }
+
         EXPECT_FALSE(broke);
     }
 

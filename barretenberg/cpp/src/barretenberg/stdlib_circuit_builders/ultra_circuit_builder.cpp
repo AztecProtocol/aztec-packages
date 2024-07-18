@@ -122,7 +122,6 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     blocks.elliptic.q_aux().emplace_back(0);
     blocks.elliptic.q_poseidon2_external().emplace_back(0);
     blocks.elliptic.q_poseidon2_internal().emplace_back(0);
-
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
         blocks.elliptic.pad_additional();
     }
@@ -145,7 +144,6 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
     blocks.aux.q_aux().emplace_back(1);
     blocks.aux.q_poseidon2_external().emplace_back(0);
     blocks.aux.q_poseidon2_internal().emplace_back(0);
-
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
         blocks.aux.pad_additional();
     }
@@ -755,7 +753,6 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<Arithmetization>::create_gates_
         blocks.lookup.q_aux().emplace_back(0);
         blocks.lookup.q_poseidon2_external().emplace_back(0);
         blocks.lookup.q_poseidon2_internal().emplace_back(0);
-
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
             blocks.lookup.pad_additional();
         }
@@ -1068,7 +1065,6 @@ void UltraCircuitBuilder_<Arithmetization>::create_sort_constraint(const std::ve
         blocks.delta_range.q_aux().emplace_back(0);
         blocks.delta_range.q_poseidon2_external().emplace_back(0);
         blocks.delta_range.q_poseidon2_internal().emplace_back(0);
-
         if constexpr (HasAdditionalSelectors<Arithmetization>) {
             blocks.delta_range.pad_additional();
         }
@@ -1734,7 +1730,6 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
     blocks.aux.q_aux().emplace_back(0);
     blocks.aux.q_poseidon2_external().emplace_back(0);
     blocks.aux.q_poseidon2_internal().emplace_back(0);
-
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
         blocks.aux.pad_additional();
     }

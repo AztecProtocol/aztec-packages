@@ -137,12 +137,7 @@ template <typename FF_> class MegaArith {
          * conventional Ultra arithmetization
          *
          */
-        void pad_additional()
-        {
-            q_busread().emplace_back(0);
-            // q_poseidon2_external().emplace_back(0);
-            // q_poseidon2_internal().emplace_back(0);
-        };
+        void pad_additional() { q_busread().emplace_back(0); };
 
         /**
          * @brief Resizes all selectors which are not part of the conventional Ultra arithmetization
@@ -150,13 +145,7 @@ template <typename FF_> class MegaArith {
          * conventional Ultra arithmetization
          * @param new_size
          */
-        void resize_additional(size_t new_size)
-        {
-            q_busread().resize(new_size);
-            // WORKTODO: with this in ultra prolly we can delete these
-            // q_poseidon2_external().resize(new_size);
-            // q_poseidon2_internal().resize(new_size);
-        };
+        void resize_additional(size_t new_size) { q_busread().resize(new_size); };
     };
 
     struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
