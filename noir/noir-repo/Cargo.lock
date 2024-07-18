@@ -446,6 +446,7 @@ name = "aztec_macros"
 version = "0.32.0"
 dependencies = [
  "acvm",
+ "bn254_blackbox_solver",
  "convert_case 0.6.0",
  "iter-extended",
  "noirc_errors",

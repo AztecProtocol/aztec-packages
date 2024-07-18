@@ -1,8 +1,9 @@
 use acvm::acir::AcirField;
+use bn254_blackbox_solver::multi_scalar_mul;
 use noirc_errors::Span;
 use noirc_frontend::ast::{
     BlockExpression, Expression, ExpressionKind, FunctionDefinition, Ident, Literal, NoirFunction,
-    NoirStruct, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
+    NoirStruct, PathKind, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
 };
 use noirc_frontend::{
     graph::CrateId,
@@ -17,7 +18,7 @@ use noirc_frontend::{
 };
 
 use crate::{
-    chained_path,
+    chained_dep, chained_path,
     utils::{
         ast_utils::{
             call, expression, ident, ident_path, is_custom_attribute, lambda, make_statement,
@@ -176,20 +177,20 @@ pub fn generate_storage_field_constructor(
 /// impl<Context> Storage<Context> {
 ///    fn init(context: Context) -> Self {
 ///        Storage {
-///             a_map: Map::new(context, 0, |context, slot| {
+///             a_map: Map::new(context, Point::empty(), |context, slot| {
 ///                 SomeStoragePrimitive::new(context, slot)
 ///             }),
-///             a_nested_map: Map::new(context, 0, |context, slot| {
+///             a_nested_map: Map::new(context, Point::empty(), |context, slot| {
 ///                 Map::new(context, slot, |context, slot| {
 ///                     SomeStoragePrimitive::new(context, slot)
 ///                })
 ///            }),
-///            a_field: SomeStoragePrimitive::new(context, 0),
+///            a_field: SomeStoragePrimitive::new(context, Point::empty()),
 ///         }
 ///    }
 /// }
 ///
-/// Storage slots are generated as 0 and will be populated using the information from the HIR
+/// Storage slots are generated as empty points and will be populated using the information from the HIR
 /// at a later stage.
 pub fn generate_storage_implementation(
     module: &mut SortedModule,
@@ -201,10 +202,10 @@ pub fn generate_storage_implementation(
         .find(|r#struct| r#struct.name.0.contents == *storage_struct_name)
         .unwrap();
 
-    let slot_zero = expression(ExpressionKind::Literal(Literal::Integer(
-        FieldElement::from(i128::from(0)),
-        false,
-    )));
+    let slot_zero = call(
+        variable_path(chained_dep!("aztec", "protocol_types", "point", "Point", "empty")),
+        vec![],
+    );
 
     let field_constructors = definition
         .fields
@@ -397,7 +398,19 @@ pub fn assign_storage_slots(
                 )),
             }?;
 
-            let mut storage_slot: u32 = 1;
+            // The following is denoted as G_slot in aztec-nr
+            let base_slot_generator = [
+                FieldElement::from_hex(
+                    "0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15",
+                )
+                .unwrap(),
+                FieldElement::from_hex(
+                    "0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791",
+                )
+                .unwrap(),
+                FieldElement::zero(),
+            ];
+            let mut storage_slot_preimage: u32 = 1;
             for (index, (_, expr_id)) in storage_constructor_expression.fields.iter().enumerate() {
                 let fields = storage_struct
                     .borrow()
@@ -466,7 +479,16 @@ pub fn assign_storage_slots(
                     ))?;
 
                 let new_storage_slot = if current_storage_slot == 0 {
-                    u128::from(storage_slot)
+                    // Storage slot point is not populated so we compute it as `storage_slot_preimage * G_slot`
+                    let storage_slot_point = multi_scalar_mul(
+                        &base_slot_generator,
+                        &[FieldElement::from(storage_slot_preimage as u128)],
+                        &[FieldElement::zero()],
+                    );
+                    println!("Storage slot point: {:?}", storage_slot_point);
+
+                    // u128::from(storage_slot_preimage)
+                    u128::from(storage_slot_preimage)
                 } else {
                     current_storage_slot
                 };
@@ -489,7 +511,7 @@ pub fn assign_storage_slots(
                     ))
                 });
 
-                storage_slot += type_serialized_len;
+                storage_slot_preimage += type_serialized_len;
             }
         }
     }

@@ -11,6 +11,7 @@ repository.workspace = true
 
 [dependencies]
 acvm.workspace = true
+bn254_blackbox_solver.workspace = true
 noirc_frontend.workspace = true
 noirc_errors.workspace = true
 iter-extended.workspace = true
