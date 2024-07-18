@@ -174,11 +174,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
+
+      - name: Wait for PXE to be available
+        run: ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
       - uses: ./.github/ci-setup-action
       - name: Bootstrap devnet
         run: |
-          echo "waiting for PXE to be available"
-          ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
