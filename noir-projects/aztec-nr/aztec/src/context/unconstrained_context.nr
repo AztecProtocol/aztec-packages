@@ -1,5 +1,8 @@
 use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
-use crate::oracle::{execution::{get_chain_id, get_version, get_contract_address, get_block_number}, storage::{raw_storage_read, storage_read}};
+use crate::oracle::{
+    execution::{get_chain_id, get_version, get_contract_address, get_block_number},
+    storage::{raw_storage_read, storage_read}
+};
 
 struct UnconstrainedContext {
     block_number: u32,

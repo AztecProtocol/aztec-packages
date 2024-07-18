@@ -3,7 +3,8 @@ use dep::aztec::{
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
-    oracle::{execution::get_contract_address, unsafe_rand::unsafe_rand, storage::storage_read}, context::PrivateContext
+    oracle::{execution::get_contract_address, unsafe_rand::unsafe_rand, storage::storage_read},
+    context::PrivateContext
 };
 
 use crate::{types::{token_note::TokenNote}, PrivateToken};

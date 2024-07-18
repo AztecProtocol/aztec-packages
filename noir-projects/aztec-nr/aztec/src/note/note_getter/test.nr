@@ -5,8 +5,8 @@ use crate::{
     note_header::NoteHeader,
     note_getter_options::{NoteGetterOptions, Sort, SortOrder, Comparator, PropertySelector},
     note_getter::constrain_get_notes_internal
-    },
-    oracle::execution::get_contract_address,
+},
+    oracle::execution::get_contract_address
 };
 use dep::protocol_types::address::AztecAddress;
 
