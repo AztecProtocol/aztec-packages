@@ -9,7 +9,7 @@ use acvm::{
 
 use super::{
     artifact::UnresolvedJumpLocation,
-    brillig_variable::{BrilligArray, BrilligVector, SingleAddrVariable},
+    brillig_variable::{brillig_bit_size, BrilligArray, BrilligVector, SingleAddrVariable},
     debug_show::DebugToString,
     BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
@@ -99,7 +99,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
             self.push_opcode(BrilligOpcode::BinaryIntOp {
                 op: operation.into(),
                 destination: result.address,
-                bit_size: lhs.bit_size,
+                bit_size: lhs.bit_size.try_into().unwrap(),
                 lhs: lhs.address,
                 rhs: rhs.address,
             });
@@ -115,7 +115,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
     /// Brillig does not have an explicit modulo operation,
     /// so we must emit multiple opcodes and process it differently
     /// to other binary instructions.
-    fn modulo(
+    pub(crate) fn modulo(
         &mut self,
         result: SingleAddrVariable,
         left: SingleAddrVariable,
@@ -363,7 +363,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         self.push_opcode(BrilligOpcode::Cast {
             destination: destination.address,
             source: source.address,
-            bit_size: destination.bit_size,
+            bit_size: brillig_bit_size(destination.bit_size),
         });
     }
 
@@ -405,7 +405,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
             self.push_opcode(BrilligOpcode::Const {
                 destination: result.address,
                 value: constant,
-                bit_size: result.bit_size,
+                bit_size: brillig_bit_size(result.bit_size),
             });
         }
     }

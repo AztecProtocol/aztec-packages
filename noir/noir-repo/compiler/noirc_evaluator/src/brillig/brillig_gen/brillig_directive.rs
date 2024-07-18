@@ -28,7 +28,7 @@ pub(crate) fn directive_invert<F: AcirField>() -> GeneratedBrillig<F> {
             BrilligOpcode::Const {
                 destination: zero_const,
                 value: F::from(0_usize),
-                bit_size: F::max_num_bits(),
+                bit_size: None,
             },
             BrilligOpcode::BinaryFieldOp {
                 op: BinaryFieldOp::Equals,
@@ -39,11 +39,7 @@ pub(crate) fn directive_invert<F: AcirField>() -> GeneratedBrillig<F> {
             // If the input is zero, then we jump to the stop opcode
             BrilligOpcode::JumpIf { condition: input_is_zero, location: stop_location },
             // Put value one in register (1)
-            BrilligOpcode::Const {
-                destination: one_const,
-                value: F::one(),
-                bit_size: F::max_num_bits(),
-            },
+            BrilligOpcode::Const { destination: one_const, value: F::one(), bit_size: None },
             // Divide 1 by the input, and set the result of the division into register (0)
             BrilligOpcode::BinaryFieldOp {
                 op: BinaryFieldOp::Div,
@@ -73,99 +69,100 @@ pub(crate) fn directive_quotient<F: AcirField>(bit_size: u32) -> GeneratedBrilli
 
     // TODO: The only difference between these implementations is the integer version will truncate the input to the `bit_size` via cast.
     // Once we deduplicate brillig functions then we can modify this so that fields and integers share the same quotient function.
-    if bit_size >= F::max_num_bits() {
-        // Field version
-        GeneratedBrillig {
-            byte_code: vec![
-                BrilligOpcode::CalldataCopy {
-                    destination_address: MemoryAddress::from(0),
-                    size: 2,
-                    offset: 0,
-                },
-                // No cast, since calldata is typed as field by default
-                //q = a/b is set into register (2)
-                BrilligOpcode::BinaryFieldOp {
-                    op: BinaryFieldOp::IntegerDiv, // We want integer division, not field division!
-                    lhs: MemoryAddress::from(0),
-                    rhs: MemoryAddress::from(1),
-                    destination: MemoryAddress::from(2),
-                },
-                //(1)= q*b
-                BrilligOpcode::BinaryFieldOp {
-                    op: BinaryFieldOp::Mul,
-                    lhs: MemoryAddress::from(2),
-                    rhs: MemoryAddress::from(1),
-                    destination: MemoryAddress::from(1),
-                },
-                //(1) = a-q*b
-                BrilligOpcode::BinaryFieldOp {
-                    op: BinaryFieldOp::Sub,
-                    lhs: MemoryAddress::from(0),
-                    rhs: MemoryAddress::from(1),
-                    destination: MemoryAddress::from(1),
-                },
-                //(0) = q
-                BrilligOpcode::Mov {
-                    destination: MemoryAddress::from(0),
-                    source: MemoryAddress::from(2),
-                },
-                BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
-            ],
-            assert_messages: Default::default(),
-            locations: Default::default(),
-        }
-    } else {
-        // Integer version
-        GeneratedBrillig {
-            byte_code: vec![
-                BrilligOpcode::CalldataCopy {
-                    destination_address: MemoryAddress::from(0),
-                    size: 2,
-                    offset: 0,
-                },
-                BrilligOpcode::Cast {
-                    destination: MemoryAddress(0),
-                    source: MemoryAddress(0),
-                    bit_size,
-                },
-                BrilligOpcode::Cast {
-                    destination: MemoryAddress(1),
-                    source: MemoryAddress(1),
-                    bit_size,
-                },
-                //q = a/b is set into register (2)
-                BrilligOpcode::BinaryIntOp {
-                    op: BinaryIntOp::Div,
-                    lhs: MemoryAddress::from(0),
-                    rhs: MemoryAddress::from(1),
-                    destination: MemoryAddress::from(2),
-                    bit_size,
-                },
-                //(1)= q*b
-                BrilligOpcode::BinaryIntOp {
-                    op: BinaryIntOp::Mul,
-                    lhs: MemoryAddress::from(2),
-                    rhs: MemoryAddress::from(1),
-                    destination: MemoryAddress::from(1),
-                    bit_size,
-                },
-                //(1) = a-q*b
-                BrilligOpcode::BinaryIntOp {
-                    op: BinaryIntOp::Sub,
-                    lhs: MemoryAddress::from(0),
-                    rhs: MemoryAddress::from(1),
-                    destination: MemoryAddress::from(1),
-                    bit_size,
-                },
-                //(0) = q
-                BrilligOpcode::Mov {
-                    destination: MemoryAddress::from(0),
-                    source: MemoryAddress::from(2),
-                },
-                BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
-            ],
-            assert_messages: Default::default(),
-            locations: Default::default(),
-        }
+    // if bit_size >= F::max_num_bits() {
+    // Field version
+    GeneratedBrillig {
+        byte_code: vec![
+            BrilligOpcode::CalldataCopy {
+                destination_address: MemoryAddress::from(0),
+                size: 2,
+                offset: 0,
+            },
+            // No cast, since calldata is typed as field by default
+            //q = a/b is set into register (2)
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::IntegerDiv, // We want integer division, not field division!
+                lhs: MemoryAddress::from(0),
+                rhs: MemoryAddress::from(1),
+                destination: MemoryAddress::from(2),
+            },
+            //(1)= q*b
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::Mul,
+                lhs: MemoryAddress::from(2),
+                rhs: MemoryAddress::from(1),
+                destination: MemoryAddress::from(1),
+            },
+            //(1) = a-q*b
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::Sub,
+                lhs: MemoryAddress::from(0),
+                rhs: MemoryAddress::from(1),
+                destination: MemoryAddress::from(1),
+            },
+            //(0) = q
+            BrilligOpcode::Mov {
+                destination: MemoryAddress::from(0),
+                source: MemoryAddress::from(2),
+            },
+            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
+        ],
+        assert_messages: Default::default(),
+        locations: Default::default(),
     }
+    // } else {
+    //     let bit_size = bit_size.try_into().unwrap();
+    //     // Integer version
+    //     GeneratedBrillig {
+    //         byte_code: vec![
+    //             BrilligOpcode::CalldataCopy {
+    //                 destination_address: MemoryAddress::from(0),
+    //                 size: 2,
+    //                 offset: 0,
+    //             },
+    //             BrilligOpcode::Cast {
+    //                 destination: MemoryAddress(0),
+    //                 source: MemoryAddress(0),
+    //                 bit_size: Some(bit_size),
+    //             },
+    //             BrilligOpcode::Cast {
+    //                 destination: MemoryAddress(1),
+    //                 source: MemoryAddress(1),
+    //                 bit_size: Some(bit_size),
+    //             },
+    //             //q = a/b is set into register (2)
+    //             BrilligOpcode::BinaryIntOp {
+    //                 op: BinaryIntOp::Div,
+    //                 lhs: MemoryAddress::from(0),
+    //                 rhs: MemoryAddress::from(1),
+    //                 destination: MemoryAddress::from(2),
+    //                 bit_size,
+    //             },
+    //             //(1)= q*b
+    //             BrilligOpcode::BinaryIntOp {
+    //                 op: BinaryIntOp::Mul,
+    //                 lhs: MemoryAddress::from(2),
+    //                 rhs: MemoryAddress::from(1),
+    //                 destination: MemoryAddress::from(1),
+    //                 bit_size,
+    //             },
+    //             //(1) = a-q*b
+    //             BrilligOpcode::BinaryIntOp {
+    //                 op: BinaryIntOp::Sub,
+    //                 lhs: MemoryAddress::from(0),
+    //                 rhs: MemoryAddress::from(1),
+    //                 destination: MemoryAddress::from(1),
+    //                 bit_size,
+    //             },
+    //             //(0) = q
+    //             BrilligOpcode::Mov {
+    //                 destination: MemoryAddress::from(0),
+    //                 source: MemoryAddress::from(2),
+    //             },
+    //             BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
+    //         ],
+    //         assert_messages: Default::default(),
+    //         locations: Default::default(),
+    //     }
+    // }
 }

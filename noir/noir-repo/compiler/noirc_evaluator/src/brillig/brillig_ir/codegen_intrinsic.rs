@@ -24,12 +24,27 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
             value_to_truncate.bit_size
         );
 
-        // We cast back and forth to ensure that the value is truncated.
-        let intermediate_register =
-            SingleAddrVariable { address: self.allocate_register(), bit_size };
-        self.cast_instruction(intermediate_register, value_to_truncate);
-        self.cast_instruction(destination_of_truncated_value, intermediate_register);
-        self.deallocate_single_addr(intermediate_register);
+        let max_value = self.make_constant_instruction(
+            F::from(2_usize).pow(&F::from(bit_size as u128)),
+            F::max_num_bits(),
+        );
+        let value_casted = SingleAddrVariable::new_field(self.allocate_register());
+        let truncated_value_as_field = SingleAddrVariable::new_field(self.allocate_register());
+
+        self.cast_instruction(value_casted, value_to_truncate);
+        self.modulo(truncated_value_as_field, value_casted, max_value);
+        self.cast_instruction(destination_of_truncated_value, truncated_value_as_field);
+
+        self.deallocate_single_addr(value_casted);
+        self.deallocate_single_addr(truncated_value_as_field);
+        self.deallocate_single_addr(max_value);
+
+        // // We cast back and forth to ensure that the value is truncated.
+        // let intermediate_register =
+        //     SingleAddrVariable { address: self.allocate_register(), bit_size };
+        // self.cast_instruction(intermediate_register, value_to_truncate);
+        // self.cast_instruction(destination_of_truncated_value, intermediate_register);
+        // self.deallocate_single_addr(intermediate_register);
     }
 
     /// Issues a to_radix instruction. This instruction will write the modulus of the source register

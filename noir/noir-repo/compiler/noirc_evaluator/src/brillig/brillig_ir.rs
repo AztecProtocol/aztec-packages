@@ -253,9 +253,13 @@ pub(crate) mod tests {
         context.foreign_call_instruction(
             "make_number_sequence".into(),
             &[ValueOrArray::MemoryAddress(r_input_size)],
-            &[HeapValueType::Simple(32)],
+            &[HeapValueType::Simple(Some(acvm::acir::brillig::IntegerBitSize::U32))],
             &[ValueOrArray::HeapVector(HeapVector { pointer: r_stack, size: r_output_size })],
-            &[HeapValueType::Vector { value_types: vec![HeapValueType::Simple(32)] }],
+            &[HeapValueType::Vector {
+                value_types: vec![HeapValueType::Simple(Some(
+                    acvm::acir::brillig::IntegerBitSize::U32,
+                ))],
+            }],
         );
         // push stack frame by r_returned_size
         context.memory_op_instruction(r_stack, r_output_size, r_stack, BrilligBinaryOp::Add);

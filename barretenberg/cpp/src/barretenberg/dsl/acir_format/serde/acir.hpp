@@ -959,12 +959,63 @@ struct BlackBoxOp {
     static BlackBoxOp bincodeDeserialize(std::vector<uint8_t>);
 };
 
+struct IntegerBitSize {
+
+    struct U0 {
+        friend bool operator==(const U0&, const U0&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U0 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct U1 {
+        friend bool operator==(const U1&, const U1&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U1 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct U8 {
+        friend bool operator==(const U8&, const U8&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U8 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct U16 {
+        friend bool operator==(const U16&, const U16&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U16 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct U32 {
+        friend bool operator==(const U32&, const U32&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U32 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct U64 {
+        friend bool operator==(const U64&, const U64&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U64 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    struct U128 {
+        friend bool operator==(const U128&, const U128&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static U128 bincodeDeserialize(std::vector<uint8_t>);
+    };
+
+    std::variant<U0, U1, U8, U16, U32, U64, U128> value;
+
+    friend bool operator==(const IntegerBitSize&, const IntegerBitSize&);
+    std::vector<uint8_t> bincodeSerialize() const;
+    static IntegerBitSize bincodeDeserialize(std::vector<uint8_t>);
+};
+
 struct HeapValueType;
 
 struct HeapValueType {
 
     struct Simple {
-        uint32_t value;
+        std::optional<Program::IntegerBitSize> value;
 
         friend bool operator==(const Simple&, const Simple&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1044,7 +1095,7 @@ struct BrilligOpcode {
     struct BinaryIntOp {
         Program::MemoryAddress destination;
         Program::BinaryIntOp op;
-        uint32_t bit_size;
+        Program::IntegerBitSize bit_size;
         Program::MemoryAddress lhs;
         Program::MemoryAddress rhs;
 
@@ -1056,7 +1107,7 @@ struct BrilligOpcode {
     struct Cast {
         Program::MemoryAddress destination;
         Program::MemoryAddress source;
-        uint32_t bit_size;
+        std::optional<Program::IntegerBitSize> bit_size;
 
         friend bool operator==(const Cast&, const Cast&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1109,7 +1160,7 @@ struct BrilligOpcode {
 
     struct Const {
         Program::MemoryAddress destination;
-        uint32_t bit_size;
+        std::optional<Program::IntegerBitSize> bit_size;
         std::string value;
 
         friend bool operator==(const Const&, const Const&);
@@ -7880,6 +7931,339 @@ Program::HeapVector serde::Deserializable<Program::HeapVector>::deserialize(Dese
     obj.pointer = serde::Deserializable<decltype(obj.pointer)>::deserialize(deserializer);
     obj.size = serde::Deserializable<decltype(obj.size)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize& lhs, const IntegerBitSize& rhs)
+{
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize IntegerBitSize::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize>::serialize(const Program::IntegerBitSize& obj, Serializer& serializer)
+{
+    serializer.increase_container_depth();
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+    serializer.decrease_container_depth();
+}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize serde::Deserializable<Program::IntegerBitSize>::deserialize(Deserializer& deserializer)
+{
+    deserializer.increase_container_depth();
+    Program::IntegerBitSize obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U0& lhs, const IntegerBitSize::U0& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U0::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U0>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U0 IntegerBitSize::U0::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U0>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U0>::serialize(const Program::IntegerBitSize::U0& obj,
+                                                                 Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U0 serde::Deserializable<Program::IntegerBitSize::U0>::deserialize(Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U0 obj;
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U1& lhs, const IntegerBitSize::U1& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U1::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U1>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U1 IntegerBitSize::U1::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U1>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U1>::serialize(const Program::IntegerBitSize::U1& obj,
+                                                                 Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U1 serde::Deserializable<Program::IntegerBitSize::U1>::deserialize(Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U1 obj;
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U8& lhs, const IntegerBitSize::U8& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U8::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U8>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U8 IntegerBitSize::U8::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U8>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U8>::serialize(const Program::IntegerBitSize::U8& obj,
+                                                                 Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U8 serde::Deserializable<Program::IntegerBitSize::U8>::deserialize(Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U8 obj;
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U16& lhs, const IntegerBitSize::U16& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U16::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U16>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U16 IntegerBitSize::U16::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U16>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U16>::serialize(const Program::IntegerBitSize::U16& obj,
+                                                                  Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U16 serde::Deserializable<Program::IntegerBitSize::U16>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U16 obj;
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U32& lhs, const IntegerBitSize::U32& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U32::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U32>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U32 IntegerBitSize::U32::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U32>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U32>::serialize(const Program::IntegerBitSize::U32& obj,
+                                                                  Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U32 serde::Deserializable<Program::IntegerBitSize::U32>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U32 obj;
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U64& lhs, const IntegerBitSize::U64& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U64::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U64>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U64 IntegerBitSize::U64::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U64>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U64>::serialize(const Program::IntegerBitSize::U64& obj,
+                                                                  Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U64 serde::Deserializable<Program::IntegerBitSize::U64>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U64 obj;
+    return obj;
+}
+
+namespace Program {
+
+inline bool operator==(const IntegerBitSize::U128& lhs, const IntegerBitSize::U128& rhs)
+{
+    return true;
+}
+
+inline std::vector<uint8_t> IntegerBitSize::U128::bincodeSerialize() const
+{
+    auto serializer = serde::BincodeSerializer();
+    serde::Serializable<IntegerBitSize::U128>::serialize(*this, serializer);
+    return std::move(serializer).bytes();
+}
+
+inline IntegerBitSize::U128 IntegerBitSize::U128::bincodeDeserialize(std::vector<uint8_t> input)
+{
+    auto deserializer = serde::BincodeDeserializer(input);
+    auto value = serde::Deserializable<IntegerBitSize::U128>::deserialize(deserializer);
+    if (deserializer.get_buffer_offset() < input.size()) {
+        throw_or_abort("Some input bytes were not read");
+    }
+    return value;
+}
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::IntegerBitSize::U128>::serialize(const Program::IntegerBitSize::U128& obj,
+                                                                   Serializer& serializer)
+{}
+
+template <>
+template <typename Deserializer>
+Program::IntegerBitSize::U128 serde::Deserializable<Program::IntegerBitSize::U128>::deserialize(
+    Deserializer& deserializer)
+{
+    Program::IntegerBitSize::U128 obj;
     return obj;
 }
 
