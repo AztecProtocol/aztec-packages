@@ -179,5 +179,5 @@ jobs:
         run: |
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap \
-          --rpc-url https://api.aztec.network/ \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }}
