@@ -33,8 +33,8 @@ pub fn pedersen_commitment<let N: u32>(input: [Field; N]) -> EmbeddedCurvePoint 
     pedersen_commitment_with_separator(input, 0)
 }
 
-fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {	
-    __pedersen_hash_with_separator(input, separator)	
+fn pedersen_hash_with_separator<let N: u32>(input: [Field; N], separator: u32) -> Field {
+    __pedersen_hash_with_separator(input, separator)
 }
 
 fn pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: u32) -> EmbeddedCurvePoint {
