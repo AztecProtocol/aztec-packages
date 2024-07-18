@@ -245,12 +245,11 @@ pub fn generate_contract_interface(
             {0} {{ target_contract: dep::aztec::protocol_types::address::AztecAddress::zero() }}
         }}
 
-        {3}
     ",
         module_name,
         stubs.iter().map(|(src, _)| src.to_owned()).collect::<Vec<String>>().join("\n"),
         if has_storage_layout { storage_layout_getter.clone() } else { "".to_string() },
-        if has_storage_layout { format!("#[contract_library_method]\n{}", storage_layout_getter) } else { "".to_string() } 
+        //if has_storage_layout { format!("#[contract_library_method]\n{}", storage_layout_getter) } else { "".to_string() } 
     );
 
     let (contract_interface_ast, errors) = parse_program(&contract_interface);

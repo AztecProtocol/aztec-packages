@@ -2,8 +2,9 @@ use acvm::acir::AcirField;
 use bn254_blackbox_solver::multi_scalar_mul;
 use noirc_errors::Span;
 use noirc_frontend::ast::{
-    BlockExpression, Expression, ExpressionKind, FunctionDefinition, Ident, Literal, NoirFunction,
-    NoirStruct, PathKind, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
+    BlockExpression, ConstructorExpression, Expression, ExpressionKind, FunctionDefinition, Ident,
+    Literal, NoirFunction, NoirStruct, PathKind, Pattern, StatementKind, TypeImpl, UnresolvedType,
+    UnresolvedTypeData,
 };
 use noirc_frontend::{
     graph::CrateId,
@@ -202,10 +203,18 @@ pub fn generate_storage_implementation(
         .find(|r#struct| r#struct.name.0.contents == *storage_struct_name)
         .unwrap();
 
-    let slot_zero = call(
-        variable_path(chained_dep!("aztec", "protocol_types", "point", "Point", "empty")),
-        vec![],
-    );
+    let zero_field_expression = expression(ExpressionKind::Literal(Literal::Integer(
+        FieldElement::from(i128::from(0)),
+        false,
+    )));
+
+    let slot_zero = expression(ExpressionKind::constructor((chained_dep!("aztec", "protocol_types", "point", "Point"),
+        vec![
+            (ident("x"), zero_field_expression.clone()),
+            (ident("y"), zero_field_expression.clone()),
+            (ident("is_infinite"), expression(ExpressionKind::Literal(Literal::Bool(false)))),
+        ]
+    )));
 
     let field_constructors = definition
         .fields
@@ -338,7 +347,7 @@ pub fn assign_storage_slots(
                 }
             });
 
-        if let (Some(storage_struct), Some(storage_layout)) =
+        if let (Some(storage_struct), None) =
             (maybe_storage_struct, maybe_storage_layout)
         {
             let init_id = context
@@ -433,11 +442,11 @@ pub fn assign_storage_slots(
                     context.def_interner.expression(&new_call_expression.arguments[1]);
 
                 let current_storage_slot = match slot_arg_expression {
-                    HirExpression::Literal(HirLiteral::Integer(slot, _)) => Ok(slot.to_u128()),
+                    HirExpression::Constructor(constructor) => Ok(constructor),
                     _ => Err((
                         AztecMacroError::CouldNotAssignStorageSlots {
                             secondary_message: Some(
-                                "Storage slot argument expression must be a literal integer"
+                                "Storage slot argument expression must be a constructor"
                                     .to_string(),
                             ),
                         },
@@ -445,30 +454,43 @@ pub fn assign_storage_slots(
                     )),
                 }?;
 
-                let storage_layout_field =
-                    storage_layout.fields.iter().find(|field| field.0 .0.contents == *field_name);
+                // let storage_layout_field =
+                //     storage_layout.fields.iter().find(|field| field.0 .0.contents == *field_name);
 
-                let storage_layout_slot_expr_id =
-                    if let Some((_, expr_id)) = storage_layout_field {
-                        let expr = context.def_interner.expression(expr_id);
-                        if let HirExpression::Constructor(storage_layout_field_storable_expr) = expr
-                        {
-                            storage_layout_field_storable_expr.fields.iter().find_map(
-                                |(field, expr_id)| {
-                                    if field.0.contents == "slot" {
-                                        Some(*expr_id)
-                                    } else {
-                                        None
-                                    }
-                                },
-                            )
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                    .ok_or((
+                // let storage_layout_slot_expr_id =
+                //     if let Some((_, expr_id)) = storage_layout_field {
+                //         let expr = context.def_interner.expression(expr_id);
+                //         if let HirExpression::Constructor(storage_layout_field_storable_expr) = expr
+                //         {
+                //             storage_layout_field_storable_expr.fields.iter().find_map(
+                //                 |(field, expr_id)| {
+                //                     if field.0.contents == "slot" {
+                //                         Some(*expr_id)
+                //                     } else {
+                //                         None
+                //                     }
+                //                 },
+                //             )
+                //         } else {
+                //             None
+                //         }
+                //     } else {
+                //         None
+                //     }
+                //     .ok_or((
+                //         AztecMacroError::CouldNotAssignStorageSlots {
+                //             secondary_message: Some(format!(
+                //                 "Storage layout field ({}) not found or has an incorrect type",
+                //                 field_name
+                //             )),
+                //         },
+                //         file_id,
+                //     ))?;
+
+                let coords = current_storage_slot.fields[0..2].iter().map(| (_, expr_id) | {
+                let coord = match context.def_interner.expression(expr_id) {
+                    HirExpression::Literal(HirLiteral::Integer(value, _)) => Ok(value),
+                    _ => Err((
                         AztecMacroError::CouldNotAssignStorageSlots {
                             secondary_message: Some(format!(
                                 "Storage layout field ({}) not found or has an incorrect type",
@@ -476,40 +498,78 @@ pub fn assign_storage_slots(
                             )),
                         },
                         file_id,
-                    ))?;
+                    ))
+                };
+                coord.map_or(FieldElement::zero(), | res | res)
+                }).collect::<Vec<_>>();
 
-                let new_storage_slot = if current_storage_slot == 0 {
+                let new_storage_slot = if coords[0] == FieldElement::zero() && coords[1] == FieldElement::zero() {
                     // Storage slot point is not populated so we compute it as `storage_slot_preimage * G_slot`
                     let storage_slot_point = multi_scalar_mul(
                         &base_slot_generator,
                         &[FieldElement::from(storage_slot_preimage as u128)],
                         &[FieldElement::zero()],
-                    );
+                    ).map_err(| _ | {
+                        (
+                            AztecMacroError::CouldNotAssignStorageSlots {
+                                secondary_message: Some("Cannot compute storage slot point".to_string()),
+                            },
+                            file_id,
+                        )
+                    } )?;
                     println!("Storage slot point: {:?}", storage_slot_point);
 
-                    // u128::from(storage_slot_preimage)
-                    u128::from(storage_slot_preimage)
+                    storage_slot_point
                 } else {
-                    current_storage_slot
+                    (coords[0], coords[1], FieldElement::zero())
                 };
 
                 let type_serialized_len =
                     get_storage_serialized_length(&traits, field_type, &context.def_interner)
                         .map_err(|err| (err, file_id))?;
 
-                context.def_interner.update_expression(new_call_expression.arguments[1], |expr| {
-                    *expr = HirExpression::Literal(HirLiteral::Integer(
-                        FieldElement::from(new_storage_slot),
-                        false,
-                    ))
-                });
+ 
+                // context.def_interner.update_expression(current_storage_slot.fields[0].1, |expr| {
+                //     *expr = HirExpression::Literal(HirLiteral::Integer(
+                //         new_storage_slot.0,
+                //         false,
+                //     ))
+                // });
 
-                context.def_interner.update_expression(storage_layout_slot_expr_id, |expr| {
-                    *expr = HirExpression::Literal(HirLiteral::Integer(
-                        FieldElement::from(new_storage_slot),
-                        false,
-                    ))
-                });
+                // context.def_interner.update_expression(current_storage_slot.fields[1].1, |expr| {
+                //     *expr = HirExpression::Literal(HirLiteral::Integer(
+                //         new_storage_slot.1,
+                //         false,
+                //     ))
+                // });
+
+                // let storage_layout_expr = context.def_interner.expression(&storage_layout_slot_expr_id);
+                // let storage_layout_coords_expr_id = match storage_layout_expr {
+                //     HirExpression::Constructor(constructor) => {
+                //         let coords = constructor.fields[0..2].into_iter().map(| (_, expr_id) | expr_id.clone());
+                //         Ok(coords.collect::<Vec<_>>())
+                //     }, 
+                //     _ => Err( (
+                //         AztecMacroError::CouldNotAssignStorageSlots {
+                //             secondary_message: Some("Cannot compute storage slot point".to_string()),
+                //         },
+                //         file_id,
+                //     ))
+                // }?;
+
+                // context.def_interner.update_expression(storage_layout_coords_expr_id[0], |expr| {
+                //     *expr = HirExpression::Literal(HirLiteral::Integer(
+                //         new_storage_slot.0,
+                //         false,
+                //     ))
+                // });
+
+                // context.def_interner.update_expression(storage_layout_coords_expr_id[1], |expr| {
+                //     *expr = HirExpression::Literal(HirLiteral::Integer(
+                //         new_storage_slot.1,
+                //         false,
+                //     ))
+                // });
 
                 storage_slot_preimage += type_serialized_len;
             }
@@ -536,7 +596,7 @@ pub fn generate_storage_layout(
     definition.fields.iter().for_each(|(field_ident, _)| {
         storable_fields.push(format!("{}: dep::aztec::prelude::Storable", field_ident));
         storable_fields_impl
-            .push(format!("{}: dep::aztec::prelude::Storable {{ slot: 0 }}", field_ident,));
+            .push(format!("{}: dep::aztec::prelude::Storable {{ slot: dep::aztec::protocol_types::point::Point {{ x: 0, y: 0, is_infinite: false }} }}", field_ident,));
     });
 
     let storage_fields_source = format!(
