@@ -130,8 +130,8 @@ template <typename FF_> class UltraArith {
             info("elliptic   :\t", this->elliptic.size());
             info("auxiliary  :\t", this->aux.size());
             info("lookups    :\t", this->lookup.size());
-            info("poseidon ext  :\t", this->poseidon_external.size(), "/", this->poseidon_external.get_fixed_size());
-            info("poseidon int  :\t", this->poseidon_internal.size(), "/", this->poseidon_internal.get_fixed_size());
+            info("poseidon ext  :\t", this->poseidon_external.size());
+            info("poseidon int  :\t", this->poseidon_internal.size());
             info("");
         }
 
@@ -164,9 +164,19 @@ template <typename FF_> class UltraArith {
     };
 
     // Note: These are needed for Plonk only (for poly storage in a std::map). Must be in same order as above struct.
-    inline static const std::vector<std::string> selector_names = { "q_m",        "q_c",   "q_1",       "q_2",
-                                                                    "q_3",        "q_4",   "q_arith",   "q_sort",
-                                                                    "q_elliptic", "q_aux", "table_type" };
+    inline static const std::vector<std::string> selector_names = { "q_m",
+                                                                    "q_c",
+                                                                    "q_1",
+                                                                    "q_2",
+                                                                    "q_3",
+                                                                    "q_4",
+                                                                    "q_arith",
+                                                                    "q_sort",
+                                                                    "q_elliptic",
+                                                                    "q_aux",
+                                                                    "table_type",
+                                                                    "q_poseidon2_external",
+                                                                    "q_poseidon2_internal" };
 };
 
 } // namespace bb

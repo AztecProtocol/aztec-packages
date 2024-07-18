@@ -46,7 +46,7 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(TraceData& 
             std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
             proving_key.polynomial_store.put(wire_tag, std::move(trace_data.wires[idx]));
         }
-        for (size_t idx = 0; idx < builder.selector_names.size(); ++idx) {
+        for (size_t idx = 0; idx < trace_data.selectors.size(); ++idx) {
             proving_key.polynomial_store.put(builder.selector_names[idx] + "_lagrange",
                                              std::move(trace_data.selectors[idx]));
         }

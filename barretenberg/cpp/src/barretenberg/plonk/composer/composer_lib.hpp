@@ -19,7 +19,7 @@ struct SelectorProperties {
  */
 void enforce_nonzero_selector_polynomials(const auto& circuit_constructor, auto* proving_key)
 {
-    for (size_t idx = 0; idx < circuit_constructor.selector_names.size(); ++idx) {
+    for (size_t idx = 0; idx < circuit_constructor.num_selectors; ++idx) {
         auto current_selector =
             proving_key->polynomial_store.get(circuit_constructor.selector_names[idx] + "_lagrange");
         current_selector[current_selector.size() - 1] = idx + 1;
