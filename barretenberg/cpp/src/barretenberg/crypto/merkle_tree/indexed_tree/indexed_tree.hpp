@@ -26,11 +26,13 @@ namespace bb::crypto::merkle_tree {
  * @brief Implements a parallelised batch insertion indexed tree
  * Accepts template argument of the type of store backing the tree, the type of store containing the leaves and the
  * hashing policy
- *
+ * All public methods are asynchronous unless marked otherwise
  */
 template <typename Store, typename HashingPolicy> class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
   public:
     using StoreType = Store;
+
+    // The public methods accept these function types as asynchronous callbacks
     using LeafValueType = typename Store::LeafType;
     using IndexedLeafValueType = typename Store::IndexedLeafValueType;
     using AddCompletionCallback = std::function<void(const TypedResponse<AddIndexedDataResponse<LeafValueType>>&)>;
@@ -45,30 +47,37 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
 
     /**
      * @brief Adds or updates a single values in the tree (updates not currently supported)
-     * @param value The value to be added or updated
-     * @returns The 'previous' hash paths of all updated values
      */
     void add_or_update_value(const LeafValueType& value, const AddCompletionCallback& completion);
 
     /**
      * @brief Adds or updates the given set of values in the tree (updates not currently supported)
-     * @param values The values to be added or updated
-     * @param no_multithreading Performs single threaded insertion, just used whilst prototyping and benchmarking
-     * @returns The 'previous' hash paths of all updated values
      */
     void add_or_update_values(const std::vector<LeafValueType>& values, const AddCompletionCallback& completion);
 
+    /**
+     * @brief Returns the leaf at the provided index
+     */
     void get_leaf(const index_t& index, bool includeUncommitted, const LeafCallback& completion) const;
 
+    /**
+     * @brief Find the index of the provided leaf value if it exists
+     */
     void find_leaf_index(const LeafValueType& leaf,
                          bool includeUncommitted,
                          const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
+    /**
+     * @brief Find the index of the provided leaf value if it exists, only considers indexed beyond the value provided
+     */
     void find_leaf_index_from(const LeafValueType& leaf,
                               index_t start_index,
                               bool includeUncommitted,
                               const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
+    /**
+     * @brief Find the value of the leaf that is immediately lower in value than that provided
+     */
     void find_low_leaf(const LeafValueType& leaf, bool includeUncommitted, const LeafCallback& on_completion) const;
 
     using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
@@ -187,6 +196,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
         store_.set_at_index(i, initial_leaf, true);
     }
 
+    // Append the leaves and wait for the operation to complete
     bool success = true;
     Signal signal(1);
     AppendCompletionCallback completion = [&](const TypedResponse<AddDataResponse>& result) -> void {
@@ -198,6 +208,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
     if (!success) {
         throw std::runtime_error("Failed to initialise tree");
     }
+    // Commit the state
     store_.commit();
 }
 
