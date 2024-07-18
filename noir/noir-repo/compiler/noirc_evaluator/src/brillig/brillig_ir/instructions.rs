@@ -1,15 +1,17 @@
 use acvm::{
-    acir::brillig::{
-        BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapValueType, MemoryAddress,
-        Opcode as BrilligOpcode, ValueOrArray,
+    acir::{
+        brillig::{
+            BinaryFieldOp, BinaryIntOp, BitSize, BlackBoxOp, HeapArray, HeapValueType,
+            MemoryAddress, Opcode as BrilligOpcode, ValueOrArray,
+        },
+        AcirField,
     },
-    acir::AcirField,
     FieldElement,
 };
 
 use super::{
     artifact::UnresolvedJumpLocation,
-    brillig_variable::{brillig_bit_size, BrilligArray, BrilligVector, SingleAddrVariable},
+    brillig_variable::{BrilligArray, BrilligVector, SingleAddrVariable},
     debug_show::DebugToString,
     BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
@@ -363,7 +365,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         self.push_opcode(BrilligOpcode::Cast {
             destination: destination.address,
             source: source.address,
-            bit_size: brillig_bit_size(destination.bit_size),
+            bit_size: BitSize::try_from_u32::<F>(destination.bit_size).unwrap(),
         });
     }
 
@@ -405,7 +407,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
             self.push_opcode(BrilligOpcode::Const {
                 destination: result.address,
                 value: constant,
-                bit_size: brillig_bit_size(result.bit_size),
+                bit_size: BitSize::try_from_u32::<F>(result.bit_size).unwrap(),
             });
         }
     }

@@ -1,12 +1,11 @@
 use crate::context::{DebugCommandResult, DebugContext, DebugLocation};
 
-use acvm::acir::brillig::IntegerBitSize;
+use acvm::acir::brillig::{BitSize, IntegerBitSize};
 use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::acir::circuit::{Circuit, Opcode, OpcodeLocation};
 use acvm::acir::native_types::{Witness, WitnessMap, WitnessStack};
 use acvm::brillig_vm::brillig::Opcode as BrilligOpcode;
 use acvm::brillig_vm::MemoryValue;
-use acvm::AcirField;
 use acvm::{BlackBoxFunctionSolver, FieldElement};
 use nargo::NargoError;
 use noirc_driver::CompiledProgram;
@@ -379,11 +378,8 @@ impl<'a, B: BlackBoxFunctionSolver<FieldElement>> ReplDebugger<'a, B> {
             println!("Invalid value: {value}");
             return;
         };
-        let bit_size = if bit_size == FieldElement::max_num_bits() {
-            None
-        } else if let Ok(bit_size) = IntegerBitSize::try_from(bit_size) {
-            Some(bit_size)
-        } else {
+
+        let Ok(bit_size) = BitSize::try_from_u32::<FieldElement>(bit_size) else {
             println!("Invalid bit size: {bit_size}");
             return;
         };

@@ -1,4 +1,5 @@
 use crate::black_box::BlackBoxOp;
+use acir_field::AcirField;
 use serde::{Deserialize, Serialize};
 
 pub type Label = usize;
@@ -23,7 +24,7 @@ impl From<usize> for MemoryAddress {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum HeapValueType {
     // A single field element is enough to represent the value with a given bit size
-    Simple(Option<IntegerBitSize>),
+    Simple(BitSize),
     // The value read should be interpreted as a pointer to a heap array, which
     // consists of a pointer to a slice of memory of size elements, and a
     // reference count
@@ -40,7 +41,7 @@ impl HeapValueType {
     }
 
     pub fn field() -> HeapValueType {
-        HeapValueType::Simple(None)
+        HeapValueType::Simple(BitSize::Field)
     }
 }
 
@@ -120,6 +121,29 @@ impl std::fmt::Display for IntegerBitSize {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Copy, PartialOrd, Ord)]
+pub enum BitSize {
+    Field,
+    Integer(IntegerBitSize),
+}
+
+impl BitSize {
+    pub fn to_u32<F: AcirField>(self) -> u32 {
+        match self {
+            BitSize::Field => F::max_num_bits(),
+            BitSize::Integer(bit_size) => bit_size.into(),
+        }
+    }
+
+    pub fn try_from_u32<F: AcirField>(value: u32) -> Result<Self, &'static str> {
+        if value == F::max_num_bits() {
+            Ok(BitSize::Field)
+        } else {
+            Ok(BitSize::Integer(IntegerBitSize::try_from(value)?))
+        }
+    }
+}
+
 /// Lays out various ways an external foreign call's input and output data may be interpreted inside Brillig.
 /// This data can either be an individual value or memory.
 ///
@@ -167,7 +191,7 @@ pub enum BrilligOpcode<F> {
     Cast {
         destination: MemoryAddress,
         source: MemoryAddress,
-        bit_size: Option<IntegerBitSize>,
+        bit_size: BitSize,
     },
     JumpIfNot {
         condition: MemoryAddress,
@@ -196,7 +220,7 @@ pub enum BrilligOpcode<F> {
     },
     Const {
         destination: MemoryAddress,
-        bit_size: Option<IntegerBitSize>,
+        bit_size: BitSize,
         value: F,
     },
     Return,

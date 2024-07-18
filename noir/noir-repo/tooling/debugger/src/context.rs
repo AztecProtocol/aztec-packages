@@ -1,5 +1,5 @@
 use crate::foreign_calls::DebugForeignCallExecutor;
-use acvm::acir::brillig::IntegerBitSize;
+use acvm::acir::brillig::BitSize;
 use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::acir::circuit::{Circuit, Opcode, OpcodeLocation};
 use acvm::acir::native_types::{Witness, WitnessMap, WitnessStack};
@@ -713,7 +713,7 @@ impl<'a, B: BlackBoxFunctionSolver<FieldElement>> DebugContext<'a, B> {
         &mut self,
         ptr: usize,
         value: FieldElement,
-        bit_size: Option<IntegerBitSize>,
+        bit_size: BitSize,
     ) {
         if let Some(solver) = self.brillig_solver.as_mut() {
             solver.write_memory_at(
@@ -853,6 +853,7 @@ mod tests {
     use crate::foreign_calls::DefaultDebugForeignCallExecutor;
     use acvm::{
         acir::{
+            brillig::IntegerBitSize,
             circuit::{
                 brillig::{BrilligInputs, BrilligOutputs},
                 opcodes::{BlockId, BlockType},
@@ -882,7 +883,7 @@ mod tests {
                 BrilligOpcode::Const {
                     destination: MemoryAddress::from(1),
                     value: fe_0,
-                    bit_size: Some(acvm::acir::brillig::IntegerBitSize::U32),
+                    bit_size: BitSize::Integer(IntegerBitSize::U32),
                 },
                 BrilligOpcode::ForeignCall {
                     function: "clear_mock".into(),

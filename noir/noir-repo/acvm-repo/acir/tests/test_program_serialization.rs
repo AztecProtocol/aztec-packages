@@ -20,7 +20,7 @@ use acir::{
     native_types::{Expression, Witness},
 };
 use acir_field::{AcirField, FieldElement};
-use brillig::{HeapArray, HeapValueType, MemoryAddress, ValueOrArray};
+use brillig::{BitSize, HeapArray, HeapValueType, IntegerBitSize, MemoryAddress, ValueOrArray};
 
 #[test]
 fn addition_circuit() {
@@ -238,7 +238,7 @@ fn complex_brillig_foreign_call() {
             brillig::Opcode::Const {
                 destination: MemoryAddress(0),
                 value: FieldElement::from(32_usize),
-                bit_size: Some(brillig::IntegerBitSize::U32),
+                bit_size: BitSize::Integer(IntegerBitSize::U32),
             },
             brillig::Opcode::CalldataCopy {
                 destination_address: MemoryAddress(1),

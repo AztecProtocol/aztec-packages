@@ -12,8 +12,8 @@
 //! [acvm]: https://crates.io/crates/acvm
 
 use acir::brillig::{
-    BinaryFieldOp, BinaryIntOp, ForeignCallParam, ForeignCallResult, HeapArray, HeapValueType,
-    HeapVector, IntegerBitSize, MemoryAddress, Opcode, ValueOrArray,
+    BinaryFieldOp, BinaryIntOp, BitSize, ForeignCallParam, ForeignCallResult, HeapArray,
+    HeapValueType, HeapVector, IntegerBitSize, MemoryAddress, Opcode, ValueOrArray,
 };
 use acir::AcirField;
 use acvm_blackbox_solver::BlackBoxFunctionSolver;
@@ -556,7 +556,7 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
         &mut self,
         destination: MemoryAddress,
         value: &F,
-        value_bit_size: Option<IntegerBitSize>,
+        value_bit_size: BitSize,
     ) -> Result<(), String> {
         let memory_value = MemoryValue::new_checked(*value, value_bit_size);
 
@@ -702,35 +702,33 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
     }
 
     /// Casts a value to a different bit size.
-    fn cast(
-        &self,
-        target_bit_size: Option<IntegerBitSize>,
-        source_value: MemoryValue<F>,
-    ) -> MemoryValue<F> {
+    fn cast(&self, target_bit_size: BitSize, source_value: MemoryValue<F>) -> MemoryValue<F> {
         match (source_value, target_bit_size) {
             // Field to field to field, no op
-            (MemoryValue::Field(_), None) => source_value,
+            (MemoryValue::Field(_), BitSize::Field) => source_value,
             // Field downcast to u128
-            (MemoryValue::Field(field), Some(IntegerBitSize::U128)) => {
+            (MemoryValue::Field(field), BitSize::Integer(IntegerBitSize::U128)) => {
                 MemoryValue::Integer(field.to_u128(), IntegerBitSize::U128)
             }
             // Field downcast to arbitrary bit size
-            (MemoryValue::Field(field), Some(target_bit_size)) => {
+            (MemoryValue::Field(field), BitSize::Integer(target_bit_size)) => {
                 let as_u128 = field.to_u128();
                 let target_bit_size_u32: u32 = target_bit_size.into();
                 let mask = (1_u128 << target_bit_size_u32) - 1;
                 MemoryValue::Integer(as_u128 & mask, target_bit_size)
             }
             // Integer upcast to field
-            (MemoryValue::Integer(integer, _), None) => MemoryValue::new_field(integer.into()),
+            (MemoryValue::Integer(integer, _), BitSize::Field) => {
+                MemoryValue::new_field(integer.into())
+            }
             // Integer upcast to integer
-            (MemoryValue::Integer(integer, source_bit_size), Some(target_bit_size))
+            (MemoryValue::Integer(integer, source_bit_size), BitSize::Integer(target_bit_size))
                 if source_bit_size <= target_bit_size =>
             {
                 MemoryValue::Integer(integer, target_bit_size)
             }
             // Integer downcast
-            (MemoryValue::Integer(integer, _), Some(target_bit_size)) => {
+            (MemoryValue::Integer(integer, _), BitSize::Integer(target_bit_size)) => {
                 let target_bit_size_u32: u32 = target_bit_size.into();
                 let mask = (1_u128 << target_bit_size_u32) - 1;
                 MemoryValue::Integer(integer & mask, target_bit_size)

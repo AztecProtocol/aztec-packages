@@ -127,7 +127,8 @@ pub(crate) mod tests {
     use std::vec;
 
     use acvm::acir::brillig::{
-        ForeignCallParam, ForeignCallResult, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
+        BitSize, ForeignCallParam, ForeignCallResult, HeapArray, HeapVector, IntegerBitSize,
+        MemoryAddress, ValueOrArray,
     };
     use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};
@@ -253,12 +254,10 @@ pub(crate) mod tests {
         context.foreign_call_instruction(
             "make_number_sequence".into(),
             &[ValueOrArray::MemoryAddress(r_input_size)],
-            &[HeapValueType::Simple(Some(acvm::acir::brillig::IntegerBitSize::U32))],
+            &[HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U32))],
             &[ValueOrArray::HeapVector(HeapVector { pointer: r_stack, size: r_output_size })],
             &[HeapValueType::Vector {
-                value_types: vec![HeapValueType::Simple(Some(
-                    acvm::acir::brillig::IntegerBitSize::U32,
-                ))],
+                value_types: vec![HeapValueType::Simple(BitSize::Integer(IntegerBitSize::U32))],
             }],
         );
         // push stack frame by r_returned_size

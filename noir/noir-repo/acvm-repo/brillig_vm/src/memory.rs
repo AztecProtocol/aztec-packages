@@ -1,5 +1,5 @@
 use acir::{
-    brillig::{IntegerBitSize, MemoryAddress},
+    brillig::{BitSize, IntegerBitSize, MemoryAddress},
     AcirField,
 };
 use num_traits::{One, Zero};
@@ -43,8 +43,8 @@ impl<F> MemoryValue<F> {
 
 impl<F: AcirField> MemoryValue<F> {
     /// Builds a memory value from a field element.
-    pub fn new_from_field(value: F, bit_size: Option<IntegerBitSize>) -> Self {
-        if let Some(bit_size) = bit_size {
+    pub fn new_from_field(value: F, bit_size: BitSize) -> Self {
+        if let BitSize::Integer(bit_size) = bit_size {
             MemoryValue::new_integer(value.to_u128(), bit_size)
         } else {
             MemoryValue::new_field(value)
@@ -52,8 +52,8 @@ impl<F: AcirField> MemoryValue<F> {
     }
 
     /// Builds a memory value from a field element, checking that the value is within the bit size.
-    pub fn new_checked(value: F, bit_size: Option<IntegerBitSize>) -> Option<Self> {
-        if let Some(bit_size) = bit_size {
+    pub fn new_checked(value: F, bit_size: BitSize) -> Option<Self> {
+        if let BitSize::Integer(bit_size) = bit_size {
             if value.num_bits() > bit_size.into() {
                 return None;
             }
