@@ -133,12 +133,6 @@ jobs:
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
 
-      - name: Deploy P2P Bootstrap Nodes
-        working-directory: ./yarn-project/p2p-bootstrap/terraform
-        run: |
-          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/p2p-bootstrap"
-          terraform apply -input=false -auto-approve
-
       - name: Init Aztec Node Terraform
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
@@ -165,6 +159,12 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy P2P Bootstrap Nodes
+        working-directory: ./yarn-project/p2p-bootstrap/terraform
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/p2p-bootstrap"
           terraform apply -input=false -auto-approve
 
   bootstrap:
