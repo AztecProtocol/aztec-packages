@@ -1,5 +1,7 @@
 import {
   AuthWitness,
+  Event,
+  L1EventPayload,
   L1NotePayload,
   MerkleTreeId,
   Note,
@@ -38,6 +40,7 @@ import { Aes128, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type ContractArtifact,
+  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   type NoteSelector,
@@ -96,7 +99,8 @@ export class TXE implements TypedOracle {
   ) {
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
     this.contractAddress = AztecAddress.random();
-    this.msgSender = AztecAddress.fromField(new Fr(0));
+    // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
+    this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
   }
 
   // Utils
@@ -522,6 +526,7 @@ export class TXE implements TypedOracle {
     noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
+    recipient: AztecAddress,
     preimage: Fr[],
   ): Buffer {
     const note = new Note(preimage);
@@ -529,8 +534,6 @@ export class TXE implements TypedOracle {
     const taggedNote = new TaggedLog(l1NotePayload);
 
     const ephSk = GrumpkinScalar.random();
-
-    const recipient = AztecAddress.random();
 
     return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
@@ -898,13 +901,20 @@ export class TXE implements TypedOracle {
   }
 
   computeEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _eventTypeId: Fr,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: Point,
-    _preimage: Fr[],
+    contractAddress: AztecAddress,
+    randomness: Fr,
+    eventTypeId: Fr,
+    ovKeys: KeyValidationRequest,
+    ivpkM: Point,
+    recipient: AztecAddress,
+    preimage: Fr[],
   ): Buffer {
-    throw new Error('Method not implemented.');
+    const event = new Event(preimage);
+    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, EventSelector.fromField(eventTypeId));
+    const taggedEvent = new TaggedLog(l1EventPayload);
+
+    const ephSk = GrumpkinScalar.random();
+
+    return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
 }
