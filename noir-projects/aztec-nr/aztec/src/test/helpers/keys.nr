@@ -3,7 +3,7 @@ use dep::protocol_types::{
     constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point
 };
 
-use crate::test::helpers::cheatcodes;
+use crate::{generators::G_slot, test::helpers::cheatcodes};
 
 pub fn store_master_key(key_index: Field, address: AztecAddress, key: Point) {
     let x_coordinate_map_slot = key_index * 2 + 1;

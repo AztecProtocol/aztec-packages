@@ -75,15 +75,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_index(self) -> Field {
-        pedersen_hash([self.storage_slot, 0], 0)
+        pedersen_hash([self.storage_slot.x, 0], 0)
     }
 
     fn get_delay_change_storage_index(self) -> Field {
-        pedersen_hash([self.storage_slot, 1], 0)
+        pedersen_hash([self.storage_slot.x, 1], 0)
     }
 
     fn get_hash_storage_index(self) -> Field {
-        pedersen_hash([self.storage_slot, 2], 0)
+        pedersen_hash([self.storage_slot.x, 2], 0)
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us

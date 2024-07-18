@@ -32,7 +32,7 @@ mod tests {
     use crate::test::mocks::mock_struct::MockStruct;
 
     global address = AztecAddress::from_field(29);
-    global slot = 7;
+    global storage_index = 7;
     global block_number = 17;
 
     #[test]
@@ -41,7 +41,7 @@ mod tests {
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
 
-        let read: [Field; 2] = raw_storage_read(address, slot, block_number);
+        let read: [Field; 2] = raw_storage_read(address, storage_index, block_number);
         assert_eq(read[0], 13);
         assert_eq(read[1], 42);
     }
@@ -52,7 +52,7 @@ mod tests {
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
 
-        let read: MockStruct = storage_read(address, slot, block_number);
+        let read: MockStruct = storage_read(address, storage_index, block_number);
         assert_eq(read.a, 13);
         assert_eq(read.b, 42);
     }

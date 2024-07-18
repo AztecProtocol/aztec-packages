@@ -26,17 +26,17 @@ impl<T, T_SERIALIZED_LEN> SharedImmutable<T, &mut PublicContext> where T: Serial
     // Intended to be only called once. 
     pub fn initialize(self, value: T) {
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
-        let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot;
+        let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot.x;
         let init_field: Field = self.context.storage_read(initialization_slot);
         assert(init_field == 0, "SharedImmutable already initialized");
 
         // We populate the initialization slot with a non-zero value to indicate that the struct is initialized
         self.context.storage_write(initialization_slot, 0xdead);
-        self.context.storage_write(self.storage_slot, value);
+        self.context.storage_write(self.storage_slot.x, value);
     }
 
     pub fn read_public(self) -> T {
-        self.context.storage_read(self.storage_slot)
+        self.context.storage_read(self.storage_slot.x)
     }
 }
 
