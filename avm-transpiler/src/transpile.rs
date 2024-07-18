@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use acvm::acir::brillig::{IntegerBitSize, Opcode as BrilligOpcode};
+use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
 
 use acvm::acir::circuit::OpcodeLocation;
 use acvm::brillig_vm::brillig::{
@@ -74,7 +74,7 @@ pub fn brillig_to_avm(
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
-                    tag: Some(tag_from_bit_size(Some(*bit_size))),
+                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
                         AvmOperand::U32 { value: lhs.to_usize() as u32 },
                         AvmOperand::U32 { value: rhs.to_usize() as u32 },
@@ -359,12 +359,12 @@ fn handle_cast(
     avm_instrs: &mut Vec<AvmInstruction>,
     source: &MemoryAddress,
     destination: &MemoryAddress,
-    bit_size: Option<IntegerBitSize>,
+    bit_size: BitSize,
 ) {
     let source_offset = source.to_usize() as u32;
     let dest_offset = destination.to_usize() as u32;
 
-    if bit_size == Some(IntegerBitSize::U1) {
+    if bit_size == BitSize::Integer(IntegerBitSize::U1) {
         assert!(
             matches!(tag_from_bit_size(bit_size), AvmTypeTag::UINT8),
             "If u1 doesn't map to u8 anymore, change this code!"
@@ -666,7 +666,7 @@ fn handle_const(
     avm_instrs: &mut Vec<AvmInstruction>,
     destination: &MemoryAddress,
     value: &FieldElement,
-    bit_size: &Option<IntegerBitSize>,
+    bit_size: &BitSize,
 ) {
     let tag = tag_from_bit_size(*bit_size);
     let dest = destination.to_usize() as u32;
@@ -1062,8 +1062,8 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Const { bit_size: None, .. } => 2,
-            BrilligOpcode::Cast { bit_size: Some(IntegerBitSize::U1), .. } => 3,
+            BrilligOpcode::Const { bit_size: BitSize::Field, .. } => 2,
+            BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
@@ -1085,15 +1085,15 @@ fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
     )
 }
 
-fn tag_from_bit_size(bit_size: Option<IntegerBitSize>) -> AvmTypeTag {
+fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     match bit_size {
-        Some(IntegerBitSize::U1) => AvmTypeTag::UINT8, // temp workaround
-        Some(IntegerBitSize::U8) => AvmTypeTag::UINT8,
-        Some(IntegerBitSize::U16) => AvmTypeTag::UINT16,
-        Some(IntegerBitSize::U32) => AvmTypeTag::UINT32,
-        Some(IntegerBitSize::U64) => AvmTypeTag::UINT64,
-        Some(IntegerBitSize::U128) => AvmTypeTag::UINT128,
-        None => AvmTypeTag::FIELD,
+        BitSize::Integer(IntegerBitSize::U1) => AvmTypeTag::UINT8, // temp workaround
+        BitSize::Integer(IntegerBitSize::U8) => AvmTypeTag::UINT8,
+        BitSize::Integer(IntegerBitSize::U16) => AvmTypeTag::UINT16,
+        BitSize::Integer(IntegerBitSize::U32) => AvmTypeTag::UINT32,
+        BitSize::Integer(IntegerBitSize::U64) => AvmTypeTag::UINT64,
+        BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
+        BitSize::Field => AvmTypeTag::FIELD,
         _ => panic!("The AVM doesn't support integer bit size {:?}", bit_size),
     }
 }
