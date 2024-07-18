@@ -376,7 +376,25 @@ bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Build
     if (is_constant() && other.is_constant()) {
         return bigfield(ctx, uint256_t((get_value() + uint256_t(other.get_value())) % modulus_u512));
     }
-    bigfield result = *this;
+
+    bigfield result;
+    // If the original value is constant, we have to reinitialize the higher limbs to be witnesses when adding a witness
+    if (is_constant()) {
+        auto context = other.context;
+        for (size_t i = 1; i < 4; i++) {
+            // Construct a witness element from the original constant limb
+            result.binary_basis_limbs[i] =
+                Limb(field_t<Builder>::from_witness(context, binary_basis_limbs[i].element.get_value()),
+                     binary_basis_limbs[i].maximum_value);
+            // Ensure it is fixed
+            result.binary_basis_limbs[i].element.fix_witness();
+            result.context = ctx;
+        }
+    } else {
+
+        // if this element is a witness, then all limbs will be witnesses
+        result = *this;
+    }
     result.binary_basis_limbs[0].maximum_value = binary_basis_limbs[0].maximum_value + other_maximum_value;
 
     result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + other;

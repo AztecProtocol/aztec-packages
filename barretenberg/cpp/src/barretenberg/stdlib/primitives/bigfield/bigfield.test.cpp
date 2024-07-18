@@ -41,6 +41,35 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     typedef typename bn254::witness_ct witness_ct;
 
   public:
+    static void test_add_to_lower_limb_regression()
+    {
+        auto builder = Builder();
+        fq_ct constant = fq_ct(1);
+        fq_ct var = fq_ct::create_from_u512_as_witness(&builder, 1);
+        fr_ct small_var = witness_ct(&builder, fr(1));
+        fq_ct mixed = fq_ct(1).add_to_lower_limb(small_var, 1);
+        fq_ct r;
+
+        r = mixed + mixed;
+        r = mixed - mixed;
+        r = mixed + var;
+        r = mixed + constant;
+        r = mixed - var;
+        r = mixed - constant;
+        r = var - mixed;
+
+        r = var * constant;
+        r = constant / var;
+        r = constant * constant;
+        r = constant / constant;
+
+        r = mixed * var;
+        r = mixed / var;
+        r = mixed * mixed;
+        r = mixed * constant;
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
     // The bug happens when we are applying the CRT formula to a*b < r, which can happen when using the division
     // operator
     static void test_division_formula_bug()
@@ -1201,6 +1230,10 @@ TYPED_TEST(stdlib_bigfield, assert_not_equal_regression)
     TestFixture::test_assert_not_equal_regression();
 }
 
+TYPED_TEST(stdlib_bigfield, add_to_lower_limb_regression)
+{
+    TestFixture::test_add_to_lower_limb_regression();
+}
 TYPED_TEST(stdlib_bigfield, badmul)
 {
     TestFixture::test_bad_mul();
