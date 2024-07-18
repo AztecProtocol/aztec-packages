@@ -38,7 +38,7 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     }
 
     std::string data_dir = info[0].As<Napi::String>();
-    _ws = std::make_unique<WorldState>(16, data_dir, 1UL << 32);
+    _ws = std::make_unique<WorldState>(16, data_dir, 1024 * 1024); // 1 GiB
 
     _dispatcher.registerTarget(
         WorldStateMessageType::GET_TREE_INFO,
