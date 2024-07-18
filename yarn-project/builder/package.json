@@ -66,6 +66,7 @@
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@aztec/types": "workspace:^",
     "commander": "^12.1.0"
   },
   "devDependencies": {

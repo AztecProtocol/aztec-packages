@@ -277,8 +277,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/builder@workspace:builder"
   dependencies:
-    "@aztec/cli": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -287,7 +287,7 @@ __metadata:
     ts-node: ^10.9.1
     typescript: ^5.0.4
   bin:
-    aztec-builder: dest/cli.js
+    aztec-builder: dest/bin/cli.js
   languageName: unknown
   linkType: soft
 

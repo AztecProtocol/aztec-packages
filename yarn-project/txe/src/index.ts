@@ -3,7 +3,7 @@ import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
 
 import { TXEService } from './txe_service/txe_service.js';
-import { type ForeignCallResult, toForeignCallResult } from './util/encoding.js';
+import { ForeignCallArray, type ForeignCallResult, fromArray, toForeignCallResult } from './util/encoding.js';
 
 const TXESessions = new Map<number, TXEService>();
 
@@ -38,6 +38,11 @@ class TXEDispatcher {
         this.logger.info(`Called reset on session ${sessionId}, yeeting it out of existence`);
       return toForeignCallResult([]);
     } else {
+      if (functionName === 'deploy') {
+        const pathStr = fromArray(inputs[0] as ForeignCallArray)
+          .map(char => String.fromCharCode(char.toNumber()))
+          .join('');
+      }
       const txeService = TXESessions.get(sessionId);
       const response = await (txeService as any)[functionName](...inputs);
       return response;

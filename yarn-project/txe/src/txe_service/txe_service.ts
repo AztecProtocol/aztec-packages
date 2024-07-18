@@ -92,15 +92,12 @@ export class TXEService {
   }
 
   async deploy(
-    path: ForeignCallArray,
+    pathStr: string,
     initializer: ForeignCallArray,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
     publicKeysHash: ForeignCallSingle,
   ) {
-    const pathStr = fromArray(path)
-      .map(char => String.fromCharCode(char.toNumber()))
-      .join('');
     const initializerStr = fromArray(initializer)
       .map(char => String.fromCharCode(char.toNumber()))
       .join('');
