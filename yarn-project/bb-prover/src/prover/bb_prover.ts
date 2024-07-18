@@ -789,7 +789,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const operation = async (bbWorkingDirectory: string) => {
       // const numPublicInputs = vk.numPublicInputs;
-      const numPublicInputs = vk.numPublicInputs; // - AGGREGATION_OBJECT_LENGTH;
+      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
       const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
 
