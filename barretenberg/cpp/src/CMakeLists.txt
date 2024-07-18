@@ -1,5 +1,6 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Enable the following warnings project wide.
 # If any compilation issues arise in the future, they should not be silenced here but rather in the
@@ -53,6 +54,9 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
+
 add_subdirectory(barretenberg/aztec_ivc)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/circuit_checker)
@@ -88,6 +92,7 @@ add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
+add_subdirectory(barretenberg/world_state_napi)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
