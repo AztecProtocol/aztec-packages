@@ -131,6 +131,8 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
     // Here we prove that the unconstrained keys are the correct preimage of the hash stored in public storage, and
     // hence they are the correct keys.
     let historical_header = context.get_header();
+    // Note that the hash of zeroed keys is special-cased as also being zero, so we don't need to worry about that edge
+    // case: uninitialized key registry storage is valid, since it'll hold zeroed keys and the zero hash.
     assert_eq(
         hinted_public_keys.hash().inner, historical_header.public_storage_historical_read(hash_storage_slot, KEY_REGISTRY_CONTRACT_ADDRESS)
     );
@@ -157,6 +159,7 @@ global KEY_REGISTRY_CONTRACT_ADDRESS = AztecAddress { inner: 25 };
 unconstrained fn key_registry_get_stored_keys_hint(account: AztecAddress) -> PublicKeys {
     // This is equivalent to the key registry contract having an unconstrained getter that we call from an oracle, but
     // PXE does not yet support that functionality so we do this manually instad.
+    // TODO (#7524): call the unconstrained KeyRegistry.get_current_keys() function instead
 
     let context = UnconstrainedContext::at(KEY_REGISTRY_CONTRACT_ADDRESS);
     let keys_storage = Map::new(
