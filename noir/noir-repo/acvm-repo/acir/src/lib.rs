@@ -33,7 +33,7 @@ mod reflection {
 
     use acir_field::FieldElement;
     use brillig::{
-        BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapValueType, IntegerBitSize,
+        BinaryFieldOp, BinaryIntOp, BitSize, BlackBoxOp, HeapValueType, IntegerBitSize,
         Opcode as BrilligOpcode, ValueOrArray,
     };
     use serde_reflection::{Tracer, TracerConfig};
@@ -81,6 +81,7 @@ mod reflection {
         tracer.trace_simple_type::<HeapValueType>().unwrap();
         tracer.trace_simple_type::<AssertionPayload<FieldElement>>().unwrap();
         tracer.trace_simple_type::<ExpressionOrMemory<FieldElement>>().unwrap();
+        tracer.trace_simple_type::<BitSize>().unwrap();
         tracer.trace_simple_type::<IntegerBitSize>().unwrap();
 
         let registry = tracer.registry().unwrap();
