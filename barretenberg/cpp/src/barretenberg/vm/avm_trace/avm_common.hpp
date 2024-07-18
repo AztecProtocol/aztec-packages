@@ -3,7 +3,9 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
-#include "barretenberg/vm/generated/avm_flavor.hpp"
+
+#include "barretenberg/vm/generated/avm_flavor_settings.hpp"
+#include "barretenberg/vm/generated/avm_full_row.hpp"
 
 #include <array>
 #include <cstdint>
@@ -12,12 +14,10 @@
 
 namespace bb::avm_trace {
 
-using Flavor = bb::AvmFlavor;
-using FF = Flavor::FF;
+using FF = AvmFlavorSettings::FF;
 
-} // namespace bb::avm_trace
-
-namespace bb::avm_trace {
+// To toggle all relevant unit tests with proving, set the env variable "AVM_ENABLE_FULL_PROVING".
+static const bool ENABLE_PROVING = std::getenv("AVM_ENABLE_FULL_PROVING") != nullptr;
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
 using VmPublicInputs = std::tuple<std::array<FF, KERNEL_INPUTS_LENGTH>,   // Input: Kernel context inputs
@@ -48,6 +48,7 @@ struct ExternalCallHint {
     std::vector<FF> return_data;
     uint32_t l2_gas_used;
     uint32_t da_gas_used;
+    FF end_side_effect_counter;
 };
 
 // Add support for deserialization of ExternalCallHint. This is implicitly used by serialize::read
@@ -59,6 +60,7 @@ inline void read(uint8_t const*& it, ExternalCallHint& hint)
     read(it, hint.return_data);
     read(it, hint.l2_gas_used);
     read(it, hint.da_gas_used);
+    read(it, hint.end_side_effect_counter);
 }
 
 struct ContractInstanceHint {

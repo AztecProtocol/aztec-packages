@@ -38,7 +38,7 @@ describe('e2e_avm_simulator', () => {
       });
       it('PXE processes failed assertions and fills in the error message with the expression (even complex ones)', async () => {
         await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
-          "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+          "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.storage_address())'",
         );
       });
     });
@@ -52,7 +52,7 @@ describe('e2e_avm_simulator', () => {
     describe('Gas metering', () => {
       it('Tracks L2 gas usage on simulation', async () => {
         const request = await avmContract.methods.add_args_return(20n, 30n).create();
-        const simulation = await wallet.simulateTx(request, true, wallet.getAddress());
+        const simulation = await wallet.simulateTx(request, true);
         // Subtract the teardown gas allocation from the gas used to figure out the gas used by the contract logic.
         const l2TeardownAllocation = GasSettings.simulation().getTeardownLimits().l2Gas;
         const l2GasUsed = simulation.publicOutput!.end.gasUsed.l2Gas! - l2TeardownAllocation;

@@ -1,12 +1,13 @@
 import {
   type AuthWitness,
   type EventMetadata,
+  type EventType,
   type ExtendedNote,
-  type FunctionCall,
   type GetUnencryptedLogsResponse,
+  type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
-  type NoteFilter,
+  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type SimulatedTx,
@@ -31,8 +32,8 @@ import { type ContractClassWithId, type ContractInstanceWithAddress } from '@azt
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type Wallet } from '../account/wallet.js';
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
 
 /**
  * A base class for Wallet implementations
@@ -48,21 +49,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
 
-  abstract createAuthWit(
-    messageHashOrIntent:
-      | Fr
-      | Buffer
-      | {
-          /** The caller to approve  */
-          caller: AztecAddress;
-          /** The action to approve */
-          action: ContractFunctionInteraction | FunctionCall;
-          /** The chain id to approve */
-          chainId?: Fr;
-          /** The version to approve  */
-          version?: Fr;
-        },
-  ): Promise<AuthWitness>;
+  abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness>;
 
   abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
 
@@ -117,7 +104,7 @@ export abstract class BaseWallet implements Wallet {
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.pxe.proveTx(txRequest, simulatePublic);
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {
@@ -129,8 +116,11 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getNotes(filter: NoteFilter): Promise<ExtendedNote[]> {
-    return this.pxe.getNotes(filter);
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+    return this.pxe.getIncomingNotes(filter);
+  }
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+    return this.pxe.getOutgoingNotes(filter);
   }
   // TODO(#4956): Un-expose this
   getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
@@ -193,11 +183,15 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.getPXEInfo();
   }
   getEvents<T>(
+    type: EventType,
+    eventMetadata: EventMetadata<T>,
     from: number,
     limit: number,
-    eventMetadata: EventMetadata<T>,
-    ivpk: Point = this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
-  ): Promise<T[]> {
-    return this.pxe.getEvents(from, limit, eventMetadata, ivpk);
+    vpks: Point[] = [
+      this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
+      this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
+    ],
+  ) {
+    return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
   }
 }

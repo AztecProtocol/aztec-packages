@@ -14,7 +14,7 @@ describe('e2e_blacklist_token_contract burn', () => {
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallets, blacklisted } = t);
-  });
+  }, 600_000);
 
   afterAll(async () => {
     await t.teardown();
@@ -48,9 +48,9 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       tokenSim.burnPublic(wallets[0].getAddress(), amount);
 
-      // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-      const txReplay = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).send();
-      await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+      await expect(
+        asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
+      ).rejects.toThrow(/unauthorized/);
     });
 
     describe('failure cases', () => {
@@ -68,7 +68,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
         const nonce = 1;
-        await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).prove()).rejects.toThrow(
+        await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate()).rejects.toThrow(
           'Assertion failed: invalid nonce',
         );
       });
@@ -78,8 +78,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         const amount = balance0 + 1n;
         const nonce = Fr.random();
         await expect(
-          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).prove(),
-        ).rejects.toThrow('Assertion failed: Message not authorized by account');
+          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
+        ).rejects.toThrow(/unauthorized/);
       });
 
       it('burn more than balance on behalf of other', async () => {
@@ -106,13 +106,13 @@ describe('e2e_blacklist_token_contract burn', () => {
         await wallets[0].setPublicAuthWit({ caller: wallets[0].getAddress(), action }, true).send().wait();
 
         await expect(
-          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).prove(),
-        ).rejects.toThrow('Assertion failed: Message not authorized by account');
+          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
+        ).rejects.toThrow(/unauthorized/);
       });
 
       it('burn from blacklisted account', async () => {
         await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+          /Assertion failed: Blacklisted: Sender/,
         );
       });
     });
@@ -194,10 +194,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
         const messageHash = computeAuthWitMessageHash(
-          wallets[1].getAddress(),
-          wallets[0].getChainId(),
-          wallets[0].getVersion(),
-          action.request(),
+          { caller: wallets[1].getAddress(), action: action.request() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
@@ -212,10 +210,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
         const expectedMessageHash = computeAuthWitMessageHash(
-          wallets[2].getAddress(),
-          wallets[0].getChainId(),
-          wallets[0].getVersion(),
-          action.request(),
+          { caller: wallets[2].getAddress(), action: action.request() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
@@ -228,7 +224,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       it('burn from blacklisted account', async () => {
         await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+          /Assertion failed: Blacklisted: Sender .*/,
         );
       });
     });

@@ -59,10 +59,6 @@ export default {
         {
           label: "Proving System",
           type: "category",
-          link: {
-            type: "doc",
-            id: "protocol-specs/cryptography/proving-system/performance-targets",
-          },
           items: [
             "protocol-specs/cryptography/proving-system/performance-targets",
             "protocol-specs/cryptography/proving-system/overview",
@@ -72,10 +68,6 @@ export default {
         {
           label: "Hashing",
           type: "category",
-          link: {
-            type: "doc",
-            id: "protocol-specs/cryptography/hashing/hashing",
-          },
           items: [
             "protocol-specs/cryptography/hashing/hashing",
             "protocol-specs/cryptography/hashing/poseidon2",
@@ -117,6 +109,7 @@ export default {
         "protocol-specs/state/note-hash-tree",
         "protocol-specs/state/nullifier-tree",
         "protocol-specs/state/public-data-tree",
+        "protocol-specs/state/wonky-tree",
       ],
     },
     {
@@ -217,7 +210,6 @@ export default {
     {
       label: "Decentralization",
       type: "category",
-      link: { type: "doc", id: "protocol-specs/decentralization/governance" },
       items: [
         "protocol-specs/decentralization/actors",
         "protocol-specs/decentralization/governance",

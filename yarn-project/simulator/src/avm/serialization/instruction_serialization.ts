@@ -27,15 +27,15 @@ export enum Opcode {
   ADDRESS,
   STORAGEADDRESS,
   SENDER,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
+  FUNCTIONSELECTOR,
   TRANSACTIONFEE,
-  CONTRACTCALLDEPTH,
   CHAINID,
   VERSION,
   BLOCKNUMBER,
   TIMESTAMP,
   COINBASE,
+  FEEPERL2GAS,
+  FEEPERDAGAS,
   BLOCKL2GASLIMIT,
   BLOCKDAGASLIMIT,
   CALLDATACOPY,
@@ -77,6 +77,7 @@ export enum Opcode {
   SHA256, // temp - may be removed, but alot of contracts rely on it
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
+  MSM,
   // Conversion
   TORADIXLE,
 }

@@ -126,7 +126,10 @@ export class P2PClient implements P2P {
     private log = createDebugLogger('aztec:p2p'),
   ) {
     const { p2pBlockCheckIntervalMS: checkInterval, p2pL2QueueSize } = getP2PConfigEnvVars();
-    this.blockDownloader = new L2BlockDownloader(l2BlockSource, p2pL2QueueSize, checkInterval);
+    this.blockDownloader = new L2BlockDownloader(l2BlockSource, {
+      maxQueueSize: p2pL2QueueSize,
+      pollIntervalMS: checkInterval,
+    });
     this.synchedBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
   }
 
@@ -194,7 +197,7 @@ export class P2PClient implements P2P {
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
-    this.log.info('P2P client stopped...');
+    this.log.info('P2P client stopped.');
   }
 
   /**
@@ -278,7 +281,6 @@ export class P2PClient implements P2P {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
       await this.txPool.deleteTxs(txHashes);
-      this.p2pService.settledTxs(txHashes);
     }
   }
 

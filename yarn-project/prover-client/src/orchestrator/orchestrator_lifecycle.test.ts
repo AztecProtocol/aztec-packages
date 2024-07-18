@@ -3,13 +3,13 @@ import {
   type GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  getMockVerificationKeys,
 } from '@aztec/circuits.js';
 import { fr, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
@@ -48,13 +48,7 @@ describe('prover/orchestrator/lifecycle', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await context.orchestrator.startNewBlock(
-        2,
-        globals1,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket1 = await context.orchestrator.startNewBlock(2, globals1, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs1[0]);
       await context.orchestrator.addNewTx(txs1[1]);
@@ -72,13 +66,7 @@ describe('prover/orchestrator/lifecycle', () => {
 
       await context.actualDb.rollback();
 
-      const blockTicket2 = await context.orchestrator.startNewBlock(
-        2,
-        globals2,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket2 = await context.orchestrator.startNewBlock(2, globals2, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs2[0]);
       await context.orchestrator.addNewTx(txs2[1]);
@@ -106,25 +94,13 @@ describe('prover/orchestrator/lifecycle', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await context.orchestrator.startNewBlock(
-        2,
-        globals1,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket1 = await context.orchestrator.startNewBlock(2, globals1, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs1[0]);
 
       await context.actualDb.rollback();
 
-      const blockTicket2 = await context.orchestrator.startNewBlock(
-        2,
-        globals2,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket2 = await context.orchestrator.startNewBlock(2, globals2, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs2[0]);
       await context.orchestrator.addNewTx(txs2[1]);
@@ -141,8 +117,8 @@ describe('prover/orchestrator/lifecycle', () => {
     }, 60000);
 
     it('cancels proving requests', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver();
-      const orchestrator = new ProvingOrchestrator(context.actualDb, prover);
+      const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
+      const orchestrator = new ProvingOrchestrator(context.actualDb, prover, new NoopTelemetryClient());
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -151,13 +127,7 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-      await orchestrator.startNewBlock(
-        2,
-        makeGlobalVariables(1),
-        [],
-
-        getMockVerificationKeys(),
-      );
+      await orchestrator.startNewBlock(2, makeGlobalVariables(1), []);
 
       await sleep(1);
 

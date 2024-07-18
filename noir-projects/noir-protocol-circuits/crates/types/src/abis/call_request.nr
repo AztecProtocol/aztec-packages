@@ -1,4 +1,3 @@
-use dep::std::cmp::Eq;
 use crate::{
     abis::{caller_context::CallerContext, side_effect::Ordered}, address::AztecAddress,
     constants::CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
@@ -36,6 +35,18 @@ impl Empty for CallRequest {
             caller_context: CallerContext::empty(),
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
+        }
+    }
+}
+
+impl CallRequest {
+    pub fn expose_to_public(self) -> Self {
+        CallRequest {
+            hash: self.hash,
+            caller_contract_address: self.caller_contract_address,
+            caller_context: self.caller_context,
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0
         }
     }
 }

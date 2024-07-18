@@ -4,9 +4,10 @@ import {
   Fr,
   type FunctionCall,
   FunctionSelector,
+  PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
-  computeAuthWitMessageHash,
+  computeSecretHash,
 } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
@@ -35,19 +36,116 @@ describe('e2e_fees failures', () => {
     await t.teardown();
   });
 
+  it('reverts transactions but still pays fees using PrivateFeePaymentMethod', async () => {
+    const OutrageousPublicAmountAliceDoesNotHave = BigInt(1e8);
+    const PrivateMintedAlicePrivateBananas = BigInt(1e15);
+
+    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+      aliceAddress,
+      bananaFPC.address,
+    );
+    const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
+      aliceAddress,
+      bananaFPC.address,
+    );
+    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
+
+    await t.mintPrivateBananas(PrivateMintedAlicePrivateBananas, aliceAddress);
+
+    // if we simulate locally, it throws an error
+    await expect(
+      bananaCoin.methods
+        // still use a public transfer so as to fail in the public app logic phase
+        .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
+        .send({
+          fee: {
+            gasSettings,
+            paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
+          },
+        })
+        .wait(),
+    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+
+    // we did not pay the fee, because we did not submit the TX
+    await expectMapping(
+      t.getBananaPrivateBalanceFn,
+      [aliceAddress, bananaFPC.address],
+      [initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas, initialFPCPrivateBananas],
+    );
+    await expectMapping(
+      t.getBananaPublicBalanceFn,
+      [aliceAddress, bananaFPC.address],
+      [initialAlicePublicBananas, initialFPCPublicBananas],
+    );
+    await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
+
+    // if we skip simulation, it includes the failed TX
+    const rebateSecret = Fr.random();
+    const currentSequencerL1Gas = await t.getCoinbaseBalance();
+    const txReceipt = await bananaCoin.methods
+      .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
+      .send({
+        skipPublicSimulation: true,
+        fee: {
+          gasSettings,
+          paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, rebateSecret),
+        },
+      })
+      .wait({ dontThrowOnRevert: true });
+
+    expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
+    const feeAmount = txReceipt.transactionFee!;
+    const newSequencerL1Gas = await t.getCoinbaseBalance();
+    expect(newSequencerL1Gas).toEqual(currentSequencerL1Gas + feeAmount);
+
+    // and thus we paid the fee
+    await expectMapping(
+      t.getBananaPrivateBalanceFn,
+      [aliceAddress, bananaFPC.address],
+      [
+        // alice paid the maximum amount in private bananas
+        initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas - gasSettings.getFeeLimit().toBigInt(),
+        initialFPCPrivateBananas,
+      ],
+    );
+    await expectMapping(
+      t.getBananaPublicBalanceFn,
+      [aliceAddress, bananaFPC.address],
+      [initialAlicePublicBananas, initialFPCPublicBananas + feeAmount],
+    );
+    await expectMapping(
+      t.getGasBalanceFn,
+      [aliceAddress, bananaFPC.address],
+      [initialAliceGas, initialFPCGas - feeAmount],
+    );
+
+    // Alice can redeem her shield to get the rebate
+    const refund = gasSettings.getFeeLimit().toBigInt() - feeAmount;
+    expect(refund).toBeGreaterThan(0n);
+    const secretHashForRebate = computeSecretHash(rebateSecret);
+    await t.addPendingShieldNoteToPXE(t.aliceWallet, refund, secretHashForRebate, txReceipt.txHash);
+    await bananaCoin.methods.redeem_shield(aliceAddress, refund, rebateSecret).send().wait();
+
+    await expectMapping(
+      t.getBananaPrivateBalanceFn,
+      [aliceAddress, bananaFPC.address],
+      [initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas - feeAmount, initialFPCPrivateBananas],
+    );
+  });
+
   it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
     const OutrageousPublicAmountAliceDoesNotHave = BigInt(1e15);
     const PublicMintedAlicePublicBananas = BigInt(1e12);
 
-    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.bananaPrivateBalances(
+    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
       bananaFPC.address,
     );
-    const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.bananaPublicBalances(
+    const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
       aliceAddress,
       bananaFPC.address,
     );
-    const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.gasBalances(
+    const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
@@ -69,17 +167,17 @@ describe('e2e_fees failures', () => {
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
-      t.bananaPrivateBalances,
+      t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
     );
     await expectMapping(
-      t.bananaPublicBalances,
+      t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePublicBananas + PublicMintedAlicePublicBananas, initialFPCPublicBananas, 0n],
     );
     await expectMapping(
-      t.gasBalances,
+      t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas, initialSequencerGas],
     );
@@ -101,23 +199,20 @@ describe('e2e_fees failures', () => {
 
     // and thus we paid the fee
     await expectMapping(
-      t.bananaPrivateBalances,
+      t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
     );
     await expectMapping(
-      t.bananaPublicBalances,
+      t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePublicBananas + PublicMintedAlicePublicBananas - feeAmount, initialFPCPublicBananas + feeAmount, 0n],
     );
     await expectMapping(
-      t.gasBalances,
+      t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
     );
-
-    // TODO(#4712) - demonstrate reverts with the PrivateFeePaymentMethod.
-    // Can't do presently because all logs are "revertible" so we lose notes that get broadcasted during unshielding.
   });
 
   it('fails transaction that error in setup', async () => {
@@ -134,7 +229,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/Message not authorized by account 'is_valid == true'/);
+    ).rejects.toThrow(/unauthorized/);
 
     // so does the sequencer
     await expect(
@@ -157,15 +252,15 @@ describe('e2e_fees failures', () => {
      */
     const PublicMintedAlicePublicBananas = 100_000_000_000n;
 
-    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.bananaPrivateBalances(
+    const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
       aliceAddress,
       bananaFPC.address,
     );
-    const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.bananaPublicBalances(
+    const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
       aliceAddress,
       bananaFPC.address,
     );
-    const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.gasBalances(
+    const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
@@ -208,13 +303,13 @@ describe('e2e_fees failures', () => {
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await expectMapping(
-      t.bananaPrivateBalances,
+      t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
     );
     // Since setup went through, Alice transferred to the FPC
     await expectMapping(
-      t.bananaPublicBalances,
+      t.getBananaPublicBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [
         initialAlicePublicBananas + PublicMintedAlicePublicBananas - badGas.getFeeLimit().toBigInt(),
@@ -223,7 +318,7 @@ describe('e2e_fees failures', () => {
       ],
     );
     await expectMapping(
-      t.gasBalances,
+      t.getGasBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas - receipt.transactionFee!, initialSequencerGas],
     );
@@ -234,25 +329,27 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   override getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(
-      this.paymentContract,
-      this.wallet.getChainId(),
-      this.wallet.getVersion(),
-      {
-        name: 'transfer_public',
-        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-        selector: FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        type: FunctionType.PUBLIC,
-        isStatic: false,
-        to: this.asset,
-        returnTypes: [],
-      },
-    );
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
     return Promise.resolve([
-      this.wallet.setPublicAuthWit(messageHash, true).request(),
+      this.wallet
+        .setPublicAuthWit(
+          {
+            caller: this.paymentContract,
+            action: {
+              name: 'transfer_public',
+              args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+              selector: FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+              type: FunctionType.PUBLIC,
+              isStatic: false,
+              to: this.asset,
+              returnTypes: [],
+            },
+          },
+          true,
+        )
+        .request(),
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,

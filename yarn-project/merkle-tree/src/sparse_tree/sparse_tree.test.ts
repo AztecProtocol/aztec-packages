@@ -6,8 +6,9 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type Hasher } from '@aztec/types/interfaces';
 
-import { INITIAL_LEAF, loadTree, newTree } from '../index.js';
+import { INITIAL_LEAF, newTree } from '../index.js';
 import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { loadTree } from '../load_tree.js';
 import { Pedersen } from '../pedersen.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';

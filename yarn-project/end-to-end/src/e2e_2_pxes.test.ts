@@ -11,6 +11,7 @@ import {
   type Wallet,
   computeSecretHash,
   retryUntil,
+  sleep,
 } from '@aztec/aztec.js';
 import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -44,6 +45,9 @@ describe('e2e_2_pxes', () => {
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
 
     [walletB] = await createAccounts(pxeB, 1);
+    /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
+     What is a more robust solution? */
+    await sleep(5000);
   });
 
   afterEach(async () => {
@@ -347,13 +351,20 @@ describe('e2e_2_pxes', () => {
     const noteValue = 5;
     let note: ExtendedNote;
     {
+      const owner = walletA.getAddress();
+      const outgoingViewer = owner;
+
       const receipt = await testContract.methods
-        .call_create_note(noteValue, walletA.getAddress(), walletA.getAddress(), noteStorageSlot)
+        .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
         .send()
         .wait({ debug: true });
-      const notes = receipt.debugInfo?.visibleNotes;
-      expect(notes).toHaveLength(1);
-      note = notes![0];
+      const { visibleIncomingNotes, visibleOutgoingNotes } = receipt.debugInfo!;
+      expect(visibleIncomingNotes).toHaveLength(1);
+      note = visibleIncomingNotes![0];
+
+      // Since owner is the same as outgoing viewer the incoming and outgoing notes should be the same
+      expect(visibleOutgoingNotes).toHaveLength(1);
+      expect(visibleOutgoingNotes![0]).toEqual(note);
     }
 
     // 3. Nullify the note

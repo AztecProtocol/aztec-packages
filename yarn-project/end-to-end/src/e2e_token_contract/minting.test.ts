@@ -89,9 +89,9 @@ describe('e2e_token_contract minting', () => {
         // docs:end:debug
         tokenSim.redeemShield(accounts[0].address, amount);
         // 1 note should be created containing `amount` of tokens
-        const { visibleNotes } = receiptClaim.debugInfo!;
-        expect(visibleNotes.length).toBe(1);
-        expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
+        const { visibleIncomingNotes } = receiptClaim.debugInfo!;
+        expect(visibleIncomingNotes.length).toBe(1);
+        expect(visibleIncomingNotes[0].note.items[0].toBigInt()).toBe(amount);
       });
     });
 
@@ -108,6 +108,13 @@ describe('e2e_token_contract minting', () => {
       it('mint_private as non-minter', async () => {
         await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(
           'Assertion failed: caller is not minter',
+        );
+      });
+
+      it('mint_private as non-minter, bypassing account entrypoint', async () => {
+        const request = await asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).create();
+        await expect(wallets[1].simulateTx(request, true, accounts[0].address)).rejects.toThrow(
+          'Assertion failed: Users cannot set msg_sender in first call',
         );
       });
 

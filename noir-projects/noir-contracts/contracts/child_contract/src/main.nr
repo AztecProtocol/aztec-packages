@@ -3,10 +3,9 @@ contract Child {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize, Map};
 
     use dep::aztec::{
-        context::gas::GasOpts,
-        protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
+        context::gas::GasOpts, protocol_types::{abis::call_context::CallContext},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -56,7 +55,7 @@ contract Child {
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt(&mut context, context.msg_sender(), owner));
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, owner));
         new_value
     }
 
@@ -65,7 +64,7 @@ contract Child {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
         let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
-        notes[0].unwrap_unchecked().value
+        notes.get_unchecked(0).value
     }
 
     // Increments `current_value` by `new_value`
@@ -104,8 +103,6 @@ contract Child {
     }
 
     #[aztec(public)]
-    // TODO(6052): The logs emitted are currently in the wrong order as we don't update
-    // counters for nested public calls
     fn set_value_with_two_nested_calls() {
         Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
         Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);

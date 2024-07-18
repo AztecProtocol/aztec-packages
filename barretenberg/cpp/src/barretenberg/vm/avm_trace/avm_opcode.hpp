@@ -45,16 +45,16 @@ enum class OpCode : uint8_t {
     ADDRESS,
     STORAGEADDRESS,
     SENDER,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    FUNCTIONSELECTOR,
     TRANSACTIONFEE,
-    CONTRACTCALLDEPTH,
     // Execution Environment - Globals
     CHAINID,
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
@@ -105,6 +105,7 @@ enum class OpCode : uint8_t {
     SHA256,
     PEDERSEN,
     ECADD,
+    MSM,
     // Conversions
     TORADIXLE,
     // Future Gadgets -- pending changes in noir

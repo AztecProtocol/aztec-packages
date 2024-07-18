@@ -23,7 +23,7 @@ const size_t MAX_BATCH_SIZE = 128;
 template <typename TreeType> void add_values(TreeType& tree, const std::vector<NullifierLeafValue>& values)
 {
     Signal signal(1);
-    auto completion = [&](const TypedResponse<AddIndexedDataResponse>&) -> void { signal.signal_level(0); };
+    auto completion = [&](const auto&) -> void { signal.signal_level(0); };
 
     tree.add_or_update_values(values, completion);
     signal.wait_for_level(0);

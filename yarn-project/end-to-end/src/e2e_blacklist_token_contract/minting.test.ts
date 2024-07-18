@@ -14,7 +14,7 @@ describe('e2e_blacklist_token_contract mint', () => {
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallets, blacklisted } = t);
-  }, 300_000);
+  }, 600_000);
 
   afterAll(async () => {
     await t.teardown();
@@ -67,7 +67,7 @@ describe('e2e_blacklist_token_contract mint', () => {
       it('mint to blacklisted entity', async () => {
         await expect(
           asset.withWallet(wallets[1]).methods.mint_public(blacklisted.getAddress(), 1n).prove(),
-        ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+        ).rejects.toThrow(/Assertion failed: Blacklisted: Recipient/);
       });
     });
   });
@@ -99,9 +99,9 @@ describe('e2e_blacklist_token_contract mint', () => {
 
         tokenSim.redeemShield(wallets[0].getAddress(), amount);
         // 1 note should be created containing `amount` of tokens
-        const { visibleNotes } = receiptClaim.debugInfo!;
-        expect(visibleNotes.length).toBe(1);
-        expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
+        const { visibleIncomingNotes } = receiptClaim.debugInfo!;
+        expect(visibleIncomingNotes.length).toBe(1);
+        expect(visibleIncomingNotes[0].note.items[0].toBigInt()).toBe(amount);
       });
     });
 
@@ -139,7 +139,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
       it('mint and try to redeem at blacklist', async () => {
         await expect(asset.methods.redeem_shield(blacklisted.getAddress(), amount, secret).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
+          /Assertion failed: Blacklisted: Recipient .*/,
         );
       });
     });

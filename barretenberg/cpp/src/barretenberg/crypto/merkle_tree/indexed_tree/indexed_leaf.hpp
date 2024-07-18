@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
@@ -34,6 +35,8 @@ struct NullifierLeafValue {
     }
     ~NullifierLeafValue() = default;
 
+    static bool is_updateable() { return false; }
+
     bool operator==(NullifierLeafValue const& other) const { return value == other.value; }
 
     friend std::ostream& operator<<(std::ostream& os, const NullifierLeafValue& v)
@@ -45,6 +48,11 @@ struct NullifierLeafValue {
     fr get_key() const { return value; }
 
     bool is_empty() const { return value == fr::zero(); }
+
+    std::vector<fr> get_hash_inputs(fr nextValue, fr nextIndex) const
+    {
+        return std::vector<fr>({ value, nextValue, nextIndex });
+    }
 
     operator uint256_t() const { return get_key(); }
 
@@ -85,6 +93,8 @@ struct PublicDataLeafValue {
     }
     ~PublicDataLeafValue() = default;
 
+    static bool is_updateable() { return true; }
+
     bool operator==(PublicDataLeafValue const& other) const { return value == other.value && slot == other.slot; }
 
     friend std::ostream& operator<<(std::ostream& os, const PublicDataLeafValue& v)
@@ -95,7 +105,12 @@ struct PublicDataLeafValue {
 
     fr get_key() const { return slot; }
 
-    bool is_empty() const { return value == fr::zero() && slot == fr::zero(); }
+    bool is_empty() const { return slot == fr::zero(); }
+
+    std::vector<fr> get_hash_inputs(fr nextValue, fr nextIndex) const
+    {
+        return std::vector<fr>({ slot, value, nextIndex, nextValue });
+    }
 
     operator uint256_t() const { return get_key(); }
 
@@ -122,6 +137,8 @@ template <typename LeafType> struct IndexedLeaf {
     IndexedLeaf<LeafType>(const IndexedLeaf<LeafType>& other) = default;
     IndexedLeaf<LeafType>(IndexedLeaf<LeafType>&& other) noexcept = default;
     ~IndexedLeaf<LeafType>() = default;
+
+    static bool is_updateable() { return LeafType::is_updateable(); }
 
     bool operator==(IndexedLeaf<LeafType> const& other) const
     {
@@ -154,7 +171,9 @@ template <typename LeafType> struct IndexedLeaf {
         return os;
     }
 
-    std::vector<fr> get_hash_inputs() const { return std::vector<fr>({ value.value, nextIndex, nextValue }); }
+    std::vector<fr> get_hash_inputs() const { return value.get_hash_inputs(nextValue, nextIndex); }
+
+    bool is_empty() { return value.is_empty(); }
 
     static IndexedLeaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
 

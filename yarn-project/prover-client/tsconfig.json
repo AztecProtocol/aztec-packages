@@ -22,17 +22,17 @@
       "path": "../kv-store"
     },
     {
-      "path": "../merkle-tree"
-    },
-    {
       "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../simulator"
     },
     {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "../bb-prover/src/test/test_circuit_prover.ts"]
 }

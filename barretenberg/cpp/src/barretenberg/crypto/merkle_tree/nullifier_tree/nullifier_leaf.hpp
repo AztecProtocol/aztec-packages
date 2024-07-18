@@ -21,7 +21,7 @@ struct indexed_nullifier_leaf {
         return os;
     }
 
-    std::vector<fr> get_hash_inputs() const { return std::vector<fr>{ value, nextIndex, nextValue }; }
+    std::vector<fr> get_hash_inputs() const { return std::vector<fr>{ value, nextValue, nextIndex }; }
 
     static indexed_nullifier_leaf zero()
     {

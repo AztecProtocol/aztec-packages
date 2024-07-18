@@ -8,21 +8,13 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import {
-  type Gas,
-  GlobalVariables,
-  Header,
-  type Nullifier,
-  type TxContext,
-  getMockVerificationKeys,
-} from '@aztec/circuits.js';
+import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { JSTreeFactory } from '@aztec/merkle-tree';
 import {
   type ContractsDataSourcePublicDB,
-  type PublicExecution,
+  type PublicExecutionRequest,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -32,6 +24,7 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
@@ -44,9 +37,9 @@ import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 class DummyProverClient implements BlockProver {
-  constructor(private orchestrator: ProvingOrchestrator, private verificationKeys = getMockVerificationKeys()) {}
+  constructor(private orchestrator: ProvingOrchestrator) {}
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages, this.verificationKeys);
+    return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
   }
   addNewTx(tx: ProcessedTx): Promise<void> {
     return this.orchestrator.addNewTx(tx);
@@ -86,7 +79,7 @@ export class TestContext {
     logger: DebugLogger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new WASMSimulator())),
+      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
     blockNumber = 3,
   ) {
     const globalVariables = makeGlobals(blockNumber);
@@ -95,8 +88,8 @@ export class TestContext {
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-    const kvStore = openTmpStore();
-    const actualDb = await MerkleTrees.new(kvStore, await JSTreeFactory.init(kvStore)).then(t => t.asLatest());
+    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    const telemetry = new NoopTelemetryClient();
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,
@@ -105,6 +98,7 @@ export class TestContext {
       Header.empty(),
       publicContractsDB,
       publicWorldStateDB,
+      telemetry,
     );
 
     let localProver: ServerCircuitProver;
@@ -114,7 +108,7 @@ export class TestContext {
       acvmBinaryPath: config?.expectedAcvmPath,
     });
     if (!config) {
-      localProver = new TestCircuitProver(simulationProvider);
+      localProver = new TestCircuitProver(new NoopTelemetryClient(), simulationProvider);
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -126,7 +120,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue();
-    const orchestrator = new ProvingOrchestrator(actualDb, queue);
+    const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();
@@ -163,7 +157,7 @@ export class TestContext {
     txValidator?: TxValidator<ProcessedTx>,
   ) {
     const defaultExecutorImplementation = (
-      execution: PublicExecution,
+      execution: PublicExecutionRequest,
       _globalVariables: GlobalVariables,
       availableGas: Gas,
       _txContext: TxContext,
@@ -203,7 +197,7 @@ export class TestContext {
     blockProver?: BlockProver,
     txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
-      execution: PublicExecution,
+      execution: PublicExecutionRequest,
       globalVariables: GlobalVariables,
       availableGas: Gas,
       txContext: TxContext,
