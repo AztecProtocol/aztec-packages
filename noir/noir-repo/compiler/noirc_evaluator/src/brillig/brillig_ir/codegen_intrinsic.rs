@@ -3,6 +3,8 @@ use acvm::acir::{
     AcirField,
 };
 
+use crate::brillig::brillig_ir::BrilligBinaryOp;
+
 use super::{
     brillig_variable::{BrilligVector, SingleAddrVariable},
     debug_show::DebugToString,
@@ -53,7 +55,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
             value_to_truncate,
             modulus_var,
             destination_of_truncated_value,
-            crate::brillig::brillig_ir::BrilligBinaryOp::Modulo,
+            BrilligBinaryOp::Modulo,
         );
 
         self.deallocate_single_addr(modulus_var);
