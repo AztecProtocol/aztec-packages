@@ -188,105 +188,100 @@ fn evaluate_binary_int_op_generic(
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use acir::{AcirField, FieldElement};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use acir::{AcirField, FieldElement};
 
-//     struct TestParams {
-//         a: u128,
-//         b: u128,
-//         result: u128,
-//     }
+    struct TestParams {
+        a: u128,
+        b: u128,
+        result: u128,
+    }
 
-//     fn evaluate_u128(op: &BinaryIntOp, a: u128, b: u128, bit_size: u32) -> u128 {
-//         let result_value: MemoryValue<FieldElement> = evaluate_binary_int_op(
-//             op,
-//             MemoryValue::new_integer(a.into(), bit_size),
-//             MemoryValue::new_integer(b.into(), bit_size),
-//             bit_size,
-//         )
-//         .unwrap();
-//         // Convert back to u128
-//         result_value.to_field().to_u128()
-//     }
+    fn evaluate_u128(op: &BinaryIntOp, a: u128, b: u128, bit_size: IntegerBitSize) -> u128 {
+        let result_value: MemoryValue<FieldElement> = evaluate_binary_int_op(
+            op,
+            MemoryValue::new_integer(a, bit_size),
+            MemoryValue::new_integer(b, bit_size),
+            bit_size,
+        )
+        .unwrap();
+        // Convert back to u128
+        result_value.to_field().to_u128()
+    }
 
-//     fn to_negative(a: u128, bit_size: u32) -> u128 {
-//         assert!(a > 0);
-//         let two_pow = 2_u128.pow(bit_size);
-//         two_pow - a
-//     }
+    fn to_negative(a: u128, bit_size: IntegerBitSize) -> u128 {
+        assert!(a > 0);
+        let two_pow = 2_u128.pow(bit_size.into());
+        two_pow - a
+    }
 
-//     fn evaluate_int_ops(test_params: Vec<TestParams>, op: BinaryIntOp, bit_size: u32) {
-//         for test in test_params {
-//             assert_eq!(evaluate_u128(&op, test.a, test.b, bit_size), test.result);
-//         }
-//     }
+    fn evaluate_int_ops(test_params: Vec<TestParams>, op: BinaryIntOp, bit_size: IntegerBitSize) {
+        for test in test_params {
+            assert_eq!(evaluate_u128(&op, test.a, test.b, bit_size), test.result);
+        }
+    }
 
-//     #[test]
-//     fn add_test() {
-//         let bit_size = 4;
+    #[test]
+    fn add_test() {
+        let bit_size = IntegerBitSize::U8;
 
-//         let test_ops = vec![
-//             TestParams { a: 5, b: 10, result: 15 },
-//             TestParams { a: 10, b: 10, result: 4 },
-//             TestParams { a: 5, b: to_negative(3, bit_size), result: 2 },
-//             TestParams { a: to_negative(3, bit_size), b: 1, result: to_negative(2, bit_size) },
-//             TestParams { a: 5, b: to_negative(6, bit_size), result: to_negative(1, bit_size) },
-//         ];
+        let test_ops = vec![
+            TestParams { a: 50, b: 100, result: 150 },
+            TestParams { a: 250, b: 10, result: 4 },
+            TestParams { a: 5, b: to_negative(3, bit_size), result: 2 },
+            TestParams { a: to_negative(3, bit_size), b: 1, result: to_negative(2, bit_size) },
+            TestParams { a: 5, b: to_negative(6, bit_size), result: to_negative(1, bit_size) },
+        ];
 
-//         evaluate_int_ops(test_ops, BinaryIntOp::Add, bit_size);
-//     }
+        evaluate_int_ops(test_ops, BinaryIntOp::Add, bit_size);
+    }
 
-//     #[test]
-//     fn sub_test() {
-//         let bit_size = 4;
+    #[test]
+    fn sub_test() {
+        let bit_size = IntegerBitSize::U8;
 
-//         let test_ops = vec![
-//             TestParams { a: 5, b: 3, result: 2 },
-//             TestParams { a: 5, b: 10, result: to_negative(5, bit_size) },
-//             TestParams { a: 5, b: to_negative(3, bit_size), result: 8 },
-//             TestParams { a: to_negative(3, bit_size), b: 2, result: to_negative(5, bit_size) },
-//             TestParams { a: 14, b: to_negative(3, bit_size), result: 1 },
-//         ];
+        let test_ops = vec![
+            TestParams { a: 50, b: 30, result: 20 },
+            TestParams { a: 5, b: 10, result: to_negative(5, bit_size) },
+            TestParams { a: 5, b: to_negative(3, bit_size), result: 8 },
+            TestParams { a: to_negative(3, bit_size), b: 2, result: to_negative(5, bit_size) },
+            TestParams { a: 254, b: to_negative(3, bit_size), result: 1 },
+        ];
 
-//         evaluate_int_ops(test_ops, BinaryIntOp::Sub, bit_size);
-//     }
+        evaluate_int_ops(test_ops, BinaryIntOp::Sub, bit_size);
+    }
 
-//     #[test]
-//     fn mul_test() {
-//         let bit_size = 4;
+    #[test]
+    fn mul_test() {
+        let bit_size = IntegerBitSize::U8;
 
-//         let test_ops = vec![
-//             TestParams { a: 5, b: 3, result: 15 },
-//             TestParams { a: 5, b: 10, result: 2 },
-//             TestParams { a: to_negative(1, bit_size), b: to_negative(5, bit_size), result: 5 },
-//             TestParams { a: to_negative(1, bit_size), b: 5, result: to_negative(5, bit_size) },
-//             TestParams {
-//                 a: to_negative(2, bit_size),
-//                 b: 7,
-//                 // negative 14 wraps to a 2
-//                 result: to_negative(14, bit_size),
-//             },
-//         ];
+        let test_ops = vec![
+            TestParams { a: 5, b: 3, result: 15 },
+            TestParams { a: 5, b: 100, result: 244 },
+            TestParams { a: to_negative(1, bit_size), b: to_negative(5, bit_size), result: 5 },
+            TestParams { a: to_negative(1, bit_size), b: 5, result: to_negative(5, bit_size) },
+            TestParams { a: to_negative(2, bit_size), b: 7, result: to_negative(14, bit_size) },
+        ];
 
-//         evaluate_int_ops(test_ops, BinaryIntOp::Mul, bit_size);
+        evaluate_int_ops(test_ops, BinaryIntOp::Mul, bit_size);
 
-//         let bit_size = 127;
-//         let a = 2_u128.pow(bit_size) - 1;
-//         let b = 3;
+        let bit_size = IntegerBitSize::U64;
+        let a = 2_u128.pow(bit_size.into()) - 1;
+        let b = 3;
 
-//         // ( 2**(n-1) - 1 ) * 3 = 2*2**(n-1) - 2 + (2**(n-1) - 1) => wraps to (2**(n-1) - 1) - 2
-//         assert_eq!(evaluate_u128(&BinaryIntOp::Mul, a, b, bit_size), a - 2);
-//     }
+        // ( 2**(n-1) - 1 ) * 3 = 2*2**(n-1) - 2 + (2**(n-1) - 1) => wraps to (2**(n-1) - 1) - 2
+        assert_eq!(evaluate_u128(&BinaryIntOp::Mul, a, b, bit_size), a - 2);
+    }
 
-//     #[test]
-//     fn div_test() {
-//         let bit_size = 4;
+    #[test]
+    fn div_test() {
+        let bit_size = IntegerBitSize::U8;
 
-//         let test_ops =
-//             vec![TestParams { a: 5, b: 3, result: 1 }, TestParams { a: 5, b: 10, result: 0 }];
+        let test_ops =
+            vec![TestParams { a: 5, b: 3, result: 1 }, TestParams { a: 5, b: 10, result: 0 }];
 
-//         evaluate_int_ops(test_ops, BinaryIntOp::Div, bit_size);
-//     }
-// }
+        evaluate_int_ops(test_ops, BinaryIntOp::Div, bit_size);
+    }
+}
