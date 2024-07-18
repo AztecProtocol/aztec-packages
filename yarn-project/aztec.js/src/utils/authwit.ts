@@ -1,5 +1,5 @@
 import { type FunctionCall, PackedValues } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, GeneratorIndex, type UInt32 } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
@@ -9,7 +9,7 @@ export type IntentMetadata = {
   /** The chain id to approve */
   chainId: Fr;
   /** The version to approve  */
-  version: Fr;
+  version: UInt32;
 };
 
 /** Intent with an inner hash */
@@ -98,6 +98,6 @@ export const computeInnerAuthWitHash = (args: Fr[]) => {
  * @param innerHash - The inner hash for the witness
  * @returns The outer hash for the witness
  */
-const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
-  return pedersenHash([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
+const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: UInt32, innerHash: Fr) => {
+  return pedersenHash([consumer.toField(), chainId, new Fr(version), innerHash], GeneratorIndex.AUTHWIT_OUTER);
 };

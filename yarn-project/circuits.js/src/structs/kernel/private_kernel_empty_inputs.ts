@@ -5,6 +5,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { type RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
 import { type Header } from '../header.js';
 import { type RecursiveProof } from '../recursive_proof.js';
+import { type UInt32 } from '../shared.js';
 import { type VerificationKeyAsFields } from '../verification_key.js';
 
 export type PrivateKernelEmptyInputData = Omit<FieldsOf<PrivateKernelEmptyInputs>, 'emptyNested'>;
@@ -14,7 +15,7 @@ export class PrivateKernelEmptyInputs {
     public readonly emptyNested: EmptyNestedData,
     public readonly header: Header,
     public readonly chainId: Fr,
-    public readonly version: Fr,
+    public readonly version: UInt32,
     public readonly vkTreeRoot: Fr,
   ) {}
 

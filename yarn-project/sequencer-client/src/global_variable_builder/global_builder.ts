@@ -70,7 +70,7 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
     feeRecipient: AztecAddress,
   ): Promise<GlobalVariables> {
     let lastTimestamp = new Fr(await this.reader.getLastTimestamp());
-    const version = new Fr(await this.reader.getVersion());
+    const version = Number(await this.reader.getVersion());
     const chainId = new Fr(await this.reader.getChainId());
 
     // TODO(rahul) - fix #1614. By using the cheatcode warp to modify L2 time,

@@ -5,28 +5,27 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex, TX_CONTEXT_LENGTH } from '../constants.gen.js';
 import { GasSettings } from './gas_settings.js';
+import { type UInt32 } from './shared.js';
 
 /**
  * Transaction context.
  */
 export class TxContext {
   public chainId: Fr;
-  public version: Fr;
 
   constructor(
     /** Chain ID of the transaction. Here for replay protection. */
     chainId: Fr | number | bigint,
     /** Version of the transaction. Here for replay protection. */
-    version: Fr | number | bigint,
+    public version: UInt32,
     /** Gas limits for this transaction. */
     public gasSettings: GasSettings,
   ) {
     this.chainId = new Fr(chainId);
-    this.version = new Fr(version);
   }
 
   getSize() {
-    return this.chainId.size + this.version.size + this.gasSettings.getSize();
+    return this.chainId.size + 4 + this.gasSettings.getSize();
   }
 
   clone() {
@@ -43,7 +42,7 @@ export class TxContext {
 
   static fromFields(fields: Fr[] | FieldReader): TxContext {
     const reader = FieldReader.asReader(fields);
-    return new TxContext(reader.readField(), reader.readField(), reader.readObject(GasSettings));
+    return new TxContext(reader.readField(), reader.readField().toNumber(), reader.readObject(GasSettings));
   }
 
   toFields(): Fr[] {
@@ -61,15 +60,15 @@ export class TxContext {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxContext {
     const reader = BufferReader.asReader(buffer);
-    return new TxContext(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readObject(GasSettings));
+    return new TxContext(Fr.fromBuffer(reader), reader.readNumber(), reader.readObject(GasSettings));
   }
 
-  static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
-    return new TxContext(new Fr(chainId), new Fr(version), GasSettings.empty());
+  static empty(chainId: Fr | number = 0, version: UInt32 = 0) {
+    return new TxContext(new Fr(chainId), version, GasSettings.empty());
   }
 
   isEmpty(): boolean {
-    return this.chainId.isZero() && this.version.isZero() && this.gasSettings.isEmpty();
+    return this.chainId.isZero() && this.version == 0 && this.gasSettings.isEmpty();
   }
 
   /**

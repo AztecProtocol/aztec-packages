@@ -94,8 +94,26 @@ contract RollupTest is DecoderBase {
     bytes32 archive = data.archive;
     bytes memory body = data.body;
 
+    uint32 newVersion = 0x420; // new 4-byte version
     assembly {
-      mstore(add(header, add(0x20, 0x0154)), 0x420)
+      // Calculate the memory position
+      let memPtr := add(add(header, 0x20), 0x0154)
+
+      // Load the existing 32-byte word from the memory
+      let currentWord := mload(memPtr)
+
+      // Clear the 4 bytes at the desired position within the word
+      let mask := not(shl(224, 0xffffffff)) // 0xffffffff shifted left to match the position (224 bits = 28 bytes)
+      currentWord := and(currentWord, mask)
+
+      // Shift the value to the correct position
+      let shiftedValue := shl(224, newVersion)
+
+      // Combine the value with the current word
+      currentWord := or(currentWord, shiftedValue)
+
+      // Store the modified word back to memory
+      mstore(memPtr, currentWord)
     }
 
     availabilityOracle.publish(body);
@@ -112,7 +130,7 @@ contract RollupTest is DecoderBase {
 
     uint256 ts = block.timestamp + 1;
     assembly {
-      mstore(add(header, add(0x20, 0x0194)), ts)
+      mstore(add(header, add(0x20, 0x0178)), ts)
     }
 
     availabilityOracle.publish(body);

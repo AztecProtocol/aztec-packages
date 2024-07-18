@@ -28,7 +28,7 @@ library DataStructures {
    */
   struct L2Actor {
     bytes32 actor;
-    uint256 version;
+    uint32 version;
   }
   // docs:end:l2_actor
 

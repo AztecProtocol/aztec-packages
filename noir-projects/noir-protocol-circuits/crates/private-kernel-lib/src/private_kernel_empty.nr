@@ -32,7 +32,7 @@ struct PrivateKernelEmptyPrivateInputs {
     empty_nested: EmptyNestedCircuitPublicInputs,
     historical_header: Header,
     chain_id: Field,
-    version: Field,
+    version: u32,
     vk_tree_root: Field,
 }
 

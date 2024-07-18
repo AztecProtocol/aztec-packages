@@ -10,5 +10,5 @@ global PUBLIC_KEY = Point { x: 123456789, y: 123456789, is_infinite: false };
 
 global CHAIN_ID = 1;
 
-global VERSION = 3;
+global VERSION: u32 = 3;
 

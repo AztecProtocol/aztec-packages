@@ -1,6 +1,6 @@
 use crate::{
     constants::ETH_ADDRESS_LENGTH, hash::pedersen_hash,
-    traits::{Empty, ToField, Serialize, Deserialize}, utils
+    traits::{Empty, ToField, Serialize, Deserialize, SerializeToBytes}, utils
 };
 
 struct EthAddress{
@@ -36,6 +36,19 @@ impl Serialize<ETH_ADDRESS_LENGTH> for EthAddress {
 impl Deserialize<ETH_ADDRESS_LENGTH> for EthAddress {
     fn deserialize(fields: [Field; ETH_ADDRESS_LENGTH]) -> Self {
         EthAddress::from_field(fields[0])
+    }
+}
+
+global ETH_ADDRESS_BYTE_LENGTH = 20;
+
+impl SerializeToBytes<ETH_ADDRESS_BYTE_LENGTH> for EthAddress {
+    fn serialize_to_be_bytes(self) -> [u8; ETH_ADDRESS_BYTE_LENGTH] {
+        let mut result = [0; ETH_ADDRESS_BYTE_LENGTH];
+        let bytes = self.to_field().to_be_bytes(ETH_ADDRESS_BYTE_LENGTH);
+        for i in 0..ETH_ADDRESS_BYTE_LENGTH {
+            result[i] = bytes[i];
+        }
+        result
     }
 }
 

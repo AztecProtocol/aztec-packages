@@ -32,6 +32,7 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   TxContext,
+  type UInt32,
   computeContractClassId,
   deriveKeys,
   getContractClassFromArtifact,
@@ -86,7 +87,7 @@ export class TXE implements TypedOracle {
 
   private contractDataOracle: ContractDataOracle;
 
-  private version: Fr = Fr.ONE;
+  private version: UInt32 = 1;
   private chainId: Fr = Fr.ONE;
 
   constructor(
@@ -110,7 +111,7 @@ export class TXE implements TypedOracle {
   }
 
   getVersion() {
-    return Promise.resolve(this.version);
+    return Promise.resolve(new Fr(this.version));
   }
 
   getMsgSender() {

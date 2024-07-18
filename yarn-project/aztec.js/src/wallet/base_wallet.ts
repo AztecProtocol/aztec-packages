@@ -26,6 +26,7 @@ import {
   type Fr,
   type PartialAddress,
   type Point,
+  type UInt32,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -45,7 +46,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getChainId(): Fr;
 
-  abstract getVersion(): Fr;
+  abstract getVersion(): UInt32;
 
   abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
 

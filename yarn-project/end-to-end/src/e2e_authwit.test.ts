@@ -1,4 +1,5 @@
 import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
+import { type UInt32 } from '@aztec/circuits.js';
 import { AuthRegistryContract, AuthWitTestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 
@@ -15,7 +16,7 @@ describe('e2e_authwit_tests', () => {
   let wallets: AccountWallet[];
 
   let chainId: Fr;
-  let version: Fr;
+  let version: UInt32;
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {
@@ -26,7 +27,7 @@ describe('e2e_authwit_tests', () => {
 
     const nodeInfo = await wallets[0].getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
-    version = new Fr(nodeInfo.protocolVersion);
+    version = nodeInfo.protocolVersion;
 
     auth = await AuthWitTestContract.deploy(wallets[0]).send().deployed();
   });
@@ -116,7 +117,10 @@ describe('e2e_authwit_tests', () => {
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
           const intent = { consumer: auth.address, innerHash };
 
-          const messageHash = computeAuthWitMessageHash(intent, { chainId, version: Fr.random() });
+          const messageHash = computeAuthWitMessageHash(intent, {
+            chainId,
+            version: Math.floor(Math.random() * 2 ** 32),
+          });
 
           const expectedMessageHash = computeAuthWitMessageHash(intent, { chainId, version });
 

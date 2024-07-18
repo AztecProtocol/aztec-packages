@@ -90,7 +90,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
   if (blockNumber !== undefined) {
     return new GlobalVariables(
       new Fr(seed),
-      new Fr(seed + 1),
+      seed + 1,
       new Fr(blockNumber),
       new Fr(seed + 3),
       EthAddress.fromField(new Fr(seed + 4)),
@@ -100,7 +100,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
   }
   return new GlobalVariables(
     new Fr(seed),
-    new Fr(seed + 1),
+    seed + 1,
     new Fr(seed + 2),
     new Fr(seed + 3),
     EthAddress.fromField(new Fr(seed + 4)),

@@ -7,13 +7,13 @@ use crate::{
 // docs:start:tx-context
 struct TxContext {
     chain_id : Field,
-    version : Field,
+    version : u32,
     gas_settings: GasSettings,
 }
 // docs:end:tx-context
 
 impl TxContext {
-    pub fn new(chain_id: Field, version: Field, gas_settings: GasSettings) -> Self {
+    pub fn new(chain_id: Field, version: u32, gas_settings: GasSettings) -> Self {
         TxContext { chain_id, version, gas_settings }
     }
 }
@@ -41,7 +41,7 @@ impl Serialize<TX_CONTEXT_LENGTH> for TxContext {
         let mut fields: BoundedVec<Field, TX_CONTEXT_LENGTH> = BoundedVec::new();
 
         fields.push(self.chain_id);
-        fields.push(self.version);
+        fields.push(self.version as Field);
         fields.extend_from_array(self.gas_settings.serialize());
 
         assert_eq(fields.len(), TX_CONTEXT_LENGTH);
@@ -57,7 +57,7 @@ impl Deserialize<TX_CONTEXT_LENGTH> for TxContext {
 
         let context = Self {
             chain_id: reader.read(),
-            version: reader.read(),
+            version: reader.read() as u32,
             gas_settings: reader.read_struct(GasSettings::deserialize),
         };
 

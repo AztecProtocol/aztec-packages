@@ -54,7 +54,7 @@ describe('sequencer', () => {
   let sequencer: TestSubject;
 
   const chainId = new Fr(12345);
-  const version = Fr.ZERO;
+  const version = 0;
   const coinbase = EthAddress.random();
   const feeRecipient = AztecAddress.random();
   const gasFees = GasFees.empty();

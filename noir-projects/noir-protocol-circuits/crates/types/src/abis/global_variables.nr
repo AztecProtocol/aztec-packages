@@ -7,7 +7,7 @@ use crate::{
 // docs:start:global-variables
 struct GlobalVariables {
     chain_id : Field,
-    version : Field,
+    version : u32,
     block_number : Field,
     timestamp : u64,
     coinbase : EthAddress,
@@ -33,7 +33,7 @@ impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
         let mut serialized: BoundedVec<Field, GLOBAL_VARIABLES_LENGTH> = BoundedVec::new();
 
         serialized.push(self.chain_id);
-        serialized.push(self.version);
+        serialized.push(self.version as Field);
         serialized.push(self.block_number);
         serialized.push(self.timestamp as Field);
         serialized.push(self.coinbase.to_field());
@@ -49,7 +49,7 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
         let mut reader = Reader::new(serialized);
         GlobalVariables {
             chain_id: reader.read(),
-            version: reader.read(),
+            version: reader.read() as u32,
             block_number: reader.read(),
             timestamp: reader.read() as u64,
             coinbase: EthAddress::from_field(reader.read()),

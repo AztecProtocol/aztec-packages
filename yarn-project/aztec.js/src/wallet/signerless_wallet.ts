@@ -1,5 +1,5 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type CompleteAddress, type Fq, type Fr } from '@aztec/circuits.js';
+import { type CompleteAddress, type Fq, type Fr, type UInt32 } from '@aztec/circuits.js';
 
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
 import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -27,7 +27,7 @@ export class SignerlessWallet extends BaseWallet {
     throw new Error('SignerlessWallet: Method getChainId not implemented.');
   }
 
-  getVersion(): Fr {
+  getVersion(): UInt32 {
     throw new Error('SignerlessWallet: Method getVersion not implemented.');
   }
 

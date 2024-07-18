@@ -11,7 +11,7 @@ pub fn process_l1_to_l2_message(
     storage_contract_address: AztecAddress,
     portal_contract_address: EthAddress,
     chain_id: Field,
-    version: Field,
+    version: u32,
     content: Field,
     secret: Field
 ) -> Field {

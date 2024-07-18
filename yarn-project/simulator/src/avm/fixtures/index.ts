@@ -89,7 +89,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
 export function initGlobalVariables(overrides?: Partial<GlobalVariables>): GlobalVariables {
   return new GlobalVariables(
     overrides?.chainId ?? Fr.zero(),
-    overrides?.version ?? Fr.zero(),
+    overrides?.version ?? 0,
     overrides?.blockNumber ?? Fr.zero(),
     overrides?.timestamp ?? Fr.zero(),
     overrides?.coinbase ?? EthAddress.ZERO,

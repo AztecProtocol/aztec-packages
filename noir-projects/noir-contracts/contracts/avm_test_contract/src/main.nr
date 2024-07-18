@@ -288,7 +288,7 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn get_version() -> Field {
+    fn get_version() -> u32 {
         context.version()
     }
 

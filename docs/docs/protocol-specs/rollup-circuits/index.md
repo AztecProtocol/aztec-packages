@@ -168,7 +168,7 @@ StateReference *-- PartialStateReference: partial
 class GlobalVariables {
     block_number: Fr
     timestamp: Fr
-    version: Fr
+    version: UInt32
     chain_id: Fr
     coinbase: EthAddress
     fee_recipient: Address
@@ -274,7 +274,7 @@ CombinedAccumulatedData *-- Logs : logs
 
 class TxContext {
     chain_id: Fr
-    version: Fr
+    version: UInt32
     gas_settings: GasSettings
 }
 
@@ -588,7 +588,6 @@ graph BT
 
 While the `TxsHash` merely require the data to be published and known to L1, the `InHash` and `OutHash` needs to be computable on L1 as well.
 This reason require them to be efficiently computable on L1 while still being non-horrible inside a snark - leading us to rely on SHA256.
-
 
 The L2 to L1 messages from each transaction form a variable height tree. In the diagram above, transactions 0 and 3 have four messages, so require a tree with two layers, whereas the others only have two messages and so require a single layer tree. The base rollup calculates the root of this tree and passes it as the to the next layer. Merge rollups simply hash both of these roots together and pass it up as the `OutHash`.
 

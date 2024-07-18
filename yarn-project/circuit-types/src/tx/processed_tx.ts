@@ -25,6 +25,7 @@ import {
   type PublicKernelTailCircuitPrivateInputs,
   type RecursiveProof,
   type TUBE_PROOF_LENGTH,
+  type UInt32,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 
@@ -237,7 +238,7 @@ export function makePaddingProcessedTxFromTubeProof(
  * Makes an empty tx from an empty kernel circuit public inputs.
  * @returns A processed empty tx.
  */
-export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr, vkTreeRoot: Fr): ProcessedTx {
+export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: UInt32, vkTreeRoot: Fr): ProcessedTx {
   const emptyKernelOutput = KernelCircuitPublicInputs.empty();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
