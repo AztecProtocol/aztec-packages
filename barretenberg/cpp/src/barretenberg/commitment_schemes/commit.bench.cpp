@@ -26,9 +26,10 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
     return polynomial;
 }
 
-constexpr size_t MAX_LOG_NUM_POINTS = 18;
+constexpr size_t MIN_LOG_NUM_POINTS = 16;
+constexpr size_t MAX_LOG_NUM_POINTS = 20;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
-constexpr size_t SPARSE_NUM_NONZERO = 5;
+constexpr size_t SPARSE_NUM_NONZERO = 100;
 
 // Commit to a zero polynomial
 template <typename Curve> void bench_commit_zero(::benchmark::State& state)
@@ -128,16 +129,24 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
     }
 }
 
-BENCHMARK(bench_commit_zero<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_zero<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
-    ->DenseRange(14, MAX_LOG_NUM_POINTS)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_sparse_random<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_random<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
-    ->DenseRange(14, MAX_LOG_NUM_POINTS)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_random<curve::BN254>)->DenseRange(14, MAX_LOG_NUM_POINTS)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_random<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 
