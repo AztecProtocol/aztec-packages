@@ -13,35 +13,39 @@ contract NewKeyRegistry {
 
     impl<Context> Storage<Context> {
         fn init(context: Context) -> Self {
-            // std::static_assert(1 == KEY_REGISTRY_STORAGE_SLOT, "unexpected key registry storage slot");
             Storage {
+                // Ideally we'd do KEY_REGISTRY_STORAGE_SLOT instead of hardcoding the 1 here, but that is currently
+                // causing compilation errors.
                 current_keys: Map::new(context, 1, |context, slot| { PublicMutable::new(context, slot) })
             }
         }
     }
 
     #[aztec(public)]
-    fn register_initial_keys(address: AztecAddress, partial_address: PartialAddress, keys: PublicKeys) {
+    fn register_initial_keys(account: AztecAddress, partial_address: PartialAddress, keys: PublicKeys) {
         let computed_address = AztecAddress::compute(keys.hash(), partial_address);
-        assert(computed_address.eq(address), "Computed address does not match supplied address");
+        assert(computed_address.eq(account), "Computed address does not match supplied address");
 
 
-        storage.current_keys.at(address).write(StoredKeys::new(keys));
+        storage.current_keys.at(account).write(StoredKeys::new(keys));
     }
 
     #[aztec(public)]
-    fn rotate_npk_m(address: AztecAddress, new_npk_m: Point, nonce: Field) {
-        if (!address.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, address);
+    fn rotate_npk_m(account: AztecAddress, new_npk_m: Point, nonce: Field) {
+        if (!account.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit_public(&mut context, account);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
 
-		let user_keys = storage.current_keys.at(address);
+		let account_key_storage = storage.current_keys.at(account);
 
-		let mut current_keys = user_keys.read().public_keys;
+        // We read all other current keys so that we can compute the new hash - we can't update just the npk. This means
+        // updating all keys at once costs the same as updating just one (unless setting public storage to its current
+        // value is cheaper than changing it, e.g. EIP-2200).
+		let mut current_keys = account_key_storage.read().public_keys;
 		current_keys.npk_m = new_npk_m;
 
-        user_keys.write(StoredKeys::new(current_keys));
+        account_key_storage.write(StoredKeys::new(current_keys));
     }
 }
