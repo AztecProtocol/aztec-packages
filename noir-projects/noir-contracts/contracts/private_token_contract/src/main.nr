@@ -213,8 +213,8 @@ contract PrivateToken {
         let user_inner_note_hash = compute_inner_note_hash_from_preimage(PrivateToken::storage().balances.slot, user_note_content_hash);
 
         // 3. At last we emit the note hashes.
-        context.push_note_hash(fee_payer_inner_note_hash);
-        context.push_note_hash(user_inner_note_hash);
+        context.push_note_hash(fee_payer_inner_note_hash.x);
+        context.push_note_hash(user_inner_note_hash.x);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
 

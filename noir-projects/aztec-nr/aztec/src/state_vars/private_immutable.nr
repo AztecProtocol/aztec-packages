@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash,
+    point::Point
+};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
@@ -20,7 +23,6 @@ impl<T, Context> Storage<T> for PrivateImmutable<T, Context> {}
 impl<Note, Context> PrivateImmutable<Note, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
     // docs:end:new
@@ -33,7 +35,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     // e.g. the initial assignment to `my_map.at(msg.sender)` will leak: `msg.sender`, the fact that an element of `my_map` was assigned-to for the first time, and the contract_address.
     pub fn compute_initialization_nullifier(self) -> Field {
         pedersen_hash(
-            [self.storage_slot],
+            [self.storage_slot.x],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
     }

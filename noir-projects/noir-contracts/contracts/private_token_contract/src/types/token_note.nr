@@ -253,7 +253,7 @@ impl PrivatelyRefundable for TokenNote {
         (incomplete_fee_payer_point, incomplete_user_point)
     }
 
-    fn complete_refund(incomplete_fee_payer_point: Point, incomplete_user_point: Point, transaction_fee: Field) -> (Field, Field) {
+    fn complete_refund(incomplete_fee_payer_point: Point, incomplete_user_point: Point, transaction_fee: Field) -> (Point, Point) {
         // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
         let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
 
@@ -273,7 +273,7 @@ impl PrivatelyRefundable for TokenNote {
 
         assert_eq(user_point.is_infinite, false);
 
-        // Finally we return the x-coordinates of the points which are the note content hashes.
-        (fee_payer_point.x, user_point.x)
+        // Finally we return the points which represent the note content hashes.
+        (fee_payer_point, user_point)
     }
 }

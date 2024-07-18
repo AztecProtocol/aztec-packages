@@ -102,7 +102,7 @@ impl PublicCallDataBuilder {
             if i < num_reads {
                 let read_request = StorageRead {
                     // The default storage slot is its index + 1.
-                    storage_slot: (value_offset + i + 1) as Field,
+                    storage_index: (value_offset + i + 1) as Field,
                     // The default value is its index + 999.
                     current_value: (value_offset + i + 999) as Field,
                     counter: i as u32

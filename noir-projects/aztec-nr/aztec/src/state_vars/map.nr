@@ -5,7 +5,7 @@ use crate::state_vars::storage::Storage;
 struct Map<K, V, Context> {
     context: Context,
     storage_slot: Point,
-    state_var_constructor: fn(Context, Field) -> V,
+    state_var_constructor: fn(Context, Point) -> V,
 }
 // docs:end:map
 
@@ -16,7 +16,7 @@ impl<K, V, Context> Map<K, V, Context> {
     pub fn new(
         context: Context,
         storage_slot: Point,
-        state_var_constructor: fn(Context, Field) -> V
+        state_var_constructor: fn(Context, Point) -> V
     ) -> Self {
         Map { context, storage_slot, state_var_constructor }
     }
