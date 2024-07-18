@@ -3,8 +3,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
-#include "barretenberg/world_state/history.hpp"
-#include "barretenberg/world_state/struct.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/world_state_napi/async_op.hpp"
 #include "barretenberg/world_state_napi/message.hpp"
@@ -435,14 +434,12 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<SyncBlockRequest> request;
     obj.convert(request);
 
-    auto is_block_ours = _ws->sync_block({
-        request.value.blockStateRef,
-        request.value.blockHash,
-        request.value.paddedNoteHashes,
-        request.value.paddedL1ToL2Messages,
-        request.value.paddedNullifiers,
-        request.value.batchesOfPaddedPublicDataWrites,
-    });
+    bool is_block_ours = _ws->sync_block(request.value.blockStateRef,
+                                         request.value.blockHash,
+                                         request.value.paddedNoteHashes,
+                                         request.value.paddedL1ToL2Messages,
+                                         request.value.paddedNullifiers,
+                                         request.value.batchesOfPaddedPublicDataWrites);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<SyncBlockResponse> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { is_block_ours });

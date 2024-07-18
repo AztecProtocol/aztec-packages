@@ -3,7 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/struct.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include <cstdint>
 #include <string>
@@ -73,7 +73,7 @@ struct GetStateReferenceRequest {
 };
 
 struct GetStateReferenceResponse {
-    WorldStateReference state;
+    StateReference state;
     MSGPACK_FIELDS(state);
 };
 
@@ -132,13 +132,13 @@ template <typename T> struct BatchInsertRequest {
 };
 
 struct UpdateArchiveRequest {
-    WorldStateReference blockStateRef;
+    StateReference blockStateRef;
     bb::fr blockHash;
     MSGPACK_FIELDS(blockStateRef, blockHash);
 };
 
 struct SyncBlockRequest {
-    WorldStateReference blockStateRef;
+    StateReference blockStateRef;
     bb::fr blockHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;

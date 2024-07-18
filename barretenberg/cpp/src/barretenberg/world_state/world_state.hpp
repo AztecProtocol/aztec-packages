@@ -15,9 +15,8 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/history.hpp"
-#include "barretenberg/world_state/struct.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include <algorithm>
 #include <exception>
 #include <iterator>
@@ -79,7 +78,7 @@ class WorldState {
      * @param revision The revision to query
      * @return StateReference
      */
-    WorldStateReference get_state_reference(WorldStateRevision revision) const;
+    StateReference get_state_reference(WorldStateRevision revision) const;
 
     /**
      * @brief Get the sibling path object for a leaf in a tree
@@ -189,7 +188,12 @@ class WorldState {
      *
      * @param block The block to synchronize with.
      */
-    bool sync_block(const BlockData& block);
+    bool sync_block(StateReference& block_state_ref,
+                    fr block_hash,
+                    const std::vector<bb::fr>& notes,
+                    const std::vector<bb::fr>& l1_to_l2_messages,
+                    const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+                    const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
   private:
     std::unique_ptr<crypto::merkle_tree::LMDBEnvironment> _lmdb_env;
@@ -199,8 +203,8 @@ class WorldState {
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
 
     static bool include_uncommitted(WorldStateRevision rev);
-    static bool block_state_matches_world_state(const WorldStateReference& block_state_ref,
-                                                const WorldStateReference& tree_state_ref);
+    static bool block_state_matches_world_state(const StateReference& block_state_ref,
+                                                const StateReference& tree_state_ref);
 };
 
 template <typename T>

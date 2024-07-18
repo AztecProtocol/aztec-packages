@@ -6,8 +6,8 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
-#include "barretenberg/world_state/history.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include <memory>
 #include <stdexcept>
 #include <tuple>
@@ -92,10 +92,10 @@ TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTr
         _trees.at(tree_id));
 }
 
-WorldStateReference WorldState::get_state_reference(WorldStateRevision revision) const
+StateReference WorldState::get_state_reference(WorldStateRevision revision) const
 {
     Signal signal(static_cast<uint32_t>(_trees.size()));
-    WorldStateReference state_reference;
+    StateReference state_reference;
     bool uncommitted = include_uncommitted(revision);
 
     for (const auto& [id, tree] : _trees) {
@@ -179,11 +179,16 @@ void WorldState::rollback()
     signal.wait_for_level();
 }
 
-bool WorldState::sync_block(const BlockData& block)
+bool WorldState::sync_block(StateReference& block_state_ref,
+                            fr block_hash,
+                            const std::vector<bb::fr>& notes,
+                            const std::vector<bb::fr>& l1_to_l2_messages,
+                            const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
+                            const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
 {
     auto current_state = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block.block_state_ref, current_state)) {
-        append_leaves<fr>(MerkleTreeId::ARCHIVE, { block.block_hash });
+    if (block_state_matches_world_state(block_state_ref, current_state)) {
+        append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
         commit();
         return true;
     }
@@ -196,27 +201,27 @@ bool WorldState::sync_block(const BlockData& block)
 
     {
         auto& wrapper = std::get<TreeWithStore<NullifierTree>>(_trees.at(MerkleTreeId::NULLIFIER_TREE));
-        wrapper.tree->add_or_update_values(block.new_nullifiers, 0, decr);
+        wrapper.tree->add_or_update_values(nullifiers, 0, decr);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(MerkleTreeId::NOTE_HASH_TREE));
-        wrapper.tree->add_values(block.new_notes, decr);
+        wrapper.tree->add_values(notes, decr);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
-        wrapper.tree->add_values(block.new_l1_to_l2_messages, decr);
+        wrapper.tree->add_values(l1_to_l2_messages, decr);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(MerkleTreeId::ARCHIVE));
-        wrapper.tree->add_value(block.block_hash, decr);
+        wrapper.tree->add_value(block_hash, decr);
     }
 
     {
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        for (const auto& batch : block.batches_of_public_writes) {
+        for (const auto& batch : public_writes) {
             Signal batch_signal(1);
             // TODO (alexg) should trees serialize writes internally or should we do it here?
             wrapper.tree->add_or_update_values(
@@ -229,8 +234,13 @@ bool WorldState::sync_block(const BlockData& block)
 
     signal.wait_for_level();
 
-    commit();
-    return false;
+    current_state = get_state_reference(WorldStateRevision::uncommitted());
+    if (block_state_matches_world_state(block_state_ref, current_state)) {
+        commit();
+        return false;
+    }
+
+    throw std::runtime_error("Block state does not match world state");
 }
 
 std::pair<bool, index_t> WorldState::find_low_leaf_index(const WorldStateRevision revision,
@@ -258,11 +268,11 @@ std::pair<bool, index_t> WorldState::find_low_leaf_index(const WorldStateRevisio
 
 bool WorldState::include_uncommitted(WorldStateRevision rev)
 {
-    return std::get<WorldStateRevision::CurrentState>(rev.state).uncommitted;
+    return std::get<WorldStateRevision::CurrentState>(rev.inner).uncommitted;
 }
 
-bool WorldState::block_state_matches_world_state(const WorldStateReference& block_state_ref,
-                                                 const WorldStateReference& tree_state_ref)
+bool WorldState::block_state_matches_world_state(const StateReference& block_state_ref,
+                                                 const StateReference& tree_state_ref)
 {
     std::vector tree_ids{
         MerkleTreeId::NULLIFIER_TREE,

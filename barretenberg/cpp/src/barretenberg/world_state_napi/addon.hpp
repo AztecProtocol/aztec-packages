@@ -1,8 +1,7 @@
 #pragma once
 
 #include "barretenberg/messaging/dispatcher.hpp"
-#include "barretenberg/world_state/history.hpp"
-#include "barretenberg/world_state/struct.hpp"
+#include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/world_state_napi/message.hpp"
 #include <cstdint>

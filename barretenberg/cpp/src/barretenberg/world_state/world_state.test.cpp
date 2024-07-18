@@ -396,7 +396,7 @@ TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)
 TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
 {
     WorldState ws(1, _directory, 1024);
-    WorldStateReference block_state_ref = {
+    StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x01199bf7edd983a21dc7ce96c1f9c5c0d0108c937fdc46bb3db7987656a35665"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
@@ -433,7 +433,7 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
 TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 {
     WorldState ws(1, _directory, 1024);
-    WorldStateReference block_state_ref = {
+    StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x01199bf7edd983a21dc7ce96c1f9c5c0d0108c937fdc46bb3db7987656a35665"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
@@ -480,7 +480,7 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 TEST_F(WorldStateTest, SyncCurrentBlock)
 {
     WorldState ws(1, _directory, 1024);
-    WorldStateReference block_state_ref = {
+    StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x01199bf7edd983a21dc7ce96c1f9c5c0d0108c937fdc46bb3db7987656a35665"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
