@@ -8,7 +8,6 @@ import {
 } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { type LogFn } from '@aztec/foundation/log';
-import { AuthRegistryContract, GasTokenContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
@@ -22,6 +21,10 @@ export async function deployCanonicalL2GasToken(
   log: LogFn,
   waitOpts = DefaultWaitOpts,
 ) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { GasTokenContract } = await import('@aztec/noir-contracts.js');
+
   const canonicalGasToken = getCanonicalGasToken();
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
@@ -59,6 +62,10 @@ export async function deployCanonicalL2GasToken(
  * Deploys the key registry on L2.
  */
 export async function deployCanonicalKeyRegistry(deployer: Wallet, log: LogFn, waitOpts = DefaultWaitOpts) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { KeyRegistryContract } = await import('@aztec/noir-contracts.js');
+
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
 
   // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
@@ -92,6 +99,10 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet, log: LogFn, w
  * Deploys the auth registry on L2.
  */
 export async function deployCanonicalAuthRegistry(deployer: Wallet, log: LogFn, waitOpts = DefaultWaitOpts) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { AuthRegistryContract } = await import('@aztec/noir-contracts.js');
+
   const canonicalAuthRegistry = getCanonicalAuthRegistry();
 
   // We check to see if there exists a contract at the canonical Auth Registry address with the same contract class id as we expect. This means that
