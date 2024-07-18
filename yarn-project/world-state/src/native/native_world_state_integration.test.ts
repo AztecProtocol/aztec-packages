@@ -12,6 +12,7 @@ import {
   PublicDataTreeLeaf,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { elapsed } from '@aztec/foundation/timer';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
@@ -198,16 +199,17 @@ describe('NativeWorldState', () => {
   });
 
   describe('Block synch', () => {
-    it.skip('syncs a new block from empty state', async () => {
+    it('syncs a new block from empty state', async () => {
       await assertSameState(false);
-      const { block, messages } = await mockBlock(1);
+      const [blockMS, { block, messages }] = await elapsed(mockBlock(1));
 
-      await Promise.all([
-        nativeWS.handleL2BlockAndMessages(block, messages),
-        legacyWS.handleL2BlockAndMessages(block, messages),
-      ]);
-      assertSameState(false);
-    }, 50_000);
+      const [nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
+      const [legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
+
+      console.log(`Native: ${nativeMs} ms, Legacy: ${legacyMs} ms. Generating mock block took ${blockMS} ms`);
+
+      await assertSameState(false);
+    }, 15_000);
   });
 
   async function assertSameTree(treeId: MerkleTreeId, includeUncommitted = false) {
@@ -227,8 +229,7 @@ describe('NativeWorldState', () => {
 
   async function mockBlock(blockNum = 1, merkleTrees?: MerkleTreeDb) {
     merkleTrees ??= await MerkleTrees.new(openTmpStore());
-    // const archiveState = await merkleTrees.getTreeInfo(MerkleTreeId.ARCHIVE, false);
-    const l2Block = L2Block.random(blockNum);
+    const l2Block = L2Block.random(blockNum, 2); // 2 txs
     const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
 
     const paddedTxEffects = padArrayEnd(
