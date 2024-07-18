@@ -142,7 +142,7 @@ template <typename Flavor> class SumcheckProverRound {
      *
      * @details In the case when witness polynomials are masked, this method has to distinguish between witness and
      * non-witness polynomials. The witness univariates obtained from witness multilinears are corrected by a masking
-     * quadratic term extended to the same length MAX_PARTIAL_RELATION_LENGTH.*
+     * quadratic term extended to the same length MAX_PARTIAL_RELATION_LENGTH.
      *
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
@@ -341,19 +341,16 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief Compute Libra round univariate expressed as follows
-\f{align}{
-        \texttt{libra_univariate}_i(X_i) =  \rho \cdot \sum_{\vec \ell \in \{0,1\}^{d-1 - i}} G(u_0,\ldots, u_{i-1},
-X_{i}, \vec \ell) = \rho \cdot 2^{d-1 - i}  \left( \sum_{j = 0}^{i-1} g_j(u_{j}) + g_{i}(X_i) + \sum_{j=i+1}^{d-1}
-\left(g_{j,0} + g_{j,1}\right) \right) \f} Therefore, the contribution of the \f$\texttt{libra_univariate}_{i}(X_{i})\f$
-at \f$X_{i} = k\f$ to \f$\tilde{S}^i(k)\f$, where \f$k=0,\ldots, \tilde{D}\f$, is given by the formula \f{align}{
-        \texttt{libra_univariate}_i(k) = \rho \cdot 2^{d-1-i} \left(\sum_{j = 0}^{i-1} g_j(u_{j}) + g_{i,k}+
-\sum_{j=i+1}^{d-1}\left(g_{j,0}+g_{j,1}\right)\right) =  \texttt{libra_table}_{i,k} + \texttt{libra_running_sum}.
-
+     * @brief Compute Libra round univariate expressed given by the formula
+    \f{align}{
+        \texttt{libra_round_univariate}_i(k) =
+        \rho \cdot 2^{d-1-i} \left(\sum_{j = 0}^{i-1} g_j(u_{j}) + g_{i,k}+
+        \sum_{j=i+1}^{d-1}\left(g_{j,0}+g_{j,1}\right)\right)
+        =  \texttt{libra_univariates}_{i}(k) + \texttt{libra_running_sum}
+    \f}.
      *
      * @param zk_sumcheck_data
      * @param round_idx
-     * @return bb::Univariate<FF, ZK_BATCHED_LENGTH>
      */
     static SumcheckRoundUnivariate compute_libra_round_univariate(ZKSumcheckData zk_sumcheck_data, size_t round_idx)
     {

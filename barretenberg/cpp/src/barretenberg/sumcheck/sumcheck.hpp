@@ -152,6 +152,7 @@ template <typename Flavor> class SumcheckProver {
      */
     const size_t multivariate_d;
     using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESSES>;
+    // Define the length of Libra Univariates. For non-ZK Flavors: set to 0.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
     using LibraUnivariates = std::vector<Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
 
@@ -366,6 +367,15 @@ vector containing the evaluations of all prover polynomials at the point \f$ (u_
             eval = poly[0];
         };
     };
+    /**
+    * @brief For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
+and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$
+masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all non-witness
+polynomials that are sent in clear.
+     *
+     * @param partially_evaluated_polynomials
+     * @param multivariate_evaluations
+     */
     void extract_zk_claimed_evaluations(PartiallyEvaluatedMultivariates partially_evaluated_polynomials,
                                         EvaluationMaskingTable masking_terms_evaluations,
                                         ClaimedEvaluations& multivariate_evaluations)
@@ -388,9 +398,10 @@ vector containing the evaluations of all prover polynomials at the point \f$ (u_
 
      * @details This method creates an array of random field elements \f$ \rho_1,\ldots, \rho_{N_w}\f$ aimed to mask the
     evaluations of witness polynomials, these are contained in \f$ \texttt{eval_masking_scalars} \f$. In order to
-    optimize the computation of Sumcheck Round Univariates, we populate a table of univariates \f$
-    \texttt{masking_terms_evaluations} \f$ which at the beginning contains the evaluations of polynomials \f$ \rho_j
-    \cdot (1-X)\cdot X \f$ at \f$ 0,\ldots, MAX_PARTIAL_RELATION_LENGTH - 1\f$.
+    optimize the computation of Sumcheck Round Univariates, it populates a table of univariates \f$
+    \texttt{masking_terms_evaluations} \f$ which contains at the beginning the evaluations of polynomials \f$ \rho_j
+    \cdot (1-X)\cdot X \f$ at \f$ 0,\ldots, \text{MAX_PARTIAL_RELATION_LENGTH} - 1\f$. This method also creates Libra
+    univariates, computes the Libra total sum and adds it to the transcript, and sets up all auxiliary objects.
      *
      * @param zk_sumcheck_data
      */
@@ -421,7 +432,6 @@ vector containing the evaluations of all prover polynomials at the point \f$ (u_
 
         std::vector<FF> libra_evaluations;
         libra_evaluations.reserve(multivariate_d);
-
         zk_sumcheck_data.eval_masking_scalars = eval_masking_scalars;
         zk_sumcheck_data.masking_terms_evaluations = masking_terms_evaluations;
         zk_sumcheck_data.libra_univariates = libra_univariates;
@@ -518,11 +528,11 @@ vector containing the evaluations of all prover polynomials at the point \f$ (u_
      * @details The array of Libra univariates is getting scaled
      * \f{align}{
         \texttt{libra_univariates} \gets \texttt{libra_univariates}\cdot \rho \cdot 2^{d-1}
-     }
+     \f}
      * We also initialize
      * \f{align}{
             \texttt{libra_running_sum} \gets \texttt{libra_total_sum} - \texttt{libra_univariates}_{0,0} -
-     \texttt{libra_univariates}_{0,1} \f}
+     \texttt{libra_univariates}_{0,1} \f}.
      * @param libra_table
      * @param libra_round_factor
      * @param libra_challenge
@@ -542,9 +552,22 @@ vector containing the evaluations of all prover polynomials at the point \f$ (u_
     }
 
     /**
-     * @brief Update Libra data consisting of Libra polynomials, Libra running sum, and Libra claimed evaluations after
-     * obtaining Sumcheck 'round_challenge'.
-     *
+     * @brief Upon receiving the challenge \f$u_i\f$, the prover updates Libra data. If \f$ i < d-1\f$
+
+        -  update the table of Libra univariates by multiplying every term by \f$1/2\f$.
+        -  computes the value \f$2^{d-i - 2} \cdot \texttt{libra_challenge} \cdot g_0(u_0)\f$ applying \ref
+        bb::Univariate::evaluate "evaluate" method to the first univariate in the table \f$\texttt{libra_univariates}\f$
+        -  places the value \f$ g_0(u_0)\f$ to the vector \f$ \texttt{libra_evaluations}\f$
+        -  update the running sum
+        \f{align}{
+                \texttt{libra_running_sum} \gets  2^{d-i-2} \cdot \texttt{libra_challenge} \cdot g_0(u_0) +  2^{-1}
+     \cdot \left( \texttt{libra_running_sum} - (\texttt{libra_univariates}_{i+1}(0) +
+     \texttt{libra_univariates}_{i+1}(1)) \right) \f} If \f$ i = d-1\f$
+        -  compute the value \f$ g_{d-1}(u_{d-1})\f$ applying \ref bb::Univariate::evaluate "evaluate" method to the
+     last univariate in the table \f$\texttt{libra_univariates}\f$ and dividing the result by \f$
+     \texttt{libra_challenge} \f$.
+        -  update the table of Libra univariates by multiplying every term by \f$\texttt{libra_challenge}^{-1}\f$.
+
      * @param libra_univariates
      * @param round_challenge
      * @param round_idx
