@@ -102,7 +102,7 @@ polynomials,
     // Specialization for calldata_2 (bus_idx = 1)
     template <typename AllEntities> struct BusData</*bus_idx=*/1, AllEntities> {
         static auto& values(const AllEntities& in) { return in.calldata_2; }
-        static auto& selector(const AllEntities& in) { return in.q_l; }
+        static auto& selector(const AllEntities& in) { return in.q_r; }
         static auto& inverses(AllEntities& in) { return in.calldata_2_inverses; }
         static auto& inverses(const AllEntities& in) { return in.calldata_2_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.calldata_2_read_counts; }
@@ -112,7 +112,7 @@ polynomials,
     // Specialization for return data (bus_idx = 2)
     template <typename AllEntities> struct BusData</*bus_idx=*/2, AllEntities> {
         static auto& values(const AllEntities& in) { return in.return_data; }
-        static auto& selector(const AllEntities& in) { return in.q_r; }
+        static auto& selector(const AllEntities& in) { return in.q_o; }
         static auto& inverses(AllEntities& in) { return in.return_data_inverses; }
         static auto& inverses(const AllEntities& in) { return in.return_data_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.return_data_read_counts; }

@@ -642,10 +642,10 @@ class MegaFlavor {
             calldata_read_counts = "CALLDATA_READ_COUNTS";
             calldata_read_tags = "CALLDATA_READ_TAGS";
             calldata_inverses = "CALLDATA_INVERSES";
-            calldata = "CALLDATA_2";
-            calldata_read_counts = "CALLDATA_2_READ_COUNTS";
-            calldata_read_tags = "CALLDATA_2_READ_TAGS";
-            calldata_inverses = "CALLDATA_2_INVERSES";
+            calldata_2 = "CALLDATA_2";
+            calldata_2_read_counts = "CALLDATA_2_READ_COUNTS";
+            calldata_2_read_tags = "CALLDATA_2_READ_TAGS";
+            calldata_2_inverses = "CALLDATA_2_INVERSES";
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_read_tags = "RETURN_DATA_READ_TAGS";

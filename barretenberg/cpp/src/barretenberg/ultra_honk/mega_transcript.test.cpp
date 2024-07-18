@@ -167,7 +167,12 @@ TEST_F(MegaTranscriptTests, ProverManifestConsistency)
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
+        if (prover_manifest[round] != manifest_expected[round]) {
+            info("Prover manifest discrepency in round ", round);
+            prover_manifest[round].print();
+            manifest_expected[round].print();
+            ASSERT(false);
+        }
     }
 }
 
@@ -199,8 +204,12 @@ TEST_F(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
-            << "Prover/Verifier manifest discrepency in round " << round;
+        if (prover_manifest[round] != verifier_manifest[round]) {
+            info("Prover/Verifier manifest discrepency in round ", round);
+            prover_manifest[round].print();
+            verifier_manifest[round].print();
+            ASSERT(false);
+        }
     }
 }
 
