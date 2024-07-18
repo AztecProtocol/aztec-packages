@@ -4,7 +4,7 @@ use dep::protocol_types::{
     traits::is_empty
 };
 use crate::{
-    context::PrivateContext,
+    context::PrivateContext, generators::derive_base_slot,
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
     keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}},
     state_vars::{shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter}
@@ -68,8 +68,8 @@ fn fetch_key_from_registry(
     address: AztecAddress,
     header: Header
 ) -> Point {
-    let x_coordinate_map_slot = key_index * 2 + 1;
-    let y_coordinate_map_slot = x_coordinate_map_slot + 1;
+    let x_coordinate_map_slot = derive_base_slot(key_index * 2 + 1);
+    let y_coordinate_map_slot = derive_base_slot(key_index * 2 + 2);
     let x_coordinate_derived_slot = derive_storage_slot_in_map(x_coordinate_map_slot, address);
     let y_coordinate_derived_slot = derive_storage_slot_in_map(y_coordinate_map_slot, address);
 

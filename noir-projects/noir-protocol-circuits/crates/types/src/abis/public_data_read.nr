@@ -15,7 +15,7 @@ impl PublicDataRead {
         read_request: StorageRead
     ) -> PublicDataRead {
         PublicDataRead {
-            leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
+            leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_index),
             value: compute_public_data_tree_value(read_request.current_value)
         }
     }

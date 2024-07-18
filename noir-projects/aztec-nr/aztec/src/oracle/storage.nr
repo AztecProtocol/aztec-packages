@@ -31,13 +31,17 @@ unconstrained pub fn storage_read<T, let N: u32>(
 
 mod tests {
     use crate::oracle::storage::{raw_storage_read, storage_read};
-    use dep::protocol_types::address::AztecAddress;
+    use dep::protocol_types::{address::AztecAddress, point::Point};
 
     use std::test::OracleMock;
     use crate::test::mocks::mock_struct::MockStruct;
 
     global address = AztecAddress::from_field(29);
-    global storage_index = 7;
+    global storage_slot = Point {
+        x: 0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37,
+        y: 0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76,
+        is_infinite: false
+    };
     global block_number = 17;
 
     #[test]
@@ -46,7 +50,7 @@ mod tests {
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
 
-        let read: [Field; 2] = raw_storage_read(address, storage_index, block_number);
+        let read: [Field; 2] = raw_storage_read(address, storage_slot, block_number);
         assert_eq(read[0], 13);
         assert_eq(read[1], 42);
     }
@@ -57,7 +61,7 @@ mod tests {
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
 
-        let read: MockStruct = storage_read(address, storage_index, block_number);
+        let read: MockStruct = storage_read(address, storage_slot, block_number);
         assert_eq(read.a, 13);
         assert_eq(read.b, 42);
     }
