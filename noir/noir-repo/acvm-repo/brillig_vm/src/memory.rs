@@ -24,6 +24,11 @@ impl<F> MemoryValue<F> {
         MemoryValue::Field(value)
     }
 
+    /// Builds an integer-typed memory value.
+    pub fn new_integer(value: u128, bit_size: IntegerBitSize) -> Self {
+        MemoryValue::Integer(value, bit_size)
+    }
+
     /// Extracts the field element from the memory value, if it is typed as field element.
     pub fn extract_field(&self) -> Option<&F> {
         match self {
@@ -37,6 +42,22 @@ impl<F> MemoryValue<F> {
         match self {
             MemoryValue::Integer(value, bit_size) => Some((*value, *bit_size)),
             _ => None,
+        }
+    }
+
+    pub fn bit_size(&self) -> BitSize {
+        match self {
+            MemoryValue::Field(_) => BitSize::Field,
+            MemoryValue::Integer(_, bit_size) => BitSize::Integer(*bit_size),
+        }
+    }
+
+    pub fn to_usize(&self) -> usize {
+        match self {
+            MemoryValue::Integer(_, bit_size) if *bit_size == MEMORY_ADDRESSING_BIT_SIZE => {
+                self.extract_integer().unwrap().0.try_into().unwrap()
+            }
+            _ => panic!("value is not typed as brillig usize"),
         }
     }
 }
@@ -62,25 +83,11 @@ impl<F: AcirField> MemoryValue<F> {
         Some(MemoryValue::new_from_field(value, bit_size))
     }
 
-    /// Builds an integer-typed memory value.
-    pub fn new_integer(value: u128, bit_size: IntegerBitSize) -> Self {
-        MemoryValue::Integer(value, bit_size)
-    }
-
     /// Converts the memory value to a field element, independent of its type.
     pub fn to_field(&self) -> F {
         match self {
             MemoryValue::Field(value) => *value,
             MemoryValue::Integer(value, _) => F::from(*value),
-        }
-    }
-
-    pub fn to_usize(&self) -> usize {
-        match self {
-            MemoryValue::Integer(_, bit_size) if *bit_size == MEMORY_ADDRESSING_BIT_SIZE => {
-                self.extract_integer().unwrap().0.try_into().unwrap()
-            }
-            _ => panic!("value is not typed as brillig usize"),
         }
     }
 
