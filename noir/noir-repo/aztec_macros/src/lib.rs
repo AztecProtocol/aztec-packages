@@ -99,7 +99,7 @@ fn transform_module(
         if !check_for_storage_implementation(module, storage_struct_name) {
             generate_storage_implementation(module, storage_struct_name)?;
         }
-        //generate_storage_layout(module, storage_struct_name.clone(), module_name)?;
+        generate_storage_layout(module, storage_struct_name.clone(), module_name)?;
     }
 
     let has_initializer = module.functions.iter().any(|func| {

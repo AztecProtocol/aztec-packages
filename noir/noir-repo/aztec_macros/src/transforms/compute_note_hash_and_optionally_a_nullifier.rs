@@ -29,7 +29,10 @@ fn check_for_compute_note_hash_and_optionally_a_nullifier_definition(
                     _ => false
                 })
                 && func_data.parameters.0.get(1).is_some_and(|(_, typ, _)| typ.is_field())
-                && func_data.parameters.0.get(2).is_some_and(|(_, typ, _)| typ.is_field())
+                && func_data.parameters.0.get(2).is_some_and(| (_, typ, _) | match typ {
+                    Type::Struct(struct_typ, _) => struct_typ.borrow().name.0.contents == "Point",
+                    _ => false
+                })
                 && func_data.parameters.0.get(3).is_some_and(|(_, typ, _)|  typ.is_field())
                 && func_data.parameters.0.get(4).is_some_and(|(_, typ, _)|  typ.is_bool())
                 // checks if the 6th parameter is an array and contains only fields
@@ -178,7 +181,7 @@ fn generate_compute_note_hash_and_optionally_a_nullifier_source(
         unconstrained fn compute_note_hash_and_optionally_a_nullifier(
             contract_address: aztec::protocol_types::address::AztecAddress,
             nonce: Field,
-            storage_slot: Point,
+            storage_slot: aztec::protocol_types::point::Point,
             note_type_id: Field,
             compute_nullifier: bool,
             serialized_note: [Field; {}],
@@ -210,7 +213,7 @@ fn generate_compute_note_hash_and_optionally_a_nullifier_source(
             unconstrained fn compute_note_hash_and_optionally_a_nullifier(
                 contract_address: aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
-                storage_slot: Point,
+                storage_slot: aztec::protocol_types::point::Point,
                 note_type_id: Field,
                 compute_nullifier: bool,
                 serialized_note: [Field; {}],
