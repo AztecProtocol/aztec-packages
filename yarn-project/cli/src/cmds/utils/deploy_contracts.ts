@@ -28,6 +28,7 @@ export async function deployCanonicalL2GasToken(
   const canonicalGasToken = getCanonicalGasToken();
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
+    log(`Gas Token contract class already registered with id ${canonicalGasToken.contractClass.id}`);
     return;
   }
 
@@ -76,6 +77,7 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet, log: LogFn, w
     ) &&
     (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id))
   ) {
+    log(`Key Registry already deployed at ${canonicalKeyRegistry.address}`);
     return;
   }
 
@@ -113,6 +115,7 @@ export async function deployCanonicalAuthRegistry(deployer: Wallet, log: LogFn, 
     ) &&
     (await deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id))
   ) {
+    log(`Auth Registry already deployed at ${canonicalAuthRegistry.address}`);
     return;
   }
 

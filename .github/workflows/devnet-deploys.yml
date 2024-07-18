@@ -178,11 +178,11 @@ jobs:
       - uses: ./.github/ci-setup-action
 
       - name: Wait for PXE to be available
-        id: wait_for_pxe
-        run: ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
+        run: |
+          sleep 10
+          ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
 
       - name: Bootstrap devnet
-        if: ${{ steps.wait_for_pxe.conclusion == 'success' }}
         run: |
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap \
