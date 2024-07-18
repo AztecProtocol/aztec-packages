@@ -111,6 +111,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     if constexpr (IsGoblinFlavor<Flavor>) {
         commitments.calldata_inverses =
             transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_inverses);
+        commitments.calldata_2_inverses =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_2_inverses);
         commitments.return_data_inverses =
             transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_inverses);
     }

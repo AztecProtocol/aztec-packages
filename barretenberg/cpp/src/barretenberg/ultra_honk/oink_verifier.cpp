@@ -114,6 +114,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
     if constexpr (IsGoblinFlavor<Flavor>) {
         witness_comms.calldata_inverses =
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata_inverses);
+        witness_comms.calldata_2_inverses =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata_2_inverses);
         witness_comms.return_data_inverses =
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.return_data_inverses);
     }

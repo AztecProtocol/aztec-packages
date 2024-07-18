@@ -47,10 +47,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
     static constexpr size_t LENGTH = 5;          // 1 + polynomial degree of this relation
-    static constexpr size_t NUM_BUS_COLUMNS = 2; // calldata, return data
+    static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, return data
 
     // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
     static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_PARTIAL_LENGTHS{
+        LENGTH, // inverse polynomial correctness subrelation
+        LENGTH, // log-derivative lookup argument subrelation
         LENGTH, // inverse polynomial correctness subrelation
         LENGTH, // log-derivative lookup argument subrelation
         LENGTH, // inverse polynomial correctness subrelation
@@ -67,19 +69,21 @@ polynomials,
         LENGTH - 1, // inverse polynomial correctness subrelation
         LENGTH - 1, // log-derivative lookup argument subrelation
         LENGTH - 1, // inverse polynomial correctness subrelation
+        LENGTH - 1, // log-derivative lookup argument subrelation
+        LENGTH - 1, // inverse polynomial correctness subrelation
         LENGTH - 1  // log-derivative lookup argument subrelation
     };
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
-        true, false, true, false
-    };
+    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = { true,  false, true,
+                                                                                               false, true,  false };
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // Ensure the input does not contain a read gate or data that is being read
-        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero();
+        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero() &&
+               in.calldata_2_read_counts.is_zero();
     }
 
     // Interface for easy access of databus components by column (bus_idx)
@@ -95,8 +99,18 @@ polynomials,
         static auto& read_tags(const AllEntities& in) { return in.calldata_read_tags; }
     };
 
-    // Specialization for return data (bus_idx = 1)
+    // Specialization for calldata_2 (bus_idx = 1)
     template <typename AllEntities> struct BusData</*bus_idx=*/1, AllEntities> {
+        static auto& values(const AllEntities& in) { return in.calldata_2; }
+        static auto& selector(const AllEntities& in) { return in.q_l; }
+        static auto& inverses(AllEntities& in) { return in.calldata_2_inverses; }
+        static auto& inverses(const AllEntities& in) { return in.calldata_2_inverses; } // const version
+        static auto& read_counts(const AllEntities& in) { return in.calldata_2_read_counts; }
+        static auto& read_tags(const AllEntities& in) { return in.calldata_2_read_tags; }
+    };
+
+    // Specialization for return data (bus_idx = 2)
+    template <typename AllEntities> struct BusData</*bus_idx=*/2, AllEntities> {
         static auto& values(const AllEntities& in) { return in.return_data; }
         static auto& selector(const AllEntities& in) { return in.q_r; }
         static auto& inverses(AllEntities& in) { return in.return_data_inverses; }
@@ -217,8 +231,12 @@ polynomials,
                 is_read = q_busread == 1 && polynomials.q_l[i] == 1;
                 nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
             }
-            if constexpr (bus_idx == 1) { // return data
+            if constexpr (bus_idx == 1) { // calldata_2
                 is_read = q_busread == 1 && polynomials.q_r[i] == 1;
+                nonzero_read_count = polynomials.calldata_2_read_counts[i] > 0;
+            }
+            if constexpr (bus_idx == 2) { // return data
+                is_read = q_busread == 1 && polynomials.q_o[i] == 1;
                 nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
             }
             // We only compute the inverse if this row contains a read gate or data that has been read

@@ -71,6 +71,8 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     if constexpr (IsGoblinFlavor<Flavor>) {
         witness_commitments.calldata_inverses = transcript->template receive_from_prover<Commitment>(
             domain_separator + "_" + commitment_labels.calldata_inverses);
+        witness_commitments.calldata_2_inverses = transcript->template receive_from_prover<Commitment>(
+            domain_separator + "_" + commitment_labels.calldata_2_inverses);
         witness_commitments.return_data_inverses = transcript->template receive_from_prover<Commitment>(
             domain_separator + "_" + commitment_labels.return_data_inverses);
     }
