@@ -115,7 +115,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
     /// Brillig does not have an explicit modulo operation,
     /// so we must emit multiple opcodes and process it differently
     /// to other binary instructions.
-    pub(crate) fn modulo(
+    fn modulo(
         &mut self,
         result: SingleAddrVariable,
         left: SingleAddrVariable,
