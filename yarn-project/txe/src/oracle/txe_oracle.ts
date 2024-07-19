@@ -522,7 +522,7 @@ export class TXE implements TypedOracle {
 
   computeEncryptedNoteLog(
     contractAddress: AztecAddress,
-    storageSlot: Fr,
+    storageSlot: Point,
     noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,

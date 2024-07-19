@@ -1794,7 +1794,7 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
  */
 export function mapStorageReadToNoir(storageRead: ContractStorageRead): StorageReadNoir {
   return {
-    storage_slot: mapFieldToNoir(storageRead.storageSlot),
+    storage_index: mapFieldToNoir(storageRead.storageSlot),
     current_value: mapFieldToNoir(storageRead.currentValue),
     counter: mapNumberToNoir(storageRead.counter),
   };

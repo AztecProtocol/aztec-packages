@@ -1,4 +1,4 @@
-import { Fr, GrumpkinScalar } from '@aztec/circuits.js';
+import { Fr, GrumpkinScalar, Point } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { updateInlineTestData } from '@aztec/foundation/testing';
@@ -21,7 +21,7 @@ describe('encrypt log incoming body', () => {
     const viewingPubKey = grumpkin.mul(Grumpkin.generator, viewingSecretKey);
 
     const note = Note.random();
-    const storageSlot = Fr.random();
+    const storageSlot = Point.random();
     const noteTypeId = NoteSelector.random();
 
     const body = new EncryptedNoteLogIncomingBody(storageSlot, noteTypeId, note);
@@ -42,7 +42,11 @@ describe('encrypt log incoming body', () => {
 
     const note = new Note([new Fr(1), new Fr(2), new Fr(3)]);
     const noteTypeId = new NoteSelector(1);
-    const storageSlot = new Fr(2);
+    const storageSlot = new Point(
+      new Fr(0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37n),
+      new Fr(0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76n),
+      false,
+    );
 
     const body = new EncryptedNoteLogIncomingBody(storageSlot, noteTypeId, note);
 

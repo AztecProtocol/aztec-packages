@@ -583,7 +583,9 @@ export class TXEService {
 
   computeEncryptedNoteLog(
     contractAddress: ForeignCallSingle,
-    storageSlot: ForeignCallSingle,
+    storageSlotX: ForeignCallSingle,
+    storageSlotY: ForeignCallSingle,
+    storageSlotIsInfinite: ForeignCallSingle,
     noteTypeId: ForeignCallSingle,
     ovskApp: ForeignCallSingle,
     ovpkMX: ForeignCallSingle,
@@ -595,12 +597,17 @@ export class TXEService {
     recipient: ForeignCallSingle,
     preimage: ForeignCallArray,
   ) {
+    const storageSlot = new Point(
+      fromSingle(storageSlotX),
+      fromSingle(storageSlotY),
+      !fromSingle(storageSlotIsInfinite).isZero(),
+    );
     const ovpkM = new Point(fromSingle(ovpkMX), fromSingle(ovpkMY), !fromSingle(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(fromSingle(ovskApp).toString()));
     const ivpkM = new Point(fromSingle(ivpkMX), fromSingle(ivpkMY), !fromSingle(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedNoteLog(
       AztecAddress.fromString(fromSingle(contractAddress).toString()),
-      Fr.fromString(fromSingle(storageSlot).toString()),
+      storageSlot,
       NoteSelector.fromField(Fr.fromString(fromSingle(noteTypeId).toString())),
       ovKeys,
       ivpkM,

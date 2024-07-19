@@ -18,7 +18,7 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 /**
@@ -230,7 +230,7 @@ export abstract class TypedOracle {
 
   computeEncryptedNoteLog(
     _contractAddress: AztecAddress,
-    _storageSlot: Fr,
+    _storageSlot: Point,
     _noteTypeId: NoteSelector,
     _ovKeys: KeyValidationRequest,
     _ivpkM: PublicKey,

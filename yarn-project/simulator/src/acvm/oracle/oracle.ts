@@ -364,7 +364,9 @@ export class Oracle {
 
   computeEncryptedNoteLog(
     [contractAddress]: ACVMField[],
-    [storageSlot]: ACVMField[],
+    [storageSlotX]: ACVMField[],
+    [storageSlotY]: ACVMField[],
+    [storageSlotIsInfinite]: ACVMField[],
     [noteTypeId]: ACVMField[],
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
@@ -376,12 +378,17 @@ export class Oracle {
     [recipient]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
+    const storageSlot = new Point(
+      fromACVMField(storageSlotX),
+      fromACVMField(storageSlotY),
+      !fromACVMField(storageSlotIsInfinite).isZero(),
+    );
     const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
     const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedNoteLog(
       AztecAddress.fromString(contractAddress),
-      Fr.fromString(storageSlot),
+      storageSlot,
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       ovKeys,
       ivpkM,

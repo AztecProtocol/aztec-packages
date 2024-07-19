@@ -1,6 +1,6 @@
 import { AztecAddress, type GrumpkinScalar, type KeyValidationRequest, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { EncryptedNoteLogIncomingBody } from './encrypted_log_incoming_body/index.js';

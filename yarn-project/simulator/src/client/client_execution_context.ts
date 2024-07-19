@@ -410,7 +410,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override computeEncryptedNoteLog(
     contractAddress: AztecAddress,
-    storageSlot: Fr,
+    storageSlot: Point,
     noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,

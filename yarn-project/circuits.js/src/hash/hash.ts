@@ -1,11 +1,12 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
+import { Grumpkin } from '../barretenberg/index.js';
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
 import { VerificationKey } from '../structs/index.js';
 
@@ -52,22 +53,14 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
 }
 
 /**
- * Computes a note content hash.
- * @param noteContent - The note content (e.g. note.items).
- * @returns A note content hash.
- */
-export function computeNoteContentHash(noteContent: Fr[]): Fr {
-  return pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
-}
-
-/**
  * Computes an inner note hash, given a storage slot and a note hash.
  * @param storageSlot - The storage slot.
- * @param noteHash - The note hash.
+ * @param noteContentHash - The hash of note content.
  * @returns An inner note hash.
  */
-export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
-  return pedersenHash([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
+export function computeInnerNoteHash(storageSlot: Point, noteContentHash: Point): Point {
+  const grumpkin = new Grumpkin();
+  return grumpkin.add(storageSlot, noteContentHash);
 }
 
 /**

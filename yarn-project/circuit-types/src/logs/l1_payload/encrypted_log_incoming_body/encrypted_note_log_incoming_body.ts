@@ -1,4 +1,4 @@
-import { Fr, Point, type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
+import { Fr, type GrumpkinScalar, Point, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 

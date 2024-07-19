@@ -1,14 +1,15 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
-import { GeneratorIndex, KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import {
-  computeInnerNoteHash,
-  computeNoteContentHash,
-  computeUniqueNoteHash,
-  siloNoteHash,
-} from '@aztec/circuits.js/hash';
+  GeneratorIndex,
+  KeyValidationRequest,
+  computeAppNullifierSecretKey,
+  deriveBaseSlot,
+  deriveKeys,
+} from '@aztec/circuits.js';
+import { computeInnerNoteHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -60,6 +61,11 @@ describe('Simulator', () => {
 
     it('should compute note hashes and nullifier', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
+
+      const computeNoteContentHash = (noteContent: Fr[]) => {
+        const h = pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+        return deriveBaseSlot(h);
+      };
 
       const note = createNote();
       const tokenNoteHash = computeNoteContentHash(note.items);
