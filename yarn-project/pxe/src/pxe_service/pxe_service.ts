@@ -768,9 +768,7 @@ export class PXEService implements PXE {
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
     const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-    enqueuedPublicFunctions.forEach(f => (f.sideEffectCounter = 0));
     const teardownPublicFunction = collectPublicTeardownFunctionCall(executionResult);
-    teardownPublicFunction.sideEffectCounter = 0;
 
     const tx = new Tx(
       publicInputs,

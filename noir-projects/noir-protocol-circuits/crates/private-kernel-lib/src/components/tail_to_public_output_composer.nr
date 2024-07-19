@@ -9,7 +9,6 @@ use crate::components::{
 }
 };
 use dep::types::abis::{
-    call_request::CallRequest,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs}
 };
 
@@ -30,7 +29,7 @@ impl TailToPublicOutputComposer {
         let mut output = PublicKernelCircuitPublicInputs::empty();
         output.validation_requests = source.validation_requests.finish();
         output.constants = source.constants;
-        output.public_teardown_call_stack[0] = CallRequest::from_public_call_request(source.public_teardown_call_request.expose_to_public());
+        output.public_teardown_call_stack[0] = source.public_teardown_call_request.expose_to_public();
         output.fee_payer = source.fee_payer;
 
         let mut (end_non_revertible, end) = split_to_public(source.end, source.min_revertible_side_effect_counter);

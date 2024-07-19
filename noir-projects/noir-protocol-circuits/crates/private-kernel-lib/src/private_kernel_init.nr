@@ -45,7 +45,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.tx_request,
                 self.private_call.call_stack_item.public_inputs,
                 private_call_data_validator.array_lengths,
-                self.private_call.call_stack_item.contract_address,
                 self.vk_tree_root
             );
         }

@@ -64,7 +64,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
                 previous_kernel_array_lengths,
                 self.private_call.call_stack_item.public_inputs,
                 private_call_data_validator.array_lengths,
-                self.private_call.call_stack_item.contract_address,
             );
         }
         output

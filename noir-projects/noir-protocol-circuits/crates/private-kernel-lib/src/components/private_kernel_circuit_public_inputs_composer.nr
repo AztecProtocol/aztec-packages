@@ -231,7 +231,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
             if i < num_requests {
                 // Push the call requests to the stack in reverse order.
                 let call_request = call_requests[num_requests - i - 1];
-                self.public_inputs.end.private_call_stack.push(call_request.scope(source.contract_address));
+                self.public_inputs.end.private_call_stack.push(call_request);
             }
         }
     }

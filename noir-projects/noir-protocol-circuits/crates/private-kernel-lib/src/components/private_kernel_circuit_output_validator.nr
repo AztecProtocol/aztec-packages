@@ -72,14 +72,13 @@ fn validate_array_appended_scoped<ST, T, N, M>(
     }
 }
 
-// Similar to validate_array_appended_scoped, except that the souce items will be appended to dest in reversed order.
-fn validate_array_appended_reversed_scoped<ST, T, N, M>(
-    dest: [ST; N],
+// Similar to validate_array_appended, except that the souce items will be appended to dest in reversed order.
+fn validate_array_appended_reversed<T, N, M>(
+    dest: [T; N],
     source: [T; M],
     num_source_items: u32,
-    num_prepended_items: u32,
-    contract_address: AztecAddress
-) where ST: Scoped<T> + Empty + Eq, T: Eq {
+    num_prepended_items: u32
+) where T: Empty + Eq {
     let items_propagated = num_prepended_items + num_source_items;
     assert(items_propagated <= N, "number of total items exceeds limit");
     let mut should_check = false;
@@ -90,10 +89,7 @@ fn validate_array_appended_reversed_scoped<ST, T, N, M>(
         if should_check {
             if is_non_empty_item {
                 assert_eq(
-                    dest[i].inner(), source[items_propagated - i - 1], "source item does not reversed append to dest"
-                );
-                assert_eq(
-                    dest[i].contract_address(), contract_address, "propagated contract address does not match"
+                    dest[i], source[items_propagated - i - 1], "source item does not reversed append to dest"
                 );
             } else {
                 assert(is_empty(dest[i]), "output should be appended with empty items");
@@ -116,7 +112,6 @@ impl PrivateKernelCircuitOutputValidator {
         tx_request: TxRequest,
         private_call: PrivateCircuitPublicInputs,
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
-        contract_address: AztecAddress,
         vk_tree_root: Field
     ) {
         self.validate_initial_values(tx_request, private_call, vk_tree_root);
@@ -126,8 +121,7 @@ impl PrivateKernelCircuitOutputValidator {
             private_call,
             private_call_array_lengths,
             offsets,
-            0, // num_popped_call
-            contract_address
+            0 // num_popped_call
         );
     }
 
@@ -136,8 +130,7 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         previous_kernel_array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
         private_call: PrivateCircuitPublicInputs,
-        private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
-        contract_address: AztecAddress
+        private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths
     ) {
         self.validate_aggregated_values(previous_kernel, private_call);
         self.validate_propagated_from_previous_kernel(previous_kernel, previous_kernel_array_lengths);
@@ -145,8 +138,7 @@ impl PrivateKernelCircuitOutputValidator {
             private_call,
             private_call_array_lengths,
             previous_kernel_array_lengths,
-            1, // num_popped_call
-            contract_address
+            1 // num_popped_call
         );
     }
 
@@ -311,8 +303,7 @@ impl PrivateKernelCircuitOutputValidator {
         private_call: PrivateCircuitPublicInputs,
         array_lengths: PrivateCircuitPublicInputsArrayLengths,
         offsets: PrivateKernelCircuitPublicInputsArrayLengths,
-        num_popped_call: u32,
-        contract_address: AztecAddress
+        num_popped_call: u32
     ) {
         let storage_contract_address = private_call.call_context.storage_contract_address;
         validate_array_appended_scoped(
@@ -383,12 +374,11 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.public_call_requests,
             offsets.public_call_requests
         );
-        validate_array_appended_reversed_scoped(
+        validate_array_appended_reversed(
             self.output.end.private_call_stack,
             private_call.private_call_requests,
             array_lengths.private_call_requests,
-            offsets.private_call_stack - num_popped_call,
-            contract_address
+            offsets.private_call_stack - num_popped_call
         );
     }
 }

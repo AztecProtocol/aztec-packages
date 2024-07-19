@@ -1,13 +1,14 @@
 use crate::{
-    abis::{caller_context::CallerContext, side_effect::Ordered}, address::AztecAddress,
-    constants::PUBLIC_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader
+    abis::{
+    public_call_stack_item_compressed::PublicCallStackItemCompressed,
+    side_effect::Ordered
+},
+    address::AztecAddress, constants::PUBLIC_CALL_REQUEST_LENGTH,
+    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
 
 struct PublicCallRequest {
-    hash: Field, // Move the content of item.get_compressed() here.
-    caller_contract_address: AztecAddress,
-    caller_context: CallerContext,
+    item: PublicCallStackItemCompressed,
     counter: u32,
 }
 
@@ -19,9 +20,7 @@ impl Ordered for PublicCallRequest {
 
 impl Eq for PublicCallRequest {
     fn eq(self, other: PublicCallRequest) -> bool {
-        (other.hash == self.hash)
-            & (other.caller_contract_address == self.caller_contract_address)
-            & (other.caller_context == self.caller_context)
+        (other.item == self.item)
             & (other.counter == self.counter)
     }
 }
@@ -29,9 +28,7 @@ impl Eq for PublicCallRequest {
 impl Empty for PublicCallRequest {
     fn empty() -> Self {
         PublicCallRequest {
-            hash: 0,
-            caller_contract_address: AztecAddress::zero(),
-            caller_context: CallerContext::empty(),
+            item: PublicCallStackItemCompressed::empty(),
             counter: 0,
         }
     }
@@ -40,9 +37,7 @@ impl Empty for PublicCallRequest {
 impl PublicCallRequest {
     pub fn expose_to_public(self) -> Self {
         PublicCallRequest {
-            hash: self.hash,
-            caller_contract_address: self.caller_contract_address,
-            caller_context: self.caller_context,
+            item: self.item,
             counter: 0
         }
     }
@@ -52,9 +47,7 @@ impl Serialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
   fn serialize(self) -> [Field; PUBLIC_CALL_REQUEST_LENGTH] {
     let mut fields: BoundedVec<Field, PUBLIC_CALL_REQUEST_LENGTH> = BoundedVec::new();
 
-    fields.push(self.hash);
-    fields.push(self.caller_contract_address.to_field());
-    fields.extend_from_array(self.caller_context.serialize());
+    fields.extend_from_array(self.item.serialize());
     fields.push(self.counter as Field);
 
     assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
@@ -67,14 +60,12 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
   fn deserialize(fields: [Field; PUBLIC_CALL_REQUEST_LENGTH]) -> PublicCallRequest {
     let mut reader = Reader::new(fields);
 
-    let item = PublicCallRequest {
-      hash: reader.read(),
-      caller_contract_address: reader.read_struct(AztecAddress::deserialize),
-      caller_context: reader.read_struct(CallerContext::deserialize),
+    let request = PublicCallRequest {
+      item: reader.read_struct(PublicCallStackItemCompressed::deserialize),
       counter: reader.read_u32(),
     };
     reader.finish();
-    item
+    request
   }
 }
 

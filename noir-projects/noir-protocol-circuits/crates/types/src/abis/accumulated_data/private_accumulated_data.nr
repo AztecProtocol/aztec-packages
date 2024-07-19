@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    private_call_request::ScopedPrivateCallRequest, public_call_request::PublicCallRequest,
+    private_call_request::PrivateCallRequest, public_call_request::PublicCallRequest,
     log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
 },
     traits::{Serialize, Deserialize, Eq, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
@@ -23,7 +23,7 @@ struct PrivateAccumulatedData {
     unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
     public_call_requests: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-    private_call_stack: [ScopedPrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+    private_call_stack: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
 }
 
 impl Serialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
@@ -80,7 +80,7 @@ impl Deserialize<PRIVATE_ACCUMULATED_DATA_LENGTH> for PrivateAccumulatedData {
         encrypted_logs_hashes: reader.read_struct_array(ScopedEncryptedLogHash::deserialize, [ScopedEncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX]),
         unencrypted_logs_hashes: reader.read_struct_array(ScopedLogHash::deserialize, [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX]),
         public_call_requests: reader.read_struct_array(PublicCallRequest::deserialize, [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]),
-        private_call_stack: reader.read_struct_array(ScopedPrivateCallRequest::deserialize, [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
+        private_call_stack: reader.read_struct_array(PrivateCallRequest::deserialize, [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX]),
     };
     reader.finish();
     item
@@ -110,7 +110,7 @@ impl Empty for PrivateAccumulatedData {
             encrypted_logs_hashes: [ScopedEncryptedLogHash::empty(); MAX_ENCRYPTED_LOGS_PER_TX],
             unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
             public_call_requests: [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
-            private_call_stack: [ScopedPrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+            private_call_stack: [PrivateCallRequest::empty(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
         }
     }
 }

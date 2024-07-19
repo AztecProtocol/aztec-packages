@@ -44,67 +44,58 @@ fn validate_public_call_requests_from_static_call_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid caller context")]
-fn validate_public_call_requests_incorrect_caller_storage_contract_address_fails() {
+#[test(should_fail_with="incorrect msg_sender for delegate call request")]
+fn validate_public_call_requests_incorrect_msg_sender_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_public_call_requests_delegate(1);
-    let mut call_request = builder.private_call.public_call_requests.pop();
-    // Tweak the storage contract to be a different value.
-    call_request.caller_context.storage_contract_address.inner += 1;
-    builder.private_call.public_call_requests.push(call_request);
+    // Change the msg_sender to be the contract address.
+    builder.private_call.public_call_requests.storage[0].item.call_context.msg_sender = builder.private_call.contract_address;
 
     builder.validate();
 }
 
-#[test(should_fail_with="invalid caller context")]
-fn validate_public_call_requests_incorrect_caller_msg_sender_fails() {
+#[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
+fn validate_public_call_requests_incorrect_storage_contract_address_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_public_call_requests_delegate(1);
-    let mut call_request = builder.private_call.public_call_requests.pop();
-    // Tweak the msg_sender to be a different value.
-    call_request.caller_context.msg_sender.inner += 1;
-    builder.private_call.public_call_requests.push(call_request);
+    // Change the storage_contract_address to be the target contract address.
+    let target_contract = builder.private_call.public_call_requests.storage[0].item.contract_address;
+    builder.private_call.public_call_requests.storage[0].item.call_context.storage_contract_address = target_contract;
 
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch is_static_call flag")]
-fn validate_public_call_requests_regular_call_is_static_true_fails() {
+#[test(should_fail_with="incorrect msg_sender for call request")]
+fn validate_public_call_requests_incorrect_msg_sender_for_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_public_call_requests(1);
-    let mut call_request = builder.private_call.public_call_requests.pop();
-    // Tweak the is_static_call flag to be true.
-    call_request.caller_context.is_static_call = true;
-    builder.private_call.public_call_requests.push(call_request);
+    // Change the msg_sender to be the caller's msg_sender.
+    builder.private_call.public_call_requests.storage[0].item.call_context.msg_sender = builder.private_call.msg_sender;
 
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch is_static_call flag")]
-fn validate_public_call_requests_static_call_is_static_false_fails() {
+#[test(should_fail_with="incorrect storage_contract_address for call request")]
+fn validate_public_call_requests_incorrect_storage_contract_address_for_regular_call_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.append_public_call_requests(1);
+    // Change the storage_contract_address to be the caller's storage contract address.
+    builder.private_call.public_call_requests.storage[0].item.call_context.storage_contract_address = builder.private_call.storage_contract_address;
+
+    builder.validate();
+}
+
+#[test(should_fail_with="static call cannot make non-static calls")]
+fn validate_public_call_requests_static_call_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
     builder.private_call.append_public_call_requests(1);
-    let mut call_request = builder.private_call.public_call_requests.pop();
-    // Tweak the is_static_call flag to be false.
-    call_request.caller_context.is_static_call = false;
-    builder.private_call.public_call_requests.push(call_request);
-
-    builder.validate();
-}
-
-#[test(should_fail_with="invalid caller contract address")]
-fn validate_public_call_requests_incorrect_caller_address_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new();
-
-    builder.private_call.append_public_call_requests(1);
-    let mut call_request = builder.private_call.public_call_requests.pop();
-    // Change the caller contract address to be a different value.
-    call_request.caller_contract_address.inner += 1;
-    builder.private_call.public_call_requests.push(call_request);
+    // Tweak the request to be making a non-static call.
+    builder.private_call.public_call_requests.storage[0].item.call_context.is_static_call = false;
 
     builder.validate();
 }
@@ -149,67 +140,58 @@ fn validate_teardown_call_request_delegate_from_static_call_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="invalid caller context")]
-fn validate_teardown_call_request_incorrect_caller_storage_contract_address_fails() {
+#[test(should_fail_with="incorrect msg_sender for delegate call request")]
+fn validate_teardown_call_request_incorrect_msg_sender_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_public_teardown_call_request_delegate();
-    let mut call_request = builder.private_call.public_teardown_call_stack.pop();
-    // Tweak the storage contract to be a different value.
-    call_request.caller_context.storage_contract_address.inner += 1;
-    builder.private_call.public_teardown_call_stack.push(call_request);
+    // Change the msg_sender to be the contract address.
+    builder.private_call.public_teardown_call_stack.storage[0].item.call_context.msg_sender = builder.private_call.contract_address;
 
     builder.validate();
 }
 
-#[test(should_fail_with="invalid caller context")]
-fn validate_teardown_call_request_incorrect_caller_msg_sender_fails() {
+#[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
+fn validate_teardown_call_request_incorrect_storage_contract_address_for_delegate_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_public_teardown_call_request_delegate();
-    let mut call_request = builder.private_call.public_teardown_call_stack.pop();
-    // Tweak the msg_sender to be a different value.
-    call_request.caller_context.msg_sender.inner += 1;
-    builder.private_call.public_teardown_call_stack.push(call_request);
+    // Change the storage_contract_address to be the target contract address.
+    let target_contract = builder.private_call.public_teardown_call_stack.storage[0].item.contract_address;
+    builder.private_call.public_teardown_call_stack.storage[0].item.call_context.storage_contract_address = target_contract;
 
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch is_static_call flag")]
-fn validate_teardown_call_request_regular_call_is_static_true_fails() {
+#[test(should_fail_with="incorrect msg_sender for call request")]
+fn validate_teardown_call_request_incorrect_msg_sender_for_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
     builder.private_call.append_public_teardown_call_request();
-    let mut call_request = builder.private_call.public_teardown_call_stack.pop();
-    // Tweak the is_static_call flag to be true.
-    call_request.caller_context.is_static_call = true;
-    builder.private_call.public_teardown_call_stack.push(call_request);
+    // Change the msg_sender to be the caller's msg_sender.
+    builder.private_call.public_teardown_call_stack.storage[0].item.call_context.msg_sender = builder.private_call.msg_sender;
 
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch is_static_call flag")]
-fn validate_teardown_call_request_static_call_is_static_false_fails() {
+#[test(should_fail_with="incorrect storage_contract_address for call request")]
+fn validate_teardown_call_request_incorrect_storage_contract_address_for_regular_call_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    builder.private_call.append_public_teardown_call_request();
+    // Change the storage_contract_address to be the caller's storage contract address.
+    builder.private_call.public_teardown_call_stack.storage[0].item.call_context.storage_contract_address = builder.private_call.storage_contract_address;
+
+    builder.validate();
+}
+
+#[test(should_fail_with="static call cannot make non-static calls")]
+fn validate_teardown_call_request_static_call_regular_call_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
     builder.private_call.append_public_teardown_call_request();
-    let mut call_request = builder.private_call.public_teardown_call_stack.pop();
-    // Tweak the is_static_call flag to be false.
-    call_request.caller_context.is_static_call = false;
-    builder.private_call.public_teardown_call_stack.push(call_request);
-
-    builder.validate();
-}
-
-#[test(should_fail_with="invalid caller contract address")]
-fn validate_teardown_call_request_incorrect_caller_address_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new();
-
-    builder.private_call.append_public_teardown_call_request();
-    let mut call_request = builder.private_call.public_teardown_call_stack.pop();
-    // Change the caller contract address to be a different value.
-    call_request.caller_contract_address.inner += 1;
-    builder.private_call.public_teardown_call_stack.push(call_request);
+    // Tweak the request to be making a non-static call.
+    builder.private_call.public_teardown_call_stack.storage[0].item.call_context.is_static_call = false;
 
     builder.validate();
 }

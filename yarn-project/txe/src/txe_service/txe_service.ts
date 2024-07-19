@@ -636,7 +636,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([toArray(result.toFields())]);
+    return toForeignCallResult([result.endSideEffectCounter, result.returnsHash].map(toSingle));
   }
 
   async getNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
@@ -665,7 +665,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    const publicCallRequest = await this.typedOracle.enqueuePublicFunctionCall(
+    await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -673,14 +673,6 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    const fields = [
-      publicCallRequest.contractAddress.toField(),
-      publicCallRequest.functionSelector.toField(),
-      ...publicCallRequest.callContext.toFields(),
-      fromSingle(sideEffectCounter),
-      publicCallRequest.getArgsHash(),
-    ];
-    return toForeignCallResult([toArray(fields)]);
   }
 
   public async setPublicTeardownFunctionCall(
@@ -691,7 +683,7 @@ export class TXEService {
     isStaticCall: ForeignCallSingle,
     isDelegateCall: ForeignCallSingle,
   ) {
-    const publicTeardownCallRequest = await this.typedOracle.setPublicTeardownFunctionCall(
+    await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
@@ -699,16 +691,6 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-
-    const fields = [
-      publicTeardownCallRequest.contractAddress.toField(),
-      publicTeardownCallRequest.functionSelector.toField(),
-      ...publicTeardownCallRequest.callContext.toFields(),
-      fromSingle(sideEffectCounter),
-      publicTeardownCallRequest.getArgsHash(),
-    ];
-
-    return toForeignCallResult([toArray(fields)]);
   }
 
   async getChainId() {

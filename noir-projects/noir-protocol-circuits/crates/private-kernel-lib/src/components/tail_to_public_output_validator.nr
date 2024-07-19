@@ -7,13 +7,12 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-    call_request::CallRequest,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, nullifier::Nullifier,
     public_call_request::PublicCallRequest
 },
     hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
-    traits::{Empty, is_empty_array},
+    traits::{Empty, is_empty, is_empty_array},
     utils::arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc}
 };
 
@@ -164,11 +163,8 @@ impl TailToPublicOutputValidator {
         validate_value_transformation(
             prev_data.public_call_requests,
             hints.public_call_requests,
-            |cr: PublicCallRequest, public_cr: CallRequest| (public_cr.hash == cr.hash)
-                & (public_cr.caller_contract_address == cr.caller_contract_address)
-                & (public_cr.caller_context == cr.caller_context)
-                & (public_cr.start_side_effect_counter == 0)
-                & (public_cr.end_side_effect_counter == 0)
+            |cr: PublicCallRequest, public_cr: PublicCallRequest| (public_cr.item == cr.item)
+                & (public_cr.counter == 0)
         );
 
         assert_split_sorted_transformed_value_arrays_desc(

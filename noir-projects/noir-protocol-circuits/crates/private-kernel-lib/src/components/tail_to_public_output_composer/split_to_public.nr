@@ -3,8 +3,7 @@ use dep::types::abis::{
     private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
     public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
-},
-    call_request::CallRequest
+}
 };
 
 pub fn split_to_public(
@@ -97,7 +96,7 @@ pub fn split_to_public(
     for i in 0..public_call_requests.max_len() {
         if i < public_call_requests.len() {
             let call_request = public_call_requests.get_unchecked(i);
-            let exposed_call_request = CallRequest::from_public_call_request(call_request.expose_to_public());
+            let exposed_call_request = call_request.expose_to_public();
             if call_request.counter < min_revertible_side_effect_counter {
                 non_revertible_builder.public_call_stack.push(exposed_call_request);
             } else {
