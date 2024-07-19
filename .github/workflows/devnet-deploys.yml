@@ -37,8 +37,8 @@ jobs:
   build:
     needs: setup
     runs-on: ${{ github.actor }}-x86
-    outputs:
-      # mainnet_fork_changed: ${{ steps.check_fork_changes.outputs.result }}
+    # outputs:
+    # mainnet_fork_changed: ${{ steps.check_fork_changes.outputs.result }}
     steps:
       - uses: actions/checkout@v4
         with:
