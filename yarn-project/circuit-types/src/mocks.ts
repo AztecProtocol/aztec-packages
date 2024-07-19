@@ -25,7 +25,7 @@ import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
@@ -230,7 +230,7 @@ export const randomExtendedNote = ({
   owner = AztecAddress.random(),
   contractAddress = AztecAddress.random(),
   txHash = randomTxHash(),
-  storageSlot = Fr.random(),
+  storageSlot = Point.random(),
   noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);

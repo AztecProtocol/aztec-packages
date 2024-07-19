@@ -1,4 +1,4 @@
-import { type AztecAddress, type Fr, type NoteSelector } from '@aztec/aztec.js';
+import { type AztecAddress, type NoteSelector, type Point } from '@aztec/aztec.js';
 import { ExtendedNote, Note, type TxHash } from '@aztec/circuit-types';
 import { type DebugLogger } from '@aztec/foundation/log';
 
@@ -8,7 +8,7 @@ import { parseFields } from '../../utils/commands.js';
 export async function addNote(
   address: AztecAddress,
   contractAddress: AztecAddress,
-  storageSlot: Fr,
+  storageSlot: Point,
   noteTypeId: NoteSelector,
   txHash: TxHash,
   noteFields: string[],

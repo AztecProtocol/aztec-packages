@@ -9,7 +9,7 @@ import {
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
@@ -139,7 +139,7 @@ export class AcirSimulator {
   public async computeNoteHashAndOptionallyANullifier(
     contractAddress: AztecAddress,
     nonce: Fr,
-    storageSlot: Fr,
+    storageSlot: Point,
     noteTypeId: NoteSelector,
     computeNullifier: boolean,
     note: Note,
@@ -212,7 +212,7 @@ export class AcirSimulator {
    */
   public async computeInnerNoteHash(
     contractAddress: AztecAddress,
-    storageSlot: Fr,
+    storageSlot: Point,
     noteTypeId: NoteSelector,
     note: Note,
   ) {

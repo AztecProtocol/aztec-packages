@@ -89,7 +89,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           () => ({ storageSlot: storageSlots[0] }),
           () => notes.filter(note => note.storageSlot.equals(storageSlots[0])),
         ],
-        [() => ({ storageSlot: Fr.random() }), () => []],
+        [() => ({ storageSlot: Point.random() }), () => []],
 
         [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
         [() => ({ txHash: randomTxHash() }), () => []],
@@ -217,7 +217,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           () => ({ storageSlot: storageSlots[0] }),
           () => notes.filter(note => note.storageSlot.equals(storageSlots[0])),
         ],
-        [() => ({ storageSlot: Fr.random() }), () => []],
+        [() => ({ storageSlot: Point.random() }), () => []],
 
         [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
         [() => ({ txHash: randomTxHash() }), () => []],

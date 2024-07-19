@@ -8,6 +8,7 @@ import chunk from 'lodash.chunk';
 
 import { Grumpkin } from '../barretenberg/index.js';
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
+import { deriveBaseSlot } from '../storage_slots/index.js';
 import { VerificationKey } from '../structs/index.js';
 
 /**
@@ -50,6 +51,18 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
   return pedersenHash([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
+}
+
+/**
+ * Computes a note content hash as is done by the default implementation injected by macros.
+ * @param noteContent - The note content (e.g. note.items).
+ * @returns A note content hash.
+ * TODO(benesjan): Not sure about having this function here given that  different notes have different ways
+ * of computing the note content hash.
+ */
+export function computeNoteContentHash(noteContent: Fr[]): Point {
+  const h = pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+  return deriveBaseSlot(h);
 }
 
 /**
@@ -98,12 +111,12 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 /**
  * Computes a public data tree index from contract address and storage slot.
  * @param contractAddress - Contract where insertion is occurring.
- * @param storageSlot - Storage slot where insertion is occurring.
+ * @param contractStorageIndex - Contract storage index where insertion is occurring.
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return pedersenHash([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, contractStorageIndex: Fr): Fr {
+  return pedersenHash([contractAddress, contractStorageIndex], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
 /**

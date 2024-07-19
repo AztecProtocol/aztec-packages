@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Point } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { BufferReader } from '@aztec/foundation/serialize';
 
@@ -17,7 +17,7 @@ export class ExtendedNote {
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
-    public storageSlot: Fr,
+    public storageSlot: Point,
     /** The type identifier of the note on the contract. */
     public noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. */
@@ -41,7 +41,7 @@ export class ExtendedNote {
     const note = Note.fromBuffer(reader);
     const owner = AztecAddress.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
-    const storageSlot = Fr.fromBuffer(reader);
+    const storageSlot = reader.readObject(Point);
     const noteTypeId = reader.readObject(NoteSelector);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
 

@@ -1,7 +1,7 @@
 import { type NullifierMembershipWitness } from '@aztec/circuit-types';
 import { type FunctionSelector, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { Point, type Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { type MessageLoadOracleInputs } from '../acvm/index.js';
@@ -13,19 +13,19 @@ export interface PublicStateDB {
   /**
    * Reads a value from public storage, returning zero if none.
    * @param contract - Owner of the storage.
-   * @param slot - Slot to read in the contract storage.
+   * @param contractStorageIndex - Storage index to read in the contract storage.
    * @returns The current value in the storage slot.
    */
-  storageRead(contract: AztecAddress, slot: Fr): Promise<Fr>;
+  storageRead(contract: AztecAddress, contractStorageIndex: Fr): Promise<Fr>;
 
   /**
    * Records a write to public storage.
    * @param contract - Owner of the storage.
-   * @param slot - Slot to read in the contract storage.
+   * @param contractStorageIndex - Storage index to write in the contract storage.
    * @param newValue - The new value to store.
    * @returns The slot of the written leaf in the public data tree.
    */
-  storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint>;
+  storageWrite(contract: AztecAddress, contractStorageIndex: Fr, newValue: Fr): Promise<bigint>;
 
   /**
    * Mark the uncommitted changes in this TX as a checkpoint.

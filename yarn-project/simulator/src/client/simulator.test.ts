@@ -6,7 +6,7 @@ import {
   deriveBaseSlot,
   deriveKeys,
 } from '@aztec/circuits.js';
-import { computeInnerNoteHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { computeInnerNoteHash, computeNoteContentHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -62,15 +62,10 @@ describe('Simulator', () => {
     it('should compute note hashes and nullifier', async () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
-      const computeNoteContentHash = (noteContent: Fr[]) => {
-        const h = pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
-        return deriveBaseSlot(h);
-      };
-
       const note = createNote();
-      const tokenNoteHash = computeNoteContentHash(note.items);
-      const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHash);
+      const noteContentHash = computeNoteContentHash(note.items);
+      const innerNoteHash = computeInnerNoteHash(storageSlot, noteContentHash);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHash.x);
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
       const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
 

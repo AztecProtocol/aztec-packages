@@ -1,4 +1,4 @@
-import { Fr, PublicKeys } from '@aztec/circuits.js';
+import { Fr, Point, PublicKeys } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
@@ -325,12 +325,14 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description('Adds a note to the database in the PXE.')
     .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
-    .argument('<storageSlot>', 'The storage slot of the note.', parseField)
+    .argument('<storageSlotX>', 'The storage slot of the note.', parseField)
+    .argument('<storageSlotY>', 'The storage slot of the note.', parseField)
     .argument('<noteTypeId>', 'The type ID of the note.', parseField)
     .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
     .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
     .addOption(pxeOption)
-    .action(async (address, contractAddress, storageSlot, noteTypeId, txHash, options) => {
+    .action(async (address, contractAddress, storageSlotX, storageSlotY, noteTypeId, txHash, options) => {
+      const storageSlot = new Point(storageSlotX, storageSlotY, false);
       const { addNote } = await import('./add_note.js');
       await addNote(
         address,

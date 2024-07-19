@@ -17,7 +17,7 @@ export class DeferredNoteDao {
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
-    public storageSlot: Fr,
+    public storageSlot: Point,
     /** The type ID of the note on the contract. */
     public noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. Equal to the first nullifier */

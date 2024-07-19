@@ -378,7 +378,9 @@ export class TXEService {
   }
 
   async getNotes(
-    storageSlot: ForeignCallSingle,
+    storageSlotX: ForeignCallSingle,
+    storageSlotY: ForeignCallSingle,
+    storageSlotIsInfinite: ForeignCallSingle,
     numSelects: ForeignCallSingle,
     selectByIndexes: ForeignCallArray,
     selectByOffsets: ForeignCallArray,
@@ -394,6 +396,11 @@ export class TXEService {
     status: ForeignCallSingle,
     returnSize: ForeignCallSingle,
   ) {
+    const storageSlot = new Point(
+      fromSingle(storageSlotX),
+      fromSingle(storageSlotY),
+      !fromSingle(storageSlotIsInfinite).isZero(),
+    );
     const noteDatas = await this.typedOracle.getNotes(
       fromSingle(storageSlot),
       fromSingle(numSelects).toNumber(),
@@ -442,14 +449,14 @@ export class TXEService {
     storageSlot: ForeignCallSingle,
     noteTypeId: ForeignCallSingle,
     note: ForeignCallArray,
-    innerNoteHash: ForeignCallSingle,
+    innerNoteHashX: ForeignCallSingle,
     counter: ForeignCallSingle,
   ) {
     this.typedOracle.notifyCreatedNote(
       fromSingle(storageSlot),
       NoteSelector.fromField(fromSingle(noteTypeId)),
       fromArray(note),
-      fromSingle(innerNoteHash),
+      fromSingle(innerNoteHashX),
       fromSingle(counter).toNumber(),
     );
     return toForeignCallResult([toSingle(new Fr(0))]);

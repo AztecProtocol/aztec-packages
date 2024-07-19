@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
 import { type NoteSelector } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import { type Point, type Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm/index.js';
 
@@ -20,7 +20,7 @@ export interface NoteAndSlot {
   /** The note. */
   note: Note;
   /** The storage slot of the note. */
-  storageSlot: Fr;
+  storageSlot: Point;
   /** The note type identifier. */
   noteTypeId: NoteSelector;
 }

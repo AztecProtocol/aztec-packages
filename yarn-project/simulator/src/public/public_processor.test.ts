@@ -24,6 +24,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
+  Point,
   PublicAccumulatedDataBuilder,
   PublicCallRequest,
   PublicDataTreeLeafPreimage,
@@ -1109,8 +1110,8 @@ describe('public_processor', () => {
         });
 
         publicWorldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
-          Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, contractStorageIndex: Fr) =>
+          Promise.resolve(computePublicDataTreeLeafSlot(address, contractStorageIndex).toBigInt()),
         );
 
         const [processed, failed] = await processor.process([tx], 1, prover);
@@ -1149,8 +1150,8 @@ describe('public_processor', () => {
         });
 
         publicWorldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
-          Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, contractStorageIndex: Fr) =>
+          Promise.resolve(computePublicDataTreeLeafSlot(address, contractStorageIndex).toBigInt()),
         );
 
         publicExecutor.simulate.mockImplementation(execution => {
@@ -1201,8 +1202,8 @@ describe('public_processor', () => {
         });
 
         publicWorldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
-          Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, contractStorageIndex: Fr) =>
+          Promise.resolve(computePublicDataTreeLeafSlot(address, contractStorageIndex).toBigInt()),
         );
 
         publicExecutor.simulate.mockImplementation(execution => {
@@ -1259,8 +1260,8 @@ describe('public_processor', () => {
         });
 
         publicWorldStateDB.storageRead.mockResolvedValue(new Fr(initialBalance));
-        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
-          Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+        publicWorldStateDB.storageWrite.mockImplementation((address: AztecAddress, contractStorageIndex: Fr) =>
+          Promise.resolve(computePublicDataTreeLeafSlot(address, contractStorageIndex).toBigInt()),
         );
 
         const [processed, failed] = await processor.process([tx], 1, prover);

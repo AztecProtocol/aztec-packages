@@ -8,7 +8,7 @@ import {
 import { type CompleteAddress, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { type Point, type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData } from '../acvm/index.js';
@@ -78,12 +78,12 @@ export interface DBOracle extends CommitmentsDB {
    * The query result is paginated using 'limit' and 'offset' values.
    * Returns an object containing an array of note data.
    *
-   * @param contractAddress - The AztecAddress instance representing the contract address.
-   * @param storageSlot - The Fr instance representing the storage slot of the notes.
+   * @param contractAddress - The contract address of the notes.
+   * @param storageSlot - The storage slot of the notes.
    * @param status - The status of notes to fetch.
    * @returns A Promise that resolves to an array of note data.
    */
-  getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus): Promise<NoteData[]>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Point, status: NoteStatus): Promise<NoteData[]>;
 
   /**
    * Retrieve the artifact information of a specific function within a contract.

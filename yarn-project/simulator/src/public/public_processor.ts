@@ -29,7 +29,7 @@ import {
   type PublicStateDB,
   type SimulationProvider,
   computeFeePayerBalanceLeafSlot,
-  computeFeePayerBalanceStorageSlot,
+  computeFeePayerBalanceContractStorageIndex,
 } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
@@ -189,7 +189,7 @@ export class PublicProcessor {
     }
 
     const gasToken = AztecAddress.fromBigInt(GAS_TOKEN_ADDRESS);
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+    const balanceSlot = computeFeePayerBalanceContractStorageIndex(feePayer);
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
     const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
 

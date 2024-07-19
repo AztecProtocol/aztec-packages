@@ -108,7 +108,7 @@ export async function produceNoteDaos(
           payload.noteTypeId,
           txHash,
           incomingNote.nonce,
-          incomingNote.innerNoteHash,
+          incomingNote.innerNoteHashX,
           incomingNote.index,
           ovpkM,
         );

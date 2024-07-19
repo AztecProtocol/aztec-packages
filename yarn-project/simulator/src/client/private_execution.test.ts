@@ -28,11 +28,12 @@ import {
   TxContext,
   computeAppNullifierSecretKey,
   computeOvskApp,
+  deriveBaseSlot,
   deriveKeys,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
-import { computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { computeInnerNoteHash, computeNoteContentHash, computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
   type FunctionArtifact,
@@ -46,7 +47,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -304,7 +305,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Fr, noteTypeId: NoteSelector) => {
+    const buildNote = (amount: bigint, ownerNpkMHash: Fr, storageSlot: Point, noteTypeId: NoteSelector) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -316,14 +317,14 @@ describe('Private Execution test suite', () => {
       const noteHashIndex = randomInt(1); // mock index in TX's final noteHashes array
       const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), ownerNpkMHash, Fr.random()]);
-      const innerNoteHash = pedersenHash(note.items);
+      const innerNoteHashX = computeInnerNoteHash(storageSlot, computeNoteContentHash(note.items)).x;
       return {
         contractAddress,
         storageSlot,
         noteTypeId,
         nonce,
         note,
-        innerNoteHash,
+        innerNoteHashX,
         siloedNullifier: new Fr(0),
         index: currentNoteIndex++,
       };
@@ -349,7 +350,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
@@ -379,7 +380,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
@@ -483,7 +484,7 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner);
+      const storageSlot = computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner);
 
       const notes = [
         buildNote(
@@ -835,7 +836,7 @@ describe('Private Execution test suite', () => {
           storageSlot,
           nonce: Fr.ZERO,
           note,
-          innerNoteHash: Fr.ZERO,
+          innerNoteHashX: Fr.ZERO,
           siloedNullifier: Fr.random(),
           index: 1n,
         },
@@ -970,7 +971,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 

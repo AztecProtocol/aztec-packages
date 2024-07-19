@@ -21,7 +21,7 @@ import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
@@ -42,7 +42,7 @@ describe('Kernel Prover', () => {
     .fill(null)
     .map(() => ({
       note: new Note([Fr.random(), Fr.random(), Fr.random()]),
-      storageSlot: Fr.random(),
+      storageSlot: Point.random(),
       noteTypeId: NoteSelector.random(),
       owner: { x: Fr.random(), y: Fr.random() },
     }));

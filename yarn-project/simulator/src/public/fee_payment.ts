@@ -9,18 +9,19 @@ import { computeSlotForMapping } from '../utils.js';
 /**
  * Computes the storage slot within the gas token contract for the balance of the fee payer.
  */
-export function computeFeePayerBalanceStorageSlot(feePayer: AztecAddress) {
-  return computeSlotForMapping(GasTokenArtifact.storageLayout.balances.slot, feePayer);
+export function computeFeePayerBalanceContractStorageIndex(feePayer: AztecAddress): Fr {
+  return computeSlotForMapping(GasTokenArtifact.storageLayout.balances.slot, feePayer).x;
 }
 
 /**
  * Computes the leaf slot in the public data tree for the balance of the fee payer in the gas token.
+ * TODO(benesjan): rename leaf slot to storage_index
  */
 export function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Fr {
   if (feePayer.isZero()) {
     return Fr.ZERO;
   }
   const gasToken = AztecAddress.fromBigInt(GAS_TOKEN_ADDRESS);
-  const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-  return computePublicDataTreeLeafSlot(gasToken, balanceSlot);
+  const feePayerBalanceContractStorageIndex = computeFeePayerBalanceContractStorageIndex(feePayer);
+  return computePublicDataTreeLeafSlot(gasToken, feePayerBalanceContractStorageIndex);
 }

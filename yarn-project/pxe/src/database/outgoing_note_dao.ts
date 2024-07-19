@@ -14,7 +14,7 @@ export class OutgoingNoteDao {
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
-    public storageSlot: Fr,
+    public storageSlot: Point,
     /** The note type identifier for the contract. */
     public noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. */

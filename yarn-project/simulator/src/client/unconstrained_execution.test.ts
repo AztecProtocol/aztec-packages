@@ -2,7 +2,7 @@ import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
 import { CompleteAddress, Header } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { mock } from 'jest-mock-extended';
@@ -57,11 +57,11 @@ describe('Unconstrained Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,
-          storageSlot: Fr.random(),
+          storageSlot: Point.random(),
           nonce: Fr.random(),
           isSome: new Fr(1),
           note,
-          innerNoteHash: Fr.random(),
+          innerNoteHashX: Fr.random(),
           siloedNullifier: Fr.random(),
           index: BigInt(index),
         })),

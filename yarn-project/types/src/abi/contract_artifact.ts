@@ -7,12 +7,11 @@ import {
   type FieldLayout,
   type FunctionArtifact,
   FunctionType,
-  type IntegerValue,
   NoteSelector,
   type StructValue,
   type TypedStructFieldValue,
 } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
@@ -229,9 +228,10 @@ function getStorageLayout(input: NoirCompiledContract) {
 
   return storageFields.reduce((acc: Record<string, FieldLayout>, field) => {
     const name = field.name;
-    const slot = field.value.fields[0].value as IntegerValue;
+    const slotX = Fr.fromString((field.value.fields[0].value as any).value);
+    const slotY = Fr.fromString((field.value.fields[1].value as any).value);
     acc[name] = {
-      slot: Fr.fromString(slot.value),
+      slot: new Point(slotX, slotY, false),
     };
     return acc;
   }, {});

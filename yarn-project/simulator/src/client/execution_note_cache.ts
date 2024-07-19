@@ -1,6 +1,6 @@
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
 
@@ -55,7 +55,7 @@ export class ExecutionNoteCache {
     // Find and remove the matching new note and log(s) if the emitted innerNoteHash is not empty.
     if (!innerNoteHash.equals(Fr.ZERO)) {
       const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
-      const noteIndexToRemove = notes.findIndex(n => n.note.innerNoteHash.equals(innerNoteHash));
+      const noteIndexToRemove = notes.findIndex(n => n.note.innerNoteHashX.equals(innerNoteHash));
       if (noteIndexToRemove === -1) {
         throw new Error('Attempt to remove a pending note that does not exist.');
       }
@@ -72,7 +72,7 @@ export class ExecutionNoteCache {
    * @param contractAddress - Contract address of the notes.
    * @param storageSlot - Storage slot of the notes.
    **/
-  public getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
+  public getNotes(contractAddress: AztecAddress, storageSlot: Point) {
     const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
     return notes.filter(n => n.note.storageSlot.equals(storageSlot)).map(n => n.note);
   }
@@ -85,7 +85,7 @@ export class ExecutionNoteCache {
    **/
   public checkNoteExists(contractAddress: AztecAddress, innerNoteHash: Fr) {
     const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
-    return notes.some(n => n.note.innerNoteHash.equals(innerNoteHash));
+    return notes.some(n => n.note.innerNoteHashX.equals(innerNoteHash));
   }
 
   /**

@@ -2,7 +2,7 @@ import { PublicKernelType, type Tx, type TxValidator } from '@aztec/circuit-type
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { GasTokenArtifact } from '@aztec/protocol-contracts/gas-token';
-import { AbstractPhaseManager, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
+import { AbstractPhaseManager, computeFeePayerBalanceContractStorageIndex } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -51,7 +51,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     // Read current balance of the feePayer
     const initialBalance = await this.#publicDataSource.storageRead(
       this.#gasTokenAddress,
-      computeFeePayerBalanceStorageSlot(feePayer),
+      computeFeePayerBalanceContractStorageIndex(feePayer),
     );
 
     // If there is a claim in this tx that increases the fee payer balance in gas token, add it to balance

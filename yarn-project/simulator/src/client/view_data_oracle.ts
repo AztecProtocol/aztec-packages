@@ -10,7 +10,7 @@ import {
 import { type Header, type KeyValidationRequest } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
 
@@ -204,7 +204,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns Array of note data.
    */
   public override async getNotes(
-    storageSlot: Fr,
+    storageSlot: Point,
     numSelects: number,
     selectByIndexes: number[],
     selectByOffsets: number[],

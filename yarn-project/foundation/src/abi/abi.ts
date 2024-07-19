@@ -1,6 +1,6 @@
 import { inflate } from 'pako';
 
-import { type Fr } from '../fields/fields.js';
+import { type Point } from '../fields/point.js';
 import { type FunctionSelector } from './function_selector.js';
 import { type NoteSelector } from './note_selector.js';
 
@@ -289,7 +289,7 @@ export type FieldLayout = {
   /**
    * Slot in which the field is stored.
    */
-  slot: Fr;
+  slot: Point;
 };
 
 /**

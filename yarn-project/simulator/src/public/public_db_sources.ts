@@ -9,6 +9,7 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
+  Point,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -127,11 +128,11 @@ export class WorldStatePublicDB implements PublicStateDB {
   /**
    * Reads a value from public storage, returning zero if none.
    * @param contract - Owner of the storage.
-   * @param slot - Slot to read in the contract storage.
+   * @param contractStorageIndex - Storage index to read in the contract storage.
    * @returns The current value in the storage slot.
    */
-  public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot).value;
+  public async storageRead(contract: AztecAddress, contractStorageIndex: Fr): Promise<Fr> {
+    const leafSlot = computePublicDataTreeLeafSlot(contract, contractStorageIndex).toBigInt();
     const uncommitted = this.uncommittedWriteCache.get(leafSlot);
     if (uncommitted !== undefined) {
       return uncommitted;
@@ -161,12 +162,12 @@ export class WorldStatePublicDB implements PublicStateDB {
   /**
    * Records a write to public storage.
    * @param contract - Owner of the storage.
-   * @param slot - Slot to read in the contract storage.
+   * @param contractStorageIndex - Storage index to write in the contract storage.
    * @param newValue - The new value to store.
    * @returns The slot of the written leaf in the public data tree.
    */
-  public storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
-    const index = computePublicDataTreeLeafSlot(contract, slot).value;
+  public storageWrite(contract: AztecAddress, contractStorageIndex: Fr, newValue: Fr): Promise<bigint> {
+    const index = computePublicDataTreeLeafSlot(contract, contractStorageIndex).toBigInt();
     this.uncommittedWriteCache.set(index, newValue);
     return Promise.resolve(index);
   }

@@ -30,11 +30,11 @@ export interface NoteData {
   /** The contract address of the note. */
   contractAddress: AztecAddress;
   /** The storage slot of the note. */
-  storageSlot: Fr;
+  storageSlot: Point;
   /** The nonce of the note. */
   nonce: Fr;
   /** The inner note hash of the note. */
-  innerNoteHash: Fr;
+  innerNoteHashX: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the note hash tree. Undefined for pending notes. */
@@ -146,7 +146,7 @@ export abstract class TypedOracle {
   }
 
   getNotes(
-    _storageSlot: Fr,
+    _storageSlot: Point,
     _numSelects: number,
     _selectByIndexes: number[],
     _selectByOffsets: number[],
@@ -165,10 +165,10 @@ export abstract class TypedOracle {
   }
 
   notifyCreatedNote(
-    _storageSlot: Fr,
+    _storageSlot: Point,
     _noteTypeId: NoteSelector,
     _note: Fr[],
-    _innerNoteHash: Fr,
+    _innerNoteHashX: Fr,
     _counter: number,
   ): void {
     throw new OracleMethodNotAvailableError('notifyCreatedNote');

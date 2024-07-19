@@ -363,7 +363,7 @@ export class TXE implements TypedOracle {
   }
 
   getNotes(
-    storageSlot: Fr,
+    storageSlot: Point,
     numSelects: number,
     selectByIndexes: number[],
     selectByOffsets: number[],
@@ -404,7 +404,13 @@ export class TXE implements TypedOracle {
     return Promise.resolve(notes);
   }
 
-  notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], innerNoteHash: Fr, counter: number) {
+  notifyCreatedNote(
+    storageSlot: Point,
+    noteTypeId: NoteSelector,
+    noteItems: Fr[],
+    innerNoteHashX: Fr,
+    counter: number,
+  ) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -413,7 +419,7 @@ export class TXE implements TypedOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        innerNoteHash,
+        innerNoteHashX,
       },
       counter,
     );

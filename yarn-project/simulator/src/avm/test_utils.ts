@@ -23,8 +23,8 @@ export function mockStorageRead(hs: HostStorage, value: Fr) {
 }
 
 export function mockStorageReadWithMap(hs: HostStorage, mockedStorage: Map<bigint, Fr>) {
-  (hs.publicStateDb as jest.Mocked<PublicStateDB>).storageRead.mockImplementation((_address, slot) =>
-    Promise.resolve(mockedStorage.get(slot.toBigInt()) ?? Fr.ZERO),
+  (hs.publicStateDb as jest.Mocked<PublicStateDB>).storageRead.mockImplementation((_address, contractStorageIndex) =>
+    Promise.resolve(mockedStorage.get(contractStorageIndex.toBigInt()) ?? Fr.ZERO),
   );
 }
 

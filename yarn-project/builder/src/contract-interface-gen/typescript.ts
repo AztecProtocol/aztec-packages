@@ -196,7 +196,7 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
     .map(
       ([name, { slot }]) =>
         `${name}: {
-      slot: new Fr(${slot.toBigInt()}n),
+      slot: new Point(${slot.x.toBigInt()}n, ${slot.y.toBigInt()}n, false),
     }`,
     )
     .join(',\n');
