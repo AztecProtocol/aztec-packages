@@ -220,6 +220,15 @@ class MegaFlavor {
                              this->return_data, this->return_data_read_counts, this->return_data_read_tags };
         }
 
+        auto get_databus_inverses()
+        {
+            return RefArray{
+                this->calldata_inverses,
+                this->calldata_2_inverses,
+                this->return_data_inverses,
+            };
+        }
+
         MSGPACK_FIELDS(this->w_l,
                        this->w_r,
                        this->w_o,

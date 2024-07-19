@@ -82,8 +82,8 @@ polynomials,
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // Ensure the input does not contain a read gate or data that is being read
-        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero() &&
-               in.calldata_2_read_counts.is_zero();
+        return in.q_busread.is_zero() && in.calldata_read_counts.is_zero() && in.calldata_2_read_counts.is_zero() &&
+               in.return_data_read_counts.is_zero();
     }
 
     // Interface for easy access of databus components by column (bus_idx)
