@@ -56,7 +56,7 @@ if [[ $TO_EXTRACT == "l1-contracts" ]]; then
   # Output to JSON file
   echo $JSON_OUTPUT >./l1-contracts.json
 
-elif [[ $TO_EXTRACT == "private-key" ]]; then
+elif [[ $TO_EXTRACT == "account" ]]; then
   # Extract aztec account private key
   OUTPUT=$(cat $FILE_PATH)
 
