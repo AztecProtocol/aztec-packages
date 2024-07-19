@@ -140,7 +140,7 @@ export class Archiver implements ArchiveSource {
     }
 
     if (blockUntilSynced) {
-      this.log.info(`Performing initial chain sync`);
+      this.log.info(`Performing initial chain sync to rollup contract ${this.rollupAddress.toString()}`);
       await this.sync(blockUntilSynced);
     }
 
@@ -257,7 +257,7 @@ export class Archiver implements ArchiveSource {
         (blockMetadata, i) => new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i]),
       );
 
-      this.log.verbose(
+      (blocks.length ? this.log.verbose : this.log.debug)(
         `Retrieved ${blocks.length || 'no'} new L2 blocks between L1 blocks ${
           blocksSynchedTo + 1n
         } and ${currentL1BlockNumber}.`,
@@ -301,7 +301,9 @@ export class Archiver implements ArchiveSource {
     // Note it's ok to read repeated data here, since we're just using the largest number we see on the logs.
     await this.updateLastProvenL2Block(blocksSynchedTo, currentL1BlockNumber);
 
-    (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
+    if (retrievedBlocks.retrievedData.length > 0 || blockUntilSynced) {
+      (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
+    }
   }
 
   private async updateLastProvenL2Block(fromBlock: bigint, toBlock: bigint) {

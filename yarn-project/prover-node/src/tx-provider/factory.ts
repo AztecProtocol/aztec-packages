@@ -8,6 +8,6 @@ export function createTxProvider(config: TxProviderConfig): TxProvider {
     const node = createAztecNodeClient(config.txProviderNodeUrl);
     return new AztecNodeTxProvider(node);
   } else {
-    throw new Error(`Tx provider node URL is not set`);
+    throw new Error(`Aztec Node URL for Tx Provider is not set.`);
   }
 }

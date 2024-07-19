@@ -106,7 +106,7 @@ export class Sequencer {
     // TODO(palla/prover) This flag should not be needed: the sequencer should be initialized with a blockprover
     // that does not return proofs at all (just simulates circuits), and use that to determine whether to submit
     // proofs or not.
-    this.skipSubmitProofs = !!config.skipSubmitProofs;
+    this.skipSubmitProofs = !!config.sequencerSkipSubmitProofs;
   }
 
   /**
