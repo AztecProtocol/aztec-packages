@@ -54,11 +54,10 @@ class DataBusTests : public ::testing::Test {
      * @return Builder
      */
     static Builder construct_circuit_with_databus_reads(
+        Builder& builder,
         const std::function<void(Builder&, uint32_t)>& add_bus_data,
         const std::function<uint32_t(Builder&, uint32_t)>& read_bus_data)
     {
-        // Construct a circuit and add some ecc op gates and arithmetic gates
-        Builder builder = construct_test_builder();
 
         const uint32_t NUM_BUS_ENTRIES = 5; // number of entries in the bus column
         const uint32_t NUM_READS = 7;       // greater than size of bus to ensure duplicates
@@ -79,6 +78,33 @@ class DataBusTests : public ::testing::Test {
 
         return builder;
     }
+
+    static Builder construct_circuit_with_calldata_reads(Builder& builder)
+    {
+        // Define interfaces for the add and read methods for databus calldata
+        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata(witness_idx); };
+        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata(witness_idx); };
+
+        return construct_circuit_with_databus_reads(builder, add_method, read_method);
+    }
+
+    static Builder construct_circuit_with_calldata_2_reads(Builder& builder)
+    {
+        // Define interfaces for the add and read methods for databus calldata_2
+        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata_2(witness_idx); };
+        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata_2(witness_idx); };
+
+        return construct_circuit_with_databus_reads(builder, add_method, read_method);
+    }
+
+    static Builder construct_circuit_with_return_data_reads(Builder& builder)
+    {
+        // Define interfaces for the add and read methods for databus return data
+        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_return_data(witness_idx); };
+        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_return_data(witness_idx); };
+
+        return construct_circuit_with_databus_reads(builder, add_method, read_method);
+    }
 };
 
 /**
@@ -87,13 +113,9 @@ class DataBusTests : public ::testing::Test {
  */
 TEST_F(DataBusTests, CallDataRead)
 {
-    // Define the add and read methods for databus calldata
-    auto add_calldata = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata(witness_idx); };
-    auto read_calldata = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata(witness_idx); };
+    Builder builder = construct_test_builder();
+    construct_circuit_with_calldata_reads(builder);
 
-    Builder builder = construct_circuit_with_databus_reads(add_calldata, read_calldata);
-
-    // Construct and verify Honk proof
     EXPECT_TRUE(construct_and_verify_proof(builder));
 }
 
@@ -103,13 +125,9 @@ TEST_F(DataBusTests, CallDataRead)
  */
 TEST_F(DataBusTests, CallData2Read)
 {
-    // Define the add and read methods for databus calldata_2
-    auto add_calldata_2 = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata_2(witness_idx); };
-    auto read_calldata_2 = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata_2(witness_idx); };
+    Builder builder = construct_test_builder();
+    construct_circuit_with_calldata_2_reads(builder);
 
-    Builder builder = construct_circuit_with_databus_reads(add_calldata_2, read_calldata_2);
-
-    // Construct and verify Honk proof
     EXPECT_TRUE(construct_and_verify_proof(builder));
 }
 
@@ -119,55 +137,29 @@ TEST_F(DataBusTests, CallData2Read)
  */
 TEST_F(DataBusTests, ReturnDataRead)
 {
-    // Define the add and read methods for databus return data
-    auto add_return_data = [](Builder& builder, uint32_t witness_idx) { builder.add_public_return_data(witness_idx); };
-    auto read_return_data = [](Builder& builder, uint32_t witness_idx) {
-        return builder.read_return_data(witness_idx);
-    };
+    Builder builder = construct_test_builder();
+    construct_circuit_with_return_data_reads(builder);
 
-    Builder builder = construct_circuit_with_databus_reads(add_return_data, read_return_data);
-
-    // Construct and verify Honk proof
     EXPECT_TRUE(construct_and_verify_proof(builder));
 }
 
 /**
- * @brief Test reads from calldata and return data in the same circuit
+ * @brief Test proof construction/verification for a circuit with reads from all bus columns
  *
  */
-TEST_F(DataBusTests, CallDataAndReturnData)
+TEST_F(DataBusTests, ReadAll)
 {
-    // Construct a circuit and add some ecc op gates and arithmetic gates
-    auto builder = construct_test_builder();
+    Builder builder = construct_test_builder();
+    construct_circuit_with_calldata_reads(builder);
+    construct_circuit_with_calldata_2_reads(builder);
+    construct_circuit_with_return_data_reads(builder);
 
-    // Add some values to calldata
-    std::vector<FF> calldata_values = { 5, 27, 11 };
-    for (auto& val : calldata_values) {
-        builder.add_public_calldata(builder.add_variable(val));
-    }
-
-    // Add some values to return_data
-    std::vector<FF> return_data_values = { 7, 10 };
-    for (auto& val : return_data_values) {
-        builder.add_public_return_data(builder.add_variable(val));
-    }
-
-    // Make some aribitrary reads from calldata and return data
-    uint32_t read_idx = 2;
-    uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
-    builder.read_calldata(read_idx_witness_idx);
-
-    read_idx = 0;
-    read_idx_witness_idx = builder.add_variable(read_idx);
-    builder.read_return_data(read_idx_witness_idx);
-
-    // Construct and verify Honk proof
-    bool result = construct_and_verify_proof(builder);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(construct_and_verify_proof(builder));
 }
 
 /**
- * @brief Test proof construction/verification for a circuit with duplicate calldata reads
+ * @brief Test proof construction/verification for a circuit with duplicate calldata reads and some explicit checks that
+ * the read results are correct
  *
  */
 TEST_F(DataBusTests, CallDataDuplicateRead)
