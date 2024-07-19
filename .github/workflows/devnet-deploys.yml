@@ -48,12 +48,12 @@ jobs:
         with:
           concurrency_key: build-release-artifacts-${{ github.actor }}
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-      - name: "Build & Push aztec images"
-        timeout-minutes: 40
-        # Run the build steps for each image with version and arch, push to dockerhub
-        run: |
-          earthly-ci \
-          --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
+      # - name: "Build & Push aztec images"
+      #   timeout-minutes: 40
+      #   # Run the build steps for each image with version and arch, push to dockerhub
+      #   run: |
+      #     earthly-ci \
+      #     --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
 
       - name: Check if mainnet fork needs deployment
         id: check_fork_changes
