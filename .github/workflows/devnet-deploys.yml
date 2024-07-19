@@ -133,7 +133,6 @@ jobs:
 
       - name: Wait for PXE to be available
         run: |
-          sleep 10
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
 
       - name: Bootstrap devnet
@@ -154,6 +153,7 @@ jobs:
 
 
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy TokenContract \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
             --args $AZTEC_ADDRESS DevCoin DEV 18 \
             --private-key $AZTEC_PRIVATE_KEY \
             --public-deployment \
@@ -161,12 +161,13 @@ jobs:
           source ./.github/scripts/extract_output.sh l2-contract ./token_contract.txt TOKEN_CONTRACT_ADDRESS
 
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy FPCContract \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
             --args $TOKEN_CONTRACT_ADDRESS $FEE_JUICE_ADDRESS \
             --private-key $AZTEC_PRIVATE_KEY \
             --public-deployment \
             --class-registration \
             | tee ./fpc_contract.txt
-          source ./.github/scripts/extract_output.sh l2-contract ./FPC_contract.txt FPC_CONTRACT_ADDRESS
+          source ./.github/scripts/extract_output.sh l2-contract ./fpc_contract.txt FPC_CONTRACT_ADDRESS
 
       - name: Upload addreses to S3
         run: |
