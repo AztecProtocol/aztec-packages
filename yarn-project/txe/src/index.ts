@@ -1,6 +1,10 @@
+import { loadContractArtifact } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
+
+import { readFile, readdir } from 'fs/promises';
+import { dirname, join } from 'path';
 
 import { TXEService } from './txe_service/txe_service.js';
 import { ForeignCallArray, type ForeignCallResult, fromArray, toForeignCallResult } from './util/encoding.js';
@@ -14,6 +18,7 @@ type MethodNames<T> = {
 type TXEForeignCallInput = {
   session_id: number;
   function: MethodNames<TXEService> | 'reset';
+  program_artifact_path: string;
   inputs: any[];
 };
 
@@ -25,6 +30,7 @@ class TXEDispatcher {
     session_id: sessionId,
     function: functionName,
     inputs,
+    program_artifact_path,
   }: TXEForeignCallInput): Promise<ForeignCallResult> {
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
@@ -42,6 +48,25 @@ class TXEDispatcher {
         const pathStr = fromArray(inputs[0] as ForeignCallArray)
           .map(char => String.fromCharCode(char.toNumber()))
           .join('');
+        let inputPath = program_artifact_path;
+        // Is not the same contract we're testing
+        if (pathStr != '') {
+          // Workspace
+          if (pathStr.includes('@')) {
+            const [workspace, pkg] = pathStr.split('@');
+            const targetPath = join(dirname(inputPath), '../', workspace, './target');
+            this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
+            inputPath = join(targetPath, `${pkg}.json`);
+          } else {
+            // Individual contract
+            const targetPath = join(dirname(inputPath), '../', pathStr, './target');
+            this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
+            [inputPath] = (await readdir(targetPath)).filter(file => file.endsWith('.json'));
+          }
+        }
+        this.logger.debug(`Loading compiled artifact ${inputPath}`);
+        const artifact = loadContractArtifact(JSON.parse(await readFile(inputPath, 'utf-8')));
+        inputs[0] = artifact;
       }
       const txeService = TXESessions.get(sessionId);
       const response = await (txeService as any)[functionName](...inputs);

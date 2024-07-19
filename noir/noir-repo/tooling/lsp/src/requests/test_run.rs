@@ -86,6 +86,7 @@ fn on_test_run_request_inner(
                 &test_function,
                 false,
                 None,
+                workspace_file_manager.path(test_function.file_id()).map(|p| p.to_path_buf()),
                 &CompileOptions::default(),
             );
             let result = match test_result {

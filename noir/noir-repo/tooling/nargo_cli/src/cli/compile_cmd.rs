@@ -233,12 +233,8 @@ fn save_contract(
     target_dir: &Path,
     show_artifact_paths: bool,
 ) {
-    let contract_name = contract.name.clone();
-    let artifact_path = save_contract_to_file(
-        &contract.into(),
-        &format!("{}-{}", package.name, contract_name),
-        target_dir,
-    );
+    let artifact_path =
+        save_contract_to_file(&contract.into(), package.name.to_string().as_str(), target_dir);
     if show_artifact_paths {
         println!("Saved contract artifact to: {}", artifact_path.display());
     }

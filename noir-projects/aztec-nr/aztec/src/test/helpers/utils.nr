@@ -30,9 +30,9 @@ pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs:
 }
 
 struct Deployer<N> {
-        path: str<N>,
-        public_keys_hash: Field
-    }
+    path: str<N>,
+    public_keys_hash: Field
+}
 
 impl<N> Deployer<N> {
     pub fn with_private_initializer<C, M, Env>(

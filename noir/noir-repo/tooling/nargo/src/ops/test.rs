@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use acvm::{
     acir::native_types::{WitnessMap, WitnessStack},
     BlackBoxFunctionSolver, FieldElement,
@@ -29,6 +31,7 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
     test_function: &TestFunction,
     show_output: bool,
     foreign_call_resolver_url: Option<&str>,
+    program_artifact_path: Option<PathBuf>,
     config: &CompileOptions,
 ) -> TestStatus {
     let compiled_program = compile_no_check(context, config, test_function.get_id(), None, false);
@@ -40,7 +43,11 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                 &compiled_program.program,
                 WitnessMap::new(),
                 blackbox_solver,
-                &mut DefaultForeignCallExecutor::new(show_output, foreign_call_resolver_url),
+                &mut DefaultForeignCallExecutor::new(
+                    show_output,
+                    foreign_call_resolver_url,
+                    program_artifact_path,
+                ),
             );
             test_status_program_compile_pass(
                 test_function,

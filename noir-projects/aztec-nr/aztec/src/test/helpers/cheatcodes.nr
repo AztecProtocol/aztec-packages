@@ -55,8 +55,8 @@ unconstrained pub fn create_account() -> TestAccount {
     oracle_create_account()
 }
 
-unconstrained pub fn add_account(secret: Field, partial_address: PartialAddress) -> TestAccount {
-    oracle_add_account(secret, partial_address)
+unconstrained pub fn add_account(secret: Field) -> TestAccount {
+    oracle_add_account(secret)
 }
 
 unconstrained pub fn derive_keys(secret: Field) -> PublicKeys {
@@ -163,7 +163,7 @@ fn direct_storage_write_oracle<N>(
 fn oracle_create_account() -> TestAccount {}
 
 #[oracle(addAccount)]
-fn oracle_add_account(secret: Field, partial_address: PartialAddress) -> TestAccount {}
+fn oracle_add_account(secret: Field) -> TestAccount {}
 
 #[oracle(deriveKeys)]
 fn oracle_derive_keys(secret: Field) -> PublicKeys {}

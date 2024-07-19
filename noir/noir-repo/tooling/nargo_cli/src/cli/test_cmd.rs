@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, path::PathBuf};
 
 use acvm::{BlackBoxFunctionSolver, FieldElement};
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
@@ -92,6 +92,7 @@ pub(crate) fn run(args: TestCommand, config: NargoConfig) -> Result<(), CliError
                 pattern,
                 args.show_output,
                 args.oracle_resolver.as_deref(),
+                Some(workspace.package_build_path(package)),
                 &args.compile_options,
             )
         })
@@ -127,6 +128,7 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     fn_name: FunctionNameMatch,
     show_output: bool,
     foreign_call_resolver_url: Option<&str>,
+    program_artifact_path: Option<PathBuf>,
     compile_options: &CompileOptions,
 ) -> Result<Vec<(String, TestStatus)>, CliError> {
     let test_functions =
@@ -147,6 +149,7 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
                 &test_name,
                 show_output,
                 foreign_call_resolver_url,
+                program_artifact_path.clone(),
                 compile_options,
             );
 
@@ -165,6 +168,7 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     fn_name: &str,
     show_output: bool,
     foreign_call_resolver_url: Option<&str>,
+    program_artifact_path: Option<PathBuf>,
     compile_options: &CompileOptions,
 ) -> TestStatus {
     // This is really hacky but we can't share `Context` or `S` across threads.
@@ -201,6 +205,7 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
             test_function,
             show_output,
             foreign_call_resolver_url,
+            program_artifact_path,
             compile_options,
         )
     } else {

@@ -10,7 +10,7 @@ export function injectCommands(program: Command) {
     .description('Validates and generates an Aztec Contract ABI from Noir ABI.')
     .action(async (noirAbiPath: string, { outdir, force }) => {
       const { generateCode } = await import('./contract-interface-gen/codegen.js');
-      generateCode(outdir || dirname(noirAbiPath), noirAbiPath, { force });
+      await generateCode(outdir || dirname(noirAbiPath), noirAbiPath, { force });
     });
   return program;
 }
