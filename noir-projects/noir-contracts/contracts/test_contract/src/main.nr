@@ -506,7 +506,7 @@ contract Test {
     // keys to the pxe, this function will return nothing, but the public key getters will return the correct value
     #[aztec(private)]
     fn test_shared_mutable_private_getter_for_registry_contract(
-        storage_slot_of_shared_mutable: Field,
+        storage_slot_of_shared_mutable: Point,
         address_to_get_in_registry: AztecAddress
     ) -> Field {
         // We have to derive this slot to get the location of the shared mutable inside the Map

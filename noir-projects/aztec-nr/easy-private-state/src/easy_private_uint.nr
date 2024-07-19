@@ -1,6 +1,5 @@
 use dep::aztec::{
-    context::PrivateContext, protocol_types::{address::AztecAddress},
-    note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
+    prelude::{AztecAddress, Point, NoteGetterOptions, PrivateSet, PrivateContext},
     encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
@@ -14,7 +13,6 @@ struct EasyPrivateUint<Context> {
 // Holds a note that can act similarly to an int.
 impl<Context> EasyPrivateUint<Context> {
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         let set = PrivateSet::new(context, storage_slot);
         EasyPrivateUint { context, set, storage_slot }
     }

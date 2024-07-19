@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map, Point};
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext}, hash::pedersen_hash,
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -12,7 +12,6 @@ struct BalancesMap<T, Context> {
 
 impl<T, Context> BalancesMap<T, Context> {
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
             map: Map::new(
                 context,

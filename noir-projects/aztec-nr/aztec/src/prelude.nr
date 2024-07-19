@@ -1,7 +1,7 @@
 // docs:start:prelude
 use dep::protocol_types::{
-    address::{AztecAddress, EthAddress}, abis::function_selector::FunctionSelector,
-    traits::{Serialize, Deserialize}
+    address::{AztecAddress, EthAddress}, abis::function_selector::FunctionSelector, point::Point,
+    scalar::Scalar, traits::{Serialize, Deserialize}
 };
 use crate::{
     state_vars::{

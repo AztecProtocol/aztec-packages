@@ -16,7 +16,7 @@ contract DocsExample {
     use dep::aztec::prelude::{
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
-        PrivateSet, SharedImmutable, Deserialize
+        PrivateSet, SharedImmutable, Deserialize, Point
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
     use dep::aztec::note::note_getter_options::Comparator;
@@ -57,37 +57,87 @@ contract DocsExample {
         fn init(context: Context) -> Self {
             Storage {
                 // docs:start:storage-leader-init
-                leader: PublicMutable::new(context, 1),
+                leader: PublicMutable::new(
+                    context,
+                    Point {
+                    x: 0x142d6868faa787849780a723886031bf588b51e4b2441bd56a43c3c72bdb8703,
+                    y: 0x2f09ef226e0480cb6ce0167a9d23c2145a2d5e43ac174e24add8d74ce818b65a,
+                    is_infinite: false
+                }
+                ),
                 // docs:end:storage-leader-init
                 // docs:start:start_vars_private_mutable
-                legendary_card: PrivateMutable::new(context, 3),
+                legendary_card: PrivateMutable::new(
+                    context,
+                    Point {
+                    x: 0x198e10938d4d26290e6ade7d9e9ea87f5a4c701e9bd147627280ee276fcde336,
+                    y: 0x0e530ece3dd640032714f5cd0e6962b86f5cec4983ff1efa69cab06122463938,
+                    is_infinite: false
+                }
+                ),
                 // docs:end:start_vars_private_mutable
                 // just used for docs example (not for game play):
                 // docs:start:state_vars-MapPrivateMutable
                 profiles: Map::new(
                     context,
-                    4,
+                    Point {
+                    x: 0x22ac8d641e92d7a37aa4844cf960a28c424803161b497027da41f3b017cf3fb9,
+                    y: 0x126d7a194bba564d97f368bdf6705c7c9eee63a6ab193de975fae9eee1363ae0,
+                    is_infinite: false
+                },
                     |context, slot| {
                         PrivateMutable::new(context, slot)
                     }
                 ),
                 // docs:end:state_vars-MapPrivateMutable
                 // docs:start:storage-set-init
-                set: PrivateSet::new(context, 5),
+                set: PrivateSet::new(
+                    context,
+                    Point {
+                    x: 0x2dcd7369f68ab040ceefa358a43b5ddf0732b9ab8e6af185d30acbf839a542b0,
+                    y: 0x08b2d53e1bab1092588c21af19108bbd75616de5c8ee00961a3e903caecc7ca6,
+                    is_infinite: false
+                }
+                ),
                 // docs:end:storage-set-init
-                private_immutable: PrivateImmutable::new(context, 6),
-                shared_immutable: SharedImmutable::new(context, 7),
+                private_immutable: PrivateImmutable::new(
+                    context,
+                    Point {
+                    x: 0x0f36bfc97f61a23fa3c80b5667d4d18c56e87048fad37a533363ed5b2ab67039,
+                    y: 0x2782850331ec7617a09557275372abae8f2bb0b51005071d2d2d2c9ce53421c2,
+                    is_infinite: false
+                }
+                ),
+                shared_immutable: SharedImmutable::new(
+                    context,
+                    Point {
+                    x: 0x03d0f4524aa2db53c6d63b9b8a3ab02208c805ba7da32a1983d40b7ec6a6de88,
+                    y: 0x1f431a0d6cbf170a81594cc99478b27f685b127e36b46427a785e373e1d37b75,
+                    is_infinite: false
+                }
+                ),
                 // docs:start:storage-minters-init
                 minters: Map::new(
                     context,
-                    8,
+                    Point {
+                    x: 0x005be2340655f5fdfaccc9cb9a0c4cfa2af31dd76217e5574e45db7c62ceb7e8,
+                    y: 0x2287e3503fd3285ad205fc11ba372d5757a9354d16508f343dba1a72bf9c1aee,
+                    is_infinite: false
+                },
                     |context, slot| {
                         PublicMutable::new(context, slot)
                     }
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
-                public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
+                public_immutable: PublicImmutable::new(
+                    context,
+                    Point {
+                    x: 0x0e6997504ff8a5926e8c2065687fa566f1fab70ee275c1e18607275c9aae994e,
+                    y: 0x0436a91e9c1a642d44040600fc72769d13c63969a4a03a80892305e37fa57d25,
+                    is_infinite: false
+                }
+                )// docs:end:storage-public-immutable
             }
         }
     }
