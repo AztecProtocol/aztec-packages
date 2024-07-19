@@ -77,7 +77,6 @@ use rustc_hash::FxHashMap as HashMap;
 
 use self::traits::check_trait_impl_method_matches_declaration;
 
-use self::traits::check_trait_impl_method_matches_declaration;
 
 /// ResolverMetas are tagged onto each definition to track how many times they are used
 #[derive(Debug, PartialEq, Eq)]
