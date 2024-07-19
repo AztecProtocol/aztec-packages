@@ -67,9 +67,9 @@ elif [[ $TO_EXTRACT == "private-key" ]]; then
   echo "AZTEC_PRIVATE_KEY=$AZTEC_PRIVATE_KEY" >>$GITHUB_ENV
   echo "AZTEC_ADDRESS=$AZTEC_ADDRESS" >>$GITHUB_ENV
 
-  # Print for debugging CI
-  echo "AZTEC_PRIVATE_KEY=$AZTEC_PRIVATE_KEY"
-  echo "AZTEC_ADDRESS=$AZTEC_ADDRESS"
+  # Export
+  export AZTEC_PRIVATE_KEY=$AZTEC_PRIVATE_KEY
+  export AZTEC_ADDRESS=$AZTEC_ADDRESS
 
 elif [[ $TO_EXTRACT == "l2-bootstrap" ]]; then
   # Extract l2 bootstrap contract addresses
@@ -88,10 +88,10 @@ elif [[ $TO_EXTRACT == "l2-bootstrap" ]]; then
   echo "AUTH_REGISTRY_ADDRESS=$AUTH_REGISTRY_ADDRESS" >>$GITHUB_ENV
   echo "FEE_JUICE_ADDRESS=$FEE_JUICE_ADDRESS" >>$GITHUB_ENV
 
-  # Print for debugging CI
-  echo "KEY_REGISTRY_ADDRESS=$KEY_REGISTRY_ADDRESS"
-  echo "AUTH_REGISTRY_ADDRESS=$AUTH_REGISTRY_ADDRESS"
-  echo "FEE_JUICE_ADDRESS=$FEE_JUICE_ADDRESS"
+  # Export
+  export KEY_REGISTRY_ADDRESS=$KEY_REGISTRY_ADDRESS
+  export AUTH_REGISTRY_ADDRESS=$AUTH_REGISTRY_ADDRESS
+  export FEE_JUICE_ADDRESS=$FEE_JUICE_ADDRESS
 
 elif [[ $TO_EXTRACT == "l2-contract" ]]; then
   # Extract l2 contract addresses
@@ -103,4 +103,7 @@ elif [[ $TO_EXTRACT == "l2-contract" ]]; then
   CONTRACT_ADDRESS=$(echo "$OUTPUT" | grep "Contract deployed at" | awk '{print $NF}')
 
   echo "$TOKEN_CONTRACT_NAME=$CONTRACT_ADDRESS" >>$GITHUB_ENV
+
+  # Export
+  export $TOKEN_CONTRACT_NAME=$CONTRACT_ADDRESS
 fi
