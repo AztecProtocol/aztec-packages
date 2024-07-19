@@ -213,8 +213,12 @@ mod tests {
 
     fn to_negative(a: u128, bit_size: IntegerBitSize) -> u128 {
         assert!(a > 0);
-        let two_pow = 2_u128.pow(bit_size.into());
-        two_pow - a
+        if bit_size == IntegerBitSize::U128 {
+            0_u128.wrapping_sub(a)
+        } else {
+            let two_pow = 2_u128.pow(bit_size.into());
+            two_pow - a
+        }
     }
 
     fn evaluate_int_ops(test_params: Vec<TestParams>, op: BinaryIntOp, bit_size: IntegerBitSize) {
@@ -234,6 +238,13 @@ mod tests {
             TestParams { a: to_negative(3, bit_size), b: 1, result: to_negative(2, bit_size) },
             TestParams { a: 5, b: to_negative(6, bit_size), result: to_negative(1, bit_size) },
         ];
+        evaluate_int_ops(test_ops, BinaryIntOp::Add, bit_size);
+
+        let bit_size = IntegerBitSize::U128;
+        let test_ops = vec![
+            TestParams { a: 5, b: to_negative(3, bit_size), result: 2 },
+            TestParams { a: to_negative(3, bit_size), b: 1, result: to_negative(2, bit_size) },
+        ];
 
         evaluate_int_ops(test_ops, BinaryIntOp::Add, bit_size);
     }
@@ -249,7 +260,14 @@ mod tests {
             TestParams { a: to_negative(3, bit_size), b: 2, result: to_negative(5, bit_size) },
             TestParams { a: 254, b: to_negative(3, bit_size), result: 1 },
         ];
+        evaluate_int_ops(test_ops, BinaryIntOp::Sub, bit_size);
 
+        let bit_size = IntegerBitSize::U128;
+
+        let test_ops = vec![
+            TestParams { a: 5, b: 10, result: to_negative(5, bit_size) },
+            TestParams { a: to_negative(3, bit_size), b: 2, result: to_negative(5, bit_size) },
+        ];
         evaluate_int_ops(test_ops, BinaryIntOp::Sub, bit_size);
     }
 
@@ -273,6 +291,16 @@ mod tests {
 
         // ( 2**(n-1) - 1 ) * 3 = 2*2**(n-1) - 2 + (2**(n-1) - 1) => wraps to (2**(n-1) - 1) - 2
         assert_eq!(evaluate_u128(&BinaryIntOp::Mul, a, b, bit_size), a - 2);
+
+        let bit_size = IntegerBitSize::U128;
+
+        let test_ops = vec![
+            TestParams { a: to_negative(1, bit_size), b: to_negative(5, bit_size), result: 5 },
+            TestParams { a: to_negative(1, bit_size), b: 5, result: to_negative(5, bit_size) },
+            TestParams { a: to_negative(2, bit_size), b: 7, result: to_negative(14, bit_size) },
+        ];
+
+        evaluate_int_ops(test_ops, BinaryIntOp::Mul, bit_size);
     }
 
     #[test]
