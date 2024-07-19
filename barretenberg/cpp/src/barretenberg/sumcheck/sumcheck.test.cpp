@@ -234,7 +234,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             verifier_gate_challenges[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-            info("verifier gate challenge: ", verifier_gate_challenges[idx]);
         }
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 

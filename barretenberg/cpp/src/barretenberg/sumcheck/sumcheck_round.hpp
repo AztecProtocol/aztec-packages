@@ -85,7 +85,7 @@ template <typename Flavor> class SumcheckProverRound {
         EvalMaskingScalars eval_masking_scalars;
         EvaluationMaskingTable masking_terms_evaluations;
         LibraUnivariates libra_univariates;
-        FF libra_scaling_factor;
+        FF libra_scaling_factor{ 1 };
         FF libra_challenge;
         FF libra_running_sum;
         ClaimedLibraEvaluations libra_evaluations;
@@ -397,8 +397,20 @@ template <typename Flavor> class SumcheckProverRound {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
+        // Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+            // If not, accumulate normally
+            Relation::accumulate(
+                std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
+        } else {
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_edges)) {
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_edges,
+                                     relation_parameters,
+                                     scaling_factor);
+            }
+        }
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
             accumulate_relation_univariates<relation_idx + 1>(

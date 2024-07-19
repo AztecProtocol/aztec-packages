@@ -744,13 +744,11 @@ template <typename Flavor> class SumcheckVerifier {
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
-            bool checked(true);
             // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
             // challenge
             if ((round_idx == 0) && (Flavor::HasZK)) {
                 round.target_total_sum += libra_total_sum * libra_challenge;
             };
-            verified = verified && checked;
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
@@ -808,7 +806,7 @@ template <typename Flavor> class SumcheckVerifier {
             final_check = (full_honk_purported_value == round.target_total_sum);
         }
         verified = final_check && verified;
-        return { multivariate_challenge, purported_evaluations, verified };
+        return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
     };
 };
 } // namespace bb
