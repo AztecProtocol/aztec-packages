@@ -312,6 +312,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
+    std::array<uint32_t, 16> agg_obj_indices;
+
     bool circuit_finalized = false;
 
     void process_non_native_field_multiplications();
@@ -343,6 +345,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
                          bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
+        initialize_agg_obj();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
 
         for (size_t idx = 0; idx < varnum; ++idx) {
@@ -366,6 +369,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
         : CircuitBuilderBase<FF>(std::move(other))
     {
+        initialize_agg_obj();
+
         blocks = other.blocks;
         constant_variable_indices = other.constant_variable_indices;
 
@@ -382,6 +387,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other)
     {
         CircuitBuilderBase<FF>::operator=(std::move(other));
+
         blocks = other.blocks;
         constant_variable_indices = other.constant_variable_indices;
 
@@ -393,6 +399,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
         memory_write_records = other.memory_write_records;
         cached_partial_non_native_field_multiplications = other.cached_partial_non_native_field_multiplications;
         circuit_finalized = other.circuit_finalized;
+        agg_obj_indices = other.agg_obj_indices;
         return *this;
     };
     ~UltraCircuitBuilder_() override = default;
@@ -817,6 +824,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     uint256_t hash_circuit();
 
     msgpack::sbuffer export_circuit() override;
+
+    void initialize_agg_obj();
+
+    void aggregate(const std::array<uint32_t, 16>& agg_obj_indices);
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

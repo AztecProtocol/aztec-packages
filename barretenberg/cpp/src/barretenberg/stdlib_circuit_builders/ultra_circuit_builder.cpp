@@ -6,6 +6,10 @@
  *
  */
 #include "ultra_circuit_builder.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
 #include <unordered_map>
 #include <unordered_set>
@@ -2824,6 +2828,88 @@ template <typename Arithmetization> msgpack::sbuffer UltraCircuitBuilder_<Arithm
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, cir);
     return buffer;
+}
+
+template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::initialize_agg_obj()
+{
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
+    // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+    fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+    fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+
+    fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+    fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+    std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+    size_t agg_obj_indices_idx = 0;
+    using fq_ct = stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>;
+    for (fq val : aggregation_object_fq_values) {
+        const uint256_t x = val;
+        std::array<fr, fq_ct::NUM_LIMBS> val_limbs = { x.slice(0, fq_ct::NUM_LIMB_BITS),
+                                                       x.slice(fq_ct::NUM_LIMB_BITS, fq_ct::NUM_LIMB_BITS * 2),
+                                                       x.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 3),
+                                                       x.slice(fq_ct::NUM_LIMB_BITS * 3,
+                                                               stdlib::field_conversion::TOTAL_BITS) };
+        for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
+            uint32_t idx = this->add_variable(val_limbs[i]);
+            this->agg_obj_indices[agg_obj_indices_idx] = idx;
+            agg_obj_indices_idx++;
+        }
+    }
+}
+
+template <typename Arithmetization>
+std::array<typename stdlib::bn254<UltraCircuitBuilder_<Arithmetization>>::Group, 2> agg_points_from_witness_indicies(
+    UltraCircuitBuilder_<Arithmetization>& builder, const std::array<uint32_t, 16>& obj_witness_indices)
+{
+    using bn254 = stdlib::bn254<UltraCircuitBuilder_<Arithmetization>>;
+    using field_ct = stdlib::field_t<UltraCircuitBuilder_<Arithmetization>>;
+
+    std::array<typename bn254::BaseField, 4> aggregation_elements;
+    for (size_t i = 0; i < 4; ++i) {
+        aggregation_elements[i] =
+            typename bn254::BaseField(field_ct::from_witness_index(&builder, obj_witness_indices[4 * i]),
+                                      field_ct::from_witness_index(&builder, obj_witness_indices[4 * i + 1]),
+                                      field_ct::from_witness_index(&builder, obj_witness_indices[4 * i + 2]),
+                                      field_ct::from_witness_index(&builder, obj_witness_indices[4 * i + 3]));
+        aggregation_elements[i].assert_is_in_field();
+    }
+
+    return { typename bn254::Group(aggregation_elements[0], aggregation_elements[1]),
+             typename bn254::Group(aggregation_elements[2], aggregation_elements[3]) };
+}
+
+template <typename Arithmetization>
+void UltraCircuitBuilder_<Arithmetization>::aggregate(const std::array<uint32_t, 16>& to_be_aggregated_agg_obj_indices)
+{
+    using bn254 = stdlib::bn254<UltraCircuitBuilder_<Arithmetization>>;
+
+    // convert it to group elements
+    std::array<typename bn254::Group, 2> cur_agg_points = agg_points_from_witness_indicies(*this, agg_obj_indices);
+    std::array<typename bn254::Group, 2> agg_points =
+        agg_points_from_witness_indicies(*this, to_be_aggregated_agg_obj_indices);
+
+    cur_agg_points[0] += agg_points[0];
+    cur_agg_points[1] += agg_points[1];
+
+    // convert back to witness values
+    agg_obj_indices = {
+        cur_agg_points[0].x.binary_basis_limbs[0].element.normalize().witness_index,
+        cur_agg_points[0].x.binary_basis_limbs[1].element.normalize().witness_index,
+        cur_agg_points[0].x.binary_basis_limbs[2].element.normalize().witness_index,
+        cur_agg_points[0].x.binary_basis_limbs[3].element.normalize().witness_index,
+        cur_agg_points[0].y.binary_basis_limbs[0].element.normalize().witness_index,
+        cur_agg_points[0].y.binary_basis_limbs[1].element.normalize().witness_index,
+        cur_agg_points[0].y.binary_basis_limbs[2].element.normalize().witness_index,
+        cur_agg_points[0].y.binary_basis_limbs[3].element.normalize().witness_index,
+        cur_agg_points[1].x.binary_basis_limbs[0].element.normalize().witness_index,
+        cur_agg_points[1].x.binary_basis_limbs[1].element.normalize().witness_index,
+        cur_agg_points[1].x.binary_basis_limbs[2].element.normalize().witness_index,
+        cur_agg_points[1].x.binary_basis_limbs[3].element.normalize().witness_index,
+        cur_agg_points[1].y.binary_basis_limbs[0].element.normalize().witness_index,
+        cur_agg_points[1].y.binary_basis_limbs[1].element.normalize().witness_index,
+        cur_agg_points[1].y.binary_basis_limbs[2].element.normalize().witness_index,
+        cur_agg_points[1].y.binary_basis_limbs[3].element.normalize().witness_index,
+    };
 }
 
 template class UltraCircuitBuilder_<UltraArith<bb::fr>>;
