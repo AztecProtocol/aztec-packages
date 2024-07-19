@@ -60,12 +60,16 @@ elif [[ $TO_EXTRACT == "private-key" ]]; then
   # Extract aztec account private key
   OUTPUT=$(cat $FILE_PATH)
 
-  PRIVATE_KEY=$(echo "$OUTPUT" | grep "Private key:" | awk '{print $NF}')
-  ADDRESS=$(echo "$OUTPUT" | grep "Address:" | awk '{print $NF}')
+  AZTEC_PRIVATE_KEY=$(echo "$OUTPUT" | grep "Private key:" | awk '{print $NF}')
+  AZTEC_ADDRESS=$(echo "$OUTPUT" | grep "Address:" | awk '{print $NF}')
 
   # Print the private key and address into github env
-  echo "AZTEC_PRIVATE_KEY=$PRIVATE_KEY" >>$GITHUB_ENV
-  echo "AZTEC_ADDRESS=$ADDRESS" >>$GITHUB_ENV
+  echo "AZTEC_PRIVATE_KEY=$AZTEC_PRIVATE_KEY" >>$GITHUB_ENV
+  echo "AZTEC_ADDRESS=$AZTEC_ADDRESS" >>$GITHUB_ENV
+
+  # Print for debugging CI
+  echo "AZTEC_PRIVATE_KEY=$AZTEC_PRIVATE_KEY"
+  echo "AZTEC_ADDRESS=$AZTEC_ADDRESS"
 
 elif [[ $TO_EXTRACT == "l2-bootstrap" ]]; then
   # Extract l2 bootstrap contract addresses
@@ -83,6 +87,11 @@ elif [[ $TO_EXTRACT == "l2-bootstrap" ]]; then
   echo "KEY_REGISTRY_ADDRESS=$KEY_REGISTRY_ADDRESS" >>$GITHUB_ENV
   echo "AUTH_REGISTRY_ADDRESS=$AUTH_REGISTRY_ADDRESS" >>$GITHUB_ENV
   echo "FEE_JUICE_ADDRESS=$FEE_JUICE_ADDRESS" >>$GITHUB_ENV
+
+  # Print for debugging CI
+  echo "KEY_REGISTRY_ADDRESS=$KEY_REGISTRY_ADDRESS"
+  echo "AUTH_REGISTRY_ADDRESS=$AUTH_REGISTRY_ADDRESS"
+  echo "FEE_JUICE_ADDRESS=$FEE_JUICE_ADDRESS"
 
 elif [[ $TO_EXTRACT == "l2-contract" ]]; then
   # Extract l2 contract addresses
