@@ -114,7 +114,6 @@ impl<'f> FunctionInserter<'f> {
         block: BasicBlockId,
         call_stack: CallStack,
     ) -> InsertInstructionResult {
-        let toto = self.function.name().clone().to_string();
         let results = self.function.dfg.instruction_results(id);
         let results = vecmap(results, |id| self.function.dfg.resolve(*id));
 
@@ -127,7 +126,6 @@ impl<'f> FunctionInserter<'f> {
             block,
             ctrl_typevars,
             call_stack,
-            &toto,
         );
 
         Self::insert_new_instruction_results(&mut self.values, &results, &new_results);
