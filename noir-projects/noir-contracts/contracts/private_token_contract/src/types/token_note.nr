@@ -28,7 +28,7 @@ trait PrivatelyRefundable {
         incomplete_fee_payer_point: Point,
         incomplete_user_point: Point,
         transaction_fee: Field
-    ) -> (Field, Field);
+    ) -> (Point, Point);
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.

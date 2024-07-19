@@ -33,7 +33,7 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}
+        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, generators::derive_base_slot
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
@@ -304,16 +304,17 @@ contract Test {
 
     #[aztec(private)]
     fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
+        let image_of_one = derive_base_slot(1);
+        let mut storage_slot = storage.example_constant.get_storage_slot() + image_of_one;
         Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
-        storage_slot += 1;
+        storage_slot += image_of_one;
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
-        storage_slot += 1;
+        storage_slot += image_of_one;
         Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }
 
@@ -488,7 +489,7 @@ contract Test {
     #[aztec(private)]
     fn test_shared_mutable_private_getter(
         contract_address_to_read: AztecAddress,
-        storage_slot_of_shared_mutable: Field
+        storage_slot_of_shared_mutable: Point
     ) -> Field {
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
         let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
