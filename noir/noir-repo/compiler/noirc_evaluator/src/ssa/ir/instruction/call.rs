@@ -489,9 +489,7 @@ fn simplify_black_box_func(
                 SimplifyResult::None
             }
         }
-        BlackBoxFunc::Keccak256 => {
-            unreachable!("Keccak256 should have been replaced by calls to Keccakf1600")
-        }
+        BlackBoxFunc::Keccak256 => SimplifyResult::None,
         BlackBoxFunc::Poseidon2Permutation => SimplifyResult::None, //TODO(Guillaume)
         BlackBoxFunc::EcdsaSecp256k1 => {
             simplify_signature(dfg, arguments, acvm::blackbox_solver::ecdsa_secp256k1_verify)
