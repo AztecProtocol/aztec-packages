@@ -252,10 +252,6 @@ pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
-pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
-    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
-}
-
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }

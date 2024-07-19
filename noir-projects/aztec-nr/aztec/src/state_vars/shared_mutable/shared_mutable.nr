@@ -1,14 +1,13 @@
-use dep::protocol_types::{
-    hash::{pedersen_commitment, poseidon2_hash}, header::Header, address::AztecAddress, point::Point,
-    traits::{FromField, ToField}
-};
+use dep::protocol_types::{hash::poseidon2_hash, header::Header, address::AztecAddress, point::Point, traits::{FromField, ToField}};
 
-use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::state_vars::{
+use crate::{
+    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    state_vars::{
     storage::Storage,
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
+},
+    generators::derive_base_slot, oracle::storage::storage_read
 };
-use crate::oracle::storage::storage_read;
 use dep::std::unsafe::zeroed;
 
 mod test;
@@ -28,7 +27,10 @@ struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
 impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
 
 // TODO: extract into a utils module once  we can do arithmetic on generics, i.e. https://github.com/noir-lang/noir/issues/4784
-fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
+fn concat_arrays<let N: u32, let M: u32, let O: u32>(
+    arr_n: [Field; N],
+    arr_m: [Field; M]
+) -> [Field; O] {
     assert_eq(N + M, O);
     let mut out: [Field; O] = [0; O];
     for i in 0..N {
@@ -75,15 +77,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Point {
-        pedersen_commitment([self.storage_slot.x, 0], 0)
+        self.storage_slot + derive_base_slot(1)
     }
 
     fn get_delay_change_storage_slot(self) -> Point {
-        pedersen_commitment([self.storage_slot.x, 1], 0)
+        self.storage_slot + derive_base_slot(2)
     }
 
     fn get_hash_storage_slot(self) -> Point {
-        pedersen_commitment([self.storage_slot.x, 2], 0)
+        self.storage_slot + derive_base_slot(3)
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us

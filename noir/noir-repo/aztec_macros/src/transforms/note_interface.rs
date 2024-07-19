@@ -503,10 +503,14 @@ fn generate_compute_note_content_hash(
     note_type: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
+    // TODO(benesjan): Replace the pedersen hash with something that returns a point directly to avoid
+    // the superfluous call to derive_base_slot(...). I was trying to use pedersen_commitment for that
+    // but that is currently not supported by the AVM (but might be soon).
     let function_source = format!(
         "
         fn compute_note_content_hash(self: {}) -> aztec::protocol_types::point::Point {{
-            aztec::hash::pedersen_commitment(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
+            let h = aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH);
+            aztec::generators::derive_base_slot(h)
         }}
         ",
         note_type
