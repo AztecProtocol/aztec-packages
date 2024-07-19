@@ -113,7 +113,7 @@ pub fn get_nsk_app(npk_m_hash: Field) -> Field {
 }
 
 // This returns all current public keys for a given account, applying proper constraints to the context. We read all
-// keys at once since the contraints for reading them all are actually fewer than if we read them one at a time - any
+// keys at once since the constraints for reading them all are actually fewer than if we read them one at a time - any
 // read keys that are not required by the caller can simply be discarded.
 pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddress) -> PublicKeys {
     // The keys are stored in the key registry's public storage, but accessing that directly would require performing
