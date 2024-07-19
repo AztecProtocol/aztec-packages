@@ -12,14 +12,14 @@ process.env.AVM_ENABLE_FULL_PROVING = '1';
 
 describe('full_prover', () => {
   const t = new FullProverTest('full_prover', 2);
-  let { provenAssets, accounts, tokenSim, logger } = t;
+  let { provenAssets, accounts, tokenSim, logger, pxe } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     await t.deployVerifier();
-    ({ provenAssets, accounts, tokenSim, logger } = t);
+    ({ provenAssets, accounts, tokenSim, logger, pxe } = t);
   });
 
   afterAll(async () => {
@@ -66,6 +66,11 @@ describe('full_prover', () => {
         sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
         sentPublicTx.wait({ timeout: 1200, interval: 10 }),
       ]);
+
+      const notes = await pxe.getIncomingNotes({}, accounts[1].address);
+      expect(notes.length).toBe(2);
+      await Promise.all(notes.map(note => pxe.addNote(note, accounts[0].address)))
+
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
 

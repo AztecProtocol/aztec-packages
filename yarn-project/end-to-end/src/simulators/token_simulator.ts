@@ -154,4 +154,12 @@ export class TokenSimulator {
     await this.checkPublic();
     await this.checkPrivate();
   }
+
+  public getPublicBalances() {
+    return this.balancePublic;
+  }
+
+  public getPrivateBalances() {
+    return this.balancesPrivate;
+  }
 }

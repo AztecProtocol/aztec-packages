@@ -89,7 +89,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
+      return this.wallet.simulateUnconstrained(
+        this.functionDao.name,
+        this.args,
+        this.contractAddress,
+        options?.from ?? this.wallet.getAddress(),
+      );
     }
 
     const txRequest = await this.create();

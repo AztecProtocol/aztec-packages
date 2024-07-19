@@ -33,8 +33,9 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** The deployed contract instance */
     public instance: ContractInstanceWithAddress,
+    account: AztecAddress,
   ) {
-    super(wallet, txHashPromise);
+    super(wallet, txHashPromise, account);
   }
 
   /**

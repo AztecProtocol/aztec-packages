@@ -1,4 +1,4 @@
-import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
+import { type AccountWallet, Fr, PXE, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { AuthRegistryContract, AuthWitTestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 
@@ -12,6 +12,7 @@ const TIMEOUT = 90_000;
 describe('e2e_authwit_tests', () => {
   jest.setTimeout(TIMEOUT);
 
+  let pxe: PXE;
   let wallets: AccountWallet[];
 
   let chainId: Fr;
@@ -19,7 +20,7 @@ describe('e2e_authwit_tests', () => {
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {
-    ({ wallets } = await setup(2));
+    ({ wallets, pxe } = await setup(2));
     // docs:start:public_deploy_accounts
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
     // docs:end:public_deploy_accounts
@@ -60,11 +61,17 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: false,
         });
 
+        const [publicKeyNote] = await pxe.getIncomingNotes({}, wallets[1].getAddress());
+        await pxe.addNote(publicKeyNote, wallets[0].getAddress());
+
         // Check that the authwit is NOT valid in private for wallets[1]
         expect(await wallets[0].lookupValidity(wallets[1].getAddress(), intent)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: false,
         });
+
+        const [publicKeyNoteFor0] = (await pxe.getIncomingNotes({}, wallets[0].getAddress())).filter(note => note.contractAddress.equals(wallets[0].getAddress()))
+        await pxe.addNote(publicKeyNoteFor0, wallets[1].getAddress());
 
         // Consume the inner hash using the wallets[0] as the "on behalf of".
         await auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).send().wait();
@@ -79,6 +86,7 @@ describe('e2e_authwit_tests', () => {
           auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).send().wait(),
         ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
       });
+
       describe('failure case', () => {
         it('invalid chain id', async () => {
           const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);

@@ -343,12 +343,13 @@ export class Synchronizer {
         const { incomingNotes: inNotes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
         incomingNotes.push(...inNotes);
         outgoingNotes.push(...outNotes);
+
+        await this.db.addNotes(inNotes, outNotes, processor.account);
       }
     }
 
     // now drop the deferred notes, and add the decoded notes
     await this.db.removeDeferredNotesByContract(contractAddress);
-    await this.db.addNotes(incomingNotes, outgoingNotes);
 
     incomingNotes.forEach(noteDao => {
       this.log.debug(
@@ -364,10 +365,10 @@ export class Synchronizer {
       );
     });
 
-    await this.#removeNullifiedNotes(incomingNotes);
+    await this.#removeNullifiedNotes(incomingNotes, this.noteProcessors);
   }
 
-  async #removeNullifiedNotes(notes: IncomingNoteDao[]) {
+  async #removeNullifiedNotes(notes: IncomingNoteDao[], noteProcessors: NoteProcessor[]) {
     // now group the decoded incoming notes by public key
     const publicKeyToIncomingNotes: Map<PublicKey, IncomingNoteDao[]> = new Map();
     for (const noteDao of notes) {
@@ -387,7 +388,10 @@ export class Synchronizer {
           relevantNullifiers.push(nullifier);
         }
       }
-      await this.db.removeNullifiedNotes(relevantNullifiers, publicKey);
+
+      for (const noteProcessor of noteProcessors) {
+        await this.db.removeNullifiedNotes(relevantNullifiers, publicKey, noteProcessor.account);
+      }
     }
   }
 }

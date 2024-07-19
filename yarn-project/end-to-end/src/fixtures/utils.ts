@@ -55,7 +55,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
+import { AuthRegistryContract, KeyRegistryContract, PrivateTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
@@ -586,6 +586,40 @@ export function getBalancesFn(
   return balances;
 }
 
+export type PrivateBalancesFn = ReturnType<typeof getPrivateBalancesFn>;
+export function getPrivateBalancesFn(
+  symbol: string,
+  tokenContract: TokenContract,
+  logger: any,
+): (wallets: Wallet[], ...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
+  const balances = async (wallets: Wallet[], ...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
+    const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
+    const b = await Promise.all(addresses.map((address, i) => tokenContract.withWallet(wallets[i]).methods.balance_of_private(address).simulate()));
+    const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
+    logger.verbose(debugString);
+    return b;
+  };
+
+  return balances;
+}
+
+export type PrivateBalancesPrivateTokenFn = ReturnType<typeof getPrivateBalancesPrivateTokenFn>;
+export function getPrivateBalancesPrivateTokenFn(
+  symbol: string,
+  tokenContract: PrivateTokenContract,
+  logger: any,
+): (wallets: Wallet[], ...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
+  const balances = async (wallets: Wallet[], ...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
+    const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
+    const b = await Promise.all(addresses.map((address, i) => tokenContract.withWallet(wallets[i]).methods.balance_of_private(address).simulate()));
+    const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
+    logger.verbose(debugString);
+    return b;
+  };
+
+  return balances;
+}
+
 export async function expectMapping<K, V>(
   fn: (...k: K[]) => Promise<V[]>,
   inputs: K[],
@@ -594,6 +628,19 @@ export async function expectMapping<K, V>(
   expect(inputs.length).toBe(expectedOutputs.length);
 
   const outputs = await fn(...inputs);
+
+  expect(outputs).toEqual(expectedOutputs);
+}
+
+export async function expectMappingNew<K, V>(
+  fn: (x: any, ...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedOutputs: V[],
+  wallets: any,
+): Promise<void> {
+  expect(inputs.length).toBe(expectedOutputs.length);
+
+  const outputs = await fn(wallets, ...inputs);
 
   expect(outputs).toEqual(expectedOutputs);
 }
@@ -611,6 +658,22 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 
   expect(diffs).toEqual(expectedDiffs);
 }
+
+export async function expectMappingDeltaNew<K, V extends number | bigint>(
+  initialValues: V[],
+  fn: (x: any, ...k: K[]) => Promise<V[]>,
+  inputs: K[],
+  expectedDiffs: V[],
+  wallets: any,
+): Promise<void> {
+  expect(inputs.length).toBe(expectedDiffs.length);
+
+  const outputs = await fn(wallets, ...inputs);
+  const diffs = outputs.map((output, i) => output - initialValues[i]);
+
+  expect(diffs).toEqual(expectedDiffs);
+}
+
 
 /**
  * Deploy the protocol contracts to a running instance.

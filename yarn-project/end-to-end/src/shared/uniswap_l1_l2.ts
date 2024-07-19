@@ -197,6 +197,7 @@ export const uniswapL1L2TestSuite = (
         secretHashForRedeemingWeth,
         wethAmountToBridge,
         secretForMintingWeth,
+        ownerWallet.getAddress(),
       );
       await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge);
@@ -363,6 +364,7 @@ export const uniswapL1L2TestSuite = (
         secretHashForRedeemingDai,
         daiAmountToBridge,
         secretForDepositingSwappedDai,
+        ownerAddress,
       );
       await daiCrossChainHarness.redeemShieldPrivatelyOnL2(daiAmountToBridge, secretForRedeemingDai);
       await daiCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, daiL2BalanceBeforeSwap + daiAmountToBridge);
@@ -652,7 +654,7 @@ export const uniswapL1L2TestSuite = (
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
       // 1. give user private funds on L2:
       const [secretForRedeemingWeth, secretHashForRedeemingWeth] = wethCrossChainHarness.generateClaimSecret();
-      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge, secretHashForRedeemingWeth);
+      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge, secretHashForRedeemingWeth, ownerAddress);
       await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethAmountToBridge);
 
@@ -811,7 +813,7 @@ export const uniswapL1L2TestSuite = (
       // get tokens on L2:
       const [secretForRedeemingWeth, secretHashForRedeemingWeth] = wethCrossChainHarness.generateClaimSecret();
       logger.info('minting weth on L2');
-      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge, secretHashForRedeemingWeth);
+      await wethCrossChainHarness.mintTokensPrivateOnL2(wethAmountToBridge, secretHashForRedeemingWeth, ownerAddress);
       await wethCrossChainHarness.redeemShieldPrivatelyOnL2(wethAmountToBridge, secretForRedeemingWeth);
 
       // Owner gives uniswap approval to unshield funds to self on its behalf

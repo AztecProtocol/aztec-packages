@@ -1,6 +1,6 @@
 import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
-import { GasSettings } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { AztecAddress, GasSettings } from '@aztec/circuits.js';
+import { createDebugLogger, Logger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
@@ -32,7 +32,7 @@ export abstract class BaseContractInteraction {
   public tx?: Tx;
   protected txRequest?: TxExecutionRequest;
 
-  protected log = createDebugLogger('aztec:js:contract_interaction');
+  protected log: Logger = createDebugLogger('aztec:js:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 
@@ -48,9 +48,10 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<Tx> {
+  public async prove(options: SendMethodOptions = {}, account?: AztecAddress): Promise<Tx> {
+    console.log('BASE ACCOUNT PROVE WITH ACCOUNT', account)
     const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation);
+    this.tx = await this.wallet.proveTx(txRequest, !options.skipPublicSimulation, account);
     return this.tx;
   }
 
@@ -63,13 +64,14 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}) {
+  public send(options: SendMethodOptions = {}, account?: AztecAddress) {
+    console.log('BASE CONTRACT INTERACTION WITH ACCOUNT', account)
     const promise = (async () => {
-      const tx = this.tx ?? (await this.prove(options));
+      const tx = this.tx ?? (await this.prove(options, account));
       return this.wallet.sendTx(tx);
     })();
 
-    return new SentTx(this.wallet, promise);
+    return new SentTx(this.wallet, promise, this.wallet.getAddress());
   }
 
   /**

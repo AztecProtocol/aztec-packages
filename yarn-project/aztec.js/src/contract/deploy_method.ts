@@ -206,13 +206,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various deployment options such as contractAddressSalt and from.
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
-  public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
-    const txHashPromise = super.send(options).getTxHash();
+  public override send(options: DeployOptions = {}, account?: AztecAddress): DeploySentTx<TContract> {
+    console.log('DEPLOY METHOD CALLED WITH ACCOUNT', account)
+    const txHashPromise = super.send(options, account).getTxHash();
     const instance = this.getInstance(options);
     this.log.debug(
       `Sent deployment tx of ${this.artifact.name} contract with deployment address ${instance.address.toString()}`,
     );
-    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, instance);
+    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, instance, this.wallet.getAddress());
   }
 
   /**
@@ -239,8 +240,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns The proven tx.
    */
-  public override prove(options: DeployOptions): Promise<Tx> {
-    return super.prove(options);
+  public override prove(options: DeployOptions, account?: AztecAddress): Promise<Tx> {
+    return super.prove(options, account);
   }
 
   /**

@@ -2,7 +2,7 @@ import { type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger, Logger } from '@aztec/foundation/log';
 
 import fs from 'fs';
 
@@ -40,7 +40,7 @@ export class EthCheatCodes {
     /**
      * The logger to use for the eth cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:eth'),
+    public logger: Logger = createDebugLogger('aztec:cheat_codes:eth'),
   ) {}
 
   async rpcCall(method: string, params: any[]) {
@@ -291,11 +291,14 @@ export class AztecCheatCodes {
    * @returns The notes stored at the given slot
    */
   public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
-    const extendedNotes = await this.pxe.getIncomingNotes({
+    const extendedNotes = await this.pxe.getIncomingNotes(
+      {
+        owner,
+        contractAddress: contract,
+        storageSlot: new Fr(slot),
+      },
       owner,
-      contractAddress: contract,
-      storageSlot: new Fr(slot),
-    });
+    );
     return extendedNotes.map(extendedNote => extendedNote.note);
   }
 }

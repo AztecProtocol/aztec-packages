@@ -7,7 +7,13 @@ import { toHumanReadable } from '@aztec/foundation/serialize';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { InstanceDeployerAddress } from '@aztec/protocol-contracts/instance-deployer';
 
-export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
+export async function inspectBlock(
+  account: AztecAddress,
+  pxe: PXE,
+  blockNumber: number,
+  log: LogFn,
+  opts: { showTxs?: boolean } = {},
+) {
   const block = await pxe.getBlock(blockNumber);
   if (!block) {
     log(`No block found for block number ${blockNumber}`);
@@ -26,7 +32,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
     log(``);
     const artifactMap = await getKnownArtifacts(pxe);
     for (const txHash of block.body.txEffects.map(tx => tx.txHash)) {
-      await inspectTx(pxe, txHash, log, { includeBlockInfo: false, artifactMap });
+      await inspectTx(account, pxe, txHash, log, { includeBlockInfo: false, artifactMap });
     }
   } else {
     log(` Transactions: ${block.body.txEffects.length}`);
@@ -34,6 +40,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
 }
 
 export async function inspectTx(
+  account: AztecAddress,
   pxe: PXE,
   txHash: TxHash,
   log: LogFn,
@@ -42,7 +49,7 @@ export async function inspectTx(
   const [receipt, effects, notes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }, account),
   ]);
 
   if (!receipt || !effects) {
@@ -103,7 +110,7 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier });
+      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier }, account);
       const deployed = deployNullifiers[nullifier.toString()];
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];

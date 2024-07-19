@@ -297,9 +297,9 @@ export class CrossChainTestHarness {
     await this.l2Token.methods.mint_public(this.ownerAddress, amount).send().wait();
   }
 
-  async mintTokensPrivateOnL2(amount: bigint, secretHash: Fr) {
+  async mintTokensPrivateOnL2(amount: bigint, secretHash: Fr, account: AztecAddress) {
     const receipt = await this.l2Token.methods.mint_private(amount, secretHash).send().wait();
-    await this.addPendingShieldNoteToPXE(amount, secretHash, receipt.txHash);
+    await this.addPendingShieldNoteToPXE(amount, secretHash, receipt.txHash, account);
   }
 
   async performL2Transfer(transferAmount: bigint, receiverAddress: AztecAddress) {
@@ -311,6 +311,7 @@ export class CrossChainTestHarness {
     secretHashForRedeemingMintedNotes: Fr,
     bridgeAmount: bigint,
     secretForL2MessageConsumption: Fr,
+    account: AztecAddress,
   ) {
     this.logger.info('Consuming messages on L2 privately');
     // Call the mint tokens function on the Aztec.nr contract
@@ -319,7 +320,12 @@ export class CrossChainTestHarness {
       .send()
       .wait();
 
-    await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
+    await this.addPendingShieldNoteToPXE(
+      bridgeAmount,
+      secretHashForRedeemingMintedNotes,
+      consumptionReceipt.txHash,
+      account,
+    );
   }
 
   async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, secret: Fr, leafIndex: bigint) {
@@ -421,10 +427,10 @@ export class CrossChainTestHarness {
       .send()
       .wait();
 
-    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash);
+    await this.addPendingShieldNoteToPXE(shieldAmount, secretHash, shieldReceipt.txHash, this.ownerAddress);
   }
 
-  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
+  async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash, account: AztecAddress) {
     this.logger.info('Adding note to PXE');
     const note = new Note([new Fr(shieldAmount), secretHash]);
     const extendedNote = new ExtendedNote(
@@ -435,7 +441,7 @@ export class CrossChainTestHarness {
       TokenContract.notes.TransparentNote.id,
       txHash,
     );
-    await this.pxeService.addNote(extendedNote);
+    await this.pxeService.addNote(extendedNote, account);
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {

@@ -86,6 +86,7 @@ describe('e2e_sandbox_example', () => {
         TokenContract.notes.TransparentNote.id,
         receipt.txHash,
       ),
+      alice,
     );
 
     // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
@@ -161,6 +162,7 @@ describe('e2e_sandbox_example', () => {
         TokenContract.notes.TransparentNote.id,
         mintPrivateReceipt.txHash,
       ),
+      bob,
     );
 
     await tokenContractBob.methods.redeem_shield(bob, mintQuantity, bobSecret).send().wait();

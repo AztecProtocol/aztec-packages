@@ -3,6 +3,7 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
+  type CompleteAddress,
   type ContractArtifact,
   type ContractBase,
   type DebugLogger,
@@ -79,9 +80,9 @@ export class DeployTest {
     return contractArtifact.at(instance.address, wallet);
   }
 
-  async registerRandomAccount(): Promise<AztecAddress> {
+  async registerRandomAccount(): Promise<CompleteAddress> {
     const completeAddress = await this.pxe.registerAccount(Fr.random(), Fr.random());
-    return completeAddress.address;
+    return completeAddress;
   }
 }
 

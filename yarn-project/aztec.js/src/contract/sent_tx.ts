@@ -6,6 +6,7 @@ import {
   type TxReceipt,
   TxStatus,
 } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -38,7 +39,7 @@ export const DefaultWaitOpts: WaitOpts = {
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected pxe: PXE, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected pxe: PXE, protected txHashPromise: Promise<TxHash>, protected account: AztecAddress) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -80,7 +81,7 @@ export class SentTx {
     if (opts?.debug) {
       const txHash = await this.getTxHash();
       const tx = (await this.pxe.getTxEffect(txHash))!;
-      const visibleIncomingNotes = await this.pxe.getIncomingNotes({ txHash });
+      const visibleIncomingNotes = await this.pxe.getIncomingNotes({ txHash }, this.account);
       const visibleOutgoingNotes = await this.pxe.getOutgoingNotes({ txHash });
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
@@ -111,7 +112,7 @@ export class SentTx {
    */
   public async getVisibleNotes(): Promise<ExtendedNote[]> {
     await this.wait();
-    return this.pxe.getIncomingNotes({ txHash: await this.getTxHash() });
+    return this.pxe.getIncomingNotes({ txHash: await this.getTxHash() }, this.account);
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

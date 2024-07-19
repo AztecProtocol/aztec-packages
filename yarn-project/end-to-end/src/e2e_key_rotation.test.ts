@@ -144,7 +144,7 @@ describe('e2e_key_rotation', () => {
       TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
-    await pxe.addNote(extendedNote);
+    await pxe.addNote(extendedNote, recipient);
 
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
   };
@@ -206,8 +206,8 @@ describe('e2e_key_rotation', () => {
     // 5. Now we check that a correct nullifier keys were used in both transfers
     {
       await awaitUserSynchronized(walletB, walletB.getAddress());
-      const transfer1Notes = await walletB.getIncomingNotes({ txHash: txHashTransfer1 });
-      const transfer2Notes = await walletB.getIncomingNotes({ txHash: txHashTransfer2 });
+      const transfer1Notes = await walletB.getIncomingNotes({ txHash: txHashTransfer1 }, walletB.getAddress());
+      const transfer2Notes = await walletB.getIncomingNotes({ txHash: txHashTransfer2 }, walletB.getAddress());
       expect(transfer1Notes.length).toBe(1);
       expect(transfer2Notes.length).toBe(1);
       // Second field in the token note is the npk_m_hash

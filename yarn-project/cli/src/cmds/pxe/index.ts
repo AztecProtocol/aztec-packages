@@ -1,4 +1,4 @@
-import { Fr, PublicKeys } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PublicKeys } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
@@ -162,22 +162,24 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   program
     .command('get-tx')
     .description('Gets the receipt for the specified transaction hash.')
+    .argument('<account>', 'The account that is getting the TX.')
     .argument('<txHash>', 'A transaction hash to get the receipt for.', parseTxHash)
     .addOption(pxeOption)
-    .action(async (txHash, options) => {
+    .action(async (account, txHash, options) => {
       const { getTx } = await import('./get_tx.js');
-      await getTx(options.rpcUrl, txHash, debugLogger, log);
+      await getTx(AztecAddress.fromString(account), options.rpcUrl, txHash, debugLogger, log);
     });
 
   program
     .command('get-block')
     .description('Gets info for a given block or latest.')
+    .argument('<account>', 'The account that is getting the TX.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
     .option('-f, --follow', 'Keep polling for new blocks')
     .addOption(pxeOption)
-    .action(async (blockNumber, options) => {
+    .action(async (account, blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
+      await getBlock(AztecAddress.fromString(account), options.rpcUrl, blockNumber, options.follow, debugLogger, log);
     });
 
   program

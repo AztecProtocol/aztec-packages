@@ -32,7 +32,7 @@ import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
-import { type BalancesFn, deployCanonicalGasToken, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
+import { type BalancesFn, deployCanonicalGasToken, getBalancesFn, getPrivateBalancesFn, getPrivateBalancesPrivateTokenFn, type PrivateBalancesFn, type PrivateBalancesPrivateTokenFn, publicDeployAccounts } from '../fixtures/utils.js';
 import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -76,8 +76,8 @@ export class FeesTest {
   public getCoinbaseBalance!: () => Promise<bigint>;
   public getGasBalanceFn!: BalancesFn;
   public getBananaPublicBalanceFn!: BalancesFn;
-  public getBananaPrivateBalanceFn!: BalancesFn;
-  public getPrivateTokenBalanceFn!: BalancesFn;
+  public getBananaPrivateBalanceFn!: PrivateBalancesFn;
+  public getPrivateTokenBalanceFn!: PrivateBalancesPrivateTokenFn;
 
   public readonly INITIAL_GAS_BALANCE = BigInt(1e15);
   public readonly ALICE_INITIAL_BANANAS = BigInt(1e12);
@@ -111,7 +111,13 @@ export class FeesTest {
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
     const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate();
     const secret = await this.mintShieldedBananas(amount, address);
-    await this.redeemShieldedBananas(amount, address, secret);
+    const tx = await this.redeemShieldedBananas(amount, address, secret);
+
+    const notes = await this.pxe.getIncomingNotes({txHash: tx.txHash}, address);
+    expect(notes.length).toBe(1);
+    await this.pxe.addNote(notes[0], this.aliceAddress);
+
+    // Look into simplifying below with just bananaCoin.withWallet(address).balance_of_private instead of above 3 lines
     const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
@@ -127,10 +133,10 @@ export class FeesTest {
   }
 
   /** Redeemer (defaults to Alice) redeems shielded bananas for the target address. */
-  async redeemShieldedBananas(amount: bigint, address: AztecAddress, secret: Fr, redeemer?: AccountWallet) {
+  redeemShieldedBananas(amount: bigint, address: AztecAddress, secret: Fr, redeemer?: AccountWallet) {
     this.logger.debug(`Redeeming ${amount} bananas for ${address}`);
     const bananaCoin = redeemer ? this.bananaCoin.withWallet(redeemer) : this.bananaCoin;
-    await bananaCoin.methods.redeem_shield(address, amount, secret).send().wait();
+    return bananaCoin.methods.redeem_shield(address, amount, secret).send().wait();
   }
 
   /** Adds a pending shield transparent node for the banana coin token contract to the pxe. */
@@ -145,7 +151,7 @@ export class FeesTest {
       BananaCoin.notes.TransparentNote.id,
       txHash,
     );
-    await this.pxe.addNote(extendedNote);
+    await this.pxe.addNote(extendedNote, ownerAddress);
   }
 
   public async applyBaseSnapshots() {
@@ -277,9 +283,9 @@ export class FeesTest {
         this.privateToken = await PrivateTokenContract.at(data.privateTokenAddress, this.aliceWallet);
 
         const logger = this.logger;
-        this.getPrivateTokenBalanceFn = getBalancesFn(
+        this.getPrivateTokenBalanceFn = getPrivateBalancesPrivateTokenFn(
           '🕵️.private',
-          this.privateToken.methods.balance_of_private,
+          this.privateToken,
           logger,
         );
       },
@@ -318,9 +324,9 @@ export class FeesTest {
 
         const logger = this.logger;
         this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, logger);
-        this.getBananaPrivateBalanceFn = getBalancesFn(
+        this.getBananaPrivateBalanceFn = getPrivateBalancesFn(
           '🍌.private',
-          this.bananaCoin.methods.balance_of_private,
+          this.bananaCoin,
           logger,
         );
 

@@ -66,6 +66,7 @@ import {
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
+import { aztecAddress } from '../../../foundation/src/index.js';
 import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { IncomingNoteDao } from '../database/incoming_note_dao.js';
@@ -296,8 +297,8 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
-    const noteDaos = await this.db.getIncomingNotes(filter);
+  public async getIncomingNotes(filter: IncomingNotesFilter, account: AztecAddress): Promise<ExtendedNote[]> {
+    const noteDaos = await this.db.getIncomingNotes(filter, account);
 
     // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
     // key rotation will affect this
@@ -338,7 +339,7 @@ export class PXEService implements PXE {
     return Promise.all(extendedNotes);
   }
 
-  public async addNote(note: ExtendedNote) {
+  public async addNote(note: ExtendedNote, account: AztecAddress) {
     const owner = await this.db.getCompleteAddress(note.owner);
     if (!owner) {
       throw new Error(`Unknown account: ${note.owner.toString()}`);
@@ -384,6 +385,7 @@ export class PXEService implements PXE {
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
         ),
+        account,
       );
     }
   }
@@ -501,9 +503,10 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, account?: AztecAddress): Promise<Tx> {
+    console.log('PROVETX CALLED WITH ACCOUNT', account)
     return this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined);
+      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined, account);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
       }
@@ -548,13 +551,13 @@ export class PXEService implements PXE {
     functionName: string,
     args: any[],
     to: AztecAddress,
-    _from?: AztecAddress,
+    from: AztecAddress,
   ): Promise<DecodedReturn> {
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.
       const functionCall = await this.#getFunctionCall(functionName, args, to);
-      const executionResult = await this.#simulateUnconstrained(functionCall);
+      const executionResult = await this.#simulateUnconstrained(functionCall, from);
 
       // TODO - Return typed result based on the function artifact.
       return executionResult;
@@ -662,14 +665,14 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<ExecutionResult> {
+  async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress, account?: AztecAddress): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
     const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
 
     this.log.debug('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender);
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender, account);
       this.log.verbose(`Simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
       return result;
     } catch (err) {
@@ -688,12 +691,12 @@ export class PXEService implements PXE {
    * @param execRequest - The transaction request object containing the target contract and function data.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall) {
+  async #simulateUnconstrained(execRequest: FunctionCall, account: AztecAddress) {
     const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
 
     this.log.debug('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress);
+      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, account);
       this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionArtifact.name} completed`);
 
       return result;
@@ -759,9 +762,10 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     msgSender?: AztecAddress,
+    account?: AztecAddress
   ): Promise<SimulatedTx> {
     // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest, msgSender);
+    const executionResult = await this.#simulate(txExecutionRequest, msgSender, account);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);

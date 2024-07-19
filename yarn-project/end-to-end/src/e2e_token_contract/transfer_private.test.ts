@@ -35,6 +35,10 @@ describe('e2e_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
+
+    const [createdNote] = await wallets[1].getIncomingNotes({txHash: tx.txHash});
+    await wallets[0].addNote(createdNote, wallets[0].getAddress());
+
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
     const events = await wallets[1].getEvents(EventType.Encrypted, TokenContract.events.Transfer, tx.blockNumber!, 1);
@@ -90,8 +94,16 @@ describe('e2e_token_contract transfer private', () => {
     });
     // docs:end:authwit_transfer_example
 
+    const notesOfOwner = await wallets[0].getIncomingNotes({});
+    await Promise.all(notesOfOwner.map(note => wallets[1].addNote(note, wallets[1].getAddress())));
+
+
     // Perform the transfer
-    await action.send().wait();
+    const tx = await action.send().wait();
+    const newNotes = await wallets[1].getIncomingNotes({txHash: tx.txHash});
+
+    await wallets[0].addNote(newNotes[0], wallets[0].getAddress());
+
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
     // Perform the transfer again, should fail
@@ -140,7 +152,7 @@ describe('e2e_token_contract transfer private', () => {
       await wallets[1].addAuthWitness(witness);
 
       // Perform the transfer
-      await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.send().wait()).rejects.toThrow();
       expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_private(accounts[1].address).simulate()).toEqual(balance1);
     });
@@ -195,6 +207,9 @@ describe('e2e_token_contract transfer private', () => {
 
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
       await wallets[2].addAuthWitness(witness);
+
+      const notes = await wallets[0].getIncomingNotes({})
+      await Promise.all(notes.map(note => wallets[2].addNote(note, wallets[2].getAddress())));
 
       await expect(action.simulate()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,

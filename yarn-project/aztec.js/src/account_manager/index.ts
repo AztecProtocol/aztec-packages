@@ -1,5 +1,5 @@
 import { CompleteAddress, type PXE } from '@aztec/circuit-types';
-import { deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { AztecAddress, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
@@ -121,7 +121,7 @@ export class AccountManager {
    * grained control on when to create, simulate, and send the deployment tx.
    * @returns A DeployMethod instance that deploys this account contract.
    */
-  public async getDeployMethod() {
+  public async getDeployMethod(test?: boolean) {
     if (!this.deployMethod) {
       if (!this.isDeployable()) {
         throw new Error(
@@ -132,7 +132,11 @@ export class AccountManager {
       await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
 
       const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
-      const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+
+      const address = test === true ? this.getCompleteAddress().address : undefined;
+      console.log('GETTING DEPLOYMENT METHOD WITH ADDRESS', address)
+
+      const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion), this.getCompleteAddress());
 
       // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
       // If we used getWallet, the deployment would get routed via the account contract entrypoint
@@ -159,10 +163,12 @@ export class AccountManager {
    * @param opts - Fee options to be used for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
-  public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
-    const sentTx = this.getDeployMethod()
-      .then(deployMethod =>
-        deployMethod.send({
+  public deploy(opts?: DeployAccountOptions, test?: boolean): DeployAccountSentTx {
+    console.log('DEPLOY COMPLETE ADDRESS', this.getCompleteAddress().address)
+    const sentTx = this.getDeployMethod(test)
+      .then(deployMethod =>{
+        console.log('DEPLOY METHOD SEND FROM INSIDE CLOSURE', this.getCompleteAddress().address);
+        return deployMethod.send({
           contractAddressSalt: this.salt,
           skipClassRegistration: opts?.skipClassRegistration ?? true,
           skipPublicDeployment: opts?.skipPublicDeployment ?? true,
@@ -170,10 +176,10 @@ export class AccountManager {
           universalDeploy: true,
           fee: opts?.fee,
           estimateGas: opts?.estimateGas,
-        }),
-      )
+        }, this.getCompleteAddress().address);
+      })
       .then(tx => tx.getTxHash());
-    return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet());
+    return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet(), this.getCompleteAddress().address);
   }
 
   /**

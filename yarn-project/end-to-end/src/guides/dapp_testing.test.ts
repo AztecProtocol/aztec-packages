@@ -64,10 +64,10 @@ describe('guides/dapp/testing', () => {
           TokenContract.notes.TransparentNote.id,
           receipt.txHash,
         );
-        await pxe.addNote(extendedNote);
+        await pxe.addNote(extendedNote, owner.getAddress());
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
+        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
 
@@ -104,10 +104,10 @@ describe('guides/dapp/testing', () => {
           TokenContract.notes.TransparentNote.id,
           receipt.txHash,
         );
-        await pxe.addNote(extendedNote);
+        await pxe.addNote(extendedNote, owner.getAddress());
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
+        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
 
@@ -167,7 +167,7 @@ describe('guides/dapp/testing', () => {
           TokenContract.notes.TransparentNote.id,
           receipt.txHash,
         );
-        await pxe.addNote(extendedNote);
+        await pxe.addNote(extendedNote, ownerAddress);
 
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 
@@ -180,11 +180,14 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await pxe.getIncomingNotes({
-          owner: owner.getAddress(),
-          contractAddress: token.address,
-          storageSlot: ownerSlot,
-        });
+        const notes = await pxe.getIncomingNotes(
+          {
+            owner: owner.getAddress(),
+            contractAddress: token.address,
+            storageSlot: ownerSlot,
+          },
+          owner.getAddress(),
+        );
         const values = notes.map(note => note.note.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);

@@ -38,6 +38,7 @@ export class TxExecutionRequest {
      * These witnesses are not expected to be stored in the local witnesses database of the PXE.
      */
     public authWitnesses: AuthWitness[],
+    public scope?: AztecAddress,
   ) {}
 
   toTxRequest(): TxRequest {

@@ -96,6 +96,7 @@ describe('e2e_cross_chain_messaging', () => {
       secretHashForRedeemingMintedNotes,
       bridgeAmount,
       secretForL2MessageConsumption,
+      user1Wallet.getAddress(),
     );
     // tokens were minted privately in a TransparentNote which the owner (person who knows the secret) must redeem:
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
@@ -189,6 +190,7 @@ describe('e2e_cross_chain_messaging', () => {
       bridgeAmount,
       secretHashForRedeemingMintedNotes,
       consumptionReceipt.txHash,
+      user1Wallet.getAddress(),
     );
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);

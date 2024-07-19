@@ -123,12 +123,12 @@ describe('e2e_fees account_init', () => {
         rebateSecret,
       );
 
-      const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
+      const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }, true).wait();
       const actualFee = tx.transactionFee!;
       expect(actualFee).toBeGreaterThan(0n);
 
       // the new account should have paid the full fee to the FPC
-      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
+      await expect(t.getBananaPrivateBalanceFn([bobsWallet], bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
 
       // the FPC got paid through "unshield", so it's got a new public balance
       await expect(t.getBananaPublicBalanceFn(bananaFPC.address)).resolves.toEqual([
@@ -142,12 +142,12 @@ describe('e2e_fees account_init', () => {
       await t.addPendingShieldNoteToPXE(bobsAddress, maxFee - actualFee, computeSecretHash(rebateSecret), tx.txHash);
 
       // and it can redeem the refund
-      await bananaCoin.methods
+      await bananaCoin.withWallet(bobsWallet).methods
         .redeem_shield(bobsAddress, maxFee - actualFee, rebateSecret)
         .send()
         .wait();
 
-      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
+      await expect(t.getBananaPrivateBalanceFn([bobsWallet], bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
     });
 
     it('pays publicly through an FPC', async () => {

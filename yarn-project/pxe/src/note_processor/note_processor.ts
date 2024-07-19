@@ -227,7 +227,7 @@ export class NoteProcessor {
     const incomingNotes = blocksAndNotes.flatMap(b => b.incomingNotes);
     const outgoingNotes = blocksAndNotes.flatMap(b => b.outgoingNotes);
     if (incomingNotes.length || outgoingNotes.length) {
-      await this.db.addNotes(incomingNotes, outgoingNotes);
+      await this.db.addNotes(incomingNotes, outgoingNotes, this.account);
       incomingNotes.forEach(noteDao => {
         this.log.verbose(
           `Added incoming note for contract ${noteDao.contractAddress} at slot ${
@@ -243,7 +243,7 @@ export class NoteProcessor {
     const nullifiers: Fr[] = blocksAndNotes.flatMap(b =>
       b.block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
     );
-    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, this.ivpkM);
+    const removedNotes = await this.db.removeNullifiedNotes(nullifiers, this.ivpkM, this.account);
     removedNotes.forEach(noteDao => {
       this.log.verbose(
         `Removed note for contract ${noteDao.contractAddress} at slot ${

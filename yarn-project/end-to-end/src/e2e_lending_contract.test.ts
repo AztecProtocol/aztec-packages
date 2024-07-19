@@ -111,7 +111,7 @@ describe('e2e_lending_contract', () => {
           TokenContract.notes.TransparentNote.id,
           txHash,
         );
-        await wallet.addNote(extendedNote);
+        await wallet.addNote(extendedNote, wallet.getAddress());
 
         await asset.methods.redeem_shield(lendingAccount.address, mintAmount, secret).send().wait();
       }
