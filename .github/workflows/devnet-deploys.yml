@@ -151,6 +151,7 @@ jobs:
             | tee ./account.txt
           source ./.github/scripts/extract_output.sh account ./account.txt
           echo "PK: $AZTEC_PRIVATE_KEY"
+          echo "CA: $AZTEC_ADDRESS"
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy TokenContract \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
             --args $AZTEC_ADDRESS DevCoin DEV 18 \
