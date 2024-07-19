@@ -3,6 +3,9 @@
 
 namespace bb::crypto::merkle_tree {
 
+/*
+ * RAII wrapper to construct a transaction for the purpose of creating/opening a database
+ */
 class LMDBDatabaseCreationTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBDatabaseCreationTransaction>;

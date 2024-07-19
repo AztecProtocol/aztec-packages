@@ -17,7 +17,13 @@
 namespace bb::crypto::merkle_tree {
 
 /**
- * @brief Serves as a key-value node store for merkle trees, uses an unordered_map as a cache
+ * @brief Serves as a key-value node store for merkle trees. Caches all changes in memory before persisting them during
+ * a 'commit' operation.
+ * Manages the persisted store by seperating the key spaces as follows:
+ * 1 byte key of 0: Tree meta data
+ * 8 byte integers: The index of each leaf to the value of that leaf
+ * 16 byte integers: Nodes in the tree, key value = ((2 ^ level) + index - 1)
+ * 32 bytes integers: The value of the leaf (32 bytes) to the set of indices where the leaf exists in the tree.
  */
 template <typename PersistedStore, typename LeafValueType> class CachedTreeStore {
   public:
@@ -46,28 +52,55 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     CachedTreeStore& operator=(CachedTreeStore const& other) = delete;
     CachedTreeStore& operator=(CachedTreeStore const&& other) = delete;
 
+    /**
+     * @brief Returns the index of the leaf with a value immediately lower than the value provided
+     */
     std::pair<bool, index_t> find_low_value(const fr& new_leaf_key, bool includeUncommitted, ReadTransaction& tx) const;
 
+    /**
+     * @brief Returns the leaf at the provided index, if one exists
+     */
     std::optional<IndexedLeafValueType> get_leaf(const index_t& index,
                                                  ReadTransaction& tx,
                                                  bool includeUncommitted) const;
 
+    /**
+     * @brief Adds the leaf at the given index, updates the leaf index if requested
+     */
     void set_at_index(const index_t& index, const IndexedLeafValueType& leaf, bool add_to_index);
 
+    /**
+     * @brief Updates the leaf index
+     */
     void update_index(const index_t& index, const fr& leaf);
 
+    /**
+     * @brief Writes the provided data at the given node coordinates. Only writes to uncommitted data.
+     */
     void put_node(uint32_t level, index_t index, const std::vector<uint8_t>& data);
 
+    /**
+     * @brief Returns the data at the given node coordinates if available. Reads from uncommitted state if requested.
+     */
     bool get_node(uint32_t level,
                   index_t index,
                   std::vector<uint8_t>& data,
                   ReadTransaction& transaction,
                   bool includeUncommitted) const;
 
+    /**
+     * @brief Writes the provided meta data to uncommitted state
+     */
     void put_meta(const index_t& size, const bb::fr& root);
 
+    /**
+     * @brief Reads the tree meta data, including uncommitted data if requested
+     */
     void get_meta(index_t& size, bb::fr& root, ReadTransaction& tx, bool includeUncommitted) const;
 
+    /**
+     * @brief Reads the extended tree meta data, including uncommitted data if requested
+     */
     void get_full_meta(index_t& size,
                        bb::fr& root,
                        std::string& name,
@@ -75,30 +108,44 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
                        ReadTransaction& tx,
                        bool includeUncommitted) const;
 
+    /**
+     * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
+     */
     std::optional<index_t> find_leaf_index(const LeafValueType& leaf,
                                            ReadTransaction& tx,
                                            bool includeUncommitted) const;
 
+    /**
+     * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
+     */
     std::optional<index_t> find_leaf_index_from(const LeafValueType& leaf,
                                                 index_t start_index,
                                                 ReadTransaction& tx,
                                                 bool includeUncommitted) const;
 
+    /**
+     * @brief Commits the uncommitted data to the underlying store
+     */
     void commit();
 
+    /**
+     * @brief Rolls back the uncommitted state
+     */
     void rollback();
 
+    /**
+     * @brief Returns the name of the tree
+     */
     std::string get_name() const { return name; }
 
+    /**
+     * @brief Returns a read transaction against the underlying store.
+     */
     ReadTransactionPtr createReadTransaction() const { return dataStore.createReadTransaction(); }
 
   private:
     struct Indices {
         std::vector<index_t> indices;
-
-        // Indices(index_t index)
-        //     : indices{ index }
-        // {}
 
         MSGPACK_FIELDS(indices);
     };
@@ -178,7 +225,7 @@ std::optional<typename CachedTreeStore<PersistedStore, LeafValueType>::IndexedLe
     }
     LeafIndexKeyType key = index;
     std::vector<uint8_t> data;
-    bool success = tx.get_value_by_integer(key, data);
+    bool success = tx.get_value(key, data);
     if (success) {
         IndexedLeafValueType return_value;
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(return_value);
@@ -234,7 +281,7 @@ std::optional<index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_leaf
     std::optional<index_t> result = std::nullopt;
     FrKeyType key = leaf;
     std::vector<uint8_t> value;
-    bool success = tx.get_value_by_integer(key, value);
+    bool success = tx.get_value(key, value);
     if (success) {
         msgpack::unpack((const char*)value.data(), value.size()).get().convert(committed);
         if (!committed.indices.empty()) {
@@ -347,7 +394,7 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
             for (auto& idx : indices_) {
                 std::vector<uint8_t> value;
                 FrKeyType key = idx.first;
-                bool success = tx->get_value_by_integer(key, value);
+                bool success = tx->get_value(key, value);
                 if (success) {
                     Indices indices;
                     msgpack::unpack((const char*)value.data(), value.size()).get().convert(indices);
@@ -371,14 +418,14 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
                 msgpack::pack(buffer, idx.second);
                 std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
                 FrKeyType key = idx.first;
-                tx->put_value_by_integer(key, encoded);
+                tx->put_value(key, encoded);
             }
             for (const auto& leaf : leaves_) {
                 msgpack::sbuffer buffer;
                 msgpack::pack(buffer, leaf.second);
                 std::vector<uint8_t> value(buffer.data(), buffer.data() + buffer.size());
                 LeafIndexKeyType key = leaf.first;
-                tx->put_value_by_integer(key, value);
+                tx->put_value(key, value);
             }
             persistMeta(meta, *tx);
             tx->commit();
@@ -393,12 +440,15 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
 template <typename PersistedStore, typename LeafValueType>
 void CachedTreeStore<PersistedStore, LeafValueType>::rollback()
 {
+    // Extract the committed meta data and destroy the cache
+    {
+        ReadTransactionPtr tx = createReadTransaction();
+        readPersistedMeta(meta, *tx);
+    }
     nodes = std::vector<std::unordered_map<index_t, std::vector<uint8_t>>>(
         depth + 1, std::unordered_map<index_t, std::vector<uint8_t>>());
     indices_ = std::map<uint256_t, Indices>();
     leaves_ = std::unordered_map<index_t, IndexedLeafValueType>();
-    ReadTransactionPtr tx = createReadTransaction();
-    readPersistedMeta(meta, *tx);
 }
 
 template <typename PersistedStore, typename LeafValueType>
@@ -424,6 +474,8 @@ void CachedTreeStore<PersistedStore, LeafValueType>::persistMeta(TreeMeta& m, Wr
 template <typename PersistedStore, typename LeafValueType>
 void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
 {
+    // Read the persisted meta data, if the name or depth of the tree is not consistent with what was provided during
+    // construction then we throw
     std::vector<uint8_t> data;
     {
         ReadTransactionPtr tx = createReadTransaction();
@@ -436,6 +488,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
         }
     }
 
+    // No meta data available. Write the initial state down
     meta.name = name;
     meta.size = 0;
     meta.depth = depth;

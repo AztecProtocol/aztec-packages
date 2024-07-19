@@ -3,6 +3,11 @@
 
 namespace bb::crypto::merkle_tree {
 
+/*
+ * Abstract base class to represent and LMDB transaction.
+ * Needs to be sub-classed to be either a read or write transaction.
+ */
+
 enum TransactionState {
     OPEN,
     COMMITTED,
@@ -17,10 +22,15 @@ class LMDBTransaction {
     LMDBTransaction& operator=(const LMDBTransaction& other) = delete;
     LMDBTransaction& operator=(LMDBTransaction&& other) = delete;
 
-    virtual ~LMDBTransaction() = default;
+    virtual ~LMDBTransaction() = 0;
 
     MDB_txn* underlying() const;
 
+    /*
+     * Rolls back the transaction.
+     * Must be called by read transactions to signal the end of the transaction.
+     * Must be called by write transactions if the changes are not to be committed.
+     */
     virtual void abort();
 
   protected:

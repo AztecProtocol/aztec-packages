@@ -4,6 +4,10 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 
 namespace bb::crypto::merkle_tree {
+/**
+ * RAII wrapper atound the opening and closing of an LMDB database
+ * Contains a reference to its LMDB environment
+ */
 class LMDBDatabase {
   public:
     LMDBDatabase(const LMDBEnvironment& env,
@@ -26,36 +30,4 @@ class LMDBDatabase {
     MDB_dbi _dbi;
     const LMDBEnvironment& _environment;
 };
-
-// LMDBDatabase::LMDBDatabase(const LMDBEnvironment& env,
-//                            const LMDBDatabaseCreationTransaction& transaction,
-//                            const std::string& name,
-//                            bool integerKeys,
-//                            bool reverseKeys,
-//                            MDB_cmp_func* cmp)
-//     : _environment(env)
-// {
-//     unsigned int flags = MDB_CREATE;
-//     if (integerKeys) {
-//         flags |= MDB_INTEGERKEY;
-//     }
-//     if (reverseKeys) {
-//         flags |= MDB_REVERSEKEY;
-//     }
-//     call_lmdb_func("mdb_dbi_open", mdb_dbi_open, transaction.underlying(), name.c_str(), flags, &_dbi);
-//     if (cmp != nullptr) {
-//         call_lmdb_func("mdb_set_compare", mdb_set_compare, transaction.underlying(), _dbi, cmp);
-//     }
-//     transaction.commit();
-// }
-
-// LMDBDatabase::~LMDBDatabase()
-// {
-//     call_lmdb_func(mdb_dbi_close, _environment.underlying(), _dbi);
-// }
-
-// const MDB_dbi& LMDBDatabase::underlying() const
-// {
-//     return _dbi;
-// }
 } // namespace bb::crypto::merkle_tree

@@ -5,6 +5,11 @@
 
 namespace bb::crypto::merkle_tree {
 
+/**
+ * Creates an named LMDB 'Store' abstraction on top of an environment.
+ * Provides methods for creating read and write transactions against the store.
+ */
+
 class LMDBStore {
 
   public:

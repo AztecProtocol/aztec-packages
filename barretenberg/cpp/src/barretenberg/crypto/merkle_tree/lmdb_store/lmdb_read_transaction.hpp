@@ -8,6 +8,11 @@
 
 namespace bb::crypto::merkle_tree {
 
+/**
+ * RAII wrapper around a read transaction.
+ * Contains various methods for retrieving values by their keys.
+ * Aborts the transaction upon object destruction.
+ */
 class LMDBReadTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBReadTransaction>;
@@ -24,7 +29,7 @@ class LMDBReadTransaction : public LMDBTransaction {
 
     bool get_node(uint32_t level, index_t index, std::vector<uint8_t>& data) const;
 
-    template <typename T> bool get_value_by_integer(T& key, std::vector<uint8_t>& data) const;
+    template <typename T> bool get_value(T& key, std::vector<uint8_t>& data) const;
 
     bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data) const;
 
@@ -34,7 +39,7 @@ class LMDBReadTransaction : public LMDBTransaction {
     const LMDBDatabase& _database;
 };
 
-template <typename T> bool LMDBReadTransaction::get_value_by_integer(T& key, std::vector<uint8_t>& data) const
+template <typename T> bool LMDBReadTransaction::get_value(T& key, std::vector<uint8_t>& data) const
 {
     MDB_val dbKey;
     dbKey.mv_size = sizeof(T);

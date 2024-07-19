@@ -1,4 +1,5 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_read_transaction.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 
 namespace bb::crypto::merkle_tree {
 LMDBReadTransaction::LMDBReadTransaction(LMDBEnvironment& env, const LMDBDatabase& database)
@@ -34,7 +35,7 @@ bool LMDBReadTransaction::get_value(std::vector<uint8_t>& key, std::vector<uint8
 
 bool LMDBReadTransaction::get_node(uint32_t level, index_t index, std::vector<uint8_t>& data) const
 {
-    NodeKeyType key = ((static_cast<NodeKeyType>(1) << level) + static_cast<NodeKeyType>(index)) - 1;
-    return get_value_by_integer(key, data);
+    NodeKeyType key = GetKeyForNode(level, index);
+    return get_value(key, data);
 }
 } // namespace bb::crypto::merkle_tree

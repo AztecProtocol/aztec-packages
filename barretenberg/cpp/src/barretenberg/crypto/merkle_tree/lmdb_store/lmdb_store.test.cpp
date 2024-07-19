@@ -238,7 +238,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
         for (size_t i = 0; i < num_keys; i++) {
             std::vector<uint8_t> value;
             write(value, values[i]);
-            transaction->put_value_by_integer(keys[i], value);
+            transaction->put_value(keys[i], value);
         }
 
         // Now put keys in the db that are smaller and larger in length and smaller and larger in value
@@ -250,10 +250,10 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
         uint32_t value_to_write = 6;
         std::vector<uint8_t> value;
         write(value, value_to_write);
-        transaction->put_value_by_integer(lower64, value);
-        transaction->put_value_by_integer(higher64, value);
-        transaction->put_value_by_integer(lower256, value);
-        transaction->put_value_by_integer(higher256, value);
+        transaction->put_value(lower64, value);
+        transaction->put_value(higher64, value);
+        transaction->put_value(lower256, value);
+        transaction->put_value(higher256, value);
         transaction->commit();
     }
 
@@ -317,7 +317,7 @@ TEST_F(LMDBStoreTest, can_not_retrieve_previous_key_from_empty_db)
     LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
     uint128_t key = 20;
     std::vector<uint8_t> data;
-    bool success = transaction->get_value_by_integer(key, data);
+    bool success = transaction->get_value(key, data);
     EXPECT_EQ(success, false);
 }
 
@@ -467,7 +467,7 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
             std::vector<uint8_t> data;
             write(data, values[values_index][j]);
             auto key = static_cast<T>(keys[j]);
-            transaction.put_value_by_integer(key, data);
+            transaction.put_value(key, data);
         }
     };
 
@@ -475,7 +475,7 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
         for (uint32_t j = 0; j < keys.size(); j++) {
             std::vector<uint8_t> data;
             auto key = static_cast<T>(keys[j]);
-            transaction.get_value_by_integer(key, data);
+            transaction.get_value(key, data);
             auto retrieved_value = from_buffer<uint32_t>(data);
             ASSERT_EQ(retrieved_value, values[values_index][j]);
         }

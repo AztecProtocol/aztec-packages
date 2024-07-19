@@ -86,6 +86,9 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
                               bool includeUncommitted,
                               const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
+    /**
+     * @brief Find the leaf with the value immediately lower then the value provided
+     */
     void find_low_leaf(const fr& leaf_key, bool includeUncommitted, const FindLowLeafCallback& on_completion) const;
 
     using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
@@ -565,15 +568,13 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
                     // .value() throws if the low leaf does not exist
                     IndexedLeafValueType current_leaf = store_.get_leaf(current, *tx, true).value();
 
-                    response.inner.insertions->push_back({
+                    LeafInsertion insertion = {
                         .low_leaf_index = current,
                         .low_leaf = IndexedLeafValueType::empty(),
                         .original_low_leaf = current_leaf,
-                    });
-                    LeafInsertion& insertion = (*response.inner.insertions)[i];
+                    };
+
                     // Capture the index and original value of the 'low' leaf
-                    // insertion.low_leaf_index = current;
-                    // insertion.original_low_leaf = current_leaf;
 
                     if (!is_already_present) {
                         // Update the current leaf to point it to the new leaf
@@ -604,6 +605,8 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
                     // capture new low leaf
                     insertion.low_leaf =
                         IndexedLeafValueType(current_leaf.value, current_leaf.nextIndex, current_leaf.nextValue);
+
+                    response.inner.insertions->push_back(insertion);
                 }
             }
         },
@@ -635,9 +638,6 @@ void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index
 
     // Extract the value of the leaf node and it's sibling
     bool is_right = static_cast<bool>(index & 0x01);
-    // extract the current leaf hash values for the previous hash path
-    // fr sibling = get_node(level, is_right ? index - 1 : index + 1);
-    // previous_sibling_path.emplace_back(sibling);
 
     // Write the new leaf hash in place
     write_node(level, index, new_hash);
@@ -655,7 +655,6 @@ void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index
             index_t index_of_node_above = index >> 1;
             bool node_above_is_right = static_cast<bool>(index_of_node_above & 0x01);
             fr above_sibling = get_node(level, node_above_is_right ? index_of_node_above - 1 : index_of_node_above + 1);
-            // previous_sibling_path.emplace_back(above_sibling);
         }
 
         // Now that we have extracted the hash path from the row above

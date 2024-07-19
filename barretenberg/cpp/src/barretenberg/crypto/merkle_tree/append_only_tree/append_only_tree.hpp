@@ -48,16 +48,23 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
 
     /**
      * @brief Adds a single value to the end of the tree
+     * @param value The value to be added
+     * @param on_completion Callback to be called on completion
      */
     virtual void add_value(const fr& value, const AppendCompletionCallback& on_completion);
 
     /**
      * @brief Adds the given set of values to the end of the tree
+     * @param values The values to be added
+     * @param on_completion Callback to be called on completion
      */
     virtual void add_values(const std::vector<fr>& values, const AppendCompletionCallback& on_completion);
 
     /**
      * @brief Returns the sibling path from the leaf at the given index to the root
+     * @param index The index at which to read the sibling path
+     * @param on_completion Callback to be called on completion
+     * @param includeUncommitted Whether to include uncommitted changes
      */
     void get_sibling_path(const index_t& index, const HashPathCallback& on_completion, bool includeUncommitted) const;
 
@@ -85,10 +92,18 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
                                   const HashPathCallback& on_completion,
                                   bool includeUncommitted) const;
 
+    /**
+     * @brief Returns the tree meta data
+     * @param includeUncommitted Whether to include uncommitted changes
+     * @param on_completion Callback to be called on completion
+     */
     void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion) const;
 
     /**
      * @brief Returns the leaf value at the provided index
+     * @param index The index of the leaf to be retrieved
+     * @param includeUncommitted Whether to include uncommitted changes
+     * @param on_completion Callback to be called on completion
      */
     void get_leaf(const index_t& index, bool includeUncommitted, const GetLeafCallback& completion) const;
 

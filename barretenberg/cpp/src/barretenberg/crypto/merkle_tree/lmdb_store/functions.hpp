@@ -1,7 +1,9 @@
 #pragma once
 
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <cstdint>
 #include <lmdb.h>
 
 namespace bb::crypto::merkle_tree {
@@ -15,6 +17,8 @@ void ThrowError(const std::string& errorString, int error);
 int SizeCmp(const MDB_val* a, const MDB_val* b);
 
 int MemCmp(const MDB_val*, const MDB_val*);
+
+NodeKeyType GetKeyForNode(uint32_t level, index_t index);
 
 template <typename T> int ValueCmp(const MDB_val* a, const MDB_val* b)
 {

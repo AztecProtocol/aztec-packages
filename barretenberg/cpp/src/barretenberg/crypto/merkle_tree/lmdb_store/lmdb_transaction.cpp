@@ -11,6 +11,8 @@ LMDBTransaction::LMDBTransaction(LMDBEnvironment& env, bool readOnly)
         "mdb_txn_begin", mdb_txn_begin, _environment.underlying(), p, readOnly ? MDB_RDONLY : 0U, &_transaction);
 }
 
+LMDBTransaction::~LMDBTransaction() = default;
+
 MDB_txn* LMDBTransaction::underlying() const
 {
     return _transaction;
