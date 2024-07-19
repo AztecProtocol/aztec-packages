@@ -38,7 +38,6 @@ jobs:
     needs: setup
     runs-on: ${{ github.actor }}-x86
     outputs:
-      l1_contracts_changed: ${{ steps.check_l1_changes.outputs.result }}
       mainnet_fork_changed: ${{ steps.check_fork_changes.outputs.result }}
     steps:
       - uses: actions/checkout@v4
@@ -55,16 +54,6 @@ jobs:
         run: |
           earthly-ci \
           --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
-
-      - name: Check if L1 contracts need deployment
-        id: check_l1_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
-            const fileChanged = changedFiles.some(file => file.startsWith('l1-contracts'));
-            return fileChanged
 
       - name: Check if mainnet fork needs deployment
         id: check_fork_changes
@@ -115,7 +104,6 @@ jobs:
           ./.github/scripts/wait_for_infra.sh mainnet-fork ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
 
       - name: Deploy L1 Contracts
-        if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
         run: |
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
@@ -125,33 +113,25 @@ jobs:
             | tee  ./l1-contracts/addresses.txt
           ./.github/scripts/extract_output.sh l1-contracts ./l1-contracts/addresses.txt
 
-      - name: Upload L1 contract addresses to S3
-        if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
-        run: |
-          aws s3 cp ./l1-contracts.json s3://aztec-${{ env.DEPLOY_TAG }}-deployments/l1_contract_addresses.json
-
       - name: Apply l1-contracts Terraform
-        if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
         working-directory: ./l1-contracts/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
+
+      - name: Upload L1 contract addresses to S3
+        run: |
+          aws s3 cp ./l1-contracts.json s3://aztec-${{ env.DEPLOY_TAG }}-deployments/l1_contract_addresses.json
 
       - name: Init Aztec Node Terraform
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
 
-      - name: Taint node filesystem if L1 contracts are redeployed
-        if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
-        working-directory: ./yarn-project/aztec/terraform/node
-        run: |
-          terraform taint aws_efs_file_system.node_data_store
-
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store"
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
