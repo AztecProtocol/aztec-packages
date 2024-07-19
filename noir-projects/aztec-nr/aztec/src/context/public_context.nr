@@ -276,11 +276,17 @@ unconstrained fn call_static<let RET_SIZE: u32>(
 }
 
 unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
-    storage_read_opcode(storage_slot.x, N as Field)
+    // Storage index represents the actual leaf index in the public data tree and is computed as the x-coordinate
+    // of the fully-derived storage slot.
+    let storage_index = storage_slot.x;
+    storage_read_opcode(storage_index, N as Field)
 }
 
 unconstrained fn storage_write<let N: u32>(storage_slot: Point, values: [Field; N]) {
-    storage_write_opcode(storage_slot.x, values);
+    // Storage index represents the actual leaf index in the public data tree and is computed as the x-coordinate
+    // of the fully-derived storage slot.
+    let storage_index = storage_slot.x;
+    storage_write_opcode(storage_index, values);
 }
 
 impl Empty for PublicContext {

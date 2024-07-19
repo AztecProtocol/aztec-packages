@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, hash::pedersen_hash, address::AztecAddress,
-    header::Header, utils::field::full_field_less_than, point::Point
+    data::hash::compute_public_data_tree_index, address::AztecAddress, header::Header,
+    utils::field::full_field_less_than, point::Point
 };
 use std::merkle::compute_merkle_root;
 
@@ -13,10 +13,8 @@ trait PublicStorageHistoricalRead {
 impl PublicStorageHistoricalRead for Header { 
     fn public_storage_historical_read(self, storage_slot: Point, contract_address: AztecAddress) -> Field {
         // 1) Compute the storage index by siloing the x-coordinate of storage slot with the contract address
-        let public_value_storage_index = pedersen_hash(
-            [contract_address.to_field(), storage_slot.x],
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX
-        );
+        let contract_storage_index = storage_slot.x;
+        let public_value_storage_index = compute_public_data_tree_index(contract_address, contract_storage_index);
 
         // 2) Get the membership witness of the slot
         let witness = get_public_data_witness(

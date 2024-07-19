@@ -219,7 +219,7 @@ struct CustomNote {
 }
 ```
 
-### After expansaion
+### After expansion
 
 ```rust
 impl CustomNote {
@@ -255,14 +255,13 @@ impl CustomNote {
         )
     }
 
-      fn to_be_bytes(self, storage_slot: Point) -> [u8; 128] {
-            assert(128 == 2 * 32 + 64, "Note byte length must be equal to (serialized_length * 32) + 64 bytes");
+        fn to_be_bytes(self, storage_slot: Point) -> [u8; CUSTOM_NOTE_BYTES_LEN] {
             let serialized_note = self.serialize_content();
 
-            let mut buffer: [u8; 128] = [0; 128];
+            let mut buffer: [u8; CUSTOM_NOTE_BYTES_LEN] = [0; CUSTOM_NOTE_BYTES_LEN];
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
-            let note_type_id_bytes = CustomNote::get_note_type_id().to_be_bytes(32);
+            let storage_slot_bytes = point_to_bytes(storage_slot);
+            let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
 
             for i in 0..32 {
                 buffer[i] = storage_slot_bytes[i];
