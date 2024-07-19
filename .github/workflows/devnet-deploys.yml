@@ -191,7 +191,7 @@ jobs:
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy TokenContract \
             --args $AZTEC_ADDRESS DevCoin DEV 18 \
             --private-key $AZTEC_PRIVATE_KEY \
-            --public-deployment
+            --public-deployment \
             | tee ./token_contract.txt
           ./.github/scripts/extract_output.sh l2-contract ./token_contract.txt TOKEN_CONTRACT_ADDRESS
 
@@ -199,7 +199,7 @@ jobs:
             --args $TOKEN_CONTRACT_ADDRESS $FEE_JUICE_ADDRESS \
             --private-key $AZTEC_PRIVATE_KEY \
             --public-deployment \
-            --class-registration
+            --class-registration \
             | tee ./fpc_contract.txt
           ./.github/scripts/extract_output.sh l2-contract ./FPC_contract.txt FPC_CONTRACT_ADDRESS
 
