@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuit-types';
 import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
 import { type NoteSelector } from '@aztec/foundation/abi';
-import { type Point, type Fr } from '@aztec/foundation/fields';
+import { type Fr, type Point } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm/index.js';
 

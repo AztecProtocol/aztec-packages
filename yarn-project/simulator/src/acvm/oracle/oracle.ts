@@ -184,7 +184,8 @@ export class Oracle {
   async getNotes(
     [storageSlotX]: ACVMField[],
     [storageSlotY]: ACVMField[],
-    [storageSlotIsInfinite]: ACVMField[],    [numSelects]: ACVMField[],
+    [storageSlotIsInfinite]: ACVMField[],
+    [numSelects]: ACVMField[],
     selectByIndexes: ACVMField[],
     selectByOffsets: ACVMField[],
     selectByLengths: ACVMField[],
@@ -199,7 +200,11 @@ export class Oracle {
     [status]: ACVMField[],
     [returnSize]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const storageSlot = new Point(fromACVMField(storageSlotX), fromACVMField(storageSlotY), !fromACVMField(storageSlotIsInfinite).isZero());
+    const storageSlot = new Point(
+      fromACVMField(storageSlotX),
+      fromACVMField(storageSlotY),
+      !fromACVMField(storageSlotIsInfinite).isZero(),
+    );
     const noteDatas = await this.typedOracle.getNotes(
       storageSlot,
       +numSelects,
@@ -254,7 +259,11 @@ export class Oracle {
     [innerNoteHashX]: ACVMField[],
     [counter]: ACVMField[],
   ): ACVMField {
-    const storageSlot = new Point(fromACVMField(storageSlotX), fromACVMField(storageSlotY), !fromACVMField(storageSlotIsInfinite).isZero());
+    const storageSlot = new Point(
+      fromACVMField(storageSlotX),
+      fromACVMField(storageSlotY),
+      !fromACVMField(storageSlotIsInfinite).isZero(),
+    );
     this.typedOracle.notifyCreatedNote(
       storageSlot,
       NoteSelector.fromField(fromACVMField(noteTypeId)),

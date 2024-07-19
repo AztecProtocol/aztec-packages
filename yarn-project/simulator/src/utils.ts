@@ -1,6 +1,6 @@
 import { G_SLOT } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { GrumpkinScalar, type Point, type Fr } from '@aztec/foundation/fields';
+import { type Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 
 /**
  * Computes the resulting storage slot for an entry in a mapping.

@@ -24,7 +24,6 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  Point,
   PublicAccumulatedDataBuilder,
   PublicCallRequest,
   PublicDataTreeLeafPreimage,

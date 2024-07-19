@@ -15,6 +15,7 @@ import {
   type Header,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type Point,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';

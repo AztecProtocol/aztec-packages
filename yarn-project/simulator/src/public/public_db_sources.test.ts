@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type MerkleTreeOperations } from '@aztec/world-state';

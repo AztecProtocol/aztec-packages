@@ -1,4 +1,4 @@
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type Point } from '@aztec/circuits.js';
 
 import { type TxHash } from '../tx/tx_hash.js';
 
@@ -12,7 +12,7 @@ export type OutgoingNotesFilter = {
   /** The contract address the note belongs to. */
   contractAddress?: AztecAddress;
   /** The specific storage location of the note on the contract. */
-  storageSlot?: Fr;
+  storageSlot?: Point;
   /** The owner of the note (whose public key was used to encrypt the note). */
   owner?: AztecAddress;
 };

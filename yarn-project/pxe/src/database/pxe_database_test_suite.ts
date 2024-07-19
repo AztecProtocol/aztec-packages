@@ -73,7 +73,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
     describe('incoming notes', () => {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
-      let storageSlots: Fr[];
+      let storageSlots: Point[];
       let notes: IncomingNoteDao[];
 
       const filteringTests: [() => IncomingNotesFilter, () => IncomingNoteDao[]][] = [
@@ -112,7 +112,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       beforeEach(async () => {
         owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
         contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
-        storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
+        storageSlots = Array.from({ length: 2 }).map(() => Point.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
           randomIncomingNoteDao({
@@ -201,7 +201,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
     describe('outgoing notes', () => {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
-      let storageSlots: Fr[];
+      let storageSlots: Point[];
       let notes: OutgoingNoteDao[];
 
       const filteringTests: [() => OutgoingNotesFilter, () => OutgoingNoteDao[]][] = [
@@ -240,7 +240,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       beforeEach(async () => {
         owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
         contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
-        storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
+        storageSlots = Array.from({ length: 2 }).map(() => Point.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
           randomOutgoingNoteDao({

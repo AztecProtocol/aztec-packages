@@ -28,8 +28,8 @@ import {
   PublicExecutor,
   type PublicStateDB,
   type SimulationProvider,
-  computeFeePayerBalanceLeafSlot,
   computeFeePayerBalanceContractStorageIndex,
+  computeFeePayerBalanceLeafSlot,
 } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';

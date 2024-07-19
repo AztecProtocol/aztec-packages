@@ -9,7 +9,6 @@ import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type NullifierLeafPreimage,
-  Point,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';

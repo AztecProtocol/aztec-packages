@@ -8,7 +8,7 @@ import {
 import { type CompleteAddress, type Header, type KeyValidationRequest } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Point, type Fr } from '@aztec/foundation/fields';
+import { type Fr, type Point } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData } from '../acvm/index.js';

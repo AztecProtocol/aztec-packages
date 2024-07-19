@@ -1,5 +1,5 @@
 import { type Note, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, Fr, type Point } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -285,16 +285,16 @@ export class AztecCheatCodes {
 
   /**
    * Loads the value stored at the given slot in the private storage of the given contract.
-   * @param contract - The address of the contract
+   * @param contractAddress - The address of the contract
    * @param owner - The owner for whom the notes are encrypted
-   * @param slot - The storage slot to lookup
+   * @param storageSlot - The storage slot to lookup
    * @returns The notes stored at the given slot
    */
-  public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
+  public async loadPrivate(owner: AztecAddress, contractAddress: AztecAddress, storageSlot: Point): Promise<Note[]> {
     const extendedNotes = await this.pxe.getIncomingNotes({
       owner,
-      contractAddress: contract,
-      storageSlot: new Fr(slot),
+      contractAddress,
+      storageSlot,
     });
     return extendedNotes.map(extendedNote => extendedNote.note);
   }

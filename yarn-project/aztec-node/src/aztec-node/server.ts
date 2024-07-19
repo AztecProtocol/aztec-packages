@@ -669,13 +669,17 @@ export class AztecNodeService implements AztecNode {
    * Aztec's version of `eth_getStorageAt`.
    *
    * @param contract - Address of the contract to query.
-   * @param slot - Slot to query.
+   * @param contractStorageIndex - The contract storage index to query.
    * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  public async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
+  public async getPublicStorageAt(
+    contract: AztecAddress,
+    contractStorageIndex: Fr,
+    blockNumber: L2BlockNumber,
+  ): Promise<Fr> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
+    const leafSlot = computePublicDataTreeLeafSlot(contract, contractStorageIndex);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {

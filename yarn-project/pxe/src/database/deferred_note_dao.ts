@@ -46,7 +46,7 @@ export class DeferredNoteDao {
       reader.readObject(Point),
       reader.readObject(Note),
       reader.readObject(AztecAddress),
-      reader.readObject(Fr),
+      reader.readObject(Point),
       reader.readObject(NoteSelector),
       reader.readObject(TxHash),
       reader.readVector(Fr),

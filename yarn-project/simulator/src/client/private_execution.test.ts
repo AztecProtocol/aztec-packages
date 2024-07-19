@@ -33,7 +33,13 @@ import {
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
-import { computeInnerNoteHash, computeNoteContentHash, computeNoteHashNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import {
+  computeInnerNoteHash,
+  computeNoteContentHash,
+  computeNoteHashNonce,
+  computeSecretHash,
+  computeVarArgsHash,
+} from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
   type FunctionArtifact,
