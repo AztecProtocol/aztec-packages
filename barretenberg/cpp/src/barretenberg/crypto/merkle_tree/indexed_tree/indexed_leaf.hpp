@@ -134,9 +134,9 @@ template <typename LeafType> struct IndexedLeaf {
         , nextValue(nextVal)
     {}
 
-    IndexedLeaf<LeafType>(const IndexedLeaf<LeafType>& other) = default;
-    IndexedLeaf<LeafType>(IndexedLeaf<LeafType>&& other) noexcept = default;
-    ~IndexedLeaf<LeafType>() = default;
+    IndexedLeaf(const IndexedLeaf<LeafType>& other) = default;
+    IndexedLeaf(IndexedLeaf<LeafType>&& other) noexcept = default;
+    ~IndexedLeaf() = default;
 
     static bool is_updateable() { return LeafType::is_updateable(); }
 
