@@ -5,6 +5,8 @@ use dep::protocol_types::traits::{Serialize, Deserialize};
 // their hash, so that when reading in private we can perform a historical read for the hash and then show that it
 // corresponds to a preimage obtained from an unconstrained hint. We do store the keys keys regardless as they might be
 // needed during public execution, and since we need to broadcast and produce hints in some standardized way.
+// While it might seem odd to create a struct for what is effectively some data and a pure function called on it, state
+// variables rely on serializable structs in order to persist data to storage, so we must use this abstraction.
 struct StoredKeys {
     public_keys: PublicKeys,
     hash: Field,

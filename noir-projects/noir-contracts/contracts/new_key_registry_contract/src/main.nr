@@ -54,7 +54,7 @@ contract NewKeyRegistry {
 
     unconstrained fn get_current_keys(account: AztecAddress) -> pub PublicKeys {
         // If #7524 were to be implemented, this function could be called by an oracle from an unconstrained function
-        // in order to produce the preimage of the stored hash, and hence prove its correctness.
+        // in order to produce the preimage of the stored hash, and hence prove the correctness of the keys.
         storage.current_keys.at(account).read().public_keys
     }
 }
