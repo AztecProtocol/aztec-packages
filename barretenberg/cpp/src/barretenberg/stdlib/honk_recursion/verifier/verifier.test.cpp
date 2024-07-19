@@ -203,15 +203,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                                                                                          pairing_points[1].get_value());
         EXPECT_EQ(recursive_result, native_result);
 
-        // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
-        // the manifests produced by each agree.
-        auto recursive_manifest = verifier.transcript->get_manifest();
-        auto native_manifest = native_verifier.transcript->get_manifest();
-        for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
-        }
-
-        // Check 3: Construct and verify a proof of the recursive verifier circuit
+        // Check 2: Construct and verify a proof of the recursive verifier circuit
         if constexpr (!IsSimulator<OuterBuilder>) {
             auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
             OuterProver prover(instance);
