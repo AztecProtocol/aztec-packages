@@ -11,7 +11,6 @@ env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
   GIT_COMMIT: ${{ github.sha }}
   DEPLOY_TAG: devnet
-  FILE_PATH: ./l1-contracts/addresses.txt
   L1_CHAIN_ID: 677692
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -123,8 +122,13 @@ jobs:
             --private-key ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }} \
             --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
-            | tee ${{ env.FILE_PATH }}
-          ./.github/scripts/extract_l1_addresses.sh ${{ env.FILE_PATH }}
+            | tee  ./l1-contracts/addresses.txt
+          ./.github/scripts/extract_output.sh l1-contracts ./l1-contracts/addresses.txt
+
+      - name: Upload L1 contract addresses to S3
+        if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
+        run: |
+          aws s3 cp ./l1-contracts.json s3://aztec-${{ env.DEPLOY_TAG }}-deployments/l1_contract_addresses.json
 
       - name: Apply l1-contracts Terraform
         if: needs.build.outputs.l1_contracts_changed == 'true' || needs.build.outputs.mainnet_fork_changed == 'true'
@@ -177,6 +181,13 @@ jobs:
 
       - uses: ./.github/ci-setup-action
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
       - name: Wait for PXE to be available
         run: |
           sleep 10
@@ -187,4 +198,39 @@ jobs:
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
-            --l1-chain-id ${{ env.L1_CHAIN_ID }}
+            --l1-chain-id ${{ env.L1_CHAIN_ID }} \
+            | tee  ./bootstrap_addresses.txt
+
+      - name: Deploy contracts
+        run: |
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} create-account \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
+            | tee ./account.txt
+          ./.github/scripts/extract_output.sh private-key ./account.txt
+
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy TokenContract \
+            --args $AZTEC_ADDRESS DevCoin DEV 18 \
+            --private-key $AZTEC_PRIVATE_KEY \
+            -- public-deployment
+            | tee ./token_contract.txt
+          ./.github/scripts/extract_output.sh l2-contract ./token_contract.txt TOKEN_CONTRACT_ADDRESS
+
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy FPCContract \
+            --args $TOKEN_CONTRACT_ADDRESS $FEE_JUICE_ADDRESS \
+            --private-key $AZTEC_PRIVATE_KEY \
+            -- public-deployment \
+            -- class-registration
+            | tee ./fpc_contract.txt
+          ./.github/scripts/extract_output.sh l2-contract ./FPC_contract.txt FPC_CONTRACT_ADDRESS
+
+      - name: Upload addreses to S3
+        run: |
+          echo '{
+            "fee_juice_address": "'$FEE_JUICE_ADDRESS'",
+            "key_registry_address": "'$KEY_REGISTRY_ADDRESS'",
+            "auth_registry_address": "'$AUTH_REGISTRY_ADDRESS'",
+            "token_contract_address": "'$TOKEN_CONTRACT_ADDRESS'",
+            "fpc_contract_address": "'$FPC_CONTRACT_ADDRESS'
+          }' > ./l2_addresses.json
+
+          aws s3 cp ./l2_addresses.json s3://aztec-${{ env.DEPLOY_TAG }}-deployments/l2_contract_addresses.json
