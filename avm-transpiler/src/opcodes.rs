@@ -69,6 +69,7 @@ pub enum AvmOpcode {
     DEBUGLOG,
     // Gadgets
     KECCAK,
+    KECCAKF1600,
     POSEIDON2,
     SHA256,   // temp - may be removed, but alot of contracts rely on it
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
@@ -162,6 +163,7 @@ impl AvmOpcode {
 
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256 => "SHA256 ",
             AvmOpcode::PEDERSEN => "PEDERSEN",
