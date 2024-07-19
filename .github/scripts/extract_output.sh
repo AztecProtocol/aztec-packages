@@ -61,7 +61,7 @@ elif [[ $TO_EXTRACT == "private-key" ]]; then
   OUTPUT=$(cat $FILE_PATH)
 
   PRIVATE_KEY=$(echo "$OUTPUT" | grep "Private key:" | awk '{print $NF}')
-  ADDRESS=$(echo "$OUTPUT" | grep "Adress:" | awk '{print $NF}')
+  ADDRESS=$(echo "$OUTPUT" | grep "Address:" | awk '{print $NF}')
 
   # Print the private key and address into github env
   echo "AZTEC_PRIVATE_KEY=$PRIVATE_KEY" >>$GITHUB_ENV
