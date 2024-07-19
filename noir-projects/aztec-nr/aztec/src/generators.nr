@@ -9,6 +9,7 @@ global Ga3 = Point { x: 0x0edb1e293c3ce91bfc04e3ceaa50d2c541fa9d091c72eb403efb1c
 global G_slot = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15, y: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791, is_infinite: false };
 
 // Derive a base slot (using the base generator) from a slot preimage
+// TODO(benesjan): review all the usage of this function and ensure that the correct generator is used!
 pub fn derive_base_slot(slot_preimage: Field) -> Point {
     // We check that the slot preimage fits into 128 bits --> this is ok for base slots
     slot_preimage.assert_max_bit_size(128);
@@ -16,7 +17,7 @@ pub fn derive_base_slot(slot_preimage: Field) -> Point {
 }
 
 mod test {
-    use crate::generators::{Ga1, Ga2, Ga3, G_slot};
+    use crate::generators::{Ga1, Ga2, Ga3, G_slot, derive_base_slot};
     use dep::protocol_types::point::Point;
     use std::hash::derive_generators;
 
@@ -27,5 +28,17 @@ fn test_generators() {
         assert_eq(generators[1], Ga2);
         assert_eq(generators[2], Ga3);
         assert_eq(generators[3], G_slot);
+    }
+
+    #[test]
+fn test_derive_base_slot() {
+        // Note: If s1 gets changed look for its occurrences and update them!
+        let expected_s1 = Point {
+            x: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791,
+            y: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15,
+            is_infinite: false
+        };
+        let s1 = derive_base_slot(1);
+        assert_eq(s1, expected_s1);
     }
 }

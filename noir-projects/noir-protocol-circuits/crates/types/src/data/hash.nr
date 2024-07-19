@@ -1,5 +1,6 @@
 use crate::{address::AztecAddress, constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX};
 
+// TODO(benesjan): rename to `silo_contract_storage_index` or smt.
 pub fn compute_public_data_tree_index(contract_address: AztecAddress, storage_index: Field) -> Field {
     std::hash::pedersen_hash_with_separator(
         [
