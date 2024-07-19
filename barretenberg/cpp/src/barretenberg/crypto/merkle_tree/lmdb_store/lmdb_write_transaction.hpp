@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
@@ -39,13 +41,7 @@ class LMDBWriteTransaction : public LMDBTransaction {
 
 template <typename T> void LMDBWriteTransaction::put_value(T& key, std::vector<uint8_t>& data)
 {
-    MDB_val dbKey;
-    dbKey.mv_size = sizeof(T);
-    dbKey.mv_data = &key;
-
-    MDB_val dbVal;
-    dbVal.mv_size = data.size();
-    dbVal.mv_data = (void*)data.data();
-    call_lmdb_func("mdb_put", mdb_put, underlying(), _database.underlying(), &dbKey, &dbVal, 0U);
+    std::vector<uint8_t> keyBuffer = SerialiseKey(key);
+    put_value(keyBuffer, data);
 }
 } // namespace bb::crypto::merkle_tree

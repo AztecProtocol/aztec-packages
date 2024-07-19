@@ -269,7 +269,6 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
             EXPECT_EQ(success, true);
             bb::fr value = from_buffer<uint32_t>(data, 0);
             EXPECT_EQ(value, values[i]);
-            // uint256_t new_key = from_buffer<uint256_t>(key, 0);
             EXPECT_EQ(key_copy, keys[i]);
         }
 
@@ -282,7 +281,6 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
             EXPECT_EQ(success, true);
             bb::fr value = from_buffer<uint32_t>(data, 0);
             EXPECT_EQ(value, values[1]);
-            // uint256_t new_key = from_buffer<uint256_t>(key, 0);
             EXPECT_EQ(key, keys[1]);
         }
 

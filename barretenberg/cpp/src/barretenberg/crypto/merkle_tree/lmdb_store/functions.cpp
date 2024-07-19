@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <vector>
 
 namespace bb::crypto::merkle_tree {
 void ThrowError(const std::string& errorString, int error)
@@ -10,6 +11,57 @@ void ThrowError(const std::string& errorString, int error)
     std::stringstream ss;
     ss << errorString << ": " << error << " - " << mdb_strerror(error) << std::endl;
     throw std::runtime_error(ss.str());
+}
+
+std::vector<uint8_t> SerialiseKey(uint8_t key)
+{
+    return { key };
+}
+std::vector<uint8_t> SerialiseKey(uint64_t key)
+{
+    std::vector<uint8_t> buf(sizeof(key));
+    std::memcpy(buf.data(), &key, sizeof(key));
+    return buf;
+}
+std::vector<uint8_t> SerialiseKey(uint128_t key)
+{
+    std::vector<uint8_t> buf(16);
+#ifdef __i386__
+    std::memcpy(buf.data(), key.data, 16);
+#else
+    std::memcpy(buf.data(), &key, 16);
+#endif
+    return buf;
+}
+
+std::vector<uint8_t> SerialiseKey(uint256_t key)
+{
+    std::vector<uint8_t> buf(32);
+    std::memcpy(buf.data(), key.data, 32);
+    return buf;
+}
+
+void DeserialiseKey(void* data, uint8_t& key)
+{
+    uint8_t* p = (uint8_t*)data;
+    key = *p;
+}
+void DeserialiseKey(void* data, uint64_t& key)
+{
+    std::memcpy(&key, data, sizeof(key));
+}
+void DeserialiseKey(void* data, uint128_t& key)
+{
+#ifdef __i386__
+    std::memcpy(key.data, data, 16);
+#else
+    std::memcpy(&key, data, 16);
+#endif
+}
+
+void DeserialiseKey(void* data, uint256_t& key)
+{
+    std::memcpy(key.data, data, 32);
 }
 
 // Nodes are stored as a heap
@@ -59,7 +111,7 @@ int IntegerKeyCmp(const MDB_val* a, const MDB_val* b)
     uint64_t remainder = a->mv_size % sizeof(uint64_t);
 
     // If the size is > 32 bytes, use default comparison
-    if (a->mv_size > sizeof(uint256_t)) {
+    if (a->mv_size > 32) {
         return MemCmp(a, b);
     }
     // If the size is not a divisible by 8 then use default comparison, unless it is 1 byte

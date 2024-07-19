@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
@@ -41,28 +42,20 @@ class LMDBReadTransaction : public LMDBTransaction {
 
 template <typename T> bool LMDBReadTransaction::get_value(T& key, std::vector<uint8_t>& data) const
 {
-    MDB_val dbKey;
-    dbKey.mv_size = sizeof(T);
-    dbKey.mv_data = (void*)&key;
-
-    MDB_val dbVal;
-    if (!call_lmdb_func(mdb_get, underlying(), _database.underlying(), &dbKey, &dbVal)) {
-        return false;
-    }
-    data.resize(dbVal.mv_size);
-    std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
-    return true;
+    std::vector<uint8_t> keyBuffer = SerialiseKey(key);
+    return get_value(keyBuffer, data);
 }
 
 template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, std::vector<uint8_t>& data) const
 {
-    T keyCopy = key;
+    std::vector<uint8_t> keyBuffer = SerialiseKey(key);
+    uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, underlying(), _database.underlying(), &cursor);
 
     MDB_val dbKey;
-    dbKey.mv_size = sizeof(T);
-    dbKey.mv_data = (void*)&keyCopy;
+    dbKey.mv_size = keySize;
+    dbKey.mv_data = (void*)keyBuffer.data();
 
     MDB_val dbVal;
 
@@ -72,7 +65,7 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
     int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
     if (code == 0) {
         // we found the key, now determine if it is the exact key
-        if (dbKey.mv_size == sizeof(T) && std::memcmp(dbKey.mv_data, &key, dbKey.mv_size) == 0) {
+        if (dbKey.mv_size == keySize && std::memcmp(dbKey.mv_data, keyBuffer.data(), dbKey.mv_size) == 0) {
             // we have the exact key
             data.resize(dbVal.mv_size);
             std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
@@ -84,12 +77,12 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
             if (code == 0) {
                 // We have found a previous key. It could be of the same size but smaller value, or smaller size which
                 // is equal to not found
-                if (dbKey.mv_size != sizeof(T)) {
+                if (dbKey.mv_size != keySize) {
                     // There is no previous key, do nothing
                 } else {
                     data.resize(dbVal.mv_size);
                     std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
-                    std::memcpy(&key, dbKey.mv_data, dbKey.mv_size);
+                    DeserialiseKey(dbKey.mv_data, key);
                     success = true;
                 }
             } else if (code == MDB_NOTFOUND) {
@@ -103,12 +96,12 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
         code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_PREV);
         if (code == 0) {
             // We found the last key, but we need to ensure it is the same size
-            if (dbKey.mv_size != sizeof(T)) {
+            if (dbKey.mv_size != keySize) {
                 // The key is not the same size, same as not found, do nothing
             } else {
                 data.resize(dbVal.mv_size);
                 std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
-                std::memcpy(&key, dbKey.mv_data, dbKey.mv_size);
+                DeserialiseKey(dbKey.mv_data, key);
                 success = true;
             }
         } else if (code == MDB_NOTFOUND) {
