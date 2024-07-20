@@ -421,6 +421,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                         .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
                         .public_inputs =
                             map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
+                        .proof_type = arg.proof_type,
                     };
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
@@ -433,6 +434,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                         .public_inputs =
                             map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
                         .key_hash = input_key,
+                        .proof_type = arg.proof_type,
                     };
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
