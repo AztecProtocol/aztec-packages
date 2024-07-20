@@ -81,7 +81,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
 
   return {
     enforceFees: ['1', 'true'].includes(ENFORCE_FEES),
-    rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : 'http://0.0.0.0:8545',
+    rpcUrl: ETHEREUM_HOST ? ETHEREUM_HOST : '',
     l1ChainId: L1_CHAIN_ID ? +L1_CHAIN_ID : 31337, // 31337 is the default chain id for anvil
     version: VERSION ? +VERSION : 1, // 1 is our default version
     requiredConfirmations: SEQ_REQUIRED_CONFIRMATIONS ? +SEQ_REQUIRED_CONFIRMATIONS : 1,
