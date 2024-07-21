@@ -11,6 +11,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -497,5 +498,39 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
         check_values.template operator()<LeafIndexKeyType>(*transaction, 1);
         check_values.template operator()<MetaKeyType>(*transaction, 2);
         check_values.template operator()<FrKeyType>(*transaction, 3);
+    }
+}
+
+template <typename T> void TestSerialisation(const T& key, uint32_t expectedSize)
+{
+    std::vector<uint8_t> buf = SerialiseKey(key);
+    // Should serialise to expected size
+    EXPECT_EQ(expectedSize, buf.size());
+    T newValue;
+    DeserialiseKey(buf.data(), newValue);
+    // Should be different objects
+    EXPECT_NE(&newValue, &key);
+    // Should have the same value
+    EXPECT_EQ(newValue, key);
+}
+
+TEST_F(LMDBStoreTest, produces_correct_key_sizes)
+{
+    auto& random_engine = bb::numeric::get_randomness();
+    {
+        uint8_t value = random_engine.get_random_uint8();
+        TestSerialisation(value, 1);
+    }
+    {
+        uint64_t value = random_engine.get_random_uint64();
+        TestSerialisation(value, 8);
+    }
+    {
+        uint128_t value = random_engine.get_random_uint128();
+        TestSerialisation(value, 16);
+    }
+    {
+        uint256_t value = random_engine.get_random_uint256();
+        TestSerialisation(value, 32);
     }
 }
