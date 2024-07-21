@@ -6,9 +6,11 @@ import {LOG_N} from "./keys/Add2HonkVerificationKey.sol";
 
 import {Fr} from "./Fr.sol";
 
+uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
+
 uint256 constant NUMBER_OF_SUBRELATIONS = 18;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
-uint256 constant NUMBER_OF_ENTITIES = 43;
+uint256 constant NUMBER_OF_ENTITIES = 42;
 uint256 constant NUMBER_OF_ALPHAS = 17;
 
 // Prime field order
@@ -17,12 +19,12 @@ uint256 constant P = 21888242871839275222246405745257275088548364400416034343698
 
 // ENUM FOR WIRES
 enum WIRE {
+    Q_M,
     Q_C,
     Q_L,
     Q_R,
     Q_O,
     Q_4,
-    Q_M,
     Q_ARITH,
     Q_RANGE,
     Q_ELLIPTIC,
@@ -46,9 +48,10 @@ enum WIRE {
     W_R,
     W_O,
     W_4,
-    SORTED_ACCUM,
     Z_PERM,
-    Z_LOOKUP,
+    LOOKUP_INVERSES,
+    LOOKUP_READ_COUNTS,
+    LOOKUP_READ_TAGS,
     TABLE_1_SHIFT,
     TABLE_2_SHIFT,
     TABLE_3_SHIFT,
@@ -57,9 +60,7 @@ enum WIRE {
     W_R_SHIFT,
     W_O_SHIFT,
     W_4_SHIFT,
-    SORTED_ACCUM_SHIFT,
-    Z_PERM_SHIFT,
-    Z_LOOKUP_SHIFT
+    Z_PERM_SHIFT
 }
 
 library Honk {
@@ -89,7 +90,7 @@ library Honk {
         G1Point qo;
         G1Point q4;
         G1Point qArith; // Arithmetic widget
-        G1Point qRange; // Delta Range sort
+        G1Point qDeltaRange; // Delta Range sort
         G1Point qAux; // Auxillary
         G1Point qElliptic; // Auxillary
         G1Point qLookup; // Lookup

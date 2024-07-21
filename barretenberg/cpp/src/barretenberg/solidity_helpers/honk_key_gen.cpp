@@ -12,7 +12,7 @@
 #include "circuits/blake_circuit.hpp"
 #include "circuits/ecdsa_circuit.hpp"
 
-namespace bb {
+using namespace bb;
 
 using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
@@ -66,8 +66,8 @@ int main(int argc, char** argv)
     bb::srs::init_crs_factory(srs_path);
     // @todo - Add support for unrolled standard verifier. Needs a new solidity verifier contract.
 
-    if (plonk_flavour != "ultra" && plonk_flavour != "honk") {
-        info("Flavour must be ultra or honk");
+    if (plonk_flavour != "honk") {
+        info("honk");
         return 1;
     }
 
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
         } else if (circuit_flavour == "blake") {
             generate_keys_honk<BlakeCircuit>(output_path, plonk_flavour, circuit_flavour);
         } else if (circuit_flavour == "ecdsa") {
-            generate_keys_honk<EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
+            generate_keys_honk<bb::EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
             // TODO: recursive proofs
         } else {
             info("Unsupported circuit");
@@ -87,5 +87,4 @@ int main(int argc, char** argv)
         }
     }
     return 0;
-}
 } // namespace bb

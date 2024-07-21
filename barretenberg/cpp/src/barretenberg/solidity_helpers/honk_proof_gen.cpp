@@ -88,7 +88,7 @@ int main(int argc, char** argv)
     }
 
     if (plonk_flavour != "honk") {
-        info("Only honk flavour allowed");
+        info("Only honk flavor allowed");
         return 1;
     }
 

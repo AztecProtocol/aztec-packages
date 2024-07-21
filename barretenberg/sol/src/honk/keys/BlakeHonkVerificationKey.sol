@@ -42,7 +42,7 @@ library BlakeHonkVerificationKey {
                 x: uint256(0x096841bfa8ec2295a5af5bf69ec539c31a05b221c84ed1d24c702e31ce1cbc95),
                 y: uint256(0x10b14cca7e9ff05fcf1e3084f4fc9ab098cf379864b2e2e2e0d33fc5df9d9a50)
             }),
-            qSort: Honk.G1Point({
+            qDeltaRange: Honk.G1Point({
                 x: uint256(0x2d27fd1a30a0ab04a05144c27ac41187d5cf89a6022e47b263d1ccb93b3cbea5),
                 y: uint256(0x238eb233e9aebc81285a2647f2598bab00a4367da47b12c2b0476afc2d94ab1d)
             }),

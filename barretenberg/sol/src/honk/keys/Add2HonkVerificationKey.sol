@@ -5,6 +5,7 @@ pragma solidity >=0.8.21;
 import {Honk} from "../HonkTypes.sol";
 
 uint256 constant N = 0x0000000000000000000000000000000000000000000000000000000000000020;
+// Note(md): fixed proof size at 2^28 dictates this value
 uint256 constant LOG_N = 0x0000000000000000000000000000000000000000000000000000000000000005;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 0x0000000000000000000000000000000000000000000000000000000000000003;
 
@@ -42,7 +43,7 @@ library Add2HonkVerificationKey {
                 x: uint256(0x1797e3e7ee9e4f42b42bd375f13f2ccb395b827e9079e999b6c128d9b083c395),
                 y: uint256(0x101a60efaab1c8564add45d41b9147efacf45941c3efe93c3568bde1e08e1919)
             }),
-            qSort: Honk.G1Point({
+            qDeltaRange: Honk.G1Point({
                 x: uint256(0x0e84090add56f2500ab518c655cae63896ea793e6b3f6a14218d476534109610),
                 y: uint256(0x2b78a584bd6ae88cf4ec7c65c90e0b65df446fdddba972f3c4414ad3c901f4f9)
             }),
