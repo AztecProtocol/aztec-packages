@@ -154,10 +154,6 @@ template <typename TranscriptParams> class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a random
         // oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we previously did
         // with Pedersen and Blake3s.
-        // info("full_buffer size: ", full_buffer.size());
-        // for (size_t i = 0; i < full_buffer.size(); i++) {
-        //     info("full_buffer[", i, "]: ", full_buffer[i]);
-        // }
         Fr new_challenge = TranscriptParams::hash(full_buffer);
 
         // update previous challenge buffer for next time we call this function
@@ -280,11 +276,6 @@ template <typename TranscriptParams> class BaseTranscript {
             challenges[i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer);
         }
 
-        // info("round ", round_number);
-        // for (size_t i = 0; i < num_challenges; i++) {
-        //     info("  challenge ", i, ": ", challenges[i]);
-        // }
-
         // Prepare for next round.
         ++round_number;
 
@@ -377,7 +368,6 @@ template <typename TranscriptParams> class BaseTranscript {
 
     template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
     {
-        // info("getting challenge: ", label);
         ChallengeType result = get_challenges<ChallengeType>(label)[0];
 #if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
         info("challenge: ", label, ": ", result);
@@ -406,15 +396,12 @@ using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
 // Solidity Transcript
 ///////////////////////////////////////////
 
-// TODO: Keccak hasher
-// -> This is a simple wrapper around the keccak256 function from ethash
+// This is a compatible wrapper around the keccak256 function from ethash
 inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
 // Losing 2 bits of this is not an issue -> we can just reduce mod p
 {
     // cast into uint256_t
-    // info("hash size", data.size());
     std::vector<uint8_t> buffer = to_buffer(data);
-    // info("buffer size", buffer.size());
 
     keccak256 hash_result = ethash_keccak256(&buffer[0], buffer.size());
     for (auto& word : hash_result.word64s) {
@@ -436,10 +423,7 @@ inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
     return result_fr;
 }
 
-// TODO(md): Maybe make solidity generic over the transcript
-// TODO(md): We want to use the keccak transcript for solidity - types may change here!
-struct SolidityTranscriptParams {
-    // Note fr here is actually a uint256_t
+struct KeccakTranscriptParams {
     using Fr = bb::fr;
     using Proof = HonkProof;
 
@@ -465,6 +449,6 @@ struct SolidityTranscriptParams {
     }
 };
 
-using SolidityTranscript = BaseTranscript<SolidityTranscriptParams>;
+using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
 
 } // namespace bb

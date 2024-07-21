@@ -35,11 +35,8 @@ void prove_and_verify(auto& circuit_builder, bool expected_result)
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
-
-    info(expected_result);
-    //
-    // bool verified = verifier.verify_proof(proof);
-    // EXPECT_EQ(verified, expected_result);
+    bool verified = verifier.verify_proof(proof);
+    EXPECT_EQ(verified, expected_result);
 };
 
 void ensure_non_zero(auto& polynomial)

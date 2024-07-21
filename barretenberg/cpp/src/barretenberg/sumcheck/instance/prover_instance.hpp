@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/ultra_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
@@ -9,6 +8,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
 
 namespace bb {
 /**

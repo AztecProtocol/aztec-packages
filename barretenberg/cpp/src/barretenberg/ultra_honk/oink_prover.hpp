@@ -19,10 +19,9 @@
 // clang-format on
 #include <utility>
 
-// TODO(md): move into the circuit builder path same as above?
-#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {

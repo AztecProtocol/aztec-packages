@@ -2,7 +2,6 @@ import {Vm} from "forge-std/Vm.sol";
 import {strings} from "stringutils/strings.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TestBase} from "./TestBase.sol";
-import "forge-std/console.sol";
 
 contract DifferentialFuzzer is TestBase {
     using strings for *;
@@ -98,12 +97,6 @@ contract DifferentialFuzzer is TestBase {
         ffi_cmds[1] = plonk_flavour;
         ffi_cmds[2] = circuit_flavour;
         ffi_cmds[3] = input_params;
-
-        console.log("Running prover with the following parameters:");
-        console.log("Prover path: ", prover_path);
-        console.log("Plonk flavour: ", plonk_flavour);
-        console.log("Circuit flavour: ", circuit_flavour);
-        console.log("Inputs: ", input_params);
 
         proof = vm.ffi(ffi_cmds);
     }

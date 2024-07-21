@@ -1,11 +1,11 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
 
 namespace bb {
 

@@ -53,7 +53,6 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 };
 
 using UltraDeciderProver = DeciderProver_<UltraFlavor>;
-// TODO(md): need the decider prover for keccak????
 using MegaDeciderProver = DeciderProver_<MegaFlavor>;
 
 } // namespace bb

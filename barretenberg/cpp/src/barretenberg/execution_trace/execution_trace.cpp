@@ -1,9 +1,9 @@
 #include "execution_trace.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
-#include "barretenberg/flavor/ultra_keccak.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
 namespace bb {
 
 template <class Flavor>

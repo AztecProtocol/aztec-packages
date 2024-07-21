@@ -614,7 +614,7 @@ class UltraKeccakFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public SolidityTranscript {
+    class Transcript : public KeccakTranscript {
       public:
         // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
@@ -639,7 +639,7 @@ class UltraKeccakFlavor {
 
         // Used by verifier to initialize the transcript
         Transcript(const std::vector<FF>& proof)
-            : SolidityTranscript(proof)
+            : KeccakTranscript(proof)
         {}
 
         static std::shared_ptr<Transcript> prover_init_empty()

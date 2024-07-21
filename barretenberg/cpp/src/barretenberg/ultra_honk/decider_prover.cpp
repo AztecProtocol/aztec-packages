@@ -74,7 +74,6 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 }
 
 template class DeciderProver_<UltraFlavor>;
-// TODO: md can i avoid this declaration?
 template class DeciderProver_<UltraKeccakFlavor>;
 template class DeciderProver_<MegaFlavor>;
 
