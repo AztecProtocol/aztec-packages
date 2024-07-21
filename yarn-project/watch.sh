@@ -6,6 +6,7 @@ INOTIFY_EVENTS="modify,create,delete,move"
 NOIR_CONTRACTS_OUT_DIR="../noir-projects/noir-contracts/target/"
 NOIR_CIRCUITS_OUT_DIR="../noir-projects/noir-protocol-circuits/target/"
 L1_CONTRACTS_OUT_DIR="../l1-contracts/out/"
+BARRETENBERG_OUT_DIR="../barretenberg/cpp/build/"
 
 # Debounce any command sent here. Grouped by command name and first arg.
 debounce() {
@@ -60,6 +61,11 @@ run_generate() {
   rm .generating.lock
 }
 
+cp_barretenberg_artifacts() {
+  mkdir -p world-state/build
+  cp $BARRETENBERG_OUT_DIR/lib/world_state_napi.node world-state/build/world_state_napi.node
+}
+
 # Remove all temp files with process or run ids on exit
 cleanup() {
   rm -f .tsc.pid || true
@@ -74,7 +80,7 @@ start_tsc_watch
 
 # Watch for changes in the output directories
 while true; do
-    folder=$(inotifywait --format '%w' --quiet --recursive --event $INOTIFY_EVENTS $NOIR_CONTRACTS_OUT_DIR $NOIR_CIRCUITS_OUT_DIR $L1_CONTRACTS_OUT_DIR)
+    folder=$(inotifywait --format '%w' --quiet --recursive --event $INOTIFY_EVENTS $NOIR_CONTRACTS_OUT_DIR $NOIR_CIRCUITS_OUT_DIR $L1_CONTRACTS_OUT_DIR $BARRETENBERG_OUT_DIR)
     case $folder in
       "$NOIR_CONTRACTS_OUT_DIR")
         debounce run_generate "noir-contracts"
@@ -84,6 +90,9 @@ while true; do
         ;;
       "$L1_CONTRACTS_OUT_DIR"*)
         debounce run_generate "l1-contracts"
+        ;;
+      "$BARRETENBERG_OUT_DIR"*)
+        debounce cp_barretenberg_artifacts
         ;;
       *)
         echo "Error: change at $folder not matched with any project"

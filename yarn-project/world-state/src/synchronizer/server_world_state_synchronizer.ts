@@ -11,8 +11,8 @@ import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
 import {
   type HandleL2BlockAndMessagesResult,
+  MerkleTreeDb,
   type MerkleTreeOperations,
-  type MerkleTrees,
 } from '../world-state-db/index.js';
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
@@ -42,7 +42,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
 
   constructor(
     store: AztecKVStore,
-    private merkleTreeDb: MerkleTrees,
+    private merkleTreeDb: MerkleTreeDb,
     private l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),

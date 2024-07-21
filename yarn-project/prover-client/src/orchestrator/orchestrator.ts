@@ -535,7 +535,7 @@ export class ProvingOrchestrator {
           return;
         }
 
-        logger.error(`Error thrown when proving job`);
+        logger.error(`Error thrown when proving job`, err);
         provingState!.reject(`${err}`);
       } finally {
         const index = this.pendingProvingJobs.indexOf(controller);
