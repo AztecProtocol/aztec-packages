@@ -46,6 +46,11 @@ impl PrivateCallDataValidatorBuilder {
         *self
     }
 
+    pub fn is_first_call(&mut self) -> Self {
+        let _ = self.private_call.is_first_call();
+        *self
+    }
+
     pub fn get_private_call_data(self) -> PrivateCallData {
         self.private_call.to_private_call_data()
     }

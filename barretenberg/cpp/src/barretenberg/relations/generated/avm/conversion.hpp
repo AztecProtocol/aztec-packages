@@ -10,12 +10,6 @@ template <typename FF> struct ConversionRow {
     FF conversion_sel_to_radix_le{};
 };
 
-inline std::string get_relation_label_conversion(int index)
-{
-    switch (index) {}
-    return std::to_string(index);
-}
-
 template <typename FF_> class conversionImpl {
   public:
     using FF = FF_;
@@ -28,16 +22,24 @@ template <typename FF_> class conversionImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        // Contribution 0
         {
-            Avm_DECLARE_VIEWS(0);
-            auto tmp = (conversion_sel_to_radix_le * (-conversion_sel_to_radix_le + FF(1)));
+            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+            auto tmp = (new_term.conversion_sel_to_radix_le * (-new_term.conversion_sel_to_radix_le + FF(1)));
             tmp *= scaling_factor;
-            std::get<0>(evals) += tmp;
+            std::get<0>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
 
-template <typename FF> using conversion = Relation<conversionImpl<FF>>;
+template <typename FF> class conversion : public Relation<conversionImpl<FF>> {
+  public:
+    static constexpr const char* NAME = "conversion";
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {}
+        return std::to_string(index);
+    }
+};
 
 } // namespace bb::Avm_vm

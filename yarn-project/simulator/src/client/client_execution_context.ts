@@ -29,7 +29,7 @@ import {
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
@@ -383,6 +383,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param eventTypeId - The type ID of the event (function selector).
    * @param ovKeys - The outgoing viewing keys to use to encrypt.
    * @param ivpkM - The master incoming viewing public key.
+   * @param recipient - The recipient of the encrypted event log.
    * @param preimage - The event preimage.
    */
   public override computeEncryptedEventLog(
@@ -391,6 +392,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     eventTypeId: Fr,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
+    recipient: AztecAddress,
     preimage: Fr[],
   ) {
     const event = new Event(preimage);
@@ -398,8 +400,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const taggedEvent = new TaggedLog(l1EventPayload);
 
     const ephSk = GrumpkinScalar.random();
-
-    const recipient = AztecAddress.random();
 
     return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
@@ -411,6 +411,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param noteTypeId - The type ID of the note.
    * @param ovKeys - The outgoing viewing keys to use to encrypt.
    * @param ivpkM - The master incoming viewing public key.
+   * @param recipient - The recipient of the encrypted note log.
    * @param preimage - The note preimage.
    */
   public override computeEncryptedNoteLog(
@@ -419,6 +420,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
+    recipient: AztecAddress,
     preimage: Fr[],
   ) {
     const note = new Note(preimage);
@@ -426,11 +428,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const taggedNote = new TaggedLog(l1NotePayload);
 
     const ephSk = GrumpkinScalar.random();
-
-    // @todo This should be populated properly.
-    // Note that this encryption function SHOULD not be used, but is currently used
-    // as oracle for encrypted event logs.
-    const recipient = AztecAddress.random();
 
     return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }

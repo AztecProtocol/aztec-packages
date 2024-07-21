@@ -3,8 +3,6 @@ import {
   type GrumpkinScalar,
   type KeyValidationRequest,
   type PublicKey,
-  computeIvpkApp,
-  computeIvskApp,
   computeOvskApp,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
@@ -20,9 +18,9 @@ import { EncryptedLogOutgoingBody } from './encrypted_log_outgoing_body.js';
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
 const HEADER_SIZE = 48;
 
-// The outgoing body is constant size of 176 bytes.
-// 160 bytes for the secret key, address, and public key, and 16 bytes padding to follow PKCS#7
-const OUTGOING_BODY_SIZE = 176;
+// The outgoing body is constant size of 144 bytes.
+// 128 bytes for the secret key, address and public key, and 16 bytes padding to follow PKCS#7
+const OUTGOING_BODY_SIZE = 144;
 /**
  * A class which wraps event data which is pushed on L1.
  */
@@ -64,17 +62,15 @@ export abstract class L1Payload {
     const incomingHeaderCiphertext = header.computeCiphertext(ephSk, ivpk);
     const outgoingHeaderCiphertext = header.computeCiphertext(ephSk, ovKeys.pkM);
 
-    const ivpkApp = computeIvpkApp(ivpk, contractAddress);
+    const incomingBodyCiphertext = incomingBody.computeCiphertext(ephSk, ivpk);
 
-    const incomingBodyCiphertext = incomingBody.computeCiphertext(ephSk, ivpkApp);
-
-    const outgoingBodyCiphertext = new EncryptedLogOutgoingBody(ephSk, recipient, ivpkApp).computeCiphertext(
+    const outgoingBodyCiphertext = new EncryptedLogOutgoingBody(ephSk, recipient, ivpk).computeCiphertext(
       ovKeys.skAppAsGrumpkinScalar,
       ephPk,
     );
 
     return Buffer.concat([
-      ephPk.toBuffer(),
+      ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
       outgoingBodyCiphertext,
@@ -97,11 +93,11 @@ export abstract class L1Payload {
   protected static _decryptAsIncoming<T extends EncryptedLogIncomingBody>(
     data: Buffer,
     ivsk: GrumpkinScalar,
-    fromCiphertext: (incomingBodySlice: Buffer, ivskApp: GrumpkinScalar, ephPk: Point) => T,
+    fromCiphertext: (incomingBodySlice: Buffer, ivsk: GrumpkinScalar, ephPk: Point) => T,
   ): [AztecAddress, T] {
     const reader = BufferReader.asReader(data);
 
-    const ephPk = reader.readObject(Point);
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
     const incomingHeader = EncryptedLogHeader.fromCiphertext(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
 
@@ -112,8 +108,7 @@ export abstract class L1Payload {
     // The incoming can be of variable size, so we read until the end
     const incomingBodySlice = reader.readToEnd();
 
-    const ivskApp = computeIvskApp(ivsk, incomingHeader.address);
-    const incomingBody = fromCiphertext(incomingBodySlice, ivskApp, ephPk);
+    const incomingBody = fromCiphertext(incomingBodySlice, ivsk, ephPk);
 
     return [incomingHeader.address, incomingBody];
   }
@@ -134,11 +129,11 @@ export abstract class L1Payload {
   protected static _decryptAsOutgoing<T extends EncryptedLogIncomingBody>(
     data: Buffer,
     ovsk: GrumpkinScalar,
-    fromCiphertext: (incomingBodySlice: Buffer, ivskApp: GrumpkinScalar, ephPk: Point) => T,
+    fromCiphertext: (incomingBodySlice: Buffer, ivsk: GrumpkinScalar, ephPk: Point) => T,
   ): [AztecAddress, T] {
     const reader = BufferReader.asReader(data);
 
-    const ephPk = reader.readObject(Point);
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
     reader.readBytes(HEADER_SIZE);
 
@@ -150,7 +145,7 @@ export abstract class L1Payload {
     // The incoming can be of variable size, so we read until the end
     const incomingBodySlice = reader.readToEnd();
 
-    const incomingBody = fromCiphertext(incomingBodySlice, outgoingBody.ephSk, outgoingBody.recipientIvpkApp);
+    const incomingBody = fromCiphertext(incomingBodySlice, outgoingBody.ephSk, outgoingBody.recipientIvpk);
 
     return [outgoingHeader.address, incomingBody];
   }
