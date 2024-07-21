@@ -25,7 +25,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs, self.vk_tree_root).with_private_call(
             private_call_public_inputs,
-            self.private_call.call_stack_item.contract_address,
+            self.private_call.call_stack_item.contract_address
         ).finish()
     }
 

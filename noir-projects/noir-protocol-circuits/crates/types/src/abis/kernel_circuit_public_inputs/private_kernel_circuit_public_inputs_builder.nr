@@ -3,7 +3,7 @@ use crate::{
     accumulated_data::PrivateAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     public_call_request::PublicCallRequest,
-    validation_requests::validation_requests_builder::ValidationRequestsBuilder,
+    validation_requests::validation_requests_builder::ValidationRequestsBuilder
 },
     address::AztecAddress, traits::Empty
 };

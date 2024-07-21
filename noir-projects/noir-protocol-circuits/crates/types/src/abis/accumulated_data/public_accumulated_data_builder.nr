@@ -1,7 +1,7 @@
 use crate::{
     abis::{
-    gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
-    note_hash::NoteHash, nullifier::Nullifier, public_call_request::PublicCallRequest,
+    gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData, note_hash::NoteHash,
+    nullifier::Nullifier, public_call_request::PublicCallRequest,
     public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
 },
     constants::{

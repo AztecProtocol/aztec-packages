@@ -8,9 +8,7 @@ use crate::components::{
     split_to_public::split_to_public
 }
 };
-use dep::types::abis::{
-    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs}
-};
+use dep::types::abis::{kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs}};
 
 struct TailToPublicOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,

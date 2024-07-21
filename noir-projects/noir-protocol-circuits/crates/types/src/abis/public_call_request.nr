@@ -1,8 +1,5 @@
 use crate::{
-    abis::{
-    public_call_stack_item_compressed::PublicCallStackItemCompressed,
-    side_effect::Ordered
-},
+    abis::{public_call_stack_item_compressed::PublicCallStackItemCompressed, side_effect::Ordered},
     address::AztecAddress, constants::PUBLIC_CALL_REQUEST_LENGTH,
     traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
@@ -36,10 +33,7 @@ impl Empty for PublicCallRequest {
 
 impl PublicCallRequest {
     pub fn expose_to_public(self) -> Self {
-        PublicCallRequest {
-            item: self.item,
-            counter: 0
-        }
+        PublicCallRequest { item: self.item, counter: 0 }
     }
 }
 

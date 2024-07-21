@@ -34,7 +34,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
             unencrypted_logs_hashes: array_length(public_inputs.end.unencrypted_logs_hashes),
             public_call_requests: array_length(public_inputs.end.public_call_requests),
-            private_call_stack: array_length(public_inputs.end.private_call_stack),
+            private_call_stack: array_length(public_inputs.end.private_call_stack)
         }
     }
 
@@ -50,7 +50,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             encrypted_logs_hashes: 0,
             unencrypted_logs_hashes: 0,
             public_call_requests: 0,
-            private_call_stack: 0,
+            private_call_stack: 0
         }
     }
 }
