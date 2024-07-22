@@ -10,6 +10,8 @@ pub(crate) enum BrilligArithmeticError {
     MismatchedLhsBitSize { lhs_bit_size: u32, op_bit_size: u32 },
     #[error("Bit size for rhs {rhs_bit_size} does not match op bit size {op_bit_size}")]
     MismatchedRhsBitSize { rhs_bit_size: u32, op_bit_size: u32 },
+    #[error("Attempted to divide by zero")]
+    DivisionByZero,
 }
 
 /// Evaluate a binary operation on two FieldElement memory values.
@@ -45,7 +47,7 @@ pub(crate) fn evaluate_binary_field_op<F: AcirField>(
         BinaryFieldOp::Div => MemoryValue::new_field(a / b),
         BinaryFieldOp::IntegerDiv => {
             if b.is_zero() {
-                MemoryValue::new_field(F::zero())
+                return Err(BrilligArithmeticError::DivisionByZero);
             } else {
                 let a_big = BigUint::from_bytes_be(&a.to_be_bytes());
                 let b_big = BigUint::from_bytes_be(&b.to_be_bytes());
@@ -92,9 +94,9 @@ pub(crate) fn evaluate_binary_int_op<F: AcirField>(
     })?;
 
     let result = if bit_size == IntegerBitSize::U128 {
-        evaluate_binary_int_op_128(op, lhs, rhs)
+        evaluate_binary_int_op_128(op, lhs, rhs)?
     } else {
-        evaluate_binary_int_op_generic(op, lhs, rhs, bit_size)
+        evaluate_binary_int_op_generic(op, lhs, rhs, bit_size)?
     };
 
     Ok(match op {
@@ -105,14 +107,18 @@ pub(crate) fn evaluate_binary_int_op<F: AcirField>(
     })
 }
 
-fn evaluate_binary_int_op_128(op: &BinaryIntOp, lhs: u128, rhs: u128) -> u128 {
-    match op {
+fn evaluate_binary_int_op_128(
+    op: &BinaryIntOp,
+    lhs: u128,
+    rhs: u128,
+) -> Result<u128, BrilligArithmeticError> {
+    let result = match op {
         BinaryIntOp::Add => lhs.wrapping_add(rhs),
         BinaryIntOp::Sub => lhs.wrapping_sub(rhs),
         BinaryIntOp::Mul => lhs.wrapping_mul(rhs),
         BinaryIntOp::Div => {
             if rhs == 0 {
-                0
+                return Err(BrilligArithmeticError::DivisionByZero);
             } else {
                 lhs / rhs
             }
@@ -137,7 +143,8 @@ fn evaluate_binary_int_op_128(op: &BinaryIntOp, lhs: u128, rhs: u128) -> u128 {
                 lhs.wrapping_shr(rhs as u32)
             }
         }
-    }
+    };
+    Ok(result)
 }
 
 fn evaluate_binary_int_op_generic(
@@ -145,10 +152,10 @@ fn evaluate_binary_int_op_generic(
     lhs: u128,
     rhs: u128,
     bit_size: IntegerBitSize,
-) -> u128 {
+) -> Result<u128, BrilligArithmeticError> {
     let bit_size: u32 = bit_size.into();
     let bit_modulo = 1 << bit_size;
-    match op {
+    let result = match op {
         // Perform addition, subtraction, and multiplication, applying a modulo operation to keep the result within the bit size.
         BinaryIntOp::Add => (lhs + rhs) % bit_modulo,
         BinaryIntOp::Sub => (bit_modulo + lhs - rhs) % bit_modulo,
@@ -156,7 +163,7 @@ fn evaluate_binary_int_op_generic(
         // Perform unsigned division using the modulo operation on a and b.
         BinaryIntOp::Div => {
             if rhs == 0 {
-                0
+                return Err(BrilligArithmeticError::DivisionByZero);
             } else {
                 lhs / rhs
             }
@@ -185,7 +192,8 @@ fn evaluate_binary_int_op_generic(
                 lhs >> rhs
             }
         }
-    }
+    };
+    Ok(result)
 }
 
 #[cfg(test)]
