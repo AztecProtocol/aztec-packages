@@ -675,6 +675,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
+    return toForeignCallResult([]);
   }
 
   public async setPublicTeardownFunctionCall(
@@ -693,6 +694,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
+    return toForeignCallResult([]);
   }
 
   async getChainId() {
