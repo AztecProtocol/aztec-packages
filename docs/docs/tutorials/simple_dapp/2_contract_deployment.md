@@ -53,7 +53,7 @@ Create a new file `src/deploy.mjs`:
 import { writeFileSync } from 'fs';
 import { Contract, loadContractArtifact, createPXEClient } from '@aztec/aztec.js';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import TokenContractJson from "../contracts/token/target/token_contract-Token.json" assert { type: "json" };
+import TokenContractJson from "../contracts/token/target/token_contract.json" assert { type: "json" };
 
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw

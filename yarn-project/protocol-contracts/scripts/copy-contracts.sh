@@ -3,12 +3,12 @@ set -euo pipefail
 mkdir -p ./artifacts
 
 contracts=(
-  contract_class_registerer_contract-ContractClassRegisterer
-  contract_instance_deployer_contract-ContractInstanceDeployer
-  gas_token_contract-GasToken
-  key_registry_contract-KeyRegistry
-  auth_registry_contract-AuthRegistry
-  multi_call_entrypoint_contract-MultiCallEntrypoint
+  contract_class_registerer_contract
+  contract_instance_deployer_contract
+  gas_token_contract
+  key_registry_contract
+  auth_registry_contract
+  multi_call_entrypoint_contract
 )
 
 
