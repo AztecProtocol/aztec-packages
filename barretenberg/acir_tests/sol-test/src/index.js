@@ -4,7 +4,8 @@ import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
 
-const NUMBER_OF_FIELDS_IN_PROOF = 93;
+const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 393;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -18,6 +19,14 @@ const NUMBER_OF_FIELDS_IN_PROOF = 93;
 // 5. Run the test against the deployed contract
 // 6. Kill the anvil instance
 
+const getEnvVarCanBeUndefined = (envvar) => {
+  const varVal = process.env[envvar];
+  if (!varVal) {
+    return false;
+  }
+  return varVal;
+};
+
 const getEnvVar = (envvar) => {
   const varVal = process.env[envvar];
   if (!varVal) {
@@ -30,32 +39,22 @@ const getEnvVar = (envvar) => {
 const testName = getEnvVar("TEST_NAME");
 
 // Get solidity files, passed into environment from `flows/sol.sh`
-const keyPath = getEnvVar("KEY_PATH");
 const verifierPath = getEnvVar("VERIFIER_PATH");
 const testPath = getEnvVar("TEST_PATH");
-const basePath = getEnvVar("BASE_PATH");
 const encoding = { encoding: "utf8" };
-const [key, test, verifier, base] = await Promise.all([
-  fsPromises.readFile(keyPath, encoding),
+const [test, verifier] = await Promise.all([
   fsPromises.readFile(testPath, encoding),
   fsPromises.readFile(verifierPath, encoding),
-  fsPromises.readFile(basePath, encoding),
 ]);
 
-var input = {
+export const compilationInput = {
   language: "Solidity",
   sources: {
-    "Key.sol": {
-      content: key,
-    },
     "Test.sol": {
       content: test,
     },
     "Verifier.sol": {
       content: verifier,
-    },
-    "BaseUltraVerifier.sol": {
-      content: base,
     },
   },
   settings: {
@@ -72,7 +71,30 @@ var input = {
   },
 };
 
-var output = JSON.parse(solc.compile(JSON.stringify(input)));
+// If testing honk is set, then we compile the honk test suite
+const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
+const NUMBER_OF_FIELDS_IN_PROOF = testingHonk ? NUMBER_OF_FIELDS_IN_HONK_PROOF : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
+if (!testingHonk) {
+
+    const keyPath = getEnvVar("KEY_PATH");
+    const basePath = getEnvVar("BASE_PATH");
+    const [key, base] = await Promise.all(
+      [
+        fsPromises.readFile(keyPath, encoding),
+        fsPromises.readFile(basePath, encoding),
+      ]
+    );
+
+    compilationInput.sources["BaseUltraVerifier.sol"] = {
+      content: base,
+    };
+    compilationInput.sources["Key.sol"] = {
+      content: key,
+    };
+}
+
+var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
+console.log(output);
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
@@ -126,6 +148,7 @@ const deploy = async (signer) => {
 const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // A proof with no public inputs is 93 fields long
+  console.log("\n\n\n\n\n\n\n proof as fields length", proofAsFields.length, "\n\n\n\n\n\n\n", proofAsFields, "\n\n\n\n");
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
   for (let i = 0; i < numPublicInputs; i++) {
     publicInputs.push(proofAsFields[i]);
