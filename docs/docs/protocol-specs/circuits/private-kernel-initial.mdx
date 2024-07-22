@@ -249,7 +249,7 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
 
 > The caller context in a call request may be empty for standard calls. This precaution is crucial to prevent information leakage, particularly as revealing the _msg_sender_ of this private function when calling a public function could pose security risks.
 
-4. For each non-empty item in the following arrays, its `contract_address` must equal the `storage_contract_address` in `private_inputs.private_call.call_stack_item.public_inputs.call_context`:
+3. For each non-empty item in the following arrays, its `contract_address` must equal the `storage_contract_address` in `private_inputs.private_call.call_stack_item.public_inputs.call_context`:
 
    - `note_hash_contexts`
    - `nullifier_contexts`
@@ -261,10 +261,10 @@ This circuit verifies that the values in [`private_inputs`](#private-inputs)[`.p
 
    > Ensuring the alignment of the contract addresses is crucial, as it is later used to [silo the values](./private-kernel-tail.md#siloing-values) and to establish associations with values within the same contract.
 
-5. For each non-empty item in `l2_to_l1_message_contexts`, its `portal_contract_address` must equal the `portal_contract_address` defined in `private_function_public_inputs.call_context`.
+4. For each non-empty item in `l2_to_l1_message_contexts`, its `portal_contract_address` must equal the `portal_contract_address` defined in `private_function_public_inputs.call_context`.
 <!-- TODO: there's a proposal from Lasse to remove the 1:1 restriction on portals. It's still being discussed, though. -->
 
-6. For each `note_hash_context: NoteHashContext` in the `note_hash_contexts`, validate its `nullifier_counter`. The value of the `nullifier_counter` can be:
+5. For each `note_hash_context: NoteHashContext` in the `note_hash_contexts`, validate its `nullifier_counter`. The value of the `nullifier_counter` can be:
 
    - Zero: if the note is not nullified in the same transaction.
    - Strictly greater than `note_hash.counter`: if the note is nullified in the same transaction.
