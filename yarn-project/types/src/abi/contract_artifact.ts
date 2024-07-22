@@ -228,8 +228,9 @@ function getStorageLayout(input: NoirCompiledContract) {
 
   return storageFields.reduce((acc: Record<string, FieldLayout>, field) => {
     const name = field.name;
-    const slotX = Fr.fromString((field.value.fields[0].value as any).value);
-    const slotY = Fr.fromString((field.value.fields[1].value as any).value);
+    const val = field.value.fields[0].value as any;
+    const slotX = Fr.fromString(val.fields[0].value.value);
+    const slotY = Fr.fromString(val.fields[1].value.value);
     acc[name] = {
       slot: new Point(slotX, slotY, false),
     };
