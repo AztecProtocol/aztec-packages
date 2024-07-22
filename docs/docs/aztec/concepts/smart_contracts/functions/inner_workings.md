@@ -261,7 +261,7 @@ impl CustomNote {
             let mut buffer: [u8; CUSTOM_NOTE_BYTES_LEN] = [0; CUSTOM_NOTE_BYTES_LEN];
 
             let storage_slot_bytes = point_to_bytes(storage_slot);
-            let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
+            let note_type_id_bytes = CustomNote::get_note_type_id().to_be_bytes(32);
 
             for i in 0..32 {
                 buffer[i] = storage_slot_bytes[i];
