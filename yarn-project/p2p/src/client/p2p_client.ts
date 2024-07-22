@@ -134,6 +134,9 @@ export class P2PClient implements P2P {
   ) {
     const { p2pBlockCheckIntervalMS: checkInterval, p2pL2QueueSize } = getP2PConfigEnvVars();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
+    // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
+    // if the archiver is remote. We should refactor this so the downloader keeps a single queue and handles
+    // latest/proven metadata, as well as block reorgs.
     this.latestBlockDownloader = new L2BlockDownloader(l2BlockSource, l2DownloaderOpts);
     this.provenBlockDownloader = new L2BlockDownloader(l2BlockSource, { ...l2DownloaderOpts, proven: true });
 
@@ -181,12 +184,12 @@ export class P2PClient implements P2P {
     // start looking for further blocks
     const processLatest = async () => {
       while (!this.stopping) {
-        await this.latestBlockDownloader.getBlocks().then(this.handleLatestL2Blocks.bind(this));
+        await this.latestBlockDownloader.getBlocks(1).then(this.handleLatestL2Blocks.bind(this));
       }
     };
     const processProven = async () => {
       while (!this.stopping) {
-        await this.provenBlockDownloader.getBlocks().then(this.handleProvenL2Blocks.bind(this));
+        await this.provenBlockDownloader.getBlocks(1).then(this.handleProvenL2Blocks.bind(this));
       }
     };
 
@@ -210,7 +213,6 @@ export class P2PClient implements P2P {
     await this.latestBlockDownloader.stop();
     await this.provenBlockDownloader.stop();
     this.log.debug('Stopped block downloader');
-    // TODO: This running promise will never resolve if there are no new blocks to sync.
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped.');
