@@ -362,7 +362,7 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
       expect(noteHashes[0].value).toEqual(
-        await acirSimulator.computeInnerNoteHash(
+        await acirSimulator.computeInnerNoteHashX(
           contractAddress,
           newNote.storageSlot,
           newNote.noteTypeId,
@@ -392,7 +392,7 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
       expect(noteHashes[0].value).toEqual(
-        await acirSimulator.computeInnerNoteHash(
+        await acirSimulator.computeInnerNoteHashX(
           contractAddress,
           newNote.storageSlot,
           newNote.noteTypeId,
@@ -454,13 +454,13 @@ describe('Private Execution test suite', () => {
       expect(noteHashes).toHaveLength(2);
       const [changeNoteHash, recipientNoteHash] = noteHashes;
       const [recipientInnerNoteHash, changeInnerNoteHash] = [
-        await acirSimulator.computeInnerNoteHash(
+        await acirSimulator.computeInnerNoteHashX(
           contractAddress,
           recipientStorageSlot,
           valueNoteTypeId,
           recipientNote.note,
         ),
-        await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, valueNoteTypeId, changeNote.note),
+        await acirSimulator.computeInnerNoteHashX(contractAddress, storageSlot, valueNoteTypeId, changeNote.note),
       ];
       expect(recipientNoteHash.value).toEqual(recipientInnerNoteHash);
       expect(changeNoteHash.value).toEqual(changeInnerNoteHash);
@@ -990,7 +990,7 @@ describe('Private Execution test suite', () => {
         owner,
       );
 
-      const innerNoteHash = await acirSimulator.computeInnerNoteHash(
+      const innerNoteHash = await acirSimulator.computeInnerNoteHashX(
         contractAddress,
         storageSlot,
         valueNoteTypeId,
@@ -1074,7 +1074,7 @@ describe('Private Execution test suite', () => {
       expect(noteHashes).toHaveLength(1);
 
       const noteHash = noteHashes[0].value;
-      const innerNoteHash = await acirSimulator.computeInnerNoteHash(
+      const innerNoteHash = await acirSimulator.computeInnerNoteHashX(
         contractAddress,
         noteAndSlot.storageSlot,
         noteAndSlot.noteTypeId,

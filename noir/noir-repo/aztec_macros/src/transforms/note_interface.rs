@@ -495,8 +495,8 @@ fn generate_note_properties_fn(
 }
 
 // Automatically generate the method to compute the note's content hash as:
-// fn compute_note_content_hash(self: NoteType) -> Field {
-//    aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
+// fn compute_note_content_hash(self: NoteType) -> Point {
+//    aztec::hash::pedersen_commitment(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH)
 // }
 //
 fn generate_compute_note_content_hash(
@@ -504,13 +504,13 @@ fn generate_compute_note_content_hash(
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
     // TODO(benesjan): Replace the pedersen hash with something that returns a point directly to avoid
-    // the superfluous call to derive_base_slot(...). I was trying to use pedersen_commitment for that
+    // the superfluous call to derive_base_slot_with_decompose(...). I was trying to use pedersen_commitment for that
     // but that is currently not supported by the AVM (but might be soon).
     let function_source = format!(
         "
         fn compute_note_content_hash(self: {}) -> aztec::protocol_types::point::Point {{
             let h = aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH);
-            aztec::protocol_types::slots::derive_base_slot(h)
+            aztec::protocol_types::slots::derive_base_slot_with_decompose(h)
         }}
         ",
         note_type

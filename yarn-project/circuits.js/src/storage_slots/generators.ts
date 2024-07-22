@@ -14,12 +14,7 @@ export const G_SLOT = new Point(
 // TODO(benesjan): hardcode first few values for speedup
 // Derive a base slot (using the base generator) from a slot preimage
 export function deriveBaseSlot(slotPreimage: number | bigint | Fr): Point {
-  const slotPreimageBigInt = new Fr(slotPreimage).toBigInt();
-  // We check that the slot preimage fits into 128 bits --> this is ok for base slots
-  if (slotPreimageBigInt >= BigInt(2) ** BigInt(128)) {
-    throw new Error('Slot preimage exceeds 128 bits');
-  }
-
   const grumpkin = new Grumpkin();
-  return grumpkin.mul(G_SLOT, new GrumpkinScalar(slotPreimageBigInt));
+  const slotPreimageScalar = new GrumpkinScalar(new Fr(slotPreimage).toBigInt());
+  return grumpkin.mul(G_SLOT, new GrumpkinScalar(slotPreimageScalar));
 }

@@ -14,6 +14,13 @@ pub fn derive_base_slot(slot_preimage: Field) -> Point {
     multi_scalar_mul([G_slot], [Scalar { lo: slot_preimage, hi: 0 }])
 }
 
+// TODO(benesjan): nuke this func - is only temporarily used in note_interface.rs before we get some AVM compatible
+// hash func hashing to a point
+pub fn derive_base_slot_with_decompose(slot_preimage: Field) -> Point {
+    let (lo, hi) = dep::std::field::bn254::decompose(slot_preimage);
+    multi_scalar_mul([G_slot], [Scalar { lo, hi }])
+}
+
 mod test {
     use crate::{
         constants::INITIALIZATION_SLOT_SEPARATOR, generators::G_slot, point::Point,

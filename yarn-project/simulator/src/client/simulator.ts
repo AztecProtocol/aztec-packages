@@ -180,7 +180,7 @@ export class AcirSimulator {
       args: encodeArguments(artifact, [
         contractAddress,
         nonce,
-        storageSlot,
+        storageSlot.toNoirStruct(),
         noteTypeId,
         computeNullifier,
         extendedNoteItems,
@@ -188,14 +188,14 @@ export class AcirSimulator {
       returnTypes: artifact.returnTypes,
     };
 
-    const [innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+    const [innerNoteHashX, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
       contractAddress,
     )) as bigint[];
 
     return {
-      innerNoteHash: new Fr(innerNoteHash),
+      innerNoteHashX: new Fr(innerNoteHashX),
       uniqueNoteHash: new Fr(uniqueNoteHash),
       siloedNoteHash: new Fr(siloedNoteHash),
       innerNullifier: new Fr(innerNullifier),
@@ -210,13 +210,13 @@ export class AcirSimulator {
    * @param note - The note.
    * @returns The note hash.
    */
-  public async computeInnerNoteHash(
+  public async computeInnerNoteHashX(
     contractAddress: AztecAddress,
     storageSlot: Point,
     noteTypeId: NoteSelector,
     note: Note,
   ) {
-    const { innerNoteHash } = await this.computeNoteHashAndOptionallyANullifier(
+    const { innerNoteHashX } = await this.computeNoteHashAndOptionallyANullifier(
       contractAddress,
       Fr.ZERO,
       storageSlot,
@@ -224,6 +224,6 @@ export class AcirSimulator {
       false,
       note,
     );
-    return innerNoteHash;
+    return innerNoteHashX;
   }
 }
