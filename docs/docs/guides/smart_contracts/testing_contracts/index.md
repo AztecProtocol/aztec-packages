@@ -70,7 +70,14 @@ Writing tests in contracts requires importing additional modules from Aztec.nr. 
 ### Deploying contracts
 
 ```rust
-let deployer = env.deploy("path_to_contract_ts_interface");
+
+// Depending on whether we want to deploy the contract we're currently on or an auxiliary one we want to test calls to
+
+let deployer = env.deploy_self("ContractName");
+
+// or
+
+let deployer = env.deploy("path_to_contract_root_folder_where_nargo_toml_is", "ContractName");
 
 // Now one of these can be called, depending on the contract and their possible initialization options.
 // Remember a contract can only be initialized once.
@@ -89,7 +96,7 @@ let my_contract_instance = deployer.without_initializer();
 ```
 
 :::warning
-At the moment, TXE uses the generated contract TypeScript interfaces to perform deployments, and they must be provided as either an absolute path, a relative path to TXE's location or a module in an npm direct dependency such as `@aztec/noir-contracts.js`. It is not always necessary to deploy a contract in order to test it, but sometimes it's inevitable (when testing functions that depend on the contract being initialized, or contracts that call others for example) **It is important to keep them up to date**, as TXE cannot recompile them on changes. This will be improved in the future.
+It is not always necessary to deploy a contract in order to test it, but sometimes it's inevitable (when testing functions that depend on the contract being initialized, or contracts that call others for example) **It is important to keep them up to date**, as TXE cannot recompile them on changes. Think of it as regenerating the bytecode and ABI so it becomes accessible externally.
 :::
 
 ### Calling functions
