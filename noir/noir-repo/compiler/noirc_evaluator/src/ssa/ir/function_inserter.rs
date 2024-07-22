@@ -22,7 +22,7 @@ pub(crate) struct FunctionInserter<'f> {
     /// array unnecessarily. An extra bool is included as part of the key to
     /// distinguish between Type::Array and Type::Slice, as both are valid
     /// types for a Value::Array
-    const_arrays: HashMap<(im::Vector<ValueId>, bool), ValueId>,
+    const_arrays: HashMap<(im::Vector<ValueId>, Type), ValueId>,
 }
 
 impl<'f> FunctionInserter<'f> {
@@ -45,9 +45,9 @@ impl<'f> FunctionInserter<'f> {
                         array.iter().map(|id| self.resolve(*id)).collect();
 
                     // Flag to determine the type of the value's array list
-                    let is_array = matches!(typ, Type::Array { .. });
+                    // let is_array = matches!(typ, Type::Array { .. });
                     if let Some(fetched_value) =
-                        self.const_arrays.get(&(new_array.clone(), is_array))
+                        self.const_arrays.get(&(new_array.clone(), typ.clone()))
                     {
                         // Arrays in ACIR are immutable, but in Brillig arrays are copy-on-write
                         // so for function's with a Brillig runtime we make sure to check that value
@@ -60,9 +60,9 @@ impl<'f> FunctionInserter<'f> {
                     };
 
                     let new_array_clone = new_array.clone();
-                    let new_id = self.function.dfg.make_array(new_array, typ);
+                    let new_id = self.function.dfg.make_array(new_array, typ.clone());
                     self.values.insert(value, new_id);
-                    self.const_arrays.insert((new_array_clone, is_array), new_id);
+                    self.const_arrays.insert((new_array_clone, typ), new_id);
                     new_id
                 }
                 _ => value,
