@@ -77,9 +77,9 @@ export const mockTx = (
     publicCallRequests.forEach((r, i) => (r.item.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
 
     if (hasPublicTeardownCallRequest) {
-      const request = publicCallRequests.pop()!;
+      const request = publicCallRequests.shift()!;
       data.forPublic.publicTeardownCallRequest = request;
-      const args = publicFunctionArgs.pop()!;
+      const args = publicFunctionArgs.shift()!;
       publicTeardownFunctionCall = new PublicExecutionRequest(
         request.item.contractAddress,
         request.item.callContext,
@@ -96,11 +96,11 @@ export const mockTx = (
 
     data.forPublic.endNonRevertibleData = nonRevertibleBuilder
       .withNullifiers(nonRevertibleNullifiers)
-      .withPublicCallStack(publicCallRequests.slice(0, numberOfNonRevertiblePublicCallRequests))
+      .withPublicCallStack(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
 
     data.forPublic.end = revertibleBuilder
-      .withPublicCallStack(publicCallRequests.slice(numberOfNonRevertiblePublicCallRequests))
+      .withPublicCallStack(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
 
     if (hasLogs) {

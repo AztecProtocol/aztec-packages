@@ -65,13 +65,13 @@ export class Tx {
   }
 
   getNonRevertiblePublicExecutionRequests(): PublicExecutionRequest[] {
-    const numNonRevertible = this.data.numberOfNonRevertiblePublicCallRequests();
-    return this.enqueuedPublicFunctionCalls.slice(0, numNonRevertible);
+    const numRevertible = this.data.numberOfRevertiblePublicCallRequests();
+    return this.enqueuedPublicFunctionCalls.slice(numRevertible);
   }
 
   getRevertiblePublicExecutionRequests(): PublicExecutionRequest[] {
-    const numNonRevertible = this.data.numberOfNonRevertiblePublicCallRequests();
-    return this.enqueuedPublicFunctionCalls.slice(numNonRevertible);
+    const numRevertible = this.data.numberOfRevertiblePublicCallRequests();
+    return this.enqueuedPublicFunctionCalls.slice(0, numRevertible);
   }
 
   getPublicTeardownExecutionRequest(): PublicExecutionRequest | undefined {

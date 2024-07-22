@@ -391,13 +391,13 @@ describe('public_processor', () => {
       const numPublicDataWrites = 5;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
         new PublicDataWrite(
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotD), fr(0x251)),
       ]);
 
