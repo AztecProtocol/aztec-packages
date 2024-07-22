@@ -557,21 +557,21 @@ pub fn assign_storage_slots(
                     context.def_interner.expression(&storage_layout_slot_expr_id);
                 let [x_expr_id, y_expr_id] = match storage_layout_expr {
                     HirExpression::Constructor(constructor) => {
-                        let coords = constructor.fields[0..2]
-                            .into_iter()
-                            .map(|(_, expr_id)| expr_id.clone());
-                        let [x_expr_id, y_expr_id] = coords.collect::<Vec<_>>()[0..2] else {
-                            return Err((
-                                AztecMacroError::CouldNotAssignStorageSlots {
-                                    secondary_message: Some(
-                                        "Storage layout storage_slot field does not have the correct number of coordinates"
-                                            .to_string(),
-                                    ),
-                                },
-                                file_id,
-                            ));
-                        };
-                        Ok([x_expr_id, y_expr_id])
+                        let coords: Vec<_> =
+                            constructor.fields[0..2].iter().map(|(_, expr_id)| *expr_id).collect();
+                        if coords.len() >= 2 {
+                            Ok([coords[0], coords[1]])
+                        } else {
+                            Err((
+                            AztecMacroError::CouldNotAssignStorageSlots {
+                                secondary_message: Some(
+                                    "Storage layout storage_slot field does not have the correct number of coordinates"
+                                        .to_string(),
+                                ),
+                            },
+                            file_id,
+                        ))
+                        }
                     }
                     _ => Err((
                         AztecMacroError::CouldNotAssignStorageSlots {
