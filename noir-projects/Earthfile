@@ -26,21 +26,27 @@ build-contracts:
   SAVE ARTIFACT noir-contracts
 
 build-protocol-circuits:
+  FROM +source
+  RUN cd noir-protocol-circuits && NARGO=nargo ./compile_circuits.sh
+  SAVE ARTIFACT noir-protocol-circuits
+
+build-protocol-circuits-vks:
   LOCALLY
   LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
-  FROM +source
+  FROM +build-protocol-circuits
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
       bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
-  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash ./generate_vks.sh
   SAVE ARTIFACT noir-protocol-circuits
 
 build:
   FROM +source
   BUILD +build-contracts
   BUILD +build-protocol-circuits
+  BUILD +build-protocol-circuits-vks
 
   COPY +build-contracts/noir-contracts ./noir-contracts
-  COPY +build-protocol-circuits/noir-protocol-circuits ./noir-protocol-circuits
+  COPY +build-protocol-circuits-vks/noir-protocol-circuits ./noir-protocol-circuits
 
   SAVE ARTIFACT aztec-nr
   SAVE ARTIFACT noir-contracts
