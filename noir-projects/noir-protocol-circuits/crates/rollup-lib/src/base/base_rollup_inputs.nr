@@ -12,7 +12,8 @@ use dep::types::{
     public_data_hint::PublicDataHint,
     hash::{compute_public_data_tree_index, compute_public_data_tree_value}
 },
-    storage::map::derive_storage_slot_in_map, address::AztecAddress, point::Point,
+    slots::S1 as balances_slot_in_gas_token_contract, storage::map::derive_storage_slot_in_map,
+    address::AztecAddress, point::Point,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
     public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
@@ -416,11 +417,6 @@ fn insert_public_data_update_requests(
 // TODO(benesjan): rename `leaf_slot` to `storage_index` everywhere and slot in PublicDataTreeLeaf
 // and PublicDataTreeLeafPreimage etc. as storage_index as well
 fn compute_fee_payer_gas_token_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
-    let balances_slot_in_gas_token_contract = Point {
-        x: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791,
-        y: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15,
-        is_infinite: false
-    };
     let gas_token = AztecAddress::from_field(GAS_TOKEN_ADDRESS);
     let fee_payer_balance_slot_in_gas_token_contract = derive_storage_slot_in_map(balances_slot_in_gas_token_contract, fee_payer);
     let fee_payer_balance_contract_storage_index = fee_payer_balance_slot_in_gas_token_contract.x;
