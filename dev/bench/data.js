@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721665689941,
+  "lastUpdate": 1721670367892,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -90200,6 +90200,78 @@ window.BENCHMARK_DATA = {
             "value": 166533342,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166533342 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bf774c2fbe660401812380b9c1360a33e0274a51",
+          "message": "feat: bus updates (#7522)\n\nAdds a second calldata column (secondary_calldata) to the databus (which now has 3 columns).\r\nThis is needed to support kernel circuits which will have two calldata\r\ninputs (one from previous kernel, one from a function circuit).",
+          "timestamp": "2024-07-22T10:30:08-07:00",
+          "tree_id": "b68237d71ca9061f2840cb05c9847769054a2dba",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bf774c2fbe660401812380b9c1360a33e0274a51"
+        },
+        "date": 1721670361309,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14119.506642000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9959.169804000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4745.191508999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4379.738498 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42049.88371300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42049885000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14263.009610000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14263009000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4866780604,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4866780604 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202207885,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202207885 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3991194782,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3991194782 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 169035054,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 169035054 ns\nthreads: 1"
           }
         ]
       }
