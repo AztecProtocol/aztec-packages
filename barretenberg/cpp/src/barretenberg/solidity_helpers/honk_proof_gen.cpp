@@ -72,6 +72,7 @@ int main(int argc, char** argv)
 
     bb::srs::init_crs_factory(srs_path);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // @todo dynamically allocate this
     uint256_t inputs[] = { 0, 0, 0, 0, 0, 0 };
 

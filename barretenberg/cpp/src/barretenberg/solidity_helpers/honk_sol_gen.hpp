@@ -1,3 +1,4 @@
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
 // TODO: check if we need these
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -12,6 +13,7 @@ namespace bb {
  **/
 inline void output_vk_sol_ultra_honk(
     std::ostream& os,
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO: get the VerificationKey outside of the falvor - it's not a part of the flavor
     auto const& key,
     std::string const& class_name)
@@ -93,7 +95,9 @@ inline void output_vk_sol_ultra_honk(
     print_g1(key->lagrange_last, "lagrangeLast", /*last=*/ true);
     os <<
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: no recursive proofs
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: no pairing check yet
         // "            mstore(add(_vk, 0x640), " << (key->contains_recursive_proof ? "0x01" : "0x00") << ") // vk.contains_recursive_proof\n"
         // "            mstore(add(_vk, 0x660), " << (key->contains_recursive_proof ? key->recursive_proof_public_input_indices[0] : 0) << ") // vk.recursive_proof_public_input_indices\n"

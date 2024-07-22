@@ -4,6 +4,7 @@ pragma solidity >=0.8.21;
 
 import {TestBaseHonk} from "./TestBaseHonk.sol";
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
 // TODO(md): need to generalize the verifier instances
 import {BlakeHonkVerifier} from "../../src/honk/instance/BlakeHonk.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";

@@ -10,6 +10,8 @@ INPUTS="$( sed 's/\\n//g' <<<"$INPUTS" )"
 
 SRS_PATH="../cpp/srs_db/ignition"
 
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Just terminology, 
+#      but Honk is not a flavor of Plonk
 # If the plonk flavour is honk, then run the honk generator
 if [ "$PLONK_FLAVOUR" == "honk" ]; then
     BIN="../cpp/build/bin/honk_solidity_proof_gen"

@@ -64,6 +64,7 @@ int main(int argc, char** argv)
     const std::string srs_path = args[4];
 
     bb::srs::init_crs_factory(srs_path);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // @todo - Add support for unrolled standard verifier. Needs a new solidity verifier contract.
 
     if (plonk_flavour != "honk") {
@@ -79,7 +80,8 @@ int main(int argc, char** argv)
         } else if (circuit_flavour == "blake") {
             generate_keys_honk<BlakeCircuit>(output_path, plonk_flavour, circuit_flavour);
         } else if (circuit_flavour == "ecdsa") {
-            generate_keys_honk<bb::EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
+            generate_keys_honk<EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
             // TODO: recursive proofs
         } else {
             info("Unsupported circuit");

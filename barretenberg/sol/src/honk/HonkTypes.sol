@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.21;
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
 // Temp only set here for testing, logn will be templated
 import {LOG_N} from "./keys/Add2HonkVerificationKey.sol";
 
@@ -69,6 +70,7 @@ library Honk {
         uint256 y;
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO(md): temporary work around transcript fields
     struct G1ProofPoint {
         uint256 x_0;

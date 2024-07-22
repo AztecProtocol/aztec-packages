@@ -7,6 +7,7 @@ contract DifferentialFuzzer is TestBase {
     using strings for *;
     using Strings for uint256;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk is not a Plonk flavor
     enum PlonkFlavour {
         Invalid,
         Standard,
@@ -32,17 +33,23 @@ contract DifferentialFuzzer is TestBase {
     /// @notice the proofs public inputs
     uint256[] public inputs;
 
-    function with_plonk_flavour(PlonkFlavour _flavour) public returns (DifferentialFuzzer) {
+    function with_plonk_flavour(
+        PlonkFlavour _flavour
+    ) public returns (DifferentialFuzzer) {
         plonkFlavour = _flavour;
         return this;
     }
 
-    function with_circuit_flavour(CircuitFlavour _flavour) public returns (DifferentialFuzzer) {
+    function with_circuit_flavour(
+        CircuitFlavour _flavour
+    ) public returns (DifferentialFuzzer) {
         circuitFlavour = _flavour;
         return this;
     }
 
-    function with_inputs(uint256[] memory _inputs) public returns (DifferentialFuzzer) {
+    function with_inputs(
+        uint256[] memory _inputs
+    ) public returns (DifferentialFuzzer) {
         inputs = _inputs;
         return this;
     }
@@ -79,7 +86,11 @@ contract DifferentialFuzzer is TestBase {
         if (inputs.length > 0) {
             input_params = inputs[0].toHexString();
             for (uint256 i = 1; i < inputs.length; i++) {
-                input_params = string.concat(input_params, ",", inputs[i].toHexString());
+                input_params = string.concat(
+                    input_params,
+                    ",",
+                    inputs[i].toHexString()
+                );
             }
         }
     }
