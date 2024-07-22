@@ -39,8 +39,8 @@ const getEnvVar = (envvar) => {
 const testName = getEnvVar("TEST_NAME");
 
 // Get solidity files, passed into environment from `flows/sol.sh`
-const verifierPath = getEnvVar("VERIFIER_PATH");
 const testPath = getEnvVar("TEST_PATH");
+const verifierPath = getEnvVar("VERIFIER_PATH");
 const encoding = { encoding: "utf8" };
 const [test, verifier] = await Promise.all([
   fsPromises.readFile(testPath, encoding),
@@ -94,7 +94,7 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
-console.log(output);
+// slices pub input delta: 0x186b4e16fd0c64711ada440240c92e9feb5d2a74491d3f558522a3d59c3a79d2
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
@@ -148,10 +148,16 @@ const deploy = async (signer) => {
 const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // A proof with no public inputs is 93 fields long
-  console.log("\n\n\n\n\n\n\n proof as fields length", proofAsFields.length, "\n\n\n\n\n\n\n", proofAsFields, "\n\n\n\n");
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
+  let publicInputsOffset = 0;
+  
+  // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not
+  if (testingHonk) {
+    publicInputsOffset = 3;
+  } 
+
   for (let i = 0; i < numPublicInputs; i++) {
-    publicInputs.push(proofAsFields[i]);
+    publicInputs.push(proofAsFields[publicInputsOffset + i]);
   }
   return [numPublicInputs, publicInputs];
 };
@@ -202,8 +208,20 @@ try {
   const proofPath = getEnvVar("PROOF");
   const proof = readFileSync(proofPath);
 
-  // Cut the number of public inputs off of the proof string
-  const proofStr = `0x${proof.toString("hex").substring(64 * numPublicInputs)}`;
+  // Cut the number of public inputs out of the proof string
+  let proofStr = proof.toString("hex");
+  if (testingHonk) {
+    // Cut off the serialised buffer size at start
+    proofStr = proofStr.substring(8);
+    // Get the part before and after the public inputs
+    const proofStart = proofStr.slice(0, 64 * 3);
+    const proofEnd = proofStr.substring((64 * 3) + (64 * numPublicInputs));
+    proofStr = proofStart + proofEnd;
+  } else {
+    proofStr = proofStr.substring(64 * numPublicInputs);
+  }
+
+  proofStr = "0x" + proofStr;
 
   const key =
     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
