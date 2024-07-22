@@ -33,7 +33,6 @@ impl <T, T_SERIALIZED_LEN> PublicImmutable<T, &mut PublicContext> where T: Seria
     // docs:start:public_immutable_struct_write
     pub fn initialize(self, value: T) {
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
-        // TODO(benesjan): Instead of computing the separator slot point we could just hardcode the value
         let initialization_slot = INITIALIZATION_SLOT_SEPARATOR_SLOT + self.storage_slot;
         let init_field: Field = self.context.storage_read(initialization_slot);
         assert(init_field == 0, "PublicImmutable already initialized");

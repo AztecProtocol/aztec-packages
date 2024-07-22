@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, slots::derive_base_slot
+    address::AztecAddress, slots::derive_storage_slot_in_map, constants::CANONICAL_KEY_REGISTRY_ADDRESS,
+    point::Point, slots::derive_base_slot
 };
 
 use crate::test::helpers::cheatcodes;

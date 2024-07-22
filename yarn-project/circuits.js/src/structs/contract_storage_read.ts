@@ -14,7 +14,7 @@ export class ContractStorageRead {
   constructor(
     /**
      * Storage slot we are reading from.
-     * TODO(benesjan): rename to storage index.
+     * TODO(#7551): rename to contract storage index once we decide upon the naming changes.
      */
     public readonly storageSlot: Fr,
     /**

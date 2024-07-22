@@ -14,7 +14,7 @@ contract Test {
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
         traits::{Serialize, ToField, FromField}, point::Point, scalar::Scalar,
-        storage::map::derive_storage_slot_in_map, slots::S1
+        slots::derive_storage_slot_in_map, slots::S1
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;

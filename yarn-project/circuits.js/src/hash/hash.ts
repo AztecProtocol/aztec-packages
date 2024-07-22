@@ -57,7 +57,7 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
  * Computes a note content hash as is done by the default implementation injected by macros.
  * @param noteContent - The note content (e.g. note.items).
  * @returns A note content hash.
- * TODO(benesjan): Not sure about having this function here given that  different notes have different ways
+ * TODO(#7551): Not sure about having this function here given that  different notes have different ways
  * of computing the note content hash.
  */
 export function computeNoteContentHash(noteContent: Fr[]): Point {

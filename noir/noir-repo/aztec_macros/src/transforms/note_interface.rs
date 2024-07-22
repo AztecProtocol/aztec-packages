@@ -503,7 +503,7 @@ fn generate_compute_note_content_hash(
     note_type: &String,
     impl_span: Option<Span>,
 ) -> Result<NoirFunction, AztecMacroError> {
-    // TODO(benesjan): Replace the pedersen hash with something that returns a point directly to avoid
+    // TODO(#7551): Replace the pedersen hash with something that returns a point directly to avoid
     // the superfluous call to derive_base_slot_with_decompose(...). I was trying to use pedersen_commitment for that
     // but that is currently not supported by the AVM (but might be soon).
     let function_source = format!(

@@ -13,7 +13,7 @@ export function computeFeePayerBalanceContractStorageIndex(feePayer: AztecAddres
 
 /**
  * Computes the leaf slot in the public data tree for the balance of the fee payer in the gas token.
- * TODO(benesjan): rename leaf slot to storage_index
+ * TODO(#7551): rename leaf slot to storage_index once we decide upon the naming changes.
  */
 export function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Fr {
   if (feePayer.isZero()) {

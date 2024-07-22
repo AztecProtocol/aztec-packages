@@ -12,7 +12,7 @@ use dep::types::{
     public_data_hint::PublicDataHint,
     hash::{compute_public_data_tree_index, compute_public_data_tree_value}
 },
-    slots::S1 as balances_slot_in_gas_token_contract, storage::map::derive_storage_slot_in_map,
+    slots::{S1 as balances_slot_in_gas_token_contract, derive_storage_slot_in_map},
     address::AztecAddress, point::Point,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
@@ -414,7 +414,7 @@ fn insert_public_data_update_requests(
     )
 }
 
-// TODO(benesjan): rename `leaf_slot` to `storage_index` everywhere and slot in PublicDataTreeLeaf
+// TODO(#7551): rename `leaf_slot` to `storage_index` everywhere and slot in PublicDataTreeLeaf
 // and PublicDataTreeLeafPreimage etc. as storage_index as well
 fn compute_fee_payer_gas_token_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     // TODO(benesjan): re-enable this

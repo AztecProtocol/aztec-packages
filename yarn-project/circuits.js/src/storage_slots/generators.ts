@@ -2,7 +2,7 @@ import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/index.js';
 
-// TODO(benesjan): this is copied over from noir-projects/aztec-nr/aztec/src/generators.nr --> test that we get a match with noir
+// TODO(#7551): this is copied over from noir-projects/aztec-nr/aztec/src/generators.nr --> test that we get a match with noir
 
 // The following generator is used to compute an inner note hash - used to silo note content hash with with storage slot
 export const G_SLOT = new Point(
@@ -11,7 +11,6 @@ export const G_SLOT = new Point(
   false,
 );
 
-// TODO(benesjan): hardcode first few values for speedup
 // Derive a base slot (using the base generator) from a slot preimage
 export function deriveBaseSlot(slotPreimage: number | bigint | Fr): Point {
   const grumpkin = new Grumpkin();
