@@ -291,75 +291,29 @@ class MegaFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted_tables()
+        {
+            return RefArray{ this->table_1_shift, // column 0
+                             this->table_2_shift, // column 1
+                             this->table_3_shift, // column 2
+                             this->table_4_shift };
+        };
+        auto get_shifted_witnesses()
+        {
+            return RefArray{
+                this->w_l_shift,   // column 0
+                this->w_r_shift,   // column 1
+                this->w_o_shift,   // column 2
+                this->w_4_shift,   // column 3
+                this->z_perm_shift // column 4
+            };
+        };
         // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
-        auto get_all_witnesses()
-        {
-            return RefArray{
-                this->w_l,                     // column 0
-                this->w_r,                     // column 1
-                this->w_o,                     // column 2
-                this->w_4,                     // column 3
-                this->z_perm,                  // column 4
-                this->lookup_inverses,         // column 5
-                this->lookup_read_counts,      // column 6
-                this->lookup_read_tags,        // column 7
-                this->ecc_op_wire_1,           // column 8
-                this->ecc_op_wire_2,           // column 9
-                this->ecc_op_wire_3,           // column 10
-                this->ecc_op_wire_4,           // column 11
-                this->calldata,                // column 12
-                this->calldata_read_counts,    // column 13
-                this->calldata_inverses,       // column 14
-                this->return_data,             // column 15
-                this->return_data_read_counts, // column 16
-                this->return_data_inverses,    // column 17
-                this->w_l_shift,               // column 18
-                this->w_r_shift,               // column 19
-                this->w_o_shift,               // column 20
-                this->w_4_shift,               // column 21
-                this->z_perm_shift             // column 22
-            };
-        };
+        auto get_all_witnesses() { return concatenate(get_witness(), get_shifted_witnesses()); };
+
         // this getter is used in ZK sumcheck as a countepart to get_all_witnesses
-        auto get_non_witnesses()
-        {
-            return RefArray{
-                this->q_m,                  // column 0
-                this->q_c,                  // column 1
-                this->q_l,                  // column 2
-                this->q_r,                  // column 3
-                this->q_o,                  // column 4
-                this->q_4,                  // column 5
-                this->q_arith,              // column 6
-                this->q_delta_range,        // column 7
-                this->q_elliptic,           // column 8
-                this->q_aux,                // column 9
-                this->q_lookup,             // column 10
-                this->q_busread,            // column 11
-                this->q_poseidon2_external, // column 12
-                this->q_poseidon2_internal, // column 13
-                this->sigma_1,              // column 14
-                this->sigma_2,              // column 15
-                this->sigma_3,              // column 16
-                this->sigma_4,              // column 17
-                this->id_1,                 // column 18
-                this->id_2,                 // column 19
-                this->id_3,                 // column 20
-                this->id_4,                 // column 21
-                this->table_1,              // column 22
-                this->table_2,              // column 23
-                this->table_3,              // column 24
-                this->table_4,              // column 25
-                this->lagrange_first,       // column 26
-                this->lagrange_last,        // column 27
-                this->lagrange_ecc_op,      // column 28, indicator poly for ecc op gates
-                this->databus_id,           // column 29, id polynomial, i.e. id_i = i
-                this->table_1,              // column 30
-                this->table_2,              // column 31
-                this->table_3,              // column 32
-                this->table_4,              // column 23
-            };
-        };
+        // getter for the complement of all witnesses inside all entities
+        auto get_non_witnesses() { return concatenate(get_precomputed(), get_shifted_tables()); };
     };
 
     /**
