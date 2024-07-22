@@ -510,7 +510,7 @@ fn generate_compute_note_content_hash(
         "
         fn compute_note_content_hash(self: {}) -> aztec::protocol_types::point::Point {{
             let h = aztec::hash::pedersen_hash(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH);
-            aztec::generators::derive_base_slot(h)
+            aztec::protocol_types::slots::derive_base_slot(h)
         }}
         ",
         note_type

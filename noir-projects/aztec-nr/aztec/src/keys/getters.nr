@@ -1,10 +1,10 @@
 use dep::protocol_types::{
     header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map,
-    traits::is_empty
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, slots::derive_base_slot,
+    storage::map::derive_storage_slot_in_map, traits::is_empty
 };
 use crate::{
-    context::PrivateContext, generators::derive_base_slot,
+    context::PrivateContext,
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
     keys::{public_keys::PublicKeys, constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}},
     state_vars::{shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter}

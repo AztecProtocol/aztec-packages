@@ -39,7 +39,8 @@ impl<let M: u32> EncryptedLogIncomingBody<M> {
 mod test {
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        scalar::Scalar, point::Point, traits::Serialize, abis::event_selector::EventSelector
+        scalar::Scalar, point::Point, traits::Serialize, generators::Ga1,
+        abis::event_selector::EventSelector
     };
 
     use crate::{
@@ -60,7 +61,7 @@ mod test {
 
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
         fn compute_note_content_hash(self) -> Point {
-            crate::generators::Ga1
+            Ga1
         }
 
         fn get_note_type_id() -> Field {

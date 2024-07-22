@@ -1,8 +1,11 @@
 use crate::{
     context::{PublicContext, UnconstrainedContext}, oracle::storage::storage_read,
-    state_vars::storage::Storage, generators::derive_base_slot
+    state_vars::storage::Storage
 };
-use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, point::Point, traits::{Deserialize, Serialize}};
+use dep::protocol_types::{
+    constants::INITIALIZATION_SLOT_SEPARATOR, point::Point, slots::INITIALIZATION_SLOT_SEPARATOR_SLOT,
+    traits::{Deserialize, Serialize}
+};
 
 // Just like SharedImmutable but without the ability to read from private functions.
 // docs:start:public_immutable_struct
@@ -31,7 +34,7 @@ impl <T, T_SERIALIZED_LEN> PublicImmutable<T, &mut PublicContext> where T: Seria
     pub fn initialize(self, value: T) {
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
         // TODO(benesjan): Instead of computing the separator slot point we could just hardcode the value
-        let initialization_slot = derive_base_slot(INITIALIZATION_SLOT_SEPARATOR) + self.storage_slot;
+        let initialization_slot = INITIALIZATION_SLOT_SEPARATOR_SLOT + self.storage_slot;
         let init_field: Field = self.context.storage_read(initialization_slot);
         assert(init_field == 0, "PublicImmutable already initialized");
 

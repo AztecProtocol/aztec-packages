@@ -1,9 +1,9 @@
 use dep::protocol_types::{
     address::AztecAddress, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point
+    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, slots::derive_base_slot
 };
 
-use crate::{generators::derive_base_slot, test::helpers::cheatcodes};
+use crate::test::helpers::cheatcodes;
 
 pub fn store_master_key(key_index: Field, address: AztecAddress, key: Point) {
     let x_coordinate_map_slot = derive_base_slot(key_index * 2 + 1);
