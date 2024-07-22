@@ -8,8 +8,14 @@ import { type TracedContractInstance } from './side_effect_trace.js';
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   getCounter(): number;
-  tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr): void;
+  tracePublicStorageRead(
+    storageAddress: Fr,
+    contractStorageIndex: Fr,
+    value: Fr,
+    exists: boolean,
+    cached: boolean,
+  ): void;
+  tracePublicStorageWrite(storageAddress: Fr, contractStorageIndex: Fr, value: Fr): void;
   traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
   traceNewNoteHash(storageAddress: Fr, noteHash: Fr): void;
   traceNullifierCheck(storageAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;

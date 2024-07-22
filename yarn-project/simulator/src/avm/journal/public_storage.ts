@@ -68,16 +68,16 @@ export class PublicStorage {
    * 4. Not found! Value has never been written to before. Flag it as non-existent and return value zero.
    *
    * @param storageAddress - the address of the contract whose storage is being read from
-   * @param slot - the slot in the contract's storage being read from
+   * @param contractStorageIndex - Storage index to read in the contract storage.
    * @returns exists: whether the slot has EVER been written to before, value: the latest value written to slot, or 0 if never written to before
    */
-  public async read(storageAddress: Fr, slot: Fr): Promise<PublicStorageReadResult> {
+  public async read(storageAddress: Fr, contractStorageIndex: Fr): Promise<PublicStorageReadResult> {
     let cached = false;
     // Check this cache and parent's (recursively)
-    let value = this.readHereOrParent(storageAddress, slot);
+    let value = this.readHereOrParent(storageAddress, contractStorageIndex);
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
-      value = await this.hostPublicStorage.storageRead(storageAddress, slot);
+      value = await this.hostPublicStorage.storageRead(storageAddress, contractStorageIndex);
       // TODO(dbanks12): if value retrieved from host storage, we can cache it here
       // any future reads to the same slot can read from cache instead of more expensive
       // DB access
@@ -94,11 +94,11 @@ export class PublicStorage {
    * Stage a storage write.
    *
    * @param storageAddress - the address of the contract whose storage is being written to
-   * @param slot - the slot in the contract's storage being written to
+   * @param contractStorageIndex - Storage index to write in the contract storage.
    * @param value - the value being written to the slot
    */
-  public write(storageAddress: Fr, slot: Fr, value: Fr) {
-    this.cache.write(storageAddress, slot, value);
+  public write(storageAddress: Fr, contractStorageIndex: Fr, value: Fr) {
+    this.cache.write(storageAddress, contractStorageIndex, value);
   }
 
   /**

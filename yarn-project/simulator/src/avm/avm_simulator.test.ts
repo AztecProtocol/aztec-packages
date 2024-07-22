@@ -1,4 +1,4 @@
-import { GasFees } from '@aztec/circuits.js';
+import { GasFees, deriveBaseSlot } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
@@ -338,11 +338,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const sender = new Fr(42);
     const leafIndex = new Fr(7);
     const slotNumber = 1; // must update Noir contract if changing this
-    const slot = new Fr(slotNumber);
+    const contractStorageIndex = deriveBaseSlot(slotNumber).x;
     const listSlotNumber0 = 2; // must update Noir contract if changing this
-    const listSlotNumber1 = listSlotNumber0 + 1;
-    const listSlot0 = new Fr(listSlotNumber0);
-    const listSlot1 = new Fr(listSlotNumber1);
+    const listContractStorageIndex0 = deriveBaseSlot(listSlotNumber0).x;
+    // When writing to storage multiple values the contract indices of the following values are incremented by 1
+    const listContractStorageIndex1 = new Fr(listContractStorageIndex0.toBigInt() + 1n);
     const value0 = new Fr(420);
     const value1 = new Fr(69);
 
@@ -570,10 +570,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(await context.persistableState.peekStorage(storageAddress, slot)).toEqual(value0);
+        expect(await context.persistableState.peekStorage(storageAddress, contractStorageIndex)).toEqual(value0);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, slot, value0);
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, contractStorageIndex, value0);
       });
 
       it('Should read value in storage (single)', async () => {
@@ -589,7 +589,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
           storageAddress,
-          slot,
+          contractStorageIndex,
           value0,
           /*exists=*/ true,
           /*cached=*/ false,
@@ -607,11 +607,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([value0]);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, slot, value0);
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, contractStorageIndex, value0);
         expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
           storageAddress,
-          slot,
+          contractStorageIndex,
           value0,
           /*exists=*/ true,
           /*cached=*/ true,
@@ -627,19 +627,23 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(await context.persistableState.peekStorage(storageAddress, listSlot0)).toEqual(calldata[0]);
-        expect(await context.persistableState.peekStorage(storageAddress, listSlot1)).toEqual(calldata[1]);
+        expect(await context.persistableState.peekStorage(storageAddress, listContractStorageIndex0)).toEqual(
+          calldata[0],
+        );
+        expect(await context.persistableState.peekStorage(storageAddress, listContractStorageIndex1)).toEqual(
+          calldata[1],
+        );
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(2);
-        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, listSlot0, value0);
-        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, listSlot1, value1);
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, listContractStorageIndex0, value0);
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(storageAddress, listContractStorageIndex1, value1);
       });
 
       it('Should read a value in storage (list)', async () => {
         const context = createContext();
         const mockedStorage = new Map([
-          [listSlot0.toBigInt(), value0],
-          [listSlot1.toBigInt(), value1],
+          [listContractStorageIndex0.toBigInt(), value0],
+          [listContractStorageIndex1.toBigInt(), value1],
         ]);
         mockStorageReadWithMap(hostStorage, mockedStorage);
 
@@ -651,14 +655,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
           storageAddress,
-          listSlot0,
+          listContractStorageIndex0,
           value0,
           /*exists=*/ true,
           /*cached=*/ false,
         );
         expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
           storageAddress,
-          listSlot1,
+          listContractStorageIndex1,
           value1,
           /*exists=*/ true,
           /*cached=*/ false,

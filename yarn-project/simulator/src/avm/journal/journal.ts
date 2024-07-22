@@ -101,13 +101,13 @@ export class AvmPersistableStateManager {
    * Read from public storage, don't trace the read.
    *
    * @param storageAddress - the address of the contract whose storage is being read from
-   * @param slot - the slot in the contract's storage being read from
+   * @param contractStorageIndex - Storage index to read in the contract storage.
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async peekStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+  public async peekStorage(storageAddress: Fr, contractStorageIndex: Fr): Promise<Fr> {
+    const { value, exists, cached } = await this.publicStorage.read(storageAddress, contractStorageIndex);
     this.log.debug(
-      `Storage peek  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+      `Storage peek  (address=${storageAddress}, contractStorageIndex=${contractStorageIndex}): value=${value}, exists=${exists}, cached=${cached}`,
     );
     return Promise.resolve(value);
   }

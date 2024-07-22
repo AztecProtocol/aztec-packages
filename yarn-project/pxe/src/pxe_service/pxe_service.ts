@@ -350,7 +350,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+      const { innerNoteHashX, siloedNoteHash, innerNullifier } =
         await this.simulator.computeNoteHashAndOptionallyANullifier(
           note.contractAddress,
           nonce,
@@ -379,7 +379,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          innerNoteHash,
+          innerNoteHashX,
           siloedNullifier,
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
@@ -400,7 +400,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+      const { innerNoteHashX, siloedNoteHash, innerNullifier } =
         await this.simulator.computeNoteHashAndOptionallyANullifier(
           note.contractAddress,
           nonce,
@@ -427,7 +427,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          innerNoteHash,
+          innerNoteHashX,
           Fr.ZERO, // We are not able to derive
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,

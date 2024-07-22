@@ -51,7 +51,7 @@ export async function produceNoteDaos(
 
   try {
     if (ivpkM) {
-      const { noteHashIndex, nonce, innerNoteHash, siloedNullifier } = await findNoteIndexAndNullifier(
+      const { noteHashIndex, nonce, innerNoteHashX, siloedNullifier } = await findNoteIndexAndNullifier(
         simulator,
         noteHashes,
         txHash,
@@ -69,7 +69,7 @@ export async function produceNoteDaos(
         payload.noteTypeId,
         txHash,
         nonce,
-        innerNoteHash,
+        innerNoteHashX,
         siloedNullifier,
         index,
         ivpkM,
@@ -113,7 +113,7 @@ export async function produceNoteDaos(
           ovpkM,
         );
       } else {
-        const { noteHashIndex, nonce, innerNoteHash } = await findNoteIndexAndNullifier(
+        const { noteHashIndex, nonce, innerNoteHashX } = await findNoteIndexAndNullifier(
           simulator,
           noteHashes,
           txHash,
@@ -130,7 +130,7 @@ export async function produceNoteDaos(
           payload.noteTypeId,
           txHash,
           nonce,
-          innerNoteHash,
+          innerNoteHashX,
           index,
           ovpkM,
         );
@@ -189,7 +189,7 @@ async function findNoteIndexAndNullifier(
 ) {
   let noteHashIndex = 0;
   let nonce: Fr | undefined;
-  let innerNoteHash: Fr | undefined;
+  let innerNoteHashX: Fr | undefined;
   let siloedNoteHash: Fr | undefined;
   let innerNullifier: Fr | undefined;
   const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
@@ -205,7 +205,7 @@ async function findNoteIndexAndNullifier(
     }
 
     const expectedNonce = computeNoteHashNonce(firstNullifier, noteHashIndex);
-    ({ innerNoteHash, siloedNoteHash, innerNullifier } = await simulator.computeNoteHashAndOptionallyANullifier(
+    ({ innerNoteHashX, siloedNoteHash, innerNullifier } = await simulator.computeNoteHashAndOptionallyANullifier(
       contractAddress,
       expectedNonce,
       storageSlot,
@@ -229,7 +229,7 @@ async function findNoteIndexAndNullifier(
   return {
     noteHashIndex,
     nonce,
-    innerNoteHash: innerNoteHash!,
+    innerNoteHashX: innerNoteHashX!,
     siloedNullifier: siloNullifier(contractAddress, innerNullifier!),
   };
 }
