@@ -71,13 +71,17 @@ Writing tests in contracts requires importing additional modules from Aztec.nr. 
 
 ```rust
 
-// Depending on whether we want to deploy the contract we're currently on or an auxiliary one we want to test calls to
+// Deploy the contract we're currently on
 
 let deployer = env.deploy_self("ContractName");
 
-// or
+// Deploy a standalone contract in a path relative to the current one (always from the location of Nargo.toml)
 
 let deployer = env.deploy("path_to_contract_root_folder_where_nargo_toml_is", "ContractName");
+
+// Deploy a contract in a workspace
+
+let deployer = env.deploy("path_to_workspace_root_folder_where_main_nargo_toml_is@package_name", "ContractName");
 
 // Now one of these can be called, depending on the contract and their possible initialization options.
 // Remember a contract can only be initialized once.
