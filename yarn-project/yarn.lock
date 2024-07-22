@@ -955,6 +955,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/txe@workspace:txe"
   dependencies:
+    "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuit-types": "workspace:^"

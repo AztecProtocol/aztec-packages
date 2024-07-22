@@ -17,7 +17,7 @@ export type GenerateCodeOptions = { force?: boolean };
  * Generates Noir interface or Typescript interface for a folder or single file from a Noir compilation artifact.
  */
 export async function generateCode(outputPath: string, fileOrDirPath: string, opts: GenerateCodeOptions = {}) {
-  readCache();
+  await readCache();
   const results = [];
   const stats = await stat(fileOrDirPath);
 
@@ -42,7 +42,7 @@ export async function generateCode(outputPath: string, fileOrDirPath: string, op
 async function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts: GenerateCodeOptions = {}) {
   const fileName = path.basename(noirAbiPath);
   const currentHash = await generateFileHash(noirAbiPath);
-  let cachedInstance = isCacheValid(fileName, currentHash);
+  const cachedInstance = isCacheValid(fileName, currentHash);
   if (cachedInstance && !opts.force) {
     console.log(`${fileName} has not changed. Skipping generation.`);
     return `${outputPath}/${cachedInstance.contractName}.ts`;

@@ -12,7 +12,7 @@ import {
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
@@ -172,7 +172,7 @@ export class TXEService {
     const keys = (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
     const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
     const hash = keys.publicKeys.hash();
-    let artifact = SchnorrAccountContractArtifact;
+    const artifact = SchnorrAccountContractArtifact;
     const instance = getContractInstanceFromDeployParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,

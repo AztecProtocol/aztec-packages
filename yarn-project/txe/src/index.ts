@@ -4,10 +4,10 @@ import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
 
 import { readFile, readdir } from 'fs/promises';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
 import { TXEService } from './txe_service/txe_service.js';
-import { ForeignCallArray, type ForeignCallResult, fromArray, toForeignCallResult } from './util/encoding.js';
+import { type ForeignCallArray, type ForeignCallResult, fromArray, toForeignCallResult } from './util/encoding.js';
 
 const TXESessions = new Map<number, TXEService>();
 
@@ -26,14 +26,15 @@ type TXEForeignCallInput = {
 class TXEDispatcher {
   constructor(private logger: Logger) {}
 
-  // eslint-disable-next-line camelcase
+  /* eslint-disable camelcase */
   async resolve_foreign_call({
     session_id: sessionId,
     function: functionName,
     inputs,
     root_path,
     package_name,
-  }: TXEForeignCallInput): Promise<ForeignCallResult> {
+  }: /* eslint-enable camelcase */
+  TXEForeignCallInput): Promise<ForeignCallResult> {
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
     if (!TXESessions.has(sessionId) && functionName != 'reset') {
@@ -56,6 +57,7 @@ class TXEDispatcher {
         let artifactPath = '';
         // Is not the same contract we're testing
         if (!pathStr) {
+          // eslint-disable-next-line camelcase
           artifactPath = join(root_path, './target', `${package_name}-${contractName}.json`);
         } else {
           // Workspace
