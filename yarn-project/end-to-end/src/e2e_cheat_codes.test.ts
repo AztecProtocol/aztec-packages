@@ -9,6 +9,7 @@ import {
   type Wallet,
   computeSecretHash,
 } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -207,7 +208,7 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('load private works as expected for no notes', async () => {
-      const notes = await cc.aztec.loadPrivate(admin.address, token.address, 5n);
+      const notes = await cc.aztec.loadPrivate(admin.address, token.address, deriveBaseSlot(5n));
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(0n);

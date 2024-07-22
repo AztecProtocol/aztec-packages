@@ -1,4 +1,4 @@
-import { type AztecAddress, Comparator, Fr, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, Comparator, Fr, Point, type Wallet } from '@aztec/aztec.js';
 import { DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
@@ -163,40 +163,46 @@ describe('e2e_note_getter', () => {
     const VALUE = 5;
 
     // To prevent tests from interacting with one another, we'll have each use a different storage slot.
-    let storageSlot = TestContract.storage.example_set.slot.toNumber();
+    let storageSlot = TestContract.storage.example_set.slot;
 
     beforeEach(() => {
-      storageSlot += 1;
+      storageSlot = Point.random();
     });
 
-    async function assertNoteIsReturned(storageSlot: number, expectedValue: number, activeOrNullified: boolean) {
-      const viewNotesResult = await contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate();
-      const getNotesResult = await contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate();
+    async function assertNoteIsReturned(storageSlot: Point, expectedValue: number, activeOrNullified: boolean) {
+      const viewNotesResult = await contract.methods
+        .call_view_notes(storageSlot.toNoirStruct(), activeOrNullified)
+        .simulate();
+      const getNotesResult = await contract.methods
+        .call_get_notes(storageSlot.toNoirStruct(), activeOrNullified)
+        .simulate();
 
       expect(viewNotesResult).toEqual(getNotesResult);
       expect(viewNotesResult).toEqual(BigInt(expectedValue));
     }
 
-    async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
-      await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
+    async function assertNoReturnValue(storageSlot: Point, activeOrNullified: boolean) {
+      await expect(
+        contract.methods.call_view_notes(storageSlot.toNoirStruct(), activeOrNullified).simulate(),
+      ).rejects.toThrow(
         'index < self.len', // from BoundedVec::get
       );
-      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes`,
-      );
+      await expect(
+        contract.methods.call_get_notes(storageSlot.toNoirStruct(), activeOrNullified).prove(),
+      ).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
     }
 
     describe('active note only', () => {
       const activeOrNullified = false;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot.toNoirStruct()).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('does not return nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
-        await contract.methods.call_destroy_note(storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot.toNoirStruct()).send().wait();
+        await contract.methods.call_destroy_note(storageSlot.toNoirStruct()).send().wait();
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
       });
@@ -206,13 +212,13 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = true;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot.toNoirStruct()).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
-        await contract.methods.call_destroy_note(storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot.toNoirStruct()).send().wait();
+        await contract.methods.call_destroy_note(storageSlot.toNoirStruct()).send().wait();
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
@@ -220,19 +226,19 @@ describe('e2e_note_getter', () => {
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot.toNoirStruct()).send().wait();
         await contract.methods
-          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
+          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot.toNoirStruct())
           .send()
           .wait();
-        await contract.methods.call_destroy_note(storageSlot).send().wait();
+        await contract.methods.call_destroy_note(storageSlot.toNoirStruct()).send().wait();
 
         // We now fetch multiple notes, and get both the active and the nullified one.
         const viewNotesManyResult = await contract.methods
-          .call_view_notes_many(storageSlot, activeOrNullified)
+          .call_view_notes_many(storageSlot.toNoirStruct(), activeOrNullified)
           .simulate();
         const getNotesManyResult = await contract.methods
-          .call_get_notes_many(storageSlot, activeOrNullified)
+          .call_get_notes_many(storageSlot.toNoirStruct(), activeOrNullified)
           .simulate();
 
         // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note

@@ -13,6 +13,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   computeAppNullifierSecretKey,
   computeAppSecretKey,
+  deriveBaseSlot,
   deriveMasterNullifierSecretKey,
   deriveMasterOutgoingViewingSecretKey,
   derivePublicKeyFromSecretKey,
@@ -73,13 +74,16 @@ describe('Key Registry', () => {
       const noteValue = 5;
       const noteOwner = account.getAddress();
       const outgoingViewer = noteOwner; // Setting the outgoing viewer to owner to not have to bother with setting up another account.
-      const noteStorageSlot = 12;
+      const noteStorageSlot = deriveBaseSlot(12);
 
-      await testContract.methods.call_create_note(noteValue, noteOwner, outgoingViewer, noteStorageSlot).send().wait();
+      await testContract.methods
+        .call_create_note(noteValue, noteOwner, outgoingViewer, noteStorageSlot.toNoirStruct())
+        .send()
+        .wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+      await testContract.methods.call_destroy_note(noteStorageSlot.toNoirStruct()).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });

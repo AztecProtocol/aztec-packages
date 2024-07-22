@@ -8,6 +8,7 @@ import {
   Note,
   type Wallet,
 } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { Aes128, Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestContract } from '@aztec/noir-contracts.js';
 
@@ -91,7 +92,7 @@ describe('e2e_encryption', () => {
     const ephPubKey = grumpkin.mul(Grumpkin.generator, ephSecretKey);
     const viewingPubKey = grumpkin.mul(Grumpkin.generator, viewingSecretKey);
 
-    const storageSlot = new Fr(1);
+    const storageSlot = deriveBaseSlot(1);
     const noteTypeId = TestContract.artifact.notes['TestNote'].id;
     const value = Fr.random();
     const note = new Note([value]);
@@ -99,7 +100,12 @@ describe('e2e_encryption', () => {
     const body = new EncryptedNoteLogIncomingBody(storageSlot, noteTypeId, note);
 
     const encrypted = await contract.methods
-      .compute_incoming_log_body_ciphertext(ephSecretKey, viewingPubKey.toNoirStruct(), storageSlot, value)
+      .compute_incoming_log_body_ciphertext(
+        ephSecretKey,
+        viewingPubKey.toNoirStruct(),
+        storageSlot.toNoirStruct(),
+        value,
+      )
       .simulate();
 
     expect(Buffer.from(encrypted.map((x: bigint) => Number(x)))).toEqual(

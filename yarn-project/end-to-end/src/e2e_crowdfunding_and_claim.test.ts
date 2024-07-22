@@ -192,7 +192,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         // eslint-disable-next-line camelcase
         contract_address: extendedNote.contractAddress,
         // eslint-disable-next-line camelcase
-        storage_slot: extendedNote.storageSlot,
+        storage_slot: extendedNote.storageSlot.toNoirStruct(), // TODO(#6337): make call to toNoirStruct unnecessary
         // eslint-disable-next-line camelcase
         note_hash_counter: 0, // set as 0 as note is not transient
         nonce: noteNonces[0],

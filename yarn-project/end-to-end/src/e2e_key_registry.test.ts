@@ -1,5 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, Point, PublicKeys } from '@aztec/circuits.js';
+import { CompleteAddress, Point, PublicKeys, deriveBaseSlot } from '@aztec/circuits.js';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
@@ -23,6 +23,7 @@ describe('Key Registry', () => {
   let teardown: () => Promise<void>;
 
   const account = CompleteAddress.random();
+  const sharedMutableStorageSlot = deriveBaseSlot(1).toNoirStruct();
 
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(2));
@@ -136,7 +137,7 @@ describe('Key Registry', () => {
       // We check if our registered nullifier key is equal to the key obtained from the getter by
       // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       const emptyNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, account)
+        .test_shared_mutable_private_getter_for_registry_contract(sharedMutableStorageSlot, account)
         .simulate();
 
       expect(new Fr(emptyNullifierPublicKeyX)).toEqual(Fr.ZERO);
@@ -145,7 +146,7 @@ describe('Key Registry', () => {
       await crossDelay();
 
       const nullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, account)
+        .test_shared_mutable_private_getter_for_registry_contract(sharedMutableStorageSlot, account)
         .simulate();
 
       expect(new Fr(nullifierPublicKeyX)).toEqual(account.publicKeys.masterNullifierPublicKey.x);
@@ -177,7 +178,7 @@ describe('Key Registry', () => {
       // We check if our rotated nullifier key is equal to the key obtained from the getter by reading our registry
       // contract from the test contract. We expect this to fail because the change has not been applied yet
       const emptyNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+        .test_shared_mutable_private_getter_for_registry_contract(sharedMutableStorageSlot, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(emptyNullifierPublicKeyX)).toEqual(Fr.ZERO);
@@ -186,7 +187,7 @@ describe('Key Registry', () => {
       await crossDelay();
 
       const nullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+        .test_shared_mutable_private_getter_for_registry_contract(sharedMutableStorageSlot, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(nullifierPublicKeyX)).toEqual(firstNewMasterNullifierPublicKey.x);
@@ -206,7 +207,7 @@ describe('Key Registry', () => {
 
       // We get the old nullifier key as the change has not been applied yet
       const oldNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+        .test_shared_mutable_private_getter_for_registry_contract(sharedMutableStorageSlot, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(oldNullifierPublicKeyX)).toEqual(firstNewMasterNullifierPublicKey.x);
@@ -215,7 +216,7 @@ describe('Key Registry', () => {
 
       // We get the new nullifier key as the change has been applied
       const newNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+        .test_shared_mutable_private_getter_for_registry_contract(sharedMutableStorageSlot, wallets[0].getAddress())
         .simulate();
 
       expect(new Fr(newNullifierPublicKeyX)).toEqual(secondNewMasterNullifierPublicKey.x);

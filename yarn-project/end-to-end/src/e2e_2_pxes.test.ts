@@ -13,6 +13,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { expect, jest } from '@jest/globals';
@@ -347,7 +348,7 @@ describe('e2e_2_pxes', () => {
     const testContract = await TestContract.deploy(walletA).send().deployed();
 
     // 2. Create a note
-    const noteStorageSlot = 10;
+    const noteStorageSlot = deriveBaseSlot(10).toNoirStruct();
     const noteValue = 5;
     let note: ExtendedNote;
     {
