@@ -18,7 +18,8 @@ type MethodNames<T> = {
 type TXEForeignCallInput = {
   session_id: number;
   function: MethodNames<TXEService> | 'reset';
-  program_artifact_path: string;
+  root_path: string;
+  package_name: string;
   inputs: any[];
 };
 
@@ -30,7 +31,8 @@ class TXEDispatcher {
     session_id: sessionId,
     function: functionName,
     inputs,
-    program_artifact_path,
+    root_path,
+    package_name,
   }: TXEForeignCallInput): Promise<ForeignCallResult> {
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
@@ -48,25 +50,30 @@ class TXEDispatcher {
         const pathStr = fromArray(inputs[0] as ForeignCallArray)
           .map(char => String.fromCharCode(char.toNumber()))
           .join('');
-        let inputPath = program_artifact_path;
+        const contractName = fromArray(inputs[1] as ForeignCallArray)
+          .map(char => String.fromCharCode(char.toNumber()))
+          .join('');
+        let artifactPath = '';
         // Is not the same contract we're testing
-        if (pathStr != '') {
+        if (!pathStr) {
+          artifactPath = join(root_path, './target', `${package_name}-${contractName}.json`);
+        } else {
           // Workspace
           if (pathStr.includes('@')) {
             const [workspace, pkg] = pathStr.split('@');
-            const targetPath = join(dirname(inputPath), '../', workspace, './target');
+            const targetPath = join(root_path, workspace, './target');
             this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
-            inputPath = join(targetPath, `${pkg}.json`);
+            artifactPath = join(targetPath, `${pkg}-${contractName}.json`);
           } else {
             // Individual contract
-            const targetPath = join(dirname(inputPath), '../', pathStr, './target');
+            const targetPath = join(root_path, pathStr, './target');
             this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
-            [inputPath] = (await readdir(targetPath)).filter(file => file.endsWith('.json'));
+            [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractName}.json`));
           }
         }
-        this.logger.debug(`Loading compiled artifact ${inputPath}`);
-        const artifact = loadContractArtifact(JSON.parse(await readFile(inputPath, 'utf-8')));
-        inputs[0] = artifact;
+        this.logger.debug(`Loading compiled artifact ${artifactPath}`);
+        const artifact = loadContractArtifact(JSON.parse(await readFile(artifactPath, 'utf-8')));
+        inputs.splice(0, 2, artifact);
       }
       const txeService = TXESessions.get(sessionId);
       const response = await (txeService as any)[functionName](...inputs);

@@ -105,12 +105,12 @@ impl TestEnvironment {
         address
     }
 
-    fn deploy<N>(self, path: str<N>) -> Deployer<N> {
-        Deployer { path, public_keys_hash: 0 }
+    fn deploy<N, M>(self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+        Deployer { path, name, public_keys_hash: 0 }
     }
 
-    fn deploy_self(self) -> Deployer<0> {
-        Deployer { path: "", public_keys_hash: 0 }
+    fn deploy_self<M>(self, name: str<M>) -> Deployer<0, M> {
+        Deployer { path: "", name, public_keys_hash: 0 }
     }
 
     fn call_private<C, M, T, Env, N>(

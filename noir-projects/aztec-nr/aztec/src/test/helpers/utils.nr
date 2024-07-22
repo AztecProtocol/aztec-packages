@@ -29,18 +29,20 @@ pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs:
     cheatcodes::add_note_hashes(contract_address, note_hashes);
 }
 
-struct Deployer<N> {
+struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
+    name: str<M>,
     public_keys_hash: Field
 }
 
-impl<N> Deployer<N> {
-    pub fn with_private_initializer<C, M, Env>(
+impl<let N: u32, let M: u32> Deployer<N, M> {
+    pub fn with_private_initializer<C, P, Env>(
         self,
         call_interface: C
-    ) -> ContractInstance where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
+    ) -> ContractInstance where C: CallInterface<P, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
         let instance = cheatcodes::deploy(
             self.path,
+            self.name,
             call_interface.get_name(),
             call_interface.get_args(),
             self.public_keys_hash
@@ -64,12 +66,13 @@ impl<N> Deployer<N> {
         instance
     }
 
-    pub fn with_public_initializer<C, M, T, Env>(
+    pub fn with_public_initializer<C, P, T, Env>(
         self,
         call_interface: C
-    ) -> ContractInstance where C: CallInterface<M, PublicContextInputs, T, Env> {
+    ) -> ContractInstance where C: CallInterface<P, PublicContextInputs, T, Env> {
         let instance = cheatcodes::deploy(
             self.path,
+            self.name,
             call_interface.get_name(),
             call_interface.get_args(),
             self.public_keys_hash
@@ -94,7 +97,7 @@ impl<N> Deployer<N> {
     }
 
     pub fn without_initializer(self) -> ContractInstance {
-        cheatcodes::deploy(self.path, "", &[], self.public_keys_hash)
+        cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
     }
 }
 

@@ -92,7 +92,8 @@ pub(crate) fn run(args: TestCommand, config: NargoConfig) -> Result<(), CliError
                 pattern,
                 args.show_output,
                 args.oracle_resolver.as_deref(),
-                Some(workspace.package_build_path(package)),
+                Some(workspace.root_dir.clone()),
+                Some(package.name.to_string()),
                 &args.compile_options,
             )
         })
@@ -128,7 +129,8 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     fn_name: FunctionNameMatch,
     show_output: bool,
     foreign_call_resolver_url: Option<&str>,
-    program_artifact_path: Option<PathBuf>,
+    root_path: Option<PathBuf>,
+    package_name: Option<String>,
     compile_options: &CompileOptions,
 ) -> Result<Vec<(String, TestStatus)>, CliError> {
     let test_functions =
@@ -149,7 +151,8 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
                 &test_name,
                 show_output,
                 foreign_call_resolver_url,
-                program_artifact_path.clone(),
+                root_path.clone(),
+                package_name.clone(),
                 compile_options,
             );
 
@@ -168,7 +171,8 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     fn_name: &str,
     show_output: bool,
     foreign_call_resolver_url: Option<&str>,
-    program_artifact_path: Option<PathBuf>,
+    root_path: Option<PathBuf>,
+    package_name: Option<String>,
     compile_options: &CompileOptions,
 ) -> TestStatus {
     // This is really hacky but we can't share `Context` or `S` across threads.
@@ -205,7 +209,8 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
             test_function,
             show_output,
             foreign_call_resolver_url,
-            program_artifact_path,
+            root_path,
+            package_name,
             compile_options,
         )
     } else {

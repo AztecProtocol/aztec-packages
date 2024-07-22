@@ -31,7 +31,8 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
     test_function: &TestFunction,
     show_output: bool,
     foreign_call_resolver_url: Option<&str>,
-    program_artifact_path: Option<PathBuf>,
+    root_path: Option<PathBuf>,
+    package_name: Option<String>,
     config: &CompileOptions,
 ) -> TestStatus {
     let compiled_program = compile_no_check(context, config, test_function.get_id(), None, false);
@@ -46,7 +47,8 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                 &mut DefaultForeignCallExecutor::new(
                     show_output,
                     foreign_call_resolver_url,
-                    program_artifact_path,
+                    root_path,
+                    package_name,
                 ),
             );
             test_status_program_compile_pass(
