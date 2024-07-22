@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import {TestBase} from "../base/TestBase.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
-import {BaseUltraVerifier} from "../../src/ultra/BaseUltraVerifier.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
 contract TestBaseUltra is TestBase {
