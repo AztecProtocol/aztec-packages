@@ -206,15 +206,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
         // the manifests produced by each agree.
         auto recursive_manifest = verifier.transcript->get_manifest();
-        recursive_manifest.print();
         auto native_manifest = native_verifier.transcript->get_manifest();
-        native_manifest.print();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
-            if (recursive_manifest[i] != native_manifest[i]) {
-                info(i);
-            }
         }
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
