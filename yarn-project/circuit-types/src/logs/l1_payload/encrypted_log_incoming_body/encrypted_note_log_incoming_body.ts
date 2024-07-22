@@ -18,7 +18,7 @@ export class EncryptedNoteLogIncomingBody extends EncryptedLogIncomingBody {
   public toBuffer(): Buffer {
     const noteBufferWithoutLength = this.note.toBuffer().subarray(4);
     // Note: We serialize note type to field first because that's how it's done in Noir
-    return serializeToBuffer(this.storageSlot, this.noteTypeId.toField(), noteBufferWithoutLength);
+    return serializeToBuffer(this.storageSlot.toCompressedBuffer(), this.noteTypeId.toField(), noteBufferWithoutLength);
   }
 
   /**
