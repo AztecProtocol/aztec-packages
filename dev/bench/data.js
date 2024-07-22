@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721671789261,
+  "lastUpdate": 1721671967667,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -90476,6 +90476,78 @@ window.BENCHMARK_DATA = {
             "value": 167854294,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167854294 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8dfebe4990195224dc162c9d98137040b30cfab2",
+          "message": "feat: solidity honk verifier (#5485)\n\nThis PR introduces a Honk Verifier for 3 different types of circuit. \r\n- The logic in each circuit is duplicated as (at the time of writing)\r\nsolidity does not allow for generic data structures, so as the constants\r\n(LOG_N) are different, then each transcript needs to compile with a new\r\nlog_n value.\r\n- In follow up prs i will adjust the tests to run against acir\r\nartifacts, where we will codegen the verifier, so i can remove all but\r\nthe basic case in this test suite\r\n\r\nNote: this is not an optimal impl, that will follow\r\n\r\nAs this uses padded proofs, in which N is 2^28, the proof verification\r\ncost has shot up to 1 793 675.",
+          "timestamp": "2024-07-22T13:45:30-04:00",
+          "tree_id": "8f6dfe86ea33ae1d9e42d0ecfbc2f21304323c5b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8dfebe4990195224dc162c9d98137040b30cfab2"
+        },
+        "date": 1721671960921,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14250.025267000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10291.923433999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4861.0542989999885,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4429.791147999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42089.55510299999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42089555000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14529.712424,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14529712000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4840946532,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4840946532 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208675539,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208675539 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3995891828,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3995891828 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 169381001,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 169381001 ns\nthreads: 1"
           }
         ]
       }
