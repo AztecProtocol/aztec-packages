@@ -169,9 +169,9 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
 
         // Determine the type of read based on selector values
         bool is_calldata_read = (values.q_l == 1);
-        bool is_calldata_2_read = (values.q_r == 1);
+        bool is_secondary_calldata_read = (values.q_r == 1);
         bool is_return_data_read = (values.q_o == 1);
-        ASSERT(is_calldata_read || is_calldata_2_read || is_return_data_read);
+        ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
 
         // Check that the claimed value is present in the calldata/return data at the corresponding index
         FF bus_value;
@@ -179,9 +179,9 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
             auto calldata = builder.get_calldata();
             bus_value = builder.get_variable(calldata[raw_read_idx]);
         }
-        if (is_calldata_2_read) {
-            auto calldata_2 = builder.get_calldata_2();
-            bus_value = builder.get_variable(calldata_2[raw_read_idx]);
+        if (is_secondary_calldata_read) {
+            auto secondary_calldata = builder.get_secondary_calldata();
+            bus_value = builder.get_variable(secondary_calldata[raw_read_idx]);
         }
         if (is_return_data_read) {
             auto return_data = builder.get_return_data();

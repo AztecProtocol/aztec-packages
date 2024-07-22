@@ -51,7 +51,7 @@ template <typename Builder> class databus {
   public:
     // The columns of the DataBus
     bus_vector calldata{ BusId::CALLDATA };
-    bus_vector calldata_2{ BusId::CALLDATA_2 };
+    bus_vector secondary_calldata{ BusId::SECONDARY_CALLDATA };
     bus_vector return_data{ BusId::RETURNDATA };
 };
 } // namespace bb::stdlib

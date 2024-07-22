@@ -88,11 +88,15 @@ class DataBusTests : public ::testing::Test {
         return construct_circuit_with_databus_reads(builder, add_method, read_method);
     }
 
-    static Builder construct_circuit_with_calldata_2_reads(Builder& builder)
+    static Builder construct_circuit_with_secondary_calldata_reads(Builder& builder)
     {
-        // Define interfaces for the add and read methods for databus calldata_2
-        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata_2(witness_idx); };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata_2(witness_idx); };
+        // Define interfaces for the add and read methods for databus secondary_calldata
+        auto add_method = [](Builder& builder, uint32_t witness_idx) {
+            builder.add_public_secondary_calldata(witness_idx);
+        };
+        auto read_method = [](Builder& builder, uint32_t witness_idx) {
+            return builder.read_secondary_calldata(witness_idx);
+        };
 
         return construct_circuit_with_databus_reads(builder, add_method, read_method);
     }
@@ -120,13 +124,13 @@ TEST_F(DataBusTests, CallDataRead)
 }
 
 /**
- * @brief Test proof construction/verification for a circuit with calldata_2 lookup gates
+ * @brief Test proof construction/verification for a circuit with secondary_calldata lookup gates
  *
  */
 TEST_F(DataBusTests, CallData2Read)
 {
     Builder builder = construct_test_builder();
-    construct_circuit_with_calldata_2_reads(builder);
+    construct_circuit_with_secondary_calldata_reads(builder);
 
     EXPECT_TRUE(construct_and_verify_proof(builder));
 }
@@ -151,7 +155,7 @@ TEST_F(DataBusTests, ReadAll)
 {
     Builder builder = construct_test_builder();
     construct_circuit_with_calldata_reads(builder);
-    construct_circuit_with_calldata_2_reads(builder);
+    construct_circuit_with_secondary_calldata_reads(builder);
     construct_circuit_with_return_data_reads(builder);
 
     EXPECT_TRUE(construct_and_verify_proof(builder));

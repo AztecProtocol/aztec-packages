@@ -40,11 +40,11 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_gates_to_ensure_all_pol
     auto read_idx = this->add_variable(raw_read_idx);
     read_calldata(read_idx);
 
-    // Create an arbitrary calldata_2 read gate
-    add_public_calldata_2(this->add_variable(25)); // ensure there is at least one entry in calldata_2
-    raw_read_idx = static_cast<uint32_t>(get_calldata_2().size()) - 1; // read data that was just added
+    // Create an arbitrary secondary_calldata read gate
+    add_public_secondary_calldata(this->add_variable(25)); // ensure there is at least one entry in secondary_calldata
+    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1; // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
-    read_calldata_2(read_idx);
+    read_secondary_calldata(read_idx);
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(17)); // ensure there is at least one entry in return data
@@ -247,7 +247,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
         block.q_3().emplace_back(0);
         break;
     }
-    case BusId::CALLDATA_2: {
+    case BusId::SECONDARY_CALLDATA: {
         block.q_1().emplace_back(0);
         block.q_2().emplace_back(1);
         block.q_3().emplace_back(0);

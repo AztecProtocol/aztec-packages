@@ -61,9 +61,9 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "CALLDATA", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_READ_TAGS", frs_per_G);
-        manifest_expected.add_entry(round, "CALLDATA_2", frs_per_G);
-        manifest_expected.add_entry(round, "CALLDATA_2_READ_COUNTS", frs_per_G);
-        manifest_expected.add_entry(round, "CALLDATA_2_READ_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", frs_per_G);
@@ -78,7 +78,7 @@ class MegaTranscriptTests : public ::testing::Test {
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
-        manifest_expected.add_entry(round, "CALLDATA_2_INVERSES", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
