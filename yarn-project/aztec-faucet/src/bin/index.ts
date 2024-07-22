@@ -7,7 +7,14 @@ import http from 'http';
 import Koa from 'koa';
 import cors from 'koa-cors';
 import Router from 'koa-router';
-import { type Hex, LocalAccount, http as ViemHttp, createPublicClient, createWalletClient, parseEther } from 'viem';
+import {
+  type Hex,
+  type LocalAccount,
+  http as ViemHttp,
+  createPublicClient,
+  createWalletClient,
+  parseEther,
+} from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 const {
