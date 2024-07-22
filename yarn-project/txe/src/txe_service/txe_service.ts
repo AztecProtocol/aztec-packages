@@ -638,7 +638,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
       fromSingle(isDelegateCall).toBool(),
     );
-    return toForeignCallResult([result.endSideEffectCounter, result.returnsHash].map(toSingle));
+    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash])]);
   }
 
   async getNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
