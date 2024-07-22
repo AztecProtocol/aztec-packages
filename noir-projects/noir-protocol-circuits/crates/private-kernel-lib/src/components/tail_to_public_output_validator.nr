@@ -13,7 +13,10 @@ use dep::types::{
 },
     hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
     traits::{Empty, is_empty, is_empty_array},
-    utils::arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc}
+    utils::arrays::{
+    assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
+    validate_array
+}
 };
 
 struct TailToPublicOutputValidator {
@@ -56,6 +59,18 @@ impl TailToPublicOutputValidator {
         );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
+
+        // public_teardown_call_stack
+        let num_teardown_calls = validate_array(self.output.public_teardown_call_stack);
+        assert(
+            (num_teardown_calls == 0) | (num_teardown_calls == 1), "invalid number of teardown call requests"
+        );
+        assert_eq(
+            self.output.public_teardown_call_stack[0].item, self.previous_kernel.public_teardown_call_request.item, "mismatch public_teardown_call_request"
+        );
+        assert_eq(
+            self.output.public_teardown_call_stack[0].counter, 0, "cannot expose teardown call request counter"
+        );
     }
 
     fn validate_propagated_sorted_siloed_values(self, hints: TailToPublicOutputHints) {
@@ -149,7 +164,6 @@ impl TailToPublicOutputValidator {
         );
 
         // unencrypted_logs_hashes
-
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.unencrypted_logs_hashes,
             prev_data.unencrypted_logs_hashes,
@@ -158,6 +172,12 @@ impl TailToPublicOutputValidator {
             output_revertible.unencrypted_logs_hashes,
             hints.sorted_unencrypted_log_hash_hints
         );
+
+        // public_data_update_requests
+        let num_non_revertible_writes = validate_array(output_non_revertible.public_data_update_requests);
+        assert_eq(num_non_revertible_writes, 0, "unexpected non-revertible public_data_update_requests");
+        let num_revertible_writes = validate_array(output_revertible.public_data_update_requests);
+        assert_eq(num_revertible_writes, 0, "unexpected revertible public_data_update_requests");
 
         // public_call_requests
         validate_value_transformation(
