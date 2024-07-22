@@ -162,17 +162,15 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsGoblinFlavor<Flavor>) {
-        {
-            BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
-            witness_commitments.calldata_inverses =
-                commitment_key->commit_sparse(proving_key.polynomials.calldata_inverses);
-            witness_commitments.return_data_inverses =
-                commitment_key->commit_sparse(proving_key.polynomials.return_data_inverses);
+        for (auto [commitment, polynomial, label] : zip_view(witness_commitments.get_databus_inverses(),
+                                                             proving_key.polynomials.get_databus_inverses(),
+                                                             commitment_labels.get_databus_inverses())) {
+            {
+                BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
+                commitment = commitment_key->commit_sparse(polynomial);
+            }
+            transcript->send_to_verifier(domain_separator + label, commitment);
         }
-        transcript->send_to_verifier(domain_separator + commitment_labels.calldata_inverses,
-                                     witness_commitments.calldata_inverses);
-        transcript->send_to_verifier(domain_separator + commitment_labels.return_data_inverses,
-                                     witness_commitments.return_data_inverses);
     }
 }
 
@@ -201,6 +199,7 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 }
 
 template class OinkProver<UltraFlavor>;
+template class OinkProver<UltraKeccakFlavor>;
 template class OinkProver<MegaFlavor>;
 
 } // namespace bb
