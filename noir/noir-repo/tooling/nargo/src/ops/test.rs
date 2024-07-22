@@ -25,6 +25,7 @@ impl TestStatus {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
     blackbox_solver: &B,
     context: &mut Context,
