@@ -15,11 +15,11 @@ pub fn storage_read<let N: u32>() -> [Field; N] {
 }
 
 struct PublicMutable<T> {
-    storage_slot: Point,
+    storage_slot: Field,
 }
 
 impl<T> PublicMutable<T> {
-    pub fn new(storage_slot: Point) -> Self {
+    pub fn new(storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicMutable { storage_slot }
     }
