@@ -402,7 +402,7 @@ export class TXEService {
       !fromSingle(storageSlotIsInfinite).isZero(),
     );
     const noteDatas = await this.typedOracle.getNotes(
-      fromSingle(storageSlot),
+      storageSlot,
       fromSingle(numSelects).toNumber(),
       fromArray(selectByIndexes).map(fr => fr.toNumber()),
       fromArray(selectByOffsets).map(fr => fr.toNumber()),
@@ -446,14 +446,21 @@ export class TXEService {
   }
 
   notifyCreatedNote(
-    storageSlot: ForeignCallSingle,
+    storageSlotX: ForeignCallSingle,
+    storageSlotY: ForeignCallSingle,
+    storageSlotIsInfinite: ForeignCallSingle,
     noteTypeId: ForeignCallSingle,
     note: ForeignCallArray,
     innerNoteHashX: ForeignCallSingle,
     counter: ForeignCallSingle,
   ) {
+    const storageSlot = new Point(
+      fromSingle(storageSlotX),
+      fromSingle(storageSlotY),
+      !fromSingle(storageSlotIsInfinite).isZero(),
+    );
     this.typedOracle.notifyCreatedNote(
-      fromSingle(storageSlot),
+      storageSlot,
       NoteSelector.fromField(fromSingle(noteTypeId)),
       fromArray(note),
       fromSingle(innerNoteHashX),

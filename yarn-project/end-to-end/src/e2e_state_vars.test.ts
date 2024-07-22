@@ -1,4 +1,5 @@
 import { AztecAddress, BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { AuthContract, DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -239,6 +240,7 @@ describe('e2e_state_vars', () => {
   describe('SharedMutablePrivateGetter', () => {
     let authContract: AuthContract;
     let testContract: TestContract;
+    const sharedMutableStorageSlot = deriveBaseSlot(2);
 
     const delay = async (blocks: number) => {
       for (let i = 0; i < blocks; i++) {
@@ -262,7 +264,7 @@ describe('e2e_state_vars', () => {
         .wait();
 
       const authorized = await testContract.methods
-        .test_shared_mutable_private_getter(authContract.address, 2)
+        .test_shared_mutable_private_getter(authContract.address, sharedMutableStorageSlot.toNoirStruct())
         .simulate();
 
       // We expect the value to not have been applied yet
@@ -273,7 +275,7 @@ describe('e2e_state_vars', () => {
 
       // We check after the delay, expecting to find the value we set.
       const newAuthorized = await testContract.methods
-        .test_shared_mutable_private_getter(authContract.address, 2)
+        .test_shared_mutable_private_getter(authContract.address, sharedMutableStorageSlot.toNoirStruct())
         .simulate();
 
       expect(AztecAddress.fromBigInt(newAuthorized)).toEqual(AztecAddress.fromBigInt(6969696969n));
@@ -282,7 +284,9 @@ describe('e2e_state_vars', () => {
     it('checks authorized in AuthContract from TestContract and finds the correctly set max block number', async () => {
       const lastBlockNumber = await pxe.getBlockNumber();
 
-      const tx = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+      const tx = await testContract.methods
+        .test_shared_mutable_private_getter(authContract.address, sharedMutableStorageSlot.toNoirStruct())
+        .prove();
 
       const expectedMaxBlockNumber = lastBlockNumber + 5;
 
@@ -295,7 +299,9 @@ describe('e2e_state_vars', () => {
       const expectedInitialMaxBlockNumber = (await pxe.getBlockNumber()) + 5;
 
       // Our SharedMutablePrivateGetter here reads from the SharedMutable authorized storage property in AuthContract
-      const tx = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+      const tx = await testContract.methods
+        .test_shared_mutable_private_getter(authContract.address, sharedMutableStorageSlot.toNoirStruct())
+        .prove();
 
       // The validity of our SharedMutable read request is limited to 5 blocks, which is our initial delay.
       expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
@@ -323,7 +329,9 @@ describe('e2e_state_vars', () => {
       );
 
       // We check for parity between accessing our SharedMutable directly and from our SharedMutablePrivateGetter. The validity assumptions should remain the same.
-      const tx3 = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+      const tx3 = await testContract.methods
+        .test_shared_mutable_private_getter(authContract.address, sharedMutableStorageSlot.toNoirStruct())
+        .prove();
 
       expect(tx3.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
       expect(tx3.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(
@@ -346,7 +354,9 @@ describe('e2e_state_vars', () => {
       );
 
       // We check for parity between accessing our SharedMutable directly and from our SharedMutablePrivateGetter. The validity assumptions should remain the same.
-      const tx5 = await testContract.methods.test_shared_mutable_private_getter(authContract.address, 2).prove();
+      const tx5 = await testContract.methods
+        .test_shared_mutable_private_getter(authContract.address, sharedMutableStorageSlot.toNoirStruct())
+        .prove();
 
       expect(tx5.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
       expect(tx5.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(

@@ -50,7 +50,7 @@ export class OutgoingNoteDao {
 
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
-    const storageSlot = Fr.fromBuffer(reader);
+    const storageSlot = reader.readObject(Point);
     const noteTypeId = reader.readObject(NoteSelector);
     const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
     const nonce = Fr.fromBuffer(reader);

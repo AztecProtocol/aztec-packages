@@ -1,7 +1,7 @@
 import { type Note, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type EthAddress, Fr, type Point } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, Fr, type Point, deriveStorageSlotInMap } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
@@ -243,10 +243,14 @@ export class AztecCheatCodes {
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
-    // Based on `at` function in
-    // aztec3-packages/aztec-nr/aztec/src/state_vars/map.nr
-    return pedersenHash([new Fr(baseSlot), new Fr(key)]);
+  public computeSlotInMap(
+    baseSlot: Point,
+    key: {
+      /** Serialize to a field. */
+      toField: () => Fr;
+    },
+  ): Point {
+    return deriveStorageSlotInMap(baseSlot, key);
   }
 
   /**

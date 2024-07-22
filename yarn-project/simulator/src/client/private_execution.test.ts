@@ -30,6 +30,7 @@ import {
   computeOvskApp,
   deriveBaseSlot,
   deriveKeys,
+  deriveStorageSlotInMap,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
@@ -73,7 +74,6 @@ import { toFunctionSelector } from 'viem';
 
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
-import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
@@ -356,7 +356,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner));
+      expect(newNote.storageSlot).toEqual(deriveStorageSlotInMap(deriveBaseSlot(new Fr(1n)), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
@@ -386,7 +386,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner));
+      expect(newNote.storageSlot).toEqual(deriveStorageSlotInMap(deriveBaseSlot(new Fr(1n)), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
@@ -413,8 +413,8 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = computeSlotForMapping(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
-      const recipientStorageSlot = computeSlotForMapping(
+      const storageSlot = deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
+      const recipientStorageSlot = deriveStorageSlotInMap(
         StatefulTestContractArtifact.storageLayout['notes'].slot,
         recipient,
       );
@@ -490,7 +490,7 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner);
+      const storageSlot = deriveStorageSlotInMap(deriveBaseSlot(new Fr(1n)), owner);
 
       const notes = [
         buildNote(
@@ -977,7 +977,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(computeSlotForMapping(deriveBaseSlot(new Fr(1n)), owner));
+      expect(noteAndSlot.storageSlot).toEqual(deriveStorageSlotInMap(deriveBaseSlot(new Fr(1n)), owner));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
@@ -985,7 +985,7 @@ describe('Private Execution test suite', () => {
       expect(noteHashes).toHaveLength(1);
 
       const noteHash = noteHashes[0].value;
-      const storageSlot = computeSlotForMapping(
+      const storageSlot = deriveStorageSlotInMap(
         PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
         owner,
       );
@@ -1058,7 +1058,7 @@ describe('Private Execution test suite', () => {
       const execInsert = result.nestedExecutions[0];
       const execGetThenNullify = result.nestedExecutions[1];
 
-      const storageSlot = computeSlotForMapping(
+      const storageSlot = deriveStorageSlotInMap(
         PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
         owner,
       );

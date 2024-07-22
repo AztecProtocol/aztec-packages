@@ -211,17 +211,18 @@ export interface PXE {
   getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
 
   /**
-   * Gets the storage value at the given contract storage slot.
+   * Gets the storage value at the given contract storage index.
    *
    * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
    * Aztec's version of `eth_getStorageAt`.
    *
    * @param contract - Address of the contract to query.
-   * @param slot - Slot to query.
-   * @returns Storage value at the given contract slot.
+   * @param contractStorageIndex - The index of the storage slot to query.
+   * @dev Contract storage index along with contract address is a preimage to the leaf index in the public data tree.
+   * @returns Storage value at the given contract storage index.
    * @throws If the contract is not deployed.
    */
-  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
+  getPublicStorageAt(contract: AztecAddress, contractStorageIndex: Fr): Promise<Fr>;
 
   /**
    * Gets incoming notes of accounts registered in this PXE based on the provided filter.

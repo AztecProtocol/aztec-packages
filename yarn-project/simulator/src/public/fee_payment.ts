@@ -1,16 +1,14 @@
-import { GAS_TOKEN_ADDRESS } from '@aztec/circuits.js';
+import { GAS_TOKEN_ADDRESS, deriveStorageSlotInMap } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { GasTokenArtifact } from '@aztec/protocol-contracts/gas-token';
 
-import { computeSlotForMapping } from '../utils.js';
-
 /**
  * Computes the storage slot within the gas token contract for the balance of the fee payer.
  */
 export function computeFeePayerBalanceContractStorageIndex(feePayer: AztecAddress): Fr {
-  return computeSlotForMapping(GasTokenArtifact.storageLayout.balances.slot, feePayer).x;
+  return deriveStorageSlotInMap(GasTokenArtifact.storageLayout.balances.slot, feePayer).x;
 }
 
 /**
