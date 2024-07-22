@@ -73,6 +73,8 @@ TEST_F(GoblinRecursionTests, Vanilla)
     auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
     GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
     bool verified = goblin_verifier.verify(proof);
+    info(ultra_verified);
+    info(verified);
     EXPECT_TRUE(ultra_verified && verified);
 }
 

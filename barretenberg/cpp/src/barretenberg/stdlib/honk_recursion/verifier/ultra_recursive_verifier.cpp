@@ -126,7 +126,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
-    auto sumcheck = Sumcheck(CONST_PROOF_SIZE_LOG_N, transcript);
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
+    auto sumcheck = Sumcheck(log_circuit_size, transcript);
+
     RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {
         alpha[idx] = transcript->template get_challenge<FF>("alpha_" + std::to_string(idx));
