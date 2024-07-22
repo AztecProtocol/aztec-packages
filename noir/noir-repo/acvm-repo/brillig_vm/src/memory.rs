@@ -235,7 +235,7 @@ pub struct Memory<F> {
 impl<F: AcirField> Memory<F> {
     /// Gets the value at pointer
     pub fn read(&self, ptr: MemoryAddress) -> MemoryValue<F> {
-        self.inner.get(ptr.to_usize()).cloned().unwrap_or_default()
+        self.inner.get(ptr.to_usize()).copied().unwrap_or_default()
     }
 
     pub fn read_ref(&self, ptr: MemoryAddress) -> MemoryAddress {
@@ -268,7 +268,7 @@ impl<F: AcirField> Memory<F> {
     /// Sets the values after pointer `ptr` to `values`
     pub fn write_slice(&mut self, ptr: MemoryAddress, values: &[MemoryValue<F>]) {
         self.resize_to_fit(ptr.to_usize() + values.len());
-        self.inner[ptr.to_usize()..(ptr.to_usize() + values.len())].clone_from_slice(values);
+        self.inner[ptr.to_usize()..(ptr.to_usize() + values.len())].copy_from_slice(values);
     }
 
     /// Returns the values of the memory
