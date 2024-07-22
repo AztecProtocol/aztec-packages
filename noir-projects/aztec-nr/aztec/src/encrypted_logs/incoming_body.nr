@@ -5,17 +5,20 @@ use dep::protocol_types::{scalar::Scalar, point::Point};
 use std::aes128::aes128_encrypt;
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-struct EncryptedLogIncomingBody<M> {
+struct EncryptedLogIncomingBody<let M: u32> {
     plaintext: [u8; M]
 }
 
-impl<M> EncryptedLogIncomingBody<M> {
-    pub fn from_note<T, N>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
+impl<let M: u32> EncryptedLogIncomingBody<M> {
+    pub fn from_note<T, let N: u32>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
         let mut plaintext = note.to_be_bytes(storage_slot);
         EncryptedLogIncomingBody { plaintext }
     }
 
-    pub fn from_event<T, MR>(event: T, randomness: Field) -> Self where T: EventInterface<M, MR> {
+    pub fn from_event<T, let MR: u32>(
+        event: T,
+        randomness: Field
+    ) -> Self where T: EventInterface<M, MR> {
         let mut plaintext = event.private_to_be_bytes(randomness);
         EncryptedLogIncomingBody { plaintext }
     }
@@ -57,7 +60,7 @@ mod test {
     global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
 
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
-        fn compute_note_content_hash(self) -> Field {1}
+        fn compute_note_content_hash(_self: Self) -> Field {1}
 
         fn get_note_type_id() -> Field {
             1
@@ -67,11 +70,11 @@ mod test {
 
         fn set_header(&mut self, header: NoteHeader) {self.header = header; }
 
-        fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
+        fn compute_note_hash_and_nullifier(_self: Self, _context: &mut PrivateContext) -> (Field, Field) {
             (1, 1)
         }
 
-        fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {(1,1)}
+        fn compute_note_hash_and_nullifier_without_context(_self: Self) -> (Field, Field) {(1,1)}
 
         fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN] { [self.address.to_field(), self.owner.to_field(), self.randomness]}
 
