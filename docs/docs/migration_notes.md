@@ -17,13 +17,13 @@ The way simulated deployments are done in TXE tests has changed to avoid relying
 +let deployer = env.deploy("path_to_contract_root_folder_where_nargo_toml_is", "ContractName");
 ```
 
-```rust
-// Extended syntax for more use cases:
+Extended syntax for more use cases:
 
+```rust
 // The contract we're testing
 env.deploy_self("ContractName"); // We have to provide ContractName since nargo it's ready to support multi-contract files
 
-// A contract from a workspace
+// A contract in a workspace
 env.deploy("../path/to/workspace@package_name", "ContractName"); // This format allows locating the artifact in the root workspace target folder, regardless of internal code organization
 ```
 
