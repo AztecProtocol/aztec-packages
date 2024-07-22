@@ -208,15 +208,13 @@ describe('benchmarks/proving', () => {
     const verifier = await BBCircuitVerifier.new((await getBBConfig(ctx.logger))!);
     for (let i = 0; i < txVerifyIterations; i++) {
       for (const tx of provenTxs) {
-        await verifier.verifyProof(tx);
+        expect(await verifier.verifyProof(tx)).toBe(true);
       }
     }
 
     ctx.logger.info('Sending transactions');
     const txs = [
-      fnCalls[0].send({
-        fee: feeFnCall0,
-      }),
+      fnCalls[0].send({ fee: feeFnCall0 }),
       fnCalls[1].send(),
       // fnCalls[2].send(),
       // fnCalls[3].send(),
