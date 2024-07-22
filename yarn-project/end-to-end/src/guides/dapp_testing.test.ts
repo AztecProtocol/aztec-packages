@@ -126,7 +126,8 @@ describe('guides/dapp/testing', () => {
 
       it('warps time to 1h into the future', async () => {
         // docs:start:warp
-        const newTimestamp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
+        const timestamp = await cheats.eth.timestamp();
+        const newTimestamp = timestamp + 60 * 60 * 24;
         await cheats.aztec.warp(newTimestamp);
         await testContract.methods.is_time_equal(newTimestamp).send().wait();
         // docs:end:warp
