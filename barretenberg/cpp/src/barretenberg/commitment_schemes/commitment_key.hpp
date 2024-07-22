@@ -129,9 +129,17 @@ template <class Curve> class CommitmentKey {
             }
         });
 
+        // Compute total number of non-trivial input pairs
+        size_t num_nonzero_scalars = 0;
+        for (auto& scalars : thread_scalars) {
+            num_nonzero_scalars += scalars.size();
+        }
+
         // Reconstruct the full input to the pippenger from the individual threads
         std::vector<Fr> scalars;
         std::vector<G1> points;
+        scalars.reserve(num_nonzero_scalars);
+        points.reserve(num_nonzero_scalars);
         for (size_t idx = 0; idx < num_threads; ++idx) {
             scalars.insert(scalars.end(), thread_scalars[idx].begin(), thread_scalars[idx].end());
             points.insert(points.end(), thread_points[idx].begin(), thread_points[idx].end());
