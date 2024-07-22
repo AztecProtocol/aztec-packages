@@ -1145,7 +1145,7 @@ describe('Private Execution test suite', () => {
     it('fails if returning no notes', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'call_get_notes');
 
-      const args = [2n, true];
+      const args = [deriveBaseSlot(2n).toNoirStruct(), true];
       oracle.getNotes.mockResolvedValue([]);
 
       await expect(() => runSimulator({ artifact, args })).rejects.toThrow(
