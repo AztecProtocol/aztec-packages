@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721751070798,
+  "lastUpdate": 1721751110367,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -92192,6 +92192,78 @@ window.BENCHMARK_DATA = {
             "value": 167400188,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167400188 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df08874fce805f0f1e8488108e5006fc08fbb6ee",
+          "message": "feat: simple sparse commitment (#7488)\n\nAdd method for more efficiently committing to sparse polynomials.\r\n\r\nFor polynomials with very few non-zero coefficients, it turns out to be\r\nmore efficient to first reduce the set of {scalars, points} defining the\r\nMSM to only those for which scalar != 0, then perform the MSM. This is\r\nimplemented in a new method `commit_sparse` in the CommitmentKey.\r\n\r\nThis PR also introduces (1) A more comprehensive set of pippenger\r\nbenchmarks, (2) Tracking of commit times in the ClientIvc benchmark\r\nscripts, and (3) a test suite for the `commit_sparse` functionality.\r\n\r\nHere are some benchmarks for committing to a polynomials of varying\r\nsizes, each with only 5 random nonzero entries. The first uses\r\n`commit()` and the second uses the new `commit_sparse()` method:\r\n\r\n```\r\n---------------------------------------------------------------------------------------------------\r\nBenchmark                                                         Time             CPU   Iterations\r\n---------------------------------------------------------------------------------------------------\r\nbench_commit_sparse_random<curve::BN254>/14                    5.79 ms        0.371 ms         1000\r\nbench_commit_sparse_random<curve::BN254>/15                    10.6 ms        0.508 ms         1000\r\nbench_commit_sparse_random<curve::BN254>/16                    12.1 ms         1.86 ms          253\r\nbench_commit_sparse_random<curve::BN254>/17                    14.0 ms         1.71 ms          412\r\nbench_commit_sparse_random<curve::BN254>/18                    73.1 ms         2.75 ms          100\r\n\r\nbench_commit_sparse_random_preprocessed<curve::BN254>/14      0.132 ms        0.076 ms         9216\r\nbench_commit_sparse_random_preprocessed<curve::BN254>/15      0.134 ms        0.077 ms         9114\r\nbench_commit_sparse_random_preprocessed<curve::BN254>/16      0.138 ms        0.079 ms         8856\r\nbench_commit_sparse_random_preprocessed<curve::BN254>/17      0.150 ms        0.082 ms         8579\r\nbench_commit_sparse_random_preprocessed<curve::BN254>/18      0.177 ms        0.108 ms         6396\r\n```\r\n\r\nBelow are the relevant highlights from ClientIvc bench (master vs\r\nbranch). Note the reductions in commitment time from databus (bus\r\ncolumns plus counts/tags), ecc_op_wires, and databus_inverses. Also,\r\nnote that the time spent on these commitments between the unstructured\r\nand structured cases is now almost identical, suggesting that the\r\nrequired zero checking is essentially free.\r\n\r\nMaster - Unstructured:\r\n```\r\nClientIVCBench/Full/6      14277 ms        10173 ms\r\n\r\ncommit(t)                               3613   25.60%\r\n\r\nCOMMIT::wires(t)                  850    35.80%\r\nCOMMIT::z_perm(t)                 449    18.92%\r\nCOMMIT::databus(t)                262    11.04%\r\nCOMMIT::ecc_op_wires(t)           278    11.71%\r\nCOMMIT::lookup_inverses(t)        189     7.98%\r\nCOMMIT::databus_inverses(t)       250    10.54%\r\nCOMMIT::lookup_counts_tags(t)      95     4.01%\r\n```\r\n\r\nBranch - Unstructured:\r\n```\r\nClientIVCBench/Full/6      13530 ms        10167 ms\r\n\r\ncommit(t)                               2833   21.20%\r\n\r\nCOMMIT::wires(t)                  849    51.63%\r\nCOMMIT::z_perm(t)                 447    27.15%\r\nCOMMIT::databus(t)                 10     0.63%\r\nCOMMIT::ecc_op_wires(t)            49     2.97%\r\nCOMMIT::lookup_inverses(t)        190    11.56%\r\nCOMMIT::databus_inverses(t)         4     0.24%\r\nCOMMIT::lookup_counts_tags(t)      96     5.82%\r\n```\r\n\r\nMaster - STRUCTURED\r\n```\r\nClientIVCBench/FullStructured/6      20935 ms        14669 ms            \r\n\r\ncommit(t)                               7091   34.14%\r\n\r\nCOMMIT::wires(t)                 1471    25.74%\r\nCOMMIT::z_perm(t)                1028    17.98%\r\nCOMMIT::databus(t)                509     8.90%\r\nCOMMIT::ecc_op_wires(t)           929    16.26%\r\nCOMMIT::lookup_inverses(t)        356     6.23%\r\nCOMMIT::databus_inverses(t)      1243    21.75%\r\nCOMMIT::lookup_counts_tags(t)     179     3.13%\r\n```\r\n\r\nBranch - STRUCTURED\r\n```\r\nClientIVCBench/FullStructured/6      18316 ms        13782 ms \r\n\r\ncommit(t)                               4398   24.23%\r\n\r\nCOMMIT::wires(t)                 1468    47.53%\r\nCOMMIT::z_perm(t)                1020    33.04%\r\nCOMMIT::databus(t)                 13     0.44%\r\nCOMMIT::ecc_op_wires(t)            52     1.68%\r\nCOMMIT::lookup_inverses(t)        350    11.32%\r\nCOMMIT::databus_inverses(t)         5     0.17%\r\nCOMMIT::lookup_counts_tags(t)     180     5.82%\r\n```",
+          "timestamp": "2024-07-23T08:55:22-07:00",
+          "tree_id": "3d50c717e215c84288751de27604bb125255a6a9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/df08874fce805f0f1e8488108e5006fc08fbb6ee"
+        },
+        "date": 1721751103351,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13302.468441999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9720.881738999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4770.646103999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4355.205424 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39649.40601499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39649406000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14396.030347,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14396030000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3631483701,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3631483701 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200671085,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200671085 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2987713360,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2987713360 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167484609,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167484609 ns\nthreads: 1"
           }
         ]
       }
