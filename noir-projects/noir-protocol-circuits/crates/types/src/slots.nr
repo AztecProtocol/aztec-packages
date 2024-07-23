@@ -37,7 +37,7 @@ mod test {
     };
 
     #[test]
-fn test_derive_base_slot() {
+    fn test_derive_base_slot() {
         let derived_s1 = derive_base_slot(1);
         let derived_s2 = derive_base_slot(2);
         let derived_s3 = derive_base_slot(3);
