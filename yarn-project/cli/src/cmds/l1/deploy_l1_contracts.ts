@@ -5,7 +5,7 @@ import { deployAztecContracts } from '../../utils/aztec.js';
 export async function deployL1Contracts(
   rpcUrl: string,
   chainId: number,
-  privateKey: string,
+  privateKey: string | undefined,
   mnemonic: string,
   log: LogFn,
   debugLogger: DebugLogger,

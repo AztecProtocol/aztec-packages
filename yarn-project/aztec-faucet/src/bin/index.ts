@@ -1,7 +1,8 @@
 #!/usr/bin/env -S node --no-warnings
-import { NULL_KEY, createEthereumChain } from '@aztec/ethereum';
+import { NULL_KEY, createEthereumChain, getL1ContractAddressesFromEnv } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { PortalERC20Abi } from '@aztec/l1-artifacts';
 
 import http from 'http';
 import Koa from 'koa';
@@ -13,6 +14,7 @@ import {
   http as ViemHttp,
   createPublicClient,
   createWalletClient,
+  getContract,
   parseEther,
 } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -27,14 +29,28 @@ const {
   PRIVATE_KEY = '',
   INTERVAL = '',
   ETH_AMOUNT = '',
+  FEE_JUICE_AMOUNT = '',
 } = process.env;
+
+const l1Contracts = getL1ContractAddressesFromEnv();
 
 const logger = createDebugLogger('aztec:faucet');
 
 const rpcUrl = RPC_URL;
 const l1ChainId = +L1_CHAIN_ID;
 const interval = +INTERVAL;
-const mapping: { [key: Hex]: Date } = {};
+type Asset = 'eth' | 'fee_juice';
+type ThrottleKey = `${Asset}/${Hex}`;
+const mapping: { [key: ThrottleKey]: Date } = {};
+
+/**
+ * Checks if the requested asset is something the faucet can handle.
+ * @param asset - The asset to check
+ * @returns True if the asset is known
+ */
+function isKnownAsset(asset: any): asset is Asset {
+  return asset === 'eth' || asset === 'fee_juice';
+}
 
 /**
  * Helper function to convert a string to a Hex value
@@ -49,16 +65,27 @@ function createHex(hex: string) {
  * Function to throttle drips on a per address basis
  * @param address - Address requesting some ETH
  */
-function checkThrottle(address: Hex) {
-  if (mapping[address] === undefined) {
+function checkThrottle(asset: Asset, address: Hex) {
+  const key: ThrottleKey = `${asset}/${address}`;
+  if (mapping[key] === undefined) {
     return;
   }
-  const last = mapping[address];
+  const last = mapping[key];
   const current = new Date();
   const diff = (current.getTime() - last.getTime()) / 1000;
   if (diff < interval) {
     throw new Error(`Not funding address ${address}, please try again later`);
   }
+}
+
+/**
+ * Update the throttle mapping for the given asset and address
+ * @param asset - The asset to throttle
+ * @param address - The address to throttle
+ */
+function updateThrottle(asset: Asset, address: Hex) {
+  const key: ThrottleKey = `${asset}/${address}`;
+  mapping[key] = new Date();
 }
 
 /**
@@ -82,11 +109,7 @@ function getFaucetAccount(): LocalAccount {
   return account;
 }
 
-/**
- * Helper function to send some ETH to the given address
- * @param address - Address to receive some ETH
- */
-async function transferEth(address: string) {
+function createClients() {
   const chain = createEthereumChain(rpcUrl, l1ChainId);
 
   const account = getFaucetAccount();
@@ -99,8 +122,18 @@ async function transferEth(address: string) {
     chain: chain.chainInfo,
     transport: ViemHttp(chain.rpcUrl),
   });
+
+  return { account, walletClient, publicClient };
+}
+
+/**
+ * Helper function to send some ETH to the given address
+ * @param address - Address to receive some ETH
+ */
+async function transferEth(address: string) {
+  const { account, walletClient, publicClient } = createClients();
   const hexAddress = createHex(address);
-  checkThrottle(hexAddress);
+  checkThrottle('eth', hexAddress);
   try {
     const hash = await walletClient.sendTransaction({
       account,
@@ -108,11 +141,38 @@ async function transferEth(address: string) {
       value: parseEther(ETH_AMOUNT),
     });
     await publicClient.waitForTransactionReceipt({ hash });
-    mapping[hexAddress] = new Date();
+    updateThrottle('eth', hexAddress);
     logger.info(`Sent ${ETH_AMOUNT} ETH to ${hexAddress} in tx ${hash}`);
   } catch (error) {
     logger.error(`Failed to send eth to ${hexAddress}`);
     throw error;
+  }
+}
+
+/**
+ * Mints FeeJuice to the given address
+ * @param address - Address to receive some FeeJuice
+ */
+async function mintFeeJuice(address: string) {
+  const { publicClient, walletClient } = createClients();
+  const hexAddress = createHex(address);
+  checkThrottle('fee_juice', hexAddress);
+
+  try {
+    const contract = getContract({
+      abi: PortalERC20Abi,
+      address: l1Contracts.gasTokenAddress.toString(),
+      client: walletClient,
+    });
+
+    const amount = BigInt(FEE_JUICE_AMOUNT);
+    const hash = await contract.write.mint([hexAddress, amount]);
+    await publicClient.waitForTransactionReceipt({ hash });
+    updateThrottle('fee_juice', hexAddress);
+    logger.info(`Sent ${amount} FeeJuice to ${hexAddress} in tx ${hash}`);
+  } catch (err) {
+    logger.error(`Failed to send FeeJuice to ${hexAddress}`);
+    throw err;
   }
 }
 
@@ -129,7 +189,29 @@ function createRouter(apiPrefix: string) {
   });
   router.get('/drip/:address', async (ctx: Koa.Context) => {
     const { address } = ctx.params;
-    await transferEth(EthAddress.fromString(address).toChecksumString());
+    const { asset } = ctx.query;
+
+    if (!asset) {
+      throw new Error('No asset specified');
+    }
+
+    if (!isKnownAsset(asset)) {
+      throw new Error(`Unknown asset: "${asset}"`);
+    }
+
+    switch (asset) {
+      case 'eth':
+        await transferEth(EthAddress.fromString(address).toChecksumString());
+        break;
+      case 'fee_juice':
+        await mintFeeJuice(EthAddress.fromString(address).toChecksumString());
+        break;
+      default: {
+        // make sure this is an exhaustive switch
+        const _: never = asset;
+      }
+    }
+
     ctx.status = 200;
   });
   return router;

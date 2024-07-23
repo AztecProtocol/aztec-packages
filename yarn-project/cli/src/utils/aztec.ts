@@ -40,7 +40,7 @@ export function getFunctionArtifact(artifact: ContractArtifact, fnName: string):
 export async function deployAztecContracts(
   rpcUrl: string,
   chainId: number,
-  privateKey: string,
+  privateKey: string | undefined,
   mnemonic: string,
   debugLogger: DebugLogger,
 ) {
