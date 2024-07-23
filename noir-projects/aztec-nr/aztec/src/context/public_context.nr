@@ -278,6 +278,8 @@ unconstrained fn call_static<let RET_SIZE: u32>(
 unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
     // Contract storage index can be used along with contract address to derive the actual value index in the public
     // data tree.
+    // TODO(#7551): Consider introducing a StorageSlot struct with a method like get_contract_storage_index or smt.
+    // in order to avoid getting the x coordinate here as it's cryptic
     let contract_storage_index = storage_slot.x;
     storage_read_opcode(contract_storage_index, N as Field)
 }
@@ -285,6 +287,8 @@ unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
 unconstrained fn storage_write<let N: u32>(storage_slot: Point, values: [Field; N]) {
     // Contract storage index can be used along with contract address to derive the actual value index in the public
     // data tree.
+    // TODO(#7551): Consider introducing a StorageSlot struct with a method like get_contract_storage_index or smt.
+    // in order to avoid getting the x coordinate here as it's cryptic
     let contract_storage_index = storage_slot.x;
     storage_write_opcode(contract_storage_index, values);
 }
