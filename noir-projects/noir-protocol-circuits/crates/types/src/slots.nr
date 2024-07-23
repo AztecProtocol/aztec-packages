@@ -1,6 +1,6 @@
 // TODO(#7551): This file is a bit of leak from aztec-nr - I placed it in protocol circuits because some of
 // the functionality is used by base rollup. Move the stuff relevant only to aztec-nr to the aztec-nr crate.
-use crate::{generators::G_slot, point::Point, scalar::Scalar, traits::ToField};
+use crate::{generators::{G_slot, G_map_slot_layer_1}, point::Point, scalar::Scalar, traits::ToField};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, field::bn254::decompose};
 
 global S1 = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15, y: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791, is_infinite: false };
@@ -21,8 +21,8 @@ pub fn derive_storage_slot_in_map<K>(map_storage_slot: Point, key: K) -> Point w
     // all over the place now
     let (key_lo, key_hi) = decompose(key.to_field());
 
-    // TODO(#7551): we will need to use different slots for key and map slot here!
-    multi_scalar_mul([G_slot], [Scalar { lo: key_lo, hi: key_hi }]) + map_storage_slot
+    // TODO(#7551): we need to handle map nesting here as this could result in collisions!
+    multi_scalar_mul([G_map_slot_layer_1], [Scalar { lo: key_lo, hi: key_hi }]) + map_storage_slot
 }
 
 // TODO(#7551): nuke this func - is only temporarily used in note_interface.rs before we get some AVM compatible

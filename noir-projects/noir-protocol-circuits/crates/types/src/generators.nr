@@ -9,17 +9,20 @@ global Ga2 = Point { x: 0x2825c79cc6a5cbbeef7d6a8f1b6a12b312aa338440aefeb4396148
 global Ga3 = Point { x: 0x0edb1e293c3ce91bfc04e3ceaa50d2c541fa9d091c72eb403efb1cfa2cb3357f, y: 0x1341d675fa030ece3113ad53ca34fd13b19b6e9762046734f414824c4d6ade35, is_infinite: false };
 // The following generator is used to compute an inner note hash - used to silo note content hash with with storage slot
 global G_slot = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15, y: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791, is_infinite: false };
+// TODO(#7551): dynamically derive and handle nested maps slots
+global G_map_slot_layer_1 = Point { x: 0x0e0dad2250583f2a9f0acb04ededf1701b85b0393cae753fe7e14b88af81cb52, y: 0x0973b02c5caac339ee4ad5dab51329920f7bf1b6a07e1dabe5df67040b300962, is_infinite: false };
 
 mod test {
-    use crate::{generators::{Ga1, Ga2, Ga3, G_slot}, point::Point};
+    use crate::{generators::{Ga1, Ga2, Ga3, G_slot, G_map_slot_layer_1}, point::Point};
     use std::hash::derive_generators;
 
     #[test]
 fn test_generators() {
-        let generators: [Point; 4] = derive_generators("aztec_nr_generators".as_bytes(), 0);
+        let generators: [Point; 5] = derive_generators("aztec_nr_generators".as_bytes(), 0);
         assert_eq(generators[0], Ga1);
         assert_eq(generators[1], Ga2);
         assert_eq(generators[2], Ga3);
         assert_eq(generators[3], G_slot);
+        assert_eq(generators[4], G_map_slot_layer_1);
     }
 }
