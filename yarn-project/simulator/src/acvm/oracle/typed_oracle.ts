@@ -199,6 +199,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageRead');
   }
 
+  // TODO(#7551): the _startStorageSlot naming is inconsistent with Noir now and should be fixed
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageWrite');
   }

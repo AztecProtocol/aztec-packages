@@ -276,17 +276,17 @@ unconstrained fn call_static<let RET_SIZE: u32>(
 }
 
 unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
-    // Storage index represents the actual leaf index in the public data tree and is computed as the x-coordinate
-    // of the fully-derived storage slot.
-    let storage_index = storage_slot.x;
-    storage_read_opcode(storage_index, N as Field)
+    // Contract storage index can be used along with contract address to derive the actual value index in the public
+    // data tree.
+    let contract_storage_index = storage_slot.x;
+    storage_read_opcode(contract_storage_index, N as Field)
 }
 
 unconstrained fn storage_write<let N: u32>(storage_slot: Point, values: [Field; N]) {
-    // Storage index represents the actual leaf index in the public data tree and is computed as the x-coordinate
-    // of the fully-derived storage slot.
-    let storage_index = storage_slot.x;
-    storage_write_opcode(storage_index, values);
+    // Contract storage index can be used along with contract address to derive the actual value index in the public
+    // data tree.
+    let contract_storage_index = storage_slot.x;
+    storage_write_opcode(contract_storage_index, values);
 }
 
 impl Empty for PublicContext {
@@ -380,10 +380,16 @@ unconstrained fn call_static_opcode<let RET_SIZE: u32>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<let N: u32>(storage_index: Field, length: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode<let N: u32>(
+    contract_storage_index: Field,
+    length: Field
+) -> [Field; N] {}
 
 #[oracle(avmOpcodeStorageWrite)]
-unconstrained fn storage_write_opcode<let N: u32>(storage_index: Field, values: [Field; N]) {}
+unconstrained fn storage_write_opcode<let N: u32>(
+    contract_storage_index: Field,
+    values: [Field; N]
+) {}
 
 struct FunctionReturns<let N: u32> {
     values: [Field; N]
