@@ -145,7 +145,7 @@ impl<F: PrimeField> From<u128> for FieldElement<F> {
 
 impl<F: PrimeField> From<usize> for FieldElement<F> {
     fn from(a: usize) -> FieldElement<F> {
-        FieldElement(F::from(a as u64))
+        FieldElement::from(a as u64)
     }
 }
 
