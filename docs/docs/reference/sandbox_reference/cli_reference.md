@@ -41,7 +41,7 @@ Options:
 
 ### test
 
-Runs tests written in contracts with `#aztec[test]`.
+Runs tests written in contracts.
 
 ```
 aztec test [options]
