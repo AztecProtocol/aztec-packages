@@ -16,15 +16,15 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
                                      bool include_types_import = false)
 {
 
-    const auto print_u256_const = [&](const bb::fr& element, const std::string& name) {
+    const auto print_u256_const = [&](const auto& element, const std::string& name) {
         os << "uint256 constant " << name << " = " << element << ";" << std::endl;
     };
 
-    const auto print_u256 = [&](const bb::fr& element, const std::string& name) {
+    const auto print_u256 = [&](const auto& element, const std::string& name) {
         os << "            " << name << ": uint256(" << element << ")," << std::endl;
     };
 
-    const auto print_g1 = [&](const bb::g1::affine_element& element, const std::string& name, const bool last = false) {
+    const auto print_g1 = [&](const auto& element, const std::string& name, const bool last = false) {
         os << "            " << name << ": Honk.G1Point({ \n"
            << "               "
            << "x: "
