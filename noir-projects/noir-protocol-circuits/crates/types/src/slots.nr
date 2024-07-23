@@ -1,6 +1,6 @@
 // TODO(#7551): This file is a bit of leak from aztec-nr - I placed it in protocol circuits because some of
-// the functionality is used by base rollup. Move the stuff relevant only to aztec-nr to the aztec-nr crate.
-use crate::{generators::{G_slot, G_map_slot_layer_1}, point::Point, scalar::Scalar, traits::ToField};
+// the functionality is used by the base rollup. Move the stuff relevant only to aztec-nr to the aztec-nr crate.
+use crate::{generators::{G_base_slot, G_map_slot_layer_1}, point::Point, scalar::Scalar, traits::ToField};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, field::bn254::decompose};
 
 global S1 = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15, y: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791, is_infinite: false };
@@ -8,12 +8,14 @@ global S2 = Point { x: 0x047df3ac2425b3359b582a5fd340168c9dca8a0c0ef63af0ba97d2d
 global S3 = Point { x: 0x224de6d3e4c26e053b190add588b5800bc5063bd702caa096602af74fac60f04, y: 0x0d64bbdb6d5e279cb6a056d24b5c2fc0cec91c11ce7034406f5181af13149245, is_infinite: false };
 global INITIALIZATION_SLOT_SEPARATOR_SLOT = Point { x: 0x2843aa78bf6b692ba8ed31629ad92e52770ead9d08fbfab5d9a1f1ed873ec5f6, y: 0x2532556fce143eafe6fdcb229d49a86a83b3f91e1b56d6c3d8520cf8c06776dc, is_infinite: false };
 
-// Derive a base slot (using the base generator) from a slot preimage
+// The following is a function used to derive base slots. Base slots are slots which were derived using
+// the `integer * G_base_slot` formula. These slots are typically assigned by aztec macros to state variables in
+// `Storage` struct when compiling a contract.
 // TODO(#7551): review all the usage of this function and ensure that the correct generator is used!
 pub fn derive_base_slot(slot_preimage: Field) -> Point {
     // We check that the slot preimage fits into 128 bits --> this is ok for base slots
     slot_preimage.assert_max_bit_size(128);
-    multi_scalar_mul([G_slot], [Scalar { lo: slot_preimage, hi: 0 }])
+    multi_scalar_mul([G_base_slot], [Scalar { lo: slot_preimage, hi: 0 }])
 }
 
 pub fn derive_storage_slot_in_map<K>(map_storage_slot: Point, key: K) -> Point where K: ToField {
@@ -27,14 +29,14 @@ pub fn derive_storage_slot_in_map<K>(map_storage_slot: Point, key: K) -> Point w
 
 // TODO(#7551): nuke this func - is only temporarily used in note_interface.rs before we get some AVM compatible
 // hash func hashing to a point
-pub fn derive_base_slot_with_decompose(slot_preimage: Field) -> Point {
+pub fn field_to_point(slot_preimage: Field) -> Point {
     let (lo, hi) = dep::std::field::bn254::decompose(slot_preimage);
-    multi_scalar_mul([G_slot], [Scalar { lo, hi }])
+    multi_scalar_mul([G_base_slot], [Scalar { lo, hi }])
 }
 
 mod test {
     use crate::{
-        constants::INITIALIZATION_SLOT_SEPARATOR, generators::G_slot, point::Point,
+        constants::INITIALIZATION_SLOT_SEPARATOR, point::Point,
         slots::{derive_base_slot, S1, S2, S3, INITIALIZATION_SLOT_SEPARATOR_SLOT}
     };
 
