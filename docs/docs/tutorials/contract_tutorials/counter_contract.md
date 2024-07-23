@@ -152,12 +152,12 @@ aztec-nargo compile
 
 This will compile the smart contract and create a `target` folder with a `.json` artifact inside.
 
-After compiling, you can generate a typescript class using `aztec-builder`'s `codegen` command. (See `aztec-builder help codegen` for syntax).
+After compiling, you can generate a typescript class using `aztec codegen` command.
 
 In the same directory, run this:
 
 ```bash
-aztec-builder codegen -o src/artifacts target
+aztec codegen -o src/artifacts target
 ```
 
 You can now use the artifact and/or the TS class in your Aztec.js!
