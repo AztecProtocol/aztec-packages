@@ -550,25 +550,6 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_create_circuit",
-    "inArgs": [
-      {
-        "name": "acir_composer_ptr",
-        "type": "in_ptr"
-      },
-      {
-        "name": "constraint_system_buf",
-        "type": "const uint8_t *"
-      },
-      {
-        "name": "size_hint",
-        "type": "const uint32_t *"
-      }
-    ],
-    "outArgs": [],
-    "isAsync": false
-  },
-  {
     "functionName": "acir_init_proving_key",
     "inArgs": [
       {
@@ -656,6 +637,38 @@
       },
       {
         "name": "witness_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_verify_client_ivc",
+    "inArgs": [
+      {
+        "name": "proof_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "accumulator_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "final_vk_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "eccvm_vk_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "translator_vk_vec",
         "type": "const uint8_t *"
       }
     ],

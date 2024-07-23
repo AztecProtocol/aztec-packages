@@ -367,18 +367,6 @@ export class BarretenbergApi {
     return;
   }
 
-  async acirCreateCircuit(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, sizeHint: number): Promise<void> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, sizeHint].map(serializeBufferable);
-    const outTypes: OutputType[] = [];
-    const result = await this.wasm.callWasmExport(
-      'acir_create_circuit',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return;
-  }
-
   async acirInitProvingKey(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array): Promise<void> {
     const inArgs = [acirComposerPtr, constraintSystemBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -436,6 +424,24 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_fold_and_verify_program_stack',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirVerifyClientIvc(
+    proofVec: Uint8Array,
+    accumulatorVec: Uint8Array,
+    finalVkVec: Uint8Array,
+    eccvmVkVec: Uint8Array,
+    translatorVkVec: Uint8Array,
+  ): Promise<boolean> {
+    const inArgs = [proofVec, accumulatorVec, finalVkVec, eccvmVkVec, translatorVkVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_verify_client_ivc',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -955,18 +961,6 @@ export class BarretenbergApiSync {
     return;
   }
 
-  acirCreateCircuit(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, sizeHint: number): void {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, sizeHint].map(serializeBufferable);
-    const outTypes: OutputType[] = [];
-    const result = this.wasm.callWasmExport(
-      'acir_create_circuit',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return;
-  }
-
   acirInitProvingKey(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array): void {
     const inArgs = [acirComposerPtr, constraintSystemBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -1020,6 +1014,24 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_fold_and_verify_program_stack',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirVerifyClientIvc(
+    proofVec: Uint8Array,
+    accumulatorVec: Uint8Array,
+    finalVkVec: Uint8Array,
+    eccvmVkVec: Uint8Array,
+    translatorVkVec: Uint8Array,
+  ): boolean {
+    const inArgs = [proofVec, accumulatorVec, finalVkVec, eccvmVkVec, translatorVkVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_verify_client_ivc',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

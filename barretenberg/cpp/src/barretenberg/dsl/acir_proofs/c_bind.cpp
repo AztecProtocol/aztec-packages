@@ -2,6 +2,7 @@
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "acir_composer.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -10,6 +11,7 @@
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
 #include <cstdint>
 #include <memory>
 
@@ -105,6 +107,41 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
         program_stack.pop_back();
     }
     *result = ivc.prove_and_verify();
+}
+
+WASM_EXPORT void acir_verify_client_ivc(uint8_t const* proof_vec,
+                                        uint8_t const* accumulator_vec,
+                                        uint8_t const* final_vk_vec,
+                                        uint8_t const* eccvm_vk_vec,
+                                        uint8_t const* translator_vk_vec,
+                                        bool* result)
+{
+    info("loading proof");
+    const auto proof = from_buffer<ClientIVC::Proof>(proof_vec);
+    info("loading accumulator");
+    const auto accumulator =
+        std::make_shared<ClientIVC::VerifierInstance>(from_buffer<ClientIVC::VerifierInstance>(accumulator_vec));
+    info("setting accumulator pcs verification key");
+    accumulator->verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+    info("loading final vk");
+    const auto final_vk =
+        std::make_shared<ClientIVC::VerificationKey>(from_buffer<ClientIVC::VerificationKey>(final_vk_vec));
+    info("loading eccvm vk");
+    const auto eccvm_vk =
+        std::make_shared<ECCVMFlavor::VerificationKey>(from_buffer<ECCVMFlavor::VerificationKey>(eccvm_vk_vec));
+    info("setting eccvm pcs verification key ");
+    eccvm_vk->pcs_verification_key =
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
+    info("loading translator vk");
+    const auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(
+        from_buffer<TranslatorFlavor::VerificationKey>(translator_vk_vec));
+    info("setting translator pcs verification key");
+    translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+    info("loaded all data");
+    const bool verified = ClientIVC::verify(
+        proof, accumulator, std::make_shared<ClientIVC::VerifierInstance>(final_vk), eccvm_vk, translator_vk);
+    info("verify_client_ivc verified: ", verified);
+    *result = verified;
 }
 
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
