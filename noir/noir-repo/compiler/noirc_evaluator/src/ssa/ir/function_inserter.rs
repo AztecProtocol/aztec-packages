@@ -57,9 +57,9 @@ impl<'f> FunctionInserter<'f> {
                     };
 
                     let new_array_clone = new_array.clone();
-                    let new_id = self.function.dfg.make_array(new_array, typ);
+                    let new_id = self.function.dfg.make_array(new_array, typ.clone());
                     self.values.insert(value, new_id);
-                    self.const_arrays.insert((new_array_clone, is_array), new_id);
+                    self.const_arrays.insert((new_array_clone, typ), new_id);
                     new_id
                 }
                 _ => value,
