@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { NULL_KEY, createEthereumChain, getL1ContractAddressesFromEnv } from '@aztec/ethereum';
+import { NULL_KEY, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi } from '@aztec/l1-artifacts';
@@ -29,27 +29,41 @@ const {
   PRIVATE_KEY = '',
   INTERVAL = '',
   ETH_AMOUNT = '',
-  FEE_JUICE_AMOUNT = '',
+  // asset_name:contract_address
+  EXTRA_ASSETS = '',
+  EXTRA_ASSET_AMOUNT = '',
 } = process.env;
-
-const l1Contracts = getL1ContractAddressesFromEnv();
 
 const logger = createDebugLogger('aztec:faucet');
 
 const rpcUrl = RPC_URL;
 const l1ChainId = +L1_CHAIN_ID;
 const interval = +INTERVAL;
-type Asset = 'eth' | 'fee_juice';
-type ThrottleKey = `${Asset}/${Hex}`;
+type AssetName = string & { __brand: 'AssetName' };
+type ThrottleKey = `${'eth' | AssetName}/${Hex}`;
+type Assets = Record<AssetName, Hex>;
+
 const mapping: { [key: ThrottleKey]: Date } = {};
+const assets: Assets = {};
+
+if (EXTRA_ASSETS) {
+  const assetList = EXTRA_ASSETS.split(',');
+  assetList.forEach(asset => {
+    const [name, address] = asset.split(':');
+    if (!name || !address) {
+      throw new Error(`Invalid asset: ${asset}`);
+    }
+    assets[name as AssetName] = createHex(address);
+  });
+}
 
 /**
  * Checks if the requested asset is something the faucet can handle.
  * @param asset - The asset to check
  * @returns True if the asset is known
  */
-function isKnownAsset(asset: any): asset is Asset {
-  return asset === 'eth' || asset === 'fee_juice';
+function isKnownAsset(asset: any): asset is 'eth' | AssetName {
+  return asset === 'eth' || asset in assets;
 }
 
 /**
@@ -65,7 +79,7 @@ function createHex(hex: string) {
  * Function to throttle drips on a per address basis
  * @param address - Address requesting some ETH
  */
-function checkThrottle(asset: Asset, address: Hex) {
+function checkThrottle(asset: 'eth' | AssetName, address: Hex) {
   const key: ThrottleKey = `${asset}/${address}`;
   if (mapping[key] === undefined) {
     return;
@@ -83,7 +97,7 @@ function checkThrottle(asset: Asset, address: Hex) {
  * @param asset - The asset to throttle
  * @param address - The address to throttle
  */
-function updateThrottle(asset: Asset, address: Hex) {
+function updateThrottle(asset: 'eth' | AssetName, address: Hex) {
   const key: ThrottleKey = `${asset}/${address}`;
   mapping[key] = new Date();
 }
@@ -153,25 +167,27 @@ async function transferEth(address: string) {
  * Mints FeeJuice to the given address
  * @param address - Address to receive some FeeJuice
  */
-async function mintFeeJuice(address: string) {
+async function transferAsset(assetName: AssetName, address: string) {
   const { publicClient, walletClient } = createClients();
   const hexAddress = createHex(address);
-  checkThrottle('fee_juice', hexAddress);
+  checkThrottle(assetName, hexAddress);
+
+  const assetAddress = assets[assetName];
 
   try {
     const contract = getContract({
       abi: PortalERC20Abi,
-      address: l1Contracts.gasTokenAddress.toString(),
+      address: assetAddress,
       client: walletClient,
     });
 
-    const amount = BigInt(FEE_JUICE_AMOUNT);
+    const amount = BigInt(EXTRA_ASSET_AMOUNT);
     const hash = await contract.write.mint([hexAddress, amount]);
     await publicClient.waitForTransactionReceipt({ hash });
-    updateThrottle('fee_juice', hexAddress);
-    logger.info(`Sent ${amount} FeeJuice to ${hexAddress} in tx ${hash}`);
+    updateThrottle(assetName, hexAddress);
+    logger.info(`Sent ${amount} ${assetName} to ${hexAddress} in tx ${hash}`);
   } catch (err) {
-    logger.error(`Failed to send FeeJuice to ${hexAddress}`);
+    logger.error(`Failed to send ${assetName} to ${hexAddress}`);
     throw err;
   }
 }
@@ -199,17 +215,10 @@ function createRouter(apiPrefix: string) {
       throw new Error(`Unknown asset: "${asset}"`);
     }
 
-    switch (asset) {
-      case 'eth':
-        await transferEth(EthAddress.fromString(address).toChecksumString());
-        break;
-      case 'fee_juice':
-        await mintFeeJuice(EthAddress.fromString(address).toChecksumString());
-        break;
-      default: {
-        // make sure this is an exhaustive switch
-        const _: never = asset;
-      }
+    if (asset === 'eth') {
+      await transferEth(EthAddress.fromString(address).toChecksumString());
+    } else {
+      await transferAsset(asset, EthAddress.fromString(address).toChecksumString());
     }
 
     ctx.status = 200;
