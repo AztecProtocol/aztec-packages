@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    hash::poseidon2_hash, header::Header, address::AztecAddress, point::Point, slots::{S1, S2, S3},
-    traits::{FromField, ToField}
-};
+use dep::protocol_types::{hash::poseidon2_hash, header::Header, address::AztecAddress, point::Point, traits::{FromField, ToField}};
 
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
@@ -30,7 +27,10 @@ struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
 impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
 
 // TODO: extract into a utils module once  we can do arithmetic on generics, i.e. https://github.com/noir-lang/noir/issues/4784
-fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
+fn concat_arrays<let N: u32, let M: u32, let O: u32>(
+    arr_n: [Field; N],
+    arr_m: [Field; M]
+) -> [Field; O] {
     assert_eq(N + M, O);
     let mut out: [Field; O] = [0; O];
     for i in 0..N {
@@ -77,15 +77,36 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Point {
-        self.storage_slot + S1
+        // The following point was assigned randomly --> this works because the sole purpose of it is to point to
+        // a unique location in storage, and it doesn't matter where that is.
+        let random_point = Point {
+            x: 0x007142412c4fb82703fa4e8bc6d3d98da4aa8673c6d9e832ec31630c9c407a88,
+            y: 0x087faa9b18b42907cb31643435d3fbb1d9a78cb08c1cb07872d3e6ec92ba7d56,
+            is_infinite: false
+        };
+        self.storage_slot + random_point
     }
 
     fn get_delay_change_storage_slot(self) -> Point {
-        self.storage_slot + S2
+        // The following point was assigned randomly --> this works because the sole purpose of it is to point to
+        // a unique location in storage, and it doesn't matter where that is.
+        let random_point = Point {
+            x: 0x0d08d21416a5f9f1fc9c9d03c8ccadafe26e17d775097a86061da81bf0c7064c,
+            y: 0x172764b3b5e893109964e770fbe35da36447de45670a9cac42c01b85a7ffb7a3,
+            is_infinite: false
+        };
+        self.storage_slot + random_point
     }
 
     fn get_hash_storage_slot(self) -> Point {
-        self.storage_slot + S3
+        // The following point was assigned randomly --> this works because the sole purpose of it is to point to
+        // a unique location in storage, and it doesn't matter where that is.
+        let random_point = Point {
+            x: 0x2de3188d2d528e8c81bdf1b01cd808a4a40366d06211770d3eabbd80c05aa7d7,
+            y: 0x1930a595c6c18ef85866941c0a2b02695bc2530e11f4dc982b9bca6448bd608d,
+            is_infinite: false
+        };
+        self.storage_slot + random_point
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us

@@ -1,3 +1,5 @@
+// TODO(#7551): This file is a bit of leak from aztec-nr - I placed it in protocol circuits because some of
+// the functionality is used by base rollup. Move the stuff relevant only to aztec-nr to the aztec-nr crate.
 use crate::{point::Point, scalar::Scalar};
 use dep::std::embedded_curve_ops::multi_scalar_mul;
 
