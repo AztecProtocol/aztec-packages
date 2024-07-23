@@ -26,15 +26,42 @@ type TXEForeignCallInput = {
 class TXEDispatcher {
   constructor(private logger: Logger) {}
 
-  /* eslint-disable camelcase */
-  async resolve_foreign_call({
-    session_id: sessionId,
-    function: functionName,
-    inputs,
-    root_path,
-    package_name,
-  }: /* eslint-enable camelcase */
-  TXEForeignCallInput): Promise<ForeignCallResult> {
+  async #processDeployInputs({ inputs, root_path: rootPath, package_name: packageName }: TXEForeignCallInput) {
+    const pathStr = fromArray(inputs[0] as ForeignCallArray)
+      .map(char => String.fromCharCode(char.toNumber()))
+      .join('');
+    const contractName = fromArray(inputs[1] as ForeignCallArray)
+      .map(char => String.fromCharCode(char.toNumber()))
+      .join('');
+    let artifactPath = '';
+    // We're deploying the contract under test
+    // env.deploy_self("contractName")
+    if (!pathStr) {
+      artifactPath = join(rootPath, './target', `${packageName}-${contractName}.json`);
+    } else {
+      // We're deploying a contract that belongs in a workspace
+      // env.deploy("../path/to/workspace/root@packageName", "contractName")
+      if (pathStr.includes('@')) {
+        const [workspace, pkg] = pathStr.split('@');
+        const targetPath = join(rootPath, workspace, './target');
+        this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
+        artifactPath = join(targetPath, `${pkg}-${contractName}.json`);
+      } else {
+        // We're deploying a standalone contract
+        // env.deploy("../path/to/contract/root", "contractName")
+        const targetPath = join(rootPath, pathStr, './target');
+        this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
+        [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractName}.json`));
+      }
+    }
+    this.logger.debug(`Loading compiled artifact ${artifactPath}`);
+    const artifact = loadContractArtifact(JSON.parse(await readFile(artifactPath, 'utf-8')));
+    inputs.splice(0, 2, artifact);
+  }
+
+  // eslint-disable-next-line camelcase
+  async resolve_foreign_call(callData: TXEForeignCallInput): Promise<ForeignCallResult> {
+    const { session_id: sessionId, function: functionName, inputs } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
     if (!TXESessions.has(sessionId) && functionName != 'reset') {
@@ -42,44 +69,22 @@ class TXEDispatcher {
       TXESessions.set(sessionId, await TXEService.init(this.logger));
     }
 
-    if (functionName === 'reset') {
-      TXESessions.delete(sessionId) &&
-        this.logger.info(`Called reset on session ${sessionId}, yeeting it out of existence`);
-      return toForeignCallResult([]);
-    } else {
-      if (functionName === 'deploy') {
-        const pathStr = fromArray(inputs[0] as ForeignCallArray)
-          .map(char => String.fromCharCode(char.toNumber()))
-          .join('');
-        const contractName = fromArray(inputs[1] as ForeignCallArray)
-          .map(char => String.fromCharCode(char.toNumber()))
-          .join('');
-        let artifactPath = '';
-        // Is not the same contract we're testing
-        if (!pathStr) {
-          // eslint-disable-next-line camelcase
-          artifactPath = join(root_path, './target', `${package_name}-${contractName}.json`);
-        } else {
-          // Workspace
-          if (pathStr.includes('@')) {
-            const [workspace, pkg] = pathStr.split('@');
-            const targetPath = join(root_path, workspace, './target');
-            this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
-            artifactPath = join(targetPath, `${pkg}-${contractName}.json`);
-          } else {
-            // Individual contract
-            const targetPath = join(root_path, pathStr, './target');
-            this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
-            [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractName}.json`));
-          }
-        }
-        this.logger.debug(`Loading compiled artifact ${artifactPath}`);
-        const artifact = loadContractArtifact(JSON.parse(await readFile(artifactPath, 'utf-8')));
-        inputs.splice(0, 2, artifact);
+    switch (functionName) {
+      case 'reset': {
+        TXESessions.delete(sessionId) &&
+          this.logger.info(`Called reset on session ${sessionId}, yeeting it out of existence`);
+        return toForeignCallResult([]);
       }
-      const txeService = TXESessions.get(sessionId);
-      const response = await (txeService as any)[functionName](...inputs);
-      return response;
+      case 'deploy': {
+        // Modify inputs and fall through
+        await this.#processDeployInputs(callData);
+      }
+      // eslint-disable-next-line no-fallthrough
+      default: {
+        const txeService = TXESessions.get(sessionId);
+        const response = await (txeService as any)[functionName](...inputs);
+        return response;
+      }
     }
   }
 }
