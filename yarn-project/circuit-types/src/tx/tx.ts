@@ -49,16 +49,7 @@ export class Tx {
      * Public function call to be run by the sequencer as part of teardown.
      */
     public readonly publicTeardownFunctionCall: PublicExecutionRequest,
-  ) {
-    const kernelPublicCallStackSize = data.numberOfPublicCallRequests();
-    const numRequests = enqueuedPublicFunctionCalls.length + (publicTeardownFunctionCall.isEmpty() ? 0 : 1);
-    if (kernelPublicCallStackSize !== numRequests) {
-      throw new Error(
-        `Mismatch number of execution requests for public calls (expected
-          ${kernelPublicCallStackSize}, got ${numRequests})`,
-      );
-    }
-  }
+  ) {}
 
   hasPublicCalls() {
     return this.data.numberOfPublicCallRequests() > 0;

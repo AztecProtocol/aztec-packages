@@ -1,5 +1,6 @@
 import {
   AztecAddress,
+  CallContext,
   ClientIvcProof,
   GasSettings,
   LogHash,
@@ -82,13 +83,18 @@ export const mockTx = (
       const args = publicFunctionArgs.shift()!;
       publicTeardownFunctionCall = new PublicExecutionRequest(
         request.item.contractAddress,
-        request.item.callContext,
+        CallContext.fromFields(request.item.callContext.toFields()),
         args,
       );
     }
 
     enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) => new PublicExecutionRequest(r.item.contractAddress, r.item.callContext, publicFunctionArgs[i]),
+      (r, i) =>
+        new PublicExecutionRequest(
+          r.item.contractAddress,
+          CallContext.fromFields(r.item.callContext.toFields()),
+          publicFunctionArgs[i],
+        ),
     );
 
     const nonRevertibleNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty);
