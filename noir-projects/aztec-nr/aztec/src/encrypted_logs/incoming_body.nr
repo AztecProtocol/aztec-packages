@@ -114,7 +114,8 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_note_log_incoming_body() {
+    fn test_encrypted_note_log_incoming_body_matches_typescript() {
+        // All the values in this test were copied over from `encrypted_note_log_incoming_body.test.ts`
         let note = AddressNote::new(
             AztecAddress::from_field(0x1),
             AztecAddress::from_field(0x2),
@@ -137,18 +138,23 @@ mod test {
             is_infinite: false
         };
 
+        /// 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
+        /// the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
+        /// implemented by Aztec macros.
         let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
 
+        /// 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // the note plaintext using AES-128.
         let ciphertext = body.compute_ciphertext(eph_sk, ivpk);
 
-        let expected_note_body_ciphertext = [
+        let note_body_ciphertext_from_typescript = [
             75, 3, 86, 165, 50, 163, 229, 200, 67, 137, 31, 92, 122, 27, 14, 158, 201, 248, 29, 236, 102, 216, 246, 64, 166, 1, 166, 221, 92, 19, 78, 19, 213, 197, 44, 130, 105, 145, 239, 139, 176, 255, 148, 41, 72, 212, 75, 176, 216, 99, 170, 9, 151, 25, 135, 140, 53, 123, 253, 52, 119, 14, 65, 131, 127, 177, 227, 219, 157, 38, 90, 161, 32, 7, 27, 138, 152, 196, 60, 240, 106, 73, 121, 227, 190, 14, 142, 61, 119, 47, 201, 29, 250, 68, 53, 62, 200, 33, 207, 190, 156, 84, 9, 115, 122, 14, 147, 171, 83, 111, 2, 140, 9, 33, 33, 30, 65, 242, 133, 134, 59, 254, 202, 2, 237, 246, 68, 153, 62, 237, 123, 90, 169, 84, 62, 55, 214, 102, 26, 79, 209, 175, 255, 223, 110, 6, 119, 61, 142, 36, 81, 155, 0, 178, 60, 85, 120, 152, 177, 115, 14, 62, 105, 42, 178, 231, 173, 245, 88, 245, 89, 122, 32, 49, 205, 151
         ];
 
-        assert_eq(expected_note_body_ciphertext.len(), ciphertext.len());
+        assert_eq(note_body_ciphertext_from_typescript.len(), ciphertext.len());
 
-        for i in 0..expected_note_body_ciphertext.len() {
-            assert_eq(ciphertext[i], expected_note_body_ciphertext[i]);
+        for i in 0..note_body_ciphertext_from_typescript.len() {
+            assert_eq(ciphertext[i], note_body_ciphertext_from_typescript[i]);
         }
     }
 
@@ -243,14 +249,14 @@ mod test {
 
         let ciphertext = body.compute_ciphertext(eph_sk, ivpk);
 
-        let expected_event_body_ciphertext = [
+        let event_body_ciphertext_from_typescript = [
             226, 240, 253, 6, 28, 52, 19, 131, 33, 132, 178, 212, 245, 62, 14, 190, 147, 228, 160, 190, 146, 61, 95, 203, 124, 153, 68, 168, 17, 150, 92, 0, 99, 214, 85, 64, 191, 78, 157, 131, 149, 96, 236, 253, 96, 172, 157, 30, 185, 29, 14, 152, 216, 130, 219, 151, 80, 185, 43, 223, 167, 8, 89, 189, 88, 188, 101, 137, 255, 136, 84, 252, 79, 18, 52, 3, 110, 54, 54, 206, 244, 209, 246, 226, 207, 247, 143, 253, 211, 75, 160, 224, 172, 41, 45, 7, 208, 137, 90, 56, 59, 4, 234, 48, 53, 23, 130, 230, 49, 249, 142, 243, 170, 72, 183, 242, 49, 124, 46, 52, 198, 75, 55, 102, 56, 89, 254, 67, 59, 157, 249, 120, 184, 67, 154, 16, 148, 227, 93, 37, 120, 199, 93, 166, 80, 127, 173, 52, 80, 135, 87, 1, 168, 164, 51, 48, 126, 120, 47, 102, 211, 227, 234, 170, 208, 99, 111, 198, 170, 226, 156, 244, 241, 174, 206, 30
         ];
 
-        assert_eq(expected_event_body_ciphertext.len(), ciphertext.len());
+        assert_eq(event_body_ciphertext_from_typescript.len(), ciphertext.len());
 
-        for i in 0..expected_event_body_ciphertext.len() {
-            assert_eq(ciphertext[i], expected_event_body_ciphertext[i]);
+        for i in 0..event_body_ciphertext_from_typescript.len() {
+            assert_eq(ciphertext[i], event_body_ciphertext_from_typescript[i]);
         }
     }
 }

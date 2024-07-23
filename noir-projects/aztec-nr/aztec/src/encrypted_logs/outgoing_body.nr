@@ -17,6 +17,8 @@ impl EncryptedLogOutgoingBody {
         Self { eph_sk, recipient, recipient_ivpk }
     }
 
+    /// Encrypts ephemeral secret key and recipient's ivpk --> with this information the recipient of outgoing will
+    /// be able to derive the key with which the incoming log can be decrypted.
     pub fn compute_ciphertext(self, ovsk_app: Scalar, eph_pk: Point) -> [u8; 144] {
         // Again, we could compute `eph_pk` here, but we keep the interface more similar
         // and also make it easier to optimise it later as we just pass it along
@@ -68,7 +70,7 @@ mod test {
     use crate::context::PrivateContext;
 
     #[test]
-    fn test_encrypted_log_outgoing_body() {
+    fn test_encrypted_log_outgoing_body_matches_typescript() {
         let eph_sk = Scalar {
             lo: 0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fe,
             hi: 0x000000000000000000000000000000000f096b423017226a18461115fa8d34bb
@@ -91,13 +93,15 @@ mod test {
 
         let ciphertext = body.compute_ciphertext(sender_ovsk_app, eph_pk);
 
-        let expected_outgoing_body_ciphertext = [
+        /// Outgoing body ciphertext contains encrypted ephemeral secret key and recipient's ivpk - with this information
+        /// the recipient of outgoing will be able to derive the key with which the incoming log can be decrypted.
+        let outgoing_body_ciphertext_from_typescript = [
             126, 10, 214, 39, 130, 143, 96, 143, 79, 143, 22, 36, 55, 41, 234, 255, 226, 26, 138, 236, 91, 188, 204, 216, 172, 133, 134, 69, 161, 237, 134, 5, 75, 192, 10, 6, 229, 54, 194, 56, 103, 243, 57, 248, 147, 237, 4, 3, 39, 28, 226, 30, 237, 228, 212, 115, 246, 244, 105, 39, 129, 119, 126, 207, 176, 14, 75, 134, 241, 23, 2, 187, 239, 86, 47, 56, 239, 20, 92, 176, 70, 12, 219, 226, 150, 70, 192, 43, 125, 53, 230, 153, 135, 228, 210, 197, 227, 106, 242, 138, 119, 83, 182, 150, 233, 111, 9, 104, 128, 222, 85, 136, 205, 244, 77, 230, 210, 217, 223, 106, 220, 4, 115, 33, 157, 212, 217, 133, 87, 179, 67, 158, 81, 85, 226, 105, 22, 8, 154, 130, 193, 214, 144, 212
         ];
 
-        for i in 0..expected_outgoing_body_ciphertext.len() {
-            assert_eq(ciphertext[i], expected_outgoing_body_ciphertext[i]);
+        for i in 0..outgoing_body_ciphertext_from_typescript.len() {
+            assert_eq(ciphertext[i], outgoing_body_ciphertext_from_typescript[i]);
         }
-        assert_eq(expected_outgoing_body_ciphertext.len(), ciphertext.len());
+        assert_eq(outgoing_body_ciphertext_from_typescript.len(), ciphertext.len());
     }
 }

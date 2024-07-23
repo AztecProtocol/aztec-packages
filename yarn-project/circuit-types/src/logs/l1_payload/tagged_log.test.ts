@@ -57,7 +57,9 @@ describe('L1 Note Payload', () => {
   });
 
   it('encrypted tagged log matches Noir', () => {
+    // All the values in this test were arbitrarily set and copied over to `payload.nr`
     const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
+    // Storage slot point (as well as all the other values) was randomly generated
     const storageSlot = new Point(
       new Fr(0x1d83b1af3f569775af9e3fdae19b84590245098f46d4a407b5963f313000ce37n),
       new Fr(0x1537c632779932ccbc415d91dd70801f88ad410fff48179886d3dce035582d76n),
@@ -94,7 +96,7 @@ describe('L1 Note Payload', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
-      'expected_encrypted_note_log',
+      'encrypted_note_log_from_typescript',
       byteArrayString,
     );
   });
