@@ -24,10 +24,11 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const aggregation_state<typename Flavor::Curve>& agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    return verify_proof(stdlib_proof);
+    return verify_proof(stdlib_proof, agg_obj);
 }
 
 /**
@@ -36,7 +37,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
  */
 template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& proof)
+    const StdlibProof<Builder>& proof, const aggregation_state<typename Flavor::Curve>& agg_obj)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
