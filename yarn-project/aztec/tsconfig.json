@@ -31,6 +31,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../cli"
+    },
+    {
       "path": "../entrypoints"
     },
     {
@@ -64,10 +67,16 @@
       "path": "../prover-client"
     },
     {
+      "path": "../prover-node"
+    },
+    {
       "path": "../pxe"
     },
     {
       "path": "../telemetry-client"
+    },
+    {
+      "path": "../txe"
     }
   ],
   "include": ["src"]

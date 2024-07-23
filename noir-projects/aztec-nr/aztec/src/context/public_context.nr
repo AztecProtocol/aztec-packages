@@ -1,5 +1,6 @@
 use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
 use dep::protocol_types::address::{AztecAddress, EthAddress};
+use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
@@ -14,19 +15,19 @@ impl PublicContext {
         PublicContext { inputs }
     }
 
-    pub fn emit_unencrypted_log<T, N>(&mut self, log: T) where T: Serialize<N> {
+    pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
         emit_unencrypted_log(Serialize::serialize(log).as_slice());
     }
 
-    pub fn note_hash_exists(self, note_hash: Field, leaf_index: Field) -> bool {
+    pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: Field) -> bool {
         note_hash_exists(note_hash, leaf_index) == 1
     }
 
-    pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
+    pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
 
-    fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
+    fn nullifier_exists(_self: Self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
         nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
@@ -59,12 +60,12 @@ impl PublicContext {
         self.push_nullifier(nullifier, 0);
     }
 
-    fn message_portal(&mut self, recipient: EthAddress, content: Field) {
+    fn message_portal(_self: &mut Self, recipient: EthAddress, content: Field) {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<RETURNS_COUNT>(
-        self: &mut Self,
+    fn call_public_function<let RETURNS_COUNT: u32>(
+        _self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
@@ -83,8 +84,8 @@ impl PublicContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn static_call_public_function<RETURNS_COUNT>(
-        self: &mut Self,
+    fn static_call_public_function<let RETURNS_COUNT: u32>(
+        _self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
@@ -101,82 +102,82 @@ impl PublicContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn delegate_call_public_function<RETURNS_COUNT>(
-        self: &mut Self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field]
+    fn delegate_call_public_function<let RETURNS_COUNT: u32>(
+        _self: &mut Self,
+        _contract_address: AztecAddress,
+        _function_selector: FunctionSelector,
+        _args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
         assert(false, "'delegate_call_public_function' not implemented!");
         FunctionReturns::new([0; RETURNS_COUNT])
     }
 
-    fn push_note_hash(&mut self, note_hash: Field) {
+    fn push_note_hash(_self: &mut Self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
-    fn push_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
+    fn push_nullifier(_self: &mut Self, nullifier: Field, _nullified_commitment: Field) {
         // Cannot nullify pending commitments in AVM, so `nullified_commitment` is not used
         emit_nullifier(nullifier);
     }
 
-    fn this_address(self) -> AztecAddress {
+    fn this_address(_self: Self) -> AztecAddress {
         address()
     }
-    pub fn storage_address(self) -> AztecAddress {
+    pub fn storage_address(_self: Self) -> AztecAddress {
         storage_address()
     }
-    fn msg_sender(self) -> AztecAddress {
+    fn msg_sender(_self: Self) -> AztecAddress {
         sender()
     }
-    fn selector(self) -> FunctionSelector {
+    fn selector(_self: Self) -> FunctionSelector {
         FunctionSelector::from_u32(function_selector())
     }
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash
     }
-    fn transaction_fee(self) -> Field {
+    fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
     }
 
-    fn chain_id(self) -> Field {
+    fn chain_id(_self: Self) -> Field {
         chain_id()
     }
-    fn version(self) -> Field {
+    fn version(_self: Self) -> Field {
         version()
     }
-    fn block_number(self) -> Field {
+    fn block_number(_self: Self) -> Field {
         block_number()
     }
-    fn timestamp(self) -> u64 {
+    fn timestamp(_self: Self) -> u64 {
         timestamp()
     }
-    pub fn fee_per_l2_gas(self) -> Field {
+    pub fn fee_per_l2_gas(_self: Self) -> Field {
         fee_per_l2_gas()
     }
-    pub fn fee_per_da_gas(self) -> Field {
+    pub fn fee_per_da_gas(_self: Self) -> Field {
         fee_per_da_gas()
     }
 
-    fn l2_gas_left(self) -> Field {
+    fn l2_gas_left(_self: Self) -> Field {
         l2_gas_left()
     }
-    fn da_gas_left(self) -> Field {
+    fn da_gas_left(_self: Self) -> Field {
         da_gas_left()
     }
 
-    fn raw_storage_read<N>(_self: Self, storage_slot: Field) -> [Field; N] {
+    fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
         storage_read(storage_slot)
     }
 
-    fn storage_read<T, N>(self, storage_slot: Field) -> T where T: Deserialize<N> {
+    fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T where T: Deserialize<N> {
         T::deserialize(self.raw_storage_read(storage_slot))
     }
 
-    fn raw_storage_write<N>(_self: Self, storage_slot: Field, values: [Field; N]) {
+    fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
         storage_write(storage_slot, values);
     }
 
-    fn storage_write<T, N>(self, storage_slot: Field, value: T) where T: Serialize<N> {
+    fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T) where T: Serialize<N> {
         self.raw_storage_write(storage_slot, value.serialize());
     }
 }
@@ -185,10 +186,9 @@ impl PublicContext {
 fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
     // It's ok to use the max possible gas here, because the gas will be
     // capped by the gas left in the (STATIC)CALL instruction.
-    let MAX_POSSIBLE_FIELD: Field = 0 - 1;
     [
-        user_gas.l2_gas.unwrap_or(MAX_POSSIBLE_FIELD),
-        user_gas.da_gas.unwrap_or(MAX_POSSIBLE_FIELD)
+        user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE),
+        user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)
     ]
 }
 
@@ -257,7 +257,7 @@ unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> 
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
-unconstrained fn call<RET_SIZE>(
+unconstrained fn call<let RET_SIZE: u32>(
     gas: [Field; 2],
     address: AztecAddress,
     args: [Field],
@@ -265,7 +265,7 @@ unconstrained fn call<RET_SIZE>(
 ) -> ([Field; RET_SIZE], u8) {
     call_opcode(gas, address, args, function_selector)
 }
-unconstrained fn call_static<RET_SIZE>(
+unconstrained fn call_static<let RET_SIZE: u32>(
     gas: [Field; 2],
     address: AztecAddress,
     args: [Field],
@@ -274,11 +274,11 @@ unconstrained fn call_static<RET_SIZE>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn storage_read<N>(storage_slot: Field) -> [Field; N] {
-    storage_read_opcode(storage_slot, N)
+unconstrained fn storage_read<let N: u32>(storage_slot: Field) -> [Field; N] {
+    storage_read_opcode(storage_slot, N as Field)
 }
 
-unconstrained fn storage_write<N>(storage_slot: Field, values: [Field; N]) {
+unconstrained fn storage_write<let N: u32>(storage_slot: Field, values: [Field; N]) {
     storage_write_opcode(storage_slot, values);
 }
 
@@ -353,7 +353,7 @@ unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Fie
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
 
 #[oracle(avmOpcodeCall)]
-unconstrained fn call_opcode<RET_SIZE>(
+unconstrained fn call_opcode<let RET_SIZE: u32>(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
@@ -363,7 +363,7 @@ unconstrained fn call_opcode<RET_SIZE>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStaticCall)]
-unconstrained fn call_static_opcode<RET_SIZE>(
+unconstrained fn call_static_opcode<let RET_SIZE: u32>(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
@@ -373,16 +373,16 @@ unconstrained fn call_static_opcode<RET_SIZE>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<N>(storage_slot: Field, length: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode<let N: u32>(storage_slot: Field, length: Field) -> [Field; N] {}
 
 #[oracle(avmOpcodeStorageWrite)]
-unconstrained fn storage_write_opcode<N>(storage_slot: Field, values: [Field; N]) {}
+unconstrained fn storage_write_opcode<let N: u32>(storage_slot: Field, values: [Field; N]) {}
 
-struct FunctionReturns<N> {
+struct FunctionReturns<let N: u32> {
     values: [Field; N]
 }
 
-impl<N> FunctionReturns<N> {
+impl<let N: u32> FunctionReturns<N> {
     pub fn new(values: [Field; N]) -> FunctionReturns<N> {
         FunctionReturns { values }
     }

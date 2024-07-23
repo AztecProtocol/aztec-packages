@@ -59,11 +59,8 @@ export class PublicProcessorFactory {
    * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
-  public async create(
-    historicalHeader: Header | undefined,
-    globalVariables: GlobalVariables,
-  ): Promise<PublicProcessor> {
-    historicalHeader = historicalHeader ?? (await this.merkleTree.buildInitialHeader());
+  public create(historicalHeader: Header | undefined, globalVariables: GlobalVariables): PublicProcessor {
+    historicalHeader = historicalHeader ?? this.merkleTree.getInitialHeader();
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
@@ -126,8 +123,14 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof, [])]
+          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), [])]
           : await this.processTxWithPublicCalls(tx);
+        this.log.debug(`Processed tx`, {
+          txHash: processedTx.hash,
+          historicalHeaderHash: processedTx.data.constants.historicalHeader.hash(),
+          blockNumber: processedTx.data.constants.globalVariables.blockNumber,
+          lastArchiveRoot: processedTx.data.constants.historicalHeader.lastArchive.root,
+        });
 
         // Set fee payment update request into the processed tx
         processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
@@ -265,7 +268,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicProvingRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }
 }

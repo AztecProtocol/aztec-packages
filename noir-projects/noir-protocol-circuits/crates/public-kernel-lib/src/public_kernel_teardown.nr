@@ -108,7 +108,8 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         if !dep::std::runtime::is_unconstrained() {
             // verify the previous kernel proof
             self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // construct the circuit outputs
@@ -165,10 +166,10 @@ mod tests {
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest
+        public_data_update_request::PublicDataUpdateRequest, log_hash::ScopedLogHash
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::compute_siloed_unencrypted_log_hash,
+        contrakt::storage_read::StorageRead,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
@@ -448,11 +449,12 @@ mod tests {
         );
         let prev_data = builder.previous_kernel.to_public_accumulated_data();
 
-        let mut expected_unencrypted_logs = [
-            prev_data.unencrypted_logs_hashes[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        let expected_unencrypted_logs = [
+            prev_data.unencrypted_logs_hashes[0], ScopedLogHash {
+                log_hash: builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0],
+                contract_address: builder.public_call.contract_address
+            }
         ];
-        // silo the new log hash
-        expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
         let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
 
@@ -606,13 +608,10 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

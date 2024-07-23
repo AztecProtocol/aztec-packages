@@ -37,6 +37,7 @@ contract Test {
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
+    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     use crate::test_note::TestNote;
 
@@ -276,7 +277,8 @@ contract Test {
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
                 outgoing_viewer_ovpk_m,
-                owner_ivpk_m
+                owner_ivpk_m,
+                owner
             )
         );
 
@@ -293,7 +295,8 @@ contract Test {
                     // testing only - a randomness of 0 signals the kerels to not mask the address
                     0,
                     outgoing_viewer_ovpk_m,
-                    owner_ivpk_m
+                    owner_ivpk_m,
+                    owner
                 )
             );
         }
@@ -424,11 +427,11 @@ contract Test {
     fn compute_outgoing_log_body_ciphertext(
         eph_sk: Scalar,
         recipient: AztecAddress,
-        recipient_ivpk_app: Point,
+        recipient_ivpk: Point,
         ovsk_app: Scalar
-    ) -> [u8; 176] {
-        let eph_pk = eph_sk.derive_public_key();
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk_app).compute_ciphertext(ovsk_app, eph_pk)
+    ) -> [u8; 144] {
+        let eph_pk = derive_public_key(eph_sk);
+        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
     }
 
     #[aztec(public)]
