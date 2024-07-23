@@ -53,6 +53,7 @@
     "scripts",
     "types",
     "txe",
+    "wallet",
     "world-state",
     "telemetry-client"
   ],
