@@ -492,7 +492,7 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
 
     auto trace = trace_builder.finalize();
     common_validate_bit_op(trace, 0, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, { output }, true);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsAnd,
@@ -509,7 +509,7 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 1, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsOr,
@@ -526,7 +526,7 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
     auto trace = trace_builder.finalize();
 
     common_validate_bit_op(trace, 2, a, b, output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -543,7 +543,7 @@ TEST_P(AvmBitwiseTestsShr, AllShrTest)
     trace_builder.op_return(0, 2, 1);
     auto trace = trace_builder.finalize();
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, true);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -561,7 +561,7 @@ TEST_P(AvmBitwiseTestsShl, AllShlTest)
     auto trace = trace_builder.finalize();
 
     common_validate_shift_op(trace, a, b, output, FF(0), FF(1), FF(2), mem_tag, false);
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, {}, { output });
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -666,7 +666,7 @@ TEST_P(AvmBitwiseNegativeTestsXor, AllNegativeTests)
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.main_sel_op_xor == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), output, failure_mode);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), failure_string)
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), failure_string);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,
                          AvmBitwiseNegativeTestsXor,

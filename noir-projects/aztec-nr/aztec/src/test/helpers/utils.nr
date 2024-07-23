@@ -10,7 +10,7 @@ use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 use crate::hash::hash_args;
 
-use crate::oracle::notes::notify_nullified_note;
+use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_nullified_note};
 
 pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
@@ -29,13 +29,13 @@ pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs:
     cheatcodes::add_note_hashes(contract_address, note_hashes);
 }
 
-struct Deployer<N> {
+struct Deployer<let N: u32> {
         path: str<N>,
         public_keys_hash: Field
     }
 
-impl<N> Deployer<N> {
-    pub fn with_private_initializer<C, M, Env>(
+impl<let N: u32> Deployer<N> {
+    pub fn with_private_initializer<C, let M: u32, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -47,10 +47,10 @@ impl<N> Deployer<N> {
         );
         let address = instance.to_address();
         cheatcodes::advance_blocks_by(1);
-        let block_number = cheatcodes::get_block_number();
+        let block_number = get_block_number();
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = cheatcodes::get_contract_address();
+        let original_contract_address = get_contract_address();
 
         cheatcodes::set_contract_address(address);
         cheatcodes::set_msg_sender(original_contract_address);
@@ -64,7 +64,7 @@ impl<N> Deployer<N> {
         instance
     }
 
-    pub fn with_public_initializer<C, M, T, Env>(
+    pub fn with_public_initializer<C, let M: u32, T, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -77,7 +77,7 @@ impl<N> Deployer<N> {
         cheatcodes::advance_blocks_by(1);
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = cheatcodes::get_contract_address();
+        let original_contract_address = get_contract_address();
         let original_fn_selector = cheatcodes::get_function_selector();
 
         cheatcodes::set_fn_selector(call_interface.get_selector());

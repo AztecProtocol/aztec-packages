@@ -36,7 +36,7 @@ data "terraform_remote_state" "aztec2_iac" {
 
 locals {
   api_prefix = "/${var.DEPLOY_TAG}/aztec-faucet/${var.API_KEY}"
-  rpc_url = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+  rpc_url    = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
 }
 
 
@@ -118,8 +118,8 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
         "value": "${local.api_prefix}"
       },
       {
-        "name": "CHAIN_ID",
-        "value": "${var.CHAIN_ID}"
+        "name": "L1_CHAIN_ID",
+        "value": "${var.L1_CHAIN_ID}"
       },
       {
         "name": "PRIVATE_KEY",
@@ -132,6 +132,14 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       {
         "name": "ETH_AMOUNT",
         "value": "1.0"
+      },
+      {
+        "name": "FAUCET_ACCOUNT_INDEX",
+        "value": "${var.FAUCET_ACCOUNT_INDEX}"
+      },
+      {
+        "name": "FORK_MNEMONIC",
+        "value": "${var.FORK_MNEMONIC}"
       }
     ],
     "logConfiguration": {

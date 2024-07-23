@@ -104,7 +104,7 @@ export abstract class BaseWallet implements Wallet {
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.pxe.proveTx(txRequest, simulatePublic);
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {
@@ -151,6 +151,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getBlockNumber(): Promise<number> {
     return this.pxe.getBlockNumber();
+  }
+  getProvenBlockNumber(): Promise<number> {
+    return this.pxe.getProvenBlockNumber();
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
