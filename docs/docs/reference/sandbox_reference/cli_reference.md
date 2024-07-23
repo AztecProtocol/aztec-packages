@@ -7,15 +7,55 @@ title: CLI Reference
 `aztec-builder` and `aztec-sandbox` have been deprecated in favor of `aztec` CLI
 
 :::
+- [Start](#starting-and-testing)
+- [Accounts](#account-management)
+- [Contract deployments and interaction](#contract-deployment-and-interaction)
+- [Network and node info](#network-and-node-information)
+- [Querying](#transaction-and-block-querying)
+- [Logging](#logging-and-data-retrieval)
+- [Debugging](#development-and-debugging-tools)
+- [L1 contracts](#l1-contract-management)
+- [Utils](#utility-commands)
 
-1. [Accounts](#account-management)
-2. [Contract deployments and interaction](#contract-deployment-and-interaction)
-3. [Network and node info](#network-and-node-information)
-4. [Querying](#transaction-and-block-querying)
-5. [Logging](#logging-and-data-retrieval)
-6. [Debugging](#development-and-debugging-tools)
-7. [L1 contracts](#l1-contract-management)
-8. [Utils](#utility-commands)
+## Starting and testing
+
+### start
+
+Initiates various Aztec modules. It can be used to start individual components or the entire Aztec Sandbox.
+
+```
+aztec start [options]
+```
+
+### Options:
+- `-sb, --sandbox`: Starts the Aztec Sandbox.
+- `-p, --port <port>`: Specifies the port to run Aztec on (default: 8080).
+- `-n, --node [options]`: Starts the Aztec Node with specified options.
+- `-px, --pxe [options]`: Starts the PXE (Private eXecution Environment) with specified options.
+- `-a, --archiver [options]`: Starts the Archiver with specified options.
+- `-s, --sequencer [options]`: Starts the Sequencer with specified options.
+- `-r, --prover [options]`: Starts the Prover Agent with specified options.
+- `-o, --prover-node [options]`: Starts the Prover Node with specified options.
+- `-p2p, --p2p-bootstrap [options]`: Starts the P2P Bootstrap node with specified options.
+- `-t, --txe [options]`: Starts the TXE (Transaction Execution Environment) with specified options.
+
+### test
+
+Runs tests written in contracts with `#aztec[test]`.
+
+```
+aztec test [options]
+```
+
+Options:
+- `--silence-warnings`: Silences warnings during the test execution.
+- `--oracle-resolver <url>`: Sets the oracle resolver URL (default: "http://aztec:8081").
+- `--workdir <path>`: Sets the working directory inside the container (default: current directory).
+- `-e, --env <key=value>`: Set environment variables (can be used multiple times).
+- `--no-tty`: Run the container without a TTY.
+- `--rm`: Automatically remove the container when it exits.
+- `-i, --interactive`: Keep STDIN open even if not attached.
+- `-t, --tty`: Allocate a pseudo-TTY.
 
 ## Account Management
 

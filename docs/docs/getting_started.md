@@ -63,7 +63,7 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](./aztec/concepts/pxe/index.md)/
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](./aztec/concepts/pxe/index.md).
 
 ## Update the sandbox
 
