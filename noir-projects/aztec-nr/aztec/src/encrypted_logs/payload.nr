@@ -124,6 +124,9 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
 
 /// Converts a base field elememt to scalar field element.
 /// This is fine because modulus of the base field is smaller than the modulus of the scalar field.
+/// TODO(#7551): Replace the contents of this function with decompose and move the function to scalar.nr
+/// - in plenty of the places we then convert the outputs of decompose(...) to Scalar struct so having
+// this as a utility function would be useful.
 fn fr_to_fq(r: Field) -> Scalar {
     let r_bytes = r.to_be_bytes(32);
 
