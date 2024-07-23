@@ -17,7 +17,7 @@ import {
     Q
 } from "../HonkTypes.sol";
 
-import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, logFr} from "../utils.sol";
+import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {Fr, FrLib} from "../Fr.sol";

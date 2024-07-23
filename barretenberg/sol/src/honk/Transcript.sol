@@ -8,8 +8,6 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "./keys/Add2HonkVerificationKey.sol";
 
-import {logFr} from "./utils.sol";
-
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     Fr eta;
@@ -50,8 +48,6 @@ library TranscriptLib {
         t.zmY = generateZMYChallenge(t.rho, proof);
 
         (t.zmX, t.zmZ) = generateZMXZChallenges(t.zmY, proof);
-
-        logFr("zm z", t.zmZ);
 
         return t;
     }
