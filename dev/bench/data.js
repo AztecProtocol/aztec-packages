@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721748497275,
+  "lastUpdate": 1721751070798,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -92120,6 +92120,78 @@ window.BENCHMARK_DATA = {
             "value": 167411371,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167411371 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a2011e771450f0e7efd49f14cf4515fc602f764",
+          "message": "feat: Make Brillig do integer arithmetic operations using u128 instead of Bigint (#7518)\n\nThis PR:\r\n - Restricts Brillig bit sizes to the ones supported by noir and the AVM\r\n- Avoids using BigInteger, using u128 to represent integers in brillig\r\ninstead\r\n - Fixes a bug in truncate discovered by making bit size an enum\r\n- Removes truncation in brillig_directive_quotient that wasn't needed\r\nanymore\r\n\r\nThis generates a big performance boost, where [this\r\ntest](https://github.com/zac-williamson/noir_bigcurve/blob/main/src/bigcurve_test.nr#L129)\r\nspent 110 seconds running the ACVM before, and 34 seconds after this\r\nchange.\r\n\r\nBefore:\r\n\r\n![image](https://github.com/user-attachments/assets/18ba8cfa-867d-4a68-8d80-fdbda7018bd8)\r\nAfter:\r\n\r\n![image](https://github.com/user-attachments/assets/06b9eb08-5dbc-4be7-9f88-f32065839038)",
+          "timestamp": "2024-07-23T17:49:52+02:00",
+          "tree_id": "cdaacf623b82684280ebb8329bb88cd57bfae5be",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4a2011e771450f0e7efd49f14cf4515fc602f764"
+        },
+        "date": 1721751063664,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 14113.606790999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10131.134515000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4775.482511999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4374.618326 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 41885.984277999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 41885984000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14421.056099000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14421056000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4806408780,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4806408780 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203139990,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203139990 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3950928892,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3950928892 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167400188,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167400188 ns\nthreads: 1"
           }
         ]
       }
