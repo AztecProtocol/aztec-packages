@@ -20,6 +20,7 @@ impl<T, Context> Storage<T> for PrivateSet<T, Context> {}
 impl<Note, Context> PrivateSet<Note, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Point) -> Self {
+        // TODO(#7515): Consider checking that storage_slot is a valid slot on curve
         PrivateSet { context, storage_slot }
     }
     // docs:end:new
