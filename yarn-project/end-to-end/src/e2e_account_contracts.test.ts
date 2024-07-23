@@ -12,6 +12,7 @@ import {
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
@@ -32,6 +33,10 @@ function itShouldBehaveLikeAnAccountContract(
     let logger: DebugLogger;
     let teardown: () => Promise<void>;
 
+    // s1 is the first base slot - base slot is a slot which was derived using the same procedure as is done by aztec
+    // macros - the procedure is `integer * G_slot` where G_slot is a generator used for base slots
+    const s1 = deriveBaseSlot(1);
+
     beforeEach(async () => {
       ({ logger, pxe, teardown } = await setup(0));
       secretKey = Fr.random();
@@ -51,7 +56,7 @@ function itShouldBehaveLikeAnAccountContract(
     it('calls a public function', async () => {
       logger.info('Calling public function...');
       await child.methods.pub_inc_value(42).send().wait({ interval: 0.1 });
-      const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
+      const storedValue = await pxe.getPublicStorageAt(child.address, s1.x);
       expect(storedValue).toEqual(new Fr(42n));
     });
 
