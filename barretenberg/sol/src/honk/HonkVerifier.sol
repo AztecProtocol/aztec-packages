@@ -36,7 +36,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = loadProof(proof);
 
-        if (vk.publicInputsSize != publicInputs.length) {
+        if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();
         }
 

@@ -240,7 +240,7 @@ contract Add2HonkVerifier is IVerifier {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = loadProof(proof);
 
-        if (vk.publicInputsSize != NUMBER_OF_PUBLIC_INPUTS) {
+        if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();
         }
 

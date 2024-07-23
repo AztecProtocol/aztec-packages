@@ -94,7 +94,7 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
-// slices pub input delta: 0x186b4e16fd0c64711ada440240c92e9feb5d2a74491d3f558522a3d59c3a79d2
+
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
