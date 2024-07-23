@@ -33,6 +33,9 @@ impl NoteHeader {
 }
 
 impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
+    /// The following method is used by implementations of the Serialize trait for notes --> the implementation
+    // of the Serialize trait for notes needs to be implemented when the note is passed as an argument to a contract
+    // function --> in that situation the serialize method is called by aztec-nr when computing an arguments hash.
     fn serialize(self) -> [Field; NOTE_HEADER_LENGTH] {
         [self.contract_address.to_field(), self.nonce, self.storage_slot.x, self.storage_slot.y, self.storage_slot.is_infinite as Field, self.note_hash_counter as Field]
     }
