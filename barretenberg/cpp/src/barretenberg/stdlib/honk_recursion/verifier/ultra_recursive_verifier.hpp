@@ -17,7 +17,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using PairingPoints = std::array<GroupElement, 2>;
+    using PairingPoints = aggregation_state<typename Flavor::Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,

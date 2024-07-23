@@ -211,13 +211,13 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    std::array<typename Flavor::GroupElement, 2> pairing_points = verifier.verify_proof(proof_fields);
+    aggregation_state_ct pairing_points = verifier.verify_proof(proof_fields);
 
     // Aggregate the current aggregation object with these pairing points from verify_proof
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
     aggregation_state_ct cur_aggregation_object;
-    cur_aggregation_object.P0 = pairing_points[0]; // * recursion_separator;
-    cur_aggregation_object.P1 = pairing_points[1]; // * recursion_separator;
+    cur_aggregation_object.P0 = pairing_points.P0; // * recursion_separator;
+    cur_aggregation_object.P1 = pairing_points.P1; // * recursion_separator;
 
     std::vector<uint32_t> proof_witness_indices = {
         cur_aggregation_object.P0.x.binary_basis_limbs[0].element.normalize().witness_index,

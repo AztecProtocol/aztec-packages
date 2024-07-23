@@ -24,7 +24,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
+UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const aggregation_state<typename Flavor::Curve>& agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
@@ -36,7 +36,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
+UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& proof, const aggregation_state<typename Flavor::Curve>& agg_obj)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
@@ -68,6 +68,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
         public_inputs.emplace_back(transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i)));
     }
+    // WORKTODO: parse out the aggregation object here
 
     // Get commitments to first three wire polynomials
     commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
@@ -155,7 +156,9 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
                                            transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
-    return pairing_points;
+    // WORKTODO: aggregate here
+    static_cast<void>(pairing_points);
+    return agg_obj;
 }
 
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
