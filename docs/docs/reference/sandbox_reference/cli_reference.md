@@ -27,7 +27,7 @@ Initiates various Aztec modules. It can be used to start individual components o
 aztec start [options]
 ```
 
-### Options:
+Options:
 - `-sb, --sandbox`: Starts the Aztec Sandbox.
 - `-p, --port <port>`: Specifies the port to run Aztec on (default: 8080).
 - `-n, --node [options]`: Starts the Aztec Node with specified options.
