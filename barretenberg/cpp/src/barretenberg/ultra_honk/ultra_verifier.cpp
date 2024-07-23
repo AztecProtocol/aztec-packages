@@ -71,7 +71,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         info("Sumcheck verification failed.");
-        // return false;
+        return false;
     }
 
     // Execute ZeroMorph rounds to produce an opening claim and verify it with a univariate PCS. See
