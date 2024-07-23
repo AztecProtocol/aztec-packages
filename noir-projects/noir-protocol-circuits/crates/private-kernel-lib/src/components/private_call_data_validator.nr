@@ -257,8 +257,10 @@ impl PrivateCallDataValidator {
         let public_inputs = self.data.call_stack_item.public_inputs;
         let call_requests = public_inputs.private_call_requests;
         let num_requests = self.array_lengths.private_call_requests;
+        let mut should_check = true;
         for i in 0..call_requests.len() {
-            if i < num_requests {
+            should_check &= i != num_requests;
+            if should_check {
                 validate_call_context(
                     call_requests[i].contract_address,
                     call_requests[i].call_context,
@@ -290,8 +292,10 @@ impl PrivateCallDataValidator {
         let public_inputs = self.data.call_stack_item.public_inputs;
         let call_requests = self.data.call_stack_item.public_inputs.public_call_requests;
         let num_requests = self.array_lengths.public_call_requests;
+        let mut should_check = true;
         for i in 0..call_requests.len() {
-            if i < num_requests {
+            should_check &= i != num_requests;
+            if should_check {
                 validate_call_context(
                     call_requests[i].item.contract_address,
                     call_requests[i].item.call_context,
