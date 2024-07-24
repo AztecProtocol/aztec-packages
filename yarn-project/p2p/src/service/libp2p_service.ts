@@ -2,6 +2,7 @@ import { type Tx } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { BlockAttestation, BlockProposal } from '@aztec/foundation/sequencer';
 import type { AztecKVStore } from '@aztec/kv-store';
 
 import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -22,6 +23,8 @@ import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 import { AztecTxMessageCreator, fromTxMessage } from './tx_messages.js';
+import { AztecCommitmentMessageCreator } from './z_commitment_message.js';
+import { AztecProposalMessageCreator } from './z_proposal_messages.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -50,6 +53,9 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
 export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private messageCreator: AztecTxMessageCreator;
+  private proposalCreator: AztecProposalMessageCreator;
+  private commitmentCreator: AztecCommitmentMessageCreator;
+
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
   constructor(
@@ -60,6 +66,9 @@ export class LibP2PService implements P2PService {
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.messageCreator = new AztecTxMessageCreator(config.txGossipVersion);
+    this.proposalCreator = new AztecProposalMessageCreator(config.txGossipVersion);
+    this.commitmentCreator = new AztecCommitmentMessageCreator(config.txGossipVersion);
+
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
   }
 
@@ -88,8 +97,15 @@ export class LibP2PService implements P2PService {
     await this.node.start();
     this.logger.info(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
 
+    // TODO(md): subscribe to the multiple topics
+    // TODO(md): handle each proposal message / other message in here
+
     // Subscribe to standard GossipSub topics by default
     this.subscribeToTopic(this.messageCreator.getTopic());
+
+    // Note(md): new
+    this.subscribeToTopic(this.proposalCreator.getTopic());
+    this.subscribeToTopic(this.commitmentCreator.getTopic());
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
@@ -234,13 +250,35 @@ export class LibP2PService implements P2PService {
    * @param data - The message data
    */
   private async handleNewGossipMessage(topic: string, data: Uint8Array) {
+    // TODO(md): add list of multiple topics here
     if (topic !== this.messageCreator.getTopic()) {
       // Invalid TX Topic, ignore
       return;
     }
+    // yuck
+    if (topic !== this.proposalCreator.getTopic() || topic !== this.commitmentCreator.getTopic()) {
+      return;
+    }
 
-    const tx = fromTxMessage(Buffer.from(data));
-    await this.processTxFromPeer(tx);
+    switch (topic) {
+      case this.messageCreator.getTopic(): {
+        const tx = fromTxMessage(Buffer.from(data));
+        await this.processTxFromPeer(tx);
+        break;
+      }
+      case this.proposalCreator.getTopic(): {
+        const proposal = BlockProposal.fromBuffer(Buffer.from(data));
+        await this.processProposalFromPeer(proposal);
+        break;
+      }
+      case this.commitmentCreator.getTopic(): {
+        const attestation = BlockAttestation.fromBuffer(Buffer.from(data));
+        await this.processCommitmentFromPeer(attestation);
+        break;
+      }
+    }
+    // const tx = fromTxMessage(Buffer.from(data));
+    // await this.processTxFromPeer(tx);
   }
 
   /**
@@ -248,7 +286,17 @@ export class LibP2PService implements P2PService {
    * @param tx - The transaction to propagate.
    */
   public propagateTx(tx: Tx): void {
+    // TODO(md): this is where it would be best that this is somewhat generic over the message that is received
     void this.jobQueue.put(() => Promise.resolve(this.sendTxToPeers(tx)));
+  }
+
+  // TODO(md): make generic to propagate
+  public propagateProposal(proposal: BlockProposal): void {
+    void this.jobQueue.put(() => Promise.resolve(this.sendProposalToPeers(proposal)));
+  }
+
+  public propagateAttestation(attestation: BlockAttestation): void {
+    void this.jobQueue.put(() => Promise.resolve(this.sendAttestationToPeers(attestation)));
   }
 
   private async processTxFromPeer(tx: Tx): Promise<void> {
@@ -258,11 +306,37 @@ export class LibP2PService implements P2PService {
     await this.txPool.addTxs([tx]);
   }
 
+  private async processProposalFromPeer(proposal: BlockProposal): Promise<void> {
+    this.logger.verbose('Received block proposal from external peer');
+    // TODO: impl
+  }
+
+  private async processCommitmentFromPeer(commitment: BlockAttestation): Promise<void> {
+    this.logger.verbose('Received block commitment from external peer');
+    // TODO: impl
+  }
+
+  // TODO(md): make generic
   private async sendTxToPeers(tx: Tx) {
     const { data: txData } = this.messageCreator.createTxMessage(tx);
     this.logger.verbose(`Sending tx ${tx.getTxHash().toString()} to peers`);
     const recipientsNum = await this.publishToTopic(this.messageCreator.getTopic(), txData);
     this.logger.verbose(`Sent tx ${tx.getTxHash().toString()} to ${recipientsNum} peers`);
+  }
+
+  private async sendProposalToPeers(proposal: BlockProposal) {
+    const { data: proposalData } = this.proposalCreator.createProposalMessage(proposal);
+    this.logger.verbose('Sending proposal to peers');
+    const recipientsNum = await this.publishToTopic(this.proposalCreator.getTopic(), proposalData);
+    this.logger.verbose(`Sent to ${recipientsNum} peers`);
+  }
+
+  // TODO(md): rename things from Commitment to attestation
+  private async sendAttestationToPeers(attestation: BlockAttestation) {
+    const { data: attestationData } = this.commitmentCreator.createAttestationMessage(attestation);
+    this.logger.verbose('Sending attestation to peers');
+    const recipientsNum = await this.publishToTopic(this.commitmentCreator.getTopic(), attestationData);
+    this.logger.verbose(`Sent to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

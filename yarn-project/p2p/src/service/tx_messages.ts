@@ -6,6 +6,8 @@ import { type SemVer } from 'semver';
 
 export const TX_MESSAGE_TOPIC = '';
 
+// NOTE(Md): I think that all of this code could be wrapped in a serialize / deserialize interface that can be implemented for all messages
+// With a message type index that tells the general implementation how to encode / decode messages - wait, this is what the topic really does
 export class AztecTxMessageCreator {
   private readonly topic: string;
   constructor(version: SemVer) {
@@ -65,6 +67,7 @@ export function toTxMessage(tx: Tx): Buffer {
     const allComponents = Buffer.concat(obj.map(createMessageComponent));
     return Buffer.concat([numToUInt32BE(obj.length), allComponents]);
   };
+  // TODO(md): Why is this different than the classic serde for sending over the wire through the cbinds??
   const messageBuffer = Buffer.concat([
     createMessageComponent(tx.data),
     createMessageComponent(tx.clientIvcProof),

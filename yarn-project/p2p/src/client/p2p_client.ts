@@ -1,6 +1,7 @@
 import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { BlockAttestation, BlockProposal } from '@aztec/foundation/sequencer';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
 import { getP2PConfigEnvVars } from '../config.js';
@@ -35,6 +36,10 @@ export interface P2PSyncState {
  * Interface of a P2P client.
  **/
 export interface P2P {
+  // We want to be able to gossip attestations and proposals across the p2p network
+  sendAttestation(attestation: BlockAttestation): Promise<void>;
+  sendProposal(proposal: BlockProposal): Promise<void>;
+
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
@@ -262,6 +267,26 @@ export class P2PClient implements P2P {
     }
     await this.txPool.addTxs([tx]);
     this.p2pService.propagateTx(tx);
+  }
+
+  public async sendProposal(proposal: BlockProposal): Promise<void> {
+    const ready = await this.isReady();
+    if (!ready) {
+      throw new Error('P2P client not ready');
+    }
+    // TODO(md): we are only propogating proposals for now
+    this.p2pService.propagateProposal(proposal);
+  }
+
+  public async sendAttestation(attestation: BlockAttestation): Promise<void> {
+    const ready = await this.isReady();
+    if (!ready) {
+      throw new Error('P2P client not ready');
+    }
+    // TODO(md): we are only propogating attestations for now
+    // However, if we are the sqwemencher we want to hold onto them
+    // Anyway, this wouldnt happen at this layer of abstraction
+    this.p2pService.propagateAttestation(attestation);
   }
 
   /**

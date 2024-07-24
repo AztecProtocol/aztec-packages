@@ -1,4 +1,5 @@
 import type { Tx } from '@aztec/circuit-types';
+import { BlockAttestation, BlockProposal } from '@aztec/foundation/sequencer';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
@@ -30,6 +31,11 @@ export interface P2PService {
    * @param tx - The transaction to be propagated.
    */
   propagateTx(tx: Tx): void;
+
+  // DO we want to be able to propagate more than just transactions, in which case this interface is not enough to suit our needs?
+  // We could make a sum type of Tx | Proposal | Attestation that could just be forwarded without much thought
+  propagateProposal(proposal: BlockProposal): void;
+  propagateAttestation(attestation: BlockAttestation): void;
 }
 
 /**

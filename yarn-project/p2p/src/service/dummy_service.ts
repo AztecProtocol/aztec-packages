@@ -1,4 +1,5 @@
 import type { Tx, TxHash } from '@aztec/circuit-types';
+import { BlockAttestation, BlockProposal } from '@aztec/foundation/sequencer';
 
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
@@ -30,6 +31,9 @@ export class DummyP2PService implements P2PService {
    * @param _ - The transaction to be propagated.
    */
   public propagateTx(_: Tx) {}
+
+  public propagateProposal(_: BlockProposal) {}
+  public propagateAttestation(_: BlockAttestation) {}
 
   /**
    * Called upon receipt of settled transactions.
