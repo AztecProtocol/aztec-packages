@@ -48,8 +48,6 @@ aztec test [options]
 ```
 
 Options:
-- `--silence-warnings`: Silences warnings during the test execution.
-- `--oracle-resolver <url>`: Sets the oracle resolver URL (default: "http://aztec:8081").
 - `--workdir <path>`: Sets the working directory inside the container (default: current directory).
 - `-e, --env <key=value>`: Set environment variables (can be used multiple times).
 - `--no-tty`: Run the container without a TTY.

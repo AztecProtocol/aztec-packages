@@ -23,11 +23,9 @@ bash -i <(curl -s install.aztec.network)
 
 This will install the following tools:
 
-- **aztec** - launches various infrastructure subsystems (sequencer, prover, pxe, etc).
+- **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
-- **aztec sandbox** - a wrapper around docker-compose that launches services needed for sandbox testing.
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
-- **aztec cli** - A useful tool for projects to generate ABIs and update their dependencies.
 
 Once these have been installed, to start the sandbox, run:
 
