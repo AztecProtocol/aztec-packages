@@ -102,7 +102,7 @@ resource "aws_ecs_task_definition" "aztec_grafana" {
 [
   {
     "name": "aztec-grafana",
-    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-grafana:latest",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-grafana@sha256:f7fbce21ba639992665fd8c24fbd33f3909605c148474d265ea648eaf69879d3",
     "essential": true,
     "memoryReservation": 256,
     "portMappings": [
@@ -225,7 +225,7 @@ data "aws_alb" "aztec2" {
 # API grafana DNS entry.
 resource "aws_route53_record" "metrics" {
   zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
-  name    = "aztec-grafana"
+  name    = "grafana"
   type    = "A"
   alias {
     name                   = data.aws_alb.aztec2.dns_name
