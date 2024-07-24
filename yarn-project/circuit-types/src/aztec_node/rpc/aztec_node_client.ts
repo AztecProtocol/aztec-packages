@@ -2,7 +2,7 @@ import { FunctionSelector, Header } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { type AztecNode } from '../../interfaces/aztec-node.js';
@@ -42,6 +42,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       TxHash,
       PublicDataWitness,
       SiblingPath,
+      Point,
     },
     {
       EncryptedNoteL2BlockL2Logs,
