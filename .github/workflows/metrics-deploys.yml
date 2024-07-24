@@ -61,6 +61,13 @@ jobs:
           docker build -t aztecprotocol/aztec-grafana .
           docker push aztecprotocol/aztec-grafana
 
+      - name: Build & push open telemetry
+        working-directory: ./metrics/otel
+        if: steps.check_metrics_changes.outputs.result == 'true'
+        run: |
+          docker build -t aztecprotocol/aztec-otel .
+          docker push aztecprotocol/aztec-otel
+
   terraform_deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -91,4 +98,10 @@ jobs:
         working-directory: ./metrics/grafana/terraform
         run: |
           terraform init -input=false -backend-config="key=aztec-grafana"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy open telemetry
+        working-directory: ./metrics/otel/terraform
+        run: |
+          terraform init -input=false -backend-config="key=aztec-otel"
           terraform apply -input=false -auto-approve

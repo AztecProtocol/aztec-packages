@@ -160,11 +160,11 @@ resource "aws_ecs_service" "grafana" {
     security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
   }
 
-  load_balancer {
-    target_group_arn = aws_alb_target_group.grafana.arn
-    container_name   = "aztec-grafana"
-    container_port   = 80
-  }
+  # load_balancer {
+  #   target_group_arn = aws_alb_target_group.grafana.arn
+  #   container_name   = "aztec-grafana"
+  #   container_port   = 80
+  # }
 
   service_registries {
     registry_arn = aws_service_discovery_service.grafana.arn
@@ -179,57 +179,57 @@ resource "aws_cloudwatch_log_group" "grafana_logs" {
   retention_in_days = "14"
 }
 
-# Configure ALB to route metrics.aztec.network to grafana.
-resource "aws_alb_target_group" "grafana" {
-  name                 = "aztec-grafana"
-  port                 = "80"
-  protocol             = "HTTP"
-  target_type          = "ip"
-  vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
-  deregistration_delay = 5
+# # Configure ALB to route metrics.aztec.network to grafana.
+# resource "aws_alb_target_group" "grafana" {
+#   name                 = "aztec-grafana"
+#   port                 = "80"
+#   protocol             = "HTTP"
+#   target_type          = "ip"
+#   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
+#   deregistration_delay = 5
 
-  health_check {
-    path                = "/"
-    matcher             = "302"
-    interval            = 10
-    healthy_threshold   = 2
-    unhealthy_threshold = 5
-    timeout             = 3
-  }
+#   health_check {
+#     path                = "/"
+#     matcher             = "302"
+#     interval            = 10
+#     healthy_threshold   = 2
+#     unhealthy_threshold = 5
+#     timeout             = 3
+#   }
 
-  tags = {
-    name = "grafana"
-  }
-}
+#   tags = {
+#     name = "grafana"
+#   }
+# }
 
-resource "aws_lb_listener_rule" "api" {
-  listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
-  priority     = 300
+# resource "aws_lb_listener_rule" "api" {
+#   listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
+#   priority     = 300
 
-  action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.grafana.arn
-  }
+#   action {
+#     type             = "forward"
+#     target_group_arn = aws_alb_target_group.grafana.arn
+#   }
 
-  condition {
-    host_header {
-      values = ["metrics.aztec.network"]
-    }
-  }
-}
+#   condition {
+#     host_header {
+#       values = ["metrics.aztec.network"]
+#     }
+#   }
+# }
 
-data "aws_alb" "aztec2" {
-  arn = data.terraform_remote_state.aztec2_iac.outputs.alb_arn
-}
+# data "aws_alb" "aztec2" {
+#   arn = data.terraform_remote_state.aztec2_iac.outputs.alb_arn
+# }
 
-# API metrics DNS entry.
-resource "aws_route53_record" "metrics" {
-  zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
-  name    = "metrics"
-  type    = "A"
-  alias {
-    name                   = data.aws_alb.aztec2.dns_name
-    zone_id                = data.aws_alb.aztec2.zone_id
-    evaluate_target_health = true
-  }
-}
+# # API metrics DNS entry.
+# resource "aws_route53_record" "metrics" {
+#   zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
+#   name    = "metrics"
+#   type    = "A"
+#   alias {
+#     name                   = data.aws_alb.aztec2.dns_name
+#     zone_id                = data.aws_alb.aztec2.zone_id
+#     evaluate_target_health = true
+#   }
+# }
