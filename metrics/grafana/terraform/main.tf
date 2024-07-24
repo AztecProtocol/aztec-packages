@@ -179,7 +179,7 @@ resource "aws_cloudwatch_log_group" "aztec_grafana_logs" {
   retention_in_days = "14"
 }
 
-# Configure ALB to route metrics.aztec.network to grafana.
+# Configure ALB to route grafana.aztec.network to grafana.
 resource "aws_alb_target_group" "aztec_grafana" {
   name                 = "aztec-grafana"
   port                 = "80"
