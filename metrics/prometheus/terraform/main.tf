@@ -154,7 +154,7 @@ data "aws_ecs_task_definition" "prometheus" {
 }
 
 resource "aws_ecs_service" "prometheus" {
-  name                               = "aztec-prometheus"
+  name                               = "prometheus"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = "1"
