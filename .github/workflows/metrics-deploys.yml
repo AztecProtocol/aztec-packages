@@ -32,13 +32,8 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
+          concurrency_key: build-metrics-${{ github.actor }}
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-      - name: "Build & Push aztec metrics images"
-        timeout-minutes: 40
-        run: |
-          earthly-ci \
-          --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
 
       - name: Check if metrics have changed
         id: check_metrics_changes
