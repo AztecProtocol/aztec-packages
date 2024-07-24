@@ -35,7 +35,7 @@ provider "aws" {
 }
 
 resource "aws_service_discovery_service" "prometheus" {
-  name = "prometheus"
+  name = "aztec-prometheus"
 
   health_check_custom_config {
     failure_threshold = 1
@@ -55,10 +55,10 @@ resource "aws_service_discovery_service" "prometheus" {
 
 # Configure an EFS filesystem.
 resource "aws_efs_file_system" "prometheus_data_store" {
-  creation_token = "prometheus-data-store"
+  creation_token = "aztec-prometheus-data-store"
 
   tags = {
-    Name = "prometheus-data-store"
+    Name = "aztec-prometheus-data-store"
   }
 
   lifecycle_policy {
@@ -103,7 +103,7 @@ resource "aws_efs_mount_target" "private_az2" {
 
 # Define task definition and service.
 resource "aws_ecs_task_definition" "prometheus" {
-  family                   = "prometheus"
+  family                   = "aztec-prometheus"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "2048"
@@ -112,7 +112,7 @@ resource "aws_ecs_task_definition" "prometheus" {
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
 
   volume {
-    name = "prometheus-efs-data-store"
+    name = "aztec-prometheus-efs-data-store"
     efs_volume_configuration {
       file_system_id = aws_efs_file_system.prometheus_data_store.id
     }
@@ -121,7 +121,7 @@ resource "aws_ecs_task_definition" "prometheus" {
   container_definitions = <<DEFINITIONS
 [
   {
-    "name": "prometheus",
+    "name": "aztec-prometheus",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec-prometheus:latest",
     "essential": true,
     "memoryReservation": 256,
@@ -133,13 +133,13 @@ resource "aws_ecs_task_definition" "prometheus" {
     "mountPoints": [
       {
         "containerPath": "/prometheus",
-        "sourceVolume": "prometheus-efs-data-store"
+        "sourceVolume": "aztec-prometheus-efs-data-store"
       }
     ],
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-        "awslogs-group": "/fargate/service/prometheus",
+        "awslogs-group": "/fargate/service/aztec-prometheus",
         "awslogs-region": "eu-west-2",
         "awslogs-stream-prefix": "ecs"
       }
@@ -154,7 +154,7 @@ data "aws_ecs_task_definition" "prometheus" {
 }
 
 resource "aws_ecs_service" "prometheus" {
-  name                               = "prometheus"
+  name                               = "aztec-prometheus"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "FARGATE"
   desired_count                      = "1"
@@ -179,6 +179,6 @@ resource "aws_ecs_service" "prometheus" {
 
 # Logs
 resource "aws_cloudwatch_log_group" "prometheus_logs" {
-  name              = "/fargate/service/prometheus"
+  name              = "/fargate/service/aztec-prometheus"
   retention_in_days = "14"
 }
