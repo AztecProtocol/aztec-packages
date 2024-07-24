@@ -162,18 +162,18 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
   program
     .command('get-l1-balance')
-    .description('Gets the balance of gas tokens in L1 for the given Ethereum address.')
+    .description('Gets the balance of an ERC token in L1 for the given Ethereum address.')
     .argument('<who>', 'Ethereum address to check.', parseEthereumAddress)
     .requiredOption(
       '--l1-rpc-url <string>',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .addOption(pxeOption)
+    .requiredOption('-t, --token <string>', 'The address of the token to check the balance of', parseEthereumAddress)
     .addOption(l1ChainIdOption)
     .action(async (who, options) => {
       const { getL1Balance } = await import('./get_l1_balance.js');
-      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.l1ChainId, log, debugLogger);
+      await getL1Balance(who, options.token, options.l1RpcUrl, options.l1ChainId, log);
     });
 
   return program;
