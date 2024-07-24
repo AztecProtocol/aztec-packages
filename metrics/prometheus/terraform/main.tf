@@ -79,27 +79,27 @@ resource "aws_efs_mount_target" "private_az2" {
 }
 
 # Create role with EC2 read only access.
-data "aws_iam_policy_document" "ecs_task" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
+# data "aws_iam_policy_document" "ecs_task" {
+#   statement {
+#     effect  = "Allow"
+#     actions = ["sts:AssumeRole"]
 
-    principals {
-      type        = "Service"
-      identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-  }
-}
+#     principals {
+#       type        = "Service"
+#       identifiers = ["ecs-tasks.amazonaws.com"]
+#     }
+#   }
+# }
 
-resource "aws_iam_role" "prometheus_task_role" {
-  name               = "prometheus-task-role"
-  assume_role_policy = data.aws_iam_policy_document.ecs_task.json
-}
+# resource "aws_iam_role" "prometheus_task_role" {
+#   name               = "prometheus-task-role"
+#   assume_role_policy = data.aws_iam_policy_document.ecs_task.json
+# }
 
-resource "aws_iam_role_policy_attachment" "ec2_read_only_attachment" {
-  role       = aws_iam_role.prometheus_task_role.id
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
-}
+# resource "aws_iam_role_policy_attachment" "ec2_read_only_attachment" {
+#   role       = aws_iam_role.prometheus_task_role.id
+#   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
+# }
 
 # Define task definition and service.
 resource "aws_ecs_task_definition" "prometheus" {
@@ -109,7 +109,7 @@ resource "aws_ecs_task_definition" "prometheus" {
   cpu                      = "2048"
   memory                   = "4096"
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
-  task_role_arn            = aws_iam_role.prometheus_task_role.arn
+  task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
 
   volume {
     name = "prometheus-efs-data-store"
