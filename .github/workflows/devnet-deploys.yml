@@ -20,7 +20,6 @@ env:
   TF_VAR_BOOTNODE_1_PRIVATE_KEY: ${{ secrets.BOOTNODE_1_PRIVATE_KEY }}
   TF_VAR_BOOTNODE_2_PRIVATE_KEY: ${{ secrets.BOOTNODE_2_PRIVATE_KEY }}
   TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}
-  TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_2_PUBLISHER_PRIVATE_KEY }}
   TF_VAR_DEPLOY_TAG: devnet
   TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
@@ -90,11 +89,11 @@ jobs:
           aws-region: eu-west-2
 
       - name: Deploy mainnet fork
-        if: false
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.aztec_mainnet_fork_data_store" -replace="aws_efs_mount_target.aztec_fork_private_az1" -replace="aws_efs_mount_target.aztec_fork_private_az2"
+          terraform apply -input=false -auto-approve -destroy
+          terraform apply -input=false -auto-approve
 
       - name: Wait for mainnet fork deployment
         run: |
