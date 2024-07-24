@@ -105,6 +105,9 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
   cpu                      = "2048"
   memory                   = "4096"
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
+  depends_on = [
+    aws_efs_file_system.aztec_mainnet_fork_data_store
+  ]
 
   volume {
     name = "efs-data-store"
