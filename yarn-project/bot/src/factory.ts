@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AccountWallet, BatchCall, createDebugLogger, createPXEClient } from '@aztec/aztec.js';
 import { type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type BotConfig } from './config.js';

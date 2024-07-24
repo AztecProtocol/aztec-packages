@@ -34,13 +34,9 @@ export function getBotConfigFromEnv(): BotConfig {
     throw new Error(`Invalid bot fee payment method: ${BOT_FEE_PAYMENT_METHOD}`);
   }
 
-  if (!BOT_PRIVATE_KEY) {
-    throw new Error('Bot private key is required');
-  }
-
   return getBotDefaultConfig({
     pxeUrl: process.env.BOT_PXE_URL,
-    senderPrivateKey: Fr.fromString(BOT_PRIVATE_KEY),
+    senderPrivateKey: BOT_PRIVATE_KEY ? Fr.fromString(BOT_PRIVATE_KEY) : undefined,
     recipientEncryptionSecret: BOT_RECIPIENT_ENCRYPTION_SECRET
       ? Fr.fromString(BOT_RECIPIENT_ENCRYPTION_SECRET)
       : undefined,
