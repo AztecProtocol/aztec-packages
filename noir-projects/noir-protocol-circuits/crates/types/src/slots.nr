@@ -7,6 +7,12 @@ global S1 = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca
 global S2 = Point { x: 0x047df3ac2425b3359b582a5fd340168c9dca8a0c0ef63af0ba97d2d3b3adda52, y: 0x23c4574a895a4ef693c02df3411bca997185cd677ae4af6f6b4a313a14c943a3, is_infinite: false };
 global S3 = Point { x: 0x224de6d3e4c26e053b190add588b5800bc5063bd702caa096602af74fac60f04, y: 0x0d64bbdb6d5e279cb6a056d24b5c2fc0cec91c11ce7034406f5181af13149245, is_infinite: false };
 
+// The following is used in public state variables to compute an initialization slot whose value is used to
+// determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
+// The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
+// to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
+global INITIALIZATION_CONTRACT_STORAGE_INDEX_SEPARATOR: Field = 1000_000_000;
+
 // The following is a function used to derive base slots. Base slots are slots which were derived using
 // the `integer * G_base_slot` formula. These slots are typically assigned by aztec macros to state variables in
 // `Storage` struct when compiling a contract.

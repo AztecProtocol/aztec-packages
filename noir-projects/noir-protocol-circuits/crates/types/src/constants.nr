@@ -125,11 +125,6 @@ global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 global ARGS_HASH_CHUNK_LENGTH: u32 = 16;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 global MAX_ARGS_LENGTH: u32 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
-// The following is used in immutable state variables to compute an initialization slot whose value is used to
-// determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
-// The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
-// to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
-global INITIALIZATION_CONTRACT_STORAGE_INDEX_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 
