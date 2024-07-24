@@ -1,4 +1,5 @@
 import { type AztecAddress, BatchCall, Fr, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 
 import { NestedContractTest } from './nested_contract_test.js';
 
@@ -7,7 +8,8 @@ describe('e2e_nested_contract manual', () => {
   let wallet: Wallet;
   let { wallets, pxe, parentContract, childContract } = t;
 
-  const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    pxe.getPublicStorageAt(child.address, deriveBaseSlot(1).x);
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
