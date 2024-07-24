@@ -155,6 +155,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       );
     });
 
+  program.command('create-l1-account').action(async () => {
+    const { createL1Account } = await import('./create_l1_account.js');
+    createL1Account(log);
+  });
+
   program
     .command('get-l1-balance')
     .description('Gets the balance of gas tokens in L1 for the given Ethereum address.')
