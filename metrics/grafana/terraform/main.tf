@@ -110,14 +110,14 @@ resource "aws_ecs_task_definition" "grafana" {
         "containerPort": 80
       }
     ],
-    environment = [
+    "environment": [
       {
-        name  = "GF_AUTH_GITHUB_CLIENT_ID"
-        value = "${var.GRAFANA_CLIENT_ID}"
+        "name": "GF_AUTH_GITHUB_CLIENT_ID",
+        "value": "${var.GRAFANA_CLIENT_ID}"
       },
       {
-        name  = "GF_AUTH_GITHUB_CLIENT_SECRET"
-        value = "${var.GRAFANA_CLIENT_SECRET}"
+        "name": "GF_AUTH_GITHUB_CLIENT_SECRET",
+        "value": "${var.GRAFANA_CLIENT_SECRET}"
       }
     ],
     "mountPoints": [
