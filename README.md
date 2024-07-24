@@ -23,7 +23,7 @@ Want to start quickly? Get started in minutes with a free Github Codespace.
 
 ## Issues Board
 
-All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/misc/roadmap/main) section of our docs.
+All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/aztec/roadmap) section of our docs.
 
 ## Development Setup
 
