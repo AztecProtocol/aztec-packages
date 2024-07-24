@@ -43,7 +43,7 @@ jobs:
             const { execSync } = require('child_process');
             const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
             const fileChanged = changedFiles.some(file => file.startsWith('metrics'));
-            return true
+            return fileChanged
 
       - name: Build & push prometheus
         working-directory: ./metrics/prometheus
