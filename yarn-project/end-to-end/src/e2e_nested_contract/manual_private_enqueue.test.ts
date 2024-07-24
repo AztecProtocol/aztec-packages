@@ -1,4 +1,5 @@
 import { type AztecAddress, Fr } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts.js';
 
 import { NestedContractTest } from './nested_contract_test.js';
@@ -7,7 +8,8 @@ describe('e2e_nested_contract manual_enqueue', () => {
   const t = new NestedContractTest('manual_enqueue');
   let { wallets, pxe, parentContract, childContract } = t;
 
-  const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    pxe.getPublicStorageAt(child.address, deriveBaseSlot(1).x);
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
