@@ -12,10 +12,10 @@ env:
   GIT_COMMIT: ${{ github.sha }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  GRAFANA_CLIENT_ID: ${{ secrets.GRAFANA_CLIENT_ID }}
-  GRAFANA_CLIENT_SECRET: ${{ secrets.GRAFANA_CLIENT_SECRET }}
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
+  TF_VAR_GRAFANA_CLIENT_ID: ${{ secrets.GRAFANA_CLIENT_ID }}
+  TF_VAR_GRAFANA_CLIENT_SECRET: ${{ secrets.GRAFANA_CLIENT_SECRET }}
 
 jobs:
   setup:
@@ -58,7 +58,6 @@ jobs:
         working-directory: ./metrics/grafana
         if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
-          ./replace_secrets.sh $GRAFANA_CLIENT_ID $GRAFANA_CLIENT_SECRET
           docker build -t aztecprotocol/aztec-grafana .
           docker push aztecprotocol/aztec-grafana
 
