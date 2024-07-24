@@ -1,19 +1,24 @@
-import { fileURLToPath } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createPXEClient, fileURLToPath } from '@aztec/aztec.js';
+import { pxeOption } from '@aztec/cli/utils';
+import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
+import { injectCommands } from '../cmds/index.js';
+
+const userLog = createConsoleLogger();
 const debugLogger = createDebugLogger('aztec:wallet');
 
-/** CLI & full node main entrypoint */
+/** CLI wallet main entrypoint */
 async function main() {
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const walletVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
   let program = new Command('wallet');
-  program.description('Aztec wallet').version(walletVersion);
+  program.description('Aztec wallet').version(walletVersion).addOption(pxeOption);
 
+  await injectCommands(program, userLog, debugLogger);
   await program.parseAsync(process.argv);
 }
 

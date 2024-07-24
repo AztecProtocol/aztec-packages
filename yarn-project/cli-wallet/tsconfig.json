@@ -7,6 +7,15 @@
   },
   "references": [
     {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../cli"
+    },
+    {
       "path": "../foundation"
     }
   ],

@@ -8,7 +8,8 @@
     "./infrastructure": "./dest/cmds/infrastructure/index.js",
     "./l1": "./dest/cmds/l1/index.js",
     "./pxe": "./dest/cmds/pxe/index.js",
-    "./utils": "./dest/cmds/utils/index.js"
+    "./misc": "./dest/cmds/misc/index.js",
+    "./utils": "./dest/utils/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

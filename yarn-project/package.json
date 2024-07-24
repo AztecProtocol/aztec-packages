@@ -32,6 +32,7 @@
     "circuits.js",
     "circuit-types",
     "cli",
+    "cli-wallet",
     "docs",
     "end-to-end",
     "entrypoints",
@@ -53,7 +54,6 @@
     "scripts",
     "types",
     "txe",
-    "wallet",
     "world-state",
     "telemetry-client"
   ],

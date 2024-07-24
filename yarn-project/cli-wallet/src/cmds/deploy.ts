@@ -1,13 +1,10 @@
-import { ContractDeployer, type DeployMethod, Fr } from '@aztec/aztec.js';
+import { ContractDeployer, type DeployMethod, Fr, createCompatibleClient } from '@aztec/aztec.js';
 import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
+import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { createCompatibleClient } from '../../client.js';
-import { encodeArgs } from '../../encoding.js';
-import { type IFeeOpts, printGasEstimates } from '../../fees.js';
-import { GITHUB_TAG_PREFIX } from '../../github.js';
-import { getContractArtifact } from '../../utils/aztec.js';
+import { type IFeeOpts, printGasEstimates } from '../fees.js';
 
 export async function deploy(
   artifactPath: string,

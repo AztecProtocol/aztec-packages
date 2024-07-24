@@ -3,8 +3,8 @@ import { injectCommands as injectBuilderCommands } from '@aztec/cli/builder';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
+import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
-import { injectCommands as injectUtilsCommands } from '@aztec/cli/utils';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
@@ -28,7 +28,7 @@ async function main() {
   program = injectInfrastructureCommands(program, userLog, debugLogger);
   program = injectL1Commands(program, userLog, debugLogger);
   program = injectPXECommands(program, userLog, debugLogger);
-  program = injectUtilsCommands(program, userLog);
+  program = injectMiscCommands(program, userLog);
 
   await program.parseAsync(process.argv);
 }

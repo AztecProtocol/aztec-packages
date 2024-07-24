@@ -1,10 +1,9 @@
-import { type DeployAccountOptions } from '@aztec/aztec.js';
+import { type DeployAccountOptions, createCompatibleClient } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { createCompatibleClient } from '../../client.js';
-import { type IFeeOpts, printGasEstimates } from '../../fees.js';
+import { type IFeeOpts, printGasEstimates } from '../fees.js';
 
 export async function createAccount(
   rpcUrl: string,

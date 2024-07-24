@@ -1,10 +1,10 @@
 import { type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
+import { createCompatibleClient } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { createCompatibleClient } from '../../client.js';
-import { type IFeeOpts, printGasEstimates } from '../../fees.js';
-import { prepTx } from '../../utils/aztec.js';
+import { prepTx } from '../../../cli/src/utils/aztec.js';
+import { type IFeeOpts, printGasEstimates } from '../fees.js';
 
 export async function send(
   functionName: string,
