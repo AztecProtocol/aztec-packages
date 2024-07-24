@@ -35,7 +35,7 @@ provider "aws" {
 }
 
 resource "aws_service_discovery_service" "prometheus" {
-  name = "aztec-prometheus"
+  name = "prometheus"
 
   health_check_custom_config {
     failure_threshold = 1
