@@ -199,7 +199,7 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('load public', async () => {
-      expect(await cc.aztec.loadPublic(token.address, 1n)).toEqual(admin.address.toField());
+      expect(await cc.aztec.loadPublic(token.address, deriveBaseSlot(1n).x)).toEqual(admin.address.toField());
     });
 
     it('load public returns 0 for non existent value', async () => {
