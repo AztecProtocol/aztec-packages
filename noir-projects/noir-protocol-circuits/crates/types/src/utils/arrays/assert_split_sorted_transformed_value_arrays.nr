@@ -5,7 +5,7 @@ use crate::{
 
 // original_array must be valid, i.e. validate_array(original_array) == true
 // transformed_value_array must be verified against original_array before calling this function.
-fn assert_split_sorted_transformed_value_arrays<T, S, N>(
+fn assert_split_sorted_transformed_value_arrays<T, S, let N: u32>(
     original_array: [T; N],
     transformed_value_array: [S; N],
     split_counter: u32,
@@ -28,27 +28,34 @@ fn assert_split_sorted_transformed_value_arrays<T, S, N>(
             let original = original_array[i];
             let value = transformed_value_array[i];
             let sorted_index = index_hints[i];
-            let is_lt = (original.counter() < split_counter) | (original.counter() == 0); // If counter is 0, the value should always be in the lt(non-revertible) set. Currently this only applies to the first nullifier.
-            let mut sorted_array = sorted_transformed_value_array_gte;
-            let mut sorted_counters = sorted_counters_gte;
-            let mut num = num_gte;
-            if is_lt {
-                sorted_array = sorted_transformed_value_array_lt;
-                sorted_counters = sorted_counters_lt;
-                num = num_lt;
+            let is_lt = original.counter() < split_counter;
+            let (sorted_value, sorted_counter) = if is_lt {
+                (sorted_transformed_value_array_lt[sorted_index], sorted_counters_lt[sorted_index])
+            } else {
+                (sorted_transformed_value_array_gte[sorted_index], sorted_counters_gte[sorted_index])
             };
-            assert_eq(value, sorted_array[sorted_index], "mismatch sorted values");
-            assert_eq(original.counter(), sorted_counters[sorted_index], "mismatch counters");
-            if num != 0 {
-                let is_incrementing = sorted_counters[num] > sorted_counters[num - 1];
-                assert(ascending == is_incrementing, "value array must be sorted by counter");
-                assert(sorted_counters[num] != sorted_counters[num - 1], "counters must not be the same");
-            }
+            assert_eq(value, sorted_value, "mismatch sorted values");
+            assert_eq(original.counter(), sorted_counter, "mismatch counters");
             if is_lt {
                 num_lt += 1;
             } else {
                 num_gte += 1;
             }
+        }
+    }
+
+    for i in 1..N {
+        if i < num_lt {
+            let counter = sorted_counters_lt[i];
+            let prev_counter = sorted_counters_lt[i - 1];
+            assert(ascending == (counter > prev_counter), "value array must be sorted by counter");
+            assert(counter != prev_counter, "counters must not be the same");
+        }
+        if i < num_gte {
+            let counter = sorted_counters_gte[i];
+            let prev_counter = sorted_counters_gte[i - 1];
+            assert(ascending == (counter > prev_counter), "value array must be sorted by counter");
+            assert(counter != prev_counter, "counters must not be the same");
         }
     }
 
@@ -59,7 +66,7 @@ fn assert_split_sorted_transformed_value_arrays<T, S, N>(
     assert_eq(num_non_empty_values_gte, num_gte, "mismatch number of values gte");
 }
 
-pub fn assert_split_sorted_transformed_value_arrays_asc<T, S, N>(
+pub fn assert_split_sorted_transformed_value_arrays_asc<T, S, let N: u32>(
     original_array: [T; N],
     transformed_value_array: [S; N],
     split_counter: u32,
@@ -80,7 +87,7 @@ pub fn assert_split_sorted_transformed_value_arrays_asc<T, S, N>(
     );
 }
 
-pub fn assert_split_sorted_transformed_value_arrays_desc<T, S, N>(
+pub fn assert_split_sorted_transformed_value_arrays_desc<T, S, let N: u32>(
     original_array: [T; N],
     transformed_value_array: [S; N],
     split_counter: u32,
@@ -167,7 +174,7 @@ mod tests {
         TestItem::empty()
     ];
 
-    struct TestDataBuilder<T, S, N> {
+    struct TestDataBuilder<T, S, let N: u32> {
         original_array: [T; N],
         transformed_value_array: [S; N],
         sorted_transformed_value_array_lt: [S; N],
@@ -272,50 +279,6 @@ mod tests {
             }
         }
 
-        pub fn with_zero_split_counter(&mut self) -> Self {
-            self.split_counter = 0;
-
-            if self.ascending {
-                self.sorted_transformed_value_array_gte = [
-                    TestValue { name: 2, total: 27 },
-                    TestValue { name: 4, total: 49 },
-                    TestValue { name: 0, total: 1 },
-                    TestValue { name: 1, total: 16 },
-                    TestValue::empty(),
-                    TestValue::empty(),
-                    TestValue::empty(),
-                    TestValue::empty()
-                ];
-                self.hints = SplitOrderHints {
-                    sorted_counters_lt: [0; 8],
-                    sorted_counters_gte: [11, 22, 33, 44, 0, 0, 0, 0],
-                    sorted_indexes: [2, 3, 0, 0, 1, 0, 0, 0]
-                };
-            } else {
-                self.sorted_transformed_value_array_gte = [
-                    TestValue { name: 1, total: 16 },
-                    TestValue { name: 0, total: 1 },
-                    TestValue { name: 4, total: 49 },
-                    TestValue { name: 2, total: 27 },
-                    TestValue::empty(),
-                    TestValue::empty(),
-                    TestValue::empty(),
-                    TestValue::empty()
-                ];
-                self.hints = SplitOrderHints {
-                    sorted_counters_lt: [0; 8],
-                    sorted_counters_gte: [44, 33, 22, 11, 0, 0, 0, 0],
-                    sorted_indexes: [1, 0, 3, 0, 2, 0, 0, 0],
-                };
-            }
-
-            self.sorted_transformed_value_array_lt = [TestValue::empty(); 8];
-            // The item with 0 counter should always be in the _lt array.
-            self.sorted_transformed_value_array_lt[0] = TestValue { name: 3, total: 38 };
-
-            *self
-        }
-
         pub fn update_sorted_index(&mut self, counter: u32, new_index: u32) {
             let mut original_index = original_array.len();
             for i in 0..original_array.len() {
@@ -354,14 +317,8 @@ mod tests {
      */
 
     #[test]
-    fn assert_split_sorted_transformed_value_array_asc_non_zero_split_counter_succeeds() {
+    fn assert_split_sorted_transformed_value_array_asc_succeeds() {
         let builder = TestDataBuilder::new();
-        builder.execute();
-    }
-
-    #[test]
-    fn assert_split_sorted_transformed_value_array_asc_zero_split_counter_succeeds() {
-        let builder = TestDataBuilder::new().with_zero_split_counter();
         builder.execute();
     }
 
@@ -376,20 +333,23 @@ mod tests {
      */
 
     #[test]
-    fn assert_split_sorted_transformed_value_array_desc_non_zero_split_counter_succeeds() {
+    fn assert_split_sorted_transformed_value_array_desc_succeeds() {
         let builder = TestDataBuilder::new_desc();
-        builder.execute();
-    }
-
-    #[test]
-    fn assert_split_sorted_transformed_value_array_desc_zero_split_counter_succeeds() {
-        let builder = TestDataBuilder::new_desc().with_zero_split_counter();
         builder.execute();
     }
 
     /**
      * Failed cases.
      */
+
+    #[test(should_fail_with="mismatch number of values lt")]
+    fn assert_split_sorted_transformed_value_array_asc_empty_extra_item_fails() {
+        let mut builder = TestDataBuilder::empty();
+
+        builder.sorted_transformed_value_array_lt[0].total = 1;
+
+        builder.execute();
+    }
 
     #[test(should_fail_with="mismatch sorted values")]
     fn assert_split_sorted_transformed_value_array_asc_lt_wrong_sorted_value_fails() {

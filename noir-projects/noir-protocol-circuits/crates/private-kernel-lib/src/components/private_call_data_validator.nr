@@ -15,6 +15,7 @@ use dep::types::{
     private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered}
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
+    constants::MAX_FIELD_VALUE,
     hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
     traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::find_index
 };
@@ -121,16 +122,8 @@ impl PrivateCallDataValidator {
         let call_context = public_inputs.call_context;
         assert(call_context.is_delegate_call == false, "Users cannot make a delegatecall");
         assert(call_context.is_static_call == false, "Users cannot make a static call");
-
-        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        let first_revertible_index = find_first_revertible_private_call_request_index(public_inputs);
-        // No need to check that the min_revertible_side_effect_counter falls in the counter range of the private call.
-        // It is valid as long as it does not fall in the middle of any nested call.
-        validate_split_ranges(
-            min_revertible_side_effect_counter,
-            first_revertible_index,
-            public_inputs.private_call_requests,
-            self.array_lengths.private_call_requests
+        assert(
+            call_context.msg_sender == AztecAddress::from_field(MAX_FIELD_VALUE), "Users cannot set msg_sender in first call"
         );
     }
 
@@ -263,18 +256,34 @@ impl PrivateCallDataValidator {
     }
 
     fn validate_private_call_requests(self) {
-        let call_requests = self.data.call_stack_item.public_inputs.private_call_requests;
+        let public_inputs = self.data.call_stack_item.public_inputs;
+        let call_requests = public_inputs.private_call_requests;
         let num_requests = self.array_lengths.private_call_requests;
         let mut should_check = true;
         for i in 0..call_requests.len() {
             should_check &= i != num_requests;
             if should_check {
-                validate_caller_context(
-                    call_requests[i].caller_context,
-                    self.data.call_stack_item.public_inputs.call_context
-                );
+                validate_caller_context(call_requests[i].caller_context, public_inputs.call_context);
             }
         }
+
+        // Check that the min_revertible_side_effect_counter does not fall in the middle of any nested calls.
+        // If it is possible, one can create a custom account contract, set the min_revertible_side_effect_counter to a
+        // value that falls in a transfer function, make the tx revert which then preserves the note hashes and discards 
+        // the nullifiers.
+        // 
+        // We don't have to use the aggregated min_revertible_side_effect_counter in the output for the below check.
+        // If the current call's min_revertible_side_effect_counter is 0, it means the counter might be set by another
+        // function. This check for that function guarantees that the counter won't fall into one of its nested calls. 
+        // In this case, we can simply use 0 and make the following check pass.
+        let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
+        let first_revertible_index = find_first_revertible_private_call_request_index(public_inputs);
+        validate_split_ranges(
+            min_revertible_side_effect_counter,
+            first_revertible_index,
+            public_inputs.private_call_requests,
+            self.array_lengths.private_call_requests
+        );
     }
 
     fn validate_public_call_requests(self) {

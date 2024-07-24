@@ -15,7 +15,7 @@ import {
   CompleteAddress,
   GasSettings,
   GeneratorIndex,
-  type GrumpkinPrivateKey,
+  type GrumpkinScalar,
   Header,
   KeyValidationRequest,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -90,10 +90,10 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  let ownerNskM: GrumpkinPrivateKey;
-  let ownerOvskM: GrumpkinPrivateKey;
-  let recipientNskM: GrumpkinPrivateKey;
-  let recipientOvskM: GrumpkinPrivateKey;
+  let ownerNskM: GrumpkinScalar;
+  let ownerOvskM: GrumpkinScalar;
+  let recipientNskM: GrumpkinScalar;
+  let recipientOvskM: GrumpkinScalar;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -111,7 +111,7 @@ describe('Private Execution test suite', () => {
   const runSimulator = ({
     artifact,
     args = [],
-    msgSender = AztecAddress.ZERO,
+    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     contractAddress = defaultContractAddress,
     txContext = {},
   }: {
@@ -275,7 +275,7 @@ describe('Private Execution test suite', () => {
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
       // NB: this test does NOT cover correct enc/dec of values, just whether
-      // the kernels correctly populate non-note encrypted logs
+      // the contexts correctly populate non-note encrypted logs
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_encrypted_log');
       // We emit the outgoing here to recipient for no reason at all
       const outgoingViewer = recipient;
@@ -891,7 +891,6 @@ describe('Private Execution test suite', () => {
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 2,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -899,8 +898,8 @@ describe('Private Execution test suite', () => {
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
-          sideEffectCounter: 1,
         }),
+        sideEffectCounter: 2,
       });
 
       const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().getCompressed().hash();

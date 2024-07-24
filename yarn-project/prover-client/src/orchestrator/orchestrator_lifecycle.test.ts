@@ -3,7 +3,6 @@ import {
   type GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  getMockVerificationKeys,
 } from '@aztec/circuits.js';
 import { fr, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
@@ -34,28 +33,16 @@ describe('prover/orchestrator/lifecycle', () => {
 
   describe('lifecycle', () => {
     it('cancels current block and switches to new ones', async () => {
-      const txs1 = await Promise.all([
-        makeBloatedProcessedTx(context.actualDb, 1),
-        makeBloatedProcessedTx(context.actualDb, 2),
-      ]);
+      const txs1 = [makeBloatedProcessedTx(context.actualDb, 1), makeBloatedProcessedTx(context.actualDb, 2)];
 
-      const txs2 = await Promise.all([
-        makeBloatedProcessedTx(context.actualDb, 3),
-        makeBloatedProcessedTx(context.actualDb, 4),
-      ]);
+      const txs2 = [makeBloatedProcessedTx(context.actualDb, 3), makeBloatedProcessedTx(context.actualDb, 4)];
 
       const globals1: GlobalVariables = makeGlobals(100);
       const globals2: GlobalVariables = makeGlobals(101);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await context.orchestrator.startNewBlock(
-        2,
-        globals1,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket1 = await context.orchestrator.startNewBlock(2, globals1, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs1[0]);
       await context.orchestrator.addNewTx(txs1[1]);
@@ -73,13 +60,7 @@ describe('prover/orchestrator/lifecycle', () => {
 
       await context.actualDb.rollback();
 
-      const blockTicket2 = await context.orchestrator.startNewBlock(
-        2,
-        globals2,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket2 = await context.orchestrator.startNewBlock(2, globals2, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs2[0]);
       await context.orchestrator.addNewTx(txs2[1]);
@@ -92,40 +73,21 @@ describe('prover/orchestrator/lifecycle', () => {
     });
 
     it('automatically cancels an incomplete block when starting a new one', async () => {
-      const txs1 = await Promise.all([
-        makeBloatedProcessedTx(context.actualDb, 1),
-        makeBloatedProcessedTx(context.actualDb, 2),
-      ]);
-
-      const txs2 = await Promise.all([
-        makeBloatedProcessedTx(context.actualDb, 3),
-        makeBloatedProcessedTx(context.actualDb, 4),
-      ]);
+      const txs1 = [makeBloatedProcessedTx(context.actualDb, 1), makeBloatedProcessedTx(context.actualDb, 2)];
+      const txs2 = [makeBloatedProcessedTx(context.actualDb, 3), makeBloatedProcessedTx(context.actualDb, 4)];
 
       const globals1: GlobalVariables = makeGlobals(100);
       const globals2: GlobalVariables = makeGlobals(101);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await context.orchestrator.startNewBlock(
-        2,
-        globals1,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket1 = await context.orchestrator.startNewBlock(2, globals1, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs1[0]);
 
       await context.actualDb.rollback();
 
-      const blockTicket2 = await context.orchestrator.startNewBlock(
-        2,
-        globals2,
-        l1ToL2Messages,
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket2 = await context.orchestrator.startNewBlock(2, globals2, l1ToL2Messages);
 
       await context.orchestrator.addNewTx(txs2[0]);
       await context.orchestrator.addNewTx(txs2[1]);
@@ -152,13 +114,7 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-      await orchestrator.startNewBlock(
-        2,
-        makeGlobalVariables(1),
-        [],
-
-        getMockVerificationKeys(),
-      );
+      await orchestrator.startNewBlock(2, makeGlobalVariables(1), []);
 
       await sleep(1);
 

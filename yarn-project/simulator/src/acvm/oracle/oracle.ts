@@ -60,7 +60,7 @@ export class Oracle {
   async getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
     const { pkM, skApp } = await this.typedOracle.getKeyValidationRequest(fromACVMField(pkMHash));
 
-    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(skApp)];
+    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(pkM.isInfinite), toACVMField(skApp)];
   }
 
   async getContractInstance([address]: ACVMField[]) {
@@ -336,19 +336,23 @@ export class Oracle {
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
+    [ovpkMIsInfinite]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ivpkMIsInfinite]: ACVMField[],
+    [recipient]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedEventLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(randomness),
       Fr.fromString(eventTypeId),
       ovKeys,
       ivpkM,
+      AztecAddress.fromString(recipient),
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];
@@ -365,19 +369,23 @@ export class Oracle {
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
+    [ovpkMIsInfinite]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ivpkMIsInfinite]: ACVMField[],
+    [recipient]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedNoteLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       NoteSelector.fromField(Fr.fromString(noteTypeId)),
       ovKeys,
       ivpkM,
+      AztecAddress.fromString(recipient),
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];

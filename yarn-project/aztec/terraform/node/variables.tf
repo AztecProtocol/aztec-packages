@@ -14,9 +14,9 @@ variable "SEQ_2_PUBLISHER_PRIVATE_KEY" {
   type = string
 }
 
-variable "CHAIN_ID" {
+variable "L1_CHAIN_ID" {
   type    = string
-  default = 31337
+  default = 677692
 }
 
 variable "NODE_P2P_TCP_PORT" {
@@ -70,5 +70,5 @@ variable "P2P_ENABLED" {
 
 variable "PROVING_ENABLED" {
   type    = bool
-  default = true
+  default = false
 }

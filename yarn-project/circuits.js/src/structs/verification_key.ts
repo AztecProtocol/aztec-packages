@@ -74,9 +74,10 @@ export class CommitmentMap {
   }
 }
 
-export const CIRCUIT_SIZE_INDEX = 3;
-export const CIRCUIT_PUBLIC_INPUTS_INDEX = 4;
-export const CIRCUIT_RECURSIVE_INDEX = 5;
+// TODO: find better home for these constants
+export const CIRCUIT_SIZE_INDEX = 0;
+export const CIRCUIT_PUBLIC_INPUTS_INDEX = 1;
+export const CIRCUIT_RECURSIVE_INDEX = 0;
 
 /**
  * Provides a 'fields' representation of a circuit's verification key
@@ -255,29 +256,4 @@ export class VerificationKeyData {
   public clone() {
     return VerificationKeyData.fromBuffer(this.toBuffer());
   }
-}
-
-/**
- * Well-known verification keys.
- */
-export interface VerificationKeys {
-  /**
-   * Verification key for the default private kernel tail circuit.
-   */
-  privateKernelCircuit: VerificationKeyData;
-  /**
-   * Verification key for the default private kernel circuit.
-   */
-  privateKernelToPublicCircuit: VerificationKeyData;
-}
-
-/**
- * Returns mock verification keys for each well known circuit.
- * @returns A VerificationKeys object with fake values.
- */
-export function getMockVerificationKeys(): VerificationKeys {
-  return {
-    privateKernelCircuit: VerificationKeyData.makeFake(),
-    privateKernelToPublicCircuit: VerificationKeyData.makeFake(),
-  };
 }

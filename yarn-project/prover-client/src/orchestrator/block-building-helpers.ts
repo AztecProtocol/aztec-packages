@@ -13,7 +13,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -30,30 +30,24 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  ROLLUP_VK_TREE_HEIGHT,
+  type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   RootRollupInputs,
   type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
+  type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
-
-// Denotes fields that are not used now, but will be in the future
-const FUTURE_FR = new Fr(0n);
-const FUTURE_NUM = 0;
-
-// Denotes fields that should be deleted
-const DELETE_FR = new Fr(0n);
 
 /**
  * Type representing the names of the trees for the base rollup.
@@ -67,6 +61,7 @@ export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
 export async function buildBaseRollupInput(
   tx: ProcessedTx,
+  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
   kernelVk: VerificationKeyData,
@@ -165,7 +160,7 @@ export async function buildBaseRollupInput(
   );
 
   return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, kernelVk),
+    kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
     stateDiffHints,
     feePayerGasTokenBalanceReadHint,
@@ -267,18 +262,13 @@ export function getPreviousRollupDataFromPublicInputs(
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
+  const leafIndex = getVKIndex(vk);
+
   return new PreviousRollupData(
     rollupOutput,
     rollupProof,
     vk,
-
-    // MembershipWitness for a VK tree to be implemented in the future
-    FUTURE_NUM,
-    new MembershipWitness(
-      ROLLUP_VK_TREE_HEIGHT,
-      BigInt(FUTURE_NUM),
-      makeTuple(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
-    ),
+    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
   );
 }
 
@@ -287,10 +277,7 @@ export async function getConstantRollupData(
   db: MerkleTreeOperations,
 ): Promise<ConstantRollupData> {
   return ConstantRollupData.from({
-    baseRollupVkHash: DELETE_FR,
-    mergeRollupVkHash: DELETE_FR,
-    privateKernelVkTreeRoot: FUTURE_FR,
-    publicKernelVkTreeRoot: FUTURE_FR,
+    vkTreeRoot: getVKTreeRoot(),
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,
   });
@@ -301,18 +288,20 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
-  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
+export function getKernelDataFor(
+  tx: ProcessedTx,
+  vk: VerificationKeyData,
+  proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+): KernelData {
+  const leafIndex = getVKIndex(vk);
+
   return new KernelData(
     tx.data,
-    recursiveProof,
-
+    proof,
     // VK for the kernel circuit
     vk,
-
-    // MembershipWitness for a VK tree to be implemented in the future
-    FUTURE_NUM,
-    assertLength(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
+    leafIndex,
+    getVKSiblingPath(leafIndex),
   );
 }
 

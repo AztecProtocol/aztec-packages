@@ -100,7 +100,7 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = gen_trace_from_instr(instructions);
-    validate_trace(std::move(trace), public_inputs, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {}, true);
 }
 
 // Positive test for SET and SUB opcodes
@@ -165,7 +165,7 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == 1; });
     EXPECT_EQ(row->main_ic, 10000); // 47123 - 37123 = 10000
-    validate_trace(std::move(trace), public_inputs, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {}, true);
 }
 
 // Positive test for multiple MUL opcodes
@@ -805,7 +805,7 @@ TEST_F(AvmExecutionTests, toRadixLeOpcode)
     }
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) });
+    validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) }, returndata);
 }
 
 // // Positive test with SHA256COMPRESSION.
@@ -873,7 +873,7 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test with SHA256
@@ -941,7 +941,7 @@ TEST_F(AvmExecutionTests, sha256Opcode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test with POSEIDON2_PERM.
@@ -992,7 +992,7 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test with Keccakf1600.
@@ -1066,7 +1066,7 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test with Keccak.
@@ -1124,7 +1124,7 @@ TEST_F(AvmExecutionTests, keccakOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test with Pedersen.
@@ -1177,7 +1177,7 @@ TEST_F(AvmExecutionTests, pedersenHashOpCode)
 
     EXPECT_EQ(returndata[0], expected_output);
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 //
 // Positive test with EmbeddedCurveAdd
@@ -1239,7 +1239,7 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test with MSM
@@ -1316,7 +1316,7 @@ TEST_F(AvmExecutionTests, msmOpCode)
 
     EXPECT_EQ(returndata, expected_output);
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Positive test for Kernel Input opcodes
@@ -1451,9 +1451,10 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 
     // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
     // this array The returndata call above will then return this array
-    std::vector<FF> returndata = { sender,     address, storage_address, function_selector,       transaction_fee,
-                                   chainid,    version, blocknumber,     /*coinbase,*/ timestamp, feeperl2gas,
-                                   feeperdagas };
+    std::vector<FF> const expected_returndata = {
+        address,     storage_address,         sender,      function_selector, transaction_fee, chainid, version,
+        blocknumber, /*coinbase,*/ timestamp, feeperl2gas, feeperdagas,
+    };
 
     // Set up public inputs to contain the above values
     // TODO: maybe have a javascript like object construction so that this is readable
@@ -1476,7 +1477,11 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     public_inputs_vec[FEE_PER_DA_GAS_OFFSET] = feeperdagas;
     public_inputs_vec[FEE_PER_L2_GAS_OFFSET] = feeperl2gas;
 
+    std::vector<FF> returndata;
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+
+    // Validate returndata
+    EXPECT_EQ(returndata, expected_returndata);
 
     // Validate that the opcode read the correct value into ia
     // Check address
@@ -1539,7 +1544,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fee_per_l2_gas == 1; });
     EXPECT_EQ(feeperl2gas_row->main_ia, feeperl2gas);
 
-    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec));
+    validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), calldata, returndata);
 }
 
 // Positive test for L2GASLEFT opcode
@@ -2229,7 +2234,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 9, 8, 1 })); // The 1 represents the success
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
@@ -2268,7 +2273,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, 6 })); // The first one represents true
 
-    validate_trace(std::move(trace), public_inputs, calldata);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)

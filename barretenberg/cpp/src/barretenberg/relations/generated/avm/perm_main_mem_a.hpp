@@ -71,7 +71,10 @@ class perm_main_mem_a_permutation_settings {
 };
 
 template <typename FF_>
-using perm_main_mem_a_relation = GenericPermutationRelation<perm_main_mem_a_permutation_settings, FF_>;
+class perm_main_mem_a_relation : public GenericPermutationRelation<perm_main_mem_a_permutation_settings, FF_> {
+  public:
+    static constexpr const char* NAME = "PERM_MAIN_MEM_A";
+};
 template <typename FF_> using perm_main_mem_a = GenericPermutation<perm_main_mem_a_permutation_settings, FF_>;
 
 } // namespace bb

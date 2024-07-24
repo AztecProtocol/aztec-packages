@@ -114,7 +114,9 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &lookups,
     );
 
-    bb_files.create_declare_views(file_name, &all_cols_with_shifts);
+    // ----------------------- Create the full row files -----------------------
+    bb_files.create_full_row_hpp(file_name, &all_cols);
+    bb_files.create_full_row_cpp(file_name, &all_cols);
 
     // ----------------------- Create the circuit builder file -----------------------
     bb_files.create_circuit_builder_hpp(
@@ -125,8 +127,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &all_cols,
         &to_be_shifted,
     );
-
-    bb_files.create_circuit_builder_cpp(file_name, &all_cols);
 
     // ----------------------- Create the flavor file -----------------------
     bb_files.create_flavor_hpp(
@@ -141,6 +141,8 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &shifted,
         &all_cols_with_shifts,
     );
+
+    bb_files.create_flavor_settings_hpp(file_name);
 
     // ----------------------- Create the composer files -----------------------
     bb_files.create_composer_cpp(file_name);

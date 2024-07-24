@@ -2,12 +2,16 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+
+#include "barretenberg/vm/avm_trace/stats.hpp"
 
 namespace bb {
 
@@ -59,7 +63,7 @@ void AvmProver::execute_wire_commitments_round()
     auto wire_polys = prover_polynomials.get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], commitment_key->commit_sparse(wire_polys[idx]));
     }
 }
 
@@ -69,123 +73,33 @@ void AvmProver::execute_log_derivative_inverse_round()
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
 
-    key->compute_logderivative_inverses(relation_parameters);
+    auto prover_polynomials = ProverPolynomials(*key);
+    std::vector<std::function<void()>> tasks;
 
+    bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
+        using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
+        tasks.push_back([&]() {
+            AVM_TRACK_TIME(Relation::NAME + std::string("_ms"),
+                           (compute_logderivative_inverse<Flavor, Relation>(
+                               prover_polynomials, relation_parameters, key->circuit_size)));
+        });
+    });
+
+    bb::parallel_for(tasks.size(), [&](size_t i) { tasks[i](); });
+}
+
+void AvmProver::execute_log_derivative_inverse_commitments_round()
+{
     // Commit to all logderivative inverse polynomials
-    witness_commitments.perm_main_alu = commitment_key->commit(key->perm_main_alu);
-    witness_commitments.perm_main_bin = commitment_key->commit(key->perm_main_bin);
-    witness_commitments.perm_main_conv = commitment_key->commit(key->perm_main_conv);
-    witness_commitments.perm_main_pos2_perm = commitment_key->commit(key->perm_main_pos2_perm);
-    witness_commitments.perm_main_pedersen = commitment_key->commit(key->perm_main_pedersen);
-    witness_commitments.perm_main_mem_a = commitment_key->commit(key->perm_main_mem_a);
-    witness_commitments.perm_main_mem_b = commitment_key->commit(key->perm_main_mem_b);
-    witness_commitments.perm_main_mem_c = commitment_key->commit(key->perm_main_mem_c);
-    witness_commitments.perm_main_mem_d = commitment_key->commit(key->perm_main_mem_d);
-    witness_commitments.perm_main_mem_ind_addr_a = commitment_key->commit(key->perm_main_mem_ind_addr_a);
-    witness_commitments.perm_main_mem_ind_addr_b = commitment_key->commit(key->perm_main_mem_ind_addr_b);
-    witness_commitments.perm_main_mem_ind_addr_c = commitment_key->commit(key->perm_main_mem_ind_addr_c);
-    witness_commitments.perm_main_mem_ind_addr_d = commitment_key->commit(key->perm_main_mem_ind_addr_d);
-    witness_commitments.lookup_byte_lengths = commitment_key->commit(key->lookup_byte_lengths);
-    witness_commitments.lookup_byte_operations = commitment_key->commit(key->lookup_byte_operations);
-    witness_commitments.lookup_opcode_gas = commitment_key->commit(key->lookup_opcode_gas);
-    witness_commitments.range_check_l2_gas_hi = commitment_key->commit(key->range_check_l2_gas_hi);
-    witness_commitments.range_check_l2_gas_lo = commitment_key->commit(key->range_check_l2_gas_lo);
-    witness_commitments.range_check_da_gas_hi = commitment_key->commit(key->range_check_da_gas_hi);
-    witness_commitments.range_check_da_gas_lo = commitment_key->commit(key->range_check_da_gas_lo);
-    witness_commitments.kernel_output_lookup = commitment_key->commit(key->kernel_output_lookup);
-    witness_commitments.lookup_into_kernel = commitment_key->commit(key->lookup_into_kernel);
-    witness_commitments.incl_main_tag_err = commitment_key->commit(key->incl_main_tag_err);
-    witness_commitments.incl_mem_tag_err = commitment_key->commit(key->incl_mem_tag_err);
-    witness_commitments.lookup_mem_rng_chk_lo = commitment_key->commit(key->lookup_mem_rng_chk_lo);
-    witness_commitments.lookup_mem_rng_chk_mid = commitment_key->commit(key->lookup_mem_rng_chk_mid);
-    witness_commitments.lookup_mem_rng_chk_hi = commitment_key->commit(key->lookup_mem_rng_chk_hi);
-    witness_commitments.lookup_pow_2_0 = commitment_key->commit(key->lookup_pow_2_0);
-    witness_commitments.lookup_pow_2_1 = commitment_key->commit(key->lookup_pow_2_1);
-    witness_commitments.lookup_u8_0 = commitment_key->commit(key->lookup_u8_0);
-    witness_commitments.lookup_u8_1 = commitment_key->commit(key->lookup_u8_1);
-    witness_commitments.lookup_u16_0 = commitment_key->commit(key->lookup_u16_0);
-    witness_commitments.lookup_u16_1 = commitment_key->commit(key->lookup_u16_1);
-    witness_commitments.lookup_u16_2 = commitment_key->commit(key->lookup_u16_2);
-    witness_commitments.lookup_u16_3 = commitment_key->commit(key->lookup_u16_3);
-    witness_commitments.lookup_u16_4 = commitment_key->commit(key->lookup_u16_4);
-    witness_commitments.lookup_u16_5 = commitment_key->commit(key->lookup_u16_5);
-    witness_commitments.lookup_u16_6 = commitment_key->commit(key->lookup_u16_6);
-    witness_commitments.lookup_u16_7 = commitment_key->commit(key->lookup_u16_7);
-    witness_commitments.lookup_u16_8 = commitment_key->commit(key->lookup_u16_8);
-    witness_commitments.lookup_u16_9 = commitment_key->commit(key->lookup_u16_9);
-    witness_commitments.lookup_u16_10 = commitment_key->commit(key->lookup_u16_10);
-    witness_commitments.lookup_u16_11 = commitment_key->commit(key->lookup_u16_11);
-    witness_commitments.lookup_u16_12 = commitment_key->commit(key->lookup_u16_12);
-    witness_commitments.lookup_u16_13 = commitment_key->commit(key->lookup_u16_13);
-    witness_commitments.lookup_u16_14 = commitment_key->commit(key->lookup_u16_14);
-    witness_commitments.lookup_div_u16_0 = commitment_key->commit(key->lookup_div_u16_0);
-    witness_commitments.lookup_div_u16_1 = commitment_key->commit(key->lookup_div_u16_1);
-    witness_commitments.lookup_div_u16_2 = commitment_key->commit(key->lookup_div_u16_2);
-    witness_commitments.lookup_div_u16_3 = commitment_key->commit(key->lookup_div_u16_3);
-    witness_commitments.lookup_div_u16_4 = commitment_key->commit(key->lookup_div_u16_4);
-    witness_commitments.lookup_div_u16_5 = commitment_key->commit(key->lookup_div_u16_5);
-    witness_commitments.lookup_div_u16_6 = commitment_key->commit(key->lookup_div_u16_6);
-    witness_commitments.lookup_div_u16_7 = commitment_key->commit(key->lookup_div_u16_7);
+    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
+        // We don't use commit_sparse here because the logderivative inverse polynomials are dense
+        commitment = commitment_key->commit(key_poly);
+    }
 
     // Send all commitments to the verifier
-    transcript->send_to_verifier(commitment_labels.perm_main_alu, witness_commitments.perm_main_alu);
-    transcript->send_to_verifier(commitment_labels.perm_main_bin, witness_commitments.perm_main_bin);
-    transcript->send_to_verifier(commitment_labels.perm_main_conv, witness_commitments.perm_main_conv);
-    transcript->send_to_verifier(commitment_labels.perm_main_pos2_perm, witness_commitments.perm_main_pos2_perm);
-    transcript->send_to_verifier(commitment_labels.perm_main_pedersen, witness_commitments.perm_main_pedersen);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_a, witness_commitments.perm_main_mem_a);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_b, witness_commitments.perm_main_mem_b);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_c, witness_commitments.perm_main_mem_c);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_d, witness_commitments.perm_main_mem_d);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_ind_addr_a,
-                                 witness_commitments.perm_main_mem_ind_addr_a);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_ind_addr_b,
-                                 witness_commitments.perm_main_mem_ind_addr_b);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_ind_addr_c,
-                                 witness_commitments.perm_main_mem_ind_addr_c);
-    transcript->send_to_verifier(commitment_labels.perm_main_mem_ind_addr_d,
-                                 witness_commitments.perm_main_mem_ind_addr_d);
-    transcript->send_to_verifier(commitment_labels.lookup_byte_lengths, witness_commitments.lookup_byte_lengths);
-    transcript->send_to_verifier(commitment_labels.lookup_byte_operations, witness_commitments.lookup_byte_operations);
-    transcript->send_to_verifier(commitment_labels.lookup_opcode_gas, witness_commitments.lookup_opcode_gas);
-    transcript->send_to_verifier(commitment_labels.range_check_l2_gas_hi, witness_commitments.range_check_l2_gas_hi);
-    transcript->send_to_verifier(commitment_labels.range_check_l2_gas_lo, witness_commitments.range_check_l2_gas_lo);
-    transcript->send_to_verifier(commitment_labels.range_check_da_gas_hi, witness_commitments.range_check_da_gas_hi);
-    transcript->send_to_verifier(commitment_labels.range_check_da_gas_lo, witness_commitments.range_check_da_gas_lo);
-    transcript->send_to_verifier(commitment_labels.kernel_output_lookup, witness_commitments.kernel_output_lookup);
-    transcript->send_to_verifier(commitment_labels.lookup_into_kernel, witness_commitments.lookup_into_kernel);
-    transcript->send_to_verifier(commitment_labels.incl_main_tag_err, witness_commitments.incl_main_tag_err);
-    transcript->send_to_verifier(commitment_labels.incl_mem_tag_err, witness_commitments.incl_mem_tag_err);
-    transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_lo, witness_commitments.lookup_mem_rng_chk_lo);
-    transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_mid, witness_commitments.lookup_mem_rng_chk_mid);
-    transcript->send_to_verifier(commitment_labels.lookup_mem_rng_chk_hi, witness_commitments.lookup_mem_rng_chk_hi);
-    transcript->send_to_verifier(commitment_labels.lookup_pow_2_0, witness_commitments.lookup_pow_2_0);
-    transcript->send_to_verifier(commitment_labels.lookup_pow_2_1, witness_commitments.lookup_pow_2_1);
-    transcript->send_to_verifier(commitment_labels.lookup_u8_0, witness_commitments.lookup_u8_0);
-    transcript->send_to_verifier(commitment_labels.lookup_u8_1, witness_commitments.lookup_u8_1);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_0, witness_commitments.lookup_u16_0);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_1, witness_commitments.lookup_u16_1);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_2, witness_commitments.lookup_u16_2);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_3, witness_commitments.lookup_u16_3);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_4, witness_commitments.lookup_u16_4);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_5, witness_commitments.lookup_u16_5);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_6, witness_commitments.lookup_u16_6);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_7, witness_commitments.lookup_u16_7);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_8, witness_commitments.lookup_u16_8);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_9, witness_commitments.lookup_u16_9);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_10, witness_commitments.lookup_u16_10);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_11, witness_commitments.lookup_u16_11);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_12, witness_commitments.lookup_u16_12);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_13, witness_commitments.lookup_u16_13);
-    transcript->send_to_verifier(commitment_labels.lookup_u16_14, witness_commitments.lookup_u16_14);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_0, witness_commitments.lookup_div_u16_0);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_1, witness_commitments.lookup_div_u16_1);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_2, witness_commitments.lookup_div_u16_2);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_3, witness_commitments.lookup_div_u16_3);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_4, witness_commitments.lookup_div_u16_4);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_5, witness_commitments.lookup_div_u16_5);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_6, witness_commitments.lookup_div_u16_6);
-    transcript->send_to_verifier(commitment_labels.lookup_div_u16_7, witness_commitments.lookup_div_u16_7);
+    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), witness_commitments.get_derived())) {
+        transcript->send_to_verifier(label, commitment);
+    }
 }
 
 /**
@@ -236,18 +150,22 @@ HonkProof AvmProver::construct_proof()
     execute_preamble_round();
 
     // Compute wire commitments
-    execute_wire_commitments_round();
+    AVM_TRACK_TIME("prove/execute_wire_commitments_round_ms", execute_wire_commitments_round());
 
-    // Compute sorted list accumulator and commitment
-    execute_log_derivative_inverse_round();
+    // Compute sorted list accumulator
+    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_round_ms", execute_log_derivative_inverse_round());
+
+    // Compute commitments to logderivative inverse polynomials
+    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_commitments_round_ms",
+                   execute_log_derivative_inverse_commitments_round());
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
-    execute_relation_check_rounds();
+    AVM_TRACK_TIME("prove/execute_relation_check_rounds_ms", execute_relation_check_rounds());
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Zeromorph multilinear PCS
-    execute_pcs_rounds();
+    AVM_TRACK_TIME("prove/execute_pcs_rounds_ms", execute_pcs_rounds());
 
     return export_proof();
 }

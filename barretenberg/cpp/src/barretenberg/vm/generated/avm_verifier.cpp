@@ -79,6 +79,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.gamma = gamm;
 
     // Get commitments to inverses
+    commitments.perm_slice_mem = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_slice_mem);
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);
@@ -86,6 +87,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pos2_perm);
     commitments.perm_main_pedersen =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_pedersen);
+    commitments.perm_main_slice =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_slice);
     commitments.perm_main_mem_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_a);
     commitments.perm_main_mem_b =
@@ -106,6 +109,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations);
+    commitments.lookup_cd_value =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_cd_value);
+    commitments.lookup_ret_value =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_ret_value);
     commitments.lookup_opcode_gas =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_opcode_gas);
     commitments.range_check_l2_gas_hi =
@@ -211,17 +218,22 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
         return false;
     }
+    FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], circuit_size, mle_challenge);
+    if (main_returndata_evaluation != claimed_evaluations.main_returndata) {
+        return false;
+    }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
     // NOTE: temporarily disabled - facing integration issues
-    // auto opening_claim = ZeroMorph::verify(commitments.get_unshifted(),
-    //                                         commitments.get_to_be_shifted(),
-    //                                         claimed_evaluations.get_unshifted(),
-    //                                         claimed_evaluations.get_shifted(),
-    //                                         multivariate_challenge,
-    //                                         pcs_verification_key->get_g1_identity(),
-    //                                         transcript);
+    // auto opening_claim = ZeroMorph::verify(circuit_size,
+    //                                        commitments.get_unshifted(),
+    //                                        commitments.get_to_be_shifted(),
+    //                                        claimed_evaluations.get_unshifted(),
+    //                                        claimed_evaluations.get_shifted(),
+    //                                        multivariate_challenge,
+    //                                        pcs_verification_key->get_g1_identity(),
+    //                                        transcript);
 
     // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
     // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

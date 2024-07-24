@@ -1,5 +1,4 @@
 import { PROVING_STATUS, type ServerCircuitProver } from '@aztec/circuit-types';
-import { getMockVerificationKeys } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -66,19 +65,13 @@ describe('prover/orchestrator/failures', () => {
       ],
     ] as const)('handles a %s error', async (message: string, fn: () => void) => {
       fn();
-      const txs = await Promise.all([
+      const txs = [
         makeBloatedProcessedTx(context.actualDb, 1),
         makeBloatedProcessedTx(context.actualDb, 2),
         makeBloatedProcessedTx(context.actualDb, 3),
-      ]);
+      ];
 
-      const blockTicket = await orchestrator.startNewBlock(
-        txs.length,
-        context.globalVariables,
-        [],
-
-        getMockVerificationKeys(),
-      );
+      const blockTicket = await orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
         await orchestrator.addNewTx(tx);
