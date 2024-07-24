@@ -196,7 +196,7 @@ contract InclusionProofs {
         assert_eq(
             // docs:start:public_storage_historical_read
             header.public_storage_historical_read(
-                storage.public_unused_value.storage_slot,
+                storage.public_unused_value.contract_storage_index,
                 context.this_address()
             // docs:end:public_storage_historical_read
             ), 0
@@ -215,7 +215,10 @@ contract InclusionProofs {
             context.get_header()
         };
 
-        let actual = header.public_storage_historical_read(storage.public_value.storage_slot, context.this_address());
+        let actual = header.public_storage_historical_read(
+            storage.public_value.contract_storage_index,
+            context.this_address()
+        );
 
         assert_eq(actual, expected, "Actual public value does not match expected");
     }

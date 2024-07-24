@@ -1,11 +1,10 @@
-use dep::protocol_types::{hash::poseidon2_hash, header::Header, address::AztecAddress, point::Point, traits::{FromField, ToField}};
-
+use dep::protocol_types::{
+    hash::{poseidon2_hash, pedersen_hash}, header::Header, address::AztecAddress, point::Point,
+    traits::{FromField, ToField}
+};
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
-    state_vars::{
-    storage::Storage,
-    shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
-},
+    state_vars::{shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}},
     oracle::storage::storage_read
 };
 use dep::std::unsafe::zeroed;
@@ -14,23 +13,11 @@ mod test;
 
 struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
-    storage_slot: Point,
+    contract_storage_index: Field,
 }
 
-// This will make the Aztec macros require that T implements the Serialize<N> trait, and allocate N storage slots to
-// this state variable. This is incorrect, since what we actually store is:
-//  - a ScheduledValueChange<T>, which requires 1 + 2 * M storage slots, where M is the serialization length of T
-//  - a ScheduledDelayChange, which requires another storage slot
-//
-// TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
-// can actually use it here
-impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
-
 // TODO: extract into a utils module once  we can do arithmetic on generics, i.e. https://github.com/noir-lang/noir/issues/4784
-fn concat_arrays<let N: u32, let M: u32, let O: u32>(
-    arr_n: [Field; N],
-    arr_m: [Field; M]
-) -> [Field; O] {
+fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
     assert_eq(N + M, O);
     let mut out: [Field; O] = [0; O];
     for i in 0..N {
@@ -55,7 +42,8 @@ fn concat_arrays<let N: u32, let M: u32, let O: u32>(
 // `schedule_delay_change`.
 impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
     pub fn new(context: Context, storage_slot: Point) -> Self {
-        Self { context, storage_slot }
+        let contract_storage_index = storage_slot.x;
+        Self { context, contract_storage_index }
     }
 
     fn hash_scheduled_data(
@@ -76,37 +64,16 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledValueChange
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
-    fn get_value_change_storage_slot(self) -> Point {
-        // The following point was assigned randomly --> this works because the sole purpose of it is to point to
-        // a unique location in storage, and it doesn't matter where that is.
-        let random_point = Point {
-            x: 0x007142412c4fb82703fa4e8bc6d3d98da4aa8673c6d9e832ec31630c9c407a88,
-            y: 0x087faa9b18b42907cb31643435d3fbb1d9a78cb08c1cb07872d3e6ec92ba7d56,
-            is_infinite: false
-        };
-        self.storage_slot + random_point
+    fn get_value_change_contract_storage_index(self) -> Field {
+        pedersen_hash([self.contract_storage_index, 0], 0)
     }
 
-    fn get_delay_change_storage_slot(self) -> Point {
-        // The following point was assigned randomly --> this works because the sole purpose of it is to point to
-        // a unique location in storage, and it doesn't matter where that is.
-        let random_point = Point {
-            x: 0x0d08d21416a5f9f1fc9c9d03c8ccadafe26e17d775097a86061da81bf0c7064c,
-            y: 0x172764b3b5e893109964e770fbe35da36447de45670a9cac42c01b85a7ffb7a3,
-            is_infinite: false
-        };
-        self.storage_slot + random_point
+    fn get_delay_change_contract_storage_index(self) -> Field {
+        pedersen_hash([self.contract_storage_index, 1], 0)
     }
 
-    fn get_hash_storage_slot(self) -> Point {
-        // The following point was assigned randomly --> this works because the sole purpose of it is to point to
-        // a unique location in storage, and it doesn't matter where that is.
-        let random_point = Point {
-            x: 0x2de3188d2d528e8c81bdf1b01cd808a4a40366d06211770d3eabbd80c05aa7d7,
-            y: 0x1930a595c6c18ef85866941c0a2b02695bc2530e11f4dc982b9bca6448bd608d,
-            is_infinite: false
-        };
-        self.storage_slot + random_point
+    fn get_hash_contract_storage_index(self) -> Field {
+        pedersen_hash([self.contract_storage_index, 2], 0)
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us
@@ -124,10 +91,10 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
         // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
-        let (value_change_hint, delay_change_hint) = get_public_storage_hints(address, self.storage_slot, historical_block_number);
+        let (value_change_hint, delay_change_hint) = get_public_storage_hints(address, self.contract_storage_index, historical_block_number);
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
-        let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
+        let hash = header.public_storage_historical_read(self.get_hash_contract_storage_index(), address);
 
         // @todo This is written strangely to bypass a formatting issue with the if that is breaking ci.
         let (a, b, c) = if hash != 0 {
@@ -194,11 +161,11 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
     }
 
     fn read_value_change(self) -> ScheduledValueChange<T> {
-        self.context.storage_read(self.get_value_change_storage_slot())
+        self.context.storage_read(self.get_value_change_contract_storage_index())
     }
 
     fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY> {
-        self.context.storage_read(self.get_delay_change_storage_slot())
+        self.context.storage_read(self.get_delay_change_contract_storage_index())
     }
 
     fn write(
@@ -212,10 +179,10 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicConte
         // produce a historical proof for the hash, which results in a single inclusion proof (as opposed to 4 in the
         // best case scenario in which T is a single field). Private shared mutable reads are assumed to be much more
         // frequent than public writes, so this tradeoff makes sense.
-        self.context.storage_write(self.get_value_change_storage_slot(), value_change);
-        self.context.storage_write(self.get_delay_change_storage_slot(), delay_change);
+        self.context.storage_write(self.get_value_change_contract_storage_index(), value_change);
+        self.context.storage_write(self.get_delay_change_contract_storage_index(), delay_change);
         self.context.storage_write(
-            self.get_hash_storage_slot(),
+            self.get_hash_contract_storage_index(),
             SharedMutable::hash_scheduled_data(value_change, delay_change)
         );
     }
@@ -254,22 +221,34 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedCon
     }
 
     unconstrained fn read_value_change(self) -> ScheduledValueChange<T> {
-        self.context.storage_read(self.get_value_change_storage_slot())
+        self.context.storage_read(self.get_value_change_contract_storage_index())
     }
 }
 
 unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     address: AztecAddress,
-    storage_slot: Point,
+    contract_storage_index: Field,
     block_number: u32
 ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>) where T: ToField + FromField + Eq {
+    // The following is a bit of an ugly hack which works because SharedMutable immediately extracts the x-coordinate
+    // in the `new(...)` func. It's not straighforward to just pass contract storage index instead of the storage slot
+    // to the `new(...)` func because the `new(...)` method is called by macros and needs to have the same signature
+    // as the other storage variables.
+    let storage_slot = Point { x: contract_storage_index, y: 0, is_infinite: false };
+
     // This function cannot be part of the &mut PrivateContext impl because that'd mean that by passing `self` we'd also
     // be passing a mutable reference to an unconstrained function, which is not allowed. We therefore create a dummy
     // state variable here so that we can access the methods to compute storage slots. This will all be removed in the
     // future once we do proper storage slot allocation (#5492).
     let dummy: SharedMutable<T, INITIAL_DELAY, ()> = SharedMutable::new((), storage_slot);
 
-    (
-        storage_read(address, dummy.get_value_change_storage_slot(), block_number), storage_read(address, dummy.get_delay_change_storage_slot(), block_number)
-    )
+    (storage_read(
+            address,
+            dummy.get_value_change_contract_storage_index(),
+            block_number
+        ), storage_read(
+            address,
+            dummy.get_delay_change_contract_storage_index(),
+            block_number
+        ))
 }

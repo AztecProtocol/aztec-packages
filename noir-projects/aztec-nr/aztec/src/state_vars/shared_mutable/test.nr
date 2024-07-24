@@ -285,7 +285,7 @@ fn test_get_current_value_in_private_bad_value_hints() {
     let mocked: ScheduledValueChange<Field> = ScheduledValueChange::new(0, new_value + 1, schedule_block_number);
     let _ = OracleMock::mock("storageRead").with_params(
         (
-            env.contract_address().to_field(), private_state_var.get_value_change_storage_slot(), schedule_block_number, 3
+            env.contract_address().to_field(), private_state_var.get_value_change_contract_storage_index(), schedule_block_number, 3
         )
     ).returns(mocked.serialize()).times(1);
 
@@ -305,7 +305,7 @@ fn test_get_current_value_in_private_bad_delay_hints() {
     let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::none(), Option::some(42), schedule_block_number);
     let _ = OracleMock::mock("storageRead").with_params(
         (
-            env.contract_address().to_field(), private_state_var.get_delay_change_storage_slot(), schedule_block_number, 1
+            env.contract_address().to_field(), private_state_var.get_delay_change_contract_storage_index(), schedule_block_number, 1
         )
     ).returns(mocked.serialize()).times(1);
 
@@ -322,7 +322,7 @@ fn test_get_current_value_in_private_bad_zero_hash_value_hints() {
     let mocked: ScheduledValueChange<Field> = ScheduledValueChange::new(0, new_value, 0);
     let _ = OracleMock::mock("storageRead").with_params(
         (
-            env.contract_address().to_field(), state_var.get_value_change_storage_slot(), historical_block_number, 3
+            env.contract_address().to_field(), state_var.get_value_change_contract_storage_index(), historical_block_number, 3
         )
     ).returns(mocked.serialize()).times(1);
 
@@ -339,7 +339,7 @@ fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
     let mocked: ScheduledDelayChange<TEST_INITIAL_DELAY> = ScheduledDelayChange::new(Option::none(), Option::some(new_delay), 0);
     let _ = OracleMock::mock("storageRead").with_params(
         (
-            env.contract_address().to_field(), state_var.get_delay_change_storage_slot(), historical_block_number, 1
+            env.contract_address().to_field(), state_var.get_delay_change_contract_storage_index(), historical_block_number, 1
         )
     ).returns(mocked.serialize()).times(1);
 

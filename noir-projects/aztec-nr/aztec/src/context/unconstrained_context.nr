@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, point::Point, traits::Deserialize};
+use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
 use crate::oracle::{
     execution::{get_chain_id, get_version, get_contract_address, get_block_number},
     storage::{raw_storage_read, storage_read}
@@ -47,14 +47,21 @@ impl UnconstrainedContext {
         self.chain_id
     }
 
-    unconstrained fn raw_storage_read<let N: u32>(self: Self, storage_slot: Point) -> [Field; N] {
-        storage_read(self.this_address(), storage_slot, self.block_number())
+    unconstrained fn raw_storage_read<let N: u32>(
+        self: Self,
+        contract_storage_index: Field
+    ) -> [Field; N] {
+        storage_read(
+            self.this_address(),
+            contract_storage_index,
+            self.block_number()
+        )
     }
 
     unconstrained fn storage_read<T, let N: u32>(
         self,
-        storage_slot: Point
+        contract_storage_index: Field
     ) -> T where T: Deserialize<N> {
-        T::deserialize(self.raw_storage_read(storage_slot))
+        T::deserialize(self.raw_storage_read(contract_storage_index))
     }
 }

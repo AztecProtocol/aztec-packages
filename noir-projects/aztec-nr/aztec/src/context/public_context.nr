@@ -2,7 +2,6 @@ use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nul
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
-use dep::protocol_types::point::Point;
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
@@ -166,20 +165,27 @@ impl PublicContext {
         da_gas_left()
     }
 
-    fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Point) -> [Field; N] {
-        storage_read(storage_slot)
+    fn raw_storage_read<let N: u32>(_self: Self, contract_storage_index: Field) -> [Field; N] {
+        storage_read(contract_storage_index)
     }
 
-    fn storage_read<T, let N: u32>(self, storage_slot: Point) -> T where T: Deserialize<N> {
-        T::deserialize(self.raw_storage_read(storage_slot))
+    fn storage_read<T, let N: u32>(
+        self,
+        contract_storage_index: Field
+    ) -> T where T: Deserialize<N> {
+        T::deserialize(self.raw_storage_read(contract_storage_index))
     }
 
-    fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Point, values: [Field; N]) {
-        storage_write(storage_slot, values);
+    fn raw_storage_write<let N: u32>(_self: Self, contract_storage_index: Field, values: [Field; N]) {
+        storage_write(contract_storage_index, values);
     }
 
-    fn storage_write<T, let N: u32>(self, storage_slot: Point, value: T) where T: Serialize<N> {
-        self.raw_storage_write(storage_slot, value.serialize());
+    fn storage_write<T, let N: u32>(
+        self,
+        contract_storage_index: Field,
+        value: T
+    ) where T: Serialize<N> {
+        self.raw_storage_write(contract_storage_index, value.serialize());
     }
 }
 
@@ -275,21 +281,11 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn storage_read<let N: u32>(storage_slot: Point) -> [Field; N] {
-    // Contract storage index can be used along with contract address to derive the actual value index in the public
-    // data tree.
-    // TODO(#7551): Consider introducing a StorageSlot struct with a method like get_contract_storage_index or smt.
-    // in order to avoid getting the x coordinate here as it's cryptic
-    let contract_storage_index = storage_slot.x;
+unconstrained fn storage_read<let N: u32>(contract_storage_index: Field) -> [Field; N] {
     storage_read_opcode(contract_storage_index, N as Field)
 }
 
-unconstrained fn storage_write<let N: u32>(storage_slot: Point, values: [Field; N]) {
-    // Contract storage index can be used along with contract address to derive the actual value index in the public
-    // data tree.
-    // TODO(#7551): Consider introducing a StorageSlot struct with a method like get_contract_storage_index or smt.
-    // in order to avoid getting the x coordinate here as it's cryptic
-    let contract_storage_index = storage_slot.x;
+unconstrained fn storage_write<let N: u32>(contract_storage_index: Field, values: [Field; N]) {
     storage_write_opcode(contract_storage_index, values);
 }
 
