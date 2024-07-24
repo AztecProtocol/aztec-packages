@@ -1,5 +1,6 @@
 // Test suite for testing proper ordering of side effects
-import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { deriveBaseSlot } from '@aztec/circuits.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
@@ -79,7 +80,7 @@ describe('e2e_ordering', () => {
           await expectLogsFromLastBlockToBe(expectedOrder);
 
           // The final value of the child is the last one set
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          const value = await pxe.getPublicStorageAt(child.address, deriveBaseSlot(1).x);
           expect(value.value).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
@@ -104,7 +105,7 @@ describe('e2e_ordering', () => {
 
         await child.methods[method]().send().wait();
 
-        const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+        const value = await pxe.getPublicStorageAt(child.address, deriveBaseSlot(1).x);
         expect(value.value).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
       });
 
