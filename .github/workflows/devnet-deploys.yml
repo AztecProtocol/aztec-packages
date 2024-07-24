@@ -26,7 +26,7 @@ env:
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
   TF_VAR_FAUCET_ACCOUNT_INDEX: 5
-  CONTRACT_S3_BUCKET: s3://aztec-${{ env.DEPLOY_TAG }}-deployments
+  CONTRACT_S3_BUCKET: s3://aztec-devnet-deployments
 
 jobs:
   setup:
