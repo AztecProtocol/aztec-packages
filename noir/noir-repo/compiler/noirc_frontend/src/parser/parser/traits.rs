@@ -1,6 +1,8 @@
 use chumsky::prelude::*;
 
+use super::attributes::{attributes, validate_secondary_attributes};
 use super::function::function_return_type;
+use super::types::maybe_comp_time;
 use super::{block, expression, fresh_statement, function, function_declaration_parameters};
 
 use crate::ast::{
@@ -18,15 +20,24 @@ use crate::{
 use super::{generic_type_args, parse_type, path, primitives::ident};
 
 pub(super) fn trait_definition() -> impl NoirParser<TopLevelStatement> {
-    keyword(Keyword::Trait)
-        .ignore_then(ident())
+    attributes()
+        .then_ignore(keyword(Keyword::Trait))
+        .then(ident())
         .then(function::generics())
         .then(where_clause())
         .then_ignore(just(Token::LeftBrace))
         .then(trait_body())
         .then_ignore(just(Token::RightBrace))
-        .map_with_span(|(((name, generics), where_clause), items), span| {
-            TopLevelStatement::Trait(NoirTrait { name, generics, where_clause, span, items })
+        .validate(|((((attributes, name), generics), where_clause), items), span, emit| {
+            let attributes = validate_secondary_attributes(attributes, span, emit);
+            TopLevelStatement::Trait(NoirTrait {
+                name,
+                generics,
+                where_clause,
+                span,
+                items,
+                attributes,
+            })
         })
 }
 
@@ -93,8 +104,9 @@ fn trait_type_declaration() -> impl NoirParser<TraitItem> {
 ///
 /// trait_implementation: 'impl' generics ident generic_args for type '{' trait_implementation_body '}'
 pub(super) fn trait_implementation() -> impl NoirParser<TopLevelStatement> {
-    keyword(Keyword::Impl)
-        .ignore_then(function::generics())
+    maybe_comp_time()
+        .then_ignore(keyword(Keyword::Impl))
+        .then(function::generics())
         .then(path())
         .then(generic_type_args(parse_type()))
         .then_ignore(keyword(Keyword::For))
@@ -104,8 +116,8 @@ pub(super) fn trait_implementation() -> impl NoirParser<TopLevelStatement> {
         .then(trait_implementation_body())
         .then_ignore(just(Token::RightBrace))
         .map(|args| {
-            let ((other_args, where_clause), items) = args;
-            let (((impl_generics, trait_name), trait_generics), object_type) = other_args;
+            let (((other_args, object_type), where_clause), items) = args;
+            let (((is_comptime, impl_generics), trait_name), trait_generics) = other_args;
 
             TopLevelStatement::TraitImpl(NoirTraitImpl {
                 impl_generics,
@@ -114,6 +126,7 @@ pub(super) fn trait_implementation() -> impl NoirParser<TopLevelStatement> {
                 object_type,
                 items,
                 where_clause,
+                is_comptime,
             })
         })
 }
@@ -138,7 +151,7 @@ fn trait_implementation_body() -> impl NoirParser<Vec<TraitImplItem>> {
     function.or(alias).repeated()
 }
 
-fn where_clause() -> impl NoirParser<Vec<UnresolvedTraitConstraint>> {
+pub(super) fn where_clause() -> impl NoirParser<Vec<UnresolvedTraitConstraint>> {
     struct MultiTraitConstraint {
         typ: UnresolvedType,
         trait_bounds: Vec<TraitBound>,
@@ -150,7 +163,7 @@ fn where_clause() -> impl NoirParser<Vec<UnresolvedTraitConstraint>> {
         .map(|(typ, trait_bounds)| MultiTraitConstraint { typ, trait_bounds });
 
     keyword(Keyword::Where)
-        .ignore_then(constraints.separated_by(just(Token::Comma)))
+        .ignore_then(constraints.separated_by(just(Token::Comma)).allow_trailing())
         .or_not()
         .map(|option| option.unwrap_or_default())
         .map(|x: Vec<MultiTraitConstraint>| {
@@ -171,7 +184,7 @@ fn trait_bounds() -> impl NoirParser<Vec<TraitBound>> {
     trait_bound().separated_by(just(Token::Plus)).at_least(1).allow_trailing()
 }
 
-fn trait_bound() -> impl NoirParser<TraitBound> {
+pub(super) fn trait_bound() -> impl NoirParser<TraitBound> {
     path().then(generic_type_args(parse_type())).map(|(trait_path, trait_generics)| TraitBound {
         trait_path,
         trait_generics,
@@ -202,6 +215,7 @@ mod test {
                 "trait GenericTrait<T> { fn elem(&mut self, index: Field) -> T; }",
                 "trait GenericTraitWithConstraints<T> where T: SomeTrait { fn elem(self, index: Field) -> T; }",
                 "trait TraitWithMultipleGenericParams<A, B, C> where A: SomeTrait, B: AnotherTrait<C> { let Size: Field; fn zero() -> Self; }",
+                "trait TraitWithMultipleGenericParams<A, B, C> where A: SomeTrait, B: AnotherTrait<C>, { let Size: Field; fn zero() -> Self; }",
             ],
         );
 
