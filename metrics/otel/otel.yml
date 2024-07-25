@@ -7,6 +7,7 @@ processors:
   batch:
 
 exporters:
+  debug:
   prometheus:
     endpoint: 0.0.0.0:8889
     metric_expiration: 5m
@@ -24,4 +25,4 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheus]
+      exporters: [prometheus, debug]
