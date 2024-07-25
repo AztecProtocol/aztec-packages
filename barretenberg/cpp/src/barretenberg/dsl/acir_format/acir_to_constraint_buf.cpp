@@ -292,29 +292,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
 
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      return AES128Input{
-                                          .witness = get_witness_from_function_input(e),
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .iv = map(arg.iv,
-                              [](auto& e) {
-                                  auto witness = get_witness_from_function_input(e);
-                                  return AES128Input{
-                                      .witness = witness,
-                                      .num_bits = e.num_bits,
-                                  };
-                              }),
-                    .key = map(arg.key,
-                               [](auto& e) {
-                                   auto input_witness = get_witness_from_function_input(e);
-                                   return AES128Input{
-                                       .witness = input_witness,
-                                       .num_bits = e.num_bits,
-                                   };
-                               }),
+                    .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .iv = map(arg.iv, [](auto& e) { return parse_input(e); }),
+                    .key = map(arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);

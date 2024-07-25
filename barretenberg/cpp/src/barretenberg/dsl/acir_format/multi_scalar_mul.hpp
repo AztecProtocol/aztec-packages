@@ -2,18 +2,11 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "serde/index.hpp"
+#include "witness_constant.hpp"
 #include <cstdint>
 #include <vector>
 
 namespace acir_format {
-
-template <typename FF> struct WitnessConstant {
-    uint32_t index;
-    FF value;
-    bool is_constant;
-    MSGPACK_FIELDS(index, value, is_constant);
-    friend bool operator==(WitnessConstant const& lhs, WitnessConstant const& rhs) = default;
-};
 
 struct MultiScalarMul {
     std::vector<WitnessConstant<bb::fr>> points;
