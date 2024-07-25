@@ -1,7 +1,7 @@
 // TODO(#7551): This file is a bit of leak from aztec-nr - I placed it in protocol circuits because some of
 // the functionality is used by the base rollup. Move the stuff relevant only to aztec-nr to the aztec-nr crate.
 use crate::{generators::{G_base_slot, G_map_slot_layer_1}, point::Point, scalar::Scalar, traits::ToField};
-use dep::std::{embedded_curve_ops::multi_scalar_mul, field::bn254::decompose};
+use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 global S1 = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15, y: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791, is_infinite: false };
 global S2 = Point { x: 0x047df3ac2425b3359b582a5fd340168c9dca8a0c0ef63af0ba97d2d3b3adda52, y: 0x23c4574a895a4ef693c02df3411bca997185cd677ae4af6f6b4a313a14c943a3, is_infinite: false };
@@ -24,19 +24,19 @@ pub fn derive_base_slot(slot_preimage: Field) -> Point {
 }
 
 pub fn derive_storage_slot_in_map<K>(map_storage_slot: Point, key: K) -> Point where K: ToField {
-    // TODO(#7551): isn't decomposing terribly expensive here? --> we should probably optimize this as this will be
-    // all over the place now
-    let (key_lo, key_hi) = decompose(key.to_field());
+    // We use the unsafe version because the multi_scalar_mul will constraint the scalars.
+    let key_scalar = from_field_unsafe(key.to_field());
 
     // TODO(#7551): we need to handle map nesting here as this could result in collisions!
-    multi_scalar_mul([G_map_slot_layer_1], [Scalar { lo: key_lo, hi: key_hi }]) + map_storage_slot
+    multi_scalar_mul([G_map_slot_layer_1], [key_scalar]) + map_storage_slot
 }
 
 // TODO(#7551): nuke this func - is only temporarily used in note_interface.rs before we get some AVM compatible
 // hash func hashing to a point
 pub fn field_to_point(slot_preimage: Field) -> Point {
-    let (lo, hi) = dep::std::field::bn254::decompose(slot_preimage);
-    multi_scalar_mul([G_base_slot], [Scalar { lo, hi }])
+    // We use the unsafe version because the multi_scalar_mul will constraint the scalars.
+    let slot_preimage_scalar = from_field_unsafe(slot_preimage);
+    multi_scalar_mul([G_base_slot], [slot_preimage_scalar])
 }
 
 mod test {

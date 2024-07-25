@@ -211,6 +211,7 @@ impl PrivatelyRefundable for TokenNote {
     fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, user_randomness: Field, fee_payer_randomness: Field) -> (Point, Point) {
         // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox
         // function we first need to convert the fields to high and low limbs.
+        // TODO(#7606): replace decompose with from_field_unsafe
         let (fee_payer_randomness_lo, fee_payer_randomness_hi) = decompose(fee_payer_randomness);
         let (fee_payer_npk_m_hash_lo, fee_payer_npk_m_hash_hi) = decompose(fee_payer_npk_m_hash);
 
