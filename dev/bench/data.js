@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721934916105,
+  "lastUpdate": 1721936847489,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -94812,6 +94812,78 @@ window.BENCHMARK_DATA = {
             "value": 169335766,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169335766 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "68168980+just-mitch@users.noreply.github.com",
+            "name": "just-mitch",
+            "username": "just-mitch"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3c560216e1bce7d22e30ef18d428f1ab7335a09",
+          "message": "fix: bb mac build (#7619)\n\nno forced c-style casting\r\nhonk no longer needed as an explicit cmake target object\r\n\r\nRE the second point: inside barretenberg/honk, the only .cpp file is\r\n`testing.cpp`, with contents:\r\n```\r\n#include \"testing.hpp\"\r\n\r\n// Adding this file so that an object file is created. Otherwise CMake configure complains\r\n```",
+          "timestamp": "2024-07-25T15:30:48-04:00",
+          "tree_id": "4266d7dbbdd87b2498280450a49ea866984e2a1a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3c560216e1bce7d22e30ef18d428f1ab7335a09"
+        },
+        "date": 1721936839793,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13412.632631000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9949.642575 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4780.926507999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4386.1709009999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39862.481657000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39862481000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14319.201484000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14319202000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3597549208,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3597549208 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201315978,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201315978 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2934612946,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2934612946 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167216207,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167216207 ns\nthreads: 1"
           }
         ]
       }
