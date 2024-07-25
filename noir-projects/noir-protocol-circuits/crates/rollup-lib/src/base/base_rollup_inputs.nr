@@ -417,12 +417,13 @@ fn insert_public_data_update_requests(
 // TODO(#7551): rename `leaf_slot` to `storage_index` everywhere and slot in PublicDataTreeLeaf
 // and PublicDataTreeLeafPreimage etc. as storage_index as well
 fn compute_fee_payer_gas_token_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
-    // TODO(benesjan): re-enable this
-    // let gas_token = AztecAddress::from_field(GAS_TOKEN_ADDRESS);
+    let gas_token = AztecAddress::from_field(GAS_TOKEN_ADDRESS);
     // let fee_payer_balance_slot_in_gas_token_contract = derive_storage_slot_in_map(balances_slot_in_gas_token_contract, fee_payer);
     // let fee_payer_balance_contract_storage_index = fee_payer_balance_slot_in_gas_token_contract.x;
     // compute_public_data_tree_index(gas_token, fee_payer_balance_contract_storage_index)
-    0
+
+    // TODO(#7604): nuke the following and uncomment above
+    compute_public_data_tree_index(gas_token, fee_payer.to_field())
 }
 
 #[test]

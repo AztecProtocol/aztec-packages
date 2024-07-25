@@ -20,7 +20,8 @@ contract GasToken {
     struct Storage {
         // This map is accessed directly by protocol circuits to check balances for fee payment.
         // Do not change this storage layout unless you also update the base rollup circuits.
-        balances: Map<AztecAddress, PublicMutable<U128>>,
+        // TODO(#7604): uncomment the following
+        // balances: Map<AztecAddress, PublicMutable<U128>>,
         portal_address: SharedImmutable<EthAddress>,
     }
 
@@ -96,8 +97,12 @@ contract GasToken {
     #[aztec(public)]
     #[aztec(internal)]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
-        let new_balance = storage.balances.at(to).read().add(U128::from_integer(amount));
-        storage.balances.at(to).write(new_balance);
+        // let new_balance = storage.balances.at(to).read().add(U128::from_integer(amount));
+        // storage.balances.at(to).write(new_balance);
+
+        // TODO(#7604): nuke the following and uncomment above
+        let new_balance: U128 = context.storage_read(to.to_field()) + U128::from_integer(amount);
+        context.storage_write(to.to_field(), new_balance);
     }
 
     // TODO(palla/gas) Remove this function and use the private claim flow only
@@ -110,8 +115,12 @@ contract GasToken {
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, portal_address, leaf_index);
 
-        let new_balance = storage.balances.at(to).read() + U128::from_integer(amount);
-        storage.balances.at(to).write(new_balance);
+        // let new_balance = storage.balances.at(to).read() + U128::from_integer(amount);
+        // storage.balances.at(to).write(new_balance);
+
+        // TODO(#7604): nuke the following and uncomment above
+        let new_balance: U128 = context.storage_read(to.to_field()) + U128::from_integer(amount);
+        context.storage_write(to.to_field(), new_balance);
     }
 
     // TODO(@just-mitch): remove this function before mainnet deployment
@@ -120,22 +129,32 @@ contract GasToken {
     #[aztec(public)]
     fn mint_public(to: AztecAddress, amount: Field) {
         let amount = U128::from_integer(amount);
-        let new_balance = storage.balances.at(to).read().add(amount);
+        // let new_balance = storage.balances.at(to).read().add(amount);
 
-        storage.balances.at(to).write(new_balance);
+        // storage.balances.at(to).write(new_balance);
+
+        // TODO(#7604): nuke the following and uncomment above
+        let new_balance: U128 = context.storage_read(to.to_field()) + amount;
+        context.storage_write(to.to_field(), new_balance);
     }
 
     #[aztec(public)]
     #[aztec(view)]
     fn check_balance(fee_limit: Field) {
         let fee_limit = U128::from_integer(fee_limit);
-        assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
+        // assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
+
+        // TODO(#7604): nuke the following and uncomment above
+        let balance: U128 = context.storage_read(context.msg_sender().to_field());
+        assert(balance >= fee_limit, "Balance too low");
     }
 
     // utility function for testing
     #[aztec(public)]
     #[aztec(view)]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.balances.at(owner).read().to_field()
+        // storage.balances.at(owner).read().to_field()
+        // TODO(#7604): nuke the following and uncomment above
+        context.storage_read(owner.to_field())
     }
 }
