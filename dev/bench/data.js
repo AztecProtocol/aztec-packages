@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721909986082,
+  "lastUpdate": 1721914438070,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -93912,6 +93912,78 @@ window.BENCHMARK_DATA = {
             "value": 168646489,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 168646489 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ffedf39d98aee4c4149e55e4a133e878553e1e25",
+          "message": "refactor: call requests (#7483)\n\n- Stop revealing start counters of public call requests from private.\r\n- Export PublicCallRequest structs instead of hashes from public inputs.\r\n- Gate counts have increased because of the larger data (Will try to\r\nreduce them in the next pr). But now the app circuit can save 5k for\r\neach public function call.\r\n- Remove caller context. Instead, use call context in the call request\r\nto check addresses and function selector.\r\n- Add missing checks:\r\n  - Nested function selector.\r\n  - Teardown call request.\r\n  - Empty public data update requests.",
+          "timestamp": "2024-07-25T14:17:50+01:00",
+          "tree_id": "3cc271bcc1827a6e4c40789108a25700627607ca",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ffedf39d98aee4c4149e55e4a133e878553e1e25"
+        },
+        "date": 1721914430643,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13330.358958999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9885.093805 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4768.070627,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4369.004248 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39478.83351999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39478834000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14459.021862999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14459022000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3634421094,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3634421094 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201918102,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201918102 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2980510680,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2980510680 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166712606,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166712606 ns\nthreads: 1"
           }
         ]
       }
