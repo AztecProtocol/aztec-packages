@@ -95,20 +95,33 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
+      - name: Check if metrics have changed
+        id: check_metrics_changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
+            const fileChanged = changedFiles.some(file => file.startsWith('metrics'));
+            return fileChanged
+
       - name: Deploy prometheus
         working-directory: ./metrics/prometheus/terraform
+        if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
           terraform init -input=false -backend-config="key=aztec-prometheus"
           terraform apply -input=false -auto-approve
 
       - name: Deploy grafana
         working-directory: ./metrics/grafana/terraform
+        if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
           terraform init -input=false -backend-config="key=aztec-grafana"
           terraform apply -input=false -auto-approve
 
       - name: Deploy open telemetry
         working-directory: ./metrics/otel/terraform
+        if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
           terraform init -input=false -backend-config="key=aztec-otel"
           terraform apply -input=false -auto-approve

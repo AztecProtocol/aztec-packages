@@ -8,7 +8,7 @@ processors:
   batch:
 
 exporters:
-  debug:
+  debug: # enable debug
   prometheus:
     endpoint: 0.0.0.0:8889
     metric_expiration: 5m
