@@ -52,10 +52,12 @@ jobs:
         with:
           script: |
             const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n').filter(line => line);
-            const result = changedFiles.every(file => file.startsWith('.github'));
-            console.log({ result, changedFiles });
-            return result;
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
+              .toString()
+              .split('\n')
+              .filter(line => line);
+            const foldersToIgnore = ['.github', 'iac'];
+            return changedFiles.every(file => foldersToIgnore.some(folder => file.startsWith(folder)));
       - name: "Build & Push aztec images"
         timeout-minutes: 40
         if: steps.check_only_workflow_changes.outputs.result == 'false'
@@ -103,7 +105,7 @@ jobs:
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_efs_mount_target.aztec_fork_private_az1" -replace="aws_efs_mount_target.aztec_fork_private_az2"
 
       - name: Wait for mainnet fork deployment
         run: |
@@ -176,6 +178,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
 
       - uses: ./.github/ci-setup-action
 
