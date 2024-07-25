@@ -14,7 +14,7 @@ export async function deployL1Contracts(
   const { l1ContractAddresses } = await deployAztecContracts(rpcUrl, chainId, privateKey, mnemonic, debugLogger);
 
   if (json) {
-    log('', l1ContractAddresses);
+    log('', Object.fromEntries(Object.entries(l1ContractAddresses).map(([k, v]) => [k, v.toString()])));
   } else {
     log(`Rollup Address: ${l1ContractAddresses.rollupAddress.toString()}`);
     log(`Registry Address: ${l1ContractAddresses.registryAddress.toString()}`);
