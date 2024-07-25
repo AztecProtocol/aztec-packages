@@ -108,6 +108,7 @@ __metadata:
   resolution: "@aztec/aztec-node@workspace:aztec-node"
   dependencies:
     "@aztec/archiver": "workspace:^"
+    "@aztec/aztec-validator": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -135,6 +136,36 @@ __metadata:
     typescript: ^5.0.4
   bin:
     aztec-node: ./dest/bin/index.js
+  languageName: unknown
+  linkType: soft
+
+"@aztec/aztec-validator@workspace:^, @aztec/aztec-validator@workspace:aztec-validator":
+  version: 0.0.0-use.local
+  resolution: "@aztec/aztec-validator@workspace:aztec-validator"
+  dependencies:
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/merkle-tree": "workspace:^"
+    "@aztec/p2p": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
+    "@aztec/simulator": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.7.23
+    jest: ^29.5.0
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^2.7.15
+  bin:
+    aztec-validator: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -698,6 +729,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
+    "@aztec/aztec-validator": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"

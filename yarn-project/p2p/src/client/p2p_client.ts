@@ -7,6 +7,7 @@ import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { getP2PConfigEnvVars } from '../config.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
+import {AztecValidator} from "@aztec/aztec-validator";
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -121,6 +122,10 @@ export class P2PClient implements P2P {
 
   private synchedLatestBlockNumber: AztecSingleton<number>;
   private synchedProvenBlockNumber: AztecSingleton<number>;
+
+
+  // Temporary
+  private proposalAttestations = [];
 
   /**
    * In-memory P2P client constructor.
@@ -269,11 +274,16 @@ export class P2PClient implements P2P {
     this.p2pService.propagateTx(tx);
   }
 
+
   public async sendProposal(proposal: BlockProposal): Promise<void> {
     const ready = await this.isReady();
     if (!ready) {
       throw new Error('P2P client not ready');
     }
+    // Mock logic to keep track of proposal responses
+    // clean proposal signatures when we sent em
+    this.proposalAttestations = [];
+
     // TODO(md): we are only propogating proposals for now
     this.p2pService.propagateProposal(proposal);
   }

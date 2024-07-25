@@ -64,6 +64,7 @@ import { type GlobalVariableBuilder, SequencerClient, getGlobalVariableBuilder }
 import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import {AztecValidator, createValidator} from "@aztec/aztec-validator";
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -75,6 +76,7 @@ import { MerkleTrees, type WorldStateSynchronizer, createWorldStateSynchronizer 
 import { type AztecNodeConfig, getPackageInfo } from './config.js';
 import { MetadataTxValidator } from './tx_validator/tx_metadata_validator.js';
 import { TxProofValidator } from './tx_validator/tx_proof_validator.js';
+import { BlockProposal } from '@aztec/foundation/sequencer';
 
 /**
  * The aztec node.
@@ -140,8 +142,11 @@ export class AztecNodeService implements AztecNode {
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
+    // TODO(md): change the private key here
+    const validatorClient = new AztecValidator(config.publisherPrivateKey);
+
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), archiver);
+    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), validatorClient, archiver);
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
@@ -333,6 +338,13 @@ export class AztecNodeService implements AztecNode {
     }
 
     await this.p2pClient!.sendTx(tx);
+  }
+
+  // method to sendProposals directly through the node service
+  public async sendProposal(proposal: BlockProposal) {
+    this.log.info("Received proposal");
+
+    await this.p2pClient.sendProposal(proposal);
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {

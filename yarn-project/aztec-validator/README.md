@@ -1,0 +1,1 @@
+idea is that this validator client just handles signing things

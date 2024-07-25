@@ -23,8 +23,9 @@ import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 import { AztecTxMessageCreator, fromTxMessage } from './tx_messages.js';
-import { AztecCommitmentMessageCreator } from './z_commitment_message.js';
-import { AztecProposalMessageCreator } from './z_proposal_messages.js';
+import { AztecAttestationMessageCreator } from './commitment_message.js';
+import { AztecProposalMessageCreator } from './proposal_messages.js';
+import {AztecValidator} from "@aztec/aztec-validator";
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -54,7 +55,7 @@ export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private messageCreator: AztecTxMessageCreator;
   private proposalCreator: AztecProposalMessageCreator;
-  private commitmentCreator: AztecCommitmentMessageCreator;
+  private commitmentCreator: AztecAttestationMessageCreator;
 
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
@@ -63,11 +64,12 @@ export class LibP2PService implements P2PService {
     private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
+    private validatorClient: AztecValidator,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.messageCreator = new AztecTxMessageCreator(config.txGossipVersion);
     this.proposalCreator = new AztecProposalMessageCreator(config.txGossipVersion);
-    this.commitmentCreator = new AztecCommitmentMessageCreator(config.txGossipVersion);
+    this.commitmentCreator = new AztecAttestationMessageCreator(config.txGossipVersion);
 
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
   }
@@ -149,6 +151,7 @@ export class LibP2PService implements P2PService {
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
     txPool: TxPool,
+    validatorClient: AztecValidator,
     store: AztecKVStore,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
@@ -215,7 +218,7 @@ export class LibP2PService implements P2PService {
       },
     });
 
-    return new LibP2PService(config, node, peerDiscoveryService, txPool);
+    return new LibP2PService(config, node, peerDiscoveryService, txPool, validatorClient);
   }
 
   /**
@@ -244,6 +247,7 @@ export class LibP2PService implements P2PService {
     return result.recipients.length;
   }
 
+
   /**
    * Handles a new gossip message that was received by the client.
    * @param topic - The message's topic.
@@ -251,15 +255,6 @@ export class LibP2PService implements P2PService {
    */
   private async handleNewGossipMessage(topic: string, data: Uint8Array) {
     // TODO(md): add list of multiple topics here
-    if (topic !== this.messageCreator.getTopic()) {
-      // Invalid TX Topic, ignore
-      return;
-    }
-    // yuck
-    if (topic !== this.proposalCreator.getTopic() || topic !== this.commitmentCreator.getTopic()) {
-      return;
-    }
-
     switch (topic) {
       case this.messageCreator.getTopic(): {
         const tx = fromTxMessage(Buffer.from(data));
@@ -273,12 +268,10 @@ export class LibP2PService implements P2PService {
       }
       case this.commitmentCreator.getTopic(): {
         const attestation = BlockAttestation.fromBuffer(Buffer.from(data));
-        await this.processCommitmentFromPeer(attestation);
+        await this.processAttestationFromPeer(attestation);
         break;
       }
     }
-    // const tx = fromTxMessage(Buffer.from(data));
-    // await this.processTxFromPeer(tx);
   }
 
   /**
@@ -309,11 +302,18 @@ export class LibP2PService implements P2PService {
   private async processProposalFromPeer(proposal: BlockProposal): Promise<void> {
     this.logger.verbose('Received block proposal from external peer');
     // TODO: impl
+
+    // TEMP:
+    // Create an attestation for the proposal that we have just received
+    const attestation = await this.validatorClient.attestToProposal(proposal);
+    this.logger.verbose('Attested to proposal');
+    this.propagateAttestation(attestation);
   }
 
-  private async processCommitmentFromPeer(commitment: BlockAttestation): Promise<void> {
-    this.logger.verbose('Received block commitment from external peer');
+  private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
+    this.logger.verbose('Received block attestation from external peer');
     // TODO: impl
+    this.logger.verbose(attestation.signature.signature.toString());
   }
 
   // TODO(md): make generic

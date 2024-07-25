@@ -7,7 +7,7 @@ import { BlockAttestation } from '@aztec/foundation/sequencer';
 import { SemVer } from 'semver';
 
 // TODO(md): can be combined with the other message creators
-export class AztecCommitmentMessageCreator {
+export class AztecAttestationMessageCreator {
   private readonly topic: string;
   constructor(version: SemVer) {
     this.topic = `/aztec/commitment/${version.toString()}`;

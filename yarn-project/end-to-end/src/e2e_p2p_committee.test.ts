@@ -10,7 +10,7 @@
  */
 import { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, DebugLogger, SentTx, createAztecNodeClient, sleep } from '@aztec/aztec.js';
+import { AztecAddress, DebugLogger, SentTx, createAztecNodeClient, createDebugLogger, sleep } from '@aztec/aztec.js';
 import { BootstrapNode } from '@aztec/p2p';
 import { createLibP2PPeerId } from '@aztec/p2p';
 import { BootNodeConfig } from '@aztec/p2p';
@@ -19,6 +19,10 @@ import { PXEService } from '@aztec/pxe';
 import fs from 'fs';
 
 import { setup } from './fixtures/utils.js';
+import { BlockProposal, ProposalMessage, Signature } from '@aztec/foundation/sequencer';
+import { mnemonicToAccount } from 'viem/accounts';
+import { MNEMONIC } from './fixtures/fixtures.js';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 2;
@@ -69,10 +73,11 @@ describe('e2e_p2p_committee', () => {
 
     let contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = [];
+    logger.info("Creating nodes");
     for (let i = 0; i < NUM_NODES; i++) {
       // Place on consecutive ports
       //
-      const node = await createAztecNodeClient(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr, i, `./data-${i}`);
+      const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr, i);
       nodes.push(node);
     }
 
@@ -81,6 +86,32 @@ describe('e2e_p2p_committee', () => {
 
     // Create a proposal on one of the nodes
     // Get signatures from all of the other nodes
+
+    // TODO: trigger a proposal from one of the clients
+    // See that it gets propagated among the peers
+    const proposer = nodes[0];
+    
+    logger.info("Sending proposal");
+    const message = new ProposalMessage(Buffer.from("Proposal one"));
+    const signature = new Signature(Buffer.from("Dummy Signature"));
+    const proposal = new BlockProposal(
+      message,
+      signature
+    );
+    proposer.sendProposal(proposal);
+
+    // wait to let the peers receive the proposal
+    logger.info("before sleep");
+    await sleep(10000);
+    logger.info("after sleep");
+
+
+    // TODO: see how we can observe in the logs / other that the proposal was propagated to other machiens
+
+    // Shutdown nodes
+    for(const node of nodes) {
+      node.stop();
+    }
   });
 
   // TODO(md): copied from p2p e2e

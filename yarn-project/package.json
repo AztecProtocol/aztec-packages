@@ -24,6 +24,7 @@
     "archiver",
     "aztec-faucet",
     "aztec-node",
+    "aztec-validator",
     "bb-prover",
     "builder",
     "pxe",
