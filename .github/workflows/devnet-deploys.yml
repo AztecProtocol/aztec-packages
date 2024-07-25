@@ -105,7 +105,7 @@ jobs:
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve -replace="aws_efs_mount_target.aztec_fork_private_az1" -replace="aws_efs_mount_target.aztec_fork_private_az2"
+          terraform apply -input=false -auto-approve -replace="aws_efs_mount_target.aztec_fork_private_az1" -replace="aws_efs_mount_target.aztec_fork_private_az2" -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
 
       - name: Wait for mainnet fork deployment
         run: |
