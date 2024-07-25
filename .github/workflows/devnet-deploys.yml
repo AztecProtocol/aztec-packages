@@ -146,6 +146,7 @@ jobs:
       - name: Apply l1-contracts Terraform
         working-directory: ./l1-contracts/terraform
         run: |
+          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
 
@@ -157,6 +158,7 @@ jobs:
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
+          env
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store"
 
       - name: Deploy Provers
@@ -168,6 +170,7 @@ jobs:
       - name: Deploy PXE
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
+          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
           terraform apply -input=false -auto-approve
 
