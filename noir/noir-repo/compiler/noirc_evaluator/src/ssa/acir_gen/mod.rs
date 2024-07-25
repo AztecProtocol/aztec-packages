@@ -33,7 +33,7 @@ use acvm::acir::circuit::opcodes::BlockType;
 use noirc_frontend::monomorphization::ast::InlineType;
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
-use acvm::acir::circuit::{AssertionPayload, ErrorSelector, OpcodeLocation};
+use acvm::acir::circuit::{AssertionPayload, ErrorSelector, ExpressionWidth, OpcodeLocation};
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{acir::circuit::opcodes::BlockId, acir::AcirField, FieldElement};
@@ -282,12 +282,16 @@ pub(crate) type Artifacts = (
 
 impl Ssa {
     #[tracing::instrument(level = "trace", skip_all)]
-    pub(crate) fn into_acir(self, brillig: &Brillig) -> Result<Artifacts, RuntimeError> {
+    pub(crate) fn into_acir(
+        self,
+        brillig: &Brillig,
+        expression_width: ExpressionWidth,
+    ) -> Result<Artifacts, RuntimeError> {
         let mut acirs = Vec::new();
-        // TODO: can we parallelise this?
+        // TODO: can we parallelize this?
         let mut shared_context = SharedContext::default();
         for function in self.functions.values() {
-            let context = Context::new(&mut shared_context);
+            let context = Context::new(&mut shared_context, expression_width);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -334,8 +338,12 @@ impl Ssa {
 }
 
 impl<'a> Context<'a> {
-    fn new(shared_context: &'a mut SharedContext<FieldElement>) -> Context<'a> {
+    fn new(
+        shared_context: &'a mut SharedContext<FieldElement>,
+        expression_width: ExpressionWidth,
+    ) -> Context<'a> {
         let mut acir_context = AcirContext::default();
+        acir_context.set_expression_width(expression_width);
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
         Context {
@@ -975,6 +983,8 @@ impl<'a> Context<'a> {
                 .into())
             }
         };
+        // Ensure that array id is fully resolved.
+        let array = dfg.resolve(array);
 
         let array_id = dfg.resolve(array);
         let array_typ = dfg.type_of_value(array_id);
@@ -992,7 +1002,6 @@ impl<'a> Context<'a> {
         // If we find one, we will use it when computing the index under the enable_side_effect predicate
         // If not, array_get(..) will use a fallback costing one multiplication in the worst case.
         // cf. https://github.com/noir-lang/noir/pull/4971
-
         // For simplicity we compute the offset only for simple arrays
         let is_simple_array = dfg.instruction_results(instruction).len() == 1
             && can_omit_element_sizes_array(&array_typ);
@@ -1085,45 +1094,30 @@ impl<'a> Context<'a> {
             }
         };
 
-        let side_effects_always_enabled =
-            self.acir_context.is_constant_one(&self.current_side_effects_enabled_var);
-        let index_out_of_bounds = index >= array_size;
+        if index >= array_size {
+            return Ok(false);
+        }
 
-        // Note that the value of `side_effects_always_enabled` doesn't affect the value which we return here for valid
-        // indices, just whether we return an error for invalid indices at compile time or defer until execution.
-        match (side_effects_always_enabled, index_out_of_bounds) {
-            (true, false) => {
-                let value = match store_value {
-                    Some(store_value) => AcirValue::Array(array.update(index, store_value)),
-                    None => array[index].clone(),
-                };
+        if let Some(store_value) = store_value {
+            let side_effects_always_enabled =
+                self.acir_context.is_constant_one(&self.current_side_effects_enabled_var);
 
+            if side_effects_always_enabled {
+                // If we know that this write will always occur then we can perform it at compile time.
+                let value = AcirValue::Array(array.update(index, store_value));
                 self.define_result(dfg, instruction, value);
                 Ok(true)
+            } else {
+                // If a predicate is applied however we must wait until runtime.
+                Ok(false)
             }
-            (false, false) => {
-                if store_value.is_none() {
-                    // If there is a predicate and the index is not out of range, we can optimistically perform the
-                    // read at compile time as if the predicate is true.
-                    //
-                    // This is as if the predicate is false, any side-effects will be disabled so the value returned
-                    // will not affect the rest of execution.
-                    self.define_result(dfg, instruction, array[index].clone());
-                    Ok(true)
-                } else {
-                    // We do not do this for a array writes however.
-                    Ok(false)
-                }
-            }
-
-            // Report the error if side effects are enabled.
-            (true, true) => {
-                let call_stack = self.acir_context.get_call_stack();
-                Err(RuntimeError::IndexOutOfBounds { index, array_size, call_stack })
-            }
-            // Index is out of bounds but predicate may result in this array operation being skipped
-            // so we don't return an error now.
-            (false, true) => Ok(false),
+        } else {
+            // If the index is not out of range, we can optimistically perform the read at compile time
+            // as if the predicate were true. This is as if the predicate were to resolve to false then
+            // the result should not affect the rest of circuit execution.
+            let value = array[index].clone();
+            self.define_result(dfg, instruction, value);
+            Ok(true)
         }
     }
 
@@ -1138,13 +1132,14 @@ impl<'a> Context<'a> {
     ///     It is a dummy value because in the case of a false predicate, the value stored at the requested index will be itself.
     fn convert_array_operation_inputs(
         &mut self,
-        array: ValueId,
+        array_id: ValueId,
         dfg: &DataFlowGraph,
         index: ValueId,
         store_value: Option<ValueId>,
         offset: usize,
     ) -> Result<(AcirVar, Option<AcirValue>), RuntimeError> {
-        let (array_id, array_typ, block_id) = self.check_array_is_initialized(array, dfg)?;
+        let array_typ = dfg.type_of_value(array_id);
+        let block_id = self.ensure_array_is_initialized(array_id, dfg)?;
 
         let index_var = self.convert_numeric_value(index, dfg)?;
         let index_var = self.get_flattened_index(&array_typ, array_id, index_var, dfg)?;
@@ -1263,22 +1258,22 @@ impl<'a> Context<'a> {
         dfg: &DataFlowGraph,
         mut index_side_effect: bool,
     ) -> Result<AcirValue, RuntimeError> {
-        let (array_id, _, block_id) = self.check_array_is_initialized(array, dfg)?;
+        let block_id = self.ensure_array_is_initialized(array, dfg)?;
         let results = dfg.instruction_results(instruction);
         let res_typ = dfg.type_of_value(results[0]);
 
         // Get operations to call-data parameters are replaced by a get to the call-data-bus array
         if let Some(call_data) = self.data_bus.call_data {
-            if self.data_bus.call_data_map.contains_key(&array_id) {
+            if self.data_bus.call_data_map.contains_key(&array) {
                 // TODO: the block_id of call-data must be notified to the backend
                 // TODO: should we do the same for return-data?
                 let type_size = res_typ.flattened_size();
                 let type_size =
                     self.acir_context.add_constant(FieldElement::from(type_size as i128));
                 let offset = self.acir_context.mul_var(var_index, type_size)?;
-                let bus_index = self.acir_context.add_constant(FieldElement::from(
-                    self.data_bus.call_data_map[&array_id] as i128,
-                ));
+                let bus_index = self
+                    .acir_context
+                    .add_constant(FieldElement::from(self.data_bus.call_data_map[&array] as i128));
                 let new_index = self.acir_context.add_var(offset, bus_index)?;
                 return self.array_get(instruction, call_data, new_index, dfg, index_side_effect);
             }
@@ -1292,8 +1287,7 @@ impl<'a> Context<'a> {
         let mut value = self.array_get_value(&res_typ, block_id, &mut var_index)?;
 
         if let AcirValue::Var(value_var, typ) = &value {
-            let array_id = dfg.resolve(array_id);
-            let array_typ = dfg.type_of_value(array_id);
+            let array_typ = dfg.type_of_value(array);
             if let (Type::Numeric(numeric_type), AcirType::NumericType(num)) =
                 (array_typ.first(), typ)
             {
@@ -1302,6 +1296,7 @@ impl<'a> Context<'a> {
                     index_side_effect = false;
                 }
             }
+
             // Fallback to multiplication if the index side_effects have not already been handled
             if index_side_effect {
                 // Set the value to 0 if current_side_effects is 0, to ensure it fits in any value type
@@ -1377,7 +1372,7 @@ impl<'a> Context<'a> {
             }
         };
 
-        let (array_id, array_typ, block_id) = self.check_array_is_initialized(array, dfg)?;
+        let block_id = self.ensure_array_is_initialized(array, dfg)?;
 
         // Every array has a length in its type, so we fetch that from
         // the SSA IR.
@@ -1386,10 +1381,11 @@ impl<'a> Context<'a> {
         // However, this size is simply the capacity of a slice. The capacity is dependent upon the witness
         // and may contain data for which we want to restrict access. The true slice length is tracked in a
         // a separate SSA value and restrictions on slice indices should be generated elsewhere in the SSA.
+        let array_typ = dfg.type_of_value(array);
         let array_len = if !array_typ.contains_slice_element() {
             array_typ.flattened_size()
         } else {
-            self.flattened_slice_size(array_id, dfg)
+            self.flattened_slice_size(array, dfg)
         };
 
         // Since array_set creates a new array, we create a new block ID for this
@@ -1412,18 +1408,13 @@ impl<'a> Context<'a> {
         self.array_set_value(&store_value, result_block_id, &mut var_index)?;
 
         let element_type_sizes = if !can_omit_element_sizes_array(&array_typ) {
-            let acir_value = self.convert_value(array_id, dfg);
-            Some(self.init_element_type_sizes_array(
-                &array_typ,
-                array_id,
-                Some(&acir_value),
-                dfg,
-            )?)
+            let acir_value = self.convert_value(array, dfg);
+            Some(self.init_element_type_sizes_array(&array_typ, array, Some(&acir_value), dfg)?)
         } else {
             None
         };
 
-        let value_types = self.convert_value(array_id, dfg).flat_numeric_types();
+        let value_types = self.convert_value(array, dfg).flat_numeric_types();
         // Compiler sanity check
         assert_eq!(value_types.len(), array_len, "ICE: The length of the flattened type array should match the length of the dynamic array");
 
@@ -1469,37 +1460,33 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    fn check_array_is_initialized(
+    fn ensure_array_is_initialized(
         &mut self,
         array: ValueId,
         dfg: &DataFlowGraph,
-    ) -> Result<(ValueId, Type, BlockId), RuntimeError> {
-        // Fetch the internal SSA ID for the array
-        let array_id = dfg.resolve(array);
-
-        let array_typ = dfg.type_of_value(array_id);
-
+    ) -> Result<BlockId, RuntimeError> {
         // Use the SSA ID to get or create its block ID
-        let block_id = self.block_id(&array_id);
+        let block_id = self.block_id(&array);
 
         // Check if the array has already been initialized in ACIR gen
         // if not, we initialize it using the values from SSA
         let already_initialized = self.initialized_arrays.contains(&block_id);
         if !already_initialized {
-            let value = &dfg[array_id];
+            let value = &dfg[array];
             match value {
                 Value::Array { .. } | Value::Instruction { .. } => {
-                    let value = self.convert_value(array_id, dfg);
+                    let value = self.convert_value(array, dfg);
+                    let array_typ = dfg.type_of_value(array);
                     let len = if !array_typ.contains_slice_element() {
                         array_typ.flattened_size()
                     } else {
-                        self.flattened_slice_size(array_id, dfg)
+                        self.flattened_slice_size(array, dfg)
                     };
                     self.initialize_array(block_id, len, Some(value))?;
                 }
                 _ => {
                     return Err(InternalError::General {
-                        message: format!("Array {array_id} should be initialized"),
+                        message: format!("Array {array} should be initialized"),
                         call_stack: self.acir_context.get_call_stack(),
                     }
                     .into());
@@ -1507,7 +1494,7 @@ impl<'a> Context<'a> {
             }
         }
 
-        Ok((array_id, array_typ, block_id))
+        Ok(block_id)
     }
 
     fn init_element_type_sizes_array(
@@ -1761,7 +1748,7 @@ impl<'a> Context<'a> {
 
     /// Converts an SSA terminator's return values into their ACIR representations
     fn get_num_return_witnesses(
-        &mut self,
+        &self,
         terminator: &TerminatorInstruction,
         dfg: &DataFlowGraph,
     ) -> usize {
@@ -1815,7 +1802,7 @@ impl<'a> Context<'a> {
                 has_constant_return |= self.acir_context.is_constant(&acir_var);
                 if is_databus {
                     // We do not return value for the data bus.
-                    self.check_array_is_initialized(
+                    self.ensure_array_is_initialized(
                         self.data_bus.return_data.expect(
                             "`is_databus == true` implies `data_bus.return_data` is `Some`",
                         ),
@@ -2182,8 +2169,9 @@ impl<'a> Context<'a> {
                 Ok(vec![AcirValue::Var(self.acir_context.add_constant(len), AcirType::field())])
             }
             Intrinsic::AsSlice => {
-                let (slice_contents, slice_typ, block_id) =
-                    self.check_array_is_initialized(arguments[0], dfg)?;
+                let slice_contents = arguments[0];
+                let slice_typ = dfg.type_of_value(slice_contents);
+                let block_id = self.ensure_array_is_initialized(slice_contents, dfg)?;
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let result_block_id = self.block_id(&result_ids[1]);
@@ -2227,8 +2215,9 @@ impl<'a> Context<'a> {
             Intrinsic::SlicePushBack => {
                 // arguments = [slice_length, slice_contents, ...elements_to_push]
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
-                let (slice_contents, slice_typ, _) =
-                    self.check_array_is_initialized(arguments[1], dfg)?;
+                let slice_contents = arguments[1];
+                let slice_typ = dfg.type_of_value(slice_contents);
+
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let slice = self.convert_value(slice_contents, dfg);
@@ -2294,9 +2283,8 @@ impl<'a> Context<'a> {
             Intrinsic::SlicePushFront => {
                 // arguments = [slice_length, slice_contents, ...elements_to_push]
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
-
-                let (slice_contents, slice_typ, _) =
-                    self.check_array_is_initialized(arguments[1], dfg)?;
+                let slice_contents = arguments[1];
+                let slice_typ = dfg.type_of_value(slice_contents);
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let slice: AcirValue = self.convert_value(slice_contents, dfg);
@@ -2359,6 +2347,7 @@ impl<'a> Context<'a> {
             Intrinsic::SlicePopBack => {
                 // arguments = [slice_length, slice_contents]
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
+                let slice_contents = arguments[1];
 
                 let one = self.acir_context.add_constant(FieldElement::one());
                 let new_slice_length = self.acir_context.sub_var(slice_length, one)?;
@@ -2367,8 +2356,8 @@ impl<'a> Context<'a> {
                 // the elements stored at that index will no longer be able to be accessed.
                 let mut var_index = new_slice_length;
 
-                let (slice_contents, slice_typ, block_id) =
-                    self.check_array_is_initialized(arguments[1], dfg)?;
+                let slice_typ = dfg.type_of_value(slice_contents);
+                let block_id = self.ensure_array_is_initialized(slice_contents, dfg)?;
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let mut popped_elements = Vec::new();
@@ -2393,9 +2382,11 @@ impl<'a> Context<'a> {
             Intrinsic::SlicePopFront => {
                 // arguments = [slice_length, slice_contents]
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
+                let slice_contents = arguments[1];
 
-                let (slice_contents, slice_typ, block_id) =
-                    self.check_array_is_initialized(arguments[1], dfg)?;
+                let slice_typ = dfg.type_of_value(slice_contents);
+                let block_id = self.ensure_array_is_initialized(slice_contents, dfg)?;
+
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let one = self.acir_context.add_constant(FieldElement::one());
@@ -2434,9 +2425,11 @@ impl<'a> Context<'a> {
             Intrinsic::SliceInsert => {
                 // arguments = [slice_length, slice_contents, insert_index, ...elements_to_insert]
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
+                let slice_contents = arguments[1];
 
-                let (slice_contents, slice_typ, block_id) =
-                    self.check_array_is_initialized(arguments[1], dfg)?;
+                let slice_typ = dfg.type_of_value(slice_contents);
+                let block_id = self.ensure_array_is_initialized(slice_contents, dfg)?;
+
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let slice = self.convert_value(slice_contents, dfg);
@@ -2573,9 +2566,11 @@ impl<'a> Context<'a> {
             Intrinsic::SliceRemove => {
                 // arguments = [slice_length, slice_contents, remove_index]
                 let slice_length = self.convert_value(arguments[0], dfg).into_var()?;
+                let slice_contents = arguments[1];
 
-                let (slice_contents, slice_typ, block_id) =
-                    self.check_array_is_initialized(arguments[1], dfg)?;
+                let slice_typ = dfg.type_of_value(slice_contents);
+                let block_id = self.ensure_array_is_initialized(slice_contents, dfg)?;
+
                 assert!(!slice_typ.is_nested_slice(), "ICE: Nested slice used in ACIR generation");
 
                 let slice = self.convert_value(slice_contents, dfg);
@@ -2834,7 +2829,7 @@ mod test {
 
     use acvm::{
         acir::{
-            circuit::{Opcode, OpcodeLocation},
+            circuit::{ExpressionWidth, Opcode, OpcodeLocation},
             native_types::Witness,
         },
         FieldElement,
@@ -2931,7 +2926,7 @@ mod test {
         let ssa = builder.finish();
 
         let (acir_functions, _, _) = ssa
-            .into_acir(&Brillig::default())
+            .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
         // Expected result:
         // main f0
@@ -3026,7 +3021,7 @@ mod test {
         let ssa = builder.finish();
 
         let (acir_functions, _, _) = ssa
-            .into_acir(&Brillig::default())
+            .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
         // The expected result should look very similar to the above test expect that the input witnesses of the `Call`
         // opcodes will be different. The changes can discerned from the checks below.
@@ -3116,7 +3111,7 @@ mod test {
         let ssa = builder.finish();
 
         let (acir_functions, _, _) = ssa
-            .into_acir(&Brillig::default())
+            .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
         assert_eq!(acir_functions.len(), 3, "Should have three ACIR functions");
@@ -3229,8 +3224,9 @@ mod test {
         let ssa = builder.finish();
         let brillig = ssa.to_brillig(false);
 
-        let (acir_functions, brillig_functions, _) =
-            ssa.into_acir(&brillig).expect("Should compile manually written SSA into ACIR");
+        let (acir_functions, brillig_functions, _) = ssa
+            .into_acir(&brillig, ExpressionWidth::default())
+            .expect("Should compile manually written SSA into ACIR");
 
         assert_eq!(acir_functions.len(), 1, "Should only have a `main` ACIR function");
         assert_eq!(brillig_functions.len(), 2, "Should only have generated two Brillig functions");
@@ -3286,7 +3282,7 @@ mod test {
         // The Brillig bytecode we insert for the stdlib is hardcoded so we do not need to provide any
         // Brillig artifacts to the ACIR gen pass.
         let (acir_functions, brillig_functions, _) = ssa
-            .into_acir(&Brillig::default())
+            .into_acir(&Brillig::default(), ExpressionWidth::default())
             .expect("Should compile manually written SSA into ACIR");
 
         assert_eq!(acir_functions.len(), 1, "Should only have a `main` ACIR function");
@@ -3357,8 +3353,9 @@ mod test {
         let brillig = ssa.to_brillig(false);
         println!("{}", ssa);
 
-        let (acir_functions, brillig_functions, _) =
-            ssa.into_acir(&brillig).expect("Should compile manually written SSA into ACIR");
+        let (acir_functions, brillig_functions, _) = ssa
+            .into_acir(&brillig, ExpressionWidth::default())
+            .expect("Should compile manually written SSA into ACIR");
 
         assert_eq!(acir_functions.len(), 1, "Should only have a `main` ACIR function");
         // We expect 3 brillig functions:
@@ -3445,8 +3442,9 @@ mod test {
         let brillig = ssa.to_brillig(false);
         println!("{}", ssa);
 
-        let (acir_functions, brillig_functions, _) =
-            ssa.into_acir(&brillig).expect("Should compile manually written SSA into ACIR");
+        let (acir_functions, brillig_functions, _) = ssa
+            .into_acir(&brillig, ExpressionWidth::default())
+            .expect("Should compile manually written SSA into ACIR");
 
         assert_eq!(acir_functions.len(), 2, "Should only have two ACIR functions");
         // We expect 3 brillig functions:
