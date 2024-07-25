@@ -55,7 +55,7 @@ export class ExecutionNoteCache {
     // Find and remove the matching new note and log(s) if the emitted innerNoteHash is not empty.
     if (!innerNoteHash.equals(Fr.ZERO)) {
       const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
-      const noteIndexToRemove = notes.findIndex(n => n.note.innerNoteHash.equals(innerNoteHash));
+      const noteIndexToRemove = notes.findIndex(n => n.note.innerNoteHashX.equals(innerNoteHash));
       if (noteIndexToRemove === -1) {
         throw new Error('Attempt to remove a pending note that does not exist.');
       }
@@ -85,7 +85,7 @@ export class ExecutionNoteCache {
    **/
   public checkNoteExists(contractAddress: AztecAddress, innerNoteHash: Fr) {
     const notes = this.newNotes.get(contractAddress.toBigInt()) ?? [];
-    return notes.some(n => n.note.innerNoteHash.equals(innerNoteHash));
+    return notes.some(n => n.note.innerNoteHashX.equals(innerNoteHash));
   }
 
   /**

@@ -402,7 +402,7 @@ export class TXE implements TypedOracle {
     return Promise.resolve(notes);
   }
 
-  notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], innerNoteHash: Fr, counter: number) {
+  notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], innerNoteHashX: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -411,7 +411,7 @@ export class TXE implements TypedOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        innerNoteHash,
+        innerNoteHashX,
       },
       counter,
     );

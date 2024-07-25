@@ -23,13 +23,13 @@ pub fn create_note<Note, N, M>(
         storage_slot,
         Note::get_note_type_id(),
         serialized_note,
-        inner_note_hash,
+        inner_note_hash.x,
         note_hash_counter
     )
         == 0
     );
 
-    context.push_note_hash(inner_note_hash);
+    context.push_note_hash(inner_note_hash.x);
 
     NoteEmission::new(*note)
 }
@@ -45,7 +45,7 @@ pub fn create_note_hash_from_public<Note, N, M>(
     note.set_header(header);
     let inner_note_hash = compute_inner_note_hash(*note);
 
-    context.push_note_hash(inner_note_hash);
+    context.push_note_hash(inner_note_hash.x);
 }
 
 pub fn destroy_note<Note, N, M>(

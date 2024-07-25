@@ -62,9 +62,9 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteHash = computeNoteContentHash(note.items);
-      const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHash);
+      const noteContentHash = computeNoteContentHash(note.items);
+      const innerNoteHashX = computeInnerNoteHash(storageSlot, noteContentHash).x;
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHashX);
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
       const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
 
@@ -78,7 +78,7 @@ describe('Simulator', () => {
       );
 
       expect(result).toEqual({
-        innerNoteHash,
+        innerNoteHashX,
         uniqueNoteHash,
         siloedNoteHash,
         innerNullifier,

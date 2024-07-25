@@ -26,7 +26,7 @@ export class IncomingNoteDao implements NoteData {
      * Inner note hash of the note. This is customizable by the app circuit.
      * We can use this value to compute siloedNoteHash and uniqueSiloedNoteHash.
      */
-    public innerNoteHash: Fr,
+    public innerNoteHashX: Fr,
     /**
      * The nullifier of the note (siloed by contract address).
      * Note: Might be set as 0 if the note was added to PXE as nullified.
@@ -46,7 +46,7 @@ export class IncomingNoteDao implements NoteData {
       this.noteTypeId,
       this.txHash.buffer,
       this.nonce,
-      this.innerNoteHash,
+      this.innerNoteHashX,
       this.siloedNullifier,
       this.index,
       this.ivpkM,

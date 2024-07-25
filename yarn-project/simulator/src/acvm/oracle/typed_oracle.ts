@@ -28,7 +28,7 @@ export interface NoteData {
   /** The nonce of the note. */
   nonce: Fr;
   /** The inner note hash of the note. */
-  innerNoteHash: Fr;
+  innerNoteHashX: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the note hash tree. Undefined for pending notes. */
@@ -162,7 +162,7 @@ export abstract class TypedOracle {
     _storageSlot: Fr,
     _noteTypeId: NoteSelector,
     _note: Fr[],
-    _innerNoteHash: Fr,
+    _innerNoteHashX: Fr,
     _counter: number,
   ): void {
     throw new OracleMethodNotAvailableError('notifyCreatedNote');

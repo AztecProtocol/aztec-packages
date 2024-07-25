@@ -278,7 +278,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       if (n.index !== undefined) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always call computeUniqueNoteHash when publicly created notes include nonces.
-        const uniqueNoteHash = n.nonce.isZero() ? n.innerNoteHash : computeUniqueNoteHash(n.nonce, n.innerNoteHash);
+        const uniqueNoteHash = n.nonce.isZero() ? n.innerNoteHashX : computeUniqueNoteHash(n.nonce, n.innerNoteHashX);
         const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
         const noteHashForReadRequest = siloedNoteHash;
         this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
@@ -295,14 +295,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param innerNoteHashX - The x coordinate of inner note hash of the new note.
    * @returns
    */
   public override notifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
-    innerNoteHash: Fr,
+    innerNoteHashX: Fr,
     counter: number,
   ) {
     const note = new Note(noteItems);
@@ -313,7 +313,7 @@ export class ClientExecutionContext extends ViewDataOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        innerNoteHash,
+        innerNoteHashX,
       },
       counter,
     );

@@ -219,7 +219,7 @@ struct CustomNote {
 }
 ```
 
-### After expansaion
+### After expansion
 
 ```rust
 impl CustomNote {
