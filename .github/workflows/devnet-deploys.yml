@@ -57,8 +57,12 @@ jobs:
               .toString()
               .split('\n')
               .filter(line => line);
-            const foldersToIgnore = ['.github', 'iac'];
-            return changedFiles.every(file => foldersToIgnore.some(folder => file.startsWith(folder)));
+            const prefixesToIgnore = ['.github', 'iac'];
+            const suffixesToIgnore = ['.tf'];
+            return changedFiles.every(file => (
+              prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
+              suffixesToIgnore.some(suffix => file.endsWith(suffix))
+            ));
       - name: "Build & Push aztec images"
         timeout-minutes: 40
         if: steps.check_only_workflow_changes.outputs.result == 'false'
