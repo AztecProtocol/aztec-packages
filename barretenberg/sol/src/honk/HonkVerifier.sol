@@ -32,6 +32,7 @@ error ZeromorphFailed();
 abstract contract BaseHonkVerifier is IVerifier {
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO(md): I would perfer the publicInputs to be uint256
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
@@ -63,6 +64,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         return VK.loadVerificationKey();
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO: mod q proof points
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
@@ -96,6 +98,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         });
 
         // Lookup / Permutation Helper Commitments
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO(md): update the log deriv prover commitment rounds
         p.lookupReadCounts = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x1e0:0x200])),
@@ -132,6 +135,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         uint256 boundary = 0x460;
 
         // Sumcheck univariates
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: in this case we know what log_n is - so we hard code it, we would want this to be included in
         // a cpp template for different circuit sizes
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -264,6 +268,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         view
         returns (Fr targetSum)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: inline
         Fr[7] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
             Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
@@ -279,6 +284,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             [Fr.wrap(0x00), Fr.wrap(0x01), Fr.wrap(0x02), Fr.wrap(0x03), Fr.wrap(0x04), Fr.wrap(0x05), Fr.wrap(0x06)];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: opt: use same array mem for each iteratioon
         // Performing Barycentric evaluations
         // Compute B(x)
@@ -287,6 +293,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // Calculate domain size N of inverses -- TODO: montgomery's trick
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
@@ -332,6 +339,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
 
         // Accumulate all 6 custom gates - each with varying number of subrelations
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: annotate how many subrealtions each has
         accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePermutationRelation(purportedEvaluations, tp, evaluations, powPartialEval);
@@ -448,7 +456,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     }
 
     // TODO(md): calculate eta one two and three above
-
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     function accumulateLogDerivativeLookupRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Transcript memory tp,
@@ -928,6 +936,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
 
         // KZG pairing accumulator
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // WORKTODO: concerned that this is zero - it is multiplied by a point later on
         Fr evaluation = Fr.wrap(0);
         verified = zkgReduceVerify(proof, tp, evaluation, c_zeta_Z);
@@ -942,6 +951,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[0] = proof.zmCq;
         scalars[0] = Fr.wrap(1);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: optimize pow operations here ? batch mulable
         for (uint256 k = 0; k < LOG_N; ++k) {
             Fr degree = Fr.wrap((1 << k) - 1);
@@ -1002,6 +1012,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             cp.rho_pow = cp.rho_pow * tp.rho;
         }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: dont accumulate these into the comms array, just accumulate directly
         commitments[1] = vk.qm;
         commitments[2] = vk.qc;
@@ -1080,6 +1091,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         return batchMul2(commitments, scalars);
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO: TODO: TODO: optimize
     // Scalar Mul and acumulate into total
     function batchMul(Honk.G1Point[LOG_N + 1] memory base, Fr[LOG_N + 1] memory scalars)

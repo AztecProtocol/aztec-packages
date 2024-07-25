@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
 PLONK_FLAVOUR="honk"
 SRS_PATH="../cpp/srs_db/ignition"
 OUTPUT_PATH="./src/honk"

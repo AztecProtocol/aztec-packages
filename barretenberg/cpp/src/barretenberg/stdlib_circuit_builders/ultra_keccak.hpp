@@ -1,3 +1,4 @@
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
 // TODO: the only change should be making honk generic over the transcript
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"

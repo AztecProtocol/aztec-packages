@@ -18,6 +18,7 @@ function bytes32ToString(bytes32 value) pure returns (string memory) {
 }
 
 function logG1(string memory name, Honk.G1ProofPoint memory point) pure {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO: convert both to hex before printing to line up with cpp
     string memory x_0 = bytes32ToString(bytes32(point.x_0));
     string memory x_1 = bytes32ToString(bytes32(point.x_1));
@@ -29,6 +30,7 @@ function logG1(string memory name, Honk.G1ProofPoint memory point) pure {
 }
 
 function logG(string memory name, Honk.G1Point memory point) pure {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO: convert both to hex before printing to line up with cpp
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));
@@ -38,6 +40,7 @@ function logG(string memory name, Honk.G1Point memory point) pure {
 }
 
 function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
     // TODO: convert both to hex before printing to line up with cpp
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));

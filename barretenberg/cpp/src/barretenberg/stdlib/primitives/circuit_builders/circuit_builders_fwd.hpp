@@ -13,7 +13,6 @@ namespace bb {
 class StandardFlavor;
 class UltraFlavor;
 class UltraKeccakFlavor;
-
 class Bn254FrParams;
 class Bn254FqParams;
 template <class Params> struct alignas(32) field;

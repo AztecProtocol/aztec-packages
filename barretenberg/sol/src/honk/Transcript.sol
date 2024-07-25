@@ -59,6 +59,7 @@ library TranscriptLib {
         view
         returns (Fr eta, Fr etaTwo, Fr etaThree)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO(md): the 12 here will need to be halved when we fix the transcript to not be over field elements
         // TODO: use assembly
         bytes32[3 + NUMBER_OF_PUBLIC_INPUTS + 12] memory round0;
@@ -71,6 +72,7 @@ library TranscriptLib {
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: UPDATE ALL VALUES IN HERE
         round0[3 + NUMBER_OF_PUBLIC_INPUTS] = bytes32(proof.w1.x_0);
         round0[3 + NUMBER_OF_PUBLIC_INPUTS + 1] = bytes32(proof.w1.x_1);
@@ -95,6 +97,7 @@ library TranscriptLib {
         view
         returns (Fr beta, Fr gamma)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO(md): adjust round size when the proof points are generated correctly - 5
         bytes32[13] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
@@ -122,6 +125,7 @@ library TranscriptLib {
         returns (Fr[NUMBER_OF_ALPHAS] memory alphas)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO(md): 5 post correct proof size fix
         uint256[9] memory alpha0;
         alpha0[0] = Fr.unwrap(previousChallenge);
@@ -159,6 +163,7 @@ library TranscriptLib {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
             univariateChal[0] = prevChallenge;
 
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
             // TODO(opt): memcpy
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
@@ -173,6 +178,7 @@ library TranscriptLib {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
         // TODO: memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];

@@ -1,3 +1,4 @@
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1057): Honk solidity verifier
 // TODO: doc
 pragma solidity ^0.8.21;
 
