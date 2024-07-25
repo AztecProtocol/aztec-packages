@@ -146,6 +146,10 @@ resource "aws_ecs_task_definition" "aztec-pxe" {
         {
           name  = "API_PREFIX"
           value = local.api_prefix
+        },
+        {
+          name  = "PXE_PROVER_ENABLED"
+          value = var.PROVING_ENABLED
         }
       ]
       mountPoints = [

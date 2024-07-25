@@ -273,7 +273,7 @@ jobs:
 
   enable_proving:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [deploy-faucet]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -306,6 +306,7 @@ jobs:
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
         run: |
+          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
           terraform apply -input=false -auto-approve
 

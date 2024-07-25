@@ -14,3 +14,8 @@ variable "DOCKERHUB_ACCOUNT" {
 variable "API_KEY" {
   type = string
 }
+
+variable "PROVING_ENABLED" {
+  type    = bool
+  default = false
+}
