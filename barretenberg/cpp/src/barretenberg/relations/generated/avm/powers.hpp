@@ -10,12 +10,6 @@ template <typename FF> struct PowersRow {
     FF powers_power_of_2{};
 };
 
-inline std::string get_relation_label_powers(int index)
-{
-    switch (index) {}
-    return std::to_string(index);
-}
-
 template <typename FF_> class powersImpl {
   public:
     using FF = FF_;
@@ -28,16 +22,24 @@ template <typename FF_> class powersImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        // Contribution 0
         {
-            Avm_DECLARE_VIEWS(0);
-            auto tmp = (powers_power_of_2 - powers_power_of_2);
+            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+            auto tmp = (new_term.powers_power_of_2 - new_term.powers_power_of_2);
             tmp *= scaling_factor;
-            std::get<0>(evals) += tmp;
+            std::get<0>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
 
-template <typename FF> using powers = Relation<powersImpl<FF>>;
+template <typename FF> class powers : public Relation<powersImpl<FF>> {
+  public:
+    static constexpr const char* NAME = "powers";
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {}
+        return std::to_string(index);
+    }
+};
 
 } // namespace bb::Avm_vm

@@ -32,7 +32,8 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
     .option('-px, --pxe [options]', cliTexts.pxe)
     .option('-a, --archiver [options]', cliTexts.archiver)
     .option('-s, --sequencer [options]', cliTexts.sequencer)
-    .option('-r, --prover [options]', cliTexts.prover)
+    .option('-r, --prover [options]', cliTexts.proverAgent)
+    .option('-o, --prover-node [options]', cliTexts.proverNode)
     .option('-p2p, --p2p-bootstrap [options]', cliTexts.p2pBootstrap)
     .option('-t, --txe [options]', cliTexts.txe)
     .action(async options => {
@@ -41,7 +42,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       let services: ServerList = [];
 
       if (options.sandbox) {
-        // If no CLI arguments were provided, run aztec full node for sandbox usage.
         userLog(`${splash}\n${github}\n\n`);
         userLog(`Setting up Aztec Sandbox, please stand by...`);
         const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
@@ -70,6 +70,9 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
         if (options.node) {
           const { startNode } = await import('./cmds/start_node.js');
           services = await startNode(options, signalHandlers, userLog);
+        } else if (options.proverNode) {
+          const { startProverNode } = await import('./cmds/start_prover_node.js');
+          services = await startProverNode(options, signalHandlers, userLog);
         } else if (options.pxe) {
           const { startPXE } = await import('./cmds/start_pxe.js');
           services = await startPXE(options, signalHandlers, userLog);
@@ -79,12 +82,18 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
         } else if (options.p2pBootstrap) {
           const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
           await startP2PBootstrap(options, userLog, debugLogger);
-        } else if (options.prover) {
-          const { startProver } = await import('./cmds/start_prover.js');
-          services = await startProver(options, signalHandlers, userLog);
+        } else if (options.proverAgent) {
+          const { startProverAgent } = await import('./cmds/start_prover_agent.js');
+          services = await startProverAgent(options, signalHandlers, userLog);
         } else if (options.txe) {
           const { startTXE } = await import('./cmds/start_txe.js');
           startTXE(options, debugLogger);
+        } else if (options.sequencer) {
+          userLog(`Cannot run a standalone sequencer without a node`);
+          process.exit(1);
+        } else {
+          userLog(`No module specified to start`);
+          process.exit(1);
         }
       }
       installSignalHandlers(debugLogger.info, signalHandlers);
@@ -108,13 +117,13 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
   program.addHelpText(
     'after',
     `
-  
+
   Additional commands:
 
-    test [options]: starts a dockerized TXE node via     
+    test [options]: starts a dockerized TXE node via
       $ aztec start --txe
     then runs 
-      $ aztec-nargo test --silence-warnings --use-legacy --oracle-resolver=<TXE_ADDRESS> [options]
+      $ aztec-nargo test --silence-warnings --oracle-resolver=<TXE_ADDRESS> [options]
     `,
   );
 

@@ -24,6 +24,7 @@
 #include "barretenberg/vm/avm_trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm_trace/fixed_powers.hpp"
 #include "barretenberg/vm/avm_trace/gadgets/avm_slice_trace.hpp"
+#include "barretenberg/vm/avm_trace/stats.hpp"
 
 namespace bb::avm_trace {
 
@@ -3765,13 +3766,40 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // If the bin_trace_size has entries, we need the main_trace to be as big as our byte lookup table (3 *
     // 2**16 long)
     size_t const lookup_table_size = (bin_trace_size > 0 && range_check_required) ? 3 * (1 << 16) : 0;
-    size_t const range_check_size = range_check_required ? UINT16_MAX + 1 : 0;
+    // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the end,
+    // with clk 0 (this doubles as our range check)
+    size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
     std::vector<size_t> trace_sizes = { mem_trace_size,     main_trace_size,        alu_trace_size,
                                         range_check_size,   conv_trace_size,        lookup_table_size,
                                         sha256_trace_size,  poseidon2_trace_size,   pedersen_trace_size,
                                         gas_trace_size + 1, KERNEL_INPUTS_LENGTH,   KERNEL_OUTPUTS_LENGTH,
                                         min_trace_size,     fixed_gas_table.size(), slice_trace_size,
                                         calldata.size() };
+    vinfo("Trace sizes before padding:",
+          "\n\tmain_trace_size: ",
+          main_trace_size,
+          "\n\tmem_trace_size: ",
+          mem_trace_size,
+          "\n\talu_trace_size: ",
+          alu_trace_size,
+          "\n\trange_check_size: ",
+          range_check_size + 1, // The manually inserted first row is part of the range check
+          "\n\tconv_trace_size: ",
+          conv_trace_size,
+          "\n\tbin_trace_size: ",
+          bin_trace_size,
+          "\n\tsha256_trace_size: ",
+          sha256_trace_size,
+          "\n\tposeidon2_trace_size: ",
+          poseidon2_trace_size,
+          "\n\tpedersen_trace_size: ",
+          pedersen_trace_size,
+          "\n\tgas_trace_size: ",
+          gas_trace_size,
+          "\n\tfixed_gas_table_size: ",
+          fixed_gas_table.size(),
+          "\n\tslice_trace_size: ",
+          slice_trace_size);
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // We only need to pad with zeroes to the size to the largest trace here, pow_2 padding is handled in the
