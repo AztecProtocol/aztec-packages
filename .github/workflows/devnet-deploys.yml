@@ -46,8 +46,17 @@ jobs:
         with:
           concurrency_key: build-release-artifacts-${{ github.actor }}
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+      - name: Check if only workflow flows have changed
+        id: check_only_workflow_changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
+            return changedFiles.every(file => file.startsWith('.github'));
       - name: "Build & Push aztec images"
         timeout-minutes: 40
+        if: steps.check_only_workflow_changes.outputs.result == 'false' # only build if non-workflow files have changed
         run: |
           earthly-ci \
           --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
