@@ -238,16 +238,15 @@ std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_ho
         cur_aggregation_object.P1.y.binary_basis_limbs[3].element.normalize().witness_index,
     };
     auto result = cur_aggregation_object;
-    result.proof_witness_indices = proof_witness_indices;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
     // We want to return an array, so just copy the vector into the array
-    ASSERT(result.proof_witness_indices.size() == HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
+    ASSERT(proof_witness_indices.size() == HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE);
     std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> resulting_output_aggregation_object;
-    std::copy(result.proof_witness_indices.begin(),
-              result.proof_witness_indices.begin() + HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE,
+    std::copy(proof_witness_indices.begin(),
+              proof_witness_indices.begin() + HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE,
               resulting_output_aggregation_object.begin());
 
     return resulting_output_aggregation_object;

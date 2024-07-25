@@ -387,26 +387,26 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
     rhs = (-rhs) - PI_Z;
 
     // TODO(zac): remove this once a3-packages has migrated to calling `assign_object_to_proof_outputs`)
-    std::vector<uint32_t> proof_witness_indices = {
-        opening_result.x.binary_basis_limbs[0].element.normalize().witness_index,
-        opening_result.x.binary_basis_limbs[1].element.normalize().witness_index,
-        opening_result.x.binary_basis_limbs[2].element.normalize().witness_index,
-        opening_result.x.binary_basis_limbs[3].element.normalize().witness_index,
-        opening_result.y.binary_basis_limbs[0].element.normalize().witness_index,
-        opening_result.y.binary_basis_limbs[1].element.normalize().witness_index,
-        opening_result.y.binary_basis_limbs[2].element.normalize().witness_index,
-        opening_result.y.binary_basis_limbs[3].element.normalize().witness_index,
-        rhs.x.binary_basis_limbs[0].element.normalize().witness_index,
-        rhs.x.binary_basis_limbs[1].element.normalize().witness_index,
-        rhs.x.binary_basis_limbs[2].element.normalize().witness_index,
-        rhs.x.binary_basis_limbs[3].element.normalize().witness_index,
-        rhs.y.binary_basis_limbs[0].element.normalize().witness_index,
-        rhs.y.binary_basis_limbs[1].element.normalize().witness_index,
-        rhs.y.binary_basis_limbs[2].element.normalize().witness_index,
-        rhs.y.binary_basis_limbs[3].element.normalize().witness_index,
-    };
+    // std::vector<uint32_t> proof_witness_indices = {
+    //     opening_result.x.binary_basis_limbs[0].element.normalize().witness_index,
+    //     opening_result.x.binary_basis_limbs[1].element.normalize().witness_index,
+    //     opening_result.x.binary_basis_limbs[2].element.normalize().witness_index,
+    //     opening_result.x.binary_basis_limbs[3].element.normalize().witness_index,
+    //     opening_result.y.binary_basis_limbs[0].element.normalize().witness_index,
+    //     opening_result.y.binary_basis_limbs[1].element.normalize().witness_index,
+    //     opening_result.y.binary_basis_limbs[2].element.normalize().witness_index,
+    //     opening_result.y.binary_basis_limbs[3].element.normalize().witness_index,
+    //     rhs.x.binary_basis_limbs[0].element.normalize().witness_index,
+    //     rhs.x.binary_basis_limbs[1].element.normalize().witness_index,
+    //     rhs.x.binary_basis_limbs[2].element.normalize().witness_index,
+    //     rhs.x.binary_basis_limbs[3].element.normalize().witness_index,
+    //     rhs.y.binary_basis_limbs[0].element.normalize().witness_index,
+    //     rhs.y.binary_basis_limbs[1].element.normalize().witness_index,
+    //     rhs.y.binary_basis_limbs[2].element.normalize().witness_index,
+    //     rhs.y.binary_basis_limbs[3].element.normalize().witness_index,
+    // };
     auto result = aggregation_state<Curve>{
-        opening_result, rhs, transcript.get_field_element_vector("public_inputs"), proof_witness_indices, true
+        opening_result, rhs, /*transcript.get_field_element_vector("public_inputs"), proof_witness_indices, */ true
     };
     return result;
 }
