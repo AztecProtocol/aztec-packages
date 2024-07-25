@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721901974529,
+  "lastUpdate": 1721904890700,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -93564,6 +93564,78 @@ window.BENCHMARK_DATA = {
             "value": 169205254,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169205254 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2633aa91a97684f481a861aee0be8756c956135a",
+          "message": "feat: adding aggregation to honk and rollup (#7466)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1044.\r\n\r\nRe-enables (most) aggregation code that was disabled in the Honk-rollup work. Adds a hack to the tube circuit that adds a default aggregation object, which will be fixed in a followup PR (probably https://github.com/AztecProtocol/aztec-packages/pull/7582).",
+          "timestamp": "2024-07-25T10:36:41Z",
+          "tree_id": "8f2b9b6b9cb578638f858624b7404476b1ace5fc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2633aa91a97684f481a861aee0be8756c956135a"
+        },
+        "date": 1721904882925,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13320.124463000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10014.563629 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4797.533865000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4392.9746780000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39923.346230999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39923346000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14592.916795000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14592917000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3598812483,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3598812483 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202980435,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202980435 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2963370903,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2963370903 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167439058,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167439058 ns\nthreads: 1"
           }
         ]
       }
