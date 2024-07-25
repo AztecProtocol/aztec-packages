@@ -29,6 +29,8 @@ env:
   TF_VAR_FAUCET_ACCOUNT_INDEX: 5
   TF_VAR_AGENTS_PER_PROVER: 1
   TF_VAR_PROVING_ENABLED: false
+  TF_VAR_BOT_API_KEY: ${{ secrets.BOT_API_KEY }}
+  TF_VAR_BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
   CONTRACT_S3_BUCKET: s3://aztec-devnet-deployments
 
 jobs:
@@ -315,4 +317,10 @@ jobs:
         run: |
           env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy transactions bot
+        working-directory: ./yarn-project/aztec/terraform/bot
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"
           terraform apply -input=false -auto-approve
