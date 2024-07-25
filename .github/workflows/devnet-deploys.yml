@@ -27,6 +27,8 @@ env:
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
   TF_VAR_FAUCET_ACCOUNT_INDEX: 5
+  TF_VAR_AGENTS_PER_PROVER: 1
+  TF_VAR_PROVING_ENABLED: false
   CONTRACT_S3_BUCKET: s3://aztec-devnet-deployments
 
 jobs:
@@ -70,6 +72,13 @@ jobs:
         run: |
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
+
+      - name: "Re-tag Aztec image"
+        if: steps.check_only_workflow_changes.outputs.result == 'true'
+        run: |
+          docker pull aztecprotocol/aztec
+          docker tag aztecprotocol/aztec aztecprotocol/aztec:${{ github.sha }}
+          docker push aztecprotocol/aztec:${{ github.sha }}
 
       - name: Check if mainnet fork needs deployment
         id: check_fork_changes
@@ -172,7 +181,7 @@ jobs:
         run: |
           env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.pxe_data_store"
 
       - name: Deploy P2P Bootstrap Nodes
         working-directory: ./yarn-project/p2p-bootstrap/terraform
@@ -257,7 +266,52 @@ jobs:
           echo "TF_VAR_DEV_COIN_CONTRACT_ADDRESS=$(jq -r '.devCoinL1' ./devnet-contracts.json)" >>$GITHUB_ENV
 
       - name: Deploy Faucet
-        working-directory: ./yarn-project/aztec-faucet
+        working-directory: ./yarn-project/aztec-faucet/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-faucet"
+          terraform apply -input=false -auto-approve
+
+  enable_proving:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Switch on proving
+        run: |
+          set -e
+          echo "TF_VAR_PROVING_ENABLED=true" >>$GITHUB_ENV
+
+      - name: Deploy Aztec Nodes
+        working-directory: ./yarn-project/aztec/terraform/node
+        run: |
+          env
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy Provers
+        working-directory: ./yarn-project/aztec/terraform/prover
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy PXE
+        working-directory: ./yarn-project/aztec/terraform/pxe
+        run: |
+          env
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
           terraform apply -input=false -auto-approve

@@ -3,7 +3,8 @@ variable "DEPLOY_TAG" {
 }
 
 variable "IMAGE_TAG" {
-  type = string
+  type    = string
+  default = "latest"
 }
 
 variable "API_KEY" {

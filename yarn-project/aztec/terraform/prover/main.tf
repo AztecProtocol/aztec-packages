@@ -53,8 +53,8 @@ data "terraform_remote_state" "aztec-network_node" {
 }
 
 locals {
-  node_count           = data.terraform_remote_state.aztec-network_node.outputs.node_count
-  agents_per_sequencer = var.AGENTS_PER_SEQUENCER
+  node_count        = data.terraform_remote_state.aztec-network_node.outputs.node_count
+  agents_per_prover = var.AGENTS_PER_PROVER
 }
 
 resource "aws_cloudwatch_log_group" "aztec-proving-agent-log-group" {
@@ -220,7 +220,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_low" {
 # Create Auto Scaling Target for ECS Service
 resource "aws_appautoscaling_target" "ecs_proving_agent" {
   count              = local.node_count
-  max_capacity       = local.agents_per_sequencer
+  max_capacity       = local.agents_per_prover
   min_capacity       = 1
   resource_id        = "service/${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id}/${aws_ecs_service.aztec-proving-agent[count.index].name}"
   scalable_dimension = "ecs:service:DesiredCount"
@@ -242,7 +242,7 @@ resource "aws_appautoscaling_policy" "scale_out" {
     metric_aggregation_type = "Maximum"
 
     step_adjustment {
-      scaling_adjustment          = local.agents_per_sequencer
+      scaling_adjustment          = local.agents_per_prover
       metric_interval_lower_bound = 0
     }
   }
