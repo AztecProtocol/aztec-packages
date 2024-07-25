@@ -57,7 +57,7 @@ For quick reference:
 TODO: https://github.com/AztecProtocol/aztec-packages/issues/7600
 
 Full list of available commands:
-https://github.com/AztecProtocol/aztec-packages/blob/840486e5ce6b41d6c873239de108b3731dd81101/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1290-L1414
+https://github.com/AztecProtocol/aztec-packages/blob/1a97698071a667cd56510c7b7201373a9ac9c646/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1361-L1493
 
 #### FilePath vs Stdout
 
