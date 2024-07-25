@@ -102,7 +102,7 @@ resource "aws_ecs_task_definition" "aztec_grafana" {
 [
   {
     "name": "aztec-grafana",
-    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-grafana:latest",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-grafana:${var.IMAGE_TAG}",
     "essential": true,
     "memoryReservation": 256,
     "portMappings": [

@@ -67,7 +67,7 @@ resource "aws_ecs_task_definition" "aztec_otel" {
 [
   {
     "name": "aztec-otel",
-    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-otel:latest",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-otel:${var.IMAGE_TAG}",
     "essential": true,
     "memoryReservation": 256,
     "portMappings": [

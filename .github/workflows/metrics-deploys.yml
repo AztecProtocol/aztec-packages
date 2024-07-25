@@ -16,6 +16,7 @@ env:
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_GRAFANA_CLIENT_ID: ${{ secrets.GRAFANA_CLIENT_ID }}
   TF_VAR_GRAFANA_CLIENT_SECRET: ${{ secrets.GRAFANA_CLIENT_SECRET }}
+  TF_VAR_IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   setup:
@@ -52,21 +53,27 @@ jobs:
         if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
           docker build -t aztecprotocol/aztec-prometheus .
+          docker tag aztecprotocol/aztec-prometheus aztecprotocol/aztec-prometheus:$GIT_COMMIT
           docker push aztecprotocol/aztec-prometheus
+          docker push aztecprotocol/aztec-prometheus:$GIT_COMMIT
 
       - name: Build & push grafana
         working-directory: ./metrics/grafana
         if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
           docker build -t aztecprotocol/aztec-grafana .
+          docker tag aztecprotocol/aztec-grafana aztecprotocol/aztec-grafana:$GIT_COMMIT
           docker push aztecprotocol/aztec-grafana
+          docker push aztecprotocol/aztec-grafana:$GIT_COMMIT
 
       - name: Build & push open telemetry
         working-directory: ./metrics/otel
         if: steps.check_metrics_changes.outputs.result == 'true'
         run: |
           docker build -t aztecprotocol/aztec-otel .
+          docker tag aztecprotocol/aztec-otel aztecprotocol/aztec-otel:$GIT_COMMIT
           docker push aztecprotocol/aztec-otel
+          docker push aztecprotocol/aztec-otel:$GIT_COMMIT
 
   terraform_deploy:
     runs-on: ubuntu-latest

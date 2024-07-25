@@ -122,7 +122,7 @@ resource "aws_ecs_task_definition" "aztec_prometheus" {
 [
   {
     "name": "aztec-prometheus",
-    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-prometheus:latest",
+    "image": "${var.DOCKERHUB_ACCOUNT}/aztec-prometheus:${var.IMAGE_TAG}",
     "essential": true,
     "memoryReservation": 256,
     "portMappings": [
