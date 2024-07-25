@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721917489380,
+  "lastUpdate": 1721917954618,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -94192,6 +94192,78 @@ window.BENCHMARK_DATA = {
             "value": 170584254,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 170584254 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "72797635+Savio-Sou@users.noreply.github.com",
+            "name": "Savio",
+            "username": "Savio-Sou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a97698071a667cd56510c7b7201373a9ac9c646",
+          "message": "chore(bb readme): Add installation instructions and TODOs (#7601)\n\n# Summary\r\n\r\nUpdating bb's README:\r\n- Add `bb` installation instructions\r\n- Steps toward\r\nhttps://github.com/AztecProtocol/aztec-packages/issues/7511 and\r\nhttps://github.com/AztecProtocol/aztec-packages/issues/7600",
+          "timestamp": "2024-07-25T22:09:21+08:00",
+          "tree_id": "7323f6299b00a52a74d6596e61e9fc342054d09d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a97698071a667cd56510c7b7201373a9ac9c646"
+        },
+        "date": 1721917947321,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13464.039920999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9923.291304 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4831.482211999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4373.75572 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40150.20712200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40150207000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14426.071695,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14426072000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3614644337,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3614644337 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202928162,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202928162 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2976654220,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2976654220 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166936813,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166936813 ns\nthreads: 1"
           }
         ]
       }
