@@ -52,7 +52,7 @@ jobs:
         with:
           script: |
             const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n').filter(line => line);
             const result = changedFiles.every(file => file.startsWith('.github'));
             console.log({ result, changedFiles });
             return result;
