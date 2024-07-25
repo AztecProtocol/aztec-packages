@@ -788,7 +788,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     const operation = async (bbWorkingDirectory: string) => {
-      // const numPublicInputs = vk.numPublicInputs;
       const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
       const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
@@ -902,10 +901,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       throw new Error(`Invalid verification key for ${circuitType}`);
     }
     const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-    // const numPublicInputs = CIRCUITS_WITHOUT_AGGREGATION.has(circuitType)
-    //   ? vkData.numPublicInputs
-    //   : vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
       .map(Fr.fromString)

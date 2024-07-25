@@ -577,6 +577,8 @@ void prove_tube(const std::string& output_path)
 
     verifier.verify(proof);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a valid
+    // proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
     std::array<uint32_t, acir_format::HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
