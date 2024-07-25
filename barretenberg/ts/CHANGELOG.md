@@ -1,5 +1,127 @@
 # Changelog
 
+## [0.47.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.7...barretenberg.js-v0.47.0) (2024-07-24)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.6...barretenberg.js-v0.46.7) (2024-07-16)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.5...barretenberg.js-v0.46.6) (2024-07-15)
+
+
+### Features
+
+* Modular CLI + `aztec test` ([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426)) ([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))
+
+
+### Miscellaneous
+
+* **ci:** Recover from earthly bug with --no-cache, build images from registry ([#7462](https://github.com/AztecProtocol/aztec-packages/issues/7462)) ([09299e3](https://github.com/AztecProtocol/aztec-packages/commit/09299e34082047ec0e84ee3229381ff25e3b85e5))
+
+
+### Documentation
+
+* Documenting fields ([#7468](https://github.com/AztecProtocol/aztec-packages/issues/7468)) ([05a11a1](https://github.com/AztecProtocol/aztec-packages/commit/05a11a1c0d2600a7dc561af9c336fab61aaead1a))
+
+## [0.46.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.4...barretenberg.js-v0.46.5) (2024-07-14)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.3...barretenberg.js-v0.46.4) (2024-07-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.2...barretenberg.js-v0.46.3) (2024-07-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.1...barretenberg.js-v0.46.2) (2024-07-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.0...barretenberg.js-v0.46.1) (2024-07-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.45.1...barretenberg.js-v0.46.0) (2024-07-09)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.45.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.45.0...barretenberg.js-v0.45.1) (2024-07-04)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.45.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.44.0...barretenberg.js-v0.45.0) (2024-07-02)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.44.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.43.0...barretenberg.js-v0.44.0) (2024-06-26)
+
+
+### Bug Fixes
+
+* False decryption fix ([#7066](https://github.com/AztecProtocol/aztec-packages/issues/7066)) ([48d9df4](https://github.com/AztecProtocol/aztec-packages/commit/48d9df4ff227c08a6e66f21c0286bc6349151671))
+
+## [0.43.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.42.0...barretenberg.js-v0.43.0) (2024-06-18)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.42.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.41.0...barretenberg.js-v0.42.0) (2024-06-04)
+
+
+### Features
+
+* Enable honk_recursion through acir ([#6719](https://github.com/AztecProtocol/aztec-packages/issues/6719)) ([7ce4cbe](https://github.com/AztecProtocol/aztec-packages/commit/7ce4cbef78ac0da590fbbad184219038ffa5afd9))
+* Fold acir programs ([#6563](https://github.com/AztecProtocol/aztec-packages/issues/6563)) ([f7d6541](https://github.com/AztecProtocol/aztec-packages/commit/f7d65416c741790ce5b5cda8cba08d869a659670))
+* Folding acir programs ([#6685](https://github.com/AztecProtocol/aztec-packages/issues/6685)) ([8d1788d](https://github.com/AztecProtocol/aztec-packages/commit/8d1788de43c41929ce131c3dbd4687ce555e48bc))
+* Sumcheck part of ECCVM recursive verifier instantiated as an UltraCircuit ([#6413](https://github.com/AztecProtocol/aztec-packages/issues/6413)) ([afe84a2](https://github.com/AztecProtocol/aztec-packages/commit/afe84a201cb8462c0e9f538b4518085f68bbdab5))
+
+
+### Bug Fixes
+
+* Add cbind declarations for new methods to fix autogen ([#6622](https://github.com/AztecProtocol/aztec-packages/issues/6622)) ([2429cd8](https://github.com/AztecProtocol/aztec-packages/commit/2429cd87a980eca62d2ff4543e6887f5ee9dd600))
+
+
+### Miscellaneous
+
+* Remove acir goblin flow ([#6724](https://github.com/AztecProtocol/aztec-packages/issues/6724)) ([f035231](https://github.com/AztecProtocol/aztec-packages/commit/f035231ca5cde4592be599a2e7b4ce706cdee27d))
+* Ultra goblin --&gt; mega ([#6674](https://github.com/AztecProtocol/aztec-packages/issues/6674)) ([d272abd](https://github.com/AztecProtocol/aztec-packages/commit/d272abd1b332aae8d062b2340afd5cabf61e31d9))
+
 ## [0.41.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.40.1...barretenberg.js-v0.41.0) (2024-05-21)
 
 

@@ -1,0 +1,39 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../l1-artifacts"
+    },
+    {
+      "path": "../protocol-contracts"
+    }
+  ],
+  "include": ["src"],
+  "exclude": ["contracts"]
+}

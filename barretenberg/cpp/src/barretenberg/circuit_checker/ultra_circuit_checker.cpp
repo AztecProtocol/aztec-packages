@@ -25,7 +25,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     LookupHashTable lookup_hash_table;
     for (const auto& table : builder.lookup_tables) {
         const FF table_index(table.table_index);
-        for (size_t i = 0; i < table.size; ++i) {
+        for (size_t i = 0; i < table.size(); ++i) {
             lookup_hash_table.insert({ table.column_1[i], table.column_2[i], table.column_3[i], table_index });
         }
     }
@@ -40,7 +40,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     size_t block_idx = 0;
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
-        if (result == false) {
+        if (!result) {
             info("Failed at block idx = ", block_idx);
             return false;
         }
@@ -49,7 +49,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
 
     // Tag check is only expected to pass after entire execution trace (all blocks) have been processed
     result = result && check_tag_data(tag_data);
-    if (result == false) {
+    if (!result) {
         info("Failed tag check.");
         return false;
     }
@@ -71,6 +71,14 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     params.eta_two = memory_data.eta_two;
     params.eta_three = memory_data.eta_three;
 
+    auto report_fail = [&](const char* message, size_t row_idx) {
+        info(message, row_idx);
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        block.stack_traces.print(row_idx);
+#endif
+        return false;
+    };
+
     // Perform checks on each gate defined in the builder
     bool result = true;
     for (size_t idx = 0; idx < block.size(); ++idx) {
@@ -78,50 +86,41 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         populate_values(builder, block, values, tag_data, memory_data, idx);
 
         result = result && check_relation<Arithmetic>(values, params);
-        if (result == false) {
-            info("Failed Arithmetic relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Arithmetic relation at row idx = ", idx);
         }
         result = result && check_relation<Elliptic>(values, params);
-        if (result == false) {
-            info("Failed Elliptic relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
         result = result && check_relation<Auxiliary>(values, params);
-        if (result == false) {
-            info("Failed Auxiliary relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Auxiliary relation at row idx = ", idx);
         }
         result = result && check_relation<DeltaRangeConstraint>(values, params);
-        if (result == false) {
-            info("Failed DeltaRangeConstraint relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
         }
         result = result && check_lookup(values, lookup_hash_table);
-        if (result == false) {
-            info("Failed Lookup check relation at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
         if constexpr (IsMegaBuilder<Builder>) {
             result = result && check_relation<PoseidonInternal>(values, params);
-            if (result == false) {
-                info("Failed PoseidonInternal relation at row idx = ", idx);
-                return false;
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
             }
             result = result && check_relation<PoseidonExternal>(values, params);
-            if (result == false) {
-                info("Failed PoseidonExternal relation at row idx = ", idx);
-                return false;
+            if (!result) {
+                return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
             }
             result = result && check_databus_read(values, builder);
-            if (result == false) {
-                info("Failed databus read at row idx = ", idx);
-                return false;
+            if (!result) {
+                return report_fail("Failed databus read at row idx = ", idx);
             }
         }
-        if (result == false) {
-            info("Failed at row idx = ", idx);
-            return false;
+        if (!result) {
+            return report_fail("Failed at row idx = ", idx);
         }
     }
 
@@ -170,14 +169,19 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
 
         // Determine the type of read based on selector values
         bool is_calldata_read = (values.q_l == 1);
-        bool is_return_data_read = (values.q_r == 1);
-        ASSERT(is_calldata_read || is_return_data_read);
+        bool is_secondary_calldata_read = (values.q_r == 1);
+        bool is_return_data_read = (values.q_o == 1);
+        ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
 
         // Check that the claimed value is present in the calldata/return data at the corresponding index
         FF bus_value;
         if (is_calldata_read) {
             auto calldata = builder.get_calldata();
             bus_value = builder.get_variable(calldata[raw_read_idx]);
+        }
+        if (is_secondary_calldata_read) {
+            auto secondary_calldata = builder.get_secondary_calldata();
+            bus_value = builder.get_variable(secondary_calldata[raw_read_idx]);
         }
         if (is_return_data_read) {
             auto return_data = builder.get_return_data();
@@ -223,8 +227,8 @@ void UltraCircuitChecker::populate_values(
     values.w_l = builder.get_variable(block.w_l()[idx]);
     values.w_r = builder.get_variable(block.w_r()[idx]);
     values.w_o = builder.get_variable(block.w_o()[idx]);
-    // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that we
-    // are indexing into the correct block before updating the w_4 value.
+    // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
+    // we are indexing into the correct block before updating the w_4 value.
     if (block.has_ram_rom && memory_data.read_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(
             values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);

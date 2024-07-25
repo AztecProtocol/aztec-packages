@@ -1,18 +1,82 @@
 use crate::abis::{
     accumulated_data::PrivateAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::ValidationRequests, call_request::CallRequest
+    public_call_request::PublicCallRequest, validation_requests::ValidationRequests
 };
 use crate::constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 use crate::traits::{Serialize, Deserialize, Eq, Empty};
-use crate::utils::reader::Reader;
+use crate::utils::{arrays::array_length, reader::Reader};
 use crate::address::AztecAddress;
+
+struct PrivateKernelCircuitPublicInputsArrayLengths {
+    note_hash_read_requests: u32,
+    nullifier_read_requests: u32,
+    scoped_key_validation_requests_and_generators: u32,
+    note_hashes: u32,
+    nullifiers: u32,
+    l2_to_l1_msgs: u32,
+    note_encrypted_logs_hashes: u32,
+    encrypted_logs_hashes: u32,
+    unencrypted_logs_hashes: u32,
+    public_call_requests: u32,
+    private_call_stack: u32,
+}
+
+impl PrivateKernelCircuitPublicInputsArrayLengths {
+    pub fn new(public_inputs: PrivateKernelCircuitPublicInputs) -> Self {
+        PrivateKernelCircuitPublicInputsArrayLengths {
+            note_hash_read_requests: array_length(public_inputs.validation_requests.note_hash_read_requests),
+            nullifier_read_requests: array_length(public_inputs.validation_requests.nullifier_read_requests),
+            scoped_key_validation_requests_and_generators: array_length(public_inputs.validation_requests.scoped_key_validation_requests_and_generators),
+            note_hashes: array_length(public_inputs.end.note_hashes),
+            nullifiers: array_length(public_inputs.end.nullifiers),
+            l2_to_l1_msgs: array_length(public_inputs.end.l2_to_l1_msgs),
+            note_encrypted_logs_hashes: array_length(public_inputs.end.note_encrypted_logs_hashes),
+            encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
+            unencrypted_logs_hashes: array_length(public_inputs.end.unencrypted_logs_hashes),
+            public_call_requests: array_length(public_inputs.end.public_call_requests),
+            private_call_stack: array_length(public_inputs.end.private_call_stack)
+        }
+    }
+
+    pub fn empty() -> Self {
+        PrivateKernelCircuitPublicInputsArrayLengths {
+            note_hash_read_requests: 0,
+            nullifier_read_requests: 0,
+            scoped_key_validation_requests_and_generators: 0,
+            note_hashes: 0,
+            nullifiers: 0,
+            l2_to_l1_msgs: 0,
+            note_encrypted_logs_hashes: 0,
+            encrypted_logs_hashes: 0,
+            unencrypted_logs_hashes: 0,
+            public_call_requests: 0,
+            private_call_stack: 0
+        }
+    }
+}
+
+impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
+    fn eq(self, other: Self) -> bool {
+        (self.note_hash_read_requests == other.note_hash_read_requests) &
+        (self.nullifier_read_requests == other.nullifier_read_requests) &
+        (self.scoped_key_validation_requests_and_generators == other.scoped_key_validation_requests_and_generators) &
+        (self.note_hashes == other.note_hashes) &
+        (self.nullifiers == other.nullifiers) &
+        (self.l2_to_l1_msgs == other.l2_to_l1_msgs) &
+        (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes) &
+        (self.encrypted_logs_hashes == other.encrypted_logs_hashes) &
+        (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes) &
+        (self.public_call_requests== other.public_call_requests) &
+        (self.private_call_stack == other.private_call_stack)
+    }
+}
 
 struct PrivateKernelCircuitPublicInputs {
     min_revertible_side_effect_counter: u32,
     validation_requests: ValidationRequests,
     end: PrivateAccumulatedData,
     constants: CombinedConstantData,
-    public_teardown_call_request: CallRequest,
+    public_teardown_call_request: PublicCallRequest,
     fee_payer: AztecAddress
 }
 
@@ -41,7 +105,7 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
         validation_requests: reader.read_struct(ValidationRequests::deserialize),
         end: reader.read_struct(PrivateAccumulatedData::deserialize),
         constants: reader.read_struct(CombinedConstantData::deserialize),
-        public_teardown_call_request: reader.read_struct(CallRequest::deserialize),
+        public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
         fee_payer: reader.read_struct(AztecAddress::deserialize),
     };
 
@@ -67,7 +131,7 @@ impl Empty for PrivateKernelCircuitPublicInputs {
       validation_requests: ValidationRequests::empty(),
       end: PrivateAccumulatedData::empty(),
       constants: CombinedConstantData::empty(),
-      public_teardown_call_request: CallRequest::empty(),
+      public_teardown_call_request: PublicCallRequest::empty(),
       fee_payer: AztecAddress::empty()
     }
   }

@@ -124,7 +124,8 @@ describe('guides/dapp/testing', () => {
         cheats = CheatCodes.create(ETHEREUM_HOST, pxe);
       });
 
-      it('warps time to 1h into the future', async () => {
+      // TODO(@spalladino) Disabled due to flakiness after #7347. Note that warp is already tested in e2e_cheat_codes.
+      it.skip('warps time to 1h into the future', async () => {
         // docs:start:warp
         const newTimestamp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
         await cheats.aztec.warp(newTimestamp);
@@ -179,7 +180,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await pxe.getNotes({
+        const notes = await pxe.getIncomingNotes({
           owner: owner.getAddress(),
           contractAddress: token.address,
           storageSlot: ownerSlot,
@@ -214,22 +215,22 @@ describe('guides/dapp/testing', () => {
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
-        const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
+        const call = token.methods.transfer(recipient.getAddress(), 200n);
         await expect(call.prove()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
       });
 
       it('asserts a local transaction simulation fails by calling send', async () => {
         // docs:start:local-tx-fails-send
-        const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
+        const call = token.methods.transfer(recipient.getAddress(), 200n);
         await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails-send
       });
 
       it('asserts a transaction is dropped', async () => {
         // docs:start:tx-dropped
-        const call1 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 80n, 0);
-        const call2 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 50n, 0);
+        const call1 = token.methods.transfer(recipient.getAddress(), 80n);
+        const call2 = token.methods.transfer(recipient.getAddress(), 50n);
 
         await call1.prove();
         await call2.prove();

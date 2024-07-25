@@ -3,12 +3,16 @@ import {
   type ArchiverConfig,
   KVArchiverDataStore,
   createArchiverRpcServer,
-  getConfigEnvVars as getArchiverConfigEnvVars,
+  getArchiverConfigFromEnv as getArchiverConfigEnvVars,
 } from '@aztec/archiver';
 import { createDebugLogger } from '@aztec/aztec.js';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
+import {
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryClientConfig,
+} from '@aztec/telemetry-client/start';
 
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
 
@@ -30,7 +34,8 @@ export const startArchiver = async (options: any, signalHandlers: (() => Promise
   );
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
-  const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);
+  const telemetry = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, telemetry, true);
   const archiverServer = createArchiverRpcServer(archiver);
   services.push({ archiver: archiverServer });
   signalHandlers.push(archiver.stop);

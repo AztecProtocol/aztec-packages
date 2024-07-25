@@ -3,17 +3,18 @@ mod dapp_payload;
 
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
-    use dep::{
-        aztec::{
+
+    use aztec::{
         prelude::{
         AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
         SharedImmutable
     },
-        protocol_types::{traits::is_empty, grumpkin_point::GrumpkinPoint}
-    },
-        authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit},
-        gas_token::GasToken, token::Token
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        protocol_types::constants::MAX_FIELD_VALUE
     };
+    use authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
+    use gas_token::GasToken;
+    use token::Token;
 
     #[aztec(storage)]
     struct Storage {
@@ -34,17 +35,18 @@ contract AppSubscription {
 
     #[aztec(private)]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
-        assert(context.msg_sender().to_field() == 0);
+        // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
+        assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
         assert_current_call_valid_authwit(&mut context, user_address);
 
-        let mut note = storage.subscriptions.at(user_address).get_note(false, GrumpkinPoint::zero());
+        let mut note = storage.subscriptions.at(user_address).get_note().note;
         assert(note.remaining_txs as u64 > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
 
-        let header = context.get_header();
-        let subscriber_ivpk_m = header.get_ivpk_m(&mut context, user_address);
-        storage.subscriptions.at(user_address).replace(&mut note, true, subscriber_ivpk_m);
+        // We are emitting both the outgoing and the incoming logs to the subscriber here because passing a separate
+        // outgoing_viewer arg to entrypoint function is impractical and the outgoing are not so valuable here.
+        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(&mut context, user_address, user_address));
 
         context.set_as_fee_payer();
 
@@ -102,7 +104,7 @@ contract AppSubscription {
     ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        Token::at(storage.subscription_token_address.read_private()).transfer(
+        Token::at(storage.subscription_token_address.read_private()).transfer_from(
             context.msg_sender(),
             storage.subscription_recipient_address.read_private(),
             storage.subscription_price.read_private(),
@@ -113,10 +115,9 @@ contract AppSubscription {
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
         let header = context.get_header();
         let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
-        let subscriber_ivpk_m = header.get_ivpk_m(&mut context, subscriber_address);
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note, true, subscriber_ivpk_m);
+        storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), subscriber_address));
     }
 
     unconstrained fn is_initialized(subscriber_address: AztecAddress) -> pub bool {

@@ -1,17 +1,19 @@
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 import {
-  type MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
+import { ScopedLogHash } from '../log_hash.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 
 /**
@@ -22,15 +24,15 @@ export class CombinedAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated encrypted note logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -45,7 +47,7 @@ export class CombinedAccumulatedData {
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Fr,
+    public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * Total accumulated length of the encrypted note log preimages emitted in all the previous kernel iterations
      */
@@ -67,20 +69,44 @@ export class CombinedAccumulatedData {
     public gasUsed: Gas,
   ) {}
 
-  toBuffer() {
-    return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.newL2ToL1Msgs,
-      this.noteEncryptedLogsHash,
-      this.encryptedLogsHash,
-      this.unencryptedLogsHash,
-      this.noteEncryptedLogPreimagesLength,
-      this.encryptedLogPreimagesLength,
-      this.unencryptedLogPreimagesLength,
-      this.publicDataUpdateRequests,
-      this.gasUsed,
+  getSize() {
+    return (
+      arraySerializedSizeOfNonEmpty(this.noteHashes) +
+      arraySerializedSizeOfNonEmpty(this.nullifiers) +
+      arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
+      this.noteEncryptedLogsHash.size +
+      this.encryptedLogsHash.size +
+      arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
+      this.noteEncryptedLogPreimagesLength.size +
+      this.encryptedLogPreimagesLength.size +
+      this.unencryptedLogPreimagesLength.size +
+      arraySerializedSizeOfNonEmpty(this.publicDataUpdateRequests) +
+      this.gasUsed.toBuffer().length
     );
+  }
+
+  static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
+    return [
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.noteEncryptedLogsHash,
+      fields.encryptedLogsHash,
+      fields.unencryptedLogsHashes,
+      fields.noteEncryptedLogPreimagesLength,
+      fields.encryptedLogPreimagesLength,
+      fields.unencryptedLogPreimagesLength,
+      fields.publicDataUpdateRequests,
+      fields.gasUsed,
+    ] as const;
+  }
+
+  static from(fields: FieldsOf<CombinedAccumulatedData>): CombinedAccumulatedData {
+    return new CombinedAccumulatedData(...CombinedAccumulatedData.getFields(fields));
+  }
+
+  toBuffer() {
+    return serializeToBuffer(...CombinedAccumulatedData.getFields(this));
   }
 
   toString() {
@@ -95,12 +121,12 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, Fr),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -120,12 +146,12 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
+      makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       Fr.zero(),
       Fr.zero(),
-      Fr.zero(),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
@@ -136,21 +162,24 @@ export class CombinedAccumulatedData {
 
   [inspect.custom]() {
     return `CombinedAccumulatedData {
-      newNoteHashes: [${this.newNoteHashes
+      noteHashes: [${this.noteHashes
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],
-      newNullifiers: [${this.newNullifiers
+      nullifiers: [${this.nullifiers
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],
-      newL2ToL1Msgs: [${this.newL2ToL1Msgs
+      l2ToL1Msgs: [${this.l2ToL1Msgs
         .filter(x => !x.isZero())
         .map(x => inspect(x))
         .join(', ')}],
       noteEncryptedLogsHash: ${this.noteEncryptedLogsHash.toString()},
       encryptedLogsHash: ${this.encryptedLogsHash.toString()},
-      unencryptedLogsHash: ${this.unencryptedLogsHash.toString()},
+      unencryptedLogsHashes: : [${this.unencryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}],
       noteEncryptedLogPreimagesLength: ${this.noteEncryptedLogPreimagesLength.toString()},
       encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength.toString()},
       unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},

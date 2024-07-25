@@ -1,5 +1,5 @@
 use crate::{
-    abis::side_effect::{Ordered, OrderedValue}, address::AztecAddress,
+    abis::side_effect::{Ordered, OrderedValue, Scoped}, address::AztecAddress,
     constants::{
     LOG_HASH_LENGTH, NOTE_LOG_HASH_LENGTH, ENCRYPTED_LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH,
     SCOPED_ENCRYPTED_LOG_HASH_LENGTH
@@ -73,6 +73,15 @@ struct ScopedLogHash {
     contract_address: AztecAddress,
 }
 
+impl Scoped<LogHash> for ScopedLogHash {
+    fn inner(self) -> LogHash {
+        self.log_hash
+    }
+    fn contract_address(self) -> AztecAddress {
+        self.contract_address
+    }
+}
+
 impl Ordered for ScopedLogHash {
     fn counter(self) -> u32 {
         self.log_hash.counter
@@ -119,6 +128,16 @@ impl Deserialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
         };
         reader.finish();
         res
+    }
+}
+
+impl ScopedLogHash {
+    pub fn expose_to_public(self) -> Self {
+        // Hide the counter when exposing to public.
+        Self {
+            log_hash: LogHash { value: self.log_hash.value, counter: 0, length: self.log_hash.length },
+            contract_address: self.contract_address
+        }
     }
 }
 
@@ -190,6 +209,15 @@ impl EncryptedLogHash {
 struct ScopedEncryptedLogHash {
     log_hash: EncryptedLogHash,
     contract_address: AztecAddress,
+}
+
+impl Scoped<EncryptedLogHash> for ScopedEncryptedLogHash {
+    fn inner(self) -> EncryptedLogHash {
+        self.log_hash
+    }
+    fn contract_address(self) -> AztecAddress {
+        self.contract_address
+    }
 }
 
 impl ScopedEncryptedLogHash {

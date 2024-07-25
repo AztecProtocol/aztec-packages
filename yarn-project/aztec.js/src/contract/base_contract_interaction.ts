@@ -1,5 +1,6 @@
 import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 import { GasSettings } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit, type FeeOptions } from '../entrypoint/entrypoint.js';
@@ -24,8 +25,14 @@ export type SendMethodOptions = {
  * Implements the sequence create/simulate/send.
  */
 export abstract class BaseContractInteraction {
-  protected tx?: Tx;
+  /**
+   * The transaction execution result. Set by prove().
+   * Made public for simple mocking.
+   */
+  public tx?: Tx;
   protected txRequest?: TxExecutionRequest;
+
+  protected log = createDebugLogger('aztec:js:contract_interaction');
 
   constructor(protected wallet: Wallet) {}
 
@@ -103,6 +110,9 @@ export abstract class BaseContractInteraction {
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,
         fee.gasSettings.teardownGasLimits,
+      );
+      this.log.debug(
+        `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );
       const gasSettings = GasSettings.default({ ...fee.gasSettings, gasLimits, teardownGasLimits });
       return { ...fee, gasSettings };

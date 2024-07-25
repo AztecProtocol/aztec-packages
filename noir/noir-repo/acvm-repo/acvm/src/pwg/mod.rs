@@ -5,9 +5,10 @@ use std::collections::HashMap;
 use acir::{
     brillig::ForeignCallResult,
     circuit::{
-        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, ErrorSelector,
-        ExpressionOrMemory, Opcode, OpcodeLocation, RawAssertionPayload, ResolvedAssertionPayload,
-        STRING_ERROR_SELECTOR,
+        brillig::BrilligBytecode,
+        opcodes::{BlockId, ConstantOrWitnessEnum, FunctionInput},
+        AssertionPayload, ErrorSelector, ExpressionOrMemory, Opcode, OpcodeLocation,
+        RawAssertionPayload, ResolvedAssertionPayload, STRING_ERROR_SELECTOR,
     },
     native_types::{Expression, Witness, WitnessMap},
     AcirField, BlackBoxFunc,
@@ -629,6 +630,16 @@ pub fn witness_to_value<F>(
     }
 }
 
+pub fn input_to_value<F: AcirField>(
+    initial_witness: &WitnessMap<F>,
+    input: FunctionInput<F>,
+) -> Result<F, OpcodeResolutionError<F>> {
+    match input.input {
+        ConstantOrWitnessEnum::Witness(witness) => Ok(*witness_to_value(initial_witness, witness)?),
+        ConstantOrWitnessEnum::Constant(value) => Ok(value),
+    }
+}
+
 // TODO: There is an issue open to decide on whether we need to get values from Expressions
 // TODO versus just getting values from Witness
 pub fn get_value<F: AcirField>(
@@ -637,7 +648,7 @@ pub fn get_value<F: AcirField>(
 ) -> Result<F, OpcodeResolutionError<F>> {
     let expr = ExpressionSolver::evaluate(expr, initial_witness);
     match expr.to_const() {
-        Some(value) => Ok(value),
+        Some(value) => Ok(*value),
         None => Err(OpcodeResolutionError::OpcodeNotSolvable(
             OpcodeNotSolvable::MissingAssignment(any_witness_from_expression(&expr).unwrap().0),
         )),

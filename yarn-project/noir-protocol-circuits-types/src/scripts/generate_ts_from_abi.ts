@@ -24,6 +24,8 @@ const circuits = [
   'rollup_base',
   'rollup_merge',
   'rollup_root',
+  'private_kernel_empty',
+  'empty_nested',
 ];
 
 const main = async () => {
@@ -43,7 +45,7 @@ const main = async () => {
   const programs: [string, CompiledCircuit][] = [];
   // Collect all circuits
   for (const circuit of circuits) {
-    const rawData = await fs.readFile(`./src/target/${circuit}.json`, 'utf-8');
+    const rawData = await fs.readFile(`./artifacts/${circuit}.json`, 'utf-8');
     const abiObj: CompiledCircuit = JSON.parse(rawData);
     programs.push([pascalCase(circuit), abiObj]);
   }

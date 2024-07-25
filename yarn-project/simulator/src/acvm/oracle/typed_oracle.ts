@@ -9,14 +9,8 @@ import {
   type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  type Header,
-  type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type PrivateCallStackItem,
-  type PublicCallRequest,
-} from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
+import { type Header, type KeyValidationRequest, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -80,6 +74,22 @@ export abstract class TypedOracle {
 
   unpackReturns(_returnsHash: Fr): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('unpackReturns');
+  }
+
+  getBlockNumber(): Promise<number> {
+    throw new OracleMethodNotAvailableError('getBlockNumber');
+  }
+
+  getContractAddress(): Promise<AztecAddress> {
+    throw new OracleMethodNotAvailableError('getContractAddress');
+  }
+
+  getChainId(): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('getChainId');
+  }
+
+  getVersion(): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('getVersion');
   }
 
   getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -148,7 +158,13 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getNotes');
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: Fr, _note: Fr[], _innerNoteHash: Fr, _counter: number): void {
+  notifyCreatedNote(
+    _storageSlot: Fr,
+    _noteTypeId: NoteSelector,
+    _note: Fr[],
+    _innerNoteHash: Fr,
+    _counter: number,
+  ): void {
     throw new OracleMethodNotAvailableError('notifyCreatedNote');
   }
 
@@ -168,7 +184,12 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getL1ToL2MembershipWitness');
   }
 
-  storageRead(_startStorageSlot: Fr, _numberOfElements: number): Promise<Fr[]> {
+  storageRead(
+    _contractAddress: Fr,
+    _startStorageSlot: Fr,
+    _blockNumber: number,
+    _numberOfElements: number,
+  ): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageRead');
   }
 
@@ -176,22 +197,41 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('storageWrite');
   }
 
-  emitEncryptedLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedNote: Buffer, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitEncryptedLog');
+  emitEncryptedEventLog(
+    _contractAddress: AztecAddress,
+    _randomness: Fr,
+    _encryptedEvent: Buffer,
+    _counter: number,
+  ): void {
+    throw new OracleMethodNotAvailableError('emitEncryptedEventLog');
   }
 
-  emitEncryptedNoteLog(_noteHash: Fr, _encryptedNote: Buffer, _counter: number): void {
+  emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
   }
 
-  computeEncryptedLog(
+  computeEncryptedEventLog(
     _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _noteTypeId: Fr,
-    _publicKey: PublicKey,
+    _randomness: Fr,
+    _eventTypeId: Fr,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
+    _recipient: AztecAddress,
     _preimage: Fr[],
   ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedLog');
+    throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
+  }
+
+  computeEncryptedNoteLog(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _noteTypeId: NoteSelector,
+    _ovKeys: KeyValidationRequest,
+    _ivpkM: PublicKey,
+    _recipient: AztecAddress,
+    _preimage: Fr[],
+  ): Buffer {
+    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
@@ -209,7 +249,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<PrivateCallStackItem> {
+  ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
     throw new OracleMethodNotAvailableError('callPrivateFunction');
   }
 
@@ -231,7 +271,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
+  ): Promise<void> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
@@ -242,7 +282,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
+  ): Promise<void> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }
 

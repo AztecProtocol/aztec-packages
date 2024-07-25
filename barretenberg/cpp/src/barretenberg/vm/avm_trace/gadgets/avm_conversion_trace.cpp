@@ -1,13 +1,6 @@
-
-#include "avm_conversion_trace.hpp"
-#include "../avm_common.hpp"
+#include "barretenberg/vm/avm_trace/gadgets/avm_conversion_trace.hpp"
 
 namespace bb::avm_trace {
-
-AvmConversionTraceBuilder::AvmConversionTraceBuilder()
-{
-    conversion_trace.reserve(AVM_TRACE_SIZE);
-}
 
 std::vector<AvmConversionTraceBuilder::ConversionTraceEntry> AvmConversionTraceBuilder::finalize()
 {
@@ -41,7 +34,7 @@ std::vector<uint8_t> AvmConversionTraceBuilder::op_to_radix_le(FF const& a,
     auto a_uint256 = uint256_t(a);
     auto radix_uint256 = uint256_t(radix);
 
-    std::vector<uint8_t> bytes{};
+    std::vector<uint8_t> bytes;
     for (uint32_t i = 0; i < num_limbs; i++) {
         bytes.emplace_back(static_cast<uint8_t>(a_uint256 % radix_uint256));
         a_uint256 /= radix_uint256;
@@ -58,4 +51,5 @@ std::vector<uint8_t> AvmConversionTraceBuilder::op_to_radix_le(FF const& a,
 
     return bytes;
 }
+
 } // namespace bb::avm_trace

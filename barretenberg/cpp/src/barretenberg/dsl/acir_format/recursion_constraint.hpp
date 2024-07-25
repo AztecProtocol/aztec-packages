@@ -1,11 +1,13 @@
 #pragma once
-#include "barretenberg/dsl/types.hpp"
+#include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
 #include <vector>
 
 namespace acir_format {
 
 using namespace bb::plonk;
+using Builder = bb::UltraCircuitBuilder;
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!
@@ -54,11 +56,11 @@ struct RecursionConstraint {
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
 
-AggregationObjectIndices create_recursion_constraints(Builder& builder,
-                                                      const RecursionConstraint& input,
-                                                      AggregationObjectIndices input_aggregation_object,
-                                                      AggregationObjectIndices nested_aggregation_object,
-                                                      bool has_valid_witness_assignments = false);
+bb::AggregationObjectIndices create_recursion_constraints(Builder& builder,
+                                                          const RecursionConstraint& input,
+                                                          const bb::AggregationObjectIndices& input_aggregation_object,
+                                                          const bb::AggregationObjectIndices& nested_aggregation_object,
+                                                          bool has_valid_witness_assignments = false);
 
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
 std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,

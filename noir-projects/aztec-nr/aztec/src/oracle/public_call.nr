@@ -1,7 +1,6 @@
 use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
-// TODO(6052): get new side effect counter from this call
 #[oracle(callPublicFunction)]
-fn call_public_function_oracle<RETURNS_COUNT>(
+unconstrained fn call_public_function_oracle<let RETURNS_COUNT: u32>(
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,
     _args_hash: Field,
@@ -10,7 +9,7 @@ fn call_public_function_oracle<RETURNS_COUNT>(
     _is_delegate_call: bool
 ) -> [Field; RETURNS_COUNT] {}
 
-unconstrained pub fn call_public_function_internal<RETURNS_COUNT>(
+unconstrained pub fn call_public_function_internal<let RETURNS_COUNT: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args_hash: Field,

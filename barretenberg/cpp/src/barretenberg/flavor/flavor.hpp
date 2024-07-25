@@ -68,6 +68,9 @@
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -182,6 +185,8 @@ class ProvingKeyAvm_ : public PrecomputedPolynomials, public WitnessPolynomials 
 template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
+    using FF = typename VerifierCommitmentKey::Curve::ScalarField;
+    using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     bool contains_recursive_proof = false;
     AggregationObjectPubInputIndices recursive_proof_public_input_indices = {};
@@ -194,6 +199,57 @@ class VerificationKey_ : public PrecomputedCommitments {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+
+    /**
+     * @brief Serialize verification key to field elements
+     *
+     * @return std::vector<FF>
+     */
+    std::vector<FF> to_field_elements()
+    {
+        std::vector<FF> elements;
+        std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
+        elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
+        // do the same for the rest of the fields
+        std::vector<FF> num_public_inputs_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
+        elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
+        std::vector<FF> pub_inputs_offset_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
+        elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
+
+        std::vector<FF> contains_recursive_proof_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->contains_recursive_proof);
+        elements.insert(
+            elements.end(), contains_recursive_proof_elements.begin(), contains_recursive_proof_elements.end());
+
+        std::vector<FF> recursive_proof_public_input_indices_elements =
+            bb::field_conversion::convert_to_bn254_frs(this->recursive_proof_public_input_indices);
+        elements.insert(elements.end(),
+                        recursive_proof_public_input_indices_elements.begin(),
+                        recursive_proof_public_input_indices_elements.end());
+
+        for (Commitment& comm : this->get_all()) {
+            std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
+            elements.insert(elements.end(), comm_elements.begin(), comm_elements.end());
+        }
+        return elements;
+    }
+
+    uint256_t hash()
+    {
+        std::vector<FF> field_elements = to_field_elements();
+        std::vector<uint8_t> to_hash(field_elements.size() * sizeof(FF));
+
+        const auto convert_and_insert = [&to_hash](auto& vector) {
+            std::vector<uint8_t> buffer = to_buffer(vector);
+            to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
+        };
+
+        convert_and_insert(field_elements);
+
+        return from_buffer<uint256_t>(crypto::sha256(to_hash));
+    }
 };
 
 // Because of how Gemini is written, is importat to put the polynomials out in this order.
@@ -313,6 +369,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
 namespace bb {
 class UltraFlavor;
 class ECCVMFlavor;
+class UltraKeccakFlavor;
 class MegaFlavor;
 class TranslatorFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
@@ -341,16 +398,16 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
+concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T> 
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, MegaFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, MegaFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
@@ -375,6 +432,8 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+                                                           // Note(md): must be here to use oink prover
+                                                           UltraKeccakFlavor,
                                                            MegaFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>, 

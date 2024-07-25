@@ -2,6 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/execution_trace/execution_trace.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/standard_arithmetization.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
@@ -106,18 +107,6 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     size_t get_num_constant_gates() const override { return 0; }
 
     msgpack::sbuffer export_circuit() override;
-
-  private:
-    struct CircuitSchema {
-        std::string modulus;
-        std::vector<uint32_t> public_inps;
-        std::unordered_map<uint32_t, std::string> vars_of_interest;
-        std::vector<FF> variables;
-        std::vector<std::vector<FF>> selectors;
-        std::vector<std::vector<uint32_t>> wires;
-        std::vector<uint32_t> real_variable_index;
-        MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wires, real_variable_index);
-    } circuit_schema;
 };
 
 using StandardCircuitBuilder = StandardCircuitBuilder_<bb::fr>;

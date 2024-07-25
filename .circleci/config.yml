@@ -231,7 +231,7 @@ jobs:
           command: cond_spot_run_build noir-packages 32
           aztec_manifest_key: noir-packages
 
-  avm-transpiler:
+  avm-transpiler-x86_64:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -242,6 +242,42 @@ jobs:
           name: "Build"
           command: cond_spot_run_build avm-transpiler 32
           aztec_manifest_key: avm-transpiler
+
+  avm-transpiler-arm64:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build avm-transpiler 32 arm64
+          aztec_manifest_key: avm-transpiler
+
+  avm-transpiler-ecr-manifest:
+    machine:
+      image: default
+    resource_class: medium
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Create ECR manifest"
+          command: create_ecr_manifest avm-transpiler x86_64,arm64
+          aztec_manifest_key: avm-transpiler
+
+  aztec-nargo:
+    machine:
+      image: default
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build image"
+          command: build aztec-nargo
+          aztec_manifest_key: aztec-nargo
 
   l1-contracts:
     machine:
@@ -381,7 +417,7 @@ jobs:
           name: "Release to dockerhub"
           command: |
             should_release || exit 0
-            deploy_dockerhub noir
+            deploy_dockerhub aztec-nargo
             deploy_dockerhub aztec
             deploy_dockerhub aztec-builder
       - run:
@@ -405,15 +441,11 @@ jobs:
             should_release || exit 0
             yarn-project/deploy_npm.sh latest
       - run:
-          name: "Release canary to NPM: l1-contracts"
+          name: "Update aztec-up"
           command: |
-            should_release || exit 0
-            deploy_npm l1-contracts canary
-      - run:
-          name: "Release latest to NPM: l1-contracts"
-          command: |
-            should_release || exit 0
-            deploy_npm l1-contracts latest
+            if [ -n "$COMMIT_TAG" ]; then
+              deploy_terraform "" aztec-up/terraform
+            fi
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -473,8 +505,11 @@ workflows:
     #   # This is rewritten to 'system' on the real workflow (otherwise this is ignored by circleci)
     #   equal: [NEVER, << pipeline.parameters.workflow >>]
     when:
-      and:
+      # Run if branch is master or branch name contains 'circle-ci'
+      or:
         - equal: [ master, << pipeline.git.branch >> ]
+        - matches: { pattern: ".*circle-ci.*", value: << pipeline.git.branch >> }
+        - matches: { pattern: ".+", value: << pipeline.git.tag >> }
     jobs:
       # Noir
       - noir-x86_64: *defaults
@@ -490,7 +525,25 @@ workflows:
           <<: *defaults
 
       # Transpiler
-      - avm-transpiler: *defaults
+      - avm-transpiler-x86_64:
+          requires:
+            - noir-x86_64
+          <<: *defaults
+      - avm-transpiler-arm64:
+          requires:
+            - noir-arm64
+          <<: *defaults
+      - avm-transpiler-ecr-manifest:
+          requires:
+            - avm-transpiler-x86_64
+            - avm-transpiler-arm64
+          <<: *defaults
+
+      # aztec-nargo (nargo & transpiler)
+      - aztec-nargo:
+          requires:
+            - avm-transpiler-ecr-manifest
+          <<: *defaults
 
       # Barretenberg
       - barretenberg-x86_64-linux-clang: *defaults
@@ -507,8 +560,9 @@ workflows:
 
       - noir-projects:
           requires:
-            - avm-transpiler
+            - avm-transpiler-ecr-manifest
             - noir-ecr-manifest
+            - barretenberg-x86_64-linux-clang
           <<: *defaults
 
       # Yarn Project

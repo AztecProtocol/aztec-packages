@@ -36,7 +36,7 @@ describe('e2e_sandbox_example', () => {
     // docs:end:setup
 
     expect(typeof nodeInfo.protocolVersion).toBe('number');
-    expect(typeof nodeInfo.chainId).toBe('number');
+    expect(typeof nodeInfo.l1ChainId).toBe('number');
     expect(typeof nodeInfo.l1ContractAddresses.rollupAddress).toBe('object');
 
     // For the sandbox quickstart we just want to show them preloaded accounts (since it is a quickstart)
@@ -122,7 +122,7 @@ describe('e2e_sandbox_example', () => {
     // We will now transfer tokens from ALice to Bob
     const transferQuantity = 543n;
     logger.info(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-    await tokenContractAlice.methods.transfer(alice, bob, transferQuantity, 0).send().wait();
+    await tokenContractAlice.methods.transfer(bob, transferQuantity).send().wait();
 
     // Check the new balances
     aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();

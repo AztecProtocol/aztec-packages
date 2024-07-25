@@ -27,6 +27,13 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     static constexpr size_t NUM = VerifierInstances::NUM;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
+    struct VerifierInput {
+      public:
+        using Instance = NativeInstance;
+        std::shared_ptr<Instance> accumulator;
+        std::vector<std::shared_ptr<NativeVerificationKey>> instance_vks;
+    };
+
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     CommitmentLabels commitment_labels;
@@ -35,11 +42,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     VerifierInstances instances;
 
-    ProtoGalaxyRecursiveVerifier_(Builder* builder,
-                                  std::shared_ptr<NativeInstance>& accumulator,
-                                  const std::vector<std::shared_ptr<NativeVerificationKey>>& native_inst_vks)
+    ProtoGalaxyRecursiveVerifier_(Builder* builder, const VerifierInput& input_data)
         : builder(builder)
-        , instances(VerifierInstances(builder, accumulator, native_inst_vks)){};
+        , instances(VerifierInstances(builder, input_data.accumulator, input_data.instance_vks)){};
 
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
@@ -122,51 +127,6 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     };
 
     /**
-     * @brief Hack method to fold the witness commitments and verification key without the batch_mul in the case where
-     * the recursive folding verifier is instantiated as a vanilla ultra circuit.
-     *
-     * @details In the folding recursive verifier we might hit the scenerio where we do a batch_mul(commitments,
-     * lagranges) where the commitments are equal. That is because when we add gates to ensure no zero commitments,
-     * these will be the same for all circuits, hitting an edge case in batch_mul that creates a failing constraint.
-     * Specifically, at some point in the algorithm we compute the difference between the points which, if they are
-     * equal, would be zero, case that is not supported. See https://github.com/AztecProtocol/barretenberg/issues/971.
-     */
-    void fold_commitments(std::vector<FF> lagranges,
-                          VerifierInstances& instances,
-                          std::shared_ptr<Instance>& accumulator)
-        requires IsUltraBuilder<Builder>
-    {
-        using ElementNative = typename Flavor::Curve::ElementNative;
-        using AffineElementNative = typename Flavor::Curve::AffineElementNative;
-
-        auto offset_generator = Commitment::from_witness(builder, AffineElementNative(ElementNative::random_element()));
-
-        size_t vk_idx = 0;
-        for (auto& expected_vk : accumulator->verification_key->get_all()) {
-            expected_vk = offset_generator;
-            size_t inst = 0;
-            for (auto& instance : instances) {
-                expected_vk += instance->verification_key->get_all()[vk_idx] * lagranges[inst];
-                inst++;
-            }
-            expected_vk -= offset_generator;
-            vk_idx++;
-        }
-
-        size_t comm_idx = 0;
-        for (auto& comm : accumulator->witness_commitments.get_all()) {
-            comm = offset_generator;
-            size_t inst = 0;
-            for (auto& instance : instances) {
-                comm += instance->witness_commitments.get_all()[comm_idx] * lagranges[inst];
-                inst++;
-            }
-            comm -= offset_generator;
-            comm_idx++;
-        }
-    }
-
-    /**
      * @brief Folds the witness commitments and verification key (part of ϕ) and stores the values in the accumulator.
      *
      *
@@ -175,7 +135,6 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     void fold_commitments(std::vector<FF> lagranges,
                           VerifierInstances& instances,
                           std::shared_ptr<Instance>& accumulator)
-        requires(!IsUltraBuilder<Builder>)
     {
         size_t vk_idx = 0;
         for (auto& expected_vk : accumulator->verification_key->get_all()) {
@@ -183,7 +142,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
             for (auto& instance : instances) {
                 commitments.emplace_back(instance->verification_key->get_all()[vk_idx]);
             }
-            expected_vk = Commitment::batch_mul(commitments, lagranges);
+            // For ultra we need to enable edgecase prevention
+            expected_vk = Commitment::batch_mul(
+                commitments, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
             vk_idx++;
         }
 
@@ -193,7 +154,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
             for (auto& instance : instances) {
                 commitments.emplace_back(instance->witness_commitments.get_all()[comm_idx]);
             }
-            comm = Commitment::batch_mul(commitments, lagranges);
+            // For ultra we need to enable edgecase prevention
+            comm = Commitment::batch_mul(
+                commitments, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
             comm_idx++;
         }
     }

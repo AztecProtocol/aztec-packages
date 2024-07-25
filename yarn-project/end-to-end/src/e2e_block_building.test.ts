@@ -6,6 +6,7 @@ import {
   ContractFunctionInteraction,
   type DebugLogger,
   Fr,
+  L1NotePayload,
   type PXE,
   type Wallet,
   deriveKeys,
@@ -18,7 +19,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import 'jest-extended';
 
-import { TaggedNote } from '../../circuit-types/src/logs/l1_note_payload/tagged_note.js';
+import { TaggedLog } from '../../circuit-types/src/logs/l1_payload/tagged_log.js';
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
@@ -52,7 +53,13 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 8;
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
-      const methods = times(TX_COUNT, i => deployer.deploy(owner.getCompleteAddress().address, i));
+
+      const ownerAddress = owner.getCompleteAddress().address;
+      const outgoingViewer = ownerAddress;
+      // Need to have value > 0, so adding + 1
+      // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
+      // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
+      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, outgoingViewer, i + 1));
       for (let i = 0; i < TX_COUNT; i++) {
         await methods[i].create({
           contractAddressSalt: new Fr(BigInt(i + 1)),
@@ -239,24 +246,6 @@ describe('e2e_block_building', () => {
       testContract = await TestContract.deploy(owner).send().deployed();
     }, 60_000);
 
-    it('calls a method with nested unencrypted logs', async () => {
-      const tx = await testContract.methods.emit_unencrypted_logs([1, 2, 3, 4, 5], true).send().wait();
-      const logs = (await pxe.getUnencryptedLogs({ txHash: tx.txHash })).logs.map(l => l.log);
-
-      // First log should be contract address
-      expect(logs[0].data).toEqual(testContract.address.toBuffer());
-
-      // Second log should be array of fields
-      let expectedBuffer = Buffer.concat([1, 2, 3, 4, 5].map(num => new Fr(num).toBuffer()));
-      expect(logs[1].data.subarray(-32 * 5)).toEqual(expectedBuffer);
-
-      // Third log should be string "test"
-      expectedBuffer = Buffer.concat(
-        ['t', 'e', 's', 't'].map(num => Buffer.concat([Buffer.alloc(31), Buffer.from(num)])),
-      );
-      expect(logs[2].data.subarray(-32 * 5)).toEqual(expectedBuffer);
-    }, 60_000);
-
     it('calls a method with nested note encrypted logs', async () => {
       // account setup
       const privateKey = new Fr(7n);
@@ -264,9 +253,10 @@ describe('e2e_block_building', () => {
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
+      const outgoingViewer = thisWallet.getAddress();
 
       // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress());
+      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), outgoingViewer);
       const tx = await action.prove();
       const rct = await action.send().wait();
 
@@ -274,8 +264,8 @@ describe('e2e_block_building', () => {
       expect(rct.status).toEqual('success');
       const decryptedLogs = tx.noteEncryptedLogs
         .unrollLogs()
-        .map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
-      const notevalues = decryptedLogs.map(l => l?.notePayload.note.items[0]);
+        .map(l => TaggedLog.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey, L1NotePayload));
+      const notevalues = decryptedLogs.map(l => l?.payload.note.items[0]);
       expect(notevalues[0]).toEqual(new Fr(10));
       expect(notevalues[1]).toEqual(new Fr(11));
       expect(notevalues[2]).toEqual(new Fr(12));
@@ -288,9 +278,15 @@ describe('e2e_block_building', () => {
       const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
+      const outgoingViewer = thisWallet.getAddress();
 
       // call test contract
-      const action = testContract.methods.emit_array_as_encrypted_log([5, 4, 3, 2, 1], thisWallet.getAddress(), true);
+      const action = testContract.methods.emit_array_as_encrypted_log(
+        [5, 4, 3, 2, 1],
+        thisWallet.getAddress(),
+        outgoingViewer,
+        true,
+      );
       const tx = await action.prove();
       const rct = await action.send().wait();
 
@@ -316,7 +312,7 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
     calls
       // First we send them all.
       .map(call => call.send())
-      // Onlt then we wait.
+      // Only then we wait.
       .map(p => p.wait()),
   );
 }

@@ -1,8 +1,8 @@
-use dep::protocol_types::{address::AztecAddress, grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{address::AztecAddress, scalar::Scalar, point::Point};
 
 use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
 
-use dep::std::aes128::aes128_encrypt;
+use std::aes128::aes128_encrypt;
 
 struct EncryptedLogHeader {
     address: AztecAddress,
@@ -13,8 +13,7 @@ impl EncryptedLogHeader {
         EncryptedLogHeader { address }
     }
 
-    // @todo Issue(#5901) Figure out if we return the bytes or fields for the log
-    fn compute_ciphertext(self, secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
+    fn compute_ciphertext(self, secret: Scalar, point: Point) -> [u8; 48] {
         let full_key = point_to_symmetric_key(secret, point);
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -33,19 +32,20 @@ impl EncryptedLogHeader {
 fn test_encrypted_log_header() {
     let address = AztecAddress::from_field(0xdeadbeef);
     let header = EncryptedLogHeader::new(address);
-    let secret = GrumpkinPrivateKey::new(
-        0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06,
-        0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd
-    );
-    let point = GrumpkinPoint::new(
-        0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
-        0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e
-    );
+    let secret = Scalar {
+        lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
+        hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
+    };
+    let point = Point {
+        x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
+        y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
+        is_infinite: false
+    };
 
     let ciphertext = header.compute_ciphertext(secret, point);
 
     let expected_header_ciphertext = [
-        131, 119, 105, 129, 244, 32, 151, 205, 12, 99, 93, 62, 10, 180, 72, 21, 179, 36, 250, 95, 56, 167, 171, 16, 195, 164, 223, 57, 75, 5, 24, 119, 198, 34, 99, 189, 193, 183, 227, 43, 79, 204, 214, 89, 221, 153, 246, 64
+        166, 212, 106, 246, 139, 59, 228, 9, 133, 152, 127, 172, 141, 166, 237, 199, 55, 203, 226, 19, 114, 103, 58, 237, 108, 231, 35, 198, 54, 61, 190, 255, 241, 225, 151, 180, 6, 163, 124, 27, 151, 78, 237, 65, 120, 106, 255, 236
     ];
 
     assert_eq(ciphertext, expected_header_ciphertext);

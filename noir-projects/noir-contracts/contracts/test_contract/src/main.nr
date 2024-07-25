@@ -7,12 +7,14 @@ contract Test {
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, PrivateImmutable, PrivateSet, SharedImmutable
     };
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys_with_randomness;
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
-        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
-        grumpkin_private_key::GrumpkinPrivateKey, storage::map::derive_storage_slot_in_map
+        traits::{Serialize, ToField, FromField}, point::Point, scalar::Scalar,
+        storage::map::derive_storage_slot_in_map
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
@@ -35,12 +37,17 @@ contract Test {
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
+    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     use crate::test_note::TestNote;
 
     #[aztec(event)]
     struct ExampleEvent {
-        value: Field,
+        value0: Field,
+        value1: Field,
+        value2: Field,
+        value3: Field,
+        value4: Field,
     }
 
     #[aztec(storage)]
@@ -82,17 +89,21 @@ contract Test {
     fn dummy_public_call() {}
 
     #[aztec(private)]
-    fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
+    fn call_create_note(
+        value: Field,
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        storage_slot: Field
+    ) {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
     }
 
     #[aztec(private)]
@@ -106,9 +117,9 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
 
-        opt_notes[0].unwrap().value
+        notes.get(0).value
     }
 
     #[aztec(private)]
@@ -122,9 +133,9 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
 
-        [opt_notes[0].unwrap().value, opt_notes[1].unwrap().value]
+        [notes.get(0).value, notes.get(1).value]
     }
 
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
@@ -137,9 +148,9 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(storage_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        opt_notes[0].unwrap().value
+        notes.get(0).value
     }
 
     unconstrained fn call_view_notes_many(storage_slot: Field, active_or_nullified: bool) -> pub [Field; 2] {
@@ -152,9 +163,9 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let opt_notes: [Option<ValueNote>; MAX_NOTES_PER_PAGE] = view_notes(storage_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
-        [opt_notes[0].unwrap().value, opt_notes[1].unwrap().value]
+        [notes.get(0).value, notes.get(1).value]
     }
 
     #[aztec(private)]
@@ -164,9 +175,9 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let opt_notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = get_notes(&mut context, storage_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
 
-        let note = opt_notes[0].unwrap();
+        let note = notes.get(0);
 
         destroy_note(&mut context, note);
     }
@@ -237,74 +248,73 @@ contract Test {
     // Purely exists for testing
     #[aztec(public)]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier, 0);
     }
 
     // For testing non-note encrypted logs
     #[aztec(private)]
-    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+    fn emit_array_as_encrypted_log(
+        fields: [Field; 5],
+        owner: AztecAddress,
+        outgoing_viewer: AztecAddress,
+        nest: bool
+    ) {
         let header = context.get_header();
+        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
         let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
-        context.encrypt_and_emit_log(
-            context.this_address(),
-            5, // testing only - this should be a secret random value to salt the addr
-            1,
-            owner_ivpk_m,
-            fields
+
+        let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
+
+        event.emit(
+            encode_and_encrypt_event_with_keys_with_randomness(
+                &mut context,
+                // testing only - a secret random value is passed in here to salt / mask the address
+                5,
+                outgoing_viewer_ovpk_m,
+                owner_ivpk_m,
+                owner
+            )
         );
+
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false).call(&mut context);
-            context.encrypt_and_emit_log(
-                context.this_address(),
-                0, // testing only - this signals to the kerels to not mask the address
-                1,
-                owner_ivpk_m,
-                [1, 2, 3, 4, 5]
+            Test::at(context.this_address()).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false).call(&mut context);
+
+            let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
+
+            otherEvent.emit(
+                encode_and_encrypt_event_with_keys_with_randomness(
+                    &mut context,
+                    // testing only - a randomness of 0 signals the kerels to not mask the address
+                    0,
+                    outgoing_viewer_ovpk_m,
+                    owner_ivpk_m,
+                    owner
+                )
             );
         }
     }
 
     #[aztec(private)]
-    fn emit_msg_sender() {
-        context.emit_unencrypted_log(context.msg_sender());
-    }
-
-    #[aztec(private)]
-    fn emit_unencrypted_logs(fields: [Field; 5], nest: bool) {
-        // Merged two fns to avoid hitting max #functions limit:
-        // nest -> emit_unencrypted_logs_nested
-        // else -> emit_array_as_unencrypted_log
-        if nest {
-            Test::at(context.this_address()).emit_msg_sender().call(&mut context);
-            Test::at(context.this_address()).emit_unencrypted_logs(fields, false).call(&mut context);
-            context.emit_unencrypted_log("test");
-        } else {
-            context.emit_unencrypted_log(fields);
-        }
-    }
-
-    #[aztec(private)]
-    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress) {
+    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
-        Test::at(context.this_address()).call_create_note(value, owner, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
         storage_slot += 1;
 
         let header = context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note, true, owner_ivpk_m);
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
         storage_slot += 1;
-        Test::at(context.this_address()).call_create_note(value + 2, owner, storage_slot).call(&mut context);
+        Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }
 
     // docs:start:is-time-equal
@@ -316,11 +326,12 @@ contract Test {
     // docs:end:is-time-equal
 
     #[aztec(public)]
-    fn emit_unencrypted(value: Field) -> Field {
+    fn emit_unencrypted(value: Field) {
         // docs:start:emit_unencrypted
-        context.emit_unencrypted_log(value);
+        context.emit_unencrypted_log(/*message=*/ value);
+        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
         // docs:end:emit_unencrypted
-        0
     }
 
     #[aztec(public)]
@@ -376,7 +387,7 @@ contract Test {
     #[aztec(private)]
     fn set_constant(value: Field) {
         let mut note = TestNote::new(value);
-        storage.example_constant.initialize(&mut note, false, GrumpkinPoint::zero());
+        storage.example_constant.initialize(&mut note).discard();
     }
 
     #[aztec(private)]
@@ -396,15 +407,15 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
+    fn compute_note_header_ciphertext(secret: Scalar, point: Point) -> [u8; 48] {
         EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
     }
 
     // 64 bytes + 32 * #fields + 16 = 112 bytes
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
-        secret: GrumpkinPrivateKey,
-        point: GrumpkinPoint,
+        secret: Scalar,
+        point: Point,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
@@ -414,13 +425,13 @@ contract Test {
 
     #[aztec(private)]
     fn compute_outgoing_log_body_ciphertext(
-        eph_sk: GrumpkinPrivateKey,
+        eph_sk: Scalar,
         recipient: AztecAddress,
-        recipient_ivpk_app: GrumpkinPoint,
-        ovsk_app: GrumpkinPrivateKey
-    ) -> [u8; 176] {
-        let eph_pk = eph_sk.derive_public_key();
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk_app).compute_ciphertext(ovsk_app, eph_pk)
+        recipient_ivpk: Point,
+        ovsk_app: Scalar
+    ) -> [u8; 144] {
+        let eph_pk = derive_public_key(eph_sk);
+        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
     }
 
     #[aztec(public)]
@@ -464,7 +475,7 @@ contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
+        let note = notes.get_unchecked(0);
         notes_set.remove(note);
     }
 
@@ -475,12 +486,12 @@ contract Test {
 
     // This function is used in the e2e_state_vars to test the SharedMutablePrivateGetter in isolation
     #[aztec(private)]
-    fn test_shared_mutable_private_getter<T>(
+    fn test_shared_mutable_private_getter(
         contract_address_to_read: AztecAddress,
         storage_slot_of_shared_mutable: Field
-    ) -> Field where T: FromField, T: ToField {
+    ) -> Field {
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let test: SharedMutablePrivateGetter<T, 5> = SharedMutablePrivateGetter::new(
+        let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
             &mut context,
             contract_address_to_read,
             storage_slot_of_shared_mutable
@@ -511,7 +522,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
+    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(context.get_header().get_npk_m(&mut context, address), public_nullifying_key);
     }
 

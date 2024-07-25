@@ -20,7 +20,7 @@ describe('e2e_token_contract burn', () => {
   });
 
   afterEach(async () => {
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
   });
 
   describe('public', () => {
@@ -47,9 +47,9 @@ describe('e2e_token_contract burn', () => {
 
       tokenSim.burnPublic(accounts[0].address, amount);
 
-      // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-      const txReplay = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).send();
-      await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+      await expect(
+        asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
+      ).rejects.toThrow(/unauthorized/);
     });
 
     describe('failure cases', () => {
@@ -78,7 +78,7 @@ describe('e2e_token_contract burn', () => {
         const nonce = Fr.random();
         await expect(
           asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
-        ).rejects.toThrow('Assertion failed: Message not authorized by account');
+        ).rejects.toThrow(/unauthorized/);
       });
 
       it('burn more than balance on behalf of other', async () => {
@@ -106,7 +106,7 @@ describe('e2e_token_contract burn', () => {
 
         await expect(
           asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
-        ).rejects.toThrow('Assertion failed: Message not authorized by account');
+        ).rejects.toThrow(/unauthorized/);
       });
     });
   });
@@ -187,10 +187,8 @@ describe('e2e_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
         const messageHash = computeAuthWitMessageHash(
-          accounts[1].address,
-          wallets[0].getChainId(),
-          wallets[0].getVersion(),
-          action.request(),
+          { caller: accounts[1].address, action: action.request() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         await expect(action.simulate()).rejects.toThrow(
@@ -207,10 +205,8 @@ describe('e2e_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
         const expectedMessageHash = computeAuthWitMessageHash(
-          accounts[2].address,
-          wallets[0].getChainId(),
-          wallets[0].getVersion(),
-          action.request(),
+          { caller: accounts[2].address, action: action.request() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });

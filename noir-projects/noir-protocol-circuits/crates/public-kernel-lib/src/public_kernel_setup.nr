@@ -4,6 +4,12 @@ use dep::types::abis::{
     public_kernel_data::PublicKernelData, public_call_data::PublicCallData
 };
 use dep::types::utils::arrays::array_to_bounded_vec;
+use dep::types::constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_SETUP_INDEX};
+
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+    PUBLIC_KERNEL_SETUP_INDEX,
+];
 
 struct PublicKernelSetupCircuitPrivateInputs {
     // Note: One might think that our previous_kernel ought to be
@@ -12,8 +18,8 @@ struct PublicKernelSetupCircuitPrivateInputs {
     // And we just initialize the missing values to zero in TS before passing it to the circuit,
     // except for the constants.global_variables which we populate with the current block values.
     // This is a bit of a hack, but it allows us to reuse the setup circuit until
-    // the setup phase of the public kernel is complete. Maybe in a perfect world we would 
-    // have a SetupInit, SetupInner, etc, but this will change anyway once the public VM is able to 
+    // the setup phase of the public kernel is complete. Maybe in a perfect world we would
+    // have a SetupInit, SetupInner, etc, but this will change anyway once the public VM is able to
     // consume entire enqueued public calls.
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
@@ -39,9 +45,12 @@ impl PublicKernelSetupCircuitPrivateInputs {
     }
 
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
-        // verify the previous kernel proof
-        self.previous_kernel.verify();
-
+        if !dep::std::runtime::is_unconstrained() {
+            // Recursively verify the tube proof or a previous public kernel proof
+            self.previous_kernel.verify();
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         self.initialize_revert_code(&mut public_inputs);
@@ -76,27 +85,28 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
 mod tests {
     use crate::{
-        public_kernel_setup::PublicKernelSetupCircuitPrivateInputs,
-        utils::{
-        assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
-        compute_public_data_reads, compute_public_data_update_requests
-    }
+        public_kernel_setup::{PublicKernelSetupCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS},
+        utils::{compute_public_data_reads, compute_public_data_update_requests}
     };
     use dep::types::{
         abis::{
-        call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
+        function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
+        public_call_stack_item_compressed::PublicCallStackItemCompressed,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        public_call_data::PublicCallData, read_request::ReadRequest
+        public_call_data::PublicCallData, read_request::ReadRequest, log_hash::ScopedLogHash
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::silo_unencrypted_log,
-        tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
+        contrakt::storage_read::StorageRead,
+        tests::{
+        fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder,
+        utils::assert_array_eq
+    },
         utils::{arrays::{array_eq, array_length}}, traits::is_empty
     };
     use dep::types::constants::{
         MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX
     };
 
     struct PublicKernelSetupCircuitPrivateInputsBuilder {
@@ -107,7 +117,7 @@ mod tests {
 
     impl PublicKernelSetupCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = FixtureBuilder::new();
+            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
             let previous_revertible = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
@@ -117,15 +127,13 @@ mod tests {
         pub fn stub_teardown_call(&mut self) {
             let teardown_call = PublicCallDataBuilder::new();
             let teardown_call = teardown_call.finish();
-            let teardown_call_hash = teardown_call.call_stack_item.hash();
-            let teardown_is_delegate_call = teardown_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_public_call_request(teardown_call_hash, teardown_is_delegate_call);
+            let compressed_item = teardown_call.call_stack_item.get_compressed();
+            self.previous_kernel.push_public_call_request(compressed_item);
         }
 
         pub fn push_public_call(&mut self, public_call: PublicCallData) {
-            let public_call_hash = public_call.call_stack_item.hash();
-            let setup_is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_public_call_request(public_call_hash, setup_is_delegate_call);
+            let compressed_item = public_call.call_stack_item.get_compressed();
+            self.previous_kernel.push_public_call_request(compressed_item);
         }
 
         pub fn is_delegate_call(&mut self) -> Self {
@@ -156,12 +164,30 @@ mod tests {
             let setup_call = self.public_call.finish();
             self.push_public_call(setup_call);
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
             // Run the kernel on the setup call
             let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call: setup_call };
 
             kernel.public_kernel_setup()
+        }
+
+        pub fn get_call_request_item(self) -> PublicCallStackItemCompressed {
+            let public_call = self.public_call.finish();
+            public_call.call_stack_item.get_compressed()
+        }
+
+        pub fn failed_with_call_request_item(&mut self, item: PublicCallStackItemCompressed) {
+            // The teardown call is at the bottom of the call stack.
+            self.stub_teardown_call();
+
+            let public_call = self.public_call.finish();
+            self.previous_kernel.push_public_call_request(item);
+            let previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+
+            let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
+            let _ = kernel.public_kernel_setup();
         }
 
         pub fn succeeded(&mut self) {
@@ -185,7 +211,7 @@ mod tests {
         // TODO(fees) we don't yet handle non-revertible reads
         // Only the 2 valid reads should have been propagated.
         // let expected = [public_data_reads[0], public_data_reads[2]];
-        // assert_eq_public_data_reads(public_inputs.end.public_data_reads, expected);
+        // assert_array_eq(public_inputs.end.public_data_reads, expected);
     }
 
     // TODO(fees) we don't yet handle non-revertible update requests
@@ -201,7 +227,7 @@ mod tests {
 
     //     // Only the 2 valid reads should have been propagated.
     //     let expected = [public_data_update_requests[0], public_data_update_requests[2]];
-    //     assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, expected);
+    //     assert_array_eq(public_inputs.end.public_data_update_requests, expected);
     // }
 
     #[test(should_fail_with="Bytecode hash cannot be zero")]
@@ -236,15 +262,16 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack")]
-    fn inconsistent_call_hash_should_fail() {
+    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
+    fn inconsistent_call_request_item_should_fail() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
         builder.stub_teardown_call();
         let public_call = builder.public_call.finish();
 
-        let hash = public_call.call_stack_item.hash();
-        // Tweak the call stack item hash.
-        builder.previous_kernel.push_public_call_request(hash + 1, false);
+        let mut item = public_call.call_stack_item.get_compressed();
+        // Tweak the call stack item.
+        item.args_hash += 1;
+        builder.previous_kernel.push_public_call_request(item);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
 
         let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
@@ -252,14 +279,15 @@ mod tests {
         let _ = kernel.public_kernel_setup();
     }
 
-    #[test(should_fail_with="call stack msg_sender does not match caller contract address")]
+    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
     fn incorrect_msg_sender_fails_for_regular_calls() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
+        let mut item = builder.get_call_request_item();
         // Set the msg_sender to a wrong value.
-        builder.public_call.public_inputs.call_context.msg_sender.inner += 1;
+        item.call_context.msg_sender.inner += 1;
 
-        builder.failed();
+        builder.failed_with_call_request_item(item);
     }
 
     #[test(should_fail_with="call stack storage address does not match expected contract address")]
@@ -278,32 +306,15 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="caller context cannot be empty for delegate calls")]
-    fn empty_caller_context_for_delegate_calls_fails() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new().is_delegate_call();
-        builder.stub_teardown_call();
-
-        let public_call = builder.public_call.finish();
-
-        let hash = public_call.call_stack_item.hash();
-        // Caller context is empty for regular calls.
-        let is_delegate_call = false;
-        builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
-
-        let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
-
-        let _ = kernel.public_kernel_setup();
-    }
-
-    #[test(should_fail_with="call stack msg_sender does not match expected msg_sender for delegate calls")]
+    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
     fn incorrect_msg_sender_for_delegate_calls_fails() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new().is_delegate_call();
 
+        let mut item = builder.get_call_request_item();
         // Set the msg_sender to be the caller contract.
-        builder.public_call.public_inputs.call_context.msg_sender = builder.previous_kernel.contract_address;
+        item.call_context.msg_sender = builder.previous_kernel.contract_address;
 
-        builder.failed();
+        builder.failed_with_call_request_item(item);
     }
 
     #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
@@ -315,41 +326,28 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with = "call stack hash does not match call request hash")]
-    fn incorrect_call_request_hash_fails() {
+    #[test(should_fail_with = "incorrect storage_contract_address for call request")]
+    fn incorrect_storage_contract_address_for_call_request_fails() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
-        builder.public_call.append_public_call_requests(2, false);
-        let mut call_request = builder.public_call.public_call_stack.pop();
-        // Change the hash to be a different value.
-        call_request.hash += 1;
-        builder.public_call.public_call_stack.push(call_request);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid caller")]
-    fn incorrect_caller_address_for_call_request_fails() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-
-        builder.public_call.append_public_call_requests(1, false);
-        let mut call_request = builder.public_call.public_call_stack.pop();
+        builder.public_call.append_public_call_requests_for_regular_calls(1);
+        let mut call_request = builder.public_call.public_inputs.public_call_requests.pop();
         // Change the caller contract address to be a different value.
-        call_request.caller_contract_address.inner += 1;
-        builder.public_call.public_call_stack.push(call_request);
+        call_request.item.call_context.storage_contract_address.inner += 1;
+        builder.public_call.public_inputs.public_call_requests.push(call_request);
 
         builder.failed();
     }
 
-    #[test(should_fail_with = "invalid caller")]
-    fn incorrect_caller_context_for_delegate_call_request_fails() {
+    #[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
+    fn incorrect_call_context_for_delegate_call_request_fails() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
-        builder.public_call.append_public_call_requests(1, true);
-        let mut call_request = builder.public_call.public_call_stack.pop();
-        // Change the storage contract to be a different value.
-        call_request.caller_context.storage_contract_address.inner += 1;
-        builder.public_call.public_call_stack.push(call_request);
+        builder.public_call.append_public_call_requests_for_delegate_calls(1);
+        let mut call_request = builder.public_call.public_inputs.public_call_requests.pop();
+        // Change the storage contract address to be the contract address.
+        call_request.item.call_context.storage_contract_address = call_request.item.contract_address;
+        builder.public_call.public_inputs.public_call_requests.push(call_request);
 
         builder.failed();
     }
@@ -367,11 +365,11 @@ mod tests {
         builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
 
         builder.public_call.append_public_call_requests_for_regular_calls(2);
-        let storage = builder.public_call.public_call_stack.storage;
+        let storage = builder.public_call.public_inputs.public_call_requests.storage;
 
         builder.stub_teardown_call();
         let non_revertible_call_stack = [
-            builder.previous_kernel.public_call_stack.get(0),
+            builder.previous_kernel.public_call_requests.get(0),
             storage[0], storage[1]
         ];
 
@@ -394,16 +392,16 @@ mod tests {
         let public_inputs = kernel.public_kernel_setup();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
-        assert_eq_call_requests(
+        assert_array_eq(
             public_inputs.end_non_revertible.public_call_stack,
             non_revertible_call_stack
         );
         // TODO(fees) we don't yet handle non-revertible update requests
-        // assert_eq_public_data_update_requests(
+        // assert_array_eq(
         //     public_inputs.end.public_data_update_requests,
         //     update_requests
         // );
-        // assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
+        // assert_array_eq(public_inputs.end.public_data_reads, read_requests);
     }
 
     // TODO: Find another way to test this. Currently it will crash because we are popping from an empty array:
@@ -443,19 +441,21 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_kernel.set_unencrypted_logs(
+        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
+        let prev_data = builder.previous_kernel.to_public_accumulated_data();
 
-        let mut expected_unencrypted_logs = [
-            builder.previous_kernel.unencrypted_logs_hashes.storage[0].log_hash, builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        let expected_unencrypted_logs = [
+            prev_data.unencrypted_logs_hashes[0], ScopedLogHash {
+                log_hash: builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0],
+                contract_address: builder.public_call.contract_address
+            }
         ];
-        // silo the new log hash
-        expected_unencrypted_logs[1].value = silo_unencrypted_log(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
-        let expected_encrypted_logs = [builder.previous_kernel.encrypted_logs_hashes.storage[0].expose_to_public()];
+        let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
 
         let public_inputs = builder.execute();
 
@@ -590,13 +590,13 @@ mod tests {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 0;
         let public_call = builder.public_call.finish();
-        let hash = public_call.call_stack_item.hash();
+        let item = public_call.call_stack_item.get_compressed();
 
-        builder.previous_kernel.push_public_call_request(hash, false);
-        builder.previous_kernel.push_public_call_request(hash, false);
+        builder.previous_kernel.push_public_call_request(item);
+        builder.previous_kernel.push_public_call_request(item);
 
-        builder.previous_kernel.push_public_teardown_call_request(hash, false);
-        builder.previous_kernel.push_public_teardown_call_request(hash, false);
+        builder.previous_kernel.push_public_teardown_call_request(item);
+        builder.previous_kernel.push_public_teardown_call_request(item);
 
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
         let kernel = PublicKernelSetupCircuitPrivateInputs { previous_kernel, public_call };
@@ -606,4 +606,21 @@ mod tests {
         assert_eq(array_length(public_inputs.end_non_revertible.public_call_stack), 1);
         assert_eq(array_length(public_inputs.public_teardown_call_stack), 2);
     }
+
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+
+            let _res = builder.execute();
+        }
+    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

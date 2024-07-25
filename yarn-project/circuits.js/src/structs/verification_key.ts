@@ -74,9 +74,10 @@ export class CommitmentMap {
   }
 }
 
-export const CIRCUIT_SIZE_INDEX = 3;
-export const CIRCUIT_PUBLIC_INPUTS_INDEX = 4;
-export const CIRCUIT_RECURSIVE_INDEX = 5;
+// TODO: find better home for these constants
+export const CIRCUIT_SIZE_INDEX = 0;
+export const CIRCUIT_PUBLIC_INPUTS_INDEX = 1;
+export const CIRCUIT_RECURSIVE_INDEX = 0;
 
 /**
  * Provides a 'fields' representation of a circuit's verification key
@@ -178,7 +179,8 @@ export class VerificationKey {
   }
 
   /**
-	@@ -126,28 +97,14 @@ export class VerificationKeyAsFields {
+   * Deserializes class from a buffer.
+   * @returns A VerificationKey instance.
    */
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKey {
     const reader = BufferReader.asReader(buffer);
@@ -235,9 +237,10 @@ export class VerificationKeyData {
     return serializeToBuffer(this.keyAsFields, this.keyAsBytes.length, this.keyAsBytes);
   }
 
-  /**
-	@@ -126,28 +97,14 @@ export class VerificationKeyAsFields {
-   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
     const reader = BufferReader.asReader(buffer);
     const verificationKeyAsFields = reader.readObject(VerificationKeyAsFields);
@@ -246,32 +249,11 @@ export class VerificationKeyData {
     return new VerificationKeyData(verificationKeyAsFields, bytes);
   }
 
+  static fromString(str: string): VerificationKeyData {
+    return VerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
+  }
+
   public clone() {
     return VerificationKeyData.fromBuffer(this.toBuffer());
   }
-}
-
-/**
- * Well-known verification keys.
- */
-export interface VerificationKeys {
-  /**
-   * Verification key for the default private kernel tail circuit.
-   */
-  privateKernelCircuit: VerificationKeyData;
-  /**
-   * Verification key for the default private kernel circuit.
-   */
-  privateKernelToPublicCircuit: VerificationKeyData;
-}
-
-/**
- * Returns mock verification keys for each well known circuit.
- * @returns A VerificationKeys object with fake values.
- */
-export function getMockVerificationKeys(): VerificationKeys {
-  return {
-    privateKernelCircuit: VerificationKeyData.makeFake(),
-    privateKernelToPublicCircuit: VerificationKeyData.makeFake(),
-  };
 }

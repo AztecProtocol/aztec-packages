@@ -1,13 +1,20 @@
 #include "ec_operations.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/plonk/composer/standard_composer.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
 
 namespace acir_format::tests {
+
+using Composer = plonk::UltraComposer;
 using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class EcOperations : public ::testing::Test {
@@ -83,7 +90,9 @@ TEST_F(EcOperations, TestECOperations)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 
@@ -120,8 +129,56 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         fr(0),
     };
     msm_constrain = MultiScalarMul{
-        .points = { 1, 2, 3, 1, 2, 3 },
-        .scalars = { 4, 5, 4, 5 },
+        .points = { WitnessConstant<fr>{
+                        .index = 1,
+                        .value = fr(0),
+                        .is_constant = false,
+                    },
+                    WitnessConstant<fr>{
+                        .index = 2,
+                        .value = fr(0),
+                        .is_constant = false,
+                    },
+                    WitnessConstant<fr>{
+                        .index = 3,
+                        .value = fr(0),
+                        .is_constant = false,
+                    },
+                    WitnessConstant<fr>{
+                        .index = 1,
+                        .value = fr(0),
+                        .is_constant = false,
+                    },
+                    WitnessConstant<fr>{
+                        .index = 2,
+                        .value = fr(0),
+                        .is_constant = false,
+                    },
+                    WitnessConstant<fr>{
+                        .index = 3,
+                        .value = fr(0),
+                        .is_constant = false,
+                    } },
+        .scalars = { WitnessConstant<fr>{
+                         .index = 4,
+                         .value = fr(0),
+                         .is_constant = false,
+                     },
+                     WitnessConstant<fr>{
+                         .index = 5,
+                         .value = fr(0),
+                         .is_constant = false,
+                     },
+                     WitnessConstant<fr>{
+                         .index = 4,
+                         .value = fr(0),
+                         .is_constant = false,
+                     },
+                     WitnessConstant<fr>{
+                         .index = 5,
+                         .value = fr(0),
+                         .is_constant = false,
+                     } },
         .out_point_x = 6,
         .out_point_y = 7,
         .out_point_is_infinite = 0,
@@ -169,7 +226,9 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
 

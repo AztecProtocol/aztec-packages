@@ -1,17 +1,17 @@
 use crate::{
     abis::{
-    gas_settings::GasSettings, gas::Gas, call_context::CallContext,
-    call_request::{CallerContext, CallRequest}, function_data::FunctionData,
-    public_call_data::{PublicCallData, Proof}, public_call_stack_item::PublicCallStackItem,
-    public_circuit_public_inputs::PublicCircuitPublicInputs, log_hash::LogHash
+    gas_settings::GasSettings, gas::Gas, call_context::CallContext, function_data::FunctionData,
+    public_call_data::{PublicCallData, Proof}, public_call_request::PublicCallRequest,
+    public_call_stack_item::PublicCallStackItem,
+    public_call_stack_item_compressed::PublicCallStackItemCompressed, log_hash::LogHash
 },
-    address::{AztecAddress, EthAddress},
+    address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     tests::{fixtures, public_circuit_public_inputs_builder::PublicCircuitPublicInputsBuilder}
 };
 use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH
 };
 
 struct PublicCallDataBuilder {
@@ -19,7 +19,6 @@ struct PublicCallDataBuilder {
     public_inputs: PublicCircuitPublicInputsBuilder,
     is_execution_request: bool,
     function_data: FunctionData,
-    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     proof: Proof,
     bytecode_hash: Field,
 }
@@ -40,7 +39,6 @@ impl PublicCallDataBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            side_effect_counter: 0,  // needed?
         };
 
         PublicCallDataBuilder {
@@ -48,7 +46,6 @@ impl PublicCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            public_call_stack: BoundedVec::new(),
             proof: Proof {},
             bytecode_hash: contract_function.acir_hash
         }
@@ -61,43 +58,46 @@ impl PublicCallDataBuilder {
         *self
     }
 
-    pub fn append_public_call_requests_for_regular_calls(&mut self, num_requests: u64) {
+    pub fn append_public_call_requests_for_regular_calls(&mut self, num_requests: u32) {
         self.append_public_call_requests(num_requests, false);
     }
 
-    pub fn append_public_call_requests_for_delegate_calls(&mut self, num_requests: u64) {
+    pub fn append_public_call_requests_for_delegate_calls(&mut self, num_requests: u32) {
         self.append_public_call_requests(num_requests, true);
     }
 
-    pub fn append_public_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
-        let value_offset = self.public_inputs.public_call_stack_hashes.len();
-        let mut caller_context = CallerContext::empty();
-        if is_delegate_call {
-            let call_context = self.public_inputs.call_context;
-            caller_context.msg_sender = call_context.msg_sender;
-            caller_context.storage_contract_address = call_context.storage_contract_address;
-        }
-        let mut exceeded_len = false;
+    fn append_public_call_requests(&mut self, num_requests: u32, is_delegate_call: bool) {
+        let index_offset = self.public_inputs.public_call_requests.len();
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
-            exceeded_len |= i == num_requests;
-            if !exceeded_len {
-                // The default hash is its index + 7788.
-                let hash = (value_offset + 7788) as Field;
-                let call_request = CallRequest {
-                    hash,
-                    caller_contract_address: self.contract_address,
-                    caller_context,
-                    // todo: real values?
-                    start_side_effect_counter: i as u32,
-                    end_side_effect_counter: (i + 1) as u32
-                };
-                self.public_inputs.public_call_stack_hashes.push(hash);
-                self.public_call_stack.push(call_request);
+            if i < num_requests {
+                let call_request = PublicCallRequest { item: self.mock_public_call_request_item(index_offset + i, is_delegate_call), counter: i };
+                self.public_inputs.public_call_requests.push(call_request);
             }
         }
     }
 
-    pub fn append_public_data_read_requests(&mut self, num_reads: u64) {
+    fn mock_public_call_request_item(self, index: u32, is_delegate_call: bool) -> PublicCallStackItemCompressed {
+        let value_offset = 7788 + index as Field;
+        let mut fields = [0; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH];
+        for i in 0..fields.len() {
+            fields[i] = value_offset + i as Field;
+        }
+        let mut item = PublicCallStackItemCompressed::deserialize(fields);
+        item.call_context.msg_sender = if is_delegate_call {
+            self.public_inputs.call_context.msg_sender
+        } else {
+            self.public_inputs.call_context.storage_contract_address
+        };
+        item.call_context.storage_contract_address = if is_delegate_call {
+            self.public_inputs.call_context.storage_contract_address
+        } else {
+            item.contract_address
+        };
+        item.call_context.is_delegate_call = is_delegate_call;
+        item
+    }
+
+    pub fn append_public_data_read_requests(&mut self, num_reads: u32) {
         let value_offset = self.public_inputs.contract_storage_reads.len();
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
@@ -105,14 +105,15 @@ impl PublicCallDataBuilder {
                     // The default storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
                     // The default value is its index + 999.
-                    current_value: (value_offset + i + 999) as Field
+                    current_value: (value_offset + i + 999) as Field,
+                    counter: i as u32
                 };
                 self.public_inputs.contract_storage_reads.push(read_request);
             }
         }
     }
 
-    pub fn append_empty_public_data_read_requests(&mut self, num_reads: u64) {
+    pub fn append_empty_public_data_read_requests(&mut self, num_reads: u32) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
                 self.public_inputs.contract_storage_reads.push(StorageRead::empty());
@@ -120,7 +121,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn append_update_requests(&mut self, num_updates: u64) {
+    pub fn append_update_requests(&mut self, num_updates: u32) {
         let value_offset = self.public_inputs.contract_storage_update_requests.len();
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
@@ -128,14 +129,15 @@ impl PublicCallDataBuilder {
                     // The default storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
                     // The default value is its index + 890.
-                    new_value: (value_offset + i + 890) as Field
+                    new_value: (value_offset + i + 890) as Field,
+                    counter: i as u32
                 };
                 self.public_inputs.contract_storage_update_requests.push(update_request);
             }
         }
     }
 
-    pub fn append_empty_update_requests(&mut self, num_updates: u64) {
+    pub fn append_empty_update_requests(&mut self, num_updates: u32) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
                 self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
@@ -157,7 +159,6 @@ impl PublicCallDataBuilder {
                 is_execution_request: self.is_execution_request,
                 public_inputs: self.public_inputs.finish()
             },
-            public_call_stack: self.public_call_stack.storage,
             proof: self.proof,
             bytecode_hash: self.bytecode_hash
         }

@@ -3,11 +3,11 @@ import {
   type FailedTx,
   NestedProcessReturnValues,
   type ProcessedTx,
-  type PublicKernelRequest,
+  PublicKernelType,
+  type PublicProvingRequest,
   type SimulationError,
   Tx,
   type TxValidator,
-  makeEmptyProcessedTx,
   makeProcessedTx,
   validateProcessedTx,
 } from '@aztec/circuit-types';
@@ -23,6 +23,7 @@ import {
 } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 import {
   PublicExecutor,
   type PublicStateDB,
@@ -30,16 +31,13 @@ import {
   computeFeePayerBalanceLeafSlot,
   computeFeePayerBalanceStorageSlot,
 } from '@aztec/simulator';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import {
-  type AbstractPhaseManager,
-  PublicKernelPhase,
-  publicKernelPhaseToKernelType,
-} from './abstract_phase_manager.js';
+import { type AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_executor.js';
+import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
@@ -51,6 +49,7 @@ export class PublicProcessorFactory {
     private merkleTree: MerkleTreeOperations,
     private contractDataSource: ContractDataSource,
     private simulator: SimulationProvider,
+    private telemetryClient: TelemetryClient,
   ) {}
 
   /**
@@ -60,11 +59,8 @@ export class PublicProcessorFactory {
    * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
-  public async create(
-    historicalHeader: Header | undefined,
-    globalVariables: GlobalVariables,
-  ): Promise<PublicProcessor> {
-    historicalHeader = historicalHeader ?? (await this.merkleTree.buildInitialHeader());
+  public create(historicalHeader: Header | undefined, globalVariables: GlobalVariables): PublicProcessor {
+    historicalHeader = historicalHeader ?? this.merkleTree.getInitialHeader();
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
@@ -78,6 +74,7 @@ export class PublicProcessorFactory {
       historicalHeader,
       publicContractsDB,
       worldStatePublicDB,
+      this.telemetryClient,
     );
   }
 }
@@ -87,6 +84,7 @@ export class PublicProcessorFactory {
  * any public function calls in them. Txs with private calls only are unaffected.
  */
 export class PublicProcessor {
+  public readonly tracer: Tracer;
   constructor(
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
@@ -95,9 +93,11 @@ export class PublicProcessor {
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-
+    telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
-  ) {}
+  ) {
+    this.tracer = telemetryClient.getTracer('PublicProcessor');
+  }
 
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
@@ -123,8 +123,14 @@ export class PublicProcessor {
       }
       try {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
-          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof, [])]
+          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), [])]
           : await this.processTxWithPublicCalls(tx);
+        this.log.debug(`Processed tx`, {
+          txHash: processedTx.hash,
+          historicalHeaderHash: processedTx.data.constants.historicalHeader.hash(),
+          blockNumber: processedTx.data.constants.globalVariables.blockNumber,
+          lastArchiveRoot: processedTx.data.constants.historicalHeader.lastArchive.root,
+        });
 
         // Set fee payment update request into the processed tx
         processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
@@ -207,23 +213,17 @@ export class PublicProcessor {
 
     finalPublicDataUpdateRequests[
       existingBalanceWriteIndex > -1 ? existingBalanceWriteIndex : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-    ] = new PublicDataUpdateRequest(leafSlot, updatedBalance);
+    ] = new PublicDataUpdateRequest(leafSlot, updatedBalance, 0);
 
     return finalPublicDataUpdateRequests;
   }
 
-  /**
-   * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
-   * @returns A processed tx with empty data.
-   */
-  public makeEmptyProcessedTx(): ProcessedTx {
-    const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.historicalHeader.clone(), chainId, version);
-  }
-
+  @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     let returnValues: NestedProcessReturnValues[] = [];
-    const publicRequests: PublicKernelRequest[] = [];
+    const publicProvingRequests: PublicProvingRequest[] = [];
     let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
       tx,
       this.db,
@@ -236,17 +236,19 @@ export class PublicProcessor {
     );
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
+    let lastKernelArtifact: ProtocolArtifact = 'PrivateKernelTailToPublicArtifact'; // All txs with public calls must carry tail to public proofs
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const gasUsed: ProcessedTx['gasUsed'] = {};
     while (phase) {
-      const output = await phase.handle(tx, publicKernelPublicInput);
-      gasUsed[publicKernelPhaseToKernelType(phase.phase)] = output.gasUsed;
-      if (phase.phase === PublicKernelPhase.APP_LOGIC) {
+      const output = await phase.handle(tx, publicKernelPublicInput, lastKernelArtifact);
+      gasUsed[phase.phase] = output.gasUsed;
+      if (phase.phase === PublicKernelType.APP_LOGIC) {
         returnValues = output.returnValues;
       }
-      publicRequests.push(...output.kernelRequests);
+      publicProvingRequests.push(...output.publicProvingRequests);
       publicKernelPublicInput = output.publicKernelOutput;
+      lastKernelArtifact = output.lastKernelArtifact;
       finalKernelOutput = output.finalKernelOutput;
       revertReason ??= output.revertReason;
       phase = PhaseManagerFactory.phaseFromOutput(
@@ -266,7 +268,7 @@ export class PublicProcessor {
       throw new Error('Final public kernel was not executed.');
     }
 
-    const processedTx = makeProcessedTx(tx, finalKernelOutput, tx.proof, publicRequests, revertReason, gasUsed);
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }
 }

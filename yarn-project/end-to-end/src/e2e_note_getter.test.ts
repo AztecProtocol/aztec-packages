@@ -3,17 +3,17 @@ import { DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
 
-interface NoirOption<T> {
-  _is_some: boolean;
-  _value: T;
+interface NoirBoundedVec<T> {
+  storage: T[];
+  len: bigint;
+}
+
+function boundedVecToArray<T>(boundedVec: NoirBoundedVec<T>): T[] {
+  return boundedVec.storage.slice(0, Number(boundedVec.len));
 }
 
 const sortFunc = (a: any, b: any) =>
   a.points > b.points ? 1 : a.points < b.points ? -1 : a.randomness > b.randomness ? 1 : -1;
-
-function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
-  return options.filter((option: any) => option._is_some).map((option: any) => option._value);
-}
 
 describe('e2e_note_getter', () => {
   let wallet: Wallet;
@@ -60,7 +60,7 @@ describe('e2e_note_getter', () => {
       ]);
 
       expect(
-        unwrapOptions(returnEq)
+        boundedVecToArray(returnEq)
           .map(({ points, randomness }: any) => ({ points, randomness }))
           .sort(sortFunc),
       ).toStrictEqual(
@@ -71,7 +71,7 @@ describe('e2e_note_getter', () => {
       );
 
       expect(
-        unwrapOptions(returnNeq)
+        boundedVecToArray(returnNeq)
           .map(({ points, randomness }: any) => ({ points, randomness }))
           .sort(sortFunc),
       ).toStrictEqual(
@@ -89,7 +89,7 @@ describe('e2e_note_getter', () => {
       );
 
       expect(
-        unwrapOptions(returnLt)
+        boundedVecToArray(returnLt)
           .map(({ points, randomness }: any) => ({ points, randomness }))
           .sort(sortFunc),
       ).toStrictEqual(
@@ -103,7 +103,7 @@ describe('e2e_note_getter', () => {
       );
 
       expect(
-        unwrapOptions(returnGt)
+        boundedVecToArray(returnGt)
           .map(({ points, randomness }: any) => ({ points, randomness }))
           .sort(sortFunc),
       ).toStrictEqual(
@@ -116,7 +116,7 @@ describe('e2e_note_getter', () => {
       );
 
       expect(
-        unwrapOptions(returnLte)
+        boundedVecToArray(returnLte)
           .map(({ points, randomness }: any) => ({ points, randomness }))
           .sort(sortFunc),
       ).toStrictEqual(
@@ -132,7 +132,7 @@ describe('e2e_note_getter', () => {
       );
 
       expect(
-        unwrapOptions(returnGte)
+        boundedVecToArray(returnGte)
           .map(({ points, randomness }: any) => ({ points, randomness }))
           .sort(sortFunc),
       ).toStrictEqual(
@@ -151,10 +151,13 @@ describe('e2e_note_getter', () => {
   describe('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;
+    let outgoingViewer: AztecAddress;
 
     beforeAll(async () => {
       contract = await TestContract.deploy(wallet).send().deployed();
       owner = wallet.getCompleteAddress().address;
+      // Setting the outgoing viewer to owner not have to bother with setting up another account.
+      outgoingViewer = owner;
     });
 
     const VALUE = 5;
@@ -176,7 +179,7 @@ describe('e2e_note_getter', () => {
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
-        'is_some',
+        'index < self.len', // from BoundedVec::get
       );
       await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
         `Assertion failed: Cannot return zero notes`,
@@ -187,12 +190,12 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = false;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('does not return nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
@@ -203,12 +206,12 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = true;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
@@ -217,9 +220,9 @@ describe('e2e_note_getter', () => {
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods.call_create_note(VALUE, owner, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
         await contract.methods
-          .call_create_note(VALUE + 1, owner, storageSlot)
+          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
           .send()
           .wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();

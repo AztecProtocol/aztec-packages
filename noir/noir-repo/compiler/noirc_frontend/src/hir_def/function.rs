@@ -1,35 +1,40 @@
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span};
 
-use std::rc::Rc;
-
 use super::expr::{HirBlockExpression, HirExpression, HirIdent};
 use super::stmt::HirPattern;
 use super::traits::TraitConstraint;
 use crate::ast::{FunctionKind, FunctionReturnType, Visibility};
-use crate::node_interner::{ExprId, NodeInterner, TraitImplId};
-use crate::{Type, TypeVariable};
+use crate::graph::CrateId;
+use crate::hir::def_map::LocalModuleId;
+use crate::macros_api::{BlockExpression, StructId};
+use crate::node_interner::{ExprId, NodeInterner, TraitId, TraitImplId};
+use crate::{ResolvedGeneric, Type};
 
-/// A Hir function is a block expression
-/// with a list of statements
+/// A Hir function is a block expression with a list of statements.
+/// If the function has yet to be resolved, the body starts off empty (None).
 #[derive(Debug, Clone)]
-pub struct HirFunction(ExprId);
+pub struct HirFunction(Option<ExprId>);
 
 impl HirFunction {
     pub fn empty() -> HirFunction {
-        HirFunction(ExprId::empty_block_id())
+        HirFunction(None)
     }
 
     pub const fn unchecked_from_expr(expr_id: ExprId) -> HirFunction {
-        HirFunction(expr_id)
+        HirFunction(Some(expr_id))
     }
 
-    pub const fn as_expr(&self) -> ExprId {
+    pub fn as_expr(&self) -> ExprId {
+        self.0.expect("Function has yet to be elaborated, cannot get an ExprId of its body!")
+    }
+
+    pub fn try_as_expr(&self) -> Option<ExprId> {
         self.0
     }
 
     pub fn block(&self, interner: &NodeInterner) -> HirBlockExpression {
-        match interner.expression(&self.0) {
+        match interner.expression(&self.as_expr()) {
             HirExpression::Block(block_expr) => block_expr,
             _ => unreachable!("ice: functions can only be block expressions"),
         }
@@ -95,6 +100,10 @@ pub struct FuncMeta {
 
     pub parameters: Parameters,
 
+    /// The HirIdent of each identifier within the parameter list.
+    /// Note that this includes separate entries for each identifier in e.g. tuple patterns.
+    pub parameter_idents: Vec<HirIdent>,
+
     pub return_type: FunctionReturnType,
 
     pub return_visibility: Visibility,
@@ -107,7 +116,13 @@ pub struct FuncMeta {
     /// This does not include generics from an outer scope, like those introduced by
     /// an `impl<T>` block. This also does not include implicit generics added by the compiler
     /// such as a trait's `Self` type variable.
-    pub direct_generics: Vec<(Rc<String>, TypeVariable)>,
+    pub direct_generics: Vec<ResolvedGeneric>,
+
+    /// All the generics used by this function, which includes any implicit generics or generics
+    /// from outer scopes, such as those introduced by an impl.
+    /// This is stored when the FuncMeta is first created to later be used to set the current
+    /// generics when the function's body is later resolved.
+    pub all_generics: Vec<ResolvedGeneric>,
 
     pub location: Location,
 
@@ -115,6 +130,12 @@ pub struct FuncMeta {
     pub has_body: bool,
 
     pub trait_constraints: Vec<TraitConstraint>,
+
+    /// The struct this function belongs to, if any
+    pub struct_id: Option<StructId>,
+
+    // The trait this function belongs to, if any
+    pub trait_id: Option<TraitId>,
 
     /// The trait impl this function belongs to, if any
     pub trait_impl: Option<TraitImplId>,
@@ -127,15 +148,31 @@ pub struct FuncMeta {
     /// that indicates it should be inlined differently than the default (inline everything).
     /// For example, such as `fold` (never inlined) or `no_predicates` (inlined after flattening)
     pub has_inline_attribute: bool,
+
+    pub function_body: FunctionBody,
+
+    /// The crate this function was defined in
+    pub source_crate: CrateId,
+
+    /// The module this function was defined in
+    pub source_module: LocalModuleId,
+}
+
+#[derive(Debug, Clone)]
+pub enum FunctionBody {
+    Unresolved(FunctionKind, BlockExpression, Span),
+    Resolving,
+    Resolved,
 }
 
 impl FuncMeta {
-    /// Builtin, LowLevel and Oracle functions usually have the return type
-    /// declared, however their function bodies will be empty
-    /// So this method tells the type checker to ignore the return
-    /// of the empty function, which is unit
-    pub fn can_ignore_return_type(&self) -> bool {
-        self.kind.can_ignore_return_type()
+    /// A stub function does not have a body. This includes Builtin, LowLevel,
+    /// and Oracle functions in addition to method declarations within a trait.
+    ///
+    /// We don't check the return type of these functions since it will always have
+    /// an empty body, and we don't check for unused parameters.
+    pub fn is_stub(&self) -> bool {
+        self.kind.can_ignore_return_type() || self.trait_id.is_some()
     }
 
     pub fn function_signature(&self) -> FunctionSignature {
@@ -155,6 +192,21 @@ impl FuncMeta {
                 _ => unreachable!(),
             },
             _ => unreachable!(),
+        }
+    }
+
+    /// Take this function body, returning an owned version while avoiding
+    /// cloning any large Expressions inside by replacing a Unresolved with a Resolving variant.
+    pub fn take_body(&mut self) -> FunctionBody {
+        match &mut self.function_body {
+            FunctionBody::Unresolved(kind, block, span) => {
+                let statements = std::mem::take(&mut block.statements);
+                let (kind, span) = (*kind, *span);
+                self.function_body = FunctionBody::Resolving;
+                FunctionBody::Unresolved(kind, BlockExpression { statements }, span)
+            }
+            FunctionBody::Resolving => FunctionBody::Resolving,
+            FunctionBody::Resolved => FunctionBody::Resolved,
         }
     }
 }

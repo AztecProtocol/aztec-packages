@@ -1,4 +1,5 @@
-import { type ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
+import { createArchiver } from '@aztec/archiver';
+import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type FromLogType,
@@ -18,12 +19,13 @@ import {
   PublicDataWitness,
   PublicSimulationOutput,
   type SequencerConfig,
-  type SiblingPath,
+  SiblingPath,
   type Tx,
   type TxEffect,
   type TxHash,
   TxReceipt,
   TxStatus,
+  type TxValidator,
   partitionReverts,
 } from '@aztec/circuit-types';
 import {
@@ -42,38 +44,51 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
-import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { createStore, openTmpStore } from '@aztec/kv-store/utils';
+import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
-import { DummyProver, TxProver } from '@aztec/prover-client';
-import { type GlobalVariableBuilder, SequencerClient, getGlobalVariableBuilder } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator } from '@aztec/simulator';
+import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
+import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
+import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import { createProverClient } from '@aztec/prover-client';
+import {
+  AggregateTxValidator,
+  DataTxValidator,
+  type GlobalVariableBuilder,
+  SequencerClient,
+  getGlobalVariableBuilder,
+} from '@aztec/sequencer-client';
+import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
+  type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
-import {
-  MerkleTrees,
-  ServerWorldStateSynchronizer,
-  type WorldStateConfig,
-  type WorldStateSynchronizer,
-  getConfigEnvVars as getWorldStateConfig,
-} from '@aztec/world-state';
+import { MerkleTrees, type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type AztecNodeConfig } from './config.js';
-import { getSimulationProvider } from './simulator-factory.js';
+import { type AztecNodeConfig, getPackageInfo } from './config.js';
+import { MetadataTxValidator } from './tx_validator/tx_metadata_validator.js';
+import { TxProofValidator } from './tx_validator/tx_proof_validator.js';
 
 /**
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode {
+  private packageVersion: string;
+
   constructor(
-    protected readonly config: AztecNodeConfig,
+    protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
     protected readonly blockSource: L2BlockSource,
     protected readonly encryptedLogsSource: L2LogsSource,
@@ -82,15 +97,18 @@ export class AztecNodeService implements AztecNode {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
-    protected readonly chainId: number,
+    protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: AztecKVStore,
-    private readonly prover: ProverClient,
+    private readonly prover: ProverClient | undefined,
+    private txValidator: TxValidator,
+    private telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:node'),
   ) {
+    this.packageVersion = getPackageInfo().version;
     const message =
-      `Started Aztec Node against chain 0x${chainId.toString(16)} with contracts - \n` +
+      `Started Aztec Node against chain 0x${l1ChainId.toString(16)} with contracts - \n` +
       `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
@@ -104,52 +122,52 @@ export class AztecNodeService implements AztecNode {
    * @param config - The configuration to be used by the aztec node.
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
-  public static async createAndSync(config: AztecNodeConfig) {
-    const ethereumChain = createEthereumChain(config.rpcUrl, config.apiKey);
+  public static async createAndSync(
+    config: AztecNodeConfig,
+    telemetry?: TelemetryClient,
+    log = createDebugLogger('aztec:node'),
+    storeLog = createDebugLogger('aztec:node:lmdb'),
+  ): Promise<AztecNodeService> {
+    telemetry ??= new NoopTelemetryClient();
+    const ethereumChain = createEthereumChain(config.rpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
-    if (config.chainId !== ethereumChain.chainInfo.id) {
+    if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
-        `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.chainId}`,
+        `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
       );
     }
 
-    const log = createDebugLogger('aztec:node');
-    const storeLog = createDebugLogger('aztec:node:lmdb');
-    const store = await initStoreForRollup(
-      AztecLmdbStore.open(config.dataDirectory, false, storeLog),
-      config.l1Contracts.rollupAddress,
-      storeLog,
-    );
+    const store = await createStore(config, config.l1Contracts.rollupAddress, storeLog);
 
-    let archiver: ArchiveSource;
-    if (!config.archiverUrl) {
-      // first create and sync the archiver
-      const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
-      archiver = await Archiver.createAndSync(config, archiverStore, true);
-    } else {
-      archiver = createArchiverClient(config.archiverUrl);
-    }
+    const archiver = await createArchiver(config, store, telemetry, { blockUntilSync: true });
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(store, config, new AztecKVTxPool(store), archiver);
+    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), archiver);
 
     // now create the merkle trees and the world state synchronizer
-    const merkleTrees = await MerkleTrees.new(store);
-    const worldStateConfig: WorldStateConfig = getWorldStateConfig();
-    const worldStateSynchronizer = new ServerWorldStateSynchronizer(store, merkleTrees, archiver, worldStateConfig);
+    const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    // start the prover if we have been told to
-    const simulationProvider = await getSimulationProvider(config, log);
-    const prover = config.disableProver
-      ? await DummyProver.new()
-      : await TxProver.new(config, simulationProvider, worldStateSynchronizer);
+    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const txValidator = new AggregateTxValidator(
+      new DataTxValidator(),
+      new MetadataTxValidator(config.l1ChainId),
+      new TxProofValidator(proofVerifier),
+    );
+
+    const simulationProvider = await createSimulationProvider(config, log);
+
+    const prover = await createProverClient(config, worldStateSynchronizer, archiver, telemetry);
+
+    if (!prover && !config.disableSequencer) {
+      throw new Error("Can't start a sequencer without a prover");
+    }
 
     // now create the sequencer
     const sequencer = config.disableSequencer
@@ -161,8 +179,9 @@ export class AztecNodeService implements AztecNode {
           archiver,
           archiver,
           archiver,
-          prover,
+          prover!,
           simulationProvider,
+          telemetry,
         );
 
     return new AztecNodeService(
@@ -180,6 +199,8 @@ export class AztecNodeService implements AztecNode {
       getGlobalVariableBuilder(config),
       store,
       prover,
+      txValidator,
+      telemetry,
       log,
     );
   }
@@ -192,8 +213,12 @@ export class AztecNodeService implements AztecNode {
     return this.sequencer;
   }
 
-  public getProver(): ProverClient {
+  public getProver(): ProverClient | undefined {
     return this.prover;
+  }
+
+  public getBlockSource(): L2BlockSource {
+    return this.blockSource;
   }
 
   /**
@@ -239,6 +264,18 @@ export class AztecNodeService implements AztecNode {
     return await this.blockSource.getBlockNumber();
   }
 
+  public async getProvenBlockNumber(): Promise<number> {
+    return await this.blockSource.getProvenBlockNumber();
+  }
+
+  /**
+   * Method to fetch the version of the package.
+   * @returns The node package version
+   */
+  public getNodeVersion(): Promise<string> {
+    return Promise.resolve(this.packageVersion);
+  }
+
   /**
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
@@ -252,7 +289,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The chain id.
    */
   public getChainId(): Promise<number> {
-    return Promise.resolve(this.chainId);
+    return Promise.resolve(this.l1ChainId);
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -294,6 +331,13 @@ export class AztecNodeService implements AztecNode {
    */
   public async sendTx(tx: Tx) {
     this.log.info(`Received tx ${tx.getTxHash()}`);
+
+    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
+    if (invalidTxs.length > 0) {
+      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+      return;
+    }
+
     await this.p2pClient!.sendTx(tx);
   }
 
@@ -303,8 +347,7 @@ export class AztecNodeService implements AztecNode {
     // We first check if the tx is in pending (instead of first checking if it is mined) because if we first check
     // for mined and then for pending there could be a race condition where the tx is mined between the two checks
     // and we would incorrectly return a TxReceipt with status DROPPED
-    const pendingTx = await this.getPendingTxByHash(txHash);
-    if (pendingTx) {
+    if (this.p2pClient.getTxStatus(txHash) === 'pending') {
       txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
@@ -329,7 +372,7 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
-    await this.prover.stop();
+    await this.prover?.stop();
     this.log.info(`Stopped`);
   }
 
@@ -337,17 +380,17 @@ export class AztecNodeService implements AztecNode {
    * Method to retrieve pending txs.
    * @returns - The pending txs.
    */
-  public async getPendingTxs() {
-    return await this.p2pClient!.getTxs();
+  public getPendingTxs() {
+    return Promise.resolve(this.p2pClient!.getTxs('pending'));
   }
 
   /**
-   * Method to retrieve a single pending tx.
+   * Method to retrieve a single tx from the mempool or unfinalised chain.
    * @param txHash - The transaction hash to return.
-   * @returns - The pending tx if it exists.
+   * @returns - The tx if it exists.
    */
-  public async getPendingTxByHash(txHash: TxHash) {
-    return await this.p2pClient!.getTxByHash(txHash);
+  public getTxByHash(txHash: TxHash) {
+    return Promise.resolve(this.p2pClient!.getTxByHash(txHash));
   }
 
   /**
@@ -437,6 +480,7 @@ export class AztecNodeService implements AztecNode {
    * @remarks This tree is considered ephemeral because it is created on-demand by: taking all the l2ToL1 messages
    * in a single block, and then using them to make a variable depth append-only tree with these messages as leaves.
    * The tree is discarded immediately after calculating what we need from it.
+   * TODO: Handle the case where two messages in the same tx have the same hash.
    * @param blockNumber - The block number at which to get the data.
    * @param l2ToL1Message - The l2ToL1Message get the index / sibling path for.
    * @returns A tuple of the index and the sibling path of the L2ToL1Message.
@@ -451,30 +495,64 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+    const l2ToL1Messages = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
 
-    const indexOfL2ToL1Message = BigInt(
-      l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message)),
-    );
+    // Find index of message
+    let indexOfMsgInSubtree = -1;
+    const indexOfMsgTx = l2ToL1Messages.findIndex(msgs => {
+      const idx = msgs.findIndex(msg => msg.equals(l2ToL1Message));
+      indexOfMsgInSubtree = Math.max(indexOfMsgInSubtree, idx);
+      return idx !== -1;
+    });
 
-    if (indexOfL2ToL1Message === -1n) {
+    if (indexOfMsgTx === -1) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
-    // Match how l2ToL1TreeHeight is calculated in Rollup.sol.
-    const treeHeight = block.header.contentCommitment.txTreeHeight.toNumber() + 1;
-    // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
-    const tree = new StandardTree(
-      openTmpStore(true),
-      new SHA256Trunc(),
-      'temp_outhash_sibling_path',
-      treeHeight,
-      0n,
-      Fr,
+    // Construct message subtrees
+    const l2toL1Subtrees = await Promise.all(
+      l2ToL1Messages.map(async (msgs, i) => {
+        const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
+        const tree = new StandardTree(
+          openTmpStore(true),
+          new SHA256Trunc(),
+          `temp_msgs_subtrees_${i}`,
+          treeHeight,
+          0n,
+          Fr,
+        );
+        await tree.appendLeaves(msgs);
+        return tree;
+      }),
     );
-    await tree.appendLeaves(l2ToL1Messages);
 
-    return [indexOfL2ToL1Message, await tree.getSiblingPath(indexOfL2ToL1Message, true)];
+    // path of the input msg from leaf -> first out hash calculated in base rolllup
+    const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
+      BigInt(indexOfMsgInSubtree),
+      true,
+    );
+
+    let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
+    if (l2toL1SubtreeRoots.length < 2) {
+      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.fromBuffer(sha256Trunc(Buffer.alloc(64))), 2);
+    }
+    const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
+    // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
+    const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
+    await outHashTree.appendLeaves(l2toL1SubtreeRoots);
+
+    const pathOfTxInOutHashTree = await outHashTree.getSiblingPath(l2toL1SubtreeRoots[indexOfMsgTx].toBigInt());
+    // Append subtree path to out hash tree path
+    const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxInOutHashTree.toBufferArray());
+    // Append binary index of subtree path to binary index of out hash tree path
+    const mergedIndex = parseInt(
+      indexOfMsgTx
+        .toString(2)
+        .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
+      2,
+    );
+
+    return [BigInt(mergedIndex), new SiblingPath(mergedPath.length, mergedPath)];
   }
 
   /**
@@ -598,10 +676,11 @@ export class AztecNodeService implements AztecNode {
    *
    * @param contract - Address of the contract to query.
    * @param slot - Slot to query.
+   * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  public async getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState('latest');
+  public async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
+    const committedDb = await this.#getWorldState(blockNumber);
     const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -616,18 +695,11 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the currently committed block header.
+   * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
   public async getHeader(): Promise<Header> {
-    const block = await this.getBlock(-1);
-    if (block) {
-      return block.header;
-    }
-
-    // No block was not found so we build the initial header.
-    const committedDb = await this.#getWorldState('latest');
-    return await committedDb.buildInitialHeader();
+    return (await this.getBlock(-1))?.header ?? (await this.#getWorldState('latest')).getInitialHeader();
   }
 
   /**
@@ -658,8 +730,9 @@ export class AztecNodeService implements AztecNode {
       merkleTrees.asLatest(),
       this.contractDataSource,
       new WASMSimulator(),
+      this.telemetry,
     );
-    const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
+    const processor = publicProcessorFactory.create(prevHeader, newGlobalVariables);
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     // REFACTOR: Consider returning the error/revert rather than throwing
@@ -686,8 +759,34 @@ export class AztecNodeService implements AztecNode {
   }
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
+    const newConfig = { ...this.config, ...config };
     this.sequencer?.updateSequencerConfig(config);
-    await this.prover.updateProverConfig(config);
+    await this.prover?.updateProverConfig(config);
+
+    if (newConfig.realProofs !== this.config.realProofs) {
+      const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
+
+      this.txValidator = new AggregateTxValidator(
+        new MetadataTxValidator(this.l1ChainId),
+        new TxProofValidator(proofVerifier),
+      );
+    }
+
+    this.config = newConfig;
+  }
+
+  public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
+    return Promise.resolve({
+      classRegisterer: getCanonicalClassRegisterer().address,
+      gasToken: getCanonicalGasToken().address,
+      instanceDeployer: getCanonicalInstanceDeployer().address,
+      keyRegistry: getCanonicalKeyRegistryAddress(),
+      multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
+    });
+  }
+
+  public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    return this.contractDataSource.addContractArtifact(address, artifact);
   }
 
   /**

@@ -16,7 +16,8 @@
     "resolveJsonModule": true,
     "composite": true,
     "skipLibCheck": true,
-    "noImplicitOverride": true
+    "noImplicitOverride": true,
+    "allowArbitraryExtensions": true
   },
   "references": [
     { "path": "accounts/tsconfig.json" },
@@ -42,11 +43,14 @@
     { "path": "p2p-bootstrap/tsconfig.json" },
     { "path": "protocol-contracts/tsconfig.json" },
     { "path": "prover-client/tsconfig.json" },
+    { "path": "prover-node/tsconfig.json" },
     { "path": "sequencer-client/tsconfig.json" },
     { "path": "types/tsconfig.json" },
     { "path": "world-state/tsconfig.json" },
     { "path": "scripts/tsconfig.json" },
-    { "path": "entrypoints/tsconfig.json" }
+    { "path": "entrypoints/tsconfig.json" },
+    { "path": "cli/tsconfig.json" }
   ],
-  "files": ["./@types/jest/index.d.ts"]
+  "files": ["./@types/jest/index.d.ts"],
+  "exclude": ["node_modules", "**/node_modules", "**/.*/"]
 }

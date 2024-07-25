@@ -1,6 +1,6 @@
 use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
 use dep::aztec::note::note_getter_options::SortOrder;
-use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
+use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN}};
 
 // Sort the note values (0th field) in descending order.
@@ -14,15 +14,15 @@ pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteG
 pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
-    recipient: AztecAddress
+    recipient: AztecAddress,
+    outgoing_viewer: AztecAddress
 ) {
     let header = balance.context.get_header();
     let recipient_npk_m_hash = header.get_npk_m_hash(balance.context, recipient);
-    let recipient_ivpk_m = header.get_ivpk_m(balance.context, recipient);
 
     let mut note = ValueNote::new(amount, recipient_npk_m_hash);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    balance.insert(&mut note, amount != 0, recipient_ivpk_m);
+    balance.insert(&mut note).emit(encode_and_encrypt_note(balance.context, outgoing_viewer, recipient));
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -32,9 +32,10 @@ pub fn increment(
 pub fn decrement(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
-    owner: AztecAddress
+    owner: AztecAddress,
+    outgoing_viewer: AztecAddress
 ) {
-    let sum = decrement_by_at_most(balance, amount, owner);
+    let sum = decrement_by_at_most(balance, amount, owner, outgoing_viewer);
     assert(sum == amount, "Balance too low");
 }
 
@@ -49,15 +50,16 @@ pub fn decrement(
 pub fn decrement_by_at_most(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     max_amount: Field,
-    owner: AztecAddress
+    owner: AztecAddress,
+    outgoing_viewer: AztecAddress
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
-    let opt_notes = balance.get_notes(options);
+    let notes = balance.get_notes(options);
 
     let mut decremented = 0;
-    for i in 0..opt_notes.len() {
-        if opt_notes[i].is_some() {
-            let note = opt_notes[i].unwrap_unchecked();
+    for i in 0..options.limit {
+        if i < notes.len() {
+            let note = notes.get_unchecked(i);
 
             decremented += destroy_note(balance, note);
         }
@@ -69,7 +71,7 @@ pub fn decrement_by_at_most(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment(balance, change_value, owner);
+    increment(balance, change_value, owner, outgoing_viewer);
 
     decremented
 }

@@ -1,14 +1,19 @@
-import { type AllowedFunction, Tx, type TxValidator } from '@aztec/circuit-types';
-import { type PublicCallRequest } from '@aztec/circuits.js';
+import {
+  type AllowedElement,
+  type PublicExecutionRequest,
+  PublicKernelType,
+  Tx,
+  type TxValidator,
+} from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AbstractPhaseManager, ContractsDataSourcePublicDB, PublicKernelPhase } from '@aztec/simulator';
+import { AbstractPhaseManager, ContractsDataSourcePublicDB } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedFunction[]) {
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
     this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
   }
 
@@ -40,14 +45,14 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const { [PublicKernelPhase.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
+    const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
 
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(
           `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
             setupFn.contractAddress
-          }:${setupFn.functionSelector}`,
+          }:${setupFn.callContext.functionSelector}`,
         );
 
         return false;
@@ -57,36 +62,49 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     return true;
   }
 
-  async isOnAllowList(publicCall: PublicCallRequest, allowList: AllowedFunction[]): Promise<boolean> {
+  async isOnAllowList(publicCall: PublicExecutionRequest, allowList: AllowedElement[]): Promise<boolean> {
     if (publicCall.isEmpty()) {
       return true;
     }
 
-    const { contractAddress, functionSelector } = publicCall;
+    const {
+      contractAddress,
+      callContext: { functionSelector },
+    } = publicCall;
 
     // do these checks first since they don't require the contract class
     for (const entry of allowList) {
-      if (!('address' in entry)) {
-        continue;
+      if ('address' in entry && !('selector' in entry)) {
+        if (contractAddress.equals(entry.address)) {
+          return true;
+        }
       }
 
-      if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
-        return true;
-      }
-    }
-
-    const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
-    if (!contractClass) {
-      throw new Error(`Contract not found: ${publicCall.contractAddress.toString()}`);
-    }
-
-    for (const entry of allowList) {
-      if (!('classId' in entry)) {
-        continue;
+      if ('address' in entry && 'selector' in entry) {
+        if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
+          return true;
+        }
       }
 
-      if (contractClass.contractClassId.equals(entry.classId) && entry.selector.equals(functionSelector)) {
-        return true;
+      const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
+
+      if (!contractClass) {
+        throw new Error(`Contract not found: ${publicCall.contractAddress.toString()}`);
+      }
+
+      if ('classId' in entry && !('selector' in entry)) {
+        if (contractClass.contractClassId.equals(entry.classId)) {
+          return true;
+        }
+      }
+
+      if ('classId' in entry && 'selector' in entry) {
+        if (
+          contractClass.contractClassId.equals(entry.classId) &&
+          (entry.selector === undefined || entry.selector.equals(functionSelector))
+        ) {
+          return true;
+        }
       }
     }
 

@@ -1,7 +1,7 @@
 use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption, keys::getters::get_nsk_app,
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, grumpkin_point::GrumpkinPoint, hash::poseidon2_hash}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash}
 };
 
 global PUBLIC_KEY_NOTE_LEN: Field = 3;
@@ -19,35 +19,26 @@ struct PublicKeyNote {
 }
 
 impl NoteInterface<PUBLIC_KEY_NOTE_LEN, PUBLIC_KEY_NOTE_BYTES_LEN> for PublicKeyNote {
-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
-    }
-
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
-        context.encrypt_and_emit_note(
-            (*context).this_address(),
-            slot,
-            Self::get_note_type_id(),
-            ivpk_m,
-            self,
-        );
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 }
 

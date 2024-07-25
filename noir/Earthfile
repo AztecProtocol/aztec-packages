@@ -2,7 +2,7 @@ VERSION 0.8
 
 nargo-src:
 
-    FROM ../build-images/+build
+    FROM ../build-images/+from-registry
     WORKDIR /usr/src
     # Relevant source (TODO finer-grained 'tooling')
     COPY --dir \
@@ -36,7 +36,8 @@ nargo:
     FROM +nargo-src
     RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
     COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
-    RUN ./scripts/bootstrap_native.sh
+    # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
+    RUN ./scripts/bootstrap_native.sh && rm -rf /usr/src/noir-repo/target/release/{build,deps}
     SAVE ARTIFACT /usr/src/noir-repo/target/release/nargo nargo
     SAVE ARTIFACT /usr/src/noir-repo/target/release/acvm acvm
     SAVE IMAGE aztecprotocol/nargo
@@ -48,7 +49,7 @@ test:
 
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
-  
+
   RUN ./scripts/test_native.sh
 
 examples:
@@ -64,6 +65,9 @@ examples:
   RUN ./test.sh
 
   WORKDIR ../prove_and_verify
+  RUN ./test.sh
+
+  WORKDIR ../recursion
   RUN ./test.sh
 
 format:
@@ -185,7 +189,7 @@ packages-test-node:
       run test:node
 
 packages-test-browser:
-    FROM node:18
+    FROM ../build-images/+base-slim-node
     COPY --dir +packages-test-build/usr/src /usr
     WORKDIR /usr/src/noir/noir-repo
     RUN ./.github/scripts/playwright-install.sh
@@ -199,21 +203,12 @@ packages-test:
     BUILD +packages-test-node
     BUILD +packages-test-browser
 
-run:
-    # When running the container, mount the users home directory to same location.
-    FROM ubuntu:noble
-    # Install Tini as nargo doesn't handle signals properly.
-    # Install git as nargo needs it to clone.
-    RUN apt-get update && apt-get install -y git tini && rm -rf /var/lib/apt/lists/* && apt-get clean
-    COPY +build/. /usr/src
-    ENTRYPOINT ["/usr/bin/tini", "--", "/usr/src/nargo"]
-
 build-acir-tests:
     LOCALLY
     # Prepare our exact dependency formula, this avoids problems with copied empty folders or build artifacts
     RUN rm -rf .earthly-staging && mkdir -p .earthly-staging
     RUN cp --parents $(git ls-files "noir-repo/test_programs/*.toml" "noir-repo/test_programs/*.nr" "noir-repo/test_programs/rebuild.sh") .earthly-staging
-    FROM ../build-images/+build
+    FROM ../build-images/+from-registry
     COPY +nargo/ /usr/src/noir-repo/target/release
     ENV PATH="/usr/src/noir-repo/target/release:${PATH}"
     WORKDIR /usr/src/noir-repo/test_programs
@@ -235,17 +230,23 @@ barretenberg-acir-benches-bb:
 
   WORKDIR /usr/src/barretenberg/acir_tests
 
+bench-acir-bb:
+  # This target is used for debugging the benchmarking target.
+  # For precise benchmarks in CI use `bench-publish-acir-bb`
+  FROM +barretenberg-acir-benches-bb
+  RUN ./bench_acir_tests.sh
+
 export-bench-acir-bb:
   ARG EARTHLY_GIT_HASH
   FROM +barretenberg-acir-benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
- 
+
 bench-publish-acir-bb:
   ARG PULL_REQUEST
   ARG BRANCH
   ARG COMMIT_HASH
   LOCALLY
-  
+
   # Let docker compose know about the pushed tags above
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Optimize to not cause serial behavior if image already exists
@@ -256,6 +257,6 @@ bench-publish-acir-bb:
   END
 
   RUN mkdir -p ./log
-  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh sha256
+  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh
 
   DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH

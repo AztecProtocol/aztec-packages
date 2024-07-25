@@ -35,47 +35,48 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        witness_commitments.ecc_op_wire_1 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_1);
-        witness_commitments.ecc_op_wire_2 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_2);
-        witness_commitments.ecc_op_wire_3 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_3);
-        witness_commitments.ecc_op_wire_4 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_4);
-        witness_commitments.calldata =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata);
-        witness_commitments.calldata_read_counts =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata_read_counts);
-        witness_commitments.return_data =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.return_data);
-        witness_commitments.return_data_read_counts = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + labels.return_data_read_counts);
+        // Receive ECC op wire commitments
+        for (auto [commitment, label] : zip_view(witness_commitments.get_ecc_op_wires(), labels.get_ecc_op_wires())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
+        }
+
+        // Receive DataBus related polynomial commitments
+        for (auto [commitment, label] :
+             zip_view(witness_commitments.get_databus_entities(), labels.get_databus_entities())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
+        }
     }
 
-    // Get challenge for sorted list batching and wire four memory records commitment
+    // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "_eta", domain_separator + "_eta_two", domain_separator + "_eta_three");
-    witness_commitments.sorted_accum =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
+
+    // Receive commitments to lookup argument polynomials
+    witness_commitments.lookup_read_counts =
+        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_counts);
+    witness_commitments.lookup_read_tags =
+        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_tags);
+
+    // Receive commitments to wire 4
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
 
     // Get permutation challenges and commitment to permutation and lookup grand products
     auto [beta, gamma] =
         transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
 
+    witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
+        domain_separator + "_" + commitment_labels.lookup_inverses);
+
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
-        witness_commitments.calldata_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.calldata_inverses);
-        witness_commitments.return_data_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.return_data_inverses);
+        for (auto [commitment, label] :
+             zip_view(witness_commitments.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
+        }
     }
 
     witness_commitments.z_perm =
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
-    witness_commitments.z_lookup =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
 
     // Compute correction terms for grand products
     const FF public_input_delta =
@@ -84,10 +85,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
                                            gamma,
                                            inst->verification_key->circuit_size,
                                            static_cast<size_t>(inst->verification_key->pub_inputs_offset));
-    const FF lookup_grand_product_delta =
-        compute_lookup_grand_product_delta<FF>(beta, gamma, inst->verification_key->circuit_size);
-    inst->relation_parameters =
-        RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+    inst->relation_parameters = RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
 
     // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
@@ -176,21 +174,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
 
     // Compute ϕ
     fold_commitments(lagranges, instances, next_accumulator);
-
-    next_accumulator->public_inputs =
-        std::vector<FF>(static_cast<size_t>(next_accumulator->verification_key->num_public_inputs), 0);
-    size_t public_input_idx = 0;
-    for (auto& public_input : next_accumulator->public_inputs) {
-        size_t inst = 0;
-        for (auto& instance : instances) {
-            if (instance->verification_key->num_public_inputs >=
-                next_accumulator->verification_key->num_public_inputs) {
-                public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
-                inst++;
-            };
-        }
-        public_input_idx++;
-    }
 
     size_t alpha_idx = 0;
     for (auto& alpha : next_accumulator->alphas) {

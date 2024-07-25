@@ -6,8 +6,12 @@ import {
 import { NULL_KEY } from '@aztec/ethereum';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { createProvingJobSourceServer } from '@aztec/prover-client/prover-pool';
+import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
 import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import {
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryClientConfig,
+} from '@aztec/telemetry-client/start';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -30,14 +34,20 @@ export const startNode = async (
   // merge env vars and cli options
   let nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, nodeCliOptions);
 
+  if (options.proverNode) {
+    // TODO(palla/prover-node) We need to tweak the semantics of disableProver so that it doesn't inject
+    // a null prover into the sequencer, but instead injects a circuit simulator, which is what the
+    // sequencer ultimately needs.
+    userLog(`Running a Prover Node within a Node is not yet supported`);
+    process.exit(1);
+  }
+
   // Deploy contracts if needed
-  if (nodeCliOptions.deployAztecContracts || DEPLOY_AZTEC_CONTRACTS === 'true') {
-    let account;
-    if (nodeConfig.publisherPrivateKey === NULL_KEY) {
-      account = mnemonicToAccount(MNEMONIC);
-    } else {
-      account = privateKeyToAccount(nodeConfig.publisherPrivateKey);
-    }
+  if (nodeCliOptions.deployAztecContracts || ['1', 'true'].includes(DEPLOY_AZTEC_CONTRACTS ?? '')) {
+    const account =
+      nodeConfig.publisherPrivateKey === NULL_KEY
+        ? mnemonicToAccount(MNEMONIC)
+        : privateKeyToAccount(nodeConfig.publisherPrivateKey);
     await deployContractsToL1(nodeConfig, account);
   }
 
@@ -77,18 +87,21 @@ export const startNode = async (
   }
 
   if (!nodeConfig.disableSequencer && nodeConfig.disableProver) {
+    // TODO(palla/prover-node) Sequencer should not need a prover unless we are running the prover
+    // within it, it should just need a circuit simulator. We need to refactor the sequencer so it can accept either.
     throw new Error('Cannot run a sequencer without a prover');
   }
 
   // Create and start Aztec Node.
-  const node = await createAztecNode(nodeConfig);
+  const telemetryClient = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const node = await createAztecNode(telemetryClient, nodeConfig);
   const nodeServer = createAztecNodeRpcServer(node);
 
   // Add node to services list
   services.push({ node: nodeServer });
 
   if (!nodeConfig.disableProver) {
-    const provingJobSource = createProvingJobSourceServer(node.getProver().getProvingJobSource());
+    const provingJobSource = createProvingJobSourceServer(node.getProver()!.getProvingJobSource());
     services.push({ provingJobSource });
   }
 

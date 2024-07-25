@@ -4,12 +4,10 @@ import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_tes
 
 describe('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
-  let { wallets } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    ({ wallets } = t);
   });
 
   afterAll(async () => {
@@ -17,7 +15,7 @@ describe('e2e_blacklist_token_contract access control', () => {
   });
 
   afterEach(async () => {
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
   });
 
   it('grant mint permission to the admin', async () => {
@@ -75,14 +73,14 @@ describe('e2e_blacklist_token_contract access control', () => {
       const newRole = new Role().withAdmin().withAdmin();
       await expect(
         t.asset.withWallet(t.other).methods.update_roles(AztecAddress.random(), newRole.toNoirStruct()).prove(),
-      ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+      ).rejects.toThrow(/Assertion failed: caller is not admin .*/);
     });
 
     it('revoke minter from non admin', async () => {
       const noRole = new Role();
       await expect(
         t.asset.withWallet(t.other).methods.update_roles(t.admin.getAddress(), noRole.toNoirStruct()).prove(),
-      ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+      ).rejects.toThrow(/Assertion failed: caller is not admin .*/);
     });
   });
 });

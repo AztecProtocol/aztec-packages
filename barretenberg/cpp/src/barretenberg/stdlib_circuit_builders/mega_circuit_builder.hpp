@@ -1,25 +1,23 @@
 #pragma once
 #include "barretenberg/execution_trace/execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
 
-using namespace bb;
-
-template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
+template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaArith<FF>> {
   private:
     DataBus databus; // Container for public calldata/returndata
 
   public:
-    using Arithmetization = UltraHonkArith<FF>;
+    using Arithmetization = MegaArith<FF>;
 
     static constexpr std::string_view NAME_STRING = "MegaArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
-        UltraCircuitBuilder_<UltraHonkArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        UltraCircuitBuilder_<MegaArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
@@ -44,7 +42,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<UltraHonkArith<FF>>(size_hint)
+        : UltraCircuitBuilder_<MegaArith<FF>>(size_hint)
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -72,7 +70,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
                         auto& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
-        : UltraCircuitBuilder_<UltraHonkArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+        : UltraCircuitBuilder_<MegaArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(op_queue_in)
     {
         // Set indices to constants corresponding to Goblin ECC op codes
@@ -125,7 +123,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
      */
     size_t get_num_gates() const override
     {
-        auto num_ultra_gates = UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates();
+        auto num_ultra_gates = UltraCircuitBuilder_<MegaArith<FF>>::get_num_gates();
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
         return num_ultra_gates + num_goblin_ecc_op_gates;
     }
@@ -157,7 +155,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<UltraHonkArith<FF>>::get_num_gates_split_into_components(
+        UltraCircuitBuilder_<MegaArith<FF>>::get_num_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
 
@@ -172,6 +170,16 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
      *
      */
     void add_public_calldata(const uint32_t& in) { return append_to_bus_vector(BusId::CALLDATA, in); }
+
+    /**
+     * @brief Add a witness variable to secondary_calldata.
+     * @details In practice this is used in aztec by the kernel circuit to recieve output from a function circuit
+     *
+     */
+    void add_public_secondary_calldata(const uint32_t& in)
+    {
+        return append_to_bus_vector(BusId::SECONDARY_CALLDATA, in);
+    }
 
     /**
      * @brief Add a witness variable to the public return_data.
@@ -193,6 +201,17 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
     };
 
     /**
+     * @brief Read from secondary_calldata and create a corresponding databus read gate
+     *
+     * @param read_idx_witness_idx Witness index for the secondary_calldata read index
+     * @return uint32_t Witness index for the result of the read
+     */
+    uint32_t read_secondary_calldata(const uint32_t& read_idx_witness_idx)
+    {
+        return read_bus_vector(BusId::SECONDARY_CALLDATA, read_idx_witness_idx);
+    };
+
+    /**
      * @brief Read from return_data and create a corresponding databus read gate
      *
      * @param read_idx_witness_idx Witness index for the return_data read index
@@ -209,6 +228,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<U
     }
 
     const BusVector& get_calldata() { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
+    const BusVector& get_secondary_calldata() { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);

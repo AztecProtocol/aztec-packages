@@ -1,6 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { inspect } from 'util';
 
 import { type Ordered } from '../interfaces/index.js';
 
@@ -35,6 +38,10 @@ export class LogHash implements Ordered {
 
   toString(): string {
     return `value=${this.value} counter=${this.counter} length=${this.length}`;
+  }
+
+  [inspect.custom](): string {
+    return `LogHash { ${this.toString()} }`;
   }
 }
 
@@ -77,6 +84,10 @@ export class ScopedLogHash implements Ordered {
 
   toString(): string {
     return `logHash=${this.logHash} contractAddress=${this.contractAddress}`;
+  }
+
+  getSiloedHash(): Buffer {
+    return sha256Trunc(Buffer.concat([this.contractAddress.toBuffer(), this.value.toBuffer()]));
   }
 }
 

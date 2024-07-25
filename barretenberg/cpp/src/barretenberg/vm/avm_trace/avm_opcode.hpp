@@ -1,9 +1,13 @@
 #pragma once
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
+
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 #include <string>
-#include <unordered_map>
 
 namespace bb::avm_trace {
 
@@ -41,16 +45,16 @@ enum class OpCode : uint8_t {
     ADDRESS,
     STORAGEADDRESS,
     SENDER,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    FUNCTIONSELECTOR,
     TRANSACTIONFEE,
-    CONTRACTCALLDEPTH,
     // Execution Environment - Globals
     CHAINID,
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
@@ -100,9 +104,13 @@ enum class OpCode : uint8_t {
     POSEIDON2,
     SHA256,
     PEDERSEN,
-
+    ECADD,
+    MSM,
     // Conversions
     TORADIXLE,
+    // Future Gadgets -- pending changes in noir
+    SHA256COMPRESSION,
+    KECCAKF1600, // Here for when we eventually support this
 
     // Sentinel
     LAST_OPCODE_SENTINEL,
@@ -113,6 +121,20 @@ class Bytecode {
     static bool is_valid(uint8_t byte);
 };
 
+// Look into whether we can do something with concepts here to enable OpCode as a parameter
+template <typename T>
+    requires(std::unsigned_integral<T>)
+std::string to_hex(T value)
+{
+    std::ostringstream stream;
+    auto num_bytes = static_cast<uint64_t>(sizeof(T));
+    auto mask = static_cast<uint64_t>((static_cast<uint128_t>(1) << (num_bytes * 8)) - 1);
+    auto padding = static_cast<int>(num_bytes * 2);
+    stream << std::setfill('0') << std::setw(padding) << std::hex << (value & mask);
+    return stream.str();
+}
 std::string to_hex(OpCode opcode);
+
+std::string to_string(OpCode opcode);
 
 } // namespace bb::avm_trace

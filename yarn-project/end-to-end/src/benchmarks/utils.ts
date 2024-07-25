@@ -68,8 +68,10 @@ export function getFolderSize(path: string): number {
  */
 export function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
   const owner = context.wallet.getAddress();
+  // Setting the outgoing viewer to owner here since the outgoing logs are not important in this context
+  const outgoingViewer = owner;
   return new BatchCall(context.wallet, [
-    contract.methods.create_note(owner, index + 1).request(),
+    contract.methods.create_note(owner, outgoingViewer, index + 1).request(),
     contract.methods.increment_balance(owner, index + 1).request(),
   ]);
 }
@@ -127,9 +129,7 @@ export async function waitNewPXESynced(
  */
 export async function waitRegisteredAccountSynced(pxe: PXE, secretKey: Fr, partialAddress: PartialAddress) {
   const l2Block = await pxe.getBlockNumber();
-  const masterIncomingViewingPublicKey = (await pxe.registerAccount(secretKey, partialAddress)).publicKeys
-    .masterIncomingViewingPublicKey;
-  const isAccountSynced = async () =>
-    (await pxe.getSyncStatus()).notes[masterIncomingViewingPublicKey.toString()] === l2Block;
+  const accountAddress = (await pxe.registerAccount(secretKey, partialAddress)).address;
+  const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[accountAddress.toString()] === l2Block;
   await retryUntil(isAccountSynced, 'pxe-notes-sync');
 }

@@ -1,3 +1,5 @@
+import { BarretenbergSync } from '@aztec/bb.js';
+
 import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
@@ -25,9 +27,6 @@ type DerivedField<T extends BaseField> = {
  * Conversions from Buffer to BigInt and vice-versa are not cheap.
  * We allow construction with either form and lazily convert to other as needed.
  * We only check we are within the field modulus when initializing with bigint.
- * If NODE_ENV === 'test', we will always initialize both types to check the modulus.
- * This is also necessary in test environment as a lot of tests just use deep equality to check equality.
- * WARNING: This could lead to a bugs in production that don't reveal in tests, but it's low risk.
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
@@ -40,6 +39,11 @@ abstract class BaseField {
    * */
   get value(): bigint {
     return this.toBigInt();
+  }
+
+  /** Returns the size in bytes. */
+  get size(): number {
+    return BaseField.SIZE_IN_BYTES;
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
@@ -61,14 +65,6 @@ abstract class BaseField {
       this.asBigInt = value.asBigInt;
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
-    }
-
-    // Loads of our tests are just doing deep equality rather than calling e.g. toBigInt() first.
-    // This ensures the deep equality passes regardless of the internal representation.
-    // It also ensures the value range is checked even when initializing as a buffer.
-    if (process.env.NODE_ENV === 'test') {
-      this.toBuffer();
-      this.toBigInt();
     }
   }
 
@@ -133,6 +129,10 @@ abstract class BaseField {
     return this.toBuffer().equals(ZERO_BUFFER);
   }
 
+  isEmpty(): boolean {
+    return this.isZero();
+  }
+
   toFriendlyJSON(): string {
     return this.toString();
   }
@@ -170,8 +170,15 @@ function random<T extends BaseField>(f: DerivedField<T>): T {
 /**
  * Constructs a field from a 0x prefixed hex string.
  */
-function fromString<T extends BaseField>(buf: string, f: DerivedField<T>) {
-  const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
+function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
+  const withoutPrefix = buf.replace(/^0x/i, '');
+  const checked = withoutPrefix.match(/^[0-9A-F]+$/i)?.[0];
+  if (checked === undefined) {
+    throw new Error(`Invalid hex-encoded string: "${buf}"`);
+  }
+
+  const buffer = Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
+
   return new f(buffer);
 }
 
@@ -185,11 +192,14 @@ export interface Fr {
 
 /**
  * Fr field class.
+ * @dev This class is used to represent elements of BN254 scalar field or elements in the base field of Grumpkin.
+ * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
 export class Fr extends BaseField {
   static ZERO = new Fr(0n);
   static ONE = new Fr(1n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
+  static MAX_FIELD_VALUE = new Fr(this.MODULUS - 1n);
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
     super(value);
@@ -223,14 +233,27 @@ export class Fr extends BaseField {
     return fromBufferReduce(buffer, Fr);
   }
 
+  /**
+   * Creates a Fr instance from a hex string.
+   * @param buf - a hex encoded string.
+   * @returns the Fr instance
+   */
   static fromString(buf: string) {
-    return fromString(buf, Fr);
+    return fromHexString(buf, Fr);
   }
 
   /** Arithmetic */
 
   add(rhs: Fr) {
     return new Fr((this.toBigInt() + rhs.toBigInt()) % Fr.MODULUS);
+  }
+
+  square() {
+    return new Fr((this.toBigInt() * this.toBigInt()) % Fr.MODULUS);
+  }
+
+  negate() {
+    return new Fr(Fr.MODULUS - this.toBigInt());
   }
 
   sub(rhs: Fr) {
@@ -260,6 +283,25 @@ export class Fr extends BaseField {
     return new Fr(this.toBigInt() / rhs.toBigInt());
   }
 
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  sqrt(): Fr | null {
+    const wasm = BarretenbergSync.getSingleton().getWasm();
+    wasm.writeMemory(0, this.toBuffer());
+    wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
+    const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
+    const isSqrt = isSqrtBuf[0] === 1;
+    if (!isSqrt) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+
+    const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1));
+    return Fr.fromBuffer(rootBuf);
+  }
+
   toJSON() {
     return {
       type: 'Fr',
@@ -281,6 +323,8 @@ export interface Fq {
 
 /**
  * Fq field class.
+ * @dev This class is used to represent elements of BN254 base field or elements in the scalar field of Grumpkin.
+ * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
 export class Fq extends BaseField {
   static ZERO = new Fq(0n);
@@ -292,11 +336,11 @@ export class Fq extends BaseField {
     return `Fq<${this.toString()}>`;
   }
 
-  get low(): Fr {
+  get lo(): Fr {
     return new Fr(this.toBigInt() & Fq.LOW_MASK);
   }
 
-  get high(): Fr {
+  get hi(): Fr {
     return new Fr(this.toBigInt() >> Fq.HIGH_SHIFT);
   }
 
@@ -324,8 +368,13 @@ export class Fq extends BaseField {
     return fromBufferReduce(buffer, Fq);
   }
 
+  /**
+   * Creates a Fq instance from a hex string.
+   * @param buf - a hex encoded string.
+   * @returns the Fq instance
+   */
   static fromString(buf: string) {
-    return fromString(buf, Fq);
+    return fromHexString(buf, Fq);
   }
 
   static fromHighLow(high: Fr, low: Fr): Fq {
@@ -381,4 +430,23 @@ export const GrumpkinScalar = Fq;
 /** Wraps a function that returns a buffer so that all results are reduced into a field of the given type. */
 export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) => Buffer, field: DerivedField<TField>) {
   return (input: TInput) => fromBufferReduce(fn(input), field);
+}
+
+/** If we are in test mode, we register a special equality for fields. */
+if (process.env.NODE_ENV === 'test') {
+  const areFieldsEqual = (a: unknown, b: unknown): boolean | undefined => {
+    const isAField = a instanceof BaseField;
+    const isBField = b instanceof BaseField;
+
+    if (isAField && isBField) {
+      return a.equals(b);
+    } else if (isAField === isBField) {
+      return undefined;
+    } else {
+      return false;
+    }
+  };
+
+  // `addEqualityTesters` doesn't seem to be in the types yet.
+  (expect as any).addEqualityTesters([areFieldsEqual]);
 }

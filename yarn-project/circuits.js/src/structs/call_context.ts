@@ -1,10 +1,11 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
+import { CALL_CONTEXT_LENGTH, GeneratorIndex } from '../constants.gen.js';
 
 /**
  * Call context.
@@ -33,10 +34,6 @@ export class CallContext {
      * Determines whether the call is modifying state.
      */
     public isStaticCall: boolean,
-    /**
-     * The start side effect counter for this call context.
-     */
-    public sideEffectCounter: number,
   ) {}
 
   /**
@@ -44,12 +41,16 @@ export class CallContext {
    * @returns A new instance of CallContext with zero msg sender, storage contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false, 0);
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false);
   }
 
   isEmpty() {
     return (
-      this.msgSender.isZero() && this.storageContractAddress.isZero() && this.functionSelector.isEmpty() && Fr.ZERO
+      this.msgSender.isZero() &&
+      this.storageContractAddress.isZero() &&
+      this.functionSelector.isEmpty() &&
+      !this.isDelegateCall &&
+      !this.isStaticCall
     );
   }
 
@@ -64,7 +65,6 @@ export class CallContext {
       fields.functionSelector,
       fields.isDelegateCall,
       fields.isStaticCall,
-      fields.sideEffectCounter,
     ] as const;
   }
 
@@ -89,7 +89,7 @@ export class CallContext {
   /**
    * Deserialize this from a buffer.
    * @param buffer - The bufferable type from which to deserialize.
-   * @returns The deserialized instance of PublicCallRequest.
+   * @returns The deserialized instance of CallContext.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
@@ -99,7 +99,6 @@ export class CallContext {
       reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readNumber(),
     );
   }
 
@@ -111,7 +110,6 @@ export class CallContext {
       reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readBoolean(),
-      reader.readU32(),
     );
   }
 
@@ -121,8 +119,11 @@ export class CallContext {
       callContext.storageContractAddress.equals(this.storageContractAddress) &&
       callContext.functionSelector.equals(this.functionSelector) &&
       callContext.isDelegateCall === this.isDelegateCall &&
-      callContext.isStaticCall === this.isStaticCall &&
-      callContext.sideEffectCounter === this.sideEffectCounter
+      callContext.isStaticCall === this.isStaticCall
     );
+  }
+
+  hash(): Fr {
+    return pedersenHash(this.toFields(), GeneratorIndex.CALL_CONTEXT);
   }
 }

@@ -12,21 +12,22 @@ import {
   GasFees,
   GlobalVariables,
   KernelCircuitPublicInputs,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -95,40 +96,40 @@ export async function getSimulationProvider(
   return new WASMSimulator();
 }
 
-export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, seed = 0x1) => {
-  seed *= MAX_NEW_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
+export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0x1) => {
+  seed *= MAX_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
   const tx = mockTx(seed);
   const kernelOutput = KernelCircuitPublicInputs.empty();
-  kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
+  kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
+  kernelOutput.constants.historicalHeader = builderDb.getInitialHeader();
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+    i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
     seed + 0x500,
   );
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
+    i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
     seed + 0x600,
   );
 
-  const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+  const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
-  processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100);
-  processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x100000);
+  processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
+  processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100000);
 
-  processedTx.data.end.newNullifiers[tx.data.forPublic!.end.newNullifiers.length - 1] = Fr.zero();
+  processedTx.data.end.nullifiers[tx.data.forPublic!.end.nullifiers.length - 1] = Fr.zero();
 
-  processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+  processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
   processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash());
   processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-  processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
   return processedTx;
 };
 
-export const makeEmptyProcessedTx = async (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
-  const header = await builderDb.buildInitialHeader();
-  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version);
+export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
+  const header = builderDb.getInitialHeader();
+  return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
 };
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
@@ -137,9 +138,9 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: 
     MerkleTreeId.NOTE_HASH_TREE,
     txs.flatMap(tx =>
       padArrayEnd(
-        tx.data.end.newNoteHashes.filter(x => !x.isZero()),
+        tx.data.end.noteHashes.filter(x => !x.isZero()),
         Fr.zero(),
-        MAX_NEW_NOTE_HASHES_PER_TX,
+        MAX_NOTE_HASHES_PER_TX,
       ),
     ),
   );
@@ -147,9 +148,9 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: 
     MerkleTreeId.NULLIFIER_TREE,
     txs.flatMap(tx =>
       padArrayEnd(
-        tx.data.end.newNullifiers.filter(x => !x.isZero()),
+        tx.data.end.nullifiers.filter(x => !x.isZero()),
         Fr.zero(),
-        MAX_NEW_NULLIFIERS_PER_TX,
+        MAX_NULLIFIERS_PER_TX,
       ).map(x => x.toBuffer()),
     ),
     NULLIFIER_TREE_HEIGHT,
@@ -177,6 +178,5 @@ export const makeGlobals = (blockNumber: number) => {
   );
 };
 
-export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): Promise<ProcessedTx> => {
-  return makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);
-};
+export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): ProcessedTx =>
+  makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);
