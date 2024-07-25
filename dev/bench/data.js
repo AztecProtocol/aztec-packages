@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721905316314,
+  "lastUpdate": 1721909256242,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -93704,6 +93704,78 @@ window.BENCHMARK_DATA = {
             "value": 168757477,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 168757477 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "344ca6f413263a3c2c516b388f85a11fada2840f",
+          "message": "feat(sol-honk): integrate solidity honk verifier with bb and acir tests (#7573)\n\n## Overview\n\nUpdated the existing solidity testing flow to run for a number of honk tests - some with public inputs and some without.",
+          "timestamp": "2024-07-25T07:50:59-04:00",
+          "tree_id": "01c070c2523bee345488da0d10a104035185986c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/344ca6f413263a3c2c516b388f85a11fada2840f"
+        },
+        "date": 1721909248842,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13538.609745000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10139.190427000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4946.612614000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4460.933363 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40247.42653,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40247427000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14587.625705999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14587626000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3615345902,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3615345902 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 206673216,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 206673216 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2960806226,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2960806226 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167859694,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167859694 ns\nthreads: 1"
           }
         ]
       }
