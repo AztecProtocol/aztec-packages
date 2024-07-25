@@ -63,6 +63,9 @@ export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
     if (typeof value === 'object' && value !== null && value.type === 'Fr') {
       return new Fr(BigInt(value.value));
     }
+    if (typeof value === 'object' && value !== null && value.type === 'Point') {
+      return Point.fromString(value.value);
+    }
     return value;
   });
 }

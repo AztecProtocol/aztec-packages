@@ -1,6 +1,6 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2Hash, randomBoolean } from '../crypto/index.js';
-import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
+import { BufferReader, FieldReader, TypeRegistry, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -265,19 +265,13 @@ export class Point {
     const rhs = this.x.square().mul(this.x).sub(A);
     return lhs.equals(rhs);
   }
-}
 
-/**
- * Does this object look like a point?
- * @param obj - Object to test if it is a point.
- * @returns Whether it looks like a point.
- */
-export function isPoint(obj: object): obj is Point {
-  if (!obj) {
-    return false;
+  toJSON() {
+    return {
+      type: 'Point',
+      value: this.toString(),
+    };
   }
-  const point = obj as Point;
-  return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
 }
 
 export class NotOnCurveError extends Error {
@@ -286,3 +280,6 @@ export class NotOnCurveError extends Error {
     this.name = 'NotOnCurveError';
   }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('Point', Point);
