@@ -28,12 +28,14 @@ This binary will take as input ACIR and witness values described in the IR to cr
     source ~/.bashrc
     ```
 
-3. Install the version of `bb` compatible with your Noir version:
+3. Install the version of `bb` compatible with your Noir version; with Noir v0.32.0 for example:
 
     ```bash
     bbup -v 0.46.1
     ```
 
+    Check the version compatibility section below for how to identify matching versions.
+    
 4. Check if the installation was successful:
 
     ```bash
@@ -41,6 +43,14 @@ This binary will take as input ACIR and witness values described in the IR to cr
     ```
 
 If installation was successful, the command would print the version of `bb` installed.
+
+### Version compatibility with Noir
+
+TODO: https://github.com/AztecProtocol/aztec-packages/issues/7511
+
+For quick reference:
+- Noir v0.32.0 <> BB v0.46.1
+- Noir v0.31.0 <> BB v0.41.0
 
 ### Usage
 
@@ -52,14 +62,6 @@ https://github.com/AztecProtocol/aztec-packages/blob/840486e5ce6b41d6c873239de10
 #### FilePath vs Stdout
 
 For commands which allow you to send the output to a file using `-o {filePath}`, there is also the option to send the output to stdout by using `-o -`.
-
-### Version compatibility with Noir
-
-TODO: https://github.com/AztecProtocol/aztec-packages/issues/7511
-
-For quick reference:
-- Noir v0.32.0 <> BB v0.46.1
-- Noir v0.31.0 <> BB v0.41.0
 
 ### Maximum circuit size
 
