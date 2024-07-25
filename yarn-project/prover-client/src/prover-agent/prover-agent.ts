@@ -67,7 +67,7 @@ export class ProverAgent {
             this.inFlightPromises.set(job.id, promise);
           } catch (err) {
             this.log.warn(
-              `Error processing job type=${ProvingRequestType[job.request.type]}: ${err}. ${(err as Error).stack}`,
+              `Error processing job! type=${ProvingRequestType[job.request.type]}: ${err}. ${(err as Error).stack}`,
             );
           }
         } catch (err) {
