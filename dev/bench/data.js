@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721914711431,
+  "lastUpdate": 1721915365183,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -94052,6 +94052,78 @@ window.BENCHMARK_DATA = {
             "value": 167389750,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167389750 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "26408c197f5c6e8a300d24e441f4a4860210b5f0",
+          "message": "feat(sol-honk): test verifying recursive proof  (#7576)\n\nAdds support for recursive proving in the honk solidity verifier tests",
+          "timestamp": "2024-07-25T17:32:51+04:00",
+          "tree_id": "1577ec09ef95c80245934f15c3fa41606b366ca8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/26408c197f5c6e8a300d24e441f4a4860210b5f0"
+        },
+        "date": 1721915357574,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13284.125045000024,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9804.826009999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4845.869274999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4368.935534 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39709.081208,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39709081000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14679.628946,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14679628000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3647916552,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3647916552 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201767156,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201767156 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2981292469,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2981292469 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167186593,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167186593 ns\nthreads: 1"
           }
         ]
       }
