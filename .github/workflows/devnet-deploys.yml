@@ -92,7 +92,6 @@ jobs:
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve -destroy
           terraform apply -input=false -auto-approve
 
       - name: Wait for mainnet fork deployment
