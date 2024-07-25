@@ -1098,7 +1098,7 @@ describe('Private Execution test suite', () => {
           artifact: artifact,
           contractAddress,
         }),
-      ).rejects.toThrow(`Assertion failed: Cannot return zero notes`);
+      ).rejects.toThrow(`Assertion failed: Attempted to read past end of BoundedVec`);
     });
   });
 
@@ -1126,7 +1126,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue([]);
 
       await expect(() => runSimulator({ artifact, args })).rejects.toThrow(
-        `Assertion failed: Cannot return zero notes`,
+        `Assertion failed: Attempted to read past end of BoundedVec`,
       );
     });
   });
