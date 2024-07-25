@@ -54,9 +54,9 @@ data "terraform_remote_state" "l1_contracts" {
 
 # Compute local variables
 locals {
-  publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
-  node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
-  node_count             = length(local.publisher_private_keys)
+  sequencer_private_keys = var.SEQUENCER_PRIVATE_KEYS
+  node_p2p_private_keys  = var.NODE_P2P_PRIVATE_KEYS
+  node_count             = length(local.sequencer_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec"
 }
 
@@ -226,7 +226,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
-          value = local.publisher_private_keys[count.index]
+          value = local.sequencer_private_keys[count.index]
         },
         {
           name  = "ROLLUP_CONTRACT_ADDRESS"

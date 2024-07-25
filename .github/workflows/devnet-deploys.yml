@@ -19,7 +19,8 @@ env:
   TF_VAR_L1_CHAIN_ID: 677692
   TF_VAR_BOOTNODE_1_PRIVATE_KEY: ${{ secrets.BOOTNODE_1_PRIVATE_KEY }}
   TF_VAR_BOOTNODE_2_PRIVATE_KEY: ${{ secrets.BOOTNODE_2_PRIVATE_KEY }}
-  TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}
+  TF_VAR_SEQUENCER_PRIVATE_KEYS: '["${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}"]'
+  TF_VAR_NODE_P2P_PRIVATE_KEYS: '[""]'
   TF_VAR_DEPLOY_TAG: devnet
   TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
@@ -92,8 +93,7 @@ jobs:
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve -destroy
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
 
       - name: Wait for mainnet fork deployment
         run: |
