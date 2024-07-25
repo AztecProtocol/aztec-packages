@@ -97,7 +97,7 @@ resource "aws_service_discovery_service" "aztec-node" {
   # Terraform just fails if this resource changes and you have registered instances.
   provisioner "local-exec" {
     when    = destroy
-    command = "${path.module}/servicediscovery-drain.sh ${self.id}"
+    command = "${path.module}/../servicediscovery-drain.sh ${self.id}"
   }
 }
 
