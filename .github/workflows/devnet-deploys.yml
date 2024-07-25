@@ -22,6 +22,7 @@ env:
   TF_VAR_SEQUENCER_PRIVATE_KEYS: '["${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}"]'
   TF_VAR_NODE_P2P_PRIVATE_KEYS: '[""]'
   TF_VAR_DEPLOY_TAG: devnet
+  TF_VAR_IMAGE_TAG: ${{ github.sha }}
   TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
@@ -67,8 +68,8 @@ jobs:
         timeout-minutes: 40
         if: steps.check_only_workflow_changes.outputs.result == 'false'
         run: |
-          earthly-ci \
-          --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
 
       - name: Check if mainnet fork needs deployment
         id: check_fork_changes

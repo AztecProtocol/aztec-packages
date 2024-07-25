@@ -121,7 +121,7 @@ resource "aws_ecs_task_definition" "aztec-pxe" {
   container_definitions = jsonencode([
     {
       name      = "${var.DEPLOY_TAG}-aztec-pxe"
-      image     = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
+      image     = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
       command   = ["start", "--pxe"]
       essential = true
       portMappings = [
