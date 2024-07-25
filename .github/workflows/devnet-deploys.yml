@@ -53,10 +53,12 @@ jobs:
           script: |
             const { execSync } = require('child_process');
             const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
-            return changedFiles.every(file => file.startsWith('.github'));
+            const result = changedFiles.every(file => file.startsWith('.github'));
+            console.log({ result, changedFiles });
+            return result;
       - name: "Build & Push aztec images"
         timeout-minutes: 40
-        if: steps.check_only_workflow_changes.outputs.result == 'false' # only build if non-workflow files have changed
+        if: steps.check_only_workflow_changes.outputs.result == 'false'
         run: |
           earthly-ci \
           --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
