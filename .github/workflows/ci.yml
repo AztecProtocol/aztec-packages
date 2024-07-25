@@ -368,7 +368,7 @@ jobs:
       - name: "BB Solidity Acir Tests"
         working-directory: ./barretenberg/
         timeout-minutes: 40
-        run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-sol-honk
 
   bb-acir-tests-bb-js:
     needs: [noir-build-acir-tests, changes]
