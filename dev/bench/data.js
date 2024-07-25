@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721932009415,
+  "lastUpdate": 1721934536649,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -94672,6 +94672,78 @@ window.BENCHMARK_DATA = {
             "value": 167455175,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167455175 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "72797635+Savio-Sou@users.noreply.github.com",
+            "name": "Savio",
+            "username": "Savio-Sou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9dd9195d8da2d7e2bc85d39e53b33cc82597da1f",
+          "message": "chore(bb readme): Update versioning instructions and add Honk Solidity verifier commands (#7608)\n\n### Summary\r\n\r\n- Supplement additional Noir <> BB version matching instructions\r\n- Update list of commands linked to include new Honk Solidity verifier\r\ngeneration commands",
+          "timestamp": "2024-07-26T02:48:20+08:00",
+          "tree_id": "2f4d96d8e9bdf9a3eceb8ab9fd9c7de8c465f0c1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9dd9195d8da2d7e2bc85d39e53b33cc82597da1f"
+        },
+        "date": 1721934529125,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13317.761500000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9949.211516999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4816.502978999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4313.823123 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39955.053779,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39955056000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14276.626006999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14276626000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3603806587,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3603806587 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202678944,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202678944 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2936738553,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2936738553 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166764374,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166764374 ns\nthreads: 1"
           }
         ]
       }
