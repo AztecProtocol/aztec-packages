@@ -299,6 +299,13 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with="split_counter must be 0 for pure private tx")]
+    fn non_zero_validation_requests_split_counter_fail() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.validation_requests_split_counter = Option::some(123);
+        builder.failed();
+    }
+
     #[test(should_fail_with="Non empty note hash read requests")]
     fn non_empty_note_hash_read_requests() {
         let mut builder = PrivateKernelTailInputsBuilder::new();

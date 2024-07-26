@@ -17,6 +17,7 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
   futureNoteHashReads: ScopedReadRequest[],
   futureNullifierReads: ScopedReadRequest[],
   noteHashNullifierCounterMap: Map<number, number>,
+  validationRequestsSplitCounter: number,
   noteHashesLength: NOTE_HASHES_LEN = noteHashes.length as NOTE_HASHES_LEN,
   nullifiersLength: NULLIFIERS_LEN = nullifiers.length as NULLIFIERS_LEN,
 ): [Tuple<number, NOTE_HASHES_LEN>, Tuple<number, NULLIFIERS_LEN>] {
@@ -55,12 +56,21 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
     }
 
     const nullifier = nullifiers[nullifierIndex];
-
+    // If the following errors show up, something's wrong with how we build the nullifiedNoteHashCounters in client_execution_context.ts.
     if (!nullifier.nullifiedNoteHash.equals(noteHash.value)) {
       throw new Error('Hinted note hash does not match.');
     }
     if (!nullifier.contractAddress.equals(noteHash.contractAddress)) {
       throw new Error('Contract address of hinted note hash does not match.');
+    }
+    if (nullifier.counter < noteHash.counter) {
+      throw new Error('Hinted nullifier has smaller counter than note hash.');
+    }
+
+    // The nullifier is revertible and the note hash is non-revertible.
+    // Can't squash them in case the tx reverts, then the note hash will be kept and the nullifier will be discarded.
+    if (nullifier.counter >= validationRequestsSplitCounter && noteHash.counter < validationRequestsSplitCounter) {
+      continue;
     }
 
     // The nullifier might be read in the future

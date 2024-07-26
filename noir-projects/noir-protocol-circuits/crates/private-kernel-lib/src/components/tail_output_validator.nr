@@ -140,7 +140,6 @@ impl TailOutputValidator {
         assert_eq(hash, self.output.end.encrypted_logs_hash, "mismatch encrypted_logs_hash");
 
         // unencrypted_log_hashes
-
         assert_sorted_array_with_order_hints(
             self.previous_kernel.end.unencrypted_logs_hashes,
             hints.sorted_unencrypted_log_hashes,

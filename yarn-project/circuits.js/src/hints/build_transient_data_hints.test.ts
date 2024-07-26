@@ -19,6 +19,17 @@ describe('buildTransientDataHints', () => {
   let futureNoteHashReads: ScopedReadRequest[];
   let futureNullifierReads: ScopedReadRequest[];
   let noteHashNullifierCounterMap: Map<number, number>;
+  let validationRequestsSplitCounter = 0;
+
+  const buildHints = () =>
+    buildTransientDataHints(
+      noteHashes,
+      nullifiers,
+      futureNoteHashReads,
+      futureNullifierReads,
+      noteHashNullifierCounterMap,
+      validationRequestsSplitCounter,
+    );
 
   beforeEach(() => {
     noteHashes = [
@@ -37,20 +48,21 @@ describe('buildTransientDataHints', () => {
     futureNoteHashReads = [new ScopedReadRequest(new ReadRequest(new Fr(44), 351), contractAddress)];
     futureNullifierReads = [new ScopedReadRequest(new ReadRequest(new Fr(66), 502), contractAddress)];
     noteHashNullifierCounterMap = new Map();
-    noteHashNullifierCounterMap.set(100, 700); // Linked to a nullifier.
-    noteHashNullifierCounterMap.set(300, 500); // Linked to a nullifier that will be read.
-    noteHashNullifierCounterMap.set(350, 600); // Linked to a nullifier, but the note hash will be read.
-    noteHashNullifierCounterMap.set(375, 800); // Linked to a nullifier not yet known.
+    noteHashNullifierCounterMap.set(100, 700);
+    noteHashNullifierCounterMap.set(300, 500);
+    noteHashNullifierCounterMap.set(350, 600);
+    noteHashNullifierCounterMap.set(375, 800);
+    /**
+     * nullifiers[0] not nullifying any note hashes.
+     * nullifiers[1] <> noteHashes[2], nullifier is read.
+     * nullifiers[2] <> noteHashes[3], note hash is read.
+     * nullifiers[3] <> noteHashes[0].
+     * noteHashes[1] and noteHashes[4] not being nullified.
+     */
   });
 
   it('builds index hints that link transient note hashes and nullifiers', () => {
-    const [nullifierIndexes, noteHashIndexesForNullifiers] = buildTransientDataHints(
-      noteHashes,
-      nullifiers,
-      futureNoteHashReads,
-      futureNullifierReads,
-      noteHashNullifierCounterMap,
-    );
+    const [nullifierIndexes, noteHashIndexesForNullifiers] = buildHints();
     // Only first one is squashed, since:
     // second one is not linked to a nullifier
     // third one's nullifier will be read
@@ -59,17 +71,27 @@ describe('buildTransientDataHints', () => {
     expect(noteHashIndexesForNullifiers).toEqual([5, 5, 5, 0]);
   });
 
+  it('ignore pair that has revertible nullifier and non-revertible note hash', () => {
+    // Make the note hash non-revertible.
+    validationRequestsSplitCounter = noteHashes[0].counter + 1;
+    const [nullifierIndexes, noteHashIndexesForNullifiers] = buildHints();
+    expect(nullifierIndexes).toEqual([4, 4, 4, 4, 4]);
+    expect(noteHashIndexesForNullifiers).toEqual([5, 5, 5, 5]);
+  });
+
   it('throws if note hash does not match', () => {
     nullifiers[1].nullifier.noteHash = new Fr(11);
-    expect(() => buildTransientDataHints(noteHashes, nullifiers, [], [], noteHashNullifierCounterMap)).toThrow(
-      'Hinted note hash does not match.',
-    );
+    expect(buildHints).toThrow('Hinted note hash does not match.');
   });
 
   it('throws if contract address does not match', () => {
     nullifiers[1].contractAddress = AztecAddress.fromBigInt(123456n);
-    expect(() => buildTransientDataHints(noteHashes, nullifiers, [], [], noteHashNullifierCounterMap)).toThrow(
-      'Contract address of hinted note hash does not match.',
-    );
+    expect(buildHints).toThrow('Contract address of hinted note hash does not match.');
+  });
+
+  it('throws if note hash counter is larger than nullifier counter', () => {
+    nullifiers[3].nullifier.counter = noteHashes[0].counter - 1;
+    noteHashNullifierCounterMap.set(noteHashes[0].counter, noteHashes[0].counter - 1);
+    expect(buildHints).toThrow('Hinted nullifier has smaller counter than note hash.');
   });
 });

@@ -179,6 +179,16 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with="split_counter does not match min_revertible_side_effect_counter")]
+    fn mismatch_validation_requests_split_counter_fail() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+        builder.previous_kernel.min_revertible_side_effect_counter = 123;
+        builder.previous_kernel.validation_requests_split_counter = Option::some(4567);
+
+        builder.failed();
+    }
+
     #[test(should_fail_with="Must have public calls when exporting public kernel data from the tail circuit")]
     fn no_public_calls_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();

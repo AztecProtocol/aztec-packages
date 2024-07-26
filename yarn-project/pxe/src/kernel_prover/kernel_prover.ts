@@ -27,7 +27,14 @@ import {
   PrivateResetTagToArtifactName,
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types';
-import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
+import {
+  type ExecutionResult,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNullifiedNoteHashCounters,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/simulator';
 
 import { type WitnessMap } from '@noir-lang/types';
 
@@ -72,6 +79,10 @@ export class KernelProver {
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+    const hasPublicCalls =
+      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(executionResult).isEmpty();
+    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(executionResult) : 0;
     // vector of gzipped bincode acirs
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
@@ -83,6 +94,7 @@ export class KernelProver {
           output,
           noteHashLeafIndexMap,
           noteHashNullifierCounterMap,
+          validationRequestsSplitCounter,
         );
         output = await this.proofCreator.simulateProofReset(resetInputs);
         // TODO(#7368) consider refactoring this redundant bytecode pushing
@@ -136,6 +148,7 @@ export class KernelProver {
         output,
         noteHashLeafIndexMap,
         noteHashNullifierCounterMap,
+        validationRequestsSplitCounter,
       );
       output = await this.proofCreator.simulateProofReset(resetInputs);
       // TODO(#7368) consider refactoring this redundant bytecode pushing
@@ -217,6 +230,7 @@ export class KernelProver {
     output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
     noteHashNullifierCounterMap: Map<number, number>,
+    validationRequestsSplitCounter: number,
   ) {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -231,6 +245,7 @@ export class KernelProver {
       previousKernelData,
       noteHashLeafIndexMap,
       noteHashNullifierCounterMap,
+      validationRequestsSplitCounter,
       this.oracle,
     );
   }

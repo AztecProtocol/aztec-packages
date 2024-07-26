@@ -206,3 +206,10 @@ export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): 
 
   return PublicExecutionRequest.empty();
 }
+
+export function getFinalMinRevertibleSideEffectCounter(execResult: ExecutionResult): number {
+  return execResult.nestedExecutions.reduce((counter, exec) => {
+    const nestedCounter = getFinalMinRevertibleSideEffectCounter(exec);
+    return nestedCounter ? nestedCounter : counter;
+  }, execResult.callStackItem.publicInputs.minRevertibleSideEffectCounter.toNumber());
+}
