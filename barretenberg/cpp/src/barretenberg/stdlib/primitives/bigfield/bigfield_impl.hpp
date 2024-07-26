@@ -8,6 +8,7 @@
 
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 
 namespace bb::stdlib {
 
@@ -2066,9 +2067,9 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
 
 template <typename Builder, typename T> void bigfield<Builder, T>::propagation_check()
 {
-    uint64_t limb0_max_bits = this->binary_basis_limbs[0].maximum_value.get_msb() + 1;
-    uint64_t limb1_max_bits = this->binary_basis_limbs[1].maximum_value.get_msb() + 1;
-    uint64_t limb2_max_bits = this->binary_basis_limbs[2].maximum_value.get_msb() + 1;
+    uint64_t limb0_max_bits = std::max(this->binary_basis_limbs[0].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
+    uint64_t limb1_max_bits = std::max(this->binary_basis_limbs[1].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
+    uint64_t limb2_max_bits = std::max(this->binary_basis_limbs[2].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
 
     bool prop_flag_0 = (limb0_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
     bool prop_flag_1 = (limb1_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
@@ -2082,78 +2083,81 @@ template <typename Builder, typename T> void bigfield<Builder, T>::propagation_c
 template <typename Builder, typename T> void bigfield<Builder, T>::propagate_limbs()
 {
     uint64_t limb0_max_bits = std::max(this->binary_basis_limbs[0].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t borrow_0_value =
-        uint256_t(this->binary_basis_limbs[0].element.get_value()).slice(NUM_LIMB_BITS, limb0_max_bits);
-    field_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
-
     uint64_t limb1_max_bits = std::max(this->binary_basis_limbs[1].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t borrow_1_value =
-        uint256_t(this->binary_basis_limbs[1].element.get_value()).slice(NUM_LIMB_BITS, limb1_max_bits);
-    field_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
-
     uint64_t limb2_max_bits = std::max(this->binary_basis_limbs[2].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t borrow_2_value =
+
+    uint256_t carry_0_value =
+        uint256_t(this->binary_basis_limbs[0].element.get_value()).slice(NUM_LIMB_BITS, limb0_max_bits);
+    field_t<Builder> carry_0(witness_t<Builder>(context, carry_0_value));
+    uint256_t carry_1_value =
+        uint256_t(this->binary_basis_limbs[1].element.get_value()).slice(NUM_LIMB_BITS, limb1_max_bits);
+    field_t<Builder> carry_1(witness_t<Builder>(context, carry_1_value));
+    uint256_t carry_2_value =
         uint256_t(this->binary_basis_limbs[2].element.get_value()).slice(NUM_LIMB_BITS, limb2_max_bits);
-    field_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
+    field_t<Builder> carry_2(witness_t<Builder>(context, carry_2_value));
+
+    field_t<Builder> r0 = binary_basis_limbs[0].element - carry_0 * shift_1;
+    field_t<Builder> r1 = binary_basis_limbs[1].element - carry_1 * shift_1 + carry_0;
+    field_t<Builder> r2 = binary_basis_limbs[2].element - carry_2 * shift_1 + carry_1;
+    field_t<Builder> r3 = binary_basis_limbs[3].element + carry_2;
 
     if constexpr (HasPlookup<Builder>) {
-        if (limb0_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_default_range(borrow_0.get_witness_index(),
-                                                  static_cast<size_t>(limb0_max_bits - NUM_LIMB_BITS));
-        }
-        if (limb1_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_default_range(borrow_1.get_witness_index(),
-                                                  static_cast<size_t>(limb1_max_bits - NUM_LIMB_BITS));
-        }
-        if (limb2_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_default_range(borrow_2.get_witness_index(),
-                                                  static_cast<size_t>(limb2_max_bits - NUM_LIMB_BITS));
-        }
-    } else {
-        if (limb0_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_base4_accumulators(borrow_0.get_witness_index(),
-                                                       static_cast<size_t>(limb0_max_bits - NUM_LIMB_BITS));
-        }
-        if (limb1_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_base4_accumulators(borrow_1.get_witness_index(),
-                                                       static_cast<size_t>(limb1_max_bits - NUM_LIMB_BITS));
-        }
-        if (limb2_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_base4_accumulators(borrow_2.get_witness_index(),
-                                                       static_cast<size_t>(limb2_max_bits - NUM_LIMB_BITS));
-        }
-    }
-
-    field_t<Builder> r0 = binary_basis_limbs[0].element - borrow_0 * shift_1;
-    field_t<Builder> r1 = binary_basis_limbs[1].element - borrow_1 * shift_1 + borrow_0;
-    field_t<Builder> r2 = binary_basis_limbs[2].element - borrow_2 * shift_1 + borrow_1;
-    field_t<Builder> r3 = binary_basis_limbs[3].element + borrow_2;
-
-    if constexpr (HasPlookup<Builder>) {
-        if (limb0_max_bits != NUM_LIMB_BITS) {
+        if (limb0_max_bits == NUM_LIMB_BITS) {
             context->decompose_into_default_range(r0.get_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+            carry_0.assert_is_zero();
+        } else {
+            context->range_constrain_two_limbs(r0.get_witness_index(),
+                                               carry_0.get_witness_index(),
+                                               static_cast<size_t>(NUM_LIMB_BITS),
+                                               static_cast<size_t>(limb0_max_bits - NUM_LIMB_BITS));
         }
         if (limb1_max_bits != NUM_LIMB_BITS) {
             context->decompose_into_default_range(r1.get_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+            carry_1.assert_is_zero();
+        } else {
+            context->range_constrain_two_limbs(r1.get_witness_index(),
+                                               carry_1.get_witness_index(),
+                                               static_cast<size_t>(NUM_LIMB_BITS),
+                                               static_cast<size_t>(limb1_max_bits - NUM_LIMB_BITS));
         }
         if (limb2_max_bits != NUM_LIMB_BITS) {
             context->decompose_into_default_range(r2.get_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+            carry_2.assert_is_zero();
+        } else {
+            context->range_constrain_two_limbs(r2.get_witness_index(),
+                                               carry_2.get_witness_index(),
+                                               static_cast<size_t>(NUM_LIMB_BITS),
+                                               static_cast<size_t>(limb2_max_bits - NUM_LIMB_BITS));
         }
     } else {
-        if (limb0_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_base4_accumulators(r0.get_witness_index(),
-                                                       static_cast<size_t>(NUM_LIMB_BITS),
-                                                       "bigfield: propagate_limbs range constraint 1.");
+        context->decompose_into_base4_accumulators(r0.get_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: propagate_limbs range constraint 1.");
+        if (limb0_max_bits == NUM_LIMB_BITS) {
+            carry_0.assert_is_zero();
+        } else {
+            context->decompose_into_base4_accumulators(carry_0.get_witness_index(),
+                                                       static_cast<size_t>(limb0_max_bits - NUM_LIMB_BITS));
         }
-        if (limb0_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_base4_accumulators(r1.get_witness_index(),
-                                                       static_cast<size_t>(NUM_LIMB_BITS),
-                                                       "bigfield: propagate_limbs range constraint 2.");
+
+        context->decompose_into_base4_accumulators(r1.get_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: propagate_limbs range constraint 2.");
+        if (limb1_max_bits == NUM_LIMB_BITS) {
+            carry_1.assert_is_zero();
+        } else {
+            context->decompose_into_base4_accumulators(carry_1.get_witness_index(),
+                                                       static_cast<size_t>(limb1_max_bits - NUM_LIMB_BITS));
         }
-        if (limb0_max_bits != NUM_LIMB_BITS) {
-            context->decompose_into_base4_accumulators(r2.get_witness_index(),
-                                                       static_cast<size_t>(NUM_LIMB_BITS),
-                                                       "bigfield: propagate_limbs range constraint 3.");
+
+        context->decompose_into_base4_accumulators(r2.get_witness_index(),
+                                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                                   "bigfield: propagate_limbs range constraint 3.");
+        if (limb2_max_bits == NUM_LIMB_BITS) {
+            carry_2.assert_is_zero();
+        } else {
+            context->decompose_into_base4_accumulators(carry_2.get_witness_index(),
+                                                       static_cast<size_t>(limb2_max_bits - NUM_LIMB_BITS));
         }
     }
 
