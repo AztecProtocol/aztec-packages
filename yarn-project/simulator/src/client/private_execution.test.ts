@@ -29,7 +29,6 @@ import {
   computeAppNullifierSecretKey,
   computeOvskApp,
   deriveKeys,
-  deriveStorageSlotInMap,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
@@ -39,6 +38,7 @@ import {
   computeSecretHash,
   computeSlottedNoteHash,
   computeVarArgsHash,
+  deriveStorageSlotInMap,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {

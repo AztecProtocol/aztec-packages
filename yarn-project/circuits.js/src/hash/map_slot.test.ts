@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
-import { deriveStorageSlotInMap } from './map_slot.js';
+import { deriveStorageSlotInMap } from './index.js';
 
 describe('Map slot', () => {
   it('derived map slot matches Noir', () => {

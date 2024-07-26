@@ -289,11 +289,11 @@ export class PXEService implements PXE {
     return this.db.getContractsAddresses();
   }
 
-  public async getPublicStorageAt(contract: AztecAddress, contractStorageIndex: Fr) {
+  public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
     if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getPublicStorageAt(contract, contractStorageIndex, 'latest');
+    return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
   public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {

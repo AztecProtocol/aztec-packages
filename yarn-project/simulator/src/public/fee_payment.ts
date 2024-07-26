@@ -1,5 +1,5 @@
-import { GAS_TOKEN_ADDRESS, deriveStorageSlotInMap } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { GAS_TOKEN_ADDRESS } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { GasTokenArtifact } from '@aztec/protocol-contracts/gas-token';

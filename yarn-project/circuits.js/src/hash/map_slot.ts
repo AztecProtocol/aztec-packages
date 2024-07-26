@@ -1,4 +1,3 @@
-// TODO(benesjan): update cheatcodes to use this
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
@@ -7,10 +6,9 @@ import { type Fr } from '@aztec/foundation/fields';
  * @param mapSlot - The slot of the map within state.
  * @param key - The key of the map.
  * @returns The slot in the contract storage where the value is stored.
- * TODO(#7551): Test that it matches Noir.
  */
 export function deriveStorageSlotInMap(
-  mapSlot: Fr,
+  mapSlot: Fr | bigint,
   key: {
     /** Serialize to a field. */
     toField: () => Fr;
