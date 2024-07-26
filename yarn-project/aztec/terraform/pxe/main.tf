@@ -149,7 +149,7 @@ resource "aws_ecs_task_definition" "aztec-pxe" {
         },
         {
           name  = "PXE_PROVER_ENABLED"
-          value = "${var.PROVING_ENABLED}"
+          value = tostring(var.PROVING_ENABLED)
         }
       ]
       mountPoints = [
