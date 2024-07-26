@@ -66,7 +66,7 @@ contract PendingNoteHashes {
 
         // Insert note
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
+        owner_balance.insert(&mut note).discard;
 
         0
     }
