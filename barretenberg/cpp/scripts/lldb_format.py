@@ -15,8 +15,6 @@ def montgomery_to_standard(montgomery_value):
     return standard_value
 
 def montgomery_summary(valobj, internal_dict):
-    N = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-    R = 2**256
     R_inv = pow(R, -1, N)
     try:
         data = valobj.GetChildMemberWithName('data')
