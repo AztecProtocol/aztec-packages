@@ -200,7 +200,7 @@ contract PrivateToken {
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(fee_payer_point: Point, user_point: Point) {
-        // 1. We get the final note content hashes by calling the `complete_refund` on the note.
+        // 1. We get the final note hiding points by calling a `complete_refund` function on the note.
         // We use 1:1 exchange rate between fee juice and token. So using `tx_fee` is enough
         let tx_fee = context.transaction_fee();
         let (fee_payer_note_hiding_point, user_note_hiding_point) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);

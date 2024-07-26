@@ -74,7 +74,7 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     fn compute_note_hiding_point(self) -> Point {
         let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
         let (random_lo, random_hi) = decompose(self.randomness);
-        // We compute the note content hash as an x-coordinate of `G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness` instead
+        // We compute the note hiding point as `G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness` instead
         // of using pedersen or poseidon2 because it allows us to privately add and subtract from amount in public
         // by leveraging homomorphism.
         multi_scalar_mul(
@@ -274,7 +274,7 @@ impl PrivatelyRefundable for TokenNote {
 
         assert_eq(user_point.is_infinite, false);
 
-        // Finally we return the points which represent the note content hashes.
+        // Finally we return the points which represent the note hiding points.
         (fee_payer_point, user_point)
     }
 }

@@ -61,9 +61,9 @@ const G_SLOT = new Point(
 /**
  * Computes a note hiding point as is done by the default implementation injected by macros.
  * @param noteContent - The note content (e.g. note.items).
- * @returns A note hiding_point
- * TODO(#7551): Not sure about having this function here given that  different notes have different ways
- * of computing the note content hash.
+ * @returns A note hiding point.
+ * TODO(#7551): Not sure about having this function here given that different notes have different ways
+ * of computing the note hiding points.
  */
 export function computeNoteHidingPoint(noteContent: Fr[]): Point {
   // TODO(#7551): how this is computed will need to be updated
