@@ -1,8 +1,8 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { GeneratorIndex, KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import {
-  computeInnerNoteHash,
-  computeNoteContentHash,
+  computeNoteHidingPoint,
+  computeSlottedNoteHash,
   computeUniqueNoteHash,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
@@ -62,9 +62,9 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const noteContentHash = computeNoteContentHash(note.items);
-      const innerNoteHashX = computeInnerNoteHash(storageSlot, noteContentHash).x;
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, innerNoteHashX);
+      const noteHidingPoint = computeNoteHidingPoint(note.items);
+      const slottedNoteHash = computeSlottedNoteHash(storageSlot, noteHidingPoint);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, slottedNoteHash);
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
       const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
 
@@ -78,7 +78,7 @@ describe('Simulator', () => {
       );
 
       expect(result).toEqual({
-        innerNoteHashX,
+        slottedNoteHash,
         uniqueNoteHash,
         siloedNoteHash,
         innerNullifier,

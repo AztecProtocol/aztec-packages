@@ -23,7 +23,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
       }
     }
 
-    fn compute_note_content_hash(_self: Self) -> Point {
+    fn compute_note_hiding_point(_self: Self) -> Point {
       crate::generators::Ga1
     }
 

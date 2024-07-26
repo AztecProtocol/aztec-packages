@@ -30,20 +30,20 @@ sequenceDiagram
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
     LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
-    LifeCycle->>Utils: compute_inner_note_hash(note)
+    LifeCycle->>Utils: compute_slotted_note_hash(note)
     Utils->>TokenNote: note.compute_note_content_hash()
     TokenNote->>Utils: note_hash = H(amount, to, randomness)
     Utils->>NoteHash: compute_inner_hash(derived_slot, note_hash)
-    NoteHash->>LifeCycle: inner_note_hash = H(derived_slot, note_hash)
-    LifeCycle->>Context: push_note_hash(inner_note_hash)
+    NoteHash->>LifeCycle: slotted_note_hash = H(derived_slot, note_hash)
+    LifeCycle->>Context: push_note_hash(slotted_note_hash)
     end
-    Context->>Kernel: siloed_note_hash = H(contract_address, inner_note_hash)
+    Context->>Kernel: siloed_note_hash = H(contract_address, slotted_note_hash)
 ```
 
 Notice the `siloed_note_hash` at the very end. It's a commitment that will be inserted into the note hashes tree. To clarify what this really is, we "unroll" the values to their simplest components. This gives us a better idea around what is actually inserted into the tree.
 
 ```rust
-siloed_note_hash = H(contract_address, inner_note_hash)
+siloed_note_hash = H(contract_address, slotted_note_hash)
 siloed_note_hash = H(contract_address, H(derived_slot, note_hash))
 siloed_note_hash = H(contract_address, H(H(map_slot, to), note_hash))
 siloed_note_hash = H(contract_address, H(H(map_slot, to), H(amount, to, randomness)))

@@ -251,7 +251,7 @@ impl CustomNote {
     fn compute_note_content_hash(self: CustomNote) -> Field {
         aztec::hash::pedersen_hash(
             self.serialize_content(), 
-            aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_CONTENT_HASH
+            aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT
         )
     }
 

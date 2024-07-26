@@ -71,7 +71,7 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
 
 
 
-    fn compute_note_content_hash(self) -> Point {
+    fn compute_note_hiding_point(self) -> Point {
         let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
         let (random_lo, random_hi) = decompose(self.randomness);
         // We compute the note content hash as an x-coordinate of `G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness` instead
@@ -135,7 +135,7 @@ impl OwnedNote for TokenNote {
  *
  * So you can think of these (x, y) points as "partial notes": they encode part of the internals of the notes.
  *
- * This is because the compute_note_content_hash function above defines the content hash to be
+ * This is because the compute_note_hiding_point function above defines the content hash to be
  * the x-coordinate of a point defined as:
  *
  * G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness

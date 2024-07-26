@@ -45,7 +45,7 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * Computes a siloed note hash, given the contract address and the note hash itself.
  * A siloed note hash effectively namespaces a note hash to a specific contract.
  * @param contract - The contract address
- * @param innerNoteHash - The note hash to silo.
+ * @param slottedNoteHash - The note hash to silo.
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
@@ -59,40 +59,41 @@ const G_SLOT = new Point(
 );
 
 /**
- * Computes a note content hash as is done by the default implementation injected by macros.
+ * Computes a note hiding point as is done by the default implementation injected by macros.
  * @param noteContent - The note content (e.g. note.items).
- * @returns A note content hash.
+ * @returns A note hiding_point
  * TODO(#7551): Not sure about having this function here given that  different notes have different ways
  * of computing the note content hash.
  */
-export function computeNoteContentHash(noteContent: Fr[]): Point {
+export function computeNoteHidingPoint(noteContent: Fr[]): Point {
   // TODO(#7551): how this is computed will need to be updated
-  const h = pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+  const h = pedersenHash(noteContent, GeneratorIndex.NOTE_HIDING_POINT);
   const grumpkin = new Grumpkin();
   return grumpkin.mul(G_SLOT, new Fq(h.toBigInt()));
 }
 
 /**
- * Computes an inner note hash, given a storage slot and a note hash.
+ * Computes an slotted note hash, given a storage slot and a note hiding point.
  * @param storageSlot - The storage slot.
- * @param noteContentHash - The hash of note content.
- * @returns An inner note hash.
+ * @param noteHidingPoint - The note hiding point.
+ * @returns A slotted note hash.
  */
-export function computeInnerNoteHash(storageSlot: Fr, noteContentHash: Point): Point {
+export function computeSlottedNoteHash(storageSlot: Fr, noteHidingPoint: Point): Fr {
   const grumpkin = new Grumpkin();
   const storageSlotPoint = grumpkin.mul(G_SLOT, new Fq(storageSlot.toBigInt()));
-  return grumpkin.add(storageSlotPoint, noteContentHash);
+  const slottedNoteHidingPoint = grumpkin.add(storageSlotPoint, noteHidingPoint);
+  return slottedNoteHidingPoint.x;
 }
 
 /**
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
  * @param nonce - The contract address.
- * @param innerNoteHash - An inner note hash.
+ * @param slottedNoteHash - An slotted note hash.
  * @returns A unique note hash.
  */
-export function computeUniqueNoteHash(nonce: Fr, innerNoteHash: Fr): Fr {
-  return pedersenHash([nonce, innerNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeUniqueNoteHash(nonce: Fr, slottedNoteHash: Fr): Fr {
+  return pedersenHash([nonce, slottedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
