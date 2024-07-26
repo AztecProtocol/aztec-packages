@@ -56,12 +56,48 @@ For quick reference:
 
 TODO: https://github.com/AztecProtocol/aztec-packages/issues/7600
 
-Full list of available commands:
+All available `bb` commands:
 https://github.com/AztecProtocol/aztec-packages/blob/1a97698071a667cd56510c7b7201373a9ac9c646/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1361-L1493
 
 #### FilePath vs Stdout
 
 For commands which allow you to send the output to a file using `-o {filePath}`, there is also the option to send the output to stdout by using `-o -`.
+
+#### Example: proving and verifying with Honk
+
+Documented with Noir v0.32.0 <> BB v0.46.1:
+
+##### UltraHonk
+
+1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
+
+2. Prove the valid execution of your Noir program running:
+
+    ```bash
+    bb prove_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+    ```
+
+3. Compute the verification key for your Noir program running:
+
+    ```bash
+    bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+    ```
+
+4. Verify your proof running:
+
+    ```bash
+    bb verify_ultra_honk -k ./target/vk -p ./target/proof
+    ```
+
+    If successful, the verification will complete in silence; if unsuccessful, the command will trigger logging of the corresponding error.
+
+Refer to all available `bb` commands linked above for full list of functionality.
+
+##### MegaHonk
+
+Use `bb <command>_mega_honk`.
+
+Refer to all available `bb` commands linked above for full list of functionality.
 
 ### Maximum circuit size
 
