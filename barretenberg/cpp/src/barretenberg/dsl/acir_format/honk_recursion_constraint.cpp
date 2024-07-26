@@ -1,5 +1,6 @@
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
@@ -138,7 +139,14 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
         builder.assert_equal(builder.add_variable(input.public_inputs.size()), key_fields[1].witness_index);
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
-        uint32_t offset = 3;
+        builder.assert_equal(builder.add_variable(0), key_fields[4].witness_index);
+        uint32_t offset = 4;
+        // do the aggregation object next
+        for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; i++) {
+            builder.assert_equal(builder.add_variable(0),
+                                 key_fields[offset].witness_index); // WORKTODO: check if 0 is fine here
+            offset++;
+        }
 
         for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
             auto comm = curve::BN254::AffineElement::one() * fr::random_element();
