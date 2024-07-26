@@ -1,14 +1,13 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
 import { Grumpkin } from '../barretenberg/index.js';
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
-import { deriveBaseSlot } from '../storage_slots/index.js';
 import { VerificationKey } from '../structs/index.js';
 
 /**
@@ -53,6 +52,12 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
   return pedersenHash([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
+const G_SLOT = new Point(
+  new Fr(0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15n),
+  new Fr(0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791n),
+  false,
+);
+
 /**
  * Computes a note content hash as is done by the default implementation injected by macros.
  * @param noteContent - The note content (e.g. note.items).
@@ -61,8 +66,10 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
  * of computing the note content hash.
  */
 export function computeNoteContentHash(noteContent: Fr[]): Point {
+  // TODO(#7551): how this is computed will need to be updated
   const h = pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
-  return deriveBaseSlot(h);
+  const grumpkin = new Grumpkin();
+  return grumpkin.mul(G_SLOT, new Fq(h.toBigInt()));
 }
 
 /**
@@ -71,9 +78,10 @@ export function computeNoteContentHash(noteContent: Fr[]): Point {
  * @param noteContentHash - The hash of note content.
  * @returns An inner note hash.
  */
-export function computeInnerNoteHash(storageSlot: Point, noteContentHash: Point): Point {
+export function computeInnerNoteHash(storageSlot: Fr, noteContentHash: Point): Point {
   const grumpkin = new Grumpkin();
-  return grumpkin.add(storageSlot, noteContentHash);
+  const storageSlotPoint = grumpkin.mul(G_SLOT, new Fq(storageSlot.toBigInt()));
+  return grumpkin.add(storageSlotPoint, noteContentHash);
 }
 
 /**

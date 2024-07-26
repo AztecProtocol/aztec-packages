@@ -29,6 +29,7 @@ import {
   computeAppNullifierSecretKey,
   computeOvskApp,
   deriveKeys,
+  deriveStorageSlotInMap,
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
@@ -354,7 +355,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(newNote.storageSlot).toEqual(deriveStorageSlotInMap(new Fr(1n), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
@@ -384,7 +385,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner));
+      expect(newNote.storageSlot).toEqual(deriveStorageSlotInMap(new Fr(1n), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = getNonEmptyItems(result.callStackItem.publicInputs.noteHashes);
@@ -411,8 +412,8 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = computeSlotForMapping(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
-      const recipientStorageSlot = computeSlotForMapping(
+      const storageSlot = deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
+      const recipientStorageSlot = deriveStorageSlotInMap(
         StatefulTestContractArtifact.storageLayout['notes'].slot,
         recipient,
       );
@@ -488,7 +489,7 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = deriveStorageSlotInMap(deriveBaseSlot(new Fr(1n)), owner);
+      const storageSlot = deriveStorageSlotInMap(new Fr(1n), owner);
 
       const notes = [
         buildNote(
@@ -959,7 +960,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.newNotes).toHaveLength(1);
       const noteAndSlot = result.newNotes[0];
-      expect(noteAndSlot.storageSlot).toEqual(deriveStorageSlotInMap(deriveBaseSlot(new Fr(1n)), owner));
+      expect(noteAndSlot.storageSlot).toEqual(deriveStorageSlotInMap(new Fr(1n), owner));
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 

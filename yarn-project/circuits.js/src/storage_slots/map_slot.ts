@@ -1,7 +1,6 @@
 // TODO(benesjan): update cheatcodes to use this
-import { G_MAP_SLOT_LAYER_1 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { type Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
 
 /**
  * Computes the resulting storage slot for an entry in a map.
@@ -11,13 +10,11 @@ import { type Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
  * TODO(#7551): Test that it matches Noir.
  */
 export function deriveStorageSlotInMap(
-  mapSlot: Point,
+  mapSlot: Fr,
   key: {
     /** Serialize to a field. */
     toField: () => Fr;
   },
-): Point {
-  const grumpkin = new Grumpkin();
-  const scalar = new GrumpkinScalar(key.toField().toBigInt());
-  return grumpkin.add(grumpkin.mul(G_MAP_SLOT_LAYER_1, scalar), mapSlot);
+): Fr {
+  return pedersenHash([mapSlot, key.toField()]);
 }
