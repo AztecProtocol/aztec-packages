@@ -93,7 +93,7 @@ impl RootRollupInputs {
             content_commitment,
             state,
             global_variables: left.constants.global_variables,
-            total_fees,
+            total_fees
         };
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
