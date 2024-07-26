@@ -1,13 +1,10 @@
 use crate::{
     abis::{
-public_data_read::PublicDataRead, read_request::ScopedReadRequest,
-    validation_requests::{
-    rollup_validation_requests::RollupValidationRequests,
-}
+    public_data_read::PublicDataRead, read_request::ScopedReadRequest,
+    validation_requests::{rollup_validation_requests::RollupValidationRequests}
 },
     constants::{
-     MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, PUBLIC_VALIDATION_REQUESTS_LENGTH
 },
     traits::{Serialize, Deserialize, Empty}, utils::reader::Reader
