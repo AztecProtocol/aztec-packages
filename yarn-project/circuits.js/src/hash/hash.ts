@@ -44,7 +44,7 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * Computes a siloed note hash, given the contract address and the note hash itself.
  * A siloed note hash effectively namespaces a note hash to a specific contract.
  * @param contract - The contract address
- * @param slottedNoteHash - The note hash to silo.
+ * @param uniqueNoteHash - The unique note hash to silo.
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
