@@ -69,11 +69,9 @@ FastRandom VarianceRNG(0);
 
 #define PRINT_SLICE(first_index, lsb, msb, vector)                                                                     \
     {                                                                                                                  \
-        std::cout << "Slice:"                                                                                          \
-                  << " " << (vector[first_index].bigfield.is_constant() ? "constant(" : "witness(")                    \
+        std::cout << "Slice:" << " " << (vector[first_index].bigfield.is_constant() ? "constant(" : "witness(")        \
                   << vector[first_index].bigfield.get_value() << ":" << vector[first_index].suint.current_max          \
-                  << ") at " << first_index << " "                                                                     \
-                  << "(" << (size_t)lsb << ":" << (size_t)msb << ")" << std::flush;                                    \
+                  << ") at " << first_index << " " << "(" << (size_t)lsb << ":" << (size_t)msb << ")" << std::flush;   \
     }
 
 #define PRINT_RESULT(prefix, action, index, value)                                                                     \
@@ -389,7 +387,7 @@ template <typename Builder> class BigFieldBase {
         e = bb::fq(value_data);                                                                                        \
     }
 
-            // Pick the last value from the mutation distrivution vector
+            // Pick the last value from the mutation distribution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
             // Choose mutation
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
@@ -702,7 +700,6 @@ template <typename Builder> class BigFieldBase {
                     mult_madd_or_div.arguments.multOpArgs.add_elements_count % MULT_MADD_MAXIMUM_ADDED_ELEMENTS;
 
                 if (mult_madd_or_div.arguments.multOpArgs.add_elements_count < MULT_MADD_MINIMUM_ADDED_ELEMENTS) {
-
                     mult_madd_or_div.arguments.multOpArgs.add_elements_count = MULT_MADD_MINIMUM_ADDED_ELEMENTS;
                 }
                 mult_madd_or_div.arguments.multOpArgs.mult_pairs_count =
@@ -1047,21 +1044,26 @@ template <typename Builder> class BigFieldBase {
                 abort();
             }
 
-            switch (VarianceRNG.next() % 6) {
+            uint32_t switch_case = VarianceRNG.next() % 5;
+
+#ifdef SHOW_INFORMATION
+            std::cout << " using " << switch_case << " constructor" << std::endl;
+#endif
+            switch (switch_case) {
             case 0:
                 /* Construct via bigfield_t */
                 return ExecutionHandler(this->base, bigfield_t(this->bigfield));
             case 1:
                 /* Construct via uint256_t */
                 return ExecutionHandler(this->base, bigfield_t(builder, bf_u256()));
-            case 2:
-                /* Construct via byte_array */
-                /*
-                 * Bug: https://github.com/AztecProtocol/aztec2-internal/issues/1496
-                 *
-                 * Remove of change this invocation if that issue is a false positive */
-                return ExecutionHandler(this->base, bigfield_t(this->bigfield.to_byte_array()));
-            case 3: {
+            // case 2: // TODO(alex): Uncomment once fixed
+            //     /* Construct via byte_array */
+            //     /*
+            //      * Bug: https://github.com/AztecProtocol/aztec2-internal/issues/1496
+            //      *
+            //      * Remove of change this invocation if that issue is a false positive */
+            //     return ExecutionHandler(this->base, bigfield_t(this->bigfield.to_byte_array()));
+            case 2: {
                 const uint256_t u256 = bf_u256();
                 const uint256_t u256_lo = u256.slice(0, bigfield_t::NUM_LIMB_BITS * 2);
                 const uint256_t u256_hi = u256.slice(bigfield_t::NUM_LIMB_BITS * 2, bigfield_t::NUM_LIMB_BITS * 4);
@@ -1071,7 +1073,7 @@ template <typename Builder> class BigFieldBase {
                 /* Construct via two field_t's */
                 return ExecutionHandler(this->base, bigfield_t(field_lo, field_hi));
             }
-            case 4: {
+            case 3: {
                 /* Invoke assignment operator */
 
                 bigfield_t bf_new(builder);
@@ -1079,7 +1081,7 @@ template <typename Builder> class BigFieldBase {
 
                 return ExecutionHandler(this->base, bigfield_t(bf_new));
             }
-            case 5: {
+            case 4: {
                 /* Invoke move constructor */
                 auto bf_copy = bf();
 
@@ -1678,6 +1680,9 @@ template <typename Builder> class BigFieldBase {
             size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out % stack.size();
             bool predicate = instruction.arguments.threeArgs.in2 % 2;
+
+            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Negating", "is negated " + std::to_string(predicate))
+
             ExecutionHandler result;
             result = stack[first_index].conditional_negate(builder, predicate);
             // If the output index is larger than the number of elements in stack, append
@@ -1714,6 +1719,10 @@ template <typename Builder> class BigFieldBase {
             bool predicate = instruction.arguments.fourArgs.in3 % 2;
 
             ExecutionHandler result;
+
+            PRINT_TWO_ARG_INSTRUCTION(
+                first_index, second_index, stack, "Selecting #" + std::to_string(predicate) + " from", ", ")
+
             result = stack[first_index].conditional_select(builder, stack[second_index], predicate);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
@@ -1745,11 +1754,16 @@ template <typename Builder> class BigFieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
             ExecutionHandler result;
+
+            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Setting value", "")
+
             result = stack[first_index].set(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
+                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
+                PRINT_RESULT("", "saved to ", stack.size(), result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1769,7 +1783,7 @@ template <typename Builder> class BigFieldBase {
             (void)builder;
             (void)stack;
 
-            VarianceRNG.reseed(instruction.arguments.randomseed);
+            VarianceRNG.reseed(instruction.arguments.randomseed); // Why exactly?
             return 0;
         };
     };

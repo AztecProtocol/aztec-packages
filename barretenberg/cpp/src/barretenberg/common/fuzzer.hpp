@@ -90,9 +90,7 @@ class FastRandom {
  */
 template <typename T>
 concept SimpleRng = requires(T a) {
-    {
-        a.next()
-    } -> std::convertible_to<uint32_t>;
+    { a.next() } -> std::convertible_to<uint32_t>;
 };
 /**
  * @brief Concept for forcing ArgumentSizes to be size_t
@@ -156,9 +154,7 @@ concept ArithmeticFuzzHelperConstraint = requires {
  */
 template <typename T>
 concept CheckableComposer = requires(T a) {
-    {
-        CircuitChecker::check(a)
-    } -> std::same_as<bool>;
+    { bb::CircuitChecker::check(a) } -> std::same_as<bool>;
 };
 
 /**
@@ -170,9 +166,7 @@ concept CheckableComposer = requires(T a) {
  */
 template <typename T, typename Composer, typename Context>
 concept PostProcessingEnabled = requires(Composer composer, Context context) {
-    {
-        T::postProcess(&composer, context)
-    } -> std::same_as<bool>;
+    { T::postProcess(&composer, context) } -> std::same_as<bool>;
 };
 
 /**
@@ -220,7 +214,7 @@ inline static FF mutateFieldElement(FF e, T& rng)
         e = FF(value_data);                                                                                            \
     }
 
-    // Pick the last value from the mutation distrivution vector
+    // Pick the last value from the mutation distribution vector
     // Choose mutation
     const size_t choice = rng.next() % 4;
     // 50% probability to use standard mutation
@@ -568,7 +562,7 @@ class ArithmeticFuzzHelper {
             // If the opcode is enabled and it's this opcode, use a designated function to serialize it
 #define WRITE_OPCODE_IF(name)                                                                                          \
     if constexpr (requires { T::ArgSizes::name; })                                                                     \
-        if constexpr (T::ArgSizes::name != (size_t)-1) {                                                               \
+        if constexpr (T::ArgSizes::name != (size_t) - 1) {                                                             \
             if (instruction.id == T::Instruction::OPCODE::name) {                                                      \
                 if (size_left >= (T::ArgSizes::name + 1)) {                                                            \
                     T::Parser::template writeInstruction<T::Instruction::OPCODE::name>(instruction, pData);            \
