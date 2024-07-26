@@ -455,6 +455,45 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     return result;
 }
 
+template <typename Builder, typename T>
+bigfield<Builder, T> bigfield<Builder, T>::add_two(const bigfield& add_a, const bigfield& add_b) const
+{
+    reduction_check();
+    add_a.reduction_check();
+    add_b.reduction_check();
+
+    Builder* ctx = (context == nullptr) ? (add_a.context == nullptr ? add_b.context : add_a.context) : context;
+
+    if (is_constant() && add_a.is_constant() && add_b.is_constant()) {
+        return bigfield(ctx, uint256_t((get_value() + add_a.get_value() + add_b.get_value()) % modulus_u512));
+    }
+
+    bigfield result(ctx);
+    result.binary_basis_limbs[0].maximum_value = binary_basis_limbs[0].maximum_value +
+                                                 add_a.binary_basis_limbs[0].maximum_value +
+                                                 add_a.binary_basis_limbs[1].maximum_value;
+    result.binary_basis_limbs[1].maximum_value = binary_basis_limbs[1].maximum_value +
+                                                 add_a.binary_basis_limbs[1].maximum_value +
+                                                 add_b.binary_basis_limbs[1].maximum_value;
+    result.binary_basis_limbs[2].maximum_value = binary_basis_limbs[2].maximum_value +
+                                                 add_a.binary_basis_limbs[2].maximum_value +
+                                                 add_b.binary_basis_limbs[2].maximum_value;
+    result.binary_basis_limbs[3].maximum_value = binary_basis_limbs[3].maximum_value +
+                                                 add_a.binary_basis_limbs[3].maximum_value +
+                                                 add_b.binary_basis_limbs[3].maximum_value;
+
+    result.binary_basis_limbs[0].element =
+        binary_basis_limbs[0].element.add_two(add_a.binary_basis_limbs[0].element, add_b.binary_basis_limbs[0].element);
+    result.binary_basis_limbs[1].element =
+        binary_basis_limbs[1].element.add_two(add_a.binary_basis_limbs[1].element, add_b.binary_basis_limbs[1].element);
+    result.binary_basis_limbs[2].element =
+        binary_basis_limbs[2].element.add_two(add_a.binary_basis_limbs[2].element, add_b.binary_basis_limbs[2].element);
+    result.binary_basis_limbs[3].element =
+        binary_basis_limbs[3].element.add_two(add_a.binary_basis_limbs[3].element, add_b.binary_basis_limbs[3].element);
+    result.prime_basis_limb = prime_basis_limb.add_two(add_a.prime_basis_limb, add_b.prime_basis_limb);
+    return result;
+}
+
 // to make sure we don't go to negative values, add p before subtracting other
 /**
  * Subtraction operator.
@@ -750,14 +789,15 @@ bigfield<Builder, T> bigfield<Builder, T>::sum(const std::vector<bigfield>& term
     if (terms.size() == 1) {
         return terms[0];
     }
-    std::vector<bigfield> halved;
-    for (size_t i = 0; i < terms.size() / 2; i++) {
-        halved.push_back(terms[2 * i] + terms[2 * i + 1]);
+
+    bigfield acc = terms[0];
+    for (size_t i = 1; i < (terms.size() + 1) / 2; i++) {
+        acc = acc.add_two(terms[2 * i - 1], terms[2 * i]);
     }
-    if (terms.size() & 1) {
-        halved.push_back(terms[terms.size() - 1]);
+    if ((terms.size() & 1) == 0) {
+        acc += terms[terms.size() - 1];
     }
-    return sum(halved);
+    return acc;
 }
 
 /**
@@ -832,11 +872,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
         inverse = create_from_u512_as_witness(ctx, inverse_value);
     }
 
-    // TODO(alex): efficient aggregation
-    bigfield accumulated_numerator = numerators[0];
-    for (size_t i = 1; i < numerators.size(); i++) {
-        accumulated_numerator += numerators[i];
-    }
+    bigfield accumulated_numerator = bigfield::sum(numerators);
     accumulated_numerator.propagation_check();
 
     unsafe_evaluate_multiply_add(denominator, inverse, { unreduced_zero() }, quotient, { accumulated_numerator });
