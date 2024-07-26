@@ -31,7 +31,7 @@ sequenceDiagram
     Set->>LifeCycle: create_note(derived_slot, note)
     LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
     LifeCycle->>Utils: compute_slotted_note_hash(note)
-    Utils->>TokenNote: note.compute_note_content_hash()
+    Utils->>TokenNote: note.compute_note_hiding_point()
     TokenNote->>Utils: note_hash = H(amount, to, randomness)
     Utils->>NoteHash: compute_inner_hash(derived_slot, note_hash)
     NoteHash->>LifeCycle: slotted_note_hash = H(derived_slot, note_hash)

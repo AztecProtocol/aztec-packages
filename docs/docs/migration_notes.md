@@ -788,8 +788,8 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
 -        }
 -    }
 -
--    fn compute_note_content_hash(self) -> Field {
--        pedersen_hash(self.serialize_content(), 0)
+-    fn compute_note_hiding_point(self) -> Point {
+-        pedersen_commitment(self.serialize_content(), 0)
 -    }
 -
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {

@@ -184,7 +184,7 @@ impl OwnedNote for TokenNote {
  *             = (G_amt * funded_amount + G_npk * user_npk + G_rnd + user_randomness) - G_amt * transaction_fee =
  *             = G_amt * (funded_amount - transaction_fee) + G_npk * user_npk + G_rnd + user_randomness
  * 
- * The x-coordinate of points above identically matches the note_content_hash of (and therefore *is*) notes like:
+ * The point above matches the note_hiding_point of (and therefore *is*) notes like:
  * {
  *     amount: (funded_amount - transaction_fee),
  *     npk_m_hash: user_npk,

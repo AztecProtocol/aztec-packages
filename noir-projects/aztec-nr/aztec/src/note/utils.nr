@@ -12,11 +12,11 @@ use dep::protocol_types::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-pub fn compute_slotted_note_hiding_point_from_preimage(storage_slot: Field, note_content_hash: Point) -> Point {
+pub fn compute_slotted_note_hiding_point_from_preimage(storage_slot: Field, note_hiding_point: Point) -> Point {
     // We use the unsafe version because the multi_scalar_mul will constraint the scalars.
     let storage_slot_scalar = from_field_unsafe(storage_slot);
     let storage_slot_point = multi_scalar_mul([G_slot], [storage_slot_scalar]);
-    storage_slot_point + note_content_hash
+    storage_slot_point + note_hiding_point
 }
 
 pub fn compute_slotted_note_hiding_point<Note, let N: u32, let M: u32>(note: Note) -> Point where Note: NoteInterface<N, M> {
@@ -28,8 +28,8 @@ pub fn compute_slotted_note_hiding_point<Note, let N: u32, let M: u32>(note: Not
 
 /// In plenty of the places we don't need to work with the full point but we care only about the collapsed version of
 /// it. This function helps with that.
-pub fn compute_slotted_note_hash_from_preimage(storage_slot: Field, note_content_hash: Point) -> Field {
-    compute_slotted_note_hiding_point_from_preimage(storage_slot, note_content_hash).x
+pub fn compute_slotted_note_hash_from_preimage(storage_slot: Field, note_hiding_point: Point) -> Field {
+    compute_slotted_note_hiding_point_from_preimage(storage_slot, note_hiding_point).x
 }
 
 /// In plenty of the places we don't need to work with the full point but we care only about the collapsed version of

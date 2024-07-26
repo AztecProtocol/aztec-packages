@@ -192,7 +192,7 @@ When a struct is annotated with `#[aztec(note)]`, the Aztec macro applies a seri
    - `serialize_content` and `deserialize_content`
    - `get_header` and `set_header`
    - `get_note_type_id`
-   - `compute_note_content_hash`
+   - `compute_note_hiding_point`
    - `to_be_bytes`
    - A `properties` method in the note's implementation
 
@@ -248,8 +248,8 @@ impl CustomNote {
         self.header = header;
     }
 
-    fn compute_note_content_hash(self: CustomNote) -> Field {
-        aztec::hash::pedersen_hash(
+    fn compute_note_hiding_point(self: CustomNote) -> Point {
+        aztec::hash::pedersen_commitment(
             self.serialize_content(), 
             aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT
         )
