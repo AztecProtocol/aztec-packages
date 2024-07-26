@@ -303,6 +303,9 @@ template <typename Builder, typename T> class bigfield {
 
     void self_reduce() const;
 
+    void propagation_check();
+    void propagate_limbs();
+
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
 
     /**
@@ -409,7 +412,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Check that the maximum value of a bigfield product with added values overflows ctf modulus.
+     * Check that the maximum value of a bigfield product with added values overflows crt modulus.
      *
      * @param a_max multiplicand maximum value
      * @param b_max multiplier maximum value
@@ -435,7 +438,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Check that the maximum value of a sum of bigfield productc with added values overflows ctf modulus.
+     * Check that the maximum value of a sum of bigfield products with added values overflows crt modulus.
      *
      * @param as_max Vector of multiplicands' maximum values
      * @param b_max Vector of multipliers' maximum values

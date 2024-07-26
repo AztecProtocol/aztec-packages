@@ -819,7 +819,6 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                         { unreduced_zero() },
                                         numerator_max);
         if (reduction_required) {
-
             denominator.self_reduce();
             return internal_div(numerators, denominator, check_for_zero);
         }
@@ -832,7 +831,14 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
         inverse = create_from_u512_as_witness(ctx, inverse_value);
     }
 
-    unsafe_evaluate_multiply_add(denominator, inverse, { unreduced_zero() }, quotient, numerators);
+    // TODO(alex): efficient aggregation
+    bigfield accumulated_numerator = numerators[0];
+    for (size_t i = 1; i < numerators.size(); i++) {
+        accumulated_numerator += numerators[i];
+    }
+    accumulated_numerator.propagation_check();
+
+    unsafe_evaluate_multiply_add(denominator, inverse, { unreduced_zero() }, quotient, { accumulated_numerator });
     return inverse;
 }
 
@@ -2056,7 +2062,111 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     binary_basis_limbs[2] = remainder.binary_basis_limbs[2];
     binary_basis_limbs[3] = remainder.binary_basis_limbs[3];
     prime_basis_limb = remainder.prime_basis_limb;
-} // namespace stdlib
+}
+
+template <typename Builder, typename T> void bigfield<Builder, T>::propagation_check()
+{
+    uint64_t limb0_max_bits = this->binary_basis_limbs[0].maximum_value.get_msb() + 1;
+    uint64_t limb1_max_bits = this->binary_basis_limbs[1].maximum_value.get_msb() + 1;
+    uint64_t limb2_max_bits = this->binary_basis_limbs[2].maximum_value.get_msb() + 1;
+
+    bool prop_flag_0 = (limb0_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
+    bool prop_flag_1 = (limb1_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
+    bool prop_flag_2 = (limb2_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
+
+    if (prop_flag_0 || prop_flag_1 || prop_flag_2) {
+        this->propagate_limbs();
+    }
+}
+
+template <typename Builder, typename T> void bigfield<Builder, T>::propagate_limbs()
+{
+    uint64_t limb0_max_bits = std::max(this->binary_basis_limbs[0].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
+    uint256_t borrow_0_value =
+        uint256_t(this->binary_basis_limbs[0].element.get_value()).slice(NUM_LIMB_BITS, limb0_max_bits);
+    field_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
+
+    uint64_t limb1_max_bits = std::max(this->binary_basis_limbs[1].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
+    uint256_t borrow_1_value =
+        uint256_t(this->binary_basis_limbs[1].element.get_value()).slice(NUM_LIMB_BITS, limb1_max_bits);
+    field_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
+
+    uint64_t limb2_max_bits = std::max(this->binary_basis_limbs[2].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
+    uint256_t borrow_2_value =
+        uint256_t(this->binary_basis_limbs[2].element.get_value()).slice(NUM_LIMB_BITS, limb2_max_bits);
+    field_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
+
+    if constexpr (HasPlookup<Builder>) {
+        if (limb0_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_default_range(borrow_0.get_witness_index(),
+                                                  static_cast<size_t>(limb0_max_bits - NUM_LIMB_BITS));
+        }
+        if (limb1_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_default_range(borrow_1.get_witness_index(),
+                                                  static_cast<size_t>(limb1_max_bits - NUM_LIMB_BITS));
+        }
+        if (limb2_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_default_range(borrow_2.get_witness_index(),
+                                                  static_cast<size_t>(limb2_max_bits - NUM_LIMB_BITS));
+        }
+    } else {
+        if (limb0_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_base4_accumulators(borrow_0.get_witness_index(),
+                                                       static_cast<size_t>(limb0_max_bits - NUM_LIMB_BITS));
+        }
+        if (limb1_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_base4_accumulators(borrow_1.get_witness_index(),
+                                                       static_cast<size_t>(limb1_max_bits - NUM_LIMB_BITS));
+        }
+        if (limb2_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_base4_accumulators(borrow_2.get_witness_index(),
+                                                       static_cast<size_t>(limb2_max_bits - NUM_LIMB_BITS));
+        }
+    }
+
+    field_t<Builder> r0 = binary_basis_limbs[0].element - borrow_0 * shift_1;
+    field_t<Builder> r1 = binary_basis_limbs[1].element - borrow_1 * shift_1 + borrow_0;
+    field_t<Builder> r2 = binary_basis_limbs[2].element - borrow_2 * shift_1 + borrow_1;
+    field_t<Builder> r3 = binary_basis_limbs[3].element + borrow_2;
+
+    if constexpr (HasPlookup<Builder>) {
+        if (limb0_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_default_range(r0.get_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        }
+        if (limb1_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_default_range(r1.get_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        }
+        if (limb2_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_default_range(r2.get_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+        }
+    } else {
+        if (limb0_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_base4_accumulators(r0.get_witness_index(),
+                                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                                       "bigfield: propagate_limbs range constraint 1.");
+        }
+        if (limb0_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_base4_accumulators(r1.get_witness_index(),
+                                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                                       "bigfield: propagate_limbs range constraint 2.");
+        }
+        if (limb0_max_bits != NUM_LIMB_BITS) {
+            context->decompose_into_base4_accumulators(r2.get_witness_index(),
+                                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                                       "bigfield: propagate_limbs range constraint 3.");
+        }
+    }
+
+    this->binary_basis_limbs[0] = Limb(r0);
+    this->binary_basis_limbs[1] = Limb(r1);
+    this->binary_basis_limbs[2] = Limb(r2);
+    this->binary_basis_limbs[3] =
+        Limb(r3, binary_basis_limbs[3].maximum_value + (uint256_t(1) << (limb2_max_bits - NUM_LIMB_BITS)) - 1);
+
+    // TODO(alex): No need for reduction_check after all since the maximum value is not changed and the top limb
+    // probably won't overflow 110 bits?? But it won't create any constraints if it's not needed, so..
+    this->reduction_check();
+}
 
 /**
  * Evaluate a multiply add identity with several added elements and several remainders
