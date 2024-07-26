@@ -226,7 +226,7 @@ impl TestEnvironment {
             storage_slot,
             Note::get_note_type_id(),
             serialized_note,
-            inner_note_hash,
+            inner_note_hash.x,
             note_hash_counter
         )
             == 0

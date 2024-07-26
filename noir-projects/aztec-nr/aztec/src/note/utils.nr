@@ -36,10 +36,7 @@ pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
-fn compute_note_hash_for_read_request_from_inner_and_nonce(
-    inner_note_hash: Field,
-    nonce: Field
-) -> Field {
+fn compute_note_hash_for_read_request_from_inner_and_nonce(inner_note_hash: Field, nonce: Field) -> Field {
     // TODO(#1386): This if-else can be nuked once we have nonces injected from public
     if (nonce == 0) {
         // If nonce is zero, that means we are reading a public note.
