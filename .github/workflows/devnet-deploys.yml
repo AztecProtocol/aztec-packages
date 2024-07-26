@@ -74,13 +74,20 @@ jobs:
         run: |
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ github.sha }}
 
       - name: "Re-tag Aztec image"
         if: steps.check_only_workflow_changes.outputs.result == 'true'
         run: |
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
+          docker pull aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }}
+
           docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }} aztecprotocol/aztec:${{ github.sha }}
+          docker tag aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }} aztecprotocol/aztec-faucet:${{ github.sha }}
+
           docker push aztecprotocol/aztec:${{ github.sha }}
+          docker push aztecprotocol/aztec-faucet:${{ github.sha }}
 
       - name: Check if mainnet fork needs deployment
         id: check_fork_changes
