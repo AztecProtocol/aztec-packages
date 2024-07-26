@@ -18,6 +18,7 @@ namespace main(256);
     pol constant clk(i) { i };
     pol constant sel_first = [1] + [0]*; // Used mostly to toggle off the first row consisting
                                          // only in first element of shifted polynomials.
+    pol constant zeroes = [0]*; // Helper for if we need to use a constant zero column
 
     //===== PUBLIC COLUMNS=========================================================
     pol public calldata;

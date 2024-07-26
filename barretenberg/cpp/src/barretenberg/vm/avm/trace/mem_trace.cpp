@@ -78,7 +78,7 @@ void AvmMemTraceBuilder::insert_in_mem_trace(uint8_t space_id,
         mem_trace_entry.m_sel_op_slice = true;
         break;
     case MemOpOwner::POSEIDON2:
-        mem_trace_entry.gadget_mem_op = true;
+        mem_trace_entry.poseidon_mem_op = true;
         break;
     }
     mem_trace.emplace_back(mem_trace_entry);

@@ -246,7 +246,7 @@ class AvmTraceBuilder {
                                        AvmMemoryTag read_tag,
                                        AvmMemoryTag write_tag,
                                        IntermRegister reg,
-                                       bool gadget_mem_op = false);
+                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
     MemOp constrained_write_to_memory(uint8_t space_id,
                                       uint32_t clk,
                                       AddressWithMode addr,
@@ -254,7 +254,7 @@ class AvmTraceBuilder {
                                       AvmMemoryTag read_tag,
                                       AvmMemoryTag write_tag,
                                       IntermRegister reg,
-                                      bool gadget_mem_op = false);
+                                      AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
 
     // TODO(ilyas: #6383): Temporary way to bulk read slices
     template <typename MEM>

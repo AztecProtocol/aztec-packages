@@ -218,7 +218,7 @@ AvmTraceBuilder::MemOp AvmTraceBuilder::constrained_read_from_memory(uint8_t spa
                                                                      AvmMemoryTag read_tag,
                                                                      AvmMemoryTag write_tag,
                                                                      IntermRegister reg,
-                                                                     bool is_gadget_mem_op)
+                                                                     AvmMemTraceBuilder::MemOpOwner mem_op_owner)
 {
     // Get the same matching indirect register for the given intermediate register.
     // This is a hack that we can replace with a mapping of IntermediateRegister to IndirectRegister.
@@ -239,13 +239,7 @@ AvmTraceBuilder::MemOp AvmTraceBuilder::constrained_read_from_memory(uint8_t spa
         direct_offset = uint32_t(read_ind.val);
     }
     auto read_dir = mem_trace_builder.read_and_load_from_memory(
-        space_id,
-        clk,
-        reg,
-        direct_offset,
-        read_tag,
-        write_tag,
-        is_gadget_mem_op ? AvmMemTraceBuilder::MemOpOwner::POSEIDON2 : AvmMemTraceBuilder::MAIN);
+        space_id, clk, reg, direct_offset, read_tag, write_tag, mem_op_owner);
 
     return MemOp{
         .is_indirect = is_indirect,
@@ -269,7 +263,7 @@ AvmTraceBuilder::MemOp AvmTraceBuilder::constrained_write_to_memory(uint8_t spac
                                                                     AvmMemoryTag read_tag,
                                                                     AvmMemoryTag write_tag,
                                                                     IntermRegister reg,
-                                                                    bool is_gadget_mem_op)
+                                                                    AvmMemTraceBuilder::MemOpOwner mem_op_owner)
 {
     auto indirect_reg = static_cast<IndirectRegister>(reg);
     uint32_t direct_offset = addr.offset;
@@ -286,14 +280,7 @@ AvmTraceBuilder::MemOp AvmTraceBuilder::constrained_write_to_memory(uint8_t spac
         }
         direct_offset = uint32_t(read_ind.val);
     }
-    mem_trace_builder.write_into_memory(space_id,
-                                        clk,
-                                        reg,
-                                        direct_offset,
-                                        value,
-                                        read_tag,
-                                        write_tag,
-                                        is_gadget_mem_op ? AvmMemTraceBuilder::POSEIDON2 : AvmMemTraceBuilder::MAIN);
+    mem_trace_builder.write_into_memory(space_id, clk, reg, direct_offset, value, read_tag, write_tag, mem_op_owner);
     return MemOp{ .is_indirect = is_indirect,
                   .indirect_address = indirect_offset,
                   .direct_address = direct_offset,
@@ -2983,14 +2970,34 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
     // even though they are "performed" by the gadget.
     AddressWithMode direct_src_offset = { AddressingMode::DIRECT, direct_input_offset };
     // This is because passing the mem_builder to the gadget causes some issues regarding copy-move semantics in cpp
-    auto read_a = constrained_read_from_memory(
-        call_ptr, clk, direct_src_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA, true);
-    auto read_b = constrained_read_from_memory(
-        call_ptr, clk, direct_src_offset + 1, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IB, true);
-    auto read_c = constrained_read_from_memory(
-        call_ptr, clk, direct_src_offset + 2, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC, true);
-    auto read_d = constrained_read_from_memory(
-        call_ptr, clk, direct_src_offset + 3, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::ID, true);
+    auto read_a = constrained_read_from_memory(call_ptr,
+                                               clk,
+                                               direct_src_offset,
+                                               AvmMemoryTag::FF,
+                                               AvmMemoryTag::FF,
+                                               IntermRegister::IA,
+                                               AvmMemTraceBuilder::POSEIDON2);
+    auto read_b = constrained_read_from_memory(call_ptr,
+                                               clk,
+                                               direct_src_offset + 1,
+                                               AvmMemoryTag::FF,
+                                               AvmMemoryTag::FF,
+                                               IntermRegister::IB,
+                                               AvmMemTraceBuilder::POSEIDON2);
+    auto read_c = constrained_read_from_memory(call_ptr,
+                                               clk,
+                                               direct_src_offset + 2,
+                                               AvmMemoryTag::FF,
+                                               AvmMemoryTag::FF,
+                                               IntermRegister::IC,
+                                               AvmMemTraceBuilder::POSEIDON2);
+    auto read_d = constrained_read_from_memory(call_ptr,
+                                               clk,
+                                               direct_src_offset + 3,
+                                               AvmMemoryTag::FF,
+                                               AvmMemoryTag::FF,
+                                               IntermRegister::ID,
+                                               AvmMemTraceBuilder::POSEIDON2);
 
     std::array<FF, 4> input = { read_a.val, read_b.val, read_c.val, read_d.val };
     std::array<FF, 4> result =
@@ -3002,8 +3009,14 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
     }
     // Write the result to memory after, see the comments at read to understand why this happens here.
     AddressWithMode direct_dst_offset = { AddressingMode::DIRECT, direct_output_offset };
-    constrained_write_to_memory(
-        call_ptr, clk, direct_dst_offset, ff_result[0], AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA, true);
+    constrained_write_to_memory(call_ptr,
+                                clk,
+                                direct_dst_offset,
+                                ff_result[0],
+                                AvmMemoryTag::FF,
+                                AvmMemoryTag::FF,
+                                IntermRegister::IA,
+                                AvmMemTraceBuilder::POSEIDON2);
     constrained_write_to_memory(call_ptr,
                                 clk,
                                 direct_dst_offset + 1,
@@ -3011,7 +3024,7 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                 AvmMemoryTag::FF,
                                 AvmMemoryTag::FF,
                                 IntermRegister::IB,
-                                true);
+                                AvmMemTraceBuilder::POSEIDON2);
     constrained_write_to_memory(call_ptr,
                                 clk,
                                 direct_dst_offset + 2,
@@ -3019,7 +3032,7 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                 AvmMemoryTag::FF,
                                 AvmMemoryTag::FF,
                                 IntermRegister::IC,
-                                true);
+                                AvmMemTraceBuilder::POSEIDON2);
 
     constrained_write_to_memory(call_ptr,
                                 clk,
@@ -3028,7 +3041,7 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
                                 AvmMemoryTag::FF,
                                 AvmMemoryTag::FF,
                                 IntermRegister::ID,
-                                true);
+                                AvmMemTraceBuilder::POSEIDON2);
 }
 
 /**
@@ -3991,38 +4004,28 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         if (!src.m_sel_op_slice) {
             switch (src.m_sub_clk) {
             case AvmMemTraceBuilder::SUB_CLK_LOAD_A:
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_read_a = 1 : dest.mem_sel_op_a = 1;
+                break;
             case AvmMemTraceBuilder::SUB_CLK_STORE_A:
-                // TODO: This is temporary, since we need to distinguish between gadget and main trace reads
-                // in future it would be nice to place this inside the mem_trace_builder
-                if (src.gadget_mem_op) {
-                    dest.mem_sel_op_gadget_a = 1;
-                } else {
-                    dest.mem_sel_op_a = 1;
-                }
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_write_a = 1 : dest.mem_sel_op_a = 1;
                 break;
             case AvmMemTraceBuilder::SUB_CLK_LOAD_B:
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_read_b = 1 : dest.mem_sel_op_b = 1;
+                break;
             case AvmMemTraceBuilder::SUB_CLK_STORE_B:
-                if (src.gadget_mem_op) {
-                    dest.mem_sel_op_gadget_b = 1;
-                } else {
-                    dest.mem_sel_op_b = 1;
-                }
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_write_b = 1 : dest.mem_sel_op_b = 1;
                 break;
             case AvmMemTraceBuilder::SUB_CLK_LOAD_C:
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_read_c = 1 : dest.mem_sel_op_c = 1;
+                break;
             case AvmMemTraceBuilder::SUB_CLK_STORE_C:
-                if (src.gadget_mem_op) {
-                    dest.mem_sel_op_gadget_c = 1;
-                } else {
-                    dest.mem_sel_op_c = 1;
-                }
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_write_c = 1 : dest.mem_sel_op_c = 1;
                 break;
             case AvmMemTraceBuilder::SUB_CLK_LOAD_D:
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_read_d = 1 : dest.mem_sel_op_d = 1;
+                break;
             case AvmMemTraceBuilder::SUB_CLK_STORE_D:
-                if (src.gadget_mem_op) {
-                    dest.mem_sel_op_gadget_d = 1;
-                } else {
-                    dest.mem_sel_op_d = 1;
-                }
+                src.poseidon_mem_op ? dest.mem_sel_op_poseidon_write_d = 1 : dest.mem_sel_op_d = 1;
                 break;
             case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_A:
                 dest.mem_sel_resolve_ind_addr_a = 1;
@@ -4261,14 +4264,11 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
 
     // Add Poseidon2 Gadget table
     for (size_t i = 0; i < poseidon2_trace_size; i++) {
-        auto& dest = main_trace.at(2 * i);
-        auto& write_row = main_trace.at(2 * i + 1);
+        auto& dest = main_trace.at(i);
         auto const& src = poseidon2_trace.at(i);
-        auto canonical_trace_rows = bb::avm_trace::AvmPoseidon2TraceBuilder::into_canonical(src);
+        auto canonical_trace_row = bb::avm_trace::AvmPoseidon2TraceBuilder::into_canonical(src);
         dest.poseidon2_clk = FF(src.clk);
-        poseidon2_trace_builder.merge_into(dest, canonical_trace_rows.first);
-        write_row.poseidon2_clk = FF(src.clk);
-        poseidon2_trace_builder.merge_into(write_row, canonical_trace_rows.second);
+        poseidon2_trace_builder.merge_into(dest, canonical_trace_row);
     }
 
     // Add KeccakF1600 Gadget table

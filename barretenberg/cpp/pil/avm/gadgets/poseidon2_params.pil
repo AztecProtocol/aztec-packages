@@ -1,4 +1,4 @@
-
+// Values taken from barretenberg/crypto/poseidon2/poseidon2_params.hpp 
 
 // Parameters for Poseidon for bn254.
 // 64 total rounds (8 full rounds and 56 partial rounds)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/vm/avm/generated/relations/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 
 #include <array>
@@ -10,7 +11,7 @@ namespace bb::avm_trace {
 
 class AvmPoseidon2TraceBuilder {
   public:
-    using Poseidon2Row = bb::avm_trace::Poseidon2Row<FF>;
+    using Poseidon2Row = bb::Avm_vm::Poseidon2Row<FF>;
     struct Poseidon2TraceEntry {
         uint32_t clk = 0;
         std::array<FF, 4> input;
@@ -31,24 +32,8 @@ class AvmPoseidon2TraceBuilder {
                                             uint32_t input_addr,
                                             uint32_t output_addr);
 
-    std::pair<Poseidon2Row, Poseidon2Row> static into_canonical(Poseidon2TraceEntry const& src)
+    Poseidon2Row static into_canonical(Poseidon2TraceEntry const& src)
     {
-        // The secondary write row, which is used to write the output of the permutation to memory
-        Poseidon2Row write_row;
-        write_row.poseidon2_a_0 = src.output[0];
-        write_row.poseidon2_a_1 = src.output[1];
-        write_row.poseidon2_a_2 = src.output[2];
-        write_row.poseidon2_a_3 = src.output[3];
-        write_row.poseidon2_input_addr = src.input_addr;
-        write_row.poseidon2_output_addr = src.output_addr;
-        write_row.poseidon2_write_line = FF(1);
-        write_row.poseidon2_mem_op = FF(1);
-        write_row.poseidon2_mem_addr_a = src.output_addr;
-        write_row.poseidon2_mem_addr_b = src.output_addr + 1;
-        write_row.poseidon2_mem_addr_c = src.output_addr + 2;
-        write_row.poseidon2_mem_addr_d = src.output_addr + 3;
-        write_row.poseidon2_in_tag = FF(6);
-
         // The primary input row, which is used to read the input of the permutation from memory
         Poseidon2Row dest;
         // Mem Stuff
@@ -56,16 +41,21 @@ class AvmPoseidon2TraceBuilder {
         dest.poseidon2_a_1 = src.input[1];
         dest.poseidon2_a_2 = src.input[2];
         dest.poseidon2_a_3 = src.input[3];
+        dest.poseidon2_b_0 = src.output[0];
+        dest.poseidon2_b_1 = src.output[1];
+        dest.poseidon2_b_2 = src.output[2];
+        dest.poseidon2_b_3 = src.output[3];
         dest.poseidon2_input_addr = src.input_addr;
         dest.poseidon2_output_addr = src.output_addr;
-        dest.poseidon2_mem_addr_a = src.input_addr;
-        dest.poseidon2_mem_addr_b = src.input_addr + 1;
-        dest.poseidon2_mem_addr_c = src.input_addr + 2;
-        dest.poseidon2_mem_addr_d = src.input_addr + 3;
-        dest.poseidon2_mem_op = FF(1);
-        dest.poseidon2_read_line = FF(1);
+        dest.poseidon2_mem_addr_read_a = src.input_addr;
+        dest.poseidon2_mem_addr_read_b = src.input_addr + 1;
+        dest.poseidon2_mem_addr_read_c = src.input_addr + 2;
+        dest.poseidon2_mem_addr_read_d = src.input_addr + 3;
+        dest.poseidon2_mem_addr_write_a = src.output_addr;
+        dest.poseidon2_mem_addr_write_b = src.output_addr + 1;
+        dest.poseidon2_mem_addr_write_c = src.output_addr + 2;
+        dest.poseidon2_mem_addr_write_d = src.output_addr + 3;
         dest.poseidon2_sel_poseidon_perm = FF(1);
-        dest.poseidon2_in_tag = FF(6);
         // First Ext Round
         dest.poseidon2_EXT_LAYER_6 = src.first_ext[0];
         dest.poseidon2_EXT_LAYER_5 = src.first_ext[1];
@@ -334,11 +324,30 @@ class AvmPoseidon2TraceBuilder {
         dest.poseidon2_T_63_7 = src.interm_round_vals[63][2];
         dest.poseidon2_T_63_4 = src.interm_round_vals[63][3];
 
-        return { dest, write_row };
+        return dest;
     }
 
     template <typename DestRow> void merge_into(DestRow& dest, Poseidon2Row const& src)
     {
+        dest.poseidon2_a_0 = src.poseidon2_a_0;
+        dest.poseidon2_a_1 = src.poseidon2_a_1;
+        dest.poseidon2_a_2 = src.poseidon2_a_2;
+        dest.poseidon2_a_3 = src.poseidon2_a_3;
+        dest.poseidon2_b_0 = src.poseidon2_b_0;
+        dest.poseidon2_b_1 = src.poseidon2_b_1;
+        dest.poseidon2_b_2 = src.poseidon2_b_2;
+        dest.poseidon2_b_3 = src.poseidon2_b_3;
+        dest.poseidon2_input_addr = src.poseidon2_input_addr;
+        dest.poseidon2_output_addr = src.poseidon2_output_addr;
+        dest.poseidon2_mem_addr_read_a = src.poseidon2_mem_addr_read_a;
+        dest.poseidon2_mem_addr_read_b = src.poseidon2_mem_addr_read_b;
+        dest.poseidon2_mem_addr_read_c = src.poseidon2_mem_addr_read_c;
+        dest.poseidon2_mem_addr_read_d = src.poseidon2_mem_addr_read_d;
+        dest.poseidon2_mem_addr_write_a = src.poseidon2_mem_addr_write_a;
+        dest.poseidon2_mem_addr_write_b = src.poseidon2_mem_addr_write_b;
+        dest.poseidon2_mem_addr_write_c = src.poseidon2_mem_addr_write_c;
+        dest.poseidon2_mem_addr_write_d = src.poseidon2_mem_addr_write_d;
+        dest.poseidon2_sel_poseidon_perm = src.poseidon2_sel_poseidon_perm;
         dest.poseidon2_B_10_0 = src.poseidon2_B_10_0;
         dest.poseidon2_B_10_1 = src.poseidon2_B_10_1;
         dest.poseidon2_B_10_2 = src.poseidon2_B_10_2;
@@ -595,21 +604,6 @@ class AvmPoseidon2TraceBuilder {
         dest.poseidon2_T_63_5 = src.poseidon2_T_63_5;
         dest.poseidon2_T_63_6 = src.poseidon2_T_63_6;
         dest.poseidon2_T_63_7 = src.poseidon2_T_63_7;
-        dest.poseidon2_a_0 = src.poseidon2_a_0;
-        dest.poseidon2_a_1 = src.poseidon2_a_1;
-        dest.poseidon2_a_2 = src.poseidon2_a_2;
-        dest.poseidon2_a_3 = src.poseidon2_a_3;
-        dest.poseidon2_input_addr = src.poseidon2_input_addr;
-        dest.poseidon2_mem_addr_a = src.poseidon2_mem_addr_a;
-        dest.poseidon2_mem_addr_b = src.poseidon2_mem_addr_b;
-        dest.poseidon2_mem_addr_c = src.poseidon2_mem_addr_c;
-        dest.poseidon2_mem_addr_d = src.poseidon2_mem_addr_d;
-        dest.poseidon2_mem_op = src.poseidon2_mem_op;
-        dest.poseidon2_output_addr = src.poseidon2_output_addr;
-        dest.poseidon2_read_line = src.poseidon2_read_line;
-        dest.poseidon2_sel_poseidon_perm = src.poseidon2_sel_poseidon_perm;
-        dest.poseidon2_write_line = src.poseidon2_write_line;
-        dest.poseidon2_in_tag = src.poseidon2_in_tag;
         dest.poseidon2_EXT_LAYER_6 = src.poseidon2_EXT_LAYER_6;
         dest.poseidon2_EXT_LAYER_5 = src.poseidon2_EXT_LAYER_5;
         dest.poseidon2_EXT_LAYER_7 = src.poseidon2_EXT_LAYER_7;

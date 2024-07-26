@@ -12,6 +12,7 @@ namespace bb {
 template <typename FF> struct AvmFullRow {
     FF main_clk{};
     FF main_sel_first{};
+    FF main_zeroes{};
     FF kernel_kernel_inputs{};
     FF kernel_kernel_value_out{};
     FF kernel_kernel_side_effect_out{};
@@ -282,10 +283,14 @@ template <typename FF> struct AvmFullRow {
     FF mem_sel_op_c{};
     FF mem_sel_op_cmov{};
     FF mem_sel_op_d{};
-    FF mem_sel_op_gadget_a{};
-    FF mem_sel_op_gadget_b{};
-    FF mem_sel_op_gadget_c{};
-    FF mem_sel_op_gadget_d{};
+    FF mem_sel_op_poseidon_read_a{};
+    FF mem_sel_op_poseidon_read_b{};
+    FF mem_sel_op_poseidon_read_c{};
+    FF mem_sel_op_poseidon_read_d{};
+    FF mem_sel_op_poseidon_write_a{};
+    FF mem_sel_op_poseidon_write_b{};
+    FF mem_sel_op_poseidon_write_c{};
+    FF mem_sel_op_poseidon_write_d{};
     FF mem_sel_op_slice{};
     FF mem_sel_resolve_ind_addr_a{};
     FF mem_sel_resolve_ind_addr_b{};
@@ -572,17 +577,17 @@ template <typename FF> struct AvmFullRow {
     FF poseidon2_b_2{};
     FF poseidon2_b_3{};
     FF poseidon2_clk{};
-    FF poseidon2_in_tag{};
     FF poseidon2_input_addr{};
-    FF poseidon2_mem_addr_a{};
-    FF poseidon2_mem_addr_b{};
-    FF poseidon2_mem_addr_c{};
-    FF poseidon2_mem_addr_d{};
-    FF poseidon2_mem_op{};
+    FF poseidon2_mem_addr_read_a{};
+    FF poseidon2_mem_addr_read_b{};
+    FF poseidon2_mem_addr_read_c{};
+    FF poseidon2_mem_addr_read_d{};
+    FF poseidon2_mem_addr_write_a{};
+    FF poseidon2_mem_addr_write_b{};
+    FF poseidon2_mem_addr_write_c{};
+    FF poseidon2_mem_addr_write_d{};
     FF poseidon2_output_addr{};
-    FF poseidon2_read_line{};
     FF poseidon2_sel_poseidon_perm{};
-    FF poseidon2_write_line{};
     FF powers_power_of_2{};
     FF sha256_clk{};
     FF sha256_input{};
@@ -600,10 +605,14 @@ template <typename FF> struct AvmFullRow {
     FF slice_sel_start{};
     FF slice_space_id{};
     FF slice_val{};
-    FF perm_pos_mem_a{};
-    FF perm_pos_mem_b{};
-    FF perm_pos_mem_c{};
-    FF perm_pos_mem_d{};
+    FF perm_pos_mem_read_a{};
+    FF perm_pos_mem_read_b{};
+    FF perm_pos_mem_read_c{};
+    FF perm_pos_mem_read_d{};
+    FF perm_pos_mem_write_a{};
+    FF perm_pos_mem_write_b{};
+    FF perm_pos_mem_write_c{};
+    FF perm_pos_mem_write_d{};
     FF perm_slice_mem{};
     FF perm_main_alu{};
     FF perm_main_bin{};
@@ -709,7 +718,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 695;
+    static constexpr size_t SIZE = 704;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

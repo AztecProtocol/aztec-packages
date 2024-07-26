@@ -45,7 +45,7 @@ class AvmMemTraceBuilder {
         bool m_tag_err_count_relevant = false;
         bool m_sel_op_slice = false;
 
-        bool gadget_mem_op = false;
+        bool poseidon_mem_op = false;
 
         /**
          * @brief A comparator on MemoryTraceEntry to be used by sorting algorithm. We sort first by

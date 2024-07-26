@@ -1,3 +1,4 @@
+// Implementation based on https://eprint.iacr.org/2023/323.pdf
 include "poseidon2_params.pil";
 
 namespace poseidon2(256);
@@ -8,45 +9,32 @@ namespace poseidon2(256);
     pol commit sel_poseidon_perm;
     // Selector is boolean
     sel_poseidon_perm * (1 - sel_poseidon_perm) = 0;
-    // If poseidon_sel is set, it cannot be set on the next row
-    sel_poseidon_perm * sel_poseidon_perm' = 0;
-
-    // Each poseidon2 invocation involves two rows,
-    // (1) A read line where 4 input values are loaded from memory
-    // (2) A write line where 4 output values are written to memory
-    pol commit read_line;
-    pol commit write_line;
-    // Line selectors are boolean values
-    read_line * (1 - read_line) = 0;
-    write_line * (1 - write_line) = 0;
-    // If poseidon_perm is selected, the current line is a read line and the next one is a write line
-    sel_poseidon_perm - read_line = 0;
-    sel_poseidon_perm - write_line' = 0;
-
-    // Trivially on for all lines
-    pol commit mem_op;
-    mem_op = read_line + write_line;
-    // Read + Write must be mutual exclusive (todo: This should be enforceable by instruction decomposition)
-    mem_op * (1 - mem_op) = 0;
-
-    // Constrain read and write tag to be FF
-    pol commit in_tag;
-    mem_op * (in_tag - 6) = 0;
 
     // The initial mem address for inputs or output
     pol commit input_addr;
     pol commit output_addr;
 
     // Address that is loaded by the gadget memory operations
-    pol commit mem_addr_a;
-    pol commit mem_addr_b;
-    pol commit mem_addr_c;
-    pol commit mem_addr_d;
+    pol commit mem_addr_read_a;
+    pol commit mem_addr_read_b;
+    pol commit mem_addr_read_c;
+    pol commit mem_addr_read_d;
+    // Address that is written by the gadget memory operations
+    pol commit mem_addr_write_a;
+    pol commit mem_addr_write_b;
+    pol commit mem_addr_write_c;
+    pol commit mem_addr_write_d;
+
     // Accessed read / write addresses are contiguous blocks
-    mem_op * (mem_addr_a - (read_line * input_addr + write_line * output_addr)) = 0;
-    mem_op * (mem_addr_b - (read_line * input_addr + write_line * output_addr + 1)) = 0;
-    mem_op * (mem_addr_c - (read_line * input_addr + write_line * output_addr + 2)) = 0;
-    mem_op * (mem_addr_d - (read_line * input_addr + write_line * output_addr + 3)) = 0;
+    sel_poseidon_perm * (mem_addr_read_a - input_addr) = 0;
+    sel_poseidon_perm * (mem_addr_read_b - (input_addr + 1)) = 0;
+    sel_poseidon_perm * (mem_addr_read_c - (input_addr + 2)) = 0;
+    sel_poseidon_perm * (mem_addr_read_d - (input_addr + 3)) = 0;
+
+    sel_poseidon_perm * (mem_addr_write_a - output_addr) = 0;
+    sel_poseidon_perm * (mem_addr_write_b - (output_addr + 1)) = 0;
+    sel_poseidon_perm * (mem_addr_write_c - (output_addr + 2)) = 0;
+    sel_poseidon_perm * (mem_addr_write_d - (output_addr + 3)) = 0;
 
     // The input values are represented by a_0, a_1, a_2, a_3
     pol commit a_0;
@@ -54,34 +42,55 @@ namespace poseidon2(256);
     pol commit a_2;
     pol commit a_3;
 
-
-    #[PERM_POS_MEM_A]
-    mem_op {clk, main.space_id, mem_addr_a, a_0, write_line, in_tag, in_tag}
-    is
-    mem.sel_op_gadget_a {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw, mem.r_in_tag, mem.w_in_tag};
-
-    #[PERM_POS_MEM_B]
-    mem_op {clk, main.space_id, mem_addr_b, a_1, write_line, in_tag, in_tag}
-    is
-    mem.sel_op_gadget_b {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw, mem.r_in_tag, mem.w_in_tag};
-
-    #[PERM_POS_MEM_C]
-    mem_op {clk, main.space_id, mem_addr_c, a_2, write_line, in_tag, in_tag}
-    is
-    mem.sel_op_gadget_c {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw, mem.r_in_tag, mem.w_in_tag};
-
-    #[PERM_POS_MEM_D]
-    mem_op {clk, main.space_id, mem_addr_d, a_3, write_line, in_tag, in_tag}
-    is
-    mem.sel_op_gadget_d {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw, mem.r_in_tag, mem.w_in_tag};
-
     // Output values represented by b_0, b_1, b_2, b_3
     pol commit b_0;
     pol commit b_1;
     pol commit b_2;
     pol commit b_3;
 
-    // Intermediate helper values denoted by T_{id};
+    // ==== READ MEM OPS =====
+    #[PERM_POS_MEM_READ_A]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_read_a, a_0, main.zeroes}
+    is
+    mem.sel_op_poseidon_read_a {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    #[PERM_POS_MEM_READ_B]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_read_b, a_1, main.zeroes}
+    is
+    mem.sel_op_poseidon_read_b {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    #[PERM_POS_MEM_READ_C]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_read_c, a_2, main.zeroes}
+    is
+    mem.sel_op_poseidon_read_c {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    #[PERM_POS_MEM_READ_D]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_read_d, a_3, main.zeroes}
+    is
+    mem.sel_op_poseidon_read_d {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    //// ==== WRITE MEM OPS =====
+    #[PERM_POS_MEM_WRITE_A]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_write_a, b_0, sel_poseidon_perm}
+    is
+    mem.sel_op_poseidon_write_a {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    #[PERM_POS_MEM_WRITE_B]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_write_b, b_1, sel_poseidon_perm}
+    is
+    mem.sel_op_poseidon_write_b {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    #[PERM_POS_MEM_WRITE_C]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_write_c, b_2, sel_poseidon_perm}
+    is
+    mem.sel_op_poseidon_write_c {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    #[PERM_POS_MEM_WRITE_D]
+    sel_poseidon_perm {clk, main.space_id, mem_addr_write_d, b_3, sel_poseidon_perm}
+    is
+    mem.sel_op_poseidon_write_d {mem.clk, mem.space_id, mem.addr, mem.val, mem.rw};
+
+    // Intermediate helper values denoted by T_{id} - based on Appendix B of https://eprint.iacr.org/2023/323.pdf;
     // T_0 = a_0 + a_1;
     // T_1 = a_2 + a_3;
     // T_2 = 2 * a_1 + T_0;
@@ -112,7 +121,7 @@ namespace poseidon2(256);
     
 
     /////////////////////////////////////////////////////
-    // START FULL ROUND (4 ROUNDS)
+    // START FULL ROUNDS (4 ROUNDS)
     /////////////////////////////////////////////////////
     // Round 1 (Full Round)
     // ARK (Add Round Constant)
@@ -1687,7 +1696,7 @@ namespace poseidon2(256);
     sel_poseidon_perm * (B_59_3 - (poseidon2_params.MU_3 * A_59_3 + SUM_59)) = 0;
 
     /////////////////////////////////////////////////////
-    // FINAL FULL ROUND (4 ROUNDS)
+    // FINAL FULL ROUNDS (4 ROUNDS)
     /////////////////////////////////////////////////////
     // Round 61 (Full Round)
     // ARK (Add Round Constant)
@@ -1805,7 +1814,7 @@ namespace poseidon2(256);
     // PERMUTATION END
     /////////////////////////////////////////////////////
     // Check output against claimed output
-    sel_poseidon_perm * (a_0' - T_63_6) = 0;
-    sel_poseidon_perm * (a_1' - T_63_5) = 0;
-    sel_poseidon_perm * (a_2' - T_63_7) = 0;
-    sel_poseidon_perm * (a_3' - T_63_4) = 0;
+    sel_poseidon_perm * (b_0 - T_63_6) = 0;
+    sel_poseidon_perm * (b_1 - T_63_5) = 0;
+    sel_poseidon_perm * (b_2 - T_63_7) = 0;
+    sel_poseidon_perm * (b_3 - T_63_4) = 0;
