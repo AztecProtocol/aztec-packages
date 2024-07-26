@@ -63,11 +63,11 @@ https://github.com/AztecProtocol/aztec-packages/blob/1a97698071a667cd56510c7b720
 
 For commands which allow you to send the output to a file using `-o {filePath}`, there is also the option to send the output to stdout by using `-o -`.
 
-#### Example: proving and verifying with Honk
+#### Usage with UltraHonk
 
 Documented with Noir v0.32.0 <> BB v0.46.1:
 
-##### UltraHonk
+##### Proving and verifying
 
 1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
 
@@ -93,7 +93,31 @@ Documented with Noir v0.32.0 <> BB v0.46.1:
 
 Refer to all available `bb` commands linked above for full list of functionality.
 
-##### MegaHonk
+##### Generating Solidity verifier
+
+TODO: Confirm and update this workflow after the next BB version after v0.47.0 is released, as the functionality is only available from that release onwards. 
+
+1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
+
+2. Prove the valid execution of your Noir program running:
+
+    ```bash
+    bb prove_keccak_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+    ```
+    
+3. Compute the verification key for your Noir program running:
+
+    ```bash
+    bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+    ```
+
+4. Generate Solidity verifier
+
+    ```bash
+    bb contract_ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
+    ```
+
+#### Usage with MegaHonk
 
 Use `bb <command>_mega_honk`.
 
