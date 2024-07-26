@@ -3,7 +3,7 @@ mod test;
 
 // Minimal token implementation that supports `AuthWit` accounts and private refunds
 
-contract PrivateToken {
+contract TokenWithRefunds {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
         note::utils::compute_slotted_note_hash_raw, hash::compute_secret_hash,
@@ -97,7 +97,7 @@ contract PrivateToken {
         let header = context.get_header();
         let caller_npk_m_hash = header.get_npk_m_hash(&mut context, caller);
         storage.balances.add(caller_npk_m_hash, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, caller));
-        PrivateToken::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
+        TokenWithRefunds::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     #[aztec(public)]
@@ -204,13 +204,6 @@ contract PrivateToken {
         // We use 1:1 exchange rate between fee juice and token. So using `tx_fee` is enough
         let tx_fee = context.transaction_fee();
         let (fee_payer_note_hiding_point, user_note_hiding_point) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
-
-        // 2. Now we "manually" compute the slotted note hashes.
-        let fee_payer_slotted_note_hash = compute_slotted_note_hash_raw(
-            PrivateToken::storage().balances.slot,
-            fee_payer_note_hiding_point
-        );
-        let user_slotted_note_hash = compute_slotted_note_hash_raw(PrivateToken::storage().balances.slot, user_note_hiding_point);
 
         // 3. At last we emit the note hashes.
         context.push_note_hash(fee_payer_slotted_note_hash);
