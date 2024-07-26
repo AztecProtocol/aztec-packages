@@ -353,3 +353,19 @@ export function parseField(field: string): Fr {
 export function parseFields(fields: string[]): Fr[] {
   return fields.map(parseField);
 }
+
+export function stringify(data: Record<string, any>): string {
+  return JSON.stringify(
+    data,
+    (_key, val) => {
+      if (typeof val === 'bigint') {
+        return String(val);
+      } else if (val instanceof Fr || val instanceof AztecAddress || val instanceof EthAddress) {
+        return val.toString();
+      } else {
+        return val;
+      }
+    },
+    2,
+  );
+}
