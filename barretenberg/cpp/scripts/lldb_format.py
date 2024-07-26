@@ -15,7 +15,6 @@ def montgomery_to_standard(montgomery_value):
     return standard_value
 
 def montgomery_summary(valobj, internal_dict):
-    R_inv = pow(R, -1, N)
     try:
         data = valobj.GetChildMemberWithName('data')
         data_0 = data.GetChildAtIndex(0).GetValueAsUnsigned()
