@@ -1,11 +1,6 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { GeneratorIndex, KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import {
-  computeNoteHidingPoint,
-  computeSlottedNoteHash,
-  computeUniqueNoteHash,
-  siloNoteHash,
-} from '@aztec/circuits.js/hash';
+import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -16,6 +11,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
+import { computeNoteHidingPoint, computeSlottedNoteHash } from './test_utils.js';
 
 describe('Simulator', () => {
   let oracle: MockProxy<DBOracle>;

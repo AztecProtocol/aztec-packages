@@ -34,9 +34,7 @@ import {
 } from '@aztec/circuits.js';
 import {
   computeNoteHashNonce,
-  computeNoteHidingPoint,
   computeSecretHash,
-  computeSlottedNoteHash,
   computeVarArgsHash,
   deriveStorageSlotInMap,
 } from '@aztec/circuits.js/hash';
@@ -76,6 +74,7 @@ import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
 import { CountedPublicExecutionRequest, type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
+import { computeNoteHidingPoint, computeSlottedNoteHash } from './test_utils.js';
 
 jest.setTimeout(60_000);
 

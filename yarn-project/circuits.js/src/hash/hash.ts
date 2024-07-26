@@ -1,12 +1,11 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
-import { Fq, Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
-import { Grumpkin } from '../barretenberg/index.js';
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
 import { VerificationKey } from '../structs/index.js';
 
@@ -50,39 +49,6 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
   return pedersenHash([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
-}
-
-const G_SLOT = new Point(
-  new Fr(0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15n),
-  new Fr(0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791n),
-  false,
-);
-
-/**
- * Computes a note hiding point as is done by the default implementation injected by macros.
- * @param noteContent - The note content (e.g. note.items).
- * @returns A note hiding point.
- * TODO(#7551): Not sure about having this function here given that different notes have different ways
- * of computing the note hiding points.
- */
-export function computeNoteHidingPoint(noteContent: Fr[]): Point {
-  // TODO(#7551): how this is computed will need to be updated
-  const h = pedersenHash(noteContent, GeneratorIndex.NOTE_HIDING_POINT);
-  const grumpkin = new Grumpkin();
-  return grumpkin.mul(G_SLOT, new Fq(h.toBigInt()));
-}
-
-/**
- * Computes an slotted note hash, given a storage slot and a note hiding point.
- * @param storageSlot - The storage slot.
- * @param noteHidingPoint - The note hiding point.
- * @returns A slotted note hash.
- */
-export function computeSlottedNoteHash(storageSlot: Fr, noteHidingPoint: Point): Fr {
-  const grumpkin = new Grumpkin();
-  const storageSlotPoint = grumpkin.mul(G_SLOT, new Fq(storageSlot.toBigInt()));
-  const slottedNoteHidingPoint = grumpkin.add(storageSlotPoint, noteHidingPoint);
-  return slottedNoteHidingPoint.x;
 }
 
 /**
