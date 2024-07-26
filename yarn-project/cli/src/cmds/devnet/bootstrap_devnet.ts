@@ -15,7 +15,6 @@ import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from '../../client.js';
-import { FeeJuicePortalManager } from '../../portal_manager.js';
 
 export async function bootstrapDevnet(
   pxeUrl: string,
@@ -44,10 +43,7 @@ export async function bootstrapDevnet(
   await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridgeAddress);
 
   const fpcAddress = await deployFPC(wallet, tokenAddress);
-
   const counterAddress = await deployCounter(wallet);
-
-  await fundFPC(counterAddress, wallet, l1Clients, fpcAddress, debugLog);
 
   if (json) {
     log(
@@ -175,37 +171,4 @@ async function deployCounter(wallet: Wallet): Promise<AztecAddress> {
   const { CounterContract } = await import('@aztec/noir-contracts.js');
   const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress()).send().deployed();
   return counter.address;
-}
-
-async function fundFPC(
-  counterAddress: AztecAddress,
-  wallet: Wallet,
-  l1Clients: L1Clients,
-  fpcAddress: AztecAddress,
-  debugLog: DebugLogger,
-) {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { GasTokenContract, CounterContract } = await import('@aztec/noir-contracts.js');
-  const {
-    protocolContractAddresses: { gasToken },
-  } = await wallet.getPXEInfo();
-  const gasTokenContract = await GasTokenContract.at(gasToken, wallet);
-
-  const feeJuicePortal = await FeeJuicePortalManager.create(
-    wallet,
-    l1Clients.publicClient,
-    l1Clients.walletClient,
-    debugLog,
-  );
-
-  const amount = 1_000_000_000_000n;
-  const { secret } = await feeJuicePortal.prepareTokensOnL1(amount, amount, fpcAddress, true);
-
-  const counter = await CounterContract.at(counterAddress, wallet);
-
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-
-  await gasTokenContract.methods.claim(fpcAddress, amount, secret).send().wait();
 }
