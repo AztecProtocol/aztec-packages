@@ -1,10 +1,7 @@
 use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd},
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::{
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-    point::Point, scalar::Scalar, hash::poseidon2_hash
-},
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, scalar::Scalar, hash::poseidon2_hash},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
 };
