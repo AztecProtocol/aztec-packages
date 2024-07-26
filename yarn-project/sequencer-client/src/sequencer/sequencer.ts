@@ -198,7 +198,7 @@ export class Sequencer {
       const elapsedSinceLastBlock = currentTime - lastBlockTime;
 
       // Do not go forward with new block if not enough time has passed since last block
-      if (elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
+      if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
         this.log.debug(
           `Not creating block because not enough time has passed since last block (last block at ${lastBlockTime} current time ${currentTime})`,
         );
