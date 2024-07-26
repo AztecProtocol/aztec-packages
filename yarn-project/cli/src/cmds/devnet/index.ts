@@ -42,9 +42,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .requiredOption('-u, --faucet-url <string>', 'Url of the faucet', 'http://localhost:8082')
     .requiredOption('-t, --token <string>', 'The asset to drip', 'eth')
     .requiredOption('-a, --address <string>', 'The Ethereum address to drip to', parseEthereumAddress)
+    .option('--json', 'Output the result as JSON')
     .action(async options => {
       const { dripFaucet } = await import('./faucet.js');
-      await dripFaucet(options.faucetUrl, options.token, options.address, log);
+      await dripFaucet(options.faucetUrl, options.token, options.address, options.json, log);
     });
 
   return program;
