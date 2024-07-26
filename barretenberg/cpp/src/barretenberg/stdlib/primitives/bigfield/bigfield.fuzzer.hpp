@@ -1783,7 +1783,7 @@ template <typename Builder> class BigFieldBase {
             (void)builder;
             (void)stack;
 
-            VarianceRNG.reseed(instruction.arguments.randomseed); // Why exactly?
+            VarianceRNG.reseed(instruction.arguments.randomseed);
             return 0;
         };
     };
