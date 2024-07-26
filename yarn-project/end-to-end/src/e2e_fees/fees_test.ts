@@ -244,7 +244,7 @@ export class FeesTest {
 
   async applyPrivateTokenAndFPC() {
     await this.snapshotManager.snapshot(
-      'private_token_and_private_fpc',
+      'token_with_refunds_and_private_fpc',
       async context => {
         // Deploy token/fpc flavors for private refunds
         const gasTokenContract = this.gasBridgeTestHarness.l2Token;
@@ -350,7 +350,7 @@ export class FeesTest {
 
   public async applyFundAliceWithPrivateTokens() {
     await this.snapshotManager.snapshot(
-      'fund_alice_with_private_tokens',
+      'fund_alice_with_token_with_refundss',
       async () => {
         await this.mintPrivateTokens(BigInt(this.ALICE_INITIAL_BANANAS));
       },

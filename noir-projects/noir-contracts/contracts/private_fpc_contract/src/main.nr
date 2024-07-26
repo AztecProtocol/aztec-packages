@@ -3,7 +3,7 @@ mod lib;
 contract PrivateFPC {
     use dep::aztec::protocol_types::{abis::log_hash::LogHash, address::AztecAddress, hash::poseidon2_hash};
     use dep::aztec::state_vars::SharedImmutable;
-    use dep::private_token::PrivateToken;
+    use dep::token_with_refunds::PrivateToken;
     use crate::lib::emit_randomness_as_unencrypted_log;
 
     #[aztec(storage)]
