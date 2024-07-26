@@ -8,6 +8,7 @@ import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { getPublicIp, splitAddressPort } from '../util.js';
+import {AztecValidator} from "@aztec/aztec-validator";
 
 export * from './p2p_client.js';
 
@@ -15,6 +16,7 @@ export const createP2PClient = async (
   config: P2PConfig,
   store: AztecKVStore,
   txPool: TxPool,
+  validatorClient: AztecValidator,
   l2BlockSource: L2BlockSource,
 ) => {
   let p2pService;
@@ -59,7 +61,7 @@ export const createP2PClient = async (
     // Create peer discovery service
     const peerId = await createLibP2PPeerId(config.peerIdPrivateKey);
     const discoveryService = new DiscV5Service(peerId, config);
-    p2pService = await LibP2PService.new(config, discoveryService, peerId, txPool, store);
+    p2pService = await LibP2PService.new(config, discoveryService, peerId, txPool, validatorClient, store);
   } else {
     p2pService = new DummyP2PService();
   }

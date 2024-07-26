@@ -152,7 +152,6 @@ describe('e2e_p2p_network', () => {
     );
 
     // shutdown all nodes.
-    // for (const context of contexts) {
     for (const context of contexts) {
       await context.node.stop();
       await context.pxeService.stop();

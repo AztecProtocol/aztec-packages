@@ -40,6 +40,8 @@ describe('In-Memory P2P Client', () => {
       start: jest.fn(),
       stop: jest.fn(),
       propagateTx: jest.fn(),
+      propagateProposal: jest.fn(),
+      propagateAttestation: jest.fn(),
     };
 
     blockSource = new MockBlockSource();

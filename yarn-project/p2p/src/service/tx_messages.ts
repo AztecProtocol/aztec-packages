@@ -9,9 +9,12 @@ import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs } from '@aztec/cir
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { type SemVer } from 'semver';
+import { createMessageComponent, createMessageComponents, toObject, toObjectArray } from './p2p_serde.js';
 
 export const TX_MESSAGE_TOPIC = '';
 
+// NOTE(Md): I think that all of this code could be wrapped in a serialize / deserialize interface that can be implemented for all messages
+// With a message type index that tells the general implementation how to encode / decode messages - wait, this is what the topic really does
 export class AztecTxMessageCreator {
   private readonly topic: string;
   constructor(version: SemVer) {
@@ -54,23 +57,7 @@ export function decodeTransactionsMessage(message: Buffer) {
  */
 export function toTxMessage(tx: Tx): Buffer {
   // eslint-disable-next-line jsdoc/require-jsdoc
-  const createMessageComponent = (obj?: { toBuffer: () => Buffer }) => {
-    if (!obj) {
-      // specify a length of 0 bytes
-      return numToUInt32BE(0);
-    }
-    const buffer = obj.toBuffer();
-    return Buffer.concat([numToUInt32BE(buffer.length), buffer]);
-  };
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  const createMessageComponents = (obj?: { toBuffer: () => Buffer }[]) => {
-    if (!obj || !obj.length) {
-      // specify a length of 0 bytes
-      return numToUInt32BE(0);
-    }
-    const allComponents = Buffer.concat(obj.map(createMessageComponent));
-    return Buffer.concat([numToUInt32BE(obj.length), allComponents]);
-  };
+  // TODO(md): Why is this different than the classic serde for sending over the wire through the cbinds??
   const messageBuffer = Buffer.concat([
     createMessageComponent(tx.data),
     createMessageComponent(tx.clientIvcProof),
@@ -90,32 +77,6 @@ export function toTxMessage(tx: Tx): Buffer {
  * @returns - The reproduced transaction.
  */
 export function fromTxMessage(buffer: Buffer): Tx {
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  const toObject = <T>(objectBuffer: Buffer, factory: { fromBuffer: (b: Buffer) => T }) => {
-    const objectSize = objectBuffer.readUint32BE(0);
-    return {
-      remainingData: objectBuffer.subarray(objectSize + 4),
-      obj: objectSize === 0 ? undefined : factory.fromBuffer(objectBuffer.subarray(4, objectSize + 4)),
-    };
-  };
-
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  const toObjectArray = <T>(objectBuffer: Buffer, factory: { fromBuffer: (b: Buffer) => T }) => {
-    const output: T[] = [];
-    const numItems = objectBuffer.readUint32BE(0);
-    let workingBuffer = objectBuffer.subarray(4);
-    for (let i = 0; i < numItems; i++) {
-      const obj = toObject<T>(workingBuffer, factory);
-      workingBuffer = obj.remainingData;
-      if (obj !== undefined) {
-        output.push(obj.obj!);
-      }
-    }
-    return {
-      remainingData: workingBuffer,
-      objects: output,
-    };
-  };
   // this is the opposite of the 'toMessage' function
   // so the first 4 bytes is the complete length, skip it
   const publicInputs = toObject(buffer.subarray(4), PrivateKernelTailCircuitPublicInputs);
