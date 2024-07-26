@@ -155,10 +155,13 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       );
     });
 
-  program.command('create-l1-account').action(async () => {
-    const { createL1Account } = await import('./create_l1_account.js');
-    createL1Account(log);
-  });
+  program
+    .command('create-l1-account')
+    .option('--json', 'Output the account in JSON format')
+    .action(async options => {
+      const { createL1Account } = await import('./create_l1_account.js');
+      createL1Account(options.json, log);
+    });
 
   program
     .command('get-l1-balance')
