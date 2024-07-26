@@ -9,7 +9,6 @@ export class PublicDataRead {
   constructor(
     /**
      * Index of the leaf in the public data tree.
-     * TODO(#7551): Rename to something like public data tree index.
      */
     public readonly leafSlot: Fr,
     /**

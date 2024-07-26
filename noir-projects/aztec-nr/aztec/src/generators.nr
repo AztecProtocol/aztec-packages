@@ -9,7 +9,7 @@ global G_slot = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a95
 // TODO(#7551): nuke this func - is only temporarily used in note_interface.rs before we get some AVM compatible
 // hash func hashing to a point
 pub fn field_to_point(slot_preimage: Field) -> Point {
-    // We use the unsafe version because the multi_scalar_mul will constraint the scalars.
+    // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
     let slot_preimage_scalar = dep::std::hash::from_field_unsafe(slot_preimage);
     dep::std::embedded_curve_ops::multi_scalar_mul([G_slot], [slot_preimage_scalar])
 }

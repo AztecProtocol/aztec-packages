@@ -1,19 +1,16 @@
-use dep::protocol_types::{
-    address::AztecAddress, scalar::Scalar, point::Point,
-    constants::{GENERATOR_INDEX__IVSK_M, GENERATOR_INDEX__OVSK_M}, hash::poseidon2_hash
+use dep::protocol_types::{address::AztecAddress, scalar::Scalar, point::Point};
+use std::{
+    embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
+    hash::from_field_unsafe as fr_to_fq_unsafe, field::bn254::decompose
 };
-use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
-use std::field::bytes32_to_field;
 
-use crate::oracle::unsafe_rand::unsafe_rand;
-use crate::utils::point::point_to_bytes;
-
-use crate::event::event_interface::EventInterface;
-use crate::note::note_interface::NoteInterface;
-
-use crate::encrypted_logs::{
+use crate::{
+    event::event_interface::EventInterface, oracle::unsafe_rand::unsafe_rand,
+    utils::point::point_to_bytes, note::note_interface::NoteInterface,
+    encrypted_logs::{
     header::EncryptedLogHeader, incoming_body::EncryptedLogIncomingBody,
     outgoing_body::EncryptedLogOutgoingBody
+}
 };
 
 pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>(
@@ -26,7 +23,9 @@ pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>
     event: Event
 ) -> [u8; OB] where Event: EventInterface<NB, MB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    let eph_sk: Scalar = fr_to_fq(unsafe_rand());
+    // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
+    // the scalars.
+    let eph_sk: Scalar = fr_to_fq_unsafe(unsafe_rand());
     let eph_pk = derive_public_key(eph_sk);
 
     let header = EncryptedLogHeader::new(contract_address);
@@ -79,7 +78,9 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     note: Note
 ) -> [u8; M] where Note: NoteInterface<N, NB> {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    let eph_sk: Scalar = fr_to_fq(unsafe_rand());
+    // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
+    // the scalars.
+    let eph_sk: Scalar = fr_to_fq_unsafe(unsafe_rand());
     let eph_pk = derive_public_key(eph_sk);
 
     let header = EncryptedLogHeader::new(contract_address);
@@ -122,24 +123,10 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     encrypted_bytes
 }
 
-/// Converts a base field elememt to scalar field element.
+/// Converts a base field element to scalar field element.
 /// This is fine because modulus of the base field is smaller than the modulus of the scalar field.
-/// TODO(#7551): Replace the contents of this function with decompose and move the function to scalar.nr
-/// - in plenty of the places we then convert the outputs of decompose(...) to Scalar struct so having
-// this as a utility function would be useful.
 fn fr_to_fq(r: Field) -> Scalar {
-    let r_bytes = r.to_be_bytes(32);
-
-    let mut high_bytes = [0; 32];
-    let mut low_bytes = [0; 32];
-
-    for i in 0..16 {
-        high_bytes[16 + i] = r_bytes[i];
-        low_bytes[16 + i] = r_bytes[i + 16];
-    }
-
-    let lo = bytes32_to_field(low_bytes);
-    let hi = bytes32_to_field(high_bytes);
+    let (lo, hi) = decompose(r);
 
     Scalar { lo, hi }
 }
