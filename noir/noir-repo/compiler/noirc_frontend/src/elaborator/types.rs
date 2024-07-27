@@ -1656,29 +1656,3 @@ fn verify_mutable_reference(interner: &NodeInterner, rhs: ExprId) -> Result<(), 
         _ => Ok(()),
     }
 }
-
-/// Gives an error if a user tries to create a mutable reference
-/// to an immutable variable.
-fn verify_mutable_reference(interner: &NodeInterner, rhs: ExprId) -> Result<(), ResolverError> {
-    match interner.expression(&rhs) {
-        HirExpression::MemberAccess(member_access) => {
-            verify_mutable_reference(interner, member_access.lhs)
-        }
-        HirExpression::Index(_) => {
-            let span = interner.expr_span(&rhs);
-            Err(ResolverError::MutableReferenceToArrayElement { span })
-        }
-        HirExpression::Ident(ident, _) => {
-            if let Some(definition) = interner.try_definition(ident.id) {
-                if !definition.mutable {
-                    return Err(ResolverError::MutableReferenceToImmutableVariable {
-                        span: interner.expr_span(&rhs),
-                        variable: definition.name.clone(),
-                    });
-                }
-            }
-            Ok(())
-        }
-        _ => Ok(()),
-    }
-}
