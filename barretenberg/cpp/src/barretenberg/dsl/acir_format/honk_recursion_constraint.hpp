@@ -56,6 +56,7 @@ struct HonkRecursionConstraint {
     std::vector<uint32_t> key;
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
+    uint32_t proof_type;
 
     friend bool operator==(HonkRecursionConstraint const& lhs, HonkRecursionConstraint const& rhs) = default;
 };

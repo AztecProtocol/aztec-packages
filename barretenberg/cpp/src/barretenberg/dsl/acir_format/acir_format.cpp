@@ -257,6 +257,8 @@ void build_constraints(Builder& builder,
         for (size_t constraint_idx = 0; constraint_idx < constraint_system.recursion_constraints.size();
              ++constraint_idx) {
             auto constraint = constraint_system.recursion_constraints[constraint_idx];
+            std::cout << "recursion_constraint with proof type: " << constraint.proof_type << std::endl;
+
             // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
             // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
             // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
@@ -342,6 +344,7 @@ void build_constraints(Builder& builder,
 
         for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); ++i) {
             auto& constraint = constraint_system.honk_recursion_constraints.at(i);
+            std::cout << "honk_recursion_constraint with proof type: " << constraint.proof_type << std::endl;
             // A proof passed into the constraint should be stripped of its inner public inputs, but not the
             // nested aggregation object itself. The verifier circuit requires that the indices to a nested
             // proof aggregation state are a circuit constant. The user tells us they how they want these

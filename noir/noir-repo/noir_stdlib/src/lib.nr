@@ -42,8 +42,29 @@ unconstrained pub fn println<T>(input: T) {
     print_oracle(true, input);
 }
 
+pub fn verify_proof<N>(verification_key: [Field], proof: [Field], public_inputs: [Field], key_hash: Field) {
+    verify_proof_internal(verification_key, proof, public_inputs, key_hash, 0);
+}
+
+pub fn verify_proof_with_type<N>(
+    verification_key: [Field],
+    proof: [Field],
+    public_inputs: [Field],
+    key_hash: Field,
+    proof_type: u32
+) {
+    crate::assert_constant(proof_type);
+    verify_proof_internal(verification_key, proof, public_inputs, key_hash, proof_type);
+}
+
 #[foreign(recursive_aggregation)]
-pub fn verify_proof<N>(verification_key: [Field], proof: [Field], public_inputs: [Field], key_hash: Field) {}
+fn verify_proof_internal<N>(
+    verification_key: [Field],
+    proof: [Field],
+    public_inputs: [Field],
+    key_hash: Field,
+    proof_type: u32
+) {}
 
 // Asserts that the given value is known at compile-time.
 // Useful for debugging for-loop bounds.
