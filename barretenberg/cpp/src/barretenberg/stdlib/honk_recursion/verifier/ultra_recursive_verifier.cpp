@@ -75,20 +75,17 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsGoblinFlavor<Flavor>) {
-        commitments.ecc_op_wire_1 =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_1);
-        commitments.ecc_op_wire_2 =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_2);
-        commitments.ecc_op_wire_3 =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_3);
-        commitments.ecc_op_wire_4 =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.ecc_op_wire_4);
-        commitments.calldata = transcript->template receive_from_prover<Commitment>(commitment_labels.calldata);
-        commitments.calldata_read_counts =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_read_counts);
-        commitments.return_data = transcript->template receive_from_prover<Commitment>(commitment_labels.return_data);
-        commitments.return_data_read_counts =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
+        // Receive ECC op wire commitments
+        for (auto [commitment, label] :
+             zip_view(commitments.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
+            commitment = transcript->template receive_from_prover<Commitment>(label);
+        }
+
+        // Receive DataBus related polynomial commitments
+        for (auto [commitment, label] :
+             zip_view(commitments.get_databus_entities(), commitment_labels.get_databus_entities())) {
+            commitment = transcript->template receive_from_prover<Commitment>(label);
+        }
     }
 
     // Get eta challenges; used in RAM/ROM memory records and log derivative lookup argument
@@ -110,13 +107,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     commitments.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
 
-    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
+    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
-        commitments.calldata_inverses =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_inverses);
-        commitments.return_data_inverses =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_inverses);
+        for (auto [commitment, label] :
+             zip_view(commitments.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
+            commitment = transcript->template receive_from_prover<Commitment>(label);
+        }
     }
+
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(key->pub_inputs_offset));
 

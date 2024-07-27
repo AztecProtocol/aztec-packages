@@ -21,7 +21,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -96,12 +96,12 @@ export async function getSimulationProvider(
   return new WASMSimulator();
 }
 
-export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, seed = 0x1) => {
+export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0x1) => {
   seed *= MAX_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
   const tx = mockTx(seed);
   const kernelOutput = KernelCircuitPublicInputs.empty();
   kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
-  kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
+  kernelOutput.constants.historicalHeader = builderDb.getInitialHeader();
   kernelOutput.end.publicDataUpdateRequests = makeTuple(
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     i => new PublicDataUpdateRequest(fr(i), fr(i + 10), i + 20),
@@ -113,7 +113,7 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
     seed + 0x600,
   );
 
-  const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+  const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
   processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
   processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100000);
@@ -123,13 +123,12 @@ export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, se
   processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
   processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash());
   processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-  processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
   return processedTx;
 };
 
-export const makeEmptyProcessedTx = async (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
-  const header = await builderDb.buildInitialHeader();
+export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: Fr, version: Fr) => {
+  const header = builderDb.getInitialHeader();
   return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
 };
 
@@ -179,6 +178,5 @@ export const makeGlobals = (blockNumber: number) => {
   );
 };
 
-export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): Promise<ProcessedTx> => {
-  return makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);
-};
+export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): ProcessedTx =>
+  makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);

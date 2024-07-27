@@ -387,8 +387,9 @@ void build_constraints(Builder& builder,
             builder.set_recursive_proof(proof_output_witness_indices);
         } else if (honk_recursion &&
                    builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from
-            // a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
+            // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup
+            // yet.
             fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
             fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
 

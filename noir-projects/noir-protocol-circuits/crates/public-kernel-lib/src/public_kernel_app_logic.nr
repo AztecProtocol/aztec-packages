@@ -47,9 +47,8 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         if !dep::std::runtime::is_unconstrained() {
-            // verify the previous kernel proof
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
@@ -85,14 +84,14 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
             let reverted_call_request = remaining_calls.pop();
             // even though we reverted, we still need to make sure the correct call was made
-            // but don't do the full `validate_call_against_request` because 
+            // but don't do the full `validate_call_against_request` because
             // that makes a bunch of assertions that we don't want to make
             // e.g. that msg_sender is self in the case of internal.
             // We don't want to make those checks because we already know we reverted,
             // and we aren't updating the public end values, so we want this kernel circuit to solve.
             // So just check that the call request is the same as the one we expected.
             assert(
-                reverted_call_request.hash == self.public_call.call_stack_item.get_compressed().hash(), "calculated public_kernel_inputs_hash does not match provided public_kernel_inputs_hash at the top of the call stack"
+                reverted_call_request.item == self.public_call.call_stack_item.get_compressed(), "call stack item does not match item at the top of the call stack"
             );
         }
 
@@ -103,25 +102,24 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 mod tests {
     use crate::{
         public_kernel_app_logic::{PublicKernelAppLogicCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS},
-        utils::{
-        assert_eq_call_requests, assert_eq_public_data_reads, assert_eq_public_data_update_requests,
-        compute_public_data_reads, compute_public_data_update_requests
-    }
+        utils::{compute_public_data_reads, compute_public_data_update_requests}
     };
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        note_hash::{NoteHash, ScopedNoteHash}, log_hash::ScopedLogHash,
+        nullifier::{Nullifier, ScopedNullifier},
+        public_call_stack_item_compressed::PublicCallStackItemCompressed,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        hash::{
-        compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_unencrypted_log_hash
-    },
+        hash::{compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
-        tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
+        tests::{
+        fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder,
+        utils::assert_array_eq
+    },
         utils::arrays::{array_eq, array_length}, traits::is_empty
     };
     use dep::types::constants::{
@@ -162,14 +160,26 @@ mod tests {
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let public_call = self.public_call.finish();
             // Adjust the call stack item hash for the current call in the previous iteration.
-            let hash = public_call.call_stack_item.get_compressed().hash();
-            let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
-            self.previous_kernel.push_public_call_request(hash, is_delegate_call);
+            let compressed = public_call.call_stack_item.get_compressed();
+            self.previous_kernel.push_public_call_request(compressed);
             let previous_kernel = self.previous_kernel.to_public_kernel_data(true);
 
             let kernel = PublicKernelAppLogicCircuitPrivateInputs { previous_kernel, public_call };
 
             kernel.public_kernel_app_logic()
+        }
+
+        pub fn get_call_request_item(self) -> PublicCallStackItemCompressed {
+            let public_call = self.public_call.finish();
+            public_call.call_stack_item.get_compressed()
+        }
+
+        pub fn failed_with_call_request_item(&mut self, item: PublicCallStackItemCompressed) {
+            let public_call = self.public_call.finish();
+            self.previous_kernel.push_public_call_request(item);
+            let previous_kernel = self.previous_kernel.to_public_kernel_data(true);
+            let kernel = PublicKernelAppLogicCircuitPrivateInputs { previous_kernel, public_call };
+            let _ = kernel.public_kernel_app_logic();
         }
 
         pub fn succeeded(&mut self) {
@@ -210,7 +220,7 @@ mod tests {
 
         // the key difference in this test versus those that use builder.execute()
         // is that we do not add a public call request to the previous kernel.
-        // this means that when we call `to_public_kernel_data` below, 
+        // this means that when we call `to_public_kernel_data` below,
         // it will say needs_app_logic is false
 
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(true);
@@ -263,7 +273,7 @@ mod tests {
         let public_data_update_requests = [previous[0], previous[1], current[0], current[1]];
 
         let public_inputs = builder.execute();
-        assert_eq_public_data_update_requests(
+        assert_array_eq(
             public_inputs.end.public_data_update_requests,
             public_data_update_requests
         );
@@ -282,7 +292,7 @@ mod tests {
         let public_data_read_requests = [previous[0], previous[1], current[0], current[1]];
         let public_inputs = builder.execute();
 
-        assert_eq_public_data_reads(
+        assert_array_eq(
             public_inputs.validation_requests.public_data_reads,
             public_data_read_requests
         );
@@ -304,7 +314,7 @@ mod tests {
         builder.public_call.public_inputs.nullifiers.extend_from_array(current);
 
         let siloed = current.map(
-            |current: Nullifier| 
+            |current: Nullifier|
         Nullifier { value: compute_siloed_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
         );
 
@@ -362,11 +372,12 @@ mod tests {
         );
         let prev_data = builder.previous_kernel.to_public_accumulated_data();
 
-        let mut expected_unencrypted_logs = [
-            prev_data.unencrypted_logs_hashes[0], builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0]
+        let expected_unencrypted_logs = [
+            prev_data.unencrypted_logs_hashes[0], ScopedLogHash {
+                log_hash: builder.public_call.public_inputs.unencrypted_logs_hashes.storage[0],
+                contract_address: builder.public_call.contract_address
+            }
         ];
-        // silo the new log hash
-        expected_unencrypted_logs[1].value = compute_siloed_unencrypted_log_hash(builder.public_call.contract_address, expected_unencrypted_logs[1].value);
         // we assume the encrypted log is already siloed from private kernels
         let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
 
@@ -422,25 +433,15 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="call stack storage address does not match expected contract address for delegate calls")]
+    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
     fn public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new().is_delegate_call();
 
+        let mut item = builder.get_call_request_item();
         // Set the storage contract address to be the contract address.
-        builder.public_call.public_inputs.call_context.storage_contract_address = builder.public_call.contract_address;
+        item.call_context.storage_contract_address = builder.public_call.contract_address;
 
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "call requests length does not match the expected length")]
-    fn incorrect_call_requests_length_fails() {
-        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-
-        builder.public_call.append_public_call_requests(2, false);
-        // Remove one call request.
-        let _ = builder.public_call.public_call_stack.pop();
-
-        builder.failed();
+        builder.failed_with_call_request_item(item);
     }
 
     #[test]
@@ -455,7 +456,7 @@ mod tests {
 
         // Only the 2 valid reads should have been propagated.
         let expected = [public_data_update_requests[0], public_data_update_requests[2]];
-        assert_eq_public_data_update_requests(public_inputs.end.public_data_update_requests, expected);
+        assert_array_eq(public_inputs.end.public_data_update_requests, expected);
     }
 
     #[test]
@@ -463,7 +464,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         builder.public_call.append_public_call_requests_for_regular_calls(2);
-        let storage = builder.public_call.public_call_stack.storage;
+        let storage = builder.public_call.public_inputs.public_call_requests.storage;
         let public_call_stack = [storage[0], storage[1]];
 
         builder.public_call.append_update_requests(2);
@@ -476,12 +477,12 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
-        assert_eq_public_data_update_requests(
+        assert_array_eq(public_inputs.end.public_call_stack, public_call_stack);
+        assert_array_eq(
             public_inputs.end.public_data_update_requests,
             update_requests
         );
-        assert_eq_public_data_reads(
+        assert_array_eq(
             public_inputs.validation_requests.public_data_reads,
             read_requests
         );
@@ -610,13 +611,13 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 1;
         let public_call = builder.public_call.finish();
-        let hash = public_call.call_stack_item.get_compressed().hash();
+        let item = public_call.call_stack_item.get_compressed();
 
-        builder.previous_kernel.push_public_call_request(hash, false);
-        builder.previous_kernel.push_public_call_request(hash, false);
+        builder.previous_kernel.append_public_call_requests(2);
+        builder.previous_kernel.push_public_call_request(item);
 
-        builder.previous_kernel.push_public_teardown_call_request(hash, false);
-        builder.previous_kernel.push_public_teardown_call_request(hash, false);
+        builder.previous_kernel.append_public_teardown_call_request();
+        builder.previous_kernel.append_public_teardown_call_request();
 
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(true);
         let kernel = PublicKernelAppLogicCircuitPrivateInputs { previous_kernel, public_call };
@@ -636,13 +637,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

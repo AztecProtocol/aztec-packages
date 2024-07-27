@@ -145,7 +145,7 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn variable_base_msm() -> [Field; 3] {
+    fn variable_base_msm() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
         let scalar = Scalar { lo: 3, hi: 0 };
         let scalar2 = Scalar { lo: 20, hi: 0 };
@@ -210,6 +210,11 @@ contract AvmTest {
     #[aztec(public)]
     fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
         std::hash::keccak256(data, data.len() as u32)
+    }
+
+    #[aztec(public)]
+    fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
+        std::hash::keccak::keccakf1600(data)
     }
 
     #[aztec(public)]

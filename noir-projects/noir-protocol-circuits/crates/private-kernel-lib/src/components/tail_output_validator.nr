@@ -1,9 +1,12 @@
 mod kernel_circuit_output_hints;
 mod validate_value_transformation;
 
-use crate::components::tail_output_validator::{
+use crate::components::{
+    tail_output_composer::meter_gas_used::meter_gas_used,
+    tail_output_validator::{
     kernel_circuit_output_hints::{generate_kernel_circuit_output_hints, Hints},
     validate_value_transformation::{validate_transformed_values, validate_value_transformation}
+}
 };
 use dep::types::{
     abis::{
@@ -12,9 +15,10 @@ use dep::types::{
 },
     hash::{
     compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
-    silo_note_hash, silo_nullifier, silo_unencrypted_log_hash
+    silo_note_hash, silo_nullifier
 },
-    traits::is_empty, utils::arrays::assert_sorted_transformed_value_array
+    traits::is_empty,
+    utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_array_with_order_hints}
 };
 
 struct TailOutputValidator {
@@ -36,7 +40,7 @@ impl TailOutputValidator {
         self.validate_propagated_values();
         self.validate_propagated_sorted_siloed_values(hints);
         self.validate_accumulated_values(hints);
-        self.validate_gas_limits();
+        self.validate_gas_used();
     }
 
     fn validate_empty_values(self) {
@@ -136,24 +140,25 @@ impl TailOutputValidator {
         assert_eq(hash, self.output.end.encrypted_logs_hash, "mismatch encrypted_logs_hash");
 
         // unencrypted_log_hashes
-        validate_value_transformation(
-            self.previous_kernel.end.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_log_hashes,
-            |slh: ScopedLogHash, lh: LogHash| (lh.value == silo_unencrypted_log_hash(slh)) & (lh.length == slh.log_hash.length)
-        );
 
-        assert_sorted_transformed_value_array(
+        assert_sorted_array_with_order_hints(
             self.previous_kernel.end.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_log_hashes,
-            hints.sorted_siloed_unencrypted_log_hashes,
+            hints.sorted_unencrypted_log_hashes,
             hints.sorted_unencrypted_log_hash_hints
         );
 
-        let hash = compute_tx_logs_hash(hints.sorted_siloed_unencrypted_log_hashes);
-        assert_eq(hash, self.output.end.unencrypted_logs_hash, "mismatch unencrypted_logs_hash");
+        assert_eq(
+            hints.sorted_unencrypted_log_hashes.map(|log: ScopedLogHash| log.expose_to_public()), self.output.end.unencrypted_logs_hashes, "mismatch unencrypted_logs_hashes"
+        );
     }
 
-    fn validate_gas_limits(self) {
+    fn validate_gas_used(self) {
+        let gas_used = meter_gas_used(
+            self.output.end,
+            self.output.constants.tx_context.gas_settings
+        );
+        assert(self.output.end.gas_used == gas_used, "incorrect metered gas used");
+
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
         assert(self.output.end.gas_used.within(limits), "The gas used exceeds the gas limits");
     }

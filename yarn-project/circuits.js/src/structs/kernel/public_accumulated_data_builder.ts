@@ -11,11 +11,11 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
-import { CallRequest } from '../call_request.js';
 import { Gas } from '../gas.js';
-import { LogHash } from '../log_hash.js';
+import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { NoteHash } from '../note_hash.js';
 import { Nullifier } from '../nullifier.js';
+import { PublicCallRequest } from '../public_call_request.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 import { PublicAccumulatedData } from './public_accumulated_data.js';
 
@@ -31,9 +31,9 @@ export class PublicAccumulatedDataBuilder {
   private l2ToL1Msgs: Fr[] = [];
   private noteEncryptedLogsHashes: LogHash[] = [];
   private encryptedLogsHashes: LogHash[] = [];
-  private unencryptedLogsHashes: LogHash[] = [];
+  private unencryptedLogsHashes: ScopedLogHash[] = [];
   private publicDataUpdateRequests: PublicDataUpdateRequest[] = [];
-  private publicCallStack: CallRequest[] = [];
+  private publicCallStack: PublicCallRequest[] = [];
   private gasUsed: Gas = Gas.empty();
 
   pushNoteHash(newNoteHash: NoteHash) {
@@ -86,12 +86,12 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushUnencryptedLogsHash(unencryptedLogsHash: LogHash) {
+  pushUnencryptedLogsHash(unencryptedLogsHash: ScopedLogHash) {
     this.unencryptedLogsHashes.push(unencryptedLogsHash);
     return this;
   }
 
-  withUnencryptedLogsHashes(unencryptedLogsHashes: LogHash[]) {
+  withUnencryptedLogsHashes(unencryptedLogsHashes: ScopedLogHash[]) {
     this.unencryptedLogsHashes = unencryptedLogsHashes;
     return this;
   }
@@ -106,12 +106,12 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushPublicCall(publicCall: CallRequest) {
+  pushPublicCall(publicCall: PublicCallRequest) {
     this.publicCallStack.push(publicCall);
     return this;
   }
 
-  withPublicCallStack(publicCallStack: CallRequest[]) {
+  withPublicCallStack(publicCallStack: PublicCallRequest[]) {
     this.publicCallStack = publicCallStack;
     return this;
   }
@@ -128,13 +128,13 @@ export class PublicAccumulatedDataBuilder {
       padArrayEnd(this.l2ToL1Msgs, Fr.ZERO, MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.encryptedLogsHashes, LogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
-      padArrayEnd(this.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
+      padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
       padArrayEnd(
         this.publicDataUpdateRequests,
         PublicDataUpdateRequest.empty(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       ),
-      padArrayEnd(this.publicCallStack, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX),
+      padArrayEnd(this.publicCallStack, PublicCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX),
       this.gasUsed,
     );
   }

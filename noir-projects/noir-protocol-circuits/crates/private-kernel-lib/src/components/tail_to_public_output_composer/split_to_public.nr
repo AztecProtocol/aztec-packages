@@ -1,6 +1,7 @@
 use dep::types::abis::{
     accumulated_data::{
     private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
+    public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 }
 };
@@ -8,7 +9,7 @@ use dep::types::abis::{
 pub fn split_to_public(
     data: PrivateAccumulatedDataBuilder,
     min_revertible_side_effect_counter: u32
-) -> (PublicAccumulatedDataBuilder, PublicAccumulatedDataBuilder) {
+) -> (PublicAccumulatedData, PublicAccumulatedData) {
     assert(min_revertible_side_effect_counter != 0, "min_revertible_side_effect_counter must not be 0");
 
     let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
@@ -91,20 +92,18 @@ pub fn split_to_public(
         }
     }
 
-    let public_call_stack = data.public_call_stack;
-    for i in 0..public_call_stack.max_len() {
-        if i < public_call_stack.len() {
-            let call_stack_item = public_call_stack.get_unchecked(i);
-            // TODO: Hide the counter of a public call request.
-            // let public_call_request = call_stack_item.expose_to_public();
-            let public_call_request = call_stack_item;
-            if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
-                non_revertible_builder.public_call_stack.push(public_call_request);
+    let public_call_requests = data.public_call_requests;
+    for i in 0..public_call_requests.max_len() {
+        if i < public_call_requests.len() {
+            let call_request = public_call_requests.get_unchecked(i);
+            let exposed_call_request = call_request.expose_to_public();
+            if call_request.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.public_call_stack.push(exposed_call_request);
             } else {
-                revertible_builder.public_call_stack.push(public_call_request);
+                revertible_builder.public_call_stack.push(exposed_call_request);
             }
         }
     }
 
-    (non_revertible_builder, revertible_builder)
+    (non_revertible_builder.finish(), revertible_builder.finish())
 }

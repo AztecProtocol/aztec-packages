@@ -1,17 +1,14 @@
 use dep::types::{
     abis::{
-    call_request::CallRequest, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, ScopedEncryptedLogHash}, note_hash::NoteHash,
-    nullifier::Nullifier
+    nullifier::Nullifier, public_call_request::PublicCallRequest
 },
     constants::{
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{
-    silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier,
-    silo_unencrypted_log_hash
-},
+    hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{sort_get_split_order_hints_asc, sort_get_split_order_hints_desc, SplitOrderHints}
 };
@@ -33,10 +30,9 @@ struct TailToPublicOutputHints {
     siloed_encrypted_logs_hashes: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hash_hints: SplitOrderHints<MAX_ENCRYPTED_LOGS_PER_TX>,
     // Unencrypted log hashes.
-    siloed_unencrypted_logs_hashes: [LogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hash_hints: SplitOrderHints<MAX_UNENCRYPTED_LOGS_PER_TX>,
     // Public call requests.
-    public_call_requests: [CallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    public_call_requests: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
     sorted_public_call_request_hints: SplitOrderHints<MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 }
 
@@ -91,18 +87,11 @@ unconstrained pub fn generate_tail_to_public_output_hints(previous_kernel: Priva
     let sorted_encrypted_log_hash_hints = sort_get_split_order_hints_asc(previous_kernel.end.encrypted_logs_hashes, split_counter);
 
     // unencrypted_logs
-    let mut siloed_log_hashes = previous_kernel.end.unencrypted_logs_hashes;
-    for i in 0..siloed_log_hashes.len() {
-        siloed_log_hashes[i].log_hash.value = silo_unencrypted_log_hash(previous_kernel.end.unencrypted_logs_hashes[i]);
-    }
-    let siloed_unencrypted_logs_hashes = siloed_log_hashes.map(|h: ScopedLogHash| h.inner());
     let sorted_unencrypted_log_hash_hints = sort_get_split_order_hints_asc(previous_kernel.end.unencrypted_logs_hashes, split_counter);
 
     // public_call_requests
-    // TODO: Hide the counter of a public call request.
-    // let public_call_requests = previous_kernel.end.public_call_stack.map(|cr: CallRequest| cr.expose_to_public());
-    let public_call_requests = previous_kernel.end.public_call_stack;
-    let sorted_public_call_request_hints = sort_get_split_order_hints_desc(previous_kernel.end.public_call_stack, split_counter);
+    let public_call_requests = previous_kernel.end.public_call_requests.map(|cr: PublicCallRequest| cr.expose_to_public());
+    let sorted_public_call_request_hints = sort_get_split_order_hints_desc(previous_kernel.end.public_call_requests, split_counter);
 
     TailToPublicOutputHints {
         siloed_note_hashes,
@@ -115,7 +104,6 @@ unconstrained pub fn generate_tail_to_public_output_hints(previous_kernel: Priva
         sorted_note_encrypted_log_hash_hints,
         siloed_encrypted_logs_hashes,
         sorted_encrypted_log_hash_hints,
-        siloed_unencrypted_logs_hashes,
         sorted_unencrypted_log_hash_hints,
         public_call_requests,
         sorted_public_call_request_hints

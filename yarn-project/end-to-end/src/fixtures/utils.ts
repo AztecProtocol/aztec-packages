@@ -28,7 +28,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { type BBNativeProofCreator } from '@aztec/bb-prover';
+import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
@@ -161,7 +161,7 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativeProofCreator,
+  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -234,14 +234,14 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
+  const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
   // this contract might already have been deployed
   // the following deploying functions are idempotent
   await deployCanonicalKeyRegistry(
     new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
   );
   await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   if (enableGas) {
@@ -378,7 +378,7 @@ export async function setup(
     config.bbBinaryPath = bbConfig.bbBinaryPath;
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
-  config.l1BlockPublishRetryIntervalMS = 100;
+  config.l1PublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
   const prover = aztecNode.getProver();
@@ -389,18 +389,18 @@ export async function setup(
 
   logger.verbose('Deploying key registry...');
   await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   logger.verbose('Deploying auth registry...');
   await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   if (enableGas) {
     logger.verbose('Deploying gas token...');
     await deployCanonicalGasToken(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
   }
 
@@ -437,6 +437,16 @@ export async function setup(
     prover,
     teardown,
   };
+}
+
+/** Returns an L1 wallet client for anvil using a well-known private key based on the index. */
+export function getL1WalletClient(rpcUrl: string, index: number) {
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
+  return createWalletClient({
+    account: hdAccount,
+    chain: foundry,
+    transport: http(rpcUrl),
+  });
 }
 
 /**

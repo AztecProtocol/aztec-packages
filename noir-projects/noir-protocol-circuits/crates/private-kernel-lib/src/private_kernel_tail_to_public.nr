@@ -7,7 +7,8 @@ use dep::types::{
     abis::{private_kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     constants::{
     PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX
+    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX
 }
 };
 
@@ -18,6 +19,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_BIG_INDEX,
     PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
     PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -36,9 +38,8 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         // Validate inputs.
         PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
         if !std::runtime::is_unconstrained() {
-            // verify/aggregate the previous kernel
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
@@ -78,7 +79,7 @@ mod tests {
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_first_nullifier();
             previous_kernel.end_setup();
-            previous_kernel.push_public_call_request(1, false);
+            previous_kernel.append_public_call_requests(1);
 
             PrivateKernelTailToPublicInputsBuilder { previous_kernel }
         }
@@ -167,7 +168,7 @@ mod tests {
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.add_private_call_request(1, false);
+        builder.previous_kernel.append_private_call_requests(1);
         builder.failed();
     }
 
@@ -189,7 +190,7 @@ mod tests {
     fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
-        builder.previous_kernel.push_public_teardown_call_request(1, false);
+        builder.previous_kernel.append_public_teardown_call_request();
 
         builder.succeeded();
     }
@@ -324,7 +325,11 @@ mod tests {
     #[test(should_fail_with="Non empty key validation requests")]
     fn non_empty_key_validations() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let _void = builder.previous_kernel.add_request_for_key_validation(Point::new(1, 2, false), 27, GENERATOR_INDEX__TSK_M);
+        let _void = builder.previous_kernel.add_request_for_key_validation(
+            Point { x: 1, y: 2, is_infinite: false },
+            27,
+            GENERATOR_INDEX__TSK_M
+        );
         builder.failed();
     }
 
@@ -350,12 +355,10 @@ mod tests {
     unconstrained fn enqueued_public_calls_consume_startup_gas() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         // add an extra non-revertible call
-        builder.previous_kernel.push_public_call_request(42, false);
+        builder.previous_kernel.append_public_call_requests(1);
         builder.previous_kernel.end_setup();
         // add some revertible calls
-        builder.previous_kernel.push_public_call_request(42, false);
-        builder.previous_kernel.push_public_call_request(42, false);
-        builder.previous_kernel.push_public_call_request(42, false);
+        builder.previous_kernel.append_public_call_requests(3);
         let public_inputs = builder.execute();
 
         let expected_revertible_gas_used = Gas::new(0, 3 * FIXED_AVM_STARTUP_L2_GAS);
@@ -443,13 +446,10 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

@@ -2,20 +2,21 @@ mod tail_to_public_output_hints;
 
 use crate::components::{
     tail_output_validator::validate_value_transformation::{validate_transformed_values, validate_value_transformation},
+    tail_to_public_output_composer::meter_gas_used::{meter_gas_used_non_revertible, meter_gas_used_revertible},
     tail_to_public_output_validator::tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPublicOutputHints}
 };
 use dep::types::{
     abis::{
-    call_request::CallRequest,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, nullifier::Nullifier
+    log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, nullifier::Nullifier,
+    public_call_request::PublicCallRequest
 },
-    hash::{
-    silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier,
-    silo_unencrypted_log_hash
-},
-    traits::{Empty, is_empty_array},
-    utils::arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc}
+    hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
+    traits::{Empty, is_empty, is_empty_array},
+    utils::arrays::{
+    assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
+    validate_array
+}
 };
 
 struct TailToPublicOutputValidator {
@@ -36,7 +37,7 @@ impl TailToPublicOutputValidator {
         self.validate_empty_values();
         self.validate_propagated_values();
         self.validate_propagated_sorted_siloed_values(hints);
-        self.validate_gas_limits();
+        self.validate_gas_used();
     }
 
     fn validate_empty_values(self) {
@@ -58,6 +59,18 @@ impl TailToPublicOutputValidator {
         );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
+
+        // public_teardown_call_stack
+        let num_teardown_calls = validate_array(self.output.public_teardown_call_stack);
+        assert(
+            (num_teardown_calls == 0) | (num_teardown_calls == 1), "invalid number of teardown call requests"
+        );
+        assert_eq(
+            self.output.public_teardown_call_stack[0].item, self.previous_kernel.public_teardown_call_request.item, "mismatch public_teardown_call_request"
+        );
+        assert_eq(
+            self.output.public_teardown_call_stack[0].counter, 0, "cannot expose teardown call request counter"
+        );
     }
 
     fn validate_propagated_sorted_siloed_values(self, hints: TailToPublicOutputHints) {
@@ -151,35 +164,31 @@ impl TailToPublicOutputValidator {
         );
 
         // unencrypted_logs_hashes
-        validate_value_transformation(
-            prev_data.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_logs_hashes,
-            |slh: ScopedLogHash, lh: LogHash| (lh.value == silo_unencrypted_log_hash(slh)) & (lh.length == slh.log_hash.length) & (lh.counter == 0)
-        );
-
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.unencrypted_logs_hashes,
-            hints.siloed_unencrypted_logs_hashes,
+            prev_data.unencrypted_logs_hashes,
             split_counter,
             output_non_revertible.unencrypted_logs_hashes,
             output_revertible.unencrypted_logs_hashes,
             hints.sorted_unencrypted_log_hash_hints
         );
 
-        // public_call_stack
+        // public_data_update_requests
+        let num_non_revertible_writes = validate_array(output_non_revertible.public_data_update_requests);
+        assert_eq(num_non_revertible_writes, 0, "unexpected non-revertible public_data_update_requests");
+        let num_revertible_writes = validate_array(output_revertible.public_data_update_requests);
+        assert_eq(num_revertible_writes, 0, "unexpected revertible public_data_update_requests");
+
+        // public_call_requests
         validate_value_transformation(
-            prev_data.public_call_stack,
+            prev_data.public_call_requests,
             hints.public_call_requests,
-            |cr: CallRequest, public_cr: CallRequest| (public_cr.hash == cr.hash)
-                & (public_cr.caller_contract_address == cr.caller_contract_address)
-                & (public_cr.caller_context == cr.caller_context)
-                // TODO: Hide the counter of a public call request.
-                // & (public_cr.start_side_effect_counter == 0)
-                & (public_cr.end_side_effect_counter == 0)
+            |cr: PublicCallRequest, public_cr: PublicCallRequest| (public_cr.item == cr.item)
+                & (public_cr.counter == 0)
         );
 
         assert_split_sorted_transformed_value_arrays_desc(
-            prev_data.public_call_stack,
+            prev_data.public_call_requests,
             hints.public_call_requests,
             split_counter,
             output_non_revertible.public_call_stack,
@@ -188,7 +197,18 @@ impl TailToPublicOutputValidator {
         )
     }
 
-    fn validate_gas_limits(self) {
+    fn validate_gas_used(self) {
+        let gas_used = meter_gas_used_non_revertible(self.output.end_non_revertible);
+        assert(
+            self.output.end_non_revertible.gas_used == gas_used, "incorrect metered non-revertible gas used"
+        );
+
+        let gas_used = meter_gas_used_revertible(
+            self.output.end,
+            self.output.constants.tx_context.gas_settings.teardown_gas_limits
+        );
+        assert(self.output.end.gas_used == gas_used, "incorrect metered revertible gas used");
+
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;
         let total_gas_used = self.output.end_non_revertible.gas_used + self.output.end.gas_used;
         assert(total_gas_used.within(limits), "The gas used exceeds the gas limits");

@@ -6,6 +6,7 @@ import {
   Note,
   PackedValues,
   PublicDataWitness,
+  PublicExecutionRequest,
   SiblingPath,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
@@ -22,7 +23,6 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicCallRequest,
   PublicDataTreeLeafPreimage,
   StateReference,
   TxContext,
@@ -68,7 +68,7 @@ import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
-import { type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
+import { CountedPublicExecutionRequest, type ExecutionResult, collectSortedEncryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -111,7 +111,7 @@ describe('Private Execution test suite', () => {
   const runSimulator = ({
     artifact,
     args = [],
-    msgSender = AztecAddress.ZERO,
+    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     contractAddress = defaultContractAddress,
     txContext = {},
   }: {
@@ -275,7 +275,7 @@ describe('Private Execution test suite', () => {
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
       // NB: this test does NOT cover correct enc/dec of values, just whether
-      // the kernels correctly populate non-note encrypted logs
+      // the contexts correctly populate non-note encrypted logs
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_encrypted_log');
       // We emit the outgoing here to recipient for no reason at all
       const outgoingViewer = recipient;
@@ -875,38 +875,22 @@ describe('Private Execution test suite', () => {
         args,
       });
 
-      // Alter function data to match the manipulated oracle
-      const functionSelector = FunctionSelector.fromNameAndParameters(
-        childContractArtifact.name,
-        childContractArtifact.parameters,
+      const request = new CountedPublicExecutionRequest(
+        PublicExecutionRequest.from({
+          contractAddress: childAddress,
+          args: [new Fr(42n)],
+          callContext: CallContext.from({
+            msgSender: parentAddress,
+            storageContractAddress: childAddress,
+            functionSelector: childSelector,
+            isDelegateCall: false,
+            isStaticCall: false,
+          }),
+        }),
+        2, // sideEffectCounter
       );
 
-      const publicCallRequest = PublicCallRequest.from({
-        contractAddress: childAddress,
-        functionSelector,
-        args: [new Fr(42n)],
-        callContext: CallContext.from({
-          msgSender: parentAddress,
-          storageContractAddress: childAddress,
-          functionSelector: childSelector,
-          isDelegateCall: false,
-          isStaticCall: false,
-        }),
-        parentCallContext: CallContext.from({
-          msgSender: parentAddress,
-          storageContractAddress: parentAddress,
-          functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
-          isDelegateCall: false,
-          isStaticCall: false,
-        }),
-        sideEffectCounter: 2,
-      });
-
-      const publicCallRequestHash = publicCallRequest.toPublicCallStackItem().getCompressed().hash();
-
-      expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
-      expect(result.enqueuedPublicFunctionCalls[0]).toEqual(publicCallRequest);
-      expect(result.callStackItem.publicInputs.publicCallStackHashes[0]).toEqual(publicCallRequestHash);
+      expect(result.enqueuedPublicFunctionCalls).toEqual([request]);
     });
   });
 
@@ -917,7 +901,7 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...teardown }));
       const result = await runSimulator({ artifact: entrypoint });
       expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
-      expect(result.publicTeardownFunctionCall.functionSelector).toEqual(
+      expect(result.publicTeardownFunctionCall.callContext.functionSelector).toEqual(
         FunctionSelector.fromNameAndParameters(teardown.name, teardown.parameters),
       );
     });

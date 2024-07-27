@@ -16,7 +16,7 @@ use crate::{
 };
 use std::hash::{pedersen_hash_with_separator, sha256};
 
-pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
@@ -113,7 +113,7 @@ pub fn silo_encrypted_log_hash(log_hash: ScopedEncryptedLogHash) -> Field {
     }
 }
 
-pub fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
+fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }
 
@@ -183,9 +183,9 @@ pub fn silo_l2_to_l1_message(msg: ScopedL2ToL1Message, rollup_version_id: Field,
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
-    // 4 Field elements when converted to bytes will usually 
+    // 4 Field elements when converted to bytes will usually
     // occupy 4 * 32 = 128 bytes.
-    // However, this function is making the assumption that each Field 
+    // However, this function is making the assumption that each Field
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
@@ -205,7 +205,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 
 // Computes the final logs hash for a tx.
 // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-// to avoid doubling code, since we can't define the byte len to be 32*N directly. 
+// to avoid doubling code, since we can't define the byte len to be 32*N directly.
 pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
@@ -248,11 +248,11 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     hash
 }
 
-pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
+pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
-pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
+pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 

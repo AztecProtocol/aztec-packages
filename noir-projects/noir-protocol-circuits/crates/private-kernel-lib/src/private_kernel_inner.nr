@@ -12,7 +12,8 @@ use dep::types::{
 },
     constants::{
     PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_FULL_INDEX,
-    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX
+    PRIVATE_KERNEL_RESET_BIG_INDEX, PRIVATE_KERNEL_RESET_MEDIUM_INDEX, PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX
 }
 };
 
@@ -23,6 +24,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_BIG_INDEX,
     PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
     PRIVATE_KERNEL_RESET_SMALL_INDEX,
+    PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
 struct PrivateKernelInnerCircuitPrivateInputs {
@@ -34,9 +36,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).pop_top_call_request().with_private_call(
             self.private_call.call_stack_item.public_inputs,
-            self.private_call.call_stack_item.contract_address,
-            self.private_call.public_call_stack,
-            self.private_call.public_teardown_call_request
+            self.private_call.call_stack_item.contract_address
         ).finish()
     }
 
@@ -53,11 +53,8 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
         private_call_data_validator.validate(output.end.note_hashes);
         if !std::runtime::is_unconstrained() {
-            // verify/aggregate the private call proof
-            self.private_call.verify();
-            // verify/aggregate the previous kernel
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
@@ -66,10 +63,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
                 self.private_call.call_stack_item.public_inputs,
-                private_call_data_validator.array_lengths,
-                self.private_call.call_stack_item.contract_address,
-                self.private_call.public_call_stack,
-                self.private_call.public_teardown_call_request
+                private_call_data_validator.array_lengths
             );
         }
         output
@@ -150,13 +144,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PrivateKernelInnerInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

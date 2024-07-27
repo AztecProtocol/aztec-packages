@@ -20,7 +20,7 @@ To change them, you can open `~/.aztec/docker-compose.yml` and edit them directl
 DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
 HOST_WORKDIR='${PWD}' # The location to store log outpus. Will use ~/.aztec where the docker-compose.yml file is stored by default.
 ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
-CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
+L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
@@ -73,6 +73,8 @@ ROLLUP_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 SEQ_PUBLISHER_PRIVATE_KEY=0x01234567890abcde01234567890abcde # Private key of an ethereum account that will be used by the sequencer to publish blocks.
 SEQ_MAX_TX_PER_BLOCK=32 # Maximum txs to go on a block. (default: 32)
 SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
+SEQ_MAX_SECONDS_BETWEEN_BLOCKS=0 # Sequencer will produce a block with less than the min number of txs once this threshold is reached. (default: 0, means disabled)
+SEQ_MIN_SECONDS_BETWEEN_BLOCKS=0 # Minimum seconds to wait between consecutive blocks. (default: 0)
 ```
 
 **PXE**

@@ -16,7 +16,7 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
-  type ProofCreator,
+  type PrivateKernelProver,
   SimulatedTx,
   SimulationError,
   TaggedLog,
@@ -72,7 +72,7 @@ import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
-import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
+import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 
@@ -89,13 +89,13 @@ export class PXEService implements PXE {
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
 
-  private fakeProofCreator = new TestProofCreator();
+  private fakeProofCreator = new TestPrivateKernelProver();
 
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: PxeDatabase,
-    private proofCreator: ProofCreator,
+    private proofCreator: PrivateKernelProver,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
@@ -118,7 +118,7 @@ export class PXEService implements PXE {
     await this.synchronizer.start(1, l2BlockPollingIntervalMS);
     await this.restoreNoteProcessors();
     const info = await this.getNodeInfo();
-    this.log.info(`Started PXE connected to chain ${info.chainId} version ${info.protocolVersion}`);
+    this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
   }
 
   private async restoreNoteProcessors() {
@@ -511,6 +511,7 @@ export class PXEService implements PXE {
     });
   }
 
+  // TODO(#7456) Prevent msgSender being defined here for the first call
   public async simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
@@ -568,8 +569,12 @@ export class PXEService implements PXE {
     return this.node.getTxEffect(txHash);
   }
 
-  async getBlockNumber(): Promise<number> {
+  public async getBlockNumber(): Promise<number> {
     return await this.node.getBlockNumber();
+  }
+
+  public async getProvenBlockNumber(): Promise<number> {
+    return await this.node.getProvenBlockNumber();
   }
 
   /**
@@ -616,7 +621,7 @@ export class PXEService implements PXE {
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
-      chainId,
+      l1ChainId: chainId,
       protocolVersion,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
@@ -724,8 +729,14 @@ export class PXEService implements PXE {
         );
         const noirCallStack = err.getNoirCallStack();
         if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
-          const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo);
-          err.setNoirCallStack(parsedCallStack);
+          try {
+            const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo);
+            err.setNoirCallStack(parsedCallStack);
+          } catch (err) {
+            this.log.warn(
+              `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+            );
+          }
         }
         await this.#enrichSimulationError(err);
       }
@@ -750,7 +761,7 @@ export class PXEService implements PXE {
    */
   async #simulateAndProve(
     txExecutionRequest: TxExecutionRequest,
-    proofCreator: ProofCreator,
+    proofCreator: PrivateKernelProver,
     msgSender?: AztecAddress,
   ): Promise<SimulatedTx> {
     // Get values that allow us to reconstruct the block hash
@@ -759,7 +770,10 @@ export class PXEService implements PXE {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
-    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
+    const { clientIvcProof, publicInputs } = await kernelProver.prove(
+      txExecutionRequest.toTxRequest(),
+      executionResult,
+    );
 
     const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
@@ -769,7 +783,7 @@ export class PXEService implements PXE {
 
     const tx = new Tx(
       publicInputs,
-      proof.binaryProof,
+      clientIvcProof!,
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
@@ -839,6 +853,11 @@ export class PXEService implements PXE {
 
   public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
+  }
+
+  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
+    const initNullifier = siloNullifier(address, address);
+    return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
   public getEvents<T>(
