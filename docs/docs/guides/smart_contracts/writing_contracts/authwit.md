@@ -140,7 +140,7 @@ Then you will be able to import it into your contracts as follows.
 
 Based on the diagram earlier on this page let's take a look at how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
 
-#include_code transfer /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_from /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 The first thing we see in the snippet above, is that if `from` is not the call we are calling the `assert_current_call_valid_authwit` function from [earlier](#private-functions). If the call is not throwing, we are all good and can continue with the transfer.
 
