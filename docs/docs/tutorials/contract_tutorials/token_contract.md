@@ -1,5 +1,5 @@
 ---
-title: "Private token contract"
+title: "Private & Public token contract"
 sidebar_position: 4
 ---
 
@@ -56,116 +56,11 @@ compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag
 
 We will be working within `main.nr` for the rest of the tutorial.
 
-## Contract Interface
+## How this will work 
 
-Remove everything from `main.nr` and paste this:
+Before writing the functions, let's go through them to see how this contract will work:
 
-```rust
-contract Token {
-    #[aztec(public)]
-    #[aztec(initializer)]
-    fn constructor() {}
-
-    #[aztec(public)]
-    fn set_admin(new_admin: AztecAddress) {}
-
-    #[aztec(public)]
-    fn set_minter(minter: AztecAddress, approve: bool) {}
-
-    #[aztec(public)]
-    fn mint_public(to: AztecAddress, amount: Field) -> Field {}
-
-    #[aztec(public)]
-    fn mint_private(amount: Field, secret_hash: Field) -> Field {}
-
-    #[aztec(public)]
-    fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) -> Field {}
-
-    #[aztec(public)]
-    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> Field {}
-
-    #[aztec(public)]
-    fn burn_public(from: AztecAddress, amount: Field, nonce: Field) -> Field {}
-
-    // Private functions
-
-    #[aztec(private)]
-    fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) -> Field {}
-
-    #[aztec(private)]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> Field {}
-
-    #[aztec(private)]
-    fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) -> Field {}
-
-    #[aztec(private)]
-    fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {}
-
-    #[aztec(private)]
-    fn cancel_authwit(inner_hash: Field) {}
-
-    #[aztec(private)]
-    fn burn(from: AztecAddress, amount: Field, nonce: Field) -> Field {}
-
-    // Internal functions
-
-    #[aztec(internal)]
-    #[aztec(public)]
-    fn _increase_public_balance(to: AztecAddress, amount: Field) {}
-
-    #[aztec(internal)]
-    #[aztec(public)]
-    fn _reduce_total_supply(amount: Field) {}
-
-    // View functions
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn public_get_name() -> pub FieldCompressedString {}
-
-    #[aztec(private)]
-    #[aztec(view)]
-    fn private_get_name() -> pub FieldCompressedString {}
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn public_get_symbol() -> pub FieldCompressedString {}
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn public_get_decimals() -> pub u8 {}
-
-    #[aztec(private)]
-    #[aztec(view)]
-    fn private_get_decimals() -> pub u8 {}
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn admin() -> Field {}
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn is_minter(minter: AztecAddress) -> bool {}
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn total_supply() -> Field {}
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn balance_of_public(owner: AztecAddress) -> Field {}
-
-    // Unconstrained functions (read only)
-
-    unconstrained fn balance_of_private(owner: AztecAddress) -> Field {}
-}
-```
-
-This specifies the interface of the `Token` contract. Don't worry if you get some warnings - we haven't imported our types yet.
-
-Before we through the interface and implement each function, let's review the functions to get a sense of what the contract does.
-
-### Initializer interface
+### Initializer
 
 There is one `initilizer` function in this contract, and it will be selected and executed once when the contract is deployed, similar to a constructor in Solidity. This is marked private, so the function logic will not be transparent. To execute public function logic in the constructor, this function will call `_initialize` (marked internal, more detail below).
 
@@ -231,9 +126,12 @@ We will be going over the code in `main.nr` [here](https://github.com/AztecProto
 
 :::
 
-Just below the contract definition, add the following imports:
+Paste these imports:
 
-#include_code imports /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+```rust
+#include_code imports /noir-projects/noir-contracts/contracts/token_contract/src/main.nr raw
+}
+```
 
 We are importing:
 
@@ -286,9 +184,7 @@ This function sets the creator of the contract (passed as `msg_sender` from the 
 
 ### Public function implementations
 
-Public functions are declared with the `#[aztec(public)]` macro above the function name like so:
-
-#include_code set_admin /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+Public functions are declared with the `#[aztec(public)]` macro above the function name.
 
 As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to prepare data to be used in a private context, as we will go over below (e.g. see the [shield](#shield) function).
 
@@ -487,7 +383,7 @@ aztec codegen target -o src/artifacts
 
 ### Testing
 
-Review [the end to end tests](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
+Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 
 ### Token Bridge Contract
 

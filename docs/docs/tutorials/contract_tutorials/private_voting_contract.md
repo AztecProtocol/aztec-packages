@@ -67,11 +67,11 @@ Inside this, paste these imports:
 
 #include_code imports noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We are using various utils within the Aztec library:
+We are using various utils within the Aztec `prelude` library:
 
-- `PrivateContext` - exposes things such as the contract address, msg_sender, etc
 - `AztecAddress` - A type for storing an address on Aztec
 - `FunctionSelector` - Used for computing a selector to call a function
+- `PrivateContext` - exposes things such as the contract address, msg_sender, etc
 - `Map` - A data storage type for storing candidates with the number of votes they have
 - `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
 - `SharedImmutable` - an immutable storage value that is accessible in private and public execution.

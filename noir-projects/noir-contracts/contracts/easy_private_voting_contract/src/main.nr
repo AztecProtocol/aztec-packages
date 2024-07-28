@@ -1,7 +1,7 @@
 contract EasyPrivateVoting {
     // docs:start:imports
     use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext,
+        AztecAddress, FunctionSelector, PrivateContext,
         Map, PublicMutable, SharedImmutable
     };
     // docs:end:imports
