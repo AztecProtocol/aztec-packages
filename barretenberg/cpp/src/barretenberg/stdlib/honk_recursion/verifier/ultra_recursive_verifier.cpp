@@ -25,7 +25,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const aggregation_state<typename Flavor::Curve>& agg_obj)
+    const HonkProof& proof, aggregation_state<typename Flavor::Curve> agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     return verify_proof(stdlib_proof, agg_obj);
@@ -37,7 +37,7 @@ UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::
  */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& proof, const aggregation_state<typename Flavor::Curve>& agg_obj)
+    const StdlibProof<Builder>& proof, aggregation_state<typename Flavor::Curve> agg_obj)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -158,7 +158,8 @@ UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     // WORKTODO: aggregate here
-    static_cast<void>(pairing_points);
+    agg_obj.P0 = pairing_points[0];
+    agg_obj.P1 = pairing_points[1];
     return agg_obj;
 }
 

@@ -28,10 +28,10 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     // determine the exact interface. Simply returns the two pairing points.
     PairingPoints verify_proof(
         const HonkProof& proof,
-        const aggregation_state<typename Flavor::Curve>& previous_output = aggregation_state<typename Flavor::Curve>());
+        aggregation_state<typename Flavor::Curve> previous_output = aggregation_state<typename Flavor::Curve>());
     PairingPoints verify_proof(
         const StdlibProof<Builder>& proof,
-        const aggregation_state<typename Flavor::Curve>& previous_output = aggregation_state<typename Flavor::Curve>());
+        aggregation_state<typename Flavor::Curve> previous_output = aggregation_state<typename Flavor::Curve>());
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
