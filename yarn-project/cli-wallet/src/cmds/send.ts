@@ -1,17 +1,20 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
 import { createCompatibleClient } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js';
+import { prepTx } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { prepTx } from '../../../cli/src/utils/aztec.js';
 import { type IFeeOpts, printGasEstimates } from '../fees.js';
+import { WalletDB } from '../storage/wallet_db.js';
 
 export async function send(
   functionName: string,
   functionArgsIn: any[],
   contractArtifactPath: string,
   contractAddress: AztecAddress,
-  encryptionPrivateKey: Fr,
+  privateKey: Fr | undefined,
+  aliasOrAddress: string | undefined,
   rpcUrl: string,
   wait: boolean,
   feeOpts: IFeeOpts,
@@ -21,14 +24,17 @@ export async function send(
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const { getSchnorrAccount } = await import('@aztec/accounts/schnorr');
 
-  const wallet = await getSchnorrAccount(
-    client,
-    encryptionPrivateKey,
-    deriveSigningKey(encryptionPrivateKey),
-    Fr.ZERO,
-  ).getWallet();
+  let wallet;
+  if (aliasOrAddress) {
+    const { salt, privateKey } = await WalletDB.getInstance().retrieveAccount(aliasOrAddress);
+    wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt).getWallet();
+  } else if (privateKey) {
+    wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
+  } else {
+    throw new Error('Either a private key or an account address/alias must be provided');
+  }
+
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 

@@ -1,3 +1,4 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { ContractDeployer, type DeployMethod, Fr, createCompatibleClient } from '@aztec/aztec.js';
 import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
@@ -5,6 +6,7 @@ import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../fees.js';
+import { WalletDB } from '../storage/wallet_db.js';
 
 export async function deploy(
   artifactPath: string,
@@ -13,7 +15,8 @@ export async function deploy(
   publicKeys: PublicKeys | undefined,
   rawArgs: any[],
   salt: Fr | undefined,
-  privateKey: Fr,
+  privateKey: Fr | undefined,
+  aliasOrAddress: string | undefined,
   initializer: string | undefined,
   skipPublicDeployment: boolean,
   skipClassRegistration: boolean,
@@ -37,9 +40,17 @@ export async function deploy(
       `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
     );
   }
-  const { getSchnorrAccount } = await import('@aztec/accounts/schnorr');
 
-  const wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
+  let wallet;
+  if (aliasOrAddress) {
+    const { salt, privateKey } = await WalletDB.getInstance().retrieveAccount(aliasOrAddress);
+    wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt).getWallet();
+  } else if (privateKey) {
+    wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
+  } else {
+    throw new Error('Either a private key or an account address/alias must be provided');
+  }
+
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);
 
   let args = [];

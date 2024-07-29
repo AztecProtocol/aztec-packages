@@ -54,6 +54,7 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
     "commander": "^12.1.0",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0"
