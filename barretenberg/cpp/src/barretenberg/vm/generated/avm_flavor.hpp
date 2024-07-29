@@ -130,7 +130,7 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 485;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESSES = 483;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 483;
 
     using MainRelations = std::tuple<
         // Relations

@@ -45,7 +45,7 @@ class UltraFlavor {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESSES = 13;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -183,6 +183,28 @@ class UltraFlavor {
                              w_r_shift,     w_o_shift,     w_4_shift,     z_perm_shift };
         };
     };
+    /**
+     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     */
+    template <typename DataType> class ShiftedWitnessEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l_shift,    // column 0
+                              w_r_shift,    // column 1
+                              w_o_shift,    // column 2
+                              w_4_shift,    // column 3
+                              z_perm_shift) // column 4
+
+        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+    };
+    /**
+     * @brief Class for AllWitnessEntities, containining the derived ones and shifts.
+     */
+    template <typename DataType>
+    class AllWitnessEntities : public WitnessEntities<DataType>, public ShiftedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedWitnessEntities<DataType>)
+    };
 
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
@@ -219,6 +241,7 @@ class UltraFlavor {
                              this->w_r,     this->w_o,     this->w_4,     this->z_perm };
         };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
         // getter for shifted tables
         auto get_shifted_tables()
         {
@@ -227,23 +250,8 @@ class UltraFlavor {
                              this->table_3_shift, // column 2
                              this->table_4_shift };
         };
-        // getter for ALL witnesses including shifted ones
-        auto get_all_witnesses()
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->w_l_shift,
-                             this->w_r_shift,
-                             this->w_o_shift,
-                             this->w_4_shift,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags,
-                             this->z_perm_shift };
-        };
+        // getter for all witnesses including shifted ones
+        auto get_all_witnesses() { return AllWitnessEntities<DataType>::get_all(); };
         // getter for the complement of all witnesses inside all entities
         auto get_non_witnesses() { return concatenate(get_precomputed(), get_shifted_tables()); };
     };

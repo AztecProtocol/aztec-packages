@@ -52,7 +52,7 @@ class ECCVMFlavor {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 87;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESSES = 113;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 113;
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -284,6 +284,15 @@ class ECCVMFlavor {
                          entities.z_perm };                     // column 25
     }
     /**
+     * @brief Class for AllWitnessEntities, containining the derived ones and shifts.
+     */
+    template <typename DataType>
+    class AllWitnessEntities : public WitnessEntities<DataType>, public ShiftedEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
+    };
+
+    /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
@@ -315,14 +324,12 @@ class ECCVMFlavor {
 
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        // this getter is necessary for more uniform zk verifiers
+        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
         // the getter for all witnesses including derived and shifted ones
-        auto get_all_witnesses()
-        {
-            return concatenate(ShiftedEntities<DataType>::get_all(),
-                               WireEntities<DataType>::get_all(),
-                               DerivedWitnessEntities<DataType>::get_all());
-        };
+        auto get_all_witnesses() { return AllWitnessEntities<DataType>::get_all(); };
+        // this getter is necessary for a universal ZK Sumcheck
         auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 

@@ -77,7 +77,7 @@ class MegaFlavor {
     static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESSES = 23;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 23;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This
@@ -254,6 +254,28 @@ class MegaFlavor {
                               w_4_shift,     // column 7
                               z_perm_shift)  // column 8
     };
+    /**
+     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     */
+    template <typename DataType> class ShiftedWitnessEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l_shift,    // column 0
+                              w_r_shift,    // column 1
+                              w_o_shift,    // column 2
+                              w_4_shift,    // column 3
+                              z_perm_shift) // column 4
+
+        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+    };
+    /**
+     * @brief Class for AllWitnessEntities, containining the derived ones and shifts.
+     */
+    template <typename DataType>
+    class AllWitnessEntities : public WitnessEntities<DataType>, public ShiftedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedWitnessEntities<DataType>)
+    };
 
   public:
     /**
@@ -298,19 +320,9 @@ class MegaFlavor {
                              this->table_3_shift, // column 2
                              this->table_4_shift };
         };
-        auto get_shifted_witnesses()
-        {
-            return RefArray{
-                this->w_l_shift,   // column 0
-                this->w_r_shift,   // column 1
-                this->w_o_shift,   // column 2
-                this->w_4_shift,   // column 3
-                this->z_perm_shift // column 4
-            };
-        };
+        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
         // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
-        auto get_all_witnesses() { return concatenate(get_witness(), get_shifted_witnesses()); };
-
+        auto get_all_witnesses() { return AllWitnessEntities<DataType>::get_all(); };
         // this getter is used in ZK sumcheck as a countepart to get_all_witnesses
         // getter for the complement of all witnesses inside all entities
         auto get_non_witnesses() { return concatenate(get_precomputed(), get_shifted_tables()); };
