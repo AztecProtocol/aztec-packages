@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722241836516,
+  "lastUpdate": 1722242118913,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -95836,6 +95836,78 @@ window.BENCHMARK_DATA = {
             "value": 199388339,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 199388339 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f48b069181e316cb2a9d81f0acf6c00ee90e3db3",
+          "message": "feat: add recursive aggregation object to proving/verification keys (#6770)\n\nA step towards addressing (recursive aggregation)\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1059 and\r\nhttps://github.com/AztecProtocol/barretenberg/issues/934.\r\n\r\nAdds the boolean flag contains_recursive_proof and the vector of indices\r\nrecursive_proof_public_input_indices to the proving and (native and\r\nrecursive) verification keys. This is setting up aggregation in the\r\nnative/recursive verifier that we need for the base rollup and the\r\nsolidity verifier.\r\n\r\nAlso refactors the type of recursive_proof_public_input_indices and\r\nother aggregation objects to be an array instead of a vector.",
+          "timestamp": "2024-07-29T08:15:13Z",
+          "tree_id": "a53c30af00d53aaf561e809bfaeb102e45488c33",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f48b069181e316cb2a9d81f0acf6c00ee90e3db3"
+        },
+        "date": 1722242111378,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13298.276803999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9825.196654000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4810.993832999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4437.223183 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39566.264718,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39566265000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14426.505836,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14426505000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3630433576,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3630433576 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203274335,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203274335 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2990964138,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2990964138 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168276158,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168276158 ns\nthreads: 1"
           }
         ]
       }
