@@ -7,7 +7,7 @@ wasmtime:
     SAVE ARTIFACT /root/.wasmtime/bin/wasmtime
 
 source:
-    FROM ../../build-images+from-registry
+    FROM ../../build-images+build
     WORKDIR /usr/src/barretenberg
     # cpp source
     COPY --dir src/barretenberg src/CMakeLists.txt src
@@ -65,11 +65,11 @@ preset-msan-check:
     COPY --dir cmake CMakeLists.txt CMakePresets.json .
 
     # We never fail this as test-listing targets can timeout. Just pragmatically go on to see if the binary exists.
-    RUN cmake --preset msan -Bbuild && cmake --build build --target client_ivc_tests || true
+    RUN cmake --preset msan -Bbuild && cmake --build build --target eccvm_recursion_tests || true
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
-    RUN echo "Warning: If ./bin/client_ivc_tests is not found, there may be build failures above."
-    RUN cd build && ./bin/client_ivc_tests --gtest_also_run_disabled_tests
+    RUN echo "Warning: If ./bin/eccvm_recursion_tests is not found, there may be build failures above."
+    RUN cd build && ./bin/eccvm_recursion_tests --gtest_also_run_disabled_tests
 
 preset-wasm:
     ARG TARGETARCH
