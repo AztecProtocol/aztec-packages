@@ -134,9 +134,20 @@ resource "aws_autoscaling_group" "proving-agent-auto-scaling-group" {
   desired_capacity    = 1
   vpc_zone_identifier = [data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id, data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id]
 
-  launch_template {
-    id      = aws_launch_template.proving-agent-launch-template[count.index].id
-    version = "$Latest"
+  mixed_instances_policy {
+    instances_distribution {
+      on_demand_base_capacity                  = 1
+      on_demand_percentage_above_base_capacity = 0
+      spot_allocation_strategy                 = "lowest-price"
+      spot_max_price                           = "0.7"
+    }
+
+    launch_template {
+      launch_template_specification {
+        launch_template_id = aws_launch_template.proving-agent-launch-template[count.index].id
+        version            = "$Latest"
+      }
+    }
   }
 
   tag {
