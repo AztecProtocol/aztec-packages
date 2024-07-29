@@ -17,17 +17,7 @@ export async function sequencers(opts: {
   log: LogFn;
   debugLogger: DebugLogger;
 }) {
-  const {
-    blockNumber: maybeBlockNumber,
-    command,
-    who: maybeWho,
-    mnemonic,
-    rpcUrl,
-    l1RpcUrl,
-    chainId,
-    log,
-    debugLogger,
-  } = opts;
+  const { command, who: maybeWho, mnemonic, rpcUrl, l1RpcUrl, chainId, log, debugLogger } = opts;
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const { l1ContractAddresses } = await client.getNodeInfo();
 
@@ -59,7 +49,7 @@ export async function sequencers(opts: {
   const who = (maybeWho as `0x{string}`) ?? walletClient?.account.address.toString();
 
   if (command === 'list') {
-    const sequencers = await rollup.read.getSequencers();
+    const sequencers = await rollup.read.getValidators();
     if (sequencers.length === 0) {
       log(`No sequencers registered on rollup`);
     } else {
@@ -73,7 +63,7 @@ export async function sequencers(opts: {
       throw new Error(`Missing sequencer address`);
     }
     log(`Adding ${who} as sequencer`);
-    const hash = await writeableRollup.write.addSequencer([who]);
+    const hash = await writeableRollup.write.addValidator([who]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Added in tx ${hash}`);
   } else if (command === 'remove') {
@@ -81,13 +71,12 @@ export async function sequencers(opts: {
       throw new Error(`Missing sequencer address`);
     }
     log(`Removing ${who} as sequencer`);
-    const hash = await writeableRollup.write.removeSequencer([who]);
+    const hash = await writeableRollup.write.removeValidator([who]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Removed in tx ${hash}`);
   } else if (command === 'who-next') {
-    const blockNumber = maybeBlockNumber ?? (await client.getBlockNumber()) + 1;
-    const next = await rollup.read.whoseTurnIsIt([BigInt(blockNumber)]);
-    log(`Next sequencer expected to build ${blockNumber} is ${next}`);
+    const next = await rollup.read.getCurrentProposer();
+    log(`Sequencer expected to build is ${next}`);
   } else {
     throw new Error(`Unknown command ${command}`);
   }

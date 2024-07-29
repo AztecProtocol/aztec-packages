@@ -590,7 +590,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -853,6 +853,11 @@ export class PXEService implements PXE {
 
   public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
+  }
+
+  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
+    const initNullifier = siloNullifier(address, address);
+    return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
   public getEvents<T>(

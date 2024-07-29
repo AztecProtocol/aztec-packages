@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.46.7",
+  "version": "0.47.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -33,6 +33,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
