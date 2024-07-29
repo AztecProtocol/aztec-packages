@@ -137,21 +137,22 @@ template <typename Flavor> class SumcheckProver {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     // Specify the number of all witnesses including shifts and derived witnesses from flavors that have ZK,
     // otherwise, set this constant to 0
-    static constexpr size_t NUM_ALL_WITNESSES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESSES : 0;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
     /**
      * @brief The size of the hypercube, i.e. \f$ 2^d\f$.
      *
      */
 
     using SumcheckRoundUnivariate = typename bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
-    using EvaluationMaskingTable = std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESSES>;
+    using EvaluationMaskingTable =
+        std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESS_ENTITIES>;
     const size_t multivariate_n;
     /**
      * @brief The number of variables
      *
      */
     const size_t multivariate_d;
-    using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESSES>;
+    using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
     // Define the length of Libra Univariates. For non-ZK Flavors: set to 0.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
     using LibraUnivariates = std::vector<Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
@@ -410,7 +411,7 @@ polynomials that are sent in clear.
 
         EvalMaskingScalars eval_masking_scalars;
 
-        for (size_t k = 0; k < NUM_ALL_WITNESSES; ++k) {
+        for (size_t k = 0; k < NUM_ALL_WITNESS_ENTITIES; ++k) {
             eval_masking_scalars[k] = FF::random_element();
         };
         // Generate random scalars \f$ \rho_1,\ldots, \rho_{N_w}\f$ to mask the evaluations of witness polynomials and
@@ -464,12 +465,11 @@ polynomials that are sent in clear.
      * table of evaluations of the quadratic terms needed for masking evaluations of witnesses.
      *
      * @param evaluations
-     * @return std::array<FF, NUM_ALL_WITNESSES>
      */
     static EvaluationMaskingTable create_evaluation_masking_table(EvalMaskingScalars eval_masking_scalars)
     {
         EvaluationMaskingTable output_table;
-        for (size_t column_idx = 0; column_idx < NUM_ALL_WITNESSES; ++column_idx) {
+        for (size_t column_idx = 0; column_idx < NUM_ALL_WITNESS_ENTITIES; ++column_idx) {
             for (size_t row_idx = 0; row_idx < MAX_PARTIAL_RELATION_LENGTH; ++row_idx) {
                 auto scalar = FF(row_idx);
                 output_table[column_idx].value_at(row_idx) =

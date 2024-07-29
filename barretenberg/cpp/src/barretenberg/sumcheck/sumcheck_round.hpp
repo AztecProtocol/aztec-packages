@@ -68,12 +68,13 @@ template <typename Flavor> class SumcheckProverRound {
     struct ZKSumcheckData {
         // The number of all witnesses including shifts and derived witnesses from flavors that have ZK,
         // otherwise, set this constant to 0.
-        static constexpr size_t NUM_ALL_WITNESSES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESSES : 0;
+        static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
         // Array of random scalars used to hide the witness info from leaking through the claimed evaluations
-        using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESSES>;
+        using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
         // Auxiliary table that represents the evaluations of quadratic polynomials r_j * X(1-X) at 0,...,
         // MAX_PARTIAL_RELATION_LENGTH - 1
-        using EvaluationMaskingTable = std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESSES>;
+        using EvaluationMaskingTable =
+            std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESS_ENTITIES>;
         // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK
         // Sumcheck.
         static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
