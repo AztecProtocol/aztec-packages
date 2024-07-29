@@ -392,12 +392,14 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
+            info("Round number: ", round_idx);
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+            info("u challenge is: ", round_challenge, " at round i ", round_idx);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
@@ -441,11 +443,24 @@ template <typename Flavor> class SumcheckVerifier {
         bool checked = false;
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
+            // constrain this
+
+            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+                full_honk_relation_purported_value.self_reduce();
+                round.target_total_sum.self_reduce();
+            }
             checked = (full_honk_relation_purported_value.get_value() == round.target_total_sum.get_value());
+            info("full honk value: ", full_honk_relation_purported_value.get_value());
+            info("final target total sum", round.target_total_sum.get_value());
+
         } else {
             checked = (full_honk_relation_purported_value == round.target_total_sum);
+            info("full honk value: ", full_honk_relation_purported_value);
+            info("final target total sum ", round.target_total_sum);
+            info("value of checked: ", checked);
         }
         verified = verified && checked;
+        info("verified result at the end of sumcheck verification ", verified);
         //! [Final Verification Step]
         return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
     };

@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
@@ -87,6 +88,9 @@ class CircuitSimulatorBN254 {
                                                [[maybe_unused]] const fixed_group_init_quad_<FF>& init){};
     void create_fixed_group_add_gate_final([[maybe_unused]] const add_quad_<FF>& in){};
     void create_ecc_add_gate([[maybe_unused]] const ecc_add_gate_<FF>& in){};
+
+    void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         [[maybe_unused]] const plookup::MultiTableId& id,
