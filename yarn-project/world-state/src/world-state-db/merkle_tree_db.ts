@@ -62,4 +62,9 @@ export type MerkleTreeDb = {
      * @param block - The block number to take the snapshot at.
      */
     getSnapshot(block: number): Promise<TreeSnapshots>;
+
+    /**
+     * Forks the database at its current state.
+     */
+    fork(): Promise<MerkleTreeDb>;
   };

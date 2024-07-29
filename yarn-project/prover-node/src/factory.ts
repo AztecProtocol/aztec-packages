@@ -45,8 +45,12 @@ export async function createProverNode(
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = getL1Publisher(config, telemetry);
 
-  const latestWorldState = worldStateSynchronizer.getLatest();
-  const publicProcessorFactory = new PublicProcessorFactory(latestWorldState, archiver, simulationProvider, telemetry);
+  const publicProcessorFactory = new PublicProcessorFactory(
+    worldStateSynchronizer,
+    archiver,
+    simulationProvider,
+    telemetry,
+  );
 
   const txProvider = deps.aztecNodeTxProvider
     ? new AztecNodeTxProvider(deps.aztecNodeTxProvider)

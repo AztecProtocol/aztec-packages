@@ -67,7 +67,11 @@ export class BlockProvingJob {
         ...globalVariables,
       });
       const provingTicket = await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
-      const publicProcessor = this.publicProcessorFactory.create(historicalHeader, globalVariables);
+
+      // TODO: When we start proving multiple blocks per epoch, this will create a whole database copy for each block
+      // in the epoch, which we don't want. We should adapt the API so we can fork once and then spawn multiple processors
+      // from it, assuming we haven't moved to https://github.com/AztecProtocol/engineering-designs/pull/9 by then.
+      const publicProcessor = await this.publicProcessorFactory.createFromFork(historicalHeader, globalVariables);
 
       const txs = await this.getTxs(txHashes);
       await this.processTxs(publicProcessor, txs, txCount);

@@ -70,4 +70,10 @@ export interface WorldStateSynchronizer {
    * @returns An instance of MerkleTreeOperations
    */
   getSnapshot(block: number): MerkleTreeOperations;
+
+  /**
+   * Returns a writeable fork of the MerkleTreeOperations from the current state.
+   * @param includeUncommitted - Whether to include uncommitted data.
+   */
+  getFork(includeUncommitted: boolean): Promise<MerkleTreeOperations>;
 }

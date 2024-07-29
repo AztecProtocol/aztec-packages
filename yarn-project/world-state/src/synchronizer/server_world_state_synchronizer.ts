@@ -67,6 +67,10 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
   }
 
+  public async getFork(includeUncommitted: boolean): Promise<MerkleTreeOperationsFacade> {
+    return new MerkleTreeOperationsFacade(await this.merkleTreeDb.fork(), includeUncommitted);
+  }
+
   public async start() {
     if (this.currentState === WorldStateRunningState.STOPPED) {
       throw new Error('Synchronizer already stopped');

@@ -180,6 +180,15 @@ export class MerkleTrees implements MerkleTreeDb {
     await this.#commit();
   }
 
+  public async fork(): Promise<MerkleTrees> {
+    // TODO(palla/prover-node): If the underlying store is being shared with other components, we're unnecessarily
+    // copying a lot of data unrelated to merkle trees. This may be fine for now, and we may be able to ditch backup-based
+    // forking in favor of a more elegant proposal. But if we see this operation starts taking a lot of time, we may want
+    // to open separate stores for merkle trees and other components.
+    const forked = await this.store.fork();
+    return MerkleTrees.new(forked, this.log);
+  }
+
   public getInitialHeader(): Header {
     return Header.empty({ state: this.#loadInitialStateReference() });
   }

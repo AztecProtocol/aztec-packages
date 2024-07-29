@@ -742,6 +742,7 @@ export class AztecNodeService implements AztecNode {
       this.telemetry,
     );
     const processor = publicProcessorFactory.create(prevHeader, newGlobalVariables);
+
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     // REFACTOR: Consider returning the error/revert rather than throwing
