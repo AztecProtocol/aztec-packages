@@ -231,7 +231,7 @@ describe('e2e_cheat_codes', () => {
         TokenContract.notes.TransparentNote.id,
         receipt.txHash,
       );
-      await pxe.addNote(extendedNote);
+      await pxe.addNote(extendedNote, admin.address);
       // docs:end:pxe_add_note
 
       // check if note was added to pending shield:

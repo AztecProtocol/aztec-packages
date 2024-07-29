@@ -163,7 +163,7 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, account?: AztecAddress): Promise<Tx>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
@@ -184,7 +184,7 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress, account?: AztecAddress): Promise<SimulatedTx>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
@@ -228,7 +228,7 @@ export interface PXE {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+  getIncomingNotes(filter: IncomingNotesFilter, account: AztecAddress): Promise<ExtendedNote[]>;
 
   /**
    * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
@@ -251,7 +251,7 @@ export interface PXE {
    * @throws If the note hash of the note doesn't exist in the tree.
    * @param note - The note to add.
    */
-  addNote(note: ExtendedNote): Promise<void>;
+  addNote(note: ExtendedNote, account: AztecAddress): Promise<void>;
 
   /**
    * Adds a nullified note to the database.

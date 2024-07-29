@@ -1,4 +1,5 @@
 import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type Wallet } from '../account/index.js';
@@ -15,8 +16,13 @@ export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
  * A deployment transaction for an account contract sent to the network, extending SentTx with methods to get the resulting wallet.
  */
 export class DeployAccountSentTx extends SentTx {
-  constructor(pxe: PXE, txHashPromise: Promise<TxHash>, private getWalletPromise: Promise<Wallet>) {
-    super(pxe, txHashPromise);
+  constructor(
+    pxe: PXE,
+    txHashPromise: Promise<TxHash>,
+    private getWalletPromise: Promise<Wallet>,
+    account: AztecAddress,
+  ) {
+    super(pxe, txHashPromise, account);
   }
 
   /**

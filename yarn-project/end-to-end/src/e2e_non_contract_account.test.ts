@@ -61,13 +61,13 @@ describe('e2e_non_contract_account', () => {
     // We have to manually add the note because the note was not broadcasted.
     const extendedNote = new ExtendedNote(
       note,
-      wallet.getCompleteAddress().address,
+      wallet.getAddress(),
       contract.address,
       TestContract.storage.example_constant.slot,
       TestContract.notes.TestNote.id,
       txHash,
     );
-    await wallet.addNote(extendedNote);
+    await wallet.addNote(extendedNote, wallet.getAddress());
 
     expect(await contract.methods.get_constant().simulate()).toEqual(value);
   });

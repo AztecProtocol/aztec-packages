@@ -57,7 +57,7 @@ async function main() {
     TokenContract.notes.TransparentNote.id,
     receipt.txHash,
   );
-  await pxe.addNote(extendedNote);
+  await pxe.addNote(extendedNote, alice.address);
 
   // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
   // to a "token note")

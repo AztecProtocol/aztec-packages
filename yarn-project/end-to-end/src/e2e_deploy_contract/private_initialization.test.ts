@@ -32,36 +32,58 @@ describe('e2e_deploy_contract private initialization', () => {
   );
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
-  test.each(['as entrypoint', 'from an account contract'] as const)(
+  test.each([
+    'as entrypoint', 
+    'from an account contract'
+  ] as const)(
     'privately initializes an undeployed contract %s',
     async kind => {
-      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
       const owner = await t.registerRandomAccount();
+
+      // TODO: This is a bit weird, but we need away to specify what scoped oracle db to use
+      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe, undefined, owner) : wallet;
       const outgoingViewer = owner;
-      const initArgs: StatefulContractCtorArgs = [owner, outgoingViewer, 42];
+      const initArgs: StatefulContractCtorArgs = [owner.address, outgoingViewer, 42];
       const contract = await t.registerContract(testWallet, StatefulTestContract, { initArgs });
       logger.info(`Calling the constructor for ${contract.address}`);
-      await contract.methods
+
+      const tx = await contract.methods
         .constructor(...initArgs)
         .send()
         .wait();
+
+      if (kind === 'from an account contract') {
+        const [newlyCreatedNote] = await pxe.getIncomingNotes({txHash: tx.txHash}, owner.address);
+        await pxe.addNote(newlyCreatedNote, wallet.getAddress());
+      }
+
       logger.info(`Checking if the constructor was run for ${contract.address}`);
       expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
       logger.info(`Calling a private function that requires initialization on ${contract.address}`);
-      await contract.methods.create_note(owner, outgoingViewer, 10).send().wait();
+      const tx2 = await contract.methods.create_note(owner, outgoingViewer, 10).send().wait();
+
+      if (kind === 'from an account contract') {
+        const [newlyCreatedNote] = await pxe.getIncomingNotes({txHash: tx2.txHash}, owner.address)
+        await pxe.addNote(newlyCreatedNote, wallet.getAddress());
+      }
+
       expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
     },
   );
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
   it('initializes multiple undeployed contracts in a single tx', async () => {
-    const owner = await t.registerRandomAccount();
+    const { address: owner } = await t.registerRandomAccount();
     const initArgs: StatefulContractCtorArgs[] = [42, 52].map(value => [owner, owner, value]);
     const contracts = await Promise.all(
       initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
     );
     const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request());
-    await new BatchCall(wallet, calls).send().wait();
+    const tx = await new BatchCall(wallet, calls).send().wait();
+    const newlyCreatedNotes = await pxe.getIncomingNotes({txHash: tx.txHash}, owner)
+
+    await Promise.all(newlyCreatedNotes.map(note => pxe.addNote(note, wallet.getAddress())));
+
     expect(await contracts[0].methods.summed_values(owner).simulate()).toEqual(42n);
     expect(await contracts[1].methods.summed_values(owner).simulate()).toEqual(52n);
   });
@@ -122,7 +144,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const outgoingViewer = owner;
     const contract = await t.registerContract(wallet, StatefulTestContract, {
       initArgs: [owner, outgoingViewer, 42],
-      deployer: owner,
+      deployer: owner.address,
     });
     await expect(contract.methods.constructor(owner, outgoingViewer, 42).prove()).rejects.toThrow(
       /Initializer address is not the contract deployer/i,

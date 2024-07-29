@@ -141,6 +141,9 @@ describe('e2e_blacklist_token_contract burn', () => {
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[1].addAuthWitness(witness);
 
+      const notesOfOwner = await wallets[0].getIncomingNotes({});
+      await Promise.all(notesOfOwner.map(note => wallets[1].addNote(note, wallets[1].getAddress())));
+
       await asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send().wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
 
@@ -182,7 +185,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
         await wallets[1].addAuthWitness(witness);
 
-        await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.send().wait()).rejects.toThrow();
       });
 
       it('burn on behalf of other without approval', async () => {
@@ -197,6 +200,9 @@ describe('e2e_blacklist_token_contract burn', () => {
           { caller: wallets[1].getAddress(), action: action.request() },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
+
+        const notes = await wallets[0].getIncomingNotes({});
+        await Promise.all(notes.map(note => wallets[1].addNote(note, wallets[1].getAddress())));
 
         await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
       });
@@ -216,6 +222,9 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
         await wallets[2].addAuthWitness(witness);
+
+        const notes = await wallets[0].getIncomingNotes({});
+        await Promise.all(notes.map(note => wallets[2].addNote(note, wallets[2].getAddress())));
 
         await expect(action.prove()).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,

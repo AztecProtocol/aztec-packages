@@ -16,7 +16,7 @@ import {
   type FPCContract,
 } from '@aztec/noir-contracts.js';
 
-import { expectMapping, expectMappingDelta } from '../fixtures/utils.js';
+import { expectMapping, expectMappingDelta, expectMappingDeltaNew, expectMappingNew } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 type Balances = [bigint, bigint, bigint];
@@ -26,6 +26,7 @@ describe('e2e_fees dapp_subscription', () => {
 
   let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress; // Dapp subscriber.
+  let bobWallet: AccountWallet;
   let bobAddress: AztecAddress; // Dapp owner.
   let sequencerAddress: AztecAddress;
 
@@ -51,6 +52,7 @@ describe('e2e_fees dapp_subscription', () => {
     ({
       aliceWallet,
       aliceAddress,
+      bobWallet,
       bobAddress,
       sequencerAddress,
       bananaCoin,
@@ -72,10 +74,11 @@ describe('e2e_fees dapp_subscription', () => {
       [0n, 0n, t.INITIAL_GAS_BALANCE, t.INITIAL_GAS_BALANCE],
     );
 
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address],
       [t.ALICE_INITIAL_BANANAS, 0n, 0n],
+      [aliceWallet, bobWallet, aliceWallet]
     );
 
     await expectMapping(
@@ -90,6 +93,7 @@ describe('e2e_fees dapp_subscription', () => {
       (await t.getGasBalanceFn(subscriptionContract, sequencerAddress, bananaFPC)) as Balances;
     initialBananasPublicBalances = (await t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC)) as Balances;
     initialBananasPrivateBalances = (await t.getBananaPrivateBalanceFn(
+      [aliceWallet, bobWallet, aliceWallet],
       aliceAddress,
       bobAddress,
       bananaFPC,
@@ -119,7 +123,7 @@ describe('e2e_fees dapp_subscription', () => {
     );
 
     // alice, bob, fpc
-    await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - t.maxFee, t.SUBSCRIPTION_AMOUNT, 0n);
+    await expectBananasPrivateDeltaNew(-t.SUBSCRIPTION_AMOUNT - t.maxFee, t.SUBSCRIPTION_AMOUNT, 0n);
     await expectBananasPublicDelta(0n, 0n, transactionFee!);
 
     // REFUND_AMOUNT is a transparent note note
@@ -148,7 +152,7 @@ describe('e2e_fees dapp_subscription', () => {
 
     // alice, bob, fpc
     // we pay the fee publicly, but the subscription payment is still private.
-    await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT, t.SUBSCRIPTION_AMOUNT, 0n);
+    await expectBananasPrivateDeltaNew(-t.SUBSCRIPTION_AMOUNT, t.SUBSCRIPTION_AMOUNT, 0n);
     // we have the refund from the previous test,
     // but since we paid publicly this time, the refund should have been "squashed"
     await expectBananasPublicDelta(-transactionFee!, 0n, transactionFee!);
@@ -164,8 +168,8 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
-    const tx = await pxe.proveTx(txExReq, true);
-    const sentTx = new SentTx(pxe, pxe.sendTx(tx));
+    const tx = await pxe.proveTx(txExReq, true, aliceAddress);
+    const sentTx = new SentTx(pxe, pxe.sendTx(tx), aliceAddress);
     const { transactionFee } = await sentTx.wait();
 
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
@@ -208,18 +212,28 @@ describe('e2e_fees dapp_subscription', () => {
     // Emitting the outgoing logs to Alice below
     const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
-    const tx = await pxe.proveTx(txExReq, true);
+    const tx = await pxe.proveTx(txExReq, true, aliceAddress);
     expect(tx.data.feePayer).toEqual(subscriptionContract.address);
-    const sentTx = new SentTx(pxe, pxe.sendTx(tx));
+    const sentTx = new SentTx(pxe, pxe.sendTx(tx), aliceAddress);
     return sentTx.wait();
   }
 
   const expectBananasPrivateDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>
-    expectMappingDelta(
+    expectMappingDeltaNew(
       initialBananasPrivateBalances,
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bobAddress, bananaFPC.address],
       [aliceAmount, bobAmount, fpcAmount],
+      [aliceWallet, aliceWallet, aliceWallet],
+    );
+
+  const expectBananasPrivateDeltaNew = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>
+    expectMappingDeltaNew(
+      initialBananasPrivateBalances,
+      t.getBananaPrivateBalanceFn,
+      [aliceAddress, bobAddress, bananaFPC.address],
+      [aliceAmount, bobAmount, fpcAmount],
+      [aliceWallet, bobWallet, aliceWallet],
     );
 
   const expectBananasPublicDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>

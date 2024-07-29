@@ -79,7 +79,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       TokenContract.notes.TransparentNote.id,
       txHash,
     );
-    await wallet.addNote(extendedNote);
+    await wallet.addNote(extendedNote, wallet.getAddress());
   };
 
   beforeAll(async () => {
@@ -158,6 +158,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       txReceipt1.txHash,
       donationToken.withWallet(operatorWallet).address,
     );
+
     await addPendingShieldNoteToPXE(
       donorWallets[1],
       2345n,
@@ -231,6 +232,33 @@ describe('e2e_crowdfunding_and_claim', () => {
         x.contractAddress.equals(crowdfundingContract.address),
       );
       expect(notes!.length).toEqual(1);
+
+      console.log('VISIBLE INCOMING NOTES', JSON.stringify(donateTxReceipt.debugInfo?.visibleIncomingNotes, null, 2));
+
+      // WHY IS THE OWNER OF THIS NOT THE CROWDFUNDING CONTRACT AND IS THE DONATOR[0] ? It should be the operator
+      const [outgoingNotesFiltered] = donateTxReceipt.debugInfo!.visibleOutgoingNotes.filter(
+        x => x.contractAddress.equals(donationToken.address) && x.note.items[0].equals(new Fr(donationAmount)),
+      )!;
+
+      const donatedNote = new ExtendedNote(
+        outgoingNotesFiltered.note,
+        operatorWallet.getAddress(),
+        donationToken.address,
+        outgoingNotesFiltered.storageSlot,
+        outgoingNotesFiltered.noteTypeId,
+        donateTxReceipt.txHash,
+      );
+
+      await pxe.addNote(donatedNote, operatorWallet.getAddress());
+
+      console.log('OUTGOINGNOTESFILTERED', JSON.stringify(outgoingNotesFiltered, null, 2));
+      // console.log('OUTGOINGNOTES', donateTxReceipt.debugInfo?.visibleOutgoingNotes);
+      console.log('CROWDFUNDING CONTRACT ADDRESS', crowdfundingContract.address);
+      console.log('DONATION TOKEN ADDRESS', donationToken.address);
+      console.log('DONATOR 0 ADDRESS', donorWallets[0].getAddress());
+      console.log('OPERATOR ADDRESS', operatorWallet.getAddress());
+
+      // expect(notes!.length).toEqual(1);
 
       // Set the value note in a format which can be passed to claim function
       valueNote = await processExtendedNote(notes![0]);

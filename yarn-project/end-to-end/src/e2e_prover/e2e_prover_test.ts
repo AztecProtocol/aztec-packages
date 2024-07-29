@@ -235,7 +235,7 @@ export class FullProverTest {
       TokenContract.notes.TransparentNote.id,
       txHash,
     );
-    await this.wallets[accountIndex].addNote(extendedNote);
+    await this.wallets[accountIndex].addNote(extendedNote, this.accounts[accountIndex].address);
   }
 
   async applyMintSnapshot() {

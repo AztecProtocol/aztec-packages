@@ -18,7 +18,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { type DBOracle, MessageLoadOracleInputs } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
@@ -35,7 +35,7 @@ export class SimulatorOracle implements DBOracle {
     private db: PxeDatabase,
     private keyStore: KeyStore,
     private aztecNode: AztecNode,
-    private log = createDebugLogger('aztec:pxe:simulator_oracle'),
+    private log: Logger = createDebugLogger('aztec:pxe:simulator_oracle'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -77,12 +77,17 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
-    const noteDaos = await this.db.getIncomingNotes({
-      contractAddress,
-      storageSlot,
-      status,
-    });
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, account: AztecAddress) {
+    console.log('CALLING GET NOTES FROM SIMULATOR ORACLE WITH ACCOUNT', account);
+    const noteDaos = await this.db.getIncomingNotes(
+      {
+        contractAddress,
+        storageSlot,
+        status,
+      },
+      account,
+    );
+    console.log('RETURNING GET NOTES FROM SIMULATOR ORACLE', noteDaos);
     return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,

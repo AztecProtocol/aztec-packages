@@ -20,7 +20,7 @@ import {
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
-  type AztecAddress,
+  AztecAddress,
   type CompleteAddress,
   type Fq,
   type Fr,
@@ -101,8 +101,8 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.proveTx(txRequest, simulatePublic);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, account?: AztecAddress): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic, account);
   }
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
@@ -117,7 +117,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.getTxReceipt(txHash);
   }
   getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
-    return this.pxe.getIncomingNotes(filter);
+    return this.pxe.getIncomingNotes(filter, this.getAddress());
   }
   getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
     return this.pxe.getOutgoingNotes(filter);
@@ -129,8 +129,8 @@ export abstract class BaseWallet implements Wallet {
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }
-  addNote(note: ExtendedNote): Promise<void> {
-    return this.pxe.addNote(note);
+  addNote(note: ExtendedNote, account: AztecAddress): Promise<void> {
+    return this.pxe.addNote(note, account);
   }
   addNullifiedNote(note: ExtendedNote): Promise<void> {
     return this.pxe.addNullifiedNote(note);

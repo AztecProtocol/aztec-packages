@@ -129,19 +129,23 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes, []);
-        await expect(database.getIncomingNotes(getFilter())).resolves.toEqual(getExpected());
+        await database.addNotes(notes, [], AztecAddress.fromString('0xdeadbeef'));
+        await expect(database.getIncomingNotes(getFilter(), AztecAddress.fromString('0xdeadbeef'))).resolves.toEqual(
+          getExpected(),
+        );
       });
 
       it.each(filteringTests)('stores notes one by one and retrieves notes', async (getFilter, getExpected) => {
         for (const note of notes) {
-          await database.addNote(note);
+          await database.addNote(note, AztecAddress.fromString('0xdeadbeef'));
         }
-        await expect(database.getIncomingNotes(getFilter())).resolves.toEqual(getExpected());
+        await expect(database.getIncomingNotes(getFilter(), AztecAddress.fromString('0xdeadbeef'))).resolves.toEqual(
+          getExpected(),
+        );
       });
 
       it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes, []);
+        await database.addNotes(notes, [], AztecAddress.fromString('0xdeadbeef'));
 
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
@@ -150,47 +154,60 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           );
           const nullifiers = notesToNullify.map(note => note.siloedNullifier);
           await expect(
-            database.removeNullifiedNotes(nullifiers, owner.publicKeys.masterIncomingViewingPublicKey),
+            database.removeNullifiedNotes(
+              nullifiers,
+              owner.publicKeys.masterIncomingViewingPublicKey,
+              AztecAddress.fromString('0xdeadbeef'),
+            ),
           ).resolves.toEqual(notesToNullify);
         }
 
         await expect(
-          database.getIncomingNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+          database.getIncomingNotes(
+            { ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED },
+            AztecAddress.fromString('0xdeadbeef'),
+          ),
         ).resolves.toEqual(getExpected());
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
-        await database.addNotes(notes, []);
+        await database.addNotes(notes, [], AztecAddress.fromString('0xdeadbeef'));
 
         const notesToNullify = notes.filter(note =>
           note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
         );
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
-          notesToNullify,
-        );
+        await expect(
+          database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM, AztecAddress.fromString('0xdeadbeef')),
+        ).resolves.toEqual(notesToNullify);
 
-        const actualNotesWithDefault = await database.getIncomingNotes({});
-        const actualNotesWithActive = await database.getIncomingNotes({ status: NoteStatus.ACTIVE });
+        const actualNotesWithDefault = await database.getIncomingNotes({}, AztecAddress.fromString('0xdeadbeef'));
+        const actualNotesWithActive = await database.getIncomingNotes(
+          { status: NoteStatus.ACTIVE },
+          AztecAddress.fromString('0xdeadbeef'),
+        );
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
       });
 
       it('returns active and nullified notes when requesting either', async () => {
-        await database.addNotes(notes, []);
+        await database.addNotes(notes, [], AztecAddress.fromString('0xdeadbeef'));
 
         const notesToNullify = notes.filter(note =>
           note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
         );
         const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
-          notesToNullify,
-        );
+        await expect(
+          database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM, AztecAddress.fromString('0xdeadbeef')),
+        ).resolves.toEqual(notesToNullify);
 
-        const result = await database.getIncomingNotes({
-          status: NoteStatus.ACTIVE_OR_NULLIFIED,
-        });
+        const result = await database.getIncomingNotes(
+          {
+            status: NoteStatus.ACTIVE_OR_NULLIFIED,
+          },
+          AztecAddress.fromString('0xdeadbeef'),
+        );
 
         // We have to compare the sorted arrays since the database does not return the same order as when originally
         // inserted combining active and nullified results.
@@ -257,7 +274,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
-        await database.addNotes([], notes);
+        await database.addNotes([], notes, AztecAddress.fromString('0xdeadbeef'));
         await expect(database.getOutgoingNotes(getFilter())).resolves.toEqual(getExpected());
       });
     });

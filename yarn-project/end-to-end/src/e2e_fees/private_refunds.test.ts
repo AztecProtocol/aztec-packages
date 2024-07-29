@@ -11,12 +11,14 @@ import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type PrivateFPCContract, PrivateTokenContract } from '@aztec/noir-contracts.js';
 
-import { expectMapping } from '../fixtures/utils.js';
+import { expectMapping, expectMappingNew } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees/private_refunds', () => {
   let aliceWallet: Wallet;
   let aliceAddress: AztecAddress;
+  let bobWallet: Wallet;
+  let bobAddress: AztecAddress;
   let privateToken: PrivateTokenContract;
   let privateFPC: PrivateFPCContract;
 
@@ -33,7 +35,7 @@ describe('e2e_fees/private_refunds', () => {
     await t.applyDeployGasTokenSnapshot();
     await t.applyPrivateTokenAndFPC();
     await t.applyFundAliceWithPrivateTokens();
-    ({ aliceWallet, aliceAddress, privateFPC, privateToken } = await t.setup());
+    ({ aliceWallet, aliceAddress, bobWallet, bobAddress, privateFPC, privateToken } = await t.setup());
     t.logger.debug(`Alice address: ${aliceAddress}`);
   });
 
@@ -43,7 +45,7 @@ describe('e2e_fees/private_refunds', () => {
 
   beforeEach(async () => {
     [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
-      t.getPrivateTokenBalanceFn(aliceAddress, t.bobAddress),
+      t.getPrivateTokenBalanceFn([aliceWallet, bobWallet], aliceAddress, bobAddress),
       t.getGasBalanceFn(privateFPC.address),
     ]);
   });
@@ -104,6 +106,7 @@ describe('e2e_fees/private_refunds', () => {
         PrivateTokenContract.notes.TokenNote.id,
         tx.txHash,
       ),
+      t.aliceAddress,
     );
 
     // 6. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
@@ -122,15 +125,17 @@ describe('e2e_fees/private_refunds', () => {
         PrivateTokenContract.notes.TokenNote.id,
         tx.txHash,
       ),
+      t.bobAddress,
     );
 
     // 8. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
     await expectMapping(t.getGasBalanceFn, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
-    await expectMapping(
+    await expectMappingNew(
       t.getPrivateTokenBalanceFn,
       [aliceAddress, t.bobAddress],
       [initialAliceBalance - tx.transactionFee!, initialBobBalance + tx.transactionFee!],
+      [aliceWallet, bobWallet],
     );
   });
 });

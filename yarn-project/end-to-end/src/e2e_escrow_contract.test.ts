@@ -50,8 +50,14 @@ describe('e2e_escrow_contract', () => {
     const escrowDeployment = EscrowContract.deployWithPublicKeysHash(escrowPublicKeysHash, wallet, owner);
     const escrowInstance = escrowDeployment.getInstance();
     await pxe.registerAccount(escrowSecretKey, computePartialAddress(escrowInstance));
-    escrowContract = await escrowDeployment.send().deployed();
+    const deploymentTx = await escrowDeployment.send().wait();
+
+    escrowContract = deploymentTx.contract;
+
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
+
+    const [ownerNote] = await pxe.getIncomingNotes({txHash: deploymentTx.txHash}, wallet.getAddress());
+    await pxe.addNote(ownerNote, recipient);
 
     // Deploy Token contract and mint funds for the escrow contract
     token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
@@ -72,9 +78,12 @@ describe('e2e_escrow_contract', () => {
       TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
-    await pxe.addNote(extendedNote);
+    await pxe.addNote(extendedNote, owner);
 
-    await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait();
+    const tx = await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait();
+
+    const [redeemedNote] = await pxe.getIncomingNotes({txHash: tx.txHash}, escrowContract.address);
+    await pxe.addNote(redeemedNote, owner);
 
     logger.info(`Token contract deployed at ${token.address}`);
   });
@@ -123,7 +132,7 @@ describe('e2e_escrow_contract', () => {
       TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
-    await pxe.addNote(extendedNote);
+    await pxe.addNote(extendedNote, owner);
 
     await token.methods.redeem_shield(owner, mintAmount, secret).send().wait();
 

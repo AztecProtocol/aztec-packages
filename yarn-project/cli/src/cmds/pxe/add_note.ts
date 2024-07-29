@@ -18,5 +18,5 @@ export async function addNote(
   const note = new Note(parseFields(noteFields));
   const extendedNote = new ExtendedNote(note, address, contractAddress, storageSlot, noteTypeId, txHash);
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  await client.addNote(extendedNote);
+  await client.addNote(extendedNote, address);
 }

@@ -51,7 +51,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
+  getIncomingNotes(filter: IncomingNotesFilter, account: AztecAddress): Promise<IncomingNoteDao[]>;
 
   /**
    * Gets outgoing notes.
@@ -63,7 +63,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * Adds a note to DB.
    * @param note - The note to add.
    */
-  addNote(note: IncomingNoteDao): Promise<void>;
+  addNote(note: IncomingNoteDao, account: AztecAddress): Promise<void>;
 
   /**
    * Adds a nullified note to DB.
@@ -79,7 +79,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param incomingNotes - An array of notes which were decrypted as incoming.
    * @param outgoingNotes - An array of notes which were decrypted as outgoing.
    */
-  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[]): Promise<void>;
+  addNotes(incomingNotes: IncomingNoteDao[], outgoingNotes: OutgoingNoteDao[], account: AztecAddress): Promise<void>;
 
   /**
    * Add notes to the database that are intended for us, but we don't yet have the contract.
@@ -107,7 +107,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: Fr[], account: PublicKey): Promise<IncomingNoteDao[]>;
+  removeNullifiedNotes(
+    nullifiers: Fr[],
+    accountPublicKey: PublicKey,
+    account: AztecAddress,
+  ): Promise<IncomingNoteDao[]>;
 
   /**
    * Gets the most recently processed block number.

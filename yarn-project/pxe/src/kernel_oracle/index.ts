@@ -12,7 +12,7 @@ import {
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
@@ -30,7 +30,7 @@ export class KernelOracle implements ProvingDataOracle {
     private contractDataOracle: ContractDataOracle,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+    private log: Logger = createDebugLogger('aztec:pxe:kernel_oracle'),
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {

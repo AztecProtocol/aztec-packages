@@ -13,7 +13,7 @@ import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { type TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
 
-import { expectMapping } from '../fixtures/utils.js';
+import { expectMapping, expectMappingNew } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees failures', () => {
@@ -41,6 +41,7 @@ describe('e2e_fees failures', () => {
     const PrivateMintedAlicePrivateBananas = BigInt(1e15);
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+      [aliceWallet, aliceWallet],
       aliceAddress,
       bananaFPC.address,
     );
@@ -67,10 +68,11 @@ describe('e2e_fees failures', () => {
     ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
 
     // we did not pay the fee, because we did not submit the TX
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address],
       [initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas, initialFPCPrivateBananas],
+      [aliceWallet, aliceWallet],
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
@@ -99,7 +101,7 @@ describe('e2e_fees failures', () => {
     expect(newSequencerL1Gas).toEqual(currentSequencerL1Gas + feeAmount);
 
     // and thus we paid the fee
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address],
       [
@@ -107,6 +109,7 @@ describe('e2e_fees failures', () => {
         initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas - gasSettings.getFeeLimit().toBigInt(),
         initialFPCPrivateBananas,
       ],
+      [aliceWallet, aliceWallet]
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
@@ -126,10 +129,11 @@ describe('e2e_fees failures', () => {
     await t.addPendingShieldNoteToPXE(t.aliceWallet, refund, secretHashForRebate, txReceipt.txHash);
     await bananaCoin.methods.redeem_shield(aliceAddress, refund, rebateSecret).send().wait();
 
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address],
       [initialAlicePrivateBananas + PrivateMintedAlicePrivateBananas - feeAmount, initialFPCPrivateBananas],
+      [aliceWallet, aliceWallet]
     );
   });
 
@@ -138,6 +142,7 @@ describe('e2e_fees failures', () => {
     const PublicMintedAlicePublicBananas = BigInt(1e12);
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+      [aliceWallet, aliceWallet],
       aliceAddress,
       bananaFPC.address,
     );
@@ -166,10 +171,11 @@ describe('e2e_fees failures', () => {
     ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
 
     // we did not pay the fee, because we did not submit the TX
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
+      [aliceWallet, aliceWallet, aliceWallet]
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
@@ -198,10 +204,11 @@ describe('e2e_fees failures', () => {
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
+      [aliceWallet, aliceWallet, aliceWallet]
     );
     await expectMapping(
       t.getBananaPublicBalanceFn,
@@ -253,8 +260,9 @@ describe('e2e_fees failures', () => {
     const PublicMintedAlicePublicBananas = 100_000_000_000n;
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await t.getBananaPrivateBalanceFn(
+      [aliceWallet, aliceWallet],
       aliceAddress,
-      bananaFPC.address,
+      bananaFPC.address
     );
     const [initialAlicePublicBananas, initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(
       aliceAddress,
@@ -302,10 +310,11 @@ describe('e2e_fees failures', () => {
     expect(receipt.status).toEqual(TxStatus.TEARDOWN_REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
-    await expectMapping(
+    await expectMappingNew(
       t.getBananaPrivateBalanceFn,
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAlicePrivateBananas, initialFPCPrivateBananas, 0n],
+      [aliceWallet, aliceWallet, aliceWallet]
     );
     // Since setup went through, Alice transferred to the FPC
     await expectMapping(

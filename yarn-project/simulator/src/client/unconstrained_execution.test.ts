@@ -77,7 +77,12 @@ describe('Unconstrained Execution test suite', () => {
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());
+      const result = await acirSimulator.runUnconstrained(
+        execRequest,
+        artifact,
+        AztecAddress.random(),
+        AztecAddress.random(),
+      );
 
       expect(result).toEqual(9n);
     }, 30_000);

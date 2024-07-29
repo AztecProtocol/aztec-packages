@@ -83,7 +83,12 @@ export interface DBOracle extends CommitmentsDB {
    * @param status - The status of notes to fetch.
    * @returns A Promise that resolves to an array of note data.
    */
-  getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus): Promise<NoteData[]>;
+  getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    status: NoteStatus,
+    account: AztecAddress,
+  ): Promise<NoteData[]>;
 
   /**
    * Retrieve the artifact information of a specific function within a contract.

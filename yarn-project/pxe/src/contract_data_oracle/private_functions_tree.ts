@@ -6,7 +6,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type MerkleTree } from '@aztec/circuits.js/merkle';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 import { type ContractClassWithId } from '@aztec/types/contracts';
@@ -33,7 +33,7 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns The artifact object containing relevant information about the targeted function.
    */
-  public getFunctionArtifact(selector: FunctionSelector) {
+  public getFunctionArtifact(selector: FunctionSelector): FunctionArtifact {
     const artifact = this.artifact.functions.find(f => selector.equals(f.name, f.parameters));
     if (!artifact) {
       throw new Error(

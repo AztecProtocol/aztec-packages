@@ -45,6 +45,7 @@ export class AcirSimulator {
     entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    account?: AztecAddress,
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
@@ -80,6 +81,7 @@ export class AcirSimulator {
       this.db,
       this.node,
       startSideEffectCounter,
+      account ?? request.origin,
     );
 
     try {
@@ -106,12 +108,13 @@ export class AcirSimulator {
     request: FunctionCall,
     entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
+    account: AztecAddress,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
-    const context = new ViewDataOracle(contractAddress, [], this.db, this.node);
+    const context = new ViewDataOracle(contractAddress, [], this.db, this.node, account);
 
     try {
       return await executeUnconstrainedFunction(
@@ -192,6 +195,8 @@ export class AcirSimulator {
       execRequest,
       artifact,
       contractAddress,
+      // This is random because unconstrained doesn't need any values from oracle
+      AztecAddress.zero(),
     )) as bigint[];
 
     return {

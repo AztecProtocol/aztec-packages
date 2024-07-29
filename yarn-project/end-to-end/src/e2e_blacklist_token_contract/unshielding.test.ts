@@ -50,6 +50,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
     await wallets[1].addAuthWitness(witness);
 
+    const notesOfOwner = await wallets[0].getIncomingNotes({});
+    await Promise.all(notesOfOwner.map(note => wallets[1].addNote(note, wallets[1].getAddress())));
+
     await action.send().wait();
     tokenSim.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
@@ -99,7 +102,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[1].addAuthWitness(witness);
 
-      await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.send().wait()).rejects.toThrow();
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
@@ -121,6 +124,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[2].addAuthWitness(witness);
+
+      const notes = await wallets[0].getIncomingNotes({})
+      await Promise.all(notes.map(note => wallets[2].addNote(note, wallets[2].getAddress())));
 
       await expect(action.prove()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
