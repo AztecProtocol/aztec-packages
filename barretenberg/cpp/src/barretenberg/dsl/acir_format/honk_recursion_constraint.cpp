@@ -141,10 +141,27 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
         builder.assert_equal(builder.add_variable(0), key_fields[4].witness_index);
         uint32_t offset = 4;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1059): Properly set this to a default agg obj.
-        for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(0), key_fields[offset].witness_index);
-            offset++;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
+        // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup
+        // yet.
+        fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+        fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+
+        fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+        fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+        std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+        for (fq val : aggregation_object_fq_values) {
+            const uint256_t x = val;
+            std::array<fr, fq_ct::NUM_LIMBS> val_limbs = { x.slice(0, fq_ct::NUM_LIMB_BITS),
+                                                           x.slice(fq_ct::NUM_LIMB_BITS, fq_ct::NUM_LIMB_BITS * 2),
+                                                           x.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 3),
+                                                           x.slice(fq_ct::NUM_LIMB_BITS * 3,
+                                                                   stdlib::field_conversion::TOTAL_BITS) };
+            for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
+                uint32_t idx = builder.add_variable(val_limbs[i]);
+                builder.assert_equal(idx, key_fields[offset].witness_index);
+                offset++;
+            }
         }
 
         for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
