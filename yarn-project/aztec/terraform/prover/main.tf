@@ -101,7 +101,7 @@ EOF
 }
 
 # Launch template for our prover agents
-# 36 cores and 72 GB memory
+# 36 cores and 72 GB memory, we configure the proving agent to use 32 cores and 64 GB, leaving some for the system
 resource "aws_launch_template" "proving-agent-launch-template" {
   count                  = local.node_count
   name                   = "proving-agent-launch-template-${count.index + 1}"
