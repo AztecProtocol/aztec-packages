@@ -10,7 +10,10 @@ namespace acir_format {
 
 using namespace bb;
 
-template <typename Builder> void create_multi_scalar_mul_constraint(Builder& builder, const MultiScalarMul& input)
+template <typename Builder>
+void create_multi_scalar_mul_constraint(Builder& builder,
+                                        const MultiScalarMul& input,
+                                        bool has_valid_witness_assignments)
 {
     using cycle_group_ct = stdlib::cycle_group<Builder>;
     using cycle_scalar_ct = typename stdlib::cycle_group<Builder>::cycle_scalar;
@@ -25,21 +28,27 @@ template <typename Builder> void create_multi_scalar_mul_constraint(Builder& bui
         field_ct point_x;
         field_ct point_y;
         bool_ct infinite;
-        if (input.points[i].is_constant) {
-            point_x = field_ct(input.points[i].value);
+
+        if (!has_valid_witness_assignments) {
+            infinite = bool_ct(true);
         } else {
-            point_x = field_ct::from_witness_index(&builder, input.points[i].index);
+            if (input.points[i].is_constant) {
+                point_x = field_ct(input.points[i].value);
+            } else {
+                point_x = field_ct::from_witness_index(&builder, input.points[i].index);
+            }
+            if (input.points[i + 1].is_constant) {
+                point_y = field_ct(input.points[i + 1].value);
+            } else {
+                point_y = field_ct::from_witness_index(&builder, input.points[i + 1].index);
+            }
+            if (input.points[i + 2].is_constant) {
+                infinite = bool_ct(field_ct(input.points[i + 2].value));
+            } else {
+                infinite = bool_ct(field_ct::from_witness_index(&builder, input.points[i + 2].index));
+            }
         }
-        if (input.points[i + 1].is_constant) {
-            point_y = field_ct(input.points[i + 1].value);
-        } else {
-            point_y = field_ct::from_witness_index(&builder, input.points[i + 1].index);
-        }
-        if (input.points[i + 2].is_constant) {
-            infinite = bool_ct(field_ct(input.points[i + 2].value));
-        } else {
-            infinite = bool_ct(field_ct::from_witness_index(&builder, input.points[i + 2].index));
-        }
+
         cycle_group_ct input_point(point_x, point_y, infinite);
         // Reconstruct the scalar from the low and high limbs
         field_ct scalar_low_as_field;
@@ -81,8 +90,10 @@ template <typename Builder> void create_multi_scalar_mul_constraint(Builder& bui
 }
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                      const MultiScalarMul& input);
+                                                                      const MultiScalarMul& input,
+                                                                      bool has_valid_witness_assignments);
 template void create_multi_scalar_mul_constraint<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                                     const MultiScalarMul& input);
+                                                                     const MultiScalarMul& input,
+                                                                     bool has_valid_witness_assignments);
 
 } // namespace acir_format
