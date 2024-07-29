@@ -152,7 +152,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       name      = "init-container"
       image     = "amazonlinux:latest"
       essential = false
-      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}"]
+      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}/data ${local.data_dir}/node_${count.index + 1}/temp"]
       mountPoints = [
         {
           containerPath = local.data_dir
@@ -206,7 +206,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "DATA_DIRECTORY"
-          value = "${local.data_dir}_${count.index + 1}"
+          value = "${local.data_dir}/node_${count.index + 1}/data"
         },
         {
           name  = "ARCHIVER_POLLING_INTERVAL"
@@ -343,6 +343,14 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "TEL_SERVICE_NAME"
           value = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+        },
+        {
+          name  = "BB_WORKING_DIRECTORY"
+          value = "${local.data_dir}/node_${count.index + 1}/temp"
+        },
+        {
+          name  = "ACVM_WORKING_DIRECTORY"
+          value = "${local.data_dir}/node_${count.index + 1}/temp"
         }
       ]
       mountPoints = [
