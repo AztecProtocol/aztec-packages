@@ -5,6 +5,8 @@ import {
   Fr,
   NativeFeePaymentMethodWithClaim,
   type PXE,
+  TxHash,
+  TxReceipt,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -12,7 +14,7 @@ import {
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { GasSettings, deriveSigningKey } from '@aztec/circuits.js';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -140,8 +142,9 @@ describe('End-to-end tests for devnet', () => {
   });
 
   it('deploys an account while paying with FeeJuice', async () => {
+    const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+    const l2Account = getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);
@@ -161,33 +164,40 @@ describe('End-to-end tests for devnet', () => {
         'l1-chain-id': l1ChainId.toString(),
         'l1-private-key': l1Account.privateKey,
         'rpc-url': pxeUrl,
+        mint: true,
       },
     );
 
     await waitForL1MessageToArrive();
 
-    const txReceipt = await l2Account
-      .deploy({
-        fee: {
-          gasSettings: GasSettings.default(),
-          paymentMethod: new NativeFeePaymentMethodWithClaim(
-            l2Account.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret),
-          ),
-        },
-        skipClassRegistration: false,
-        skipInitialization: false,
-        skipPublicDeployment: false,
-      })
-      .wait(waitOpts);
+    const { txHash, address } = await cli<{ txHash: string; address: string }>('create-account', {
+      'private-key': privateKey,
+      'public-deploy': true,
+      wait: false,
+      payment: `method=native,claimSecret=${claimSecret},claimAmount=${claimAmount}`,
+    });
+
+    expect(address).toEqual(l2Account.getAddress().toString());
+
+    const txReceipt = await retryUntil(
+      async () => {
+        const receipt = await pxe.getTxReceipt(TxHash.fromString(txHash));
+        if (receipt.status === TxStatus.PENDING) {
+          return undefined;
+        }
+        return receipt;
+      },
+      'wait_for_l2_account',
+      waitOpts.timeout,
+      waitOpts.interval,
+    );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
     const feeJuice = await GasTokenContract.at(
       (
         await pxe.getNodeInfo()
       ).protocolContractAddresses.gasToken,
-      txReceipt.wallet,
+      await l2Account.getWallet(),
     );
     const balance = await feeJuice.methods.balance_of_public(l2Account.getAddress()).simulate();
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
