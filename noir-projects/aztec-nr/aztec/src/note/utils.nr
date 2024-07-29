@@ -12,7 +12,7 @@ use dep::protocol_types::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-pub fn compute_slotted_note_hash_from_preimage(storage_slot: Field, note_hiding_point: Point) -> Field {
+pub fn compute_slotted_note_hash_raw(storage_slot: Field, note_hiding_point: Point) -> Field {
     // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
     let storage_slot_scalar = from_field_unsafe(storage_slot);
     let storage_slot_point = multi_scalar_mul([G_slot], [storage_slot_scalar]);
@@ -26,7 +26,7 @@ pub fn compute_slotted_note_hash<Note, let N: u32, let M: u32>(note: Note) -> Fi
     let header = note.get_header();
     let note_hash = note.compute_note_hiding_point();
 
-    compute_slotted_note_hash_from_preimage(header.storage_slot, note_hash)
+    compute_slotted_note_hash_raw(header.storage_slot, note_hash)
 }
 
 pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(

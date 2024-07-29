@@ -6,7 +6,7 @@ mod test;
 contract PrivateToken {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
-        note::utils::compute_slotted_note_hash_from_preimage, hash::compute_secret_hash,
+        note::utils::compute_slotted_note_hash_raw, hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
         protocol_types::{abis::function_selector::FunctionSelector, point::Point, hash::pedersen_hash},
         oracle::unsafe_rand::unsafe_rand,
@@ -206,11 +206,11 @@ contract PrivateToken {
         let (fee_payer_note_hiding_point, user_note_hiding_point) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
 
         // 2. Now we "manually" compute the slotted note hashes.
-        let fee_payer_slotted_note_hash = compute_slotted_note_hash_from_preimage(
+        let fee_payer_slotted_note_hash = compute_slotted_note_hash_raw(
             PrivateToken::storage().balances.slot,
             fee_payer_note_hiding_point
         );
-        let user_slotted_note_hash = compute_slotted_note_hash_from_preimage(PrivateToken::storage().balances.slot, user_note_hiding_point);
+        let user_slotted_note_hash = compute_slotted_note_hash_raw(PrivateToken::storage().balances.slot, user_note_hiding_point);
 
         // 3. At last we emit the note hashes.
         context.push_note_hash(fee_payer_slotted_note_hash);
