@@ -471,7 +471,7 @@ bigfield<Builder, T> bigfield<Builder, T>::add_two(const bigfield& add_a, const 
     bigfield result(ctx);
     result.binary_basis_limbs[0].maximum_value = binary_basis_limbs[0].maximum_value +
                                                  add_a.binary_basis_limbs[0].maximum_value +
-                                                 add_a.binary_basis_limbs[1].maximum_value;
+                                                 add_b.binary_basis_limbs[0].maximum_value;
     result.binary_basis_limbs[1].maximum_value = binary_basis_limbs[1].maximum_value +
                                                  add_a.binary_basis_limbs[1].maximum_value +
                                                  add_b.binary_basis_limbs[1].maximum_value;
@@ -966,7 +966,6 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
     const uint1024_t right(get_value());
     const uint1024_t add_right(add_values);
     const uint1024_t modulus(target_basis.modulus);
-
     bigfield remainder;
     bigfield quotient;
     if (is_constant()) {
@@ -976,7 +975,6 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
             remainder = bigfield(ctx, uint256_t(remainder_1024.lo.lo));
             return remainder;
         } else {
-
             const auto [quotient_1024, remainder_1024] = (left * right).divmod(modulus);
             std::vector<bigfield> new_to_add;
             for (auto& add_element : to_add) {
@@ -2203,8 +2201,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::propagate_lim
     this->binary_basis_limbs[3] =
         Limb(r3, binary_basis_limbs[3].maximum_value + (uint256_t(1) << (limb2_max_bits - NUM_LIMB_BITS)) - 1);
 
-    // TODO(alex): No need for reduction_check after all since the maximum value is not changed and the top limb
-    // probably won't overflow 110 bits?? But it won't create any constraints if it's not needed, so..
     this->reduction_check();
 }
 

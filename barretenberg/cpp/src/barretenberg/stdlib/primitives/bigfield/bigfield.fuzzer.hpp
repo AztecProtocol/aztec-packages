@@ -810,6 +810,10 @@ template <typename Builder> class BigFieldBase {
         {
             const bool reconstruct = static_cast<bool>(VarianceRNG.next() % 2);
 
+#ifdef SHOW_INFORMATION
+            std::cout << " reconstruction? " << reconstruct << std::endl;
+#endif
+
             if (!reconstruct) {
                 return this->bigfield;
             }
@@ -835,8 +839,11 @@ template <typename Builder> class BigFieldBase {
             if (b.get_value() > b.get_maximum_value()) {
                 abort();
             }
-            for (auto& limb : b.binary_basis_limbs) {
+            for (size_t i = 0; i < 4; i++) {
+                auto limb = b.binary_basis_limbs[i];
                 if (limb.maximum_value < limb.element.get_value()) {
+                    info("LIMB ", i, " VALUE IS NOT PROPERLY RESTRICTED");
+                    info(limb);
                     abort();
                 }
             }
@@ -1824,24 +1831,23 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
     (void)argv;
     // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected
     // coverage in 40 seconds)
-    fuzzer_havoc_settings = HavocSettings{
-        .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
-        .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
-        .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
-        .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
-        .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
-        .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
-        .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
-        .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // 2 because of limit
-        .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // -Fully checked
-        .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
-        .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
-        .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
-        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
-        .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
-        .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130    // Fully checked
-
-    };
+    fuzzer_havoc_settings = HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
+                                           .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
+                                           .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
+                                           .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
+                                           .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
+                                           .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
+                                           .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
+                                           .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // 2 because of limit
+                                           .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // -Fully checked
+                                           .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
+                                           .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
+                                           .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
+                                           .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
+                                           .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
+                                           .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130,   // Fully checked
+                                           .structural_mutation_distribution = {},
+                                           .value_mutation_distribution = {} };
     /**
      * @brief This is used, when we need to determine the probabilities of various mutations. Left here for
      * posterity
