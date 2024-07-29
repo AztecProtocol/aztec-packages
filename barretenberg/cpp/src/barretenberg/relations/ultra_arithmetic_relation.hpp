@@ -8,8 +8,8 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        7, // primary arithmetic sub-relation
-        6  // secondary arithmetic sub-relation
+        6, // primary arithmetic sub-relation
+        5  // secondary arithmetic sub-relation
     };
 
     /**
