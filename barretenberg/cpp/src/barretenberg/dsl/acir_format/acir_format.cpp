@@ -347,7 +347,6 @@ void build_constraints(Builder& builder,
             // proof aggregation state are a circuit constant. The user tells us they how they want these
             // constants set by keeping the nested aggregation object attached to the proof as public inputs.
             std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             for (size_t i = 0; i < HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 // Set the nested aggregation object indices to witness indices from the proof
                 nested_aggregation_object[i] =
@@ -378,9 +377,9 @@ void build_constraints(Builder& builder,
             // Set the indices as public inputs because they are no longer being
             // created in ACIR
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-            for (const auto& idx : current_aggregation_object) {
-                builder.set_public_input(idx);
-            }
+            // for (const auto& idx : current_aggregation_object) {
+            //     builder.set_public_input(idx);
+            // }
 
             // Make sure the verification key records the public input indices of the
             // final recursion output.

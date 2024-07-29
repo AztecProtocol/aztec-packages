@@ -22,6 +22,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../bot"
+    },
+    {
       "path": "../builder"
     },
     {
@@ -65,6 +68,9 @@
     },
     {
       "path": "../prover-client"
+    },
+    {
+      "path": "../prover-node"
     },
     {
       "path": "../pxe"

@@ -9,13 +9,7 @@ import {
   type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  type Header,
-  type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type PrivateCallStackItem,
-  type PublicCallRequest,
-} from '@aztec/circuits.js';
+import { type Header, type KeyValidationRequest, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -222,6 +216,7 @@ export abstract class TypedOracle {
     _eventTypeId: Fr,
     _ovKeys: KeyValidationRequest,
     _ivpkM: PublicKey,
+    _recipient: AztecAddress,
     _preimage: Fr[],
   ): Buffer {
     throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
@@ -233,6 +228,7 @@ export abstract class TypedOracle {
     _noteTypeId: NoteSelector,
     _ovKeys: KeyValidationRequest,
     _ivpkM: PublicKey,
+    _recipient: AztecAddress,
     _preimage: Fr[],
   ): Buffer {
     throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
@@ -253,7 +249,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<PrivateCallStackItem> {
+  ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
     throw new OracleMethodNotAvailableError('callPrivateFunction');
   }
 
@@ -275,7 +271,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
+  ): Promise<void> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
@@ -286,7 +282,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
     _isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
+  ): Promise<void> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }
 

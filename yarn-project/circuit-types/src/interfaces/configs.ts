@@ -17,6 +17,10 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
+  /** The minimum number of seconds inbetween consecutive blocks. */
+  minSecondsBetweenBlocks?: number;
+  /** The maximum number of seconds inbetween consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached. */
+  maxSecondsBetweenBlocks?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -33,4 +37,6 @@ export interface SequencerConfig {
   maxBlockSizeInBytes?: number;
   /** Whether to require every tx to have a fee payer */
   enforceFees?: boolean;
+  /** Temporary flag to skip submitting proofs, so a prover-node takes care of it. */
+  sequencerSkipSubmitProofs?: boolean;
 }

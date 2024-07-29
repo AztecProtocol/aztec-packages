@@ -71,8 +71,8 @@ describe('Bn254 arithmetic', () => {
     it('Low Boundary', () => {
       // 0 + -1 = -1
       const a = Fr.ZERO;
-      const b = new Fr(Fr.MODULUS - 1n);
-      const expected = new Fr(Fr.MODULUS - 1n);
+      const b = Fr.MAX_FIELD_VALUE;
+      const expected = Fr.MAX_FIELD_VALUE;
 
       const actual = a.add(b);
       expect(actual).toEqual(expected);
@@ -80,7 +80,7 @@ describe('Bn254 arithmetic', () => {
 
     it('High Boundary', () => {
       // -1 + 1 = 0
-      const a = new Fr(Fr.MODULUS - 1n);
+      const a = Fr.MAX_FIELD_VALUE;
       const b = new Fr(1);
       const expected = Fr.ZERO;
 
@@ -103,16 +103,16 @@ describe('Bn254 arithmetic', () => {
       // 0 - 1 = -1
       const a = new Fr(0);
       const b = new Fr(1);
-      const expected = new Fr(Fr.MODULUS - 1n);
+      const expected = Fr.MAX_FIELD_VALUE;
 
       const actual = a.sub(b);
       expect(actual).toEqual(expected);
     });
 
-    it('High Bonudary', () => {
+    it('High Boundary', () => {
       // -1 - (-1) = 0
-      const a = new Fr(Fr.MODULUS - 1n);
-      const b = new Fr(Fr.MODULUS - 1n);
+      const a = Fr.MAX_FIELD_VALUE;
+      const b = Fr.MAX_FIELD_VALUE;
 
       const actual = a.sub(b);
       expect(actual).toEqual(Fr.ZERO);
@@ -130,9 +130,9 @@ describe('Bn254 arithmetic', () => {
 
   describe('Multiplication', () => {
     it('Identity', () => {
-      const a = new Fr(Fr.MODULUS - 1n);
+      const a = Fr.MAX_FIELD_VALUE;
       const b = new Fr(1);
-      const expected = new Fr(Fr.MODULUS - 1n);
+      const expected = Fr.MAX_FIELD_VALUE;
 
       const actual = a.mul(b);
       expect(actual).toEqual(expected);
@@ -148,7 +148,7 @@ describe('Bn254 arithmetic', () => {
     });
 
     it('High Boundary', () => {
-      const a = new Fr(Fr.MODULUS - 1n);
+      const a = Fr.MAX_FIELD_VALUE;
       const b = new Fr(Fr.MODULUS / 2n);
       const expected = new Fr(10944121435919637611123202872628637544274182200208017171849102093287904247809n);
 
@@ -184,11 +184,36 @@ describe('Bn254 arithmetic', () => {
     });
   });
 
+  describe('Square root', () => {
+    it.each([
+      [new Fr(0), 0n],
+      [new Fr(4), 2n],
+      [new Fr(9), 3n],
+      [new Fr(16), 4n],
+    ])('Should return the correct square root for %p', (input, expected) => {
+      const actual = input.sqrt()!.toBigInt();
+
+      // The square root can be either the expected value or the modulus - expected value
+      const isValid = actual == expected || actual == Fr.MODULUS - expected;
+
+      expect(isValid).toBeTruthy();
+    });
+
+    it('Should return the correct square root for random value', () => {
+      const a = Fr.random();
+      const squared = a.mul(a);
+
+      const actual = squared.sqrt();
+      expect(actual!.mul(actual!)).toEqual(squared);
+    });
+  });
+
   describe('Comparison', () => {
     it.each([
       [new Fr(5), new Fr(10), -1],
       [new Fr(10), new Fr(5), 1],
       [new Fr(5), new Fr(5), 0],
+      [Fr.MAX_FIELD_VALUE, new Fr(Fr.MODULUS - 1n), 0],
       [new Fr(0), new Fr(Fr.MODULUS - 1n), -1],
       [new Fr(Fr.MODULUS - 1n), new Fr(0), 1],
       [Fr.ZERO, Fr.ZERO, 0],

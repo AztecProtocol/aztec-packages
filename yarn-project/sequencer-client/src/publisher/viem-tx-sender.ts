@@ -47,8 +47,8 @@ export class ViemTxSender implements L1PublisherTxSender {
   private account: PrivateKeyAccount;
 
   constructor(config: TxSenderConfig) {
-    const { rpcUrl, apiKey, publisherPrivateKey, l1Contracts } = config;
-    const chain = createEthereumChain(rpcUrl, apiKey);
+    const { rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
+    const chain = createEthereumChain(rpcUrl, chainId);
     this.account = privateKeyToAccount(publisherPrivateKey);
     const walletClient = createWalletClient({
       account: this.account,
@@ -77,12 +77,12 @@ export class ViemTxSender implements L1PublisherTxSender {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  async getSubmitterAddressForBlock(blockNumber: number): Promise<EthAddress> {
+  async getSubmitterAddressForBlock(): Promise<EthAddress> {
     try {
-      const submitter = await this.rollupContract.read.whoseTurnIsIt([BigInt(blockNumber)]);
+      const submitter = await this.rollupContract.read.getCurrentProposer();
       return EthAddress.fromString(submitter);
     } catch (err) {
-      this.log.warn(`Failed to get submitter for block ${blockNumber}: ${err}`);
+      this.log.warn(`Failed to get submitter: ${err}`);
       return EthAddress.ZERO;
     }
   }

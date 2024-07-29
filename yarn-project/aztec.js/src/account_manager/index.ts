@@ -71,6 +71,15 @@ export class AccountManager {
   }
 
   /**
+   * Gets the address for this given account.
+   * Does not require the account to be deployed or registered.
+   * @returns The address.
+   */
+  public getAddress() {
+    return this.getCompleteAddress().address;
+  }
+
+  /**
    * Returns the contract instance definition associated with this account.
    * Does not require the account to be deployed or registered.
    * @returns ContractInstance instance.
@@ -131,7 +140,7 @@ export class AccountManager {
 
       await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
 
-      const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
+      const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
       const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
 
       // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go

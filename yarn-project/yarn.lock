@@ -87,6 +87,7 @@ __metadata:
   dependencies:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -194,6 +195,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -209,6 +211,7 @@ __metadata:
     "@aztec/p2p-bootstrap": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
+    "@aztec/prover-node": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/txe": "workspace:^"
@@ -273,12 +276,39 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/bot@workspace:^, @aztec/bot@workspace:bot":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bot@workspace:bot"
+  dependencies:
+    "@aztec/accounts": "workspace:^"
+    "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/memdown": ^3.0.0
+    "@types/node": ^18.7.23
+    "@types/source-map-support": ^0.5.10
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.3
+    source-map-support: ^0.5.21
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
 "@aztec/builder@workspace:^, @aztec/builder@workspace:builder":
   version: 0.0.0-use.local
   resolution: "@aztec/builder@workspace:builder"
   dependencies:
-    "@aztec/cli": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
@@ -287,7 +317,7 @@ __metadata:
     ts-node: ^10.9.1
     typescript: ^5.0.4
   bin:
-    aztec-builder: dest/cli.js
+    aztec-builder: dest/bin/cli.js
   languageName: unknown
   linkType: soft
 
@@ -400,6 +430,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/bot": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
@@ -413,6 +444,7 @@ __metadata:
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
+    "@aztec/prover-node": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
@@ -787,6 +819,34 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/prover-node@workspace:^, @aztec/prover-node@workspace:prover-node":
+  version: 0.0.0-use.local
+  resolution: "@aztec/prover-node@workspace:prover-node"
+  dependencies:
+    "@aztec/archiver": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
+    "@aztec/simulator": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
+    "@aztec/world-state": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/memdown": ^3.0.0
+    "@types/node": ^18.7.23
+    "@types/source-map-support": ^0.5.10
+    jest: ^29.5.0
+    jest-mock-extended: ^3.0.3
+    source-map-support: ^0.5.21
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
 "@aztec/pxe@workspace:^, @aztec/pxe@workspace:pxe":
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@workspace:pxe"
@@ -955,6 +1015,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/txe@workspace:txe"
   dependencies:
+    "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
@@ -962,7 +1023,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/types": "workspace:^"
@@ -2965,7 +3025,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.31.0
+    "@noir-lang/types": 0.32.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -2974,13 +3034,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.31.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1adb3c&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.32.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=bd4828&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.47.0
-    "@noir-lang/noirc_abi": 0.31.0
-    "@noir-lang/types": 0.31.0
-  checksum: 98132370d4f4e1ac1b5f6c5b461f451d9df79d051fcc6136572030e3cb7b4472f9f9c2b93e899ddf753901108d1ec45ed4f6fee435058297cd90d5ff985b5b6d
+    "@noir-lang/acvm_js": 0.48.0
+    "@noir-lang/noirc_abi": 0.32.0
+    "@noir-lang/types": 0.32.0
+  checksum: fd5f51c35854f793f8ec20f8437a89a4cf87562f80adfd2870a56535f5faef4c75ce9a3f2f3daaa6ab3a77d125c18b55bd35247ff33d97c1d3f8d76f5b440749
   languageName: node
   linkType: hard
 
@@ -2988,7 +3048,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.31.0
+    "@noir-lang/types": 0.32.0
   languageName: node
   linkType: soft
 

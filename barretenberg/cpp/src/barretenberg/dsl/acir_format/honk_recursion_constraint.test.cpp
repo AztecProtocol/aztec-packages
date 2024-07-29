@@ -158,7 +158,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             const size_t inner_public_input_offset = 3;
             // - Save the public inputs so that we can set their values.
             // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             std::vector<fr> inner_public_input_values(
                 proof_witnesses.begin() + static_cast<std::ptrdiff_t>(inner_public_input_offset),
                 proof_witnesses.begin() +
@@ -166,7 +165,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                                                 RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
             // We want to make sure that we do not remove the nested aggregation object.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             proof_witnesses.erase(proof_witnesses.begin() + static_cast<std::ptrdiff_t>(inner_public_input_offset),
                                   proof_witnesses.begin() +
                                       static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs -
@@ -183,7 +181,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             const uint32_t proof_indices_start_idx =
                 static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs -
                                       RecursionConstraint::AGGREGATION_OBJECT_SIZE); // points to agg_obj_0
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             const uint32_t key_indices_start_idx =
                 static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size() -
                                       inner_public_input_offset); // would point to vkey_3 without the -
@@ -206,11 +203,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             // We keep the nested aggregation object attached to the proof,
             // thus we do not explicitly have to keep the public inputs while setting up the initial recursion
             // constraint. They will later be attached as public inputs when creating the circuit.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-            for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-                inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
-            }
-
             HonkRecursionConstraint honk_recursion_constraint{
                 .key = key_indices,
                 .proof = proof_indices,
@@ -246,163 +238,161 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             //
             // We once again have to check whether we have a nested proof, because if we do have one
             // then we could get a segmentation fault as `inner_public_inputs` was never filled with values.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
             for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
                 witness[inner_public_inputs[i]] = inner_public_input_values[i];
             }
 
-            witness_offset = key_indices_start_idx + key_witnesses.size();
+            std::iota(honk_recursion_opcode_indices.begin(), honk_recursion_opcode_indices.end(), 0);
+
+            AcirFormat constraint_system{
+                .varnum = static_cast<uint32_t>(witness.size()),
+                .recursive = false,
+                .num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size()),
+                .public_inputs = {},
+                .logic_constraints = {},
+                .range_constraints = {},
+                .aes128_constraints = {},
+                .sha256_constraints = {},
+                .sha256_compression = {},
+                .schnorr_constraints = {},
+                .ecdsa_k1_constraints = {},
+                .ecdsa_r1_constraints = {},
+                .blake2s_constraints = {},
+                .blake3_constraints = {},
+                .keccak_constraints = {},
+                .keccak_permutations = {},
+                .pedersen_constraints = {},
+                .pedersen_hash_constraints = {},
+                .poseidon2_constraints = {},
+                .multi_scalar_mul_constraints = {},
+                .ec_add_constraints = {},
+                .recursion_constraints = {},
+                .honk_recursion_constraints = honk_recursion_constraints,
+                .bigint_from_le_bytes_constraints = {},
+                .bigint_to_le_bytes_constraints = {},
+                .bigint_operations = {},
+                .poly_triple_constraints = {},
+                .quad_constraints = {},
+                .block_constraints = {},
+                .original_opcode_indices = create_empty_original_opcode_indices(),
+            };
+            mock_opcode_indices(constraint_system);
+            auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+
+            return outer_circuit;
         }
 
-        std::vector<size_t> honk_recursion_opcode_indices(honk_recursion_constraints.size());
-        std::iota(honk_recursion_opcode_indices.begin(), honk_recursion_opcode_indices.end(), 0);
+      protected:
+        static void SetUpTestSuite()
+        {
+            bb::srs::init_crs_factory("../srs_db/ignition");
+        }
+    };
 
-        AcirFormat constraint_system{
-            .varnum = static_cast<uint32_t>(witness.size()),
-            .recursive = false,
-            .num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size()),
-            .public_inputs = {},
-            .logic_constraints = {},
-            .range_constraints = {},
-            .aes128_constraints = {},
-            .sha256_constraints = {},
-            .sha256_compression = {},
-            .schnorr_constraints = {},
-            .ecdsa_k1_constraints = {},
-            .ecdsa_r1_constraints = {},
-            .blake2s_constraints = {},
-            .blake3_constraints = {},
-            .keccak_constraints = {},
-            .keccak_permutations = {},
-            .pedersen_constraints = {},
-            .pedersen_hash_constraints = {},
-            .poseidon2_constraints = {},
-            .multi_scalar_mul_constraints = {},
-            .ec_add_constraints = {},
-            .recursion_constraints = {},
-            .honk_recursion_constraints = honk_recursion_constraints,
-            .bigint_from_le_bytes_constraints = {},
-            .bigint_to_le_bytes_constraints = {},
-            .bigint_operations = {},
-            .poly_triple_constraints = {},
-            .quad_constraints = {},
-            .block_constraints = {},
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-        mock_opcode_indices(constraint_system);
-        auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+    TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
+    {
+        std::vector<Builder> layer_1_circuits;
+        layer_1_circuits.push_back(create_inner_circuit());
 
-        return outer_circuit;
+        layer_1_circuits.push_back(create_inner_circuit());
+
+        auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
+
+        info("circuit gates = ", layer_2_circuit.get_num_gates());
+
+        auto instance = std::make_shared<ProverInstance>(layer_2_circuit);
+        Prover prover(instance);
+        info("prover gates = ", instance->proving_key.circuit_size);
+        auto proof = prover.construct_proof();
+        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
     }
 
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
-};
+    TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
+    {
+        /**
+         * We want to test the following:
+         * 1. circuit that verifies a proof of another circuit
+         * 2. the above, but the inner circuit contains a recursive proof output that we have to aggregate
+         * 3. the above, but the outer circuit verifies 2 proofs, the aggregation outputs from the 2 proofs (+ the
+         * recursive proof output from 2) are aggregated together
+         *
+         * A = basic circuit
+         * B = circuit that verifies proof of A
+         * C = circuit that verifies proof of B and a proof of A
+         *
+         * Layer 1 = proof of A
+         * Layer 2 = verifies proof of A and proof of B
+         * Layer 3 = verifies proof of C
+         *
+         * Attempt at a visual graphic
+         * ===========================
+         *
+         *     C
+         *     ^
+         *     |
+         *     | - B
+         *     ^   ^
+         *     |   |
+         *     |    -A
+         *     |
+         *      - A
+         *
+         * ===========================
+         *
+         * Final aggregation object contains aggregated proofs for 2 instances of A and 1 instance of B
+         */
+        std::vector<Builder> layer_1_circuits;
+        layer_1_circuits.push_back(create_inner_circuit());
+        info("created first inner circuit");
 
-TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
-{
-    std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(create_inner_circuit());
+        std::vector<Builder> layer_2_circuits;
+        layer_2_circuits.push_back(create_inner_circuit());
+        info("created second inner circuit");
 
-    layer_1_circuits.push_back(create_inner_circuit());
+        layer_2_circuits.push_back(create_outer_circuit(layer_1_circuits));
+        info("created first outer circuit");
 
-    auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
+        auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
+        info("created second outer circuit");
+        info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
 
-    info("circuit gates = ", layer_2_circuit.get_num_gates());
+        auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
+        Prover prover(instance);
+        info("prover gates = ", instance->proving_key.circuit_size);
+        auto proof = prover.construct_proof();
+        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }
 
-    auto instance = std::make_shared<ProverInstance>(layer_2_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
-}
+    TEST_F(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
+    {
+        std::vector<Builder> layer_b_1_circuits;
+        layer_b_1_circuits.push_back(create_inner_circuit());
+        info("created first inner circuit");
 
-TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
-{
-    /**
-     * We want to test the following:
-     * 1. circuit that verifies a proof of another circuit
-     * 2. the above, but the inner circuit contains a recursive proof output that we have to aggregate
-     * 3. the above, but the outer circuit verifies 2 proofs, the aggregation outputs from the 2 proofs (+ the recursive
-     * proof output from 2) are aggregated together
-     *
-     * A = basic circuit
-     * B = circuit that verifies proof of A
-     * C = circuit that verifies proof of B and a proof of A
-     *
-     * Layer 1 = proof of A
-     * Layer 2 = verifies proof of A and proof of B
-     * Layer 3 = verifies proof of C
-     *
-     * Attempt at a visual graphic
-     * ===========================
-     *
-     *     C
-     *     ^
-     *     |
-     *     | - B
-     *     ^   ^
-     *     |   |
-     *     |    -A
-     *     |
-     *      - A
-     *
-     * ===========================
-     *
-     * Final aggregation object contains aggregated proofs for 2 instances of A and 1 instance of B
-     */
-    std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(create_inner_circuit());
-    info("created first inner circuit");
+        std::vector<Builder> layer_b_2_circuits;
+        layer_b_2_circuits.push_back(create_inner_circuit());
+        info("created second inner circuit");
 
-    std::vector<Builder> layer_2_circuits;
-    layer_2_circuits.push_back(create_inner_circuit());
-    info("created second inner circuit");
+        std::vector<Builder> layer_2_circuits;
+        layer_2_circuits.push_back(create_outer_circuit(layer_b_1_circuits));
+        info("created first outer circuit");
 
-    layer_2_circuits.push_back(create_outer_circuit(layer_1_circuits));
-    info("created first outer circuit");
+        layer_2_circuits.push_back(create_outer_circuit(layer_b_2_circuits));
+        info("created second outer circuit");
 
-    auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
-    info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
+        auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
+        info("created third outer circuit");
+        info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
 
-    auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
-}
-
-TEST_F(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
-{
-    std::vector<Builder> layer_b_1_circuits;
-    layer_b_1_circuits.push_back(create_inner_circuit());
-    info("created first inner circuit");
-
-    std::vector<Builder> layer_b_2_circuits;
-    layer_b_2_circuits.push_back(create_inner_circuit());
-    info("created second inner circuit");
-
-    std::vector<Builder> layer_2_circuits;
-    layer_2_circuits.push_back(create_outer_circuit(layer_b_1_circuits));
-    info("created first outer circuit");
-
-    layer_2_circuits.push_back(create_outer_circuit(layer_b_2_circuits));
-    info("created second outer circuit");
-
-    auto layer_3_circuit = create_outer_circuit(layer_2_circuits);
-    info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
-
-    auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    Verifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
-}
+        auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
+        Prover prover(instance);
+        info("prover gates = ", instance->proving_key.circuit_size);
+        auto proof = prover.construct_proof();
+        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        Verifier verifier(verification_key);
+        EXPECT_EQ(verifier.verify_proof(proof), true);
+    }

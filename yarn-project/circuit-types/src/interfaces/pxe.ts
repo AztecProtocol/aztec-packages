@@ -298,6 +298,12 @@ export interface PXE {
   getBlockNumber(): Promise<number>;
 
   /**
+   * Fetches the current proven block number.
+   * @returns The block number.
+   */
+  getProvenBlockNumber(): Promise<number>;
+
+  /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
    * L1 chain identifier, protocol version, and L1 address of the rollup contract.
    * @returns - The node information.
@@ -379,6 +385,13 @@ export interface PXE {
    * TODO(@spalladino): Same notes as above.
    */
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
+
+  /**
+   * Queries the node to check whether the contract instance with the given address has been initialized,
+   * by checking the standard initialization nullifier.
+   * @param address - Address of the contract to check.
+   */
+  isContractInitialized(address: AztecAddress): Promise<boolean>;
 
   /**
    * Returns the events of a specified type given search parameters.

@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.46.6",
+  "version": "0.47.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -16,6 +16,7 @@
   "scripts": {
     "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
+    "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -32,6 +33,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
@@ -47,6 +49,7 @@
     "@aztec/p2p-bootstrap": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
+    "@aztec/prover-node": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/txe": "workspace:^",
