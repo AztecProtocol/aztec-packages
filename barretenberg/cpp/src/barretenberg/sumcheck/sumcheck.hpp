@@ -194,6 +194,7 @@ template <typename Flavor> class SumcheckProver {
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
+        info("round univariate in prover length ", round_univariate.size());
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
         FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
         info("Prover challenge at round  0 ", round_challenge);
@@ -210,7 +211,7 @@ template <typename Flavor> class SumcheckProver {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             info("Prover challenge at ", round_idx, " round  ", round_challenge);
-
+            info("round univariate in prover length ", round_univariate.size());
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
@@ -401,6 +402,7 @@ template <typename Flavor> class SumcheckVerifier {
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
+            info("round univariate in prover length ", round_univariate.size());
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             info("u challenge is: ", round_challenge, " at round i ", round_idx);
 
