@@ -41,12 +41,12 @@ class MegaFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 59;
+    static constexpr size_t NUM_ALL_ENTITIES = 63;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 20;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -77,7 +77,7 @@ class MegaFlavor {
     static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESSES = 23;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 23;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This
@@ -180,22 +180,26 @@ class MegaFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              z_perm,                  // column 4
-                              lookup_inverses,         // column 5
-                              lookup_read_counts,      // column 6
-                              lookup_read_tags,        // column 7
-                              ecc_op_wire_1,           // column 8
-                              ecc_op_wire_2,           // column 9
-                              ecc_op_wire_3,           // column 10
-                              ecc_op_wire_4,           // column 11
-                              calldata,                // column 12
-                              calldata_read_counts,    // column 13
-                              calldata_read_tags,      // column 14
-                              calldata_inverses,       // column 15
-                              return_data,             // column 16
-                              return_data_read_counts, // column 17
-                              return_data_read_tags,   // column 18
-                              return_data_inverses);   // column 19
+                              z_perm,                         // column 4
+                              lookup_inverses,                // column 5
+                              lookup_read_counts,             // column 6
+                              lookup_read_tags,               // column 7
+                              ecc_op_wire_1,                  // column 8
+                              ecc_op_wire_2,                  // column 9
+                              ecc_op_wire_3,                  // column 10
+                              ecc_op_wire_4,                  // column 11
+                              calldata,                       // column 12
+                              calldata_read_counts,           // column 13
+                              calldata_read_tags,             // column 14
+                              calldata_inverses,              // column 15
+                              secondary_calldata,             // column 16
+                              secondary_calldata_read_counts, // column 17
+                              secondary_calldata_read_tags,   // column 18
+                              secondary_calldata_inverses,    // column 19
+                              return_data,                    // column 20
+                              return_data_read_counts,        // column 21
+                              return_data_read_tags,          // column 22
+                              return_data_inverses);          // column 23
     };
 
     /**
@@ -215,8 +219,20 @@ class MegaFlavor {
         }
         auto get_databus_entities() // Excludes the derived inverse polynomials
         {
-            return RefArray{ this->calldata,    this->calldata_read_counts,    this->calldata_read_tags,
-                             this->return_data, this->return_data_read_counts, this->return_data_read_tags };
+            return RefArray{
+                this->calldata,           this->calldata_read_counts,           this->calldata_read_tags,
+                this->secondary_calldata, this->secondary_calldata_read_counts, this->secondary_calldata_read_tags,
+                this->return_data,        this->return_data_read_counts,        this->return_data_read_tags
+            };
+        }
+
+        auto get_databus_inverses()
+        {
+            return RefArray{
+                this->calldata_inverses,
+                this->secondary_calldata_inverses,
+                this->return_data_inverses,
+            };
         }
 
         MSGPACK_FIELDS(this->w_l,
@@ -235,6 +251,10 @@ class MegaFlavor {
                        this->calldata_read_counts,
                        this->calldata_read_tags,
                        this->calldata_inverses,
+                       this->secondary_calldata,
+                       this->secondary_calldata_read_counts,
+                       this->secondary_calldata_read_tags,
+                       this->secondary_calldata_inverses,
                        this->return_data,
                        this->return_data_read_counts,
                        this->return_data_read_tags,
@@ -253,6 +273,28 @@ class MegaFlavor {
                               w_o_shift,     // column 6
                               w_4_shift,     // column 7
                               z_perm_shift)  // column 8
+    };
+    /**
+     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     */
+    template <typename DataType> class ShiftedWitnessEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l_shift,    // column 0
+                              w_r_shift,    // column 1
+                              w_o_shift,    // column 2
+                              w_4_shift,    // column 3
+                              z_perm_shift) // column 4
+
+        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+    };
+    /**
+     * @brief Class for AllWitnessEntities, containining the derived ones and shifts.
+     */
+    template <typename DataType>
+    class AllWitnessEntities : public WitnessEntities<DataType>, public ShiftedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedWitnessEntities<DataType>)
     };
 
   public:
@@ -291,75 +333,19 @@ class MegaFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted_tables()
+        {
+            return RefArray{ this->table_1_shift, // column 0
+                             this->table_2_shift, // column 1
+                             this->table_3_shift, // column 2
+                             this->table_4_shift };
+        };
+        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
         // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
-        auto get_all_witnesses()
-        {
-            return RefArray{
-                this->w_l,                     // column 0
-                this->w_r,                     // column 1
-                this->w_o,                     // column 2
-                this->w_4,                     // column 3
-                this->z_perm,                  // column 4
-                this->lookup_inverses,         // column 5
-                this->lookup_read_counts,      // column 6
-                this->lookup_read_tags,        // column 7
-                this->ecc_op_wire_1,           // column 8
-                this->ecc_op_wire_2,           // column 9
-                this->ecc_op_wire_3,           // column 10
-                this->ecc_op_wire_4,           // column 11
-                this->calldata,                // column 12
-                this->calldata_read_counts,    // column 13
-                this->calldata_inverses,       // column 14
-                this->return_data,             // column 15
-                this->return_data_read_counts, // column 16
-                this->return_data_inverses,    // column 17
-                this->w_l_shift,               // column 18
-                this->w_r_shift,               // column 19
-                this->w_o_shift,               // column 20
-                this->w_4_shift,               // column 21
-                this->z_perm_shift             // column 22
-            };
-        };
+        auto get_all_witnesses() { return AllWitnessEntities<DataType>::get_all(); };
         // this getter is used in ZK sumcheck as a countepart to get_all_witnesses
-        auto get_non_witnesses()
-        {
-            return RefArray{
-                this->q_m,                  // column 0
-                this->q_c,                  // column 1
-                this->q_l,                  // column 2
-                this->q_r,                  // column 3
-                this->q_o,                  // column 4
-                this->q_4,                  // column 5
-                this->q_arith,              // column 6
-                this->q_delta_range,        // column 7
-                this->q_elliptic,           // column 8
-                this->q_aux,                // column 9
-                this->q_lookup,             // column 10
-                this->q_busread,            // column 11
-                this->q_poseidon2_external, // column 12
-                this->q_poseidon2_internal, // column 13
-                this->sigma_1,              // column 14
-                this->sigma_2,              // column 15
-                this->sigma_3,              // column 16
-                this->sigma_4,              // column 17
-                this->id_1,                 // column 18
-                this->id_2,                 // column 19
-                this->id_3,                 // column 20
-                this->id_4,                 // column 21
-                this->table_1,              // column 22
-                this->table_2,              // column 23
-                this->table_3,              // column 24
-                this->table_4,              // column 25
-                this->lagrange_first,       // column 26
-                this->lagrange_last,        // column 27
-                this->lagrange_ecc_op,      // column 28, indicator poly for ecc op gates
-                this->databus_id,           // column 29, id polynomial, i.e. id_i = i
-                this->table_1,              // column 30
-                this->table_2,              // column 31
-                this->table_3,              // column 32
-                this->table_4,              // column 23
-            };
-        };
+        // getter for the complement of all witnesses inside all entities
+        auto get_non_witnesses() { return concatenate(get_precomputed(), get_shifted_tables()); };
     };
 
     /**
@@ -476,8 +462,12 @@ class MegaFlavor {
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
                 this->polynomials, relation_parameters, this->circuit_size);
 
-            // Compute inverses for return data reads
+            // Compute inverses for secondary_calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
+                this->polynomials, relation_parameters, this->circuit_size);
+
+            // Compute inverses for return data reads
+            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/2>(
                 this->polynomials, relation_parameters, this->circuit_size);
         }
 
@@ -702,6 +692,10 @@ class MegaFlavor {
             calldata_read_counts = "CALLDATA_READ_COUNTS";
             calldata_read_tags = "CALLDATA_READ_TAGS";
             calldata_inverses = "CALLDATA_INVERSES";
+            secondary_calldata = "SECONDARY_CALLDATA";
+            secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
+            secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
+            secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_read_tags = "RETURN_DATA_READ_TAGS";
@@ -797,6 +791,10 @@ class MegaFlavor {
                 this->calldata_read_counts = commitments.calldata_read_counts;
                 this->calldata_read_tags = commitments.calldata_read_tags;
                 this->calldata_inverses = commitments.calldata_inverses;
+                this->secondary_calldata = commitments.secondary_calldata;
+                this->secondary_calldata_read_counts = commitments.secondary_calldata_read_counts;
+                this->secondary_calldata_read_tags = commitments.secondary_calldata_read_tags;
+                this->secondary_calldata_inverses = commitments.secondary_calldata_inverses;
                 this->return_data = commitments.return_data;
                 this->return_data_read_counts = commitments.return_data_read_counts;
                 this->return_data_read_tags = commitments.return_data_read_tags;
@@ -829,6 +827,10 @@ class MegaFlavor {
         Commitment calldata_read_counts_comm;
         Commitment calldata_read_tags_comm;
         Commitment calldata_inverses_comm;
+        Commitment secondary_calldata_comm;
+        Commitment secondary_calldata_read_counts_comm;
+        Commitment secondary_calldata_read_tags_comm;
+        Commitment secondary_calldata_inverses_comm;
         Commitment return_data_comm;
         Commitment return_data_read_counts_comm;
         Commitment return_data_read_tags_comm;
@@ -887,6 +889,10 @@ class MegaFlavor {
             calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -930,6 +936,10 @@ class MegaFlavor {
             serialize_to_buffer(calldata_read_counts_comm, proof_data);
             serialize_to_buffer(calldata_read_tags_comm, proof_data);
             serialize_to_buffer(calldata_inverses_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_read_counts_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_read_tags_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_inverses_comm, proof_data);
             serialize_to_buffer(return_data_comm, proof_data);
             serialize_to_buffer(return_data_read_counts_comm, proof_data);
             serialize_to_buffer(return_data_read_tags_comm, proof_data);

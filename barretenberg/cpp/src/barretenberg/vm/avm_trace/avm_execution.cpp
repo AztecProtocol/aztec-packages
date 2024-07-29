@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
@@ -14,6 +15,7 @@
 #include "barretenberg/vm/avm_trace/stats.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -21,6 +23,7 @@
 #include <filesystem>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -30,6 +33,53 @@ using namespace bb;
 std::filesystem::path avm_dump_trace_path;
 
 namespace bb::avm_trace {
+namespace {
+
+template <typename K, typename V>
+std::vector<std::pair<K, V>> sorted_entries(const std::unordered_map<K, V>& map, bool invert = false)
+{
+    std::vector<std::pair<K, V>> entries;
+    entries.reserve(map.size());
+    for (const auto& [key, value] : map) {
+        entries.emplace_back(key, value);
+    }
+    std::sort(entries.begin(), entries.end(), [invert](const auto& a, const auto& b) {
+        bool r = a.first < b.first;
+        if (invert) {
+            r = !r;
+        }
+        return r;
+    });
+    return entries;
+}
+
+// Returns degree distribution information for main relations (e.g., not lookups/perms).
+std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relations_degrees()
+{
+    std::unordered_map<std::string, std::string> relations_degrees;
+
+    bb::constexpr_for<0, std::tuple_size_v<AvmFlavor::MainRelations>, 1>([&]<size_t i>() {
+        std::unordered_map<int, int> degree_distribution;
+        using Relation = std::tuple_element_t<i, AvmFlavor::Relations>;
+        for (const auto& len : Relation::SUBRELATION_PARTIAL_LENGTHS) {
+            degree_distribution[static_cast<int>(len - 1)]++;
+        }
+        std::string degrees_string;
+        auto entries = sorted_entries(degree_distribution, /*invert=*/true);
+        for (size_t n = 0; n < entries.size(); n++) {
+            const auto& [degree, count] = entries[n];
+            if (n > 0) {
+                degrees_string += ", ";
+            }
+            degrees_string += std::to_string(degree) + "°: " + std::to_string(count);
+        }
+        relations_degrees.insert({ Relation::NAME, std::move(degrees_string) });
+    });
+
+    return relations_degrees;
+}
+
+} // namespace
 
 /**
  * @brief Temporary routine to generate default public inputs (gas values) until we get
@@ -74,6 +124,11 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     }
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
+
+    if (circuit_builder.get_circuit_subgroup_size() > SRS_SIZE) {
+        throw_or_abort("Circuit subgroup size (" + std::to_string(circuit_builder.get_circuit_subgroup_size()) +
+                       ") exceeds SRS_SIZE (" + std::to_string(SRS_SIZE) + ")");
+    }
 
     AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
 
@@ -752,6 +807,34 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
     auto trace = trace_builder.finalize();
     vinfo("Final trace size: ", trace.size());
+    vinfo("Number of columns: ", trace.front().SIZE);
+    const size_t total_elements = trace.front().SIZE * trace.size();
+    const size_t nonzero_elements = [&]() {
+        size_t count = 0;
+        for (auto const& row : trace) {
+            for (const auto& ff : row.as_vector()) {
+                if (!ff.is_zero()) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }();
+    vinfo("Number of non-zero elements: ",
+          nonzero_elements,
+          "/",
+          total_elements,
+          " (",
+          100 * nonzero_elements / total_elements,
+          "%)");
+    vinfo("Relation degrees: ", []() {
+        std::string result;
+        for (const auto& [key, value] : sorted_entries(get_relations_degrees())) {
+            result += "\n\t" + key + ": [" + value + "]";
+        }
+        return result;
+    }());
+
     return trace;
 }
 

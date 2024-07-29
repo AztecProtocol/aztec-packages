@@ -378,7 +378,7 @@ export async function setup(
     config.bbBinaryPath = bbConfig.bbBinaryPath;
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
-  config.l1BlockPublishRetryIntervalMS = 100;
+  config.l1PublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
   const prover = aztecNode.getProver();
@@ -437,6 +437,16 @@ export async function setup(
     prover,
     teardown,
   };
+}
+
+/** Returns an L1 wallet client for anvil using a well-known private key based on the index. */
+export function getL1WalletClient(rpcUrl: string, index: number) {
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
+  return createWalletClient({
+    account: hdAccount,
+    chain: foundry,
+    transport: http(rpcUrl),
+  });
 }
 
 /**

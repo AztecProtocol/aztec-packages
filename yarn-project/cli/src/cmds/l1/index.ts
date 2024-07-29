@@ -5,7 +5,7 @@ import { type Command } from 'commander';
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
-  chainIdOption,
+  l1ChainIdOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
@@ -21,16 +21,25 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
-    .addOption(chainIdOption)
+    .addOption(l1ChainIdOption)
+    .option('--json', 'Output the contract addresses in JSON format')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
-      await deployL1Contracts(options.rpcUrl, options.chainId, options.privateKey, options.mnemonic, log, debugLogger);
+      await deployL1Contracts(
+        options.rpcUrl,
+        options.l1ChainId,
+        options.privateKey,
+        options.mnemonic,
+        options.json,
+        log,
+        debugLogger,
+      );
     });
 
   program
@@ -42,7 +51,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       ETHEREUM_HOST,
     )
     .addOption(pxeOption)
-    .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .requiredOption('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -77,7 +86,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('bridge-l1-gas')
+    .command('bridge-fee-juice')
     .description('Mints L1 gas tokens and pushes them to L2.')
     .argument('<amount>', 'The amount of gas tokens to mint and bridge.', parseBigint)
     .argument('<recipient>', 'Aztec address of the recipient.', parseAztecAddress)
@@ -91,36 +100,80 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
       'test test test test test test test test test test test junk',
     )
+    .option('--mint', 'Mint the tokens on L1', false)
     .addOption(pxeOption)
-    .addOption(chainIdOption)
+    .addOption(l1ChainIdOption)
     .action(async (amount, recipient, options) => {
-      const { bridgeL1Gas } = await import('./bridge_l1_gas.js');
+      const { bridgeL1Gas } = await import('./bridge_fee_juice.js');
       await bridgeL1Gas(
         amount,
         recipient,
         options.rpcUrl,
         options.l1RpcUrl,
-        options.chainId,
+        options.l1ChainId,
         options.mnemonic,
+        options.mint,
         log,
         debugLogger,
       );
     });
 
   program
+    .command('bridge-erc20')
+    .description('Bridges ERC20 tokens to L2.')
+    .argument('<amount>', 'The amount of gas tokens to mint and bridge.', parseBigint)
+    .argument('<recipient>', 'Aztec address of the recipient.', parseAztecAddress)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
+      'test test test test test test test test test test test junk',
+    )
+    .option('--mint', 'Mint the tokens on L1', false)
+    .addOption(l1ChainIdOption)
+    .requiredOption('-t, --token <string>', 'The address of the token to bridge', parseEthereumAddress)
+    .requiredOption('-p, --portal <string>', 'The address of the portal contract', parseEthereumAddress)
+    .option('-k, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .action(async (amount, recipient, options) => {
+      const { bridgeERC20 } = await import('./bridge_erc20.js');
+      await bridgeERC20(
+        amount,
+        recipient,
+        options.l1RpcUrl,
+        options.l1ChainId,
+        options.privateKey,
+        options.mnemonic,
+        options.token,
+        options.portal,
+        options.mint,
+        log,
+        debugLogger,
+      );
+    });
+
+  program.command('create-l1-account').action(async () => {
+    const { createL1Account } = await import('./create_l1_account.js');
+    createL1Account(log);
+  });
+
+  program
     .command('get-l1-balance')
-    .description('Gets the balance of gas tokens in L1 for the given Ethereum address.')
+    .description('Gets the balance of an ERC token in L1 for the given Ethereum address.')
     .argument('<who>', 'Ethereum address to check.', parseEthereumAddress)
     .requiredOption(
       '--l1-rpc-url <string>',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .addOption(pxeOption)
-    .addOption(chainIdOption)
+    .requiredOption('-t, --token <string>', 'The address of the token to check the balance of', parseEthereumAddress)
+    .addOption(l1ChainIdOption)
     .action(async (who, options) => {
       const { getL1Balance } = await import('./get_l1_balance.js');
-      await getL1Balance(who, options.rpcUrl, options.l1RpcUrl, options.chainId, log, debugLogger);
+      await getL1Balance(who, options.token, options.l1RpcUrl, options.l1ChainId, log);
     });
 
   return program;

@@ -144,31 +144,25 @@ describe('L1Publisher integration', () => {
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, worldStateSynchronizer, new NoopTelemetryClient());
+    builder = await TxProver.new(config, worldStateSynchronizer, blockSource, new NoopTelemetryClient());
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
       requiredConfirmations: 1,
       l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
-      l1BlockPublishRetryIntervalMS: 100,
+      l1PublishRetryIntervalMS: 100,
+      l1ChainId: 31337,
     });
 
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
-    prevHeader = await builderDb.buildInitialHeader(false);
+    prevHeader = builderDb.getInitialHeader();
   });
 
-  const makeEmptyProcessedTx = () => {
-    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(
-      prevHeader,
-      new Fr(chainId),
-      new Fr(config.version),
-      getVKTreeRoot(),
-    );
-    return tx;
-  };
+  const makeEmptyProcessedTx = () =>
+    makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version), getVKTreeRoot());
 
   const makeBloatedProcessedTx = (seed = 0x1): ProcessedTx => {
     const tx = mockTx(seed);

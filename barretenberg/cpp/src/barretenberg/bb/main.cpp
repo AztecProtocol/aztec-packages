@@ -3,10 +3,14 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
+
 #include <cstddef>
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
@@ -405,7 +409,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
                        const std::filesystem::path& eccvm_vk_path,
                        const std::filesystem::path& translator_vk_path)
 {
-    init_bn254_crs(1 << 24);
+    init_bn254_crs(1);
     init_grumpkin_crs(1 << 14);
 
     const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
@@ -568,7 +572,7 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
-    auto num_public_inputs = (size_t)proof.folding_proof[1];
+    auto num_public_inputs = static_cast<size_t>(static_cast<uint256_t>(proof.folding_proof[1]));
     for (size_t i = 0; i < num_public_inputs; i++) {
         // We offset 3
         builder->add_public_variable(proof.folding_proof[i + 3]);
@@ -576,6 +580,39 @@ void prove_tube(const std::string& output_path)
     ClientIVC verifier{ builder, input };
 
     verifier.verify(proof);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a valid
+    // proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+    std::array<uint32_t, acir_format::HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+    fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+    fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+    fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+    std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+    size_t agg_obj_indices_idx = 0;
+    for (fq val : aggregation_object_fq_values) {
+        const uint256_t x = val;
+        std::array<fr, acir_format::fq_ct::NUM_LIMBS> val_limbs = {
+            x.slice(0, acir_format::fq_ct::NUM_LIMB_BITS),
+            x.slice(acir_format::fq_ct::NUM_LIMB_BITS, acir_format::fq_ct::NUM_LIMB_BITS * 2),
+            x.slice(acir_format::fq_ct::NUM_LIMB_BITS * 2, acir_format::fq_ct::NUM_LIMB_BITS * 3),
+            x.slice(acir_format::fq_ct::NUM_LIMB_BITS * 3, stdlib::field_conversion::TOTAL_BITS)
+        };
+        for (size_t i = 0; i < acir_format::fq_ct::NUM_LIMBS; ++i) {
+            uint32_t idx = builder->add_variable(val_limbs[i]);
+            builder->set_public_input(idx);
+            current_aggregation_object[agg_obj_indices_idx] = idx;
+            agg_obj_indices_idx++;
+        }
+    }
+    // Make sure the verification key records the public input indices of the
+    // final recursion output.
+    std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                       current_aggregation_object.end());
+    builder->set_recursive_proof(proof_output_witness_indices);
+
     info("num gates in tube circuit: ", builder->get_num_gates());
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
@@ -792,6 +829,40 @@ void contract(const std::string& output_path, const std::string& vk_path)
 }
 
 /**
+ * @brief Writes a Honk Solidity verifier contract for an ACIR circuit to a file
+ *
+ * Communication:
+ * - stdout: The Solidity verifier contract is written to stdout as a string
+ * - Filesystem: The Solidity verifier contract is written to the path specified by outputPath
+ *
+ * Note: The fact that the contract was computed is for an ACIR circuit is not of importance
+ * because this method uses the verification key to compute the Solidity verifier contract
+ *
+ * @param output_path Path to write the contract to
+ * @param vk_path Path to the file containing the serialized verification key
+ */
+void contract_honk(const std::string& output_path, const std::string& vk_path)
+{
+    using VerificationKey = UltraFlavor::VerificationKey;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+
+    auto g2_data = get_bn254_g2_data(CRS_PATH);
+    srs::init_crs_factory({}, g2_data);
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
+    std::string contract = get_honk_solidity_verifier(std::move(vk));
+
+    if (output_path == "-") {
+        writeStringToStdout(contract);
+        vinfo("contract written to stdout");
+    } else {
+        write_file(output_path, { contract.begin(), contract.end() });
+        vinfo("contract written to: ", output_path);
+    }
+}
+
+/**
  * @brief Converts a proof from a byte array into a list of field elements
  *
  * Why is this needed?
@@ -896,8 +967,8 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     vinfo("hints.externalcall_hints size: ", avm_hints.externalcall_hints.size());
     vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
 
-    // Hardcoded circuit size for now, with enough to support 16-bit range checks
-    init_bn254_crs(1 << 17);
+    vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
+    init_bn254_crs(avm_trace::Execution::SRS_SIZE);
 
     // Prove execution and return vk
     auto const [verification_key, proof] =
@@ -967,7 +1038,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     using Prover = UltraProver_<Flavor>;
 
     bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
@@ -1360,6 +1431,9 @@ int main(int argc, char* argv[])
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
+        } else if (command == "contract_ultra_honk") {
+            std::string output_path = get_option(args, "-o", "./target/contract.sol");
+            contract_honk(output_path, vk_path);
         } else if (command == "write_vk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk(bytecode_path, output_path);
@@ -1390,8 +1464,13 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
+        } else if (command == "prove_keccak_ultra_honk") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "verify_ultra_honk") {
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "verify_keccak_ultra_honk") {
+            return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraFlavor>(bytecode_path, output_path);

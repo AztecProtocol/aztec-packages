@@ -16,7 +16,7 @@ use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
     utils::{compute_inner_note_hash, compute_note_hash_for_consumption}
 };
-use crate::oracle::notes::notify_created_note;
+use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
 
 struct TestEnvironment {}
 
@@ -26,43 +26,43 @@ impl TestEnvironment {
         Self {}
     }
 
-    fn block_number(self) -> u32 {
-        cheatcodes::get_block_number()
+    fn block_number(_self: Self) -> u32 {
+        get_block_number()
     }
 
-    fn contract_address(self) -> AztecAddress {
-        cheatcodes::get_contract_address()
+    fn contract_address(_self: Self) -> AztecAddress {
+        get_contract_address()
     }
 
-    fn impersonate(self, address: AztecAddress) {
+    fn impersonate(_self: Self, address: AztecAddress) {
         cheatcodes::set_contract_address(address)
     }
 
     fn advance_block_to(&mut self, block_number: u32) {
-        let difference = block_number - cheatcodes::get_block_number();
+        let difference = block_number - get_block_number();
         self.advance_block_by(difference);
     }
 
-    fn advance_block_by(&mut self, blocks: u32) {
+    fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
     }
 
-    fn public(self) -> PublicContext {
+    fn public(_self: Self) -> PublicContext {
         let mut inputs = cheatcodes::get_public_context_inputs();
         PublicContext::new(inputs)
     }
 
     fn private(&mut self) -> PrivateContext {
-        self.private_at(cheatcodes::get_block_number())
+        self.private_at(get_block_number())
     }
 
     // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
-    fn unkonstrained(self) -> UnconstrainedContext {
+    fn unkonstrained(_self: Self) -> UnconstrainedContext {
         UnconstrainedContext::new()
     }
 
     fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
-        if historical_block_number >= cheatcodes::get_block_number() {
+        if historical_block_number >= get_block_number() {
             self.advance_block_to(historical_block_number + 1);
         }
 
@@ -71,7 +71,7 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
-    fn create_account(self) -> AztecAddress {
+    fn create_account(_self: Self) -> AztecAddress {
         let test_account = cheatcodes::create_account();
         let address = test_account.address;
         let keys = test_account.keys;
@@ -85,27 +85,11 @@ impl TestEnvironment {
     }
 
     fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
-        let public_keys = cheatcodes::derive_keys(secret);
-        let args = [public_keys.ivpk_m.x, public_keys.ivpk_m.y];
-        let instance = cheatcodes::deploy(
-            "@aztec/noir-contracts.js/SchnorrAccount",
-            "constructor",
-            args.as_slice(),
-            public_keys.hash().to_field()
-        );
+        let test_account = cheatcodes::add_account(secret);
+        let address = test_account.address;
         cheatcodes::advance_blocks_by(1);
-        let test_account = cheatcodes::add_account(
-            secret,
-            PartialAddress::compute(
-                instance.contract_class_id,
-                instance.salt,
-                instance.initialization_hash,
-                instance.deployer
-            )
-        );
-        let keys = test_account.keys;
 
-        let address = instance.to_address();
+        let keys = test_account.keys;
 
         keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
         keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
@@ -114,29 +98,33 @@ impl TestEnvironment {
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
-        let mut context = self.private_at(cheatcodes::get_block_number());
-
+        let mut context = self.private_at(get_block_number());
+        let args = [test_account.keys.ivpk_m.x, test_account.keys.ivpk_m.y];
         let _ = context.call_private_function(address, selector, args);
 
         address
     }
 
-    fn deploy<N>(self, path: str<N>) -> Deployer<N> {
-        Deployer { path, public_keys_hash: 0 }
+    fn deploy<N, M>(self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+        Deployer { path, name, public_keys_hash: 0 }
     }
 
-    fn call_private<C, M, T, Env, N>(
-        self,
+    fn deploy_self<M>(self, name: str<M>) -> Deployer<0, M> {
+        Deployer { path: "", name, public_keys_hash: 0 }
+    }
+
+    fn call_private<C, let M: u32, T, Env, let N: u32>(
+        _self: Self,
         call_interface: C
     ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = cheatcodes::get_contract_address();
+        let original_contract_address = get_contract_address();
         let target_address = call_interface.get_contract_address();
 
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_private_context_inputs(cheatcodes::get_block_number() - 1);
+        let mut inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
         inputs.call_context.function_selector = call_interface.get_selector();
         inputs.call_context.is_static_call = call_interface.get_is_static();
         let public_inputs = original_fn(inputs);
@@ -147,18 +135,18 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 
-    fn call_private_void<C, M, Env, N>(
-        self,
+    fn call_private_void<C, let M: u32, Env, let N: u32>(
+        _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = cheatcodes::get_contract_address();
+        let original_contract_address = get_contract_address();
         let target_address = call_interface.get_contract_address();
 
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_private_context_inputs(cheatcodes::get_block_number() - 1);
+        let mut inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
         inputs.call_context.function_selector = call_interface.get_selector();
         inputs.call_context.is_static_call = call_interface.get_is_static();
         let public_inputs = original_fn(inputs);
@@ -169,10 +157,13 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    fn call_public<C, M, T, Env, N>(self, call_interface: C) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
+    fn call_public<C, let M: u32, T, Env, let N: u32>(
+        _self: Self,
+        call_interface: C
+    ) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = cheatcodes::get_contract_address();
+        let original_contract_address = get_contract_address();
         let original_fn_selector = cheatcodes::get_function_selector();
         let target_address = call_interface.get_contract_address();
         let fn_selector = call_interface.get_selector();
@@ -191,7 +182,10 @@ impl TestEnvironment {
         result
     }
 
-    fn assert_public_call_fails<C, M, T, Env, N>(self, call_interface: C) where C: CallInterface<M, PublicContextInputs, T, Env> {
+    fn assert_public_call_fails<C, let M: u32, T, Env, let N: u32>(
+        _self: Self,
+        call_interface: C
+    ) where C: CallInterface<M, PublicContextInputs, T, Env> {
         cheatcodes::assert_public_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -199,7 +193,10 @@ impl TestEnvironment {
         );
     }
 
-    fn assert_private_call_fails<C, M, T, Env, N>(self, call_interface: C) where C: CallInterface<M, PrivateContextInputs, T, Env> {
+    fn assert_private_call_fails<C, let M: u32, T, Env, let N: u32>(
+        _self: Self,
+        call_interface: C
+    ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -210,13 +207,13 @@ impl TestEnvironment {
         );
     }
 
-    pub fn store_note_in_cache<Note, N, M>(
-        self,
+    pub fn store_note_in_cache<Note, let N: u32, let M: u32>(
+        _self: Self,
         note: &mut Note,
         storage_slot: Field,
         contract_address: AztecAddress
     ) where Note: NoteInterface<N, M> {
-        let original_contract_address = cheatcodes::get_contract_address();
+        let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 

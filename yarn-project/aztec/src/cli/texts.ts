@@ -71,11 +71,19 @@ export const cliTexts = {
     'allowedFeePaymentContractClasses:SEQ_FPC_CLASSES - string[] - Which fee payment contract classes the sequencer allows' +
     'allowedFeePaymentContractInstances:SEQ_FPC_INSTANCES - string[] - Which fee payment contracts the sequencer allows.' +
     contractAddresses,
-  prover:
-    'Starts a Prover with options. If started additionally to --node, the Prover will attach to that node.\n' +
+  proverAgent:
+    'Starts a Prover Agent with options. If started additionally to --node or --prover-node, the Prover will attach to that node.\n' +
     'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
     'acvmBinaryPath:ACVM_BINARY_PATH - string - The full path to an instance of the acvm cli application. If not provided will fallback to WASM circuit simulation\n' +
     'acvmWorkingDirectory:ACVM_WORKING_DIRECTORY - string - A directory to use for temporary files used by the acvm application. If not provided WASM circuit simulation will be used\n',
+  proverNode:
+    'Starts a Prover Node with options. The node will automatically check for unproven blocks on L1 and attempt to prove them, and then upload the proof back to L1.\n' +
+    'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
+    'rcpUrl:ETHEREUM_HOST - string - The host of the Ethereum node to connect to. Default: http://localhost:8545\n' +
+    'archiverUrl:ARCHIVER_URL - string - A URL for an archiver service that the node will use. Run with --archiver to spin up an archiver within this node.\n' +
+    'nodeUrl:AZTEC_NODE_URL - string - The URL of the Aztec Node to connect to to fetch tx client proofs.\n' +
+    'dataDirectory:DATA_DIRECTORY - string - Where to store node data. If not set, will store temporarily.\n' +
+    contractAddresses,
   p2pBootstrap:
     'Starts a P2P bootstrap node with options.\n' +
     'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
@@ -84,4 +92,14 @@ export const cliTexts = {
     'Starts a TXE with options\n' +
     'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
     'txePort:TXE_PORT - number - The port on which the TXE should listen for connections. Default: 8081\n',
+  bot:
+    'Starts a bot that sends token transfer txs at regular intervals, using a local or remote PXE\n' +
+    'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
+    'feePaymentMethod:BOT_FEE_PAYMENT_METHOD - native | none - How to pay for fees for each tx.\n' +
+    'senderPrivateKey:BOT_PRIVATE_KEY - hex - Private key for sending txs.\n' +
+    'tokenSalt:BOT_TOKEN_SALT - hex - Deployment salt for the token contract.\n' +
+    'recipientEncryptionSecret:BOT_RECIPIENT_ENCRYPTION_SECRET - hex - Encryption secret key for the recipient account.\n' +
+    'txIntervalSeconds:BOT_TX_INTERVAL_SECONDS - number - Interval between txs are started. Too low a value may result in multiple txs in flight at a time. \n' +
+    'privateTransfersPerTx:BOT_PRIVATE_TRANSFERS_PER_TX - number - How many private transfers to execute per tx. \n' +
+    'publicTransfersPerTx:BOT_PUBLIC_TRANSFERS_PER_TX - number - How many public transfers to execute per tx.\n',
 };

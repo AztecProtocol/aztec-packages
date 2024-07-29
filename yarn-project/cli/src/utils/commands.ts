@@ -34,9 +34,9 @@ export const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
   .default(`http://${LOCALHOST}:8080`)
   .makeOptionMandatory(true);
 
-export const chainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID of the ethereum host')
+export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID of the ethereum host')
   .env('L1_CHAIN_ID')
-  .default('31337')
+  .default(31337)
   .argParser(value => {
     const parsedValue = Number(value);
     if (isNaN(parsedValue)) {
@@ -46,7 +46,7 @@ export const chainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID 
   });
 
 export const createPrivateKeyOption = (description: string, mandatory: boolean) =>
-  new Option('-e, --private-key <string>', description)
+  new Option('-pk, --private-key <string>', description)
     .env('PRIVATE_KEY')
     .argParser(parsePrivateKey)
     .makeOptionMandatory(mandatory);
@@ -138,9 +138,16 @@ export function parseFieldFromHexString(str: string): Fr {
   // pad it so that we may read it as a buffer.
   // Buffer needs _exactly_ two hex characters per byte
   const padded = hex.length % 2 === 1 ? '0' + hex : hex;
+  let buf = Buffer.from(padded, 'hex');
+  if (buf.length > Fr.SIZE_IN_BYTES) {
+    buf = buf.subarray(buf.length - Fr.SIZE_IN_BYTES);
+  }
+
+  const fr = Buffer.alloc(Fr.SIZE_IN_BYTES, 0);
+  fr.set(buf, Fr.SIZE_IN_BYTES - buf.length);
 
   // finally, turn it into an integer
-  return Fr.fromBuffer(Buffer.from(padded, 'hex'));
+  return Fr.fromBuffer(fr);
 }
 
 /**

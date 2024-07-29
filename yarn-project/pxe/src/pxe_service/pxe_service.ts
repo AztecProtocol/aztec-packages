@@ -511,6 +511,7 @@ export class PXEService implements PXE {
     });
   }
 
+  // TODO(#7456) Prevent msgSender being defined here for the first call
   public async simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
@@ -568,8 +569,12 @@ export class PXEService implements PXE {
     return this.node.getTxEffect(txHash);
   }
 
-  async getBlockNumber(): Promise<number> {
+  public async getBlockNumber(): Promise<number> {
     return await this.node.getBlockNumber();
+  }
+
+  public async getProvenBlockNumber(): Promise<number> {
+    return await this.node.getProvenBlockNumber();
   }
 
   /**
@@ -848,6 +853,11 @@ export class PXEService implements PXE {
 
   public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
+  }
+
+  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
+    const initNullifier = siloNullifier(address, address);
+    return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
   public getEvents<T>(

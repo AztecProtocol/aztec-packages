@@ -3,11 +3,11 @@ import {
   createAztecNodeRpcServer,
   getConfigEnvVars as getNodeConfigEnvVars,
 } from '@aztec/aztec-node';
+import { type PXE } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
-import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
 import {
   createAndStartTelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
@@ -15,7 +15,7 @@ import {
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { MNEMONIC, createAztecNode, createAztecPXE, deployContractsToL1 } from '../../sandbox.js';
+import { MNEMONIC, createAztecNode, deployContractsToL1 } from '../../sandbox.js';
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
 
 const { DEPLOY_AZTEC_CONTRACTS } = process.env;
@@ -34,14 +34,20 @@ export const startNode = async (
   // merge env vars and cli options
   let nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, nodeCliOptions);
 
+  if (options.proverNode) {
+    // TODO(palla/prover-node) We need to tweak the semantics of disableProver so that it doesn't inject
+    // a null prover into the sequencer, but instead injects a circuit simulator, which is what the
+    // sequencer ultimately needs.
+    userLog(`Running a Prover Node within a Node is not yet supported`);
+    process.exit(1);
+  }
+
   // Deploy contracts if needed
-  if (nodeCliOptions.deployAztecContracts || DEPLOY_AZTEC_CONTRACTS === 'true') {
-    let account;
-    if (nodeConfig.publisherPrivateKey === NULL_KEY) {
-      account = mnemonicToAccount(MNEMONIC);
-    } else {
-      account = privateKeyToAccount(nodeConfig.publisherPrivateKey);
-    }
+  if (nodeCliOptions.deployAztecContracts || ['1', 'true'].includes(DEPLOY_AZTEC_CONTRACTS ?? '')) {
+    const account =
+      nodeConfig.publisherPrivateKey === NULL_KEY
+        ? mnemonicToAccount(MNEMONIC)
+        : privateKeyToAccount(nodeConfig.publisherPrivateKey);
     await deployContractsToL1(nodeConfig, account);
   }
 
@@ -81,6 +87,8 @@ export const startNode = async (
   }
 
   if (!nodeConfig.disableSequencer && nodeConfig.disableProver) {
+    // TODO(palla/prover-node) Sequencer should not need a prover unless we are running the prover
+    // within it, it should just need a circuit simulator. We need to refactor the sequencer so it can accept either.
     throw new Error('Cannot run a sequencer without a prover');
   }
 
@@ -100,18 +108,17 @@ export const startNode = async (
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop);
 
-  // Create a PXE client that connects to the node.
+  // Add a PXE client that connects to this node if requested
+  let pxe: PXE | undefined;
   if (options.pxe) {
-    const pxeCliOptions = parseModuleOptions(options.pxe);
-    const pxeConfig = mergeEnvVarsAndCliOptions<PXEServiceConfig>(getPXEServiceConfig(), pxeCliOptions);
-    const pxe = await createAztecPXE(node, pxeConfig);
-    const pxeServer = createPXERpcServer(pxe);
+    const { addPXE } = await import('./start_pxe.js');
+    pxe = await addPXE(options, services, signalHandlers, userLog, { node });
+  }
 
-    // Add PXE to services list
-    services.push({ pxe: pxeServer });
-
-    // Add PXE stop function to signal handlers
-    signalHandlers.push(pxe.stop);
+  // Add a txs bot if requested
+  if (options.bot) {
+    const { addBot } = await import('./start_bot.js');
+    await addBot(options, services, signalHandlers, { pxe });
   }
 
   return services;

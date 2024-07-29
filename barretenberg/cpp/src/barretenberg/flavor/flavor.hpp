@@ -294,22 +294,22 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute
 }
 
 /**
- * @brief Takes a Tuple of objects in the Relation class and recursively computes the maximum among partial subrelation
- lengths incremented by corresponding subrelation witness degrees over all
+ * @brief Takes a Tuple of objects in the Relation class and recursively computes the maximum among partial
+ * subrelation lengths incremented by corresponding subrelation witness degrees over all
  * subrelations of given relations. This method is required to compute the size of
  * Round Univariates in ZK Sumcheck.
  * @tparam Tuple
  * @tparam Index
  * @return constexpr size_t
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_zk_length()
+template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_total_zk_relation_length()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return 0; // Return 0 when reach end of the tuple
     } else {
-        constexpr size_t current_witness_degree = std::tuple_element<Index, Tuple>::type::ZK_TOTAL_RELATION_LENGTH;
-        constexpr size_t next_witness_degree = compute_max_zk_length<Tuple, Index + 1>();
-        return (current_witness_degree > next_witness_degree) ? current_witness_degree : next_witness_degree;
+        constexpr size_t current_zk_length = std::tuple_element<Index, Tuple>::type::ZK_TOTAL_RELATION_LENGTH;
+        constexpr size_t next_zk_length = compute_max_total_zk_relation_length<Tuple, Index + 1>();
+        return (current_zk_length > next_zk_length) ? current_zk_length : next_zk_length;
     }
 }
 
@@ -397,6 +397,7 @@ namespace bb {
 class UltraFlavor;
 class UltraFlavorWithZK;
 class ECCVMFlavor;
+class UltraKeccakFlavor;
 class MegaFlavor;
 class TranslatorFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
@@ -425,16 +426,16 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra>;
+concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T> 
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraFlavorWithZK, MegaFlavor, UltraFlavorWithZK>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
@@ -459,6 +460,8 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+                                                           // Note(md): must be here to use oink prover
+                                                           UltraKeccakFlavor,
                                                            UltraFlavorWithZK,
                                                            MegaFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
