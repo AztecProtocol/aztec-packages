@@ -24,6 +24,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
     }
 
     fn compute_note_hiding_point(_self: Self) -> Point {
+      // TODO(#7636): Properly implement these functions.
       crate::generators::Ga1
     }
 
