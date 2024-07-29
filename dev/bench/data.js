@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722275596276,
+  "lastUpdate": 1722276861086,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -97064,6 +97064,78 @@ window.BENCHMARK_DATA = {
             "value": 167310697,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167310697 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3247058d2e54e1fb84680ad9fcf9ece611235e96",
+          "message": "chore: constant inputs for most blackboxes (#7613)\n\nblackbox can use constant inputs:\r\naes128\r\nkeccakf1600\r\nsha256compression\r\necoperations\r\nblake2s\r\nBlake3s\r\nlogic\r\nsha256compression\r\n\r\nThe following have not been modified to use constant inputs:\r\nsha256 and keccak256 because they are deprecated.\r\nblock, recursion and honk recursion because I am not sure they support\r\nit.\r\nshnorr and ecdsa, because they might be replaced.",
+          "timestamp": "2024-07-29T17:54:29Z",
+          "tree_id": "bf812a50768599896ff551f860c3244fd856cfa3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3247058d2e54e1fb84680ad9fcf9ece611235e96"
+        },
+        "date": 1722276852321,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13300.290082999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9945.518854 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5030.665084999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4481.444478 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40284.139391000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40284140000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14626.091176999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14626091000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3570414703,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3570414703 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203855108,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203855108 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2950512993,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2950512993 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168583447,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168583447 ns\nthreads: 1"
           }
         ]
       }
