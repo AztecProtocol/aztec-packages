@@ -141,10 +141,9 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
         builder.assert_equal(builder.add_variable(0), key_fields[4].witness_index);
         uint32_t offset = 4;
-        // do the aggregation object next
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1059): Properly set this to a default agg obj.
         for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(0),
-                                 key_fields[offset].witness_index); // WORKTODO: check if 0 is fine here
+            builder.assert_equal(builder.add_variable(0), key_fields[offset].witness_index);
             offset++;
         }
 
