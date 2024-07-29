@@ -330,6 +330,10 @@ jobs:
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
           terraform apply -input=false -auto-approve
 
+      - name: Wait for PXE to be available
+        run: |
+          ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
+
       - name: Deploy transactions bot
         working-directory: ./yarn-project/aztec/terraform/bot
         run: |

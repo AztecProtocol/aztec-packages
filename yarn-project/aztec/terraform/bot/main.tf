@@ -101,7 +101,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "BOT_TX_INTERVAL_SECONDS", value = "300" },
         { name = "AZTEC_PORT", value = "80" },
         { name = "API_PREFIX", value = local.api_prefix },
-        { name = "BOT_PRIVATE_TRANSFERS_PER_TX", value = var.BOT_PRIVATE_TRANSFERS_PER_TX }
+        { name = "BOT_PRIVATE_TRANSFERS_PER_TX", value = var.BOT_PRIVATE_TRANSFERS_PER_TX },
         { name = "BOT_PUBLIC_TRANSFERS_PER_TX", value = var.BOT_PUBLIC_TRANSFERS_PER_TX }
       ]
       logConfiguration = {
