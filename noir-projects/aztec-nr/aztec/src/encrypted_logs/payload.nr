@@ -22,11 +22,7 @@ pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>
     recipient: AztecAddress,
     event: Event
 ) -> [u8; OB] where Event: EventInterface<NB, MB> {
-    // @todo Need to draw randomness from the full domain of Fq not only Fr
-    // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
-    // the scalars.
-    let eph_sk: Scalar = fr_to_fq_unsafe(unsafe_rand());
-    let eph_pk = derive_public_key(eph_sk);
+    let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
     let header = EncryptedLogHeader::new(contract_address);
 
@@ -77,11 +73,7 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     recipient: AztecAddress,
     note: Note
 ) -> [u8; M] where Note: NoteInterface<N, NB> {
-    // @todo Need to draw randomness from the full domain of Fq not only Fr
-    // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
-    // the scalars.
-    let eph_sk: Scalar = fr_to_fq_unsafe(unsafe_rand());
-    let eph_pk = derive_public_key(eph_sk);
+    let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
     let header = EncryptedLogHeader::new(contract_address);
 
@@ -129,6 +121,16 @@ fn fr_to_fq(r: Field) -> Scalar {
     let (lo, hi) = decompose(r);
 
     Scalar { lo, hi }
+}
+
+fn generate_ephemeral_key_pair() -> (Scalar, Point) {
+    // @todo Need to draw randomness from the full domain of Fq not only Fr
+    // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
+    // the scalars.
+    let eph_sk = fr_to_fq_unsafe(unsafe_rand());
+    let eph_pk = derive_public_key(eph_sk);
+
+    (eph_sk, eph_pk)
 }
 
 mod test {
