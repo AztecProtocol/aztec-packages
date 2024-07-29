@@ -104,7 +104,7 @@ EOF
 # 36 cores and 72 GB memory, we configure the proving agent to use 32 cores and 64 GB, leaving some for the system
 resource "aws_launch_template" "proving-agent-launch-template" {
   count                  = local.node_count
-  name                   = "proving-agent-launch-template-${count.index + 1}"
+  name                   = "${var.DEPLOY_TAG}-proving-agent-launch-template-${count.index + 1}"
   image_id               = "ami-0cd4858f2b923aa6b"
   instance_type          = "c5.9xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
@@ -150,7 +150,7 @@ resource "aws_autoscaling_group" "proving-agent-auto-scaling-group" {
 # Capacity provider to manage the scaling of the EC2 instances
 resource "aws_ecs_capacity_provider" "proving-agent-capacity-provider" {
   count = local.node_count
-  name  = "proving-agent-capacity-provider-${count.index + 1}"
+  name  = "${var.DEPLOY_TAG}-proving-agent-capacity-provider-${count.index + 1}"
 
 
   auto_scaling_group_provider {
@@ -257,7 +257,7 @@ resource "aws_ecs_service" "aztec-proving-agent" {
 
   # Associate the EC2 capacity provider
   capacity_provider_strategy {
-    capacity_provider = "proving-agent-capacity-provider-${count.index + 1}"
+    capacity_provider = "${var.DEPLOY_TAG}-proving-agent-capacity-provider-${count.index + 1}"
     weight            = 100
     base              = 1
   }
