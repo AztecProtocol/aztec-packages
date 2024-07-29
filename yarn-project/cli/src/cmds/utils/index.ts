@@ -2,15 +2,13 @@ import { type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
+export * from './deploy_contracts.js';
+
 export function injectCommands(program: Command, log: LogFn) {
   program
     .command('generate-keys')
     .summary('Generates encryption and signing private keys.')
     .description('Generates and encryption and signing private key pair.')
-    .option(
-      '-m, --mnemonic',
-      'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
-    )
     .action(async _options => {
       const { generateKeys } = await import('./generate_private_key.js');
       const { privateEncryptionKey, privateSigningKey } = generateKeys();
@@ -41,6 +39,18 @@ export function injectCommands(program: Command, log: LogFn) {
     .action(async (functionSignature: string) => {
       const { computeSelector } = await import('./compute_selector.js');
       computeSelector(functionSignature, log);
+    });
+
+  program
+    .command('update')
+    .description('Updates Nodejs and Noir dependencies')
+    .argument('[projectPath]', 'Path to the project directory', process.cwd())
+    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
+    .action(async (projectPath: string, options) => {
+      const { updateProject } = await import('../utils/update.js');
+      const { contract, aztecVersion } = options;
+      await updateProject(projectPath, contract, aztecVersion, log);
     });
 
   return program;

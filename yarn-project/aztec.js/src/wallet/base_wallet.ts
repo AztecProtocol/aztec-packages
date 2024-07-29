@@ -152,6 +152,9 @@ export abstract class BaseWallet implements Wallet {
   getBlockNumber(): Promise<number> {
     return this.pxe.getBlockNumber();
   }
+  getProvenBlockNumber(): Promise<number> {
+    return this.pxe.getProvenBlockNumber();
+  }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
   }
@@ -178,6 +181,9 @@ export abstract class BaseWallet implements Wallet {
   }
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return this.pxe.isContractPubliclyDeployed(address);
+  }
+  isContractInitialized(address: AztecAddress): Promise<boolean> {
+    return this.pxe.isContractInitialized(address);
   }
   getPXEInfo(): Promise<PXEInfo> {
     return this.pxe.getPXEInfo();

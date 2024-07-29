@@ -42,6 +42,8 @@ export class Sequencer {
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
+  private minSecondsBetweenBlocks = 0;
+  private maxSecondsBetweenBlocks = 0;
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
@@ -50,6 +52,7 @@ export class Sequencer {
   private allowedInSetup: AllowedElement[] = [];
   private allowedInTeardown: AllowedElement[] = [];
   private maxBlockSizeInBytes: number = 1024 * 1024;
+  private skipSubmitProofs: boolean = false;
 
   public readonly tracer: Tracer;
 
@@ -77,14 +80,20 @@ export class Sequencer {
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
-    if (config.transactionPollingIntervalMS) {
+    if (config.transactionPollingIntervalMS !== undefined) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
     }
-    if (config.maxTxsPerBlock) {
+    if (config.maxTxsPerBlock !== undefined) {
       this.maxTxsPerBlock = config.maxTxsPerBlock;
     }
-    if (config.minTxsPerBlock) {
+    if (config.minTxsPerBlock !== undefined) {
       this.minTxsPerBLock = config.minTxsPerBlock;
+    }
+    if (config.minSecondsBetweenBlocks !== undefined) {
+      this.minSecondsBetweenBlocks = config.minSecondsBetweenBlocks;
+    }
+    if (config.maxSecondsBetweenBlocks !== undefined) {
+      this.maxSecondsBetweenBlocks = config.maxSecondsBetweenBlocks;
     }
     if (config.coinbase) {
       this._coinbase = config.coinbase;
@@ -95,13 +104,17 @@ export class Sequencer {
     if (config.allowedInSetup) {
       this.allowedInSetup = config.allowedInSetup;
     }
-    if (config.maxBlockSizeInBytes) {
+    if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
     // TODO(#5917) remove this. it is no longer needed since we don't need to whitelist functions in teardown
     if (config.allowedInTeardown) {
       this.allowedInTeardown = config.allowedInTeardown;
     }
+    // TODO(palla/prover) This flag should not be needed: the sequencer should be initialized with a blockprover
+    // that does not return proofs at all (just simulates circuits), and use that to determine whether to submit
+    // proofs or not.
+    this.skipSubmitProofs = !!config.sequencerSkipSubmitProofs;
   }
 
   /**
@@ -174,17 +187,41 @@ export class Sequencer {
           : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
 
       // Do not go forward with new block if not my turn
-      if (!(await this.publisher.isItMyTurnToSubmit(newBlockNumber))) {
-        this.log.verbose('Not my turn to submit block');
+      if (!(await this.publisher.isItMyTurnToSubmit())) {
+        this.log.debug('Not my turn to submit block');
+        return;
+      }
+
+      // Compute time elapsed since the previous block
+      const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
+      const currentTime = Math.floor(Date.now() / 1000);
+      const elapsedSinceLastBlock = currentTime - lastBlockTime;
+
+      // Do not go forward with new block if not enough time has passed since last block
+      if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
+        this.log.debug(
+          `Not creating block because not enough time has passed since last block (last block at ${lastBlockTime} current time ${currentTime})`,
+        );
         return;
       }
 
       this.state = SequencerState.WAITING_FOR_TXS;
 
-      // Get txs to build the new block
-      const pendingTxs = await this.p2pClient.getTxs();
+      // Get txs to build the new block.
+      const pendingTxs = this.p2pClient.getTxs('pending');
+
+      // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
       if (pendingTxs.length < this.minTxsPerBLock) {
-        return;
+        if (this.skipMinTxsPerBlockCheck(elapsedSinceLastBlock)) {
+          this.log.debug(
+            `Creating block with only ${pendingTxs.length} txs as more than ${this.maxSecondsBetweenBlocks}s have passed since last block`,
+          );
+        } else {
+          this.log.debug(
+            `Not creating block because not enough txs in the pool (got ${pendingTxs.length} min ${this.minTxsPerBLock})`,
+          );
+          return;
+        }
       }
       this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
@@ -207,11 +244,15 @@ export class Sequencer {
       // may break if we start emitting lots of log data from public-land.
       const validTxs = this.takeTxsWithinMaxSize(allValidTxs);
 
-      if (validTxs.length < this.minTxsPerBLock) {
+      // Bail if we don't have enough valid txs
+      if (!this.skipMinTxsPerBlockCheck(elapsedSinceLastBlock) && validTxs.length < this.minTxsPerBLock) {
+        this.log.debug(
+          `Not creating block because not enough valid txs loaded from the pool (got ${validTxs.length} min ${this.minTxsPerBLock})`,
+        );
         return;
       }
 
-      await this.buildBlockAndPublish(validTxs, newGlobalVariables, historicalHeader);
+      await this.buildBlockAndPublish(validTxs, newGlobalVariables, historicalHeader, elapsedSinceLastBlock);
     } catch (err) {
       if (BlockProofError.isBlockProofError(err)) {
         const txHashes = err.txHashes.filter(h => !h.isZero());
@@ -225,6 +266,11 @@ export class Sequencer {
     }
   }
 
+  /** Whether to skip the check of min txs per block if more than maxSecondsBetweenBlocks has passed since the previous block. */
+  private skipMinTxsPerBlockCheck(elapsed: number): boolean {
+    return this.maxSecondsBetweenBlocks > 0 && elapsed >= this.maxSecondsBetweenBlocks;
+  }
+
   @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, newGlobalVariables, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
   }))
@@ -232,6 +278,7 @@ export class Sequencer {
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
     historicalHeader: Header | undefined,
+    elapsedSinceLastBlock: number,
   ): Promise<void> {
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
@@ -242,7 +289,8 @@ export class Sequencer {
       if (currentBlockNumber + 1 !== newGlobalVariables.blockNumber.toNumber()) {
         throw new Error('New block was emitted while building block');
       }
-      if (!(await this.publisher.isItMyTurnToSubmit(newGlobalVariables.blockNumber.toNumber()))) {
+
+      if (!(await this.publisher.isItMyTurnToSubmit())) {
         throw new Error(`Not this sequencer turn to submit block`);
       }
     };
@@ -255,7 +303,7 @@ export class Sequencer {
     );
 
     // We create a fresh processor each time to reset any cached state (eg storage writes)
-    const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
+    const processor = this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
 
     const numRealTxs = validTxs.length;
     const blockSize = Math.max(2, numRealTxs);
@@ -272,7 +320,11 @@ export class Sequencer {
       await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
     }
 
-    if (processedTxs.length === 0) {
+    // TODO: This check should be processedTxs.length < this.minTxsPerBLock, so we don't publish a block with
+    // less txs than the minimum. But that'd cause the entire block to be aborted and retried. Instead, we should
+    // go back to the p2p pool and load more txs until we hit our minTxsPerBLock target. Only if there are no txs
+    // we should bail.
+    if (processedTxs.length === 0 && !this.skipMinTxsPerBlockCheck(elapsedSinceLastBlock)) {
       this.log.verbose('No txs processed correctly to build block. Exiting');
       this.prover.cancelBlock();
       return;
@@ -309,10 +361,10 @@ export class Sequencer {
     await this.publishL2Block(block);
     this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
 
-    // Submit the proof if we have configured this sequencer to run with a prover.
+    // Submit the proof if we have configured this sequencer to run with an actual prover.
     // This is temporary while we submit one proof per block, but will have to change once we
     // move onto proving batches of multiple blocks at a time.
-    if (aggregationObject && proof) {
+    if (aggregationObject && proof && !this.skipSubmitProofs) {
       await this.publisher.submitProof(block.header, block.archive.root, aggregationObject, proof);
       this.log.info(`Submitted proof for block ${block.number}`);
     }
@@ -378,7 +430,15 @@ export class Sequencer {
       this.l1ToL2MessageSource.getBlockNumber(),
     ]);
     const min = Math.min(...syncedBlocks);
-    return min >= this.lastPublishedBlock;
+    const [worldState, p2p, l2BlockSource, l1ToL2MessageSource] = syncedBlocks;
+    const result = min >= this.lastPublishedBlock;
+    this.log.debug(`Sync check to last published block ${this.lastPublishedBlock} ${result ? 'succeeded' : 'failed'}`, {
+      worldState,
+      p2p,
+      l2BlockSource,
+      l1ToL2MessageSource,
+    });
+    return result;
   }
 
   get coinbase(): EthAddress {
