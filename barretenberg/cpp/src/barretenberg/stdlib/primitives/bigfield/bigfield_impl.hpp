@@ -8,7 +8,6 @@
 
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
-#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 
 namespace bb::stdlib {
 
