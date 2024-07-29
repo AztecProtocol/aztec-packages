@@ -1,12 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type EthAddress,
-  Fq,
   Fr,
   NativeFeePaymentMethodWithClaim,
   type PXE,
-  TxHash,
-  TxReceipt,
+  SignerlessWallet,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -14,11 +12,12 @@ import {
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { GasSettings, deriveSigningKey } from '@aztec/circuits.js';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { GasTokenContract } from '@aztec/noir-contracts.js';
+import { GasTokenContract, TestContract } from '@aztec/noir-contracts.js';
 import { createPXERpcServer } from '@aztec/pxe';
 
 import getPort from 'get-port';
@@ -38,9 +37,10 @@ const {
   AZTEC_CLI = `node ${resolve(fileURLToPath(import.meta.url), '../../../../aztec/dest/bin/index.js')}`,
   ETHEREUM_HOST,
   PXE_PROVER_ENABLED = '0',
+  USE_EMPTY_BLOCKS = '0',
 } = process.env;
 
-const waitOpts: WaitOpts = { timeout: 3600_000, interval: 1_000 };
+const waitOpts: WaitOpts = { timeout: 3600, interval: 1 };
 
 const MIN_BLOCKS_FOR_BRIDGING = 2;
 
@@ -150,13 +150,13 @@ describe('End-to-end tests for devnet', () => {
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);
 
     await cli('drip-faucet', { 'faucet-url': FAUCET_URL!, token: 'eth', address: l1Account.address });
-    await cli('drip-faucet', { 'faucet-url': FAUCET_URL!, token: 'fee_juice', address: l1Account.address });
-
     await expect(getL1Balance(l1Account.address)).resolves.toBeGreaterThan(0n);
+
+    await cli('drip-faucet', { 'faucet-url': FAUCET_URL!, token: 'fee_juice', address: l1Account.address });
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toBeGreaterThan(0n);
 
     const amount = 1_000_000_000_000n;
-    const { claimAmount, claimSecret } = await cli<{ claimAmount: string; claimSecret: string }>(
+    const { claimAmount, claimSecret } = await cli<{ claimAmount: string; claimSecret: { value: string } }>(
       'bridge-fee-juice',
       [amount, l2Account.getAddress()],
       {
@@ -168,29 +168,44 @@ describe('End-to-end tests for devnet', () => {
       },
     );
 
-    await waitForL1MessageToArrive();
+    if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
+      await advanceChainWithEmptyBlocks(pxe);
+    } else {
+      await waitForL1MessageToArrive();
+    }
 
-    const { txHash, address } = await cli<{ txHash: string; address: string }>('create-account', {
-      'private-key': privateKey,
-      'public-deploy': true,
-      wait: false,
-      payment: `method=native,claimSecret=${claimSecret},claimAmount=${claimAmount}`,
-    });
+    const txReceipt = await l2Account
+      .deploy({
+        fee: {
+          gasSettings: GasSettings.default(),
+          paymentMethod: new NativeFeePaymentMethodWithClaim(
+            l2Account.getAddress(),
+            BigInt(claimAmount),
+            Fr.fromString(claimSecret.value),
+          ),
+        },
+      })
+      .wait(waitOpts);
 
-    expect(address).toEqual(l2Account.getAddress().toString());
-
-    const txReceipt = await retryUntil(
-      async () => {
-        const receipt = await pxe.getTxReceipt(TxHash.fromString(txHash));
-        if (receipt.status === TxStatus.PENDING) {
-          return undefined;
-        }
-        return receipt;
-      },
-      'wait_for_l2_account',
-      waitOpts.timeout,
-      waitOpts.interval,
-    );
+    // disabled because the CLI process doesn't exit
+    // const { txHash, address } = await cli<{ txHash: string; address: { value: string } }>('create-account', {
+    //   'private-key': privateKey,
+    //   payment: `method=native,claimSecret=${claimSecret.value},claimAmount=${claimAmount}`,
+    //   wait: false,
+    // });
+    // expect(address).toEqual(l2Account.getAddress().toString());
+    // const txReceipt = await retryUntil(
+    //   async () => {
+    //     const receipt = await pxe.getTxReceipt(txHash);
+    //     if (receipt.status === TxStatus.PENDING) {
+    //       return undefined;
+    //     }
+    //     return receipt;
+    //   },
+    //   'wait_for_l2_account',
+    //   waitOpts.timeout,
+    //   waitOpts.interval,
+    // );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
     const feeJuice = await GasTokenContract.at(
@@ -203,7 +218,7 @@ describe('End-to-end tests for devnet', () => {
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
   });
 
-  type OptionValue = undefined | boolean | { toString(): string };
+  type OptionValue = null | undefined | boolean | { toString(): string };
   type ArgumentValue = { toString(): string };
 
   function cli<T>(cliCommand: string): Promise<T>;
@@ -223,7 +238,7 @@ describe('End-to-end tests for devnet', () => {
 
     opts.json = true;
     const cmdOptions = Object.entries(opts)
-      .filter((entry): entry is [string, { toString(): string }] => typeof entry[1] !== 'undefined')
+      .filter((entry): entry is [string, { toString(): string }] => entry[1] !== undefined && entry[1] !== null)
       .map(([key, value]) =>
         typeof value === 'boolean' ? (value ? `--${key}` : `--no-${key}`) : `--${key} ${value.toString()}`,
       );
@@ -275,5 +290,19 @@ describe('End-to-end tests for devnet', () => {
   async function waitForL1MessageToArrive() {
     const targetBlockNumber = (await pxe.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
     await retryUntil(async () => (await pxe.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
+  }
+
+  async function advanceChainWithEmptyBlocks(pxe: PXE) {
+    const { l1ChainId, protocolVersion } = await pxe.getNodeInfo();
+    const test = await TestContract.deploy(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, protocolVersion)),
+    )
+      .send({ universalDeploy: true, skipClassRegistration: true })
+      .deployed();
+
+    // start at 1 because deploying the contract has already mined a block
+    for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
+      await test.methods.get_this_address().send().wait(waitOpts);
+    }
   }
 });

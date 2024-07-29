@@ -33,7 +33,7 @@ export async function bridgeL1Gas(
   if (json) {
     const out = {
       claimAmount: amount,
-      claimSecret: secret.toBuffer().toString('hex'),
+      claimSecret: secret,
     };
     log(prettyPrintJSON(out));
   } else {
