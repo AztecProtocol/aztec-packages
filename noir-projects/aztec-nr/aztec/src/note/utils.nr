@@ -39,7 +39,7 @@ pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
-fn compute_note_hash_for_read_request_from_inner_and_nonce(slotted_note_hash: Field, nonce: Field) -> Field {
+fn compute_note_hash_for_read_request_from_slotted_and_nonce(slotted_note_hash: Field, nonce: Field) -> Field {
     // TODO(#1386): This if-else can be nuked once we have nonces injected from public
     if (nonce == 0) {
         // If nonce is zero, that means we are reading a public note.
@@ -53,7 +53,7 @@ pub fn compute_note_hash_for_read_request<Note, let N: u32, let M: u32>(note: No
     let slotted_note_hash = compute_slotted_note_hash(note);
     let nonce = note.get_header().nonce;
 
-    compute_note_hash_for_read_request_from_inner_and_nonce(slotted_note_hash, nonce)
+    compute_note_hash_for_read_request_from_slotted_and_nonce(slotted_note_hash, nonce)
 }
 
 pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
@@ -73,7 +73,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_note_hash_for_read_request_from_inner_and_nonce(slotted_note_hash, header.nonce);
+        let unique_note_hash = compute_note_hash_for_read_request_from_slotted_and_nonce(slotted_note_hash, header.nonce);
         compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
@@ -96,7 +96,7 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, l
     note.set_header(note_header);
 
     let slotted_note_hash = compute_slotted_note_hash(note);
-    let unique_note_hash = compute_note_hash_for_read_request_from_inner_and_nonce(slotted_note_hash, note_header.nonce);
+    let unique_note_hash = compute_note_hash_for_read_request_from_slotted_and_nonce(slotted_note_hash, note_header.nonce);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
