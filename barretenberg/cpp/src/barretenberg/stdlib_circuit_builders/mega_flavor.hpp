@@ -235,6 +235,7 @@ class MegaFlavor {
                 this->return_data_inverses,
             };
         }
+        auto get_to_be_shifted() { return DerivedEntities<DataType>::get_to_be_shifted(); }
 
         MSGPACK_FIELDS(this->w_l,
                        this->w_r,
@@ -294,9 +295,9 @@ class MegaFlavor {
      * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
      */
     template <typename DataType>
-    class ShiftedEntities : public ShiftedWitnessEntities<DataType>, public ShiftedTables<DataType> {
+    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedWitnessEntities<DataType>, ShiftedTables<DataType>)
+        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
 
         auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
         auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
@@ -333,6 +334,7 @@ class MegaFlavor {
         auto get_to_be_shifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
+                               WitnessEntities<DataType>::get_wires(),
                                WitnessEntities<DataType>::get_to_be_shifted());
         };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
