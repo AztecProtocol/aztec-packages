@@ -366,10 +366,9 @@ void build_constraints(Builder& builder,
             // First add the output aggregation object as public inputs
             // Set the indices as public inputs because they are no longer being
             // created in ACIR
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1044): Reinstate aggregation
-            // for (const auto& idx : current_aggregation_object) {
-            //     builder.set_public_input(idx);
-            // }
+            for (const auto& idx : current_aggregation_object) {
+                builder.set_public_input(idx);
+            }
 
             // Make sure the verification key records the public input indices of the
             // final recursion output.

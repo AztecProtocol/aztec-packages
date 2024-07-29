@@ -1,6 +1,7 @@
 #pragma once
 #include "../../primitives/field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -49,7 +50,7 @@ template <typename Curve> struct aggregation_state {
 
         P0 = P0.reduce();
         P1 = P1.reduce();
-        auto proof_witness_indices = {
+        AggregationObjectIndices proof_witness_indices = {
             P0.x.binary_basis_limbs[0].element.normalize().witness_index,
             P0.x.binary_basis_limbs[1].element.normalize().witness_index,
             P0.x.binary_basis_limbs[2].element.normalize().witness_index,
