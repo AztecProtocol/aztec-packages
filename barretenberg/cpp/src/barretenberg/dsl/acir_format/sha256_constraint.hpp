@@ -26,8 +26,8 @@ struct Sha256Constraint {
 };
 
 struct Sha256Compression {
-    std::array<WitnessConstant<bb::fr>, 16> inputs;
-    std::array<WitnessConstant<bb::fr>, 8> hash_values;
+    std::array<WitnessOrConstant<bb::fr>, 16> inputs;
+    std::array<WitnessOrConstant<bb::fr>, 8> hash_values;
     std::array<uint32_t, 8> result;
 
     friend bool operator==(Sha256Compression const& lhs, Sha256Compression const& rhs) = default;

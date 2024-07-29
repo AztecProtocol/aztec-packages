@@ -9,8 +9,8 @@
 namespace acir_format {
 
 struct MultiScalarMul {
-    std::vector<WitnessConstant<bb::fr>> points;
-    std::vector<WitnessConstant<bb::fr>> scalars;
+    std::vector<WitnessOrConstant<bb::fr>> points;
+    std::vector<WitnessOrConstant<bb::fr>> scalars;
 
     uint32_t out_point_x;
     uint32_t out_point_y;

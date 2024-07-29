@@ -8,7 +8,7 @@
 namespace acir_format {
 
 struct Blake2sInput {
-    WitnessConstant<bb::fr> blackbox_input;
+    WitnessOrConstant<bb::fr> blackbox_input;
     uint32_t num_bits;
 
     // For serialization, update with any new fields

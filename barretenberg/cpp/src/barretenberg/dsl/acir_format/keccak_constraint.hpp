@@ -17,7 +17,7 @@ struct HashInput {
 };
 
 struct Keccakf1600 {
-    std::array<WitnessConstant<bb::fr>, 25> state;
+    std::array<WitnessOrConstant<bb::fr>, 25> state;
     std::array<uint32_t, 25> result;
 
     // For serialization, update with any new fields

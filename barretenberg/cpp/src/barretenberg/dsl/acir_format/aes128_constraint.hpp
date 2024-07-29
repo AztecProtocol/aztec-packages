@@ -18,9 +18,9 @@ struct AES128Input {
 };
 
 struct AES128Constraint {
-    std::vector<WitnessConstant<bb::fr>> inputs;
-    std::array<WitnessConstant<bb::fr>, 16> iv;
-    std::array<WitnessConstant<bb::fr>, 16> key;
+    std::vector<WitnessOrConstant<bb::fr>> inputs;
+    std::array<WitnessOrConstant<bb::fr>, 16> iv;
+    std::array<WitnessOrConstant<bb::fr>, 16> key;
     std::vector<uint32_t> outputs;
 
     // For serialization, update with any new fields

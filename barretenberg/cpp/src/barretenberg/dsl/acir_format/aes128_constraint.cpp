@@ -16,7 +16,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 
     // Packs 16 bytes from the inputs (plaintext, iv, key) into a field element
     const auto convert_input =
-        [&](std::span<const WitnessConstant<bb::fr>, std::dynamic_extent> inputs, size_t padding, Builder& builder) {
+        [&](std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent> inputs, size_t padding, Builder& builder) {
             field_ct converted = 0;
             for (size_t i = 0; i < 16 - padding; ++i) {
                 converted *= 256;
@@ -49,13 +49,14 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
     for (size_t i = 0; i < constraint.inputs.size(); i += 16) {
         field_ct to_add;
         if (i + 16 > constraint.inputs.size()) {
-            to_add = convert_input(std::span<const WitnessConstant<bb::fr>, std::dynamic_extent>{ &constraint.inputs[i],
-                                                                                                  16 - padding_size },
-                                   padding_size,
-                                   builder);
+            to_add =
+                convert_input(std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent>{ &constraint.inputs[i],
+                                                                                               16 - padding_size },
+                              padding_size,
+                              builder);
         } else {
             to_add =
-                convert_input(std::span<const WitnessConstant<bb::fr>, 16>{ &constraint.inputs[i], 16 }, 0, builder);
+                convert_input(std::span<const WitnessOrConstant<bb::fr>, 16>{ &constraint.inputs[i], 16 }, 0, builder);
         }
         converted_inputs.emplace_back(to_add);
     }

@@ -7,7 +7,7 @@
 namespace acir_format {
 
 struct Poseidon2Constraint {
-    std::vector<WitnessConstant<bb::fr>> state;
+    std::vector<WitnessOrConstant<bb::fr>> state;
     std::vector<uint32_t> result;
     uint32_t len;
 

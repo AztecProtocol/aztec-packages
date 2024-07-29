@@ -7,8 +7,8 @@ using namespace bb::plonk;
 
 template <typename Builder>
 void create_logic_gate(Builder& builder,
-                       const WitnessConstant<bb::fr> a,
-                       const WitnessConstant<bb::fr> b,
+                       const WitnessOrConstant<bb::fr> a,
+                       const WitnessOrConstant<bb::fr> b,
                        const uint32_t result,
                        const size_t num_bits,
                        const bool is_xor_gate)
@@ -24,14 +24,14 @@ void create_logic_gate(Builder& builder,
 }
 
 template void create_logic_gate<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
-                                                        const WitnessConstant<bb::fr> a,
-                                                        const WitnessConstant<bb::fr> b,
+                                                        const WitnessOrConstant<bb::fr> a,
+                                                        const WitnessOrConstant<bb::fr> b,
                                                         const uint32_t result,
                                                         const size_t num_bits,
                                                         const bool is_xor_gate);
 template void create_logic_gate<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
-                                                         const WitnessConstant<bb::fr> a,
-                                                         const WitnessConstant<bb::fr> b,
+                                                         const WitnessOrConstant<bb::fr> a,
+                                                         const WitnessOrConstant<bb::fr> b,
                                                          const uint32_t result,
                                                          const size_t num_bits,
                                                          const bool is_xor_gate);

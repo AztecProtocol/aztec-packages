@@ -31,10 +31,10 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
     Poseidon2Constraint
         poseidon2_constraint{
             .state = { 
-                WitnessConstant<bb::fr>::from_index(1),
-                WitnessConstant<bb::fr>::from_index(2),
-                WitnessConstant<bb::fr>::from_index(3),
-                WitnessConstant<bb::fr>::from_index(4),
+                WitnessOrConstant<bb::fr>::from_index(1),
+                WitnessOrConstant<bb::fr>::from_index(2),
+                WitnessOrConstant<bb::fr>::from_index(3),
+                WitnessOrConstant<bb::fr>::from_index(4),
  },
             .result = { 5, 6, 7, 8, },
             .len = 4,

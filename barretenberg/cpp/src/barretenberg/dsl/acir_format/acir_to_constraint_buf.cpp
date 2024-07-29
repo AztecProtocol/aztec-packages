@@ -195,19 +195,19 @@ uint32_t get_witness_from_function_input(Program::FunctionInput input)
     return input_witness.value.value;
 }
 
-WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
+WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 {
-    WitnessConstant result = std::visit(
+    WitnessOrConstant result = std::visit(
         [&](auto&& e) {
             using T = std::decay_t<decltype(e)>;
             if constexpr (std::is_same_v<T, Program::ConstantOrWitnessEnum::Witness>) {
-                return WitnessConstant<bb::fr>{
+                return WitnessOrConstant<bb::fr>{
                     .index = e.value.value,
                     .value = bb::fr::zero(),
                     .is_constant = false,
                 };
             } else if constexpr (std::is_same_v<T, Program::ConstantOrWitnessEnum::Constant>) {
-                return WitnessConstant<bb::fr>{
+                return WitnessOrConstant<bb::fr>{
                     .index = 0,
                     .value = uint256_t(e.value),
                     .is_constant = true,
@@ -215,7 +215,7 @@ WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
             } else {
                 ASSERT(false);
             }
-            return WitnessConstant<bb::fr>{
+            return WitnessOrConstant<bb::fr>{
                 .index = 0,
                 .value = bb::fr::zero(),
                 .is_constant = true,

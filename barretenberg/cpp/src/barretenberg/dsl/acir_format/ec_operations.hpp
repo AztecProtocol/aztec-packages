@@ -6,12 +6,12 @@
 namespace acir_format {
 
 struct EcAdd {
-    WitnessConstant<bb::fr> input1_x;
-    WitnessConstant<bb::fr> input1_y;
-    WitnessConstant<bb::fr> input1_infinite;
-    WitnessConstant<bb::fr> input2_x;
-    WitnessConstant<bb::fr> input2_y;
-    WitnessConstant<bb::fr> input2_infinite;
+    WitnessOrConstant<bb::fr> input1_x;
+    WitnessOrConstant<bb::fr> input1_y;
+    WitnessOrConstant<bb::fr> input1_infinite;
+    WitnessOrConstant<bb::fr> input2_x;
+    WitnessOrConstant<bb::fr> input2_y;
+    WitnessOrConstant<bb::fr> input2_infinite;
     uint32_t result_x;
     uint32_t result_y;
     uint32_t result_infinite;

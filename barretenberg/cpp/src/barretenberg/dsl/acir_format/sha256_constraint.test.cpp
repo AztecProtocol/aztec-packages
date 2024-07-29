@@ -21,13 +21,13 @@ class Sha256Tests : public ::testing::Test {
 TEST_F(Sha256Tests, TestSha256Compression)
 {
 
-    std::array<WitnessConstant<bb::fr>, 16> inputs;
+    std::array<WitnessOrConstant<bb::fr>, 16> inputs;
     for (size_t i = 0; i < 16; ++i) {
-        inputs[i] = WitnessConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 1));
+        inputs[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 1));
     }
-    std::array<WitnessConstant<bb::fr>, 8> hash_values;
+    std::array<WitnessOrConstant<bb::fr>, 8> hash_values;
     for (size_t i = 0; i < 8; ++i) {
-        hash_values[i] = WitnessConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 17));
+        hash_values[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 17));
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
