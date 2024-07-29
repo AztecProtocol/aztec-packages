@@ -38,6 +38,8 @@ impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
     // function --> in that situation the serialize method is called by aztec-nr when computing an arguments hash.
     fn serialize(self) -> [Field; NOTE_HEADER_LENGTH] {
         // Note: If you change this function don't forget to update implementations of Serialize trait for notes.
+        // (Serialize trait needs to be implemented for a note when it's passed as an argument to a contract function
+        // --> then it's used when computing args hash.)
         [self.contract_address.to_field(), self.nonce, self.storage_slot, self.note_hash_counter as Field]
     }
 }
