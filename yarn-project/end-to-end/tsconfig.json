@@ -22,6 +22,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../bot"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -49,6 +52,9 @@
       "path": "../noir-contracts.js"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
     },
     {
@@ -58,6 +64,9 @@
       "path": "../prover-client"
     },
     {
+      "path": "../prover-node"
+    },
+    {
       "path": "../pxe"
     },
     {
@@ -65,6 +74,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
     },
     {
       "path": "../types"

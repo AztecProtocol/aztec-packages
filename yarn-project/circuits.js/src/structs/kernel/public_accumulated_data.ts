@@ -7,19 +7,19 @@ import { inspect } from 'util';
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
-import { CallRequest } from '../call_request.js';
 import { Gas } from '../gas.js';
-import { LogHash } from '../log_hash.js';
+import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { NoteHash } from '../note_hash.js';
 import { Nullifier } from '../nullifier.js';
+import { PublicCallRequest } from '../public_call_request.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 
 export class PublicAccumulatedData {
@@ -27,15 +27,15 @@ export class PublicAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public readonly newNoteHashes: Tuple<NoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public readonly noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public readonly newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public readonly nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public readonly newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    public readonly l2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated encrypted note logs hashes from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -50,7 +50,7 @@ export class PublicAccumulatedData {
      * Accumulated unencrypted logs hashes from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public readonly unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public readonly unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
     /**
      * All the public data update requests made in this transaction.
      */
@@ -61,7 +61,7 @@ export class PublicAccumulatedData {
     /**
      * Current public call stack.
      */
-    public readonly publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public readonly publicCallStack: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     /** Gas used so far by the transaction. */
     public readonly gasUsed: Gas,
@@ -69,9 +69,9 @@ export class PublicAccumulatedData {
 
   getSize() {
     return (
-      arraySerializedSizeOfNonEmpty(this.newNoteHashes) +
-      arraySerializedSizeOfNonEmpty(this.newNullifiers) +
-      arraySerializedSizeOfNonEmpty(this.newL2ToL1Msgs) +
+      arraySerializedSizeOfNonEmpty(this.noteHashes) +
+      arraySerializedSizeOfNonEmpty(this.nullifiers) +
+      arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
       arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
@@ -83,9 +83,9 @@ export class PublicAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.newNoteHashes,
-      this.newNullifiers,
-      this.newL2ToL1Msgs,
+      this.noteHashes,
+      this.nullifiers,
+      this.l2ToL1Msgs,
       this.noteEncryptedLogsHashes,
       this.encryptedLogsHashes,
       this.unencryptedLogsHashes,
@@ -101,9 +101,9 @@ export class PublicAccumulatedData {
 
   isEmpty(): boolean {
     return (
-      this.newNoteHashes.every(x => x.isEmpty()) &&
-      this.newNullifiers.every(x => x.isEmpty()) &&
-      this.newL2ToL1Msgs.every(x => x.isZero()) &&
+      this.noteHashes.every(x => x.isEmpty()) &&
+      this.nullifiers.every(x => x.isEmpty()) &&
+      this.l2ToL1Msgs.every(x => x.isZero()) &&
       this.noteEncryptedLogsHashes.every(x => x.isEmpty()) &&
       this.encryptedLogsHashes.every(x => x.isEmpty()) &&
       this.unencryptedLogsHashes.every(x => x.isEmpty()) &&
@@ -116,15 +116,15 @@ export class PublicAccumulatedData {
   [inspect.custom]() {
     // print out the non-empty fields
     return `PublicAccumulatedData {
-  newNoteHashes: [${this.newNoteHashes
+  noteHashes: [${this.noteHashes
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  newNullifiers: [${this.newNullifiers
+  nullifiers: [${this.nullifiers
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  newL2ToL1Msgs: [${this.newL2ToL1Msgs
+  l2ToL1Msgs: [${this.l2ToL1Msgs
     .filter(x => !x.isZero())
     .map(h => inspect(h))
     .join(', ')}],
@@ -160,14 +160,14 @@ export class PublicAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      reader.readArray(MAX_NOTE_HASHES_PER_TX, NoteHash),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Nullifier),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, Fr),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
       reader.readObject(Gas),
     );
   }
@@ -175,14 +175,14 @@ export class PublicAccumulatedData {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new this(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, NoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Nullifier),
-      reader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX),
+      reader.readArray(MAX_NOTE_HASHES_PER_TX, NoteHash),
+      reader.readArray(MAX_NULLIFIERS_PER_TX, Nullifier),
+      reader.readFieldArray(MAX_L2_TO_L1_MSGS_PER_TX),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
       reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, LogHash),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
       reader.readObject(Gas),
     );
   }
@@ -198,14 +198,14 @@ export class PublicAccumulatedData {
 
   static empty() {
     return new this(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, NoteHash.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Nullifier.empty),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(MAX_NOTE_HASHES_PER_TX, NoteHash.empty),
+      makeTuple(MAX_NULLIFIERS_PER_TX, Nullifier.empty),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
       makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, LogHash.empty),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
       Gas.empty(),
     );
   }

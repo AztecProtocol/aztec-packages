@@ -13,31 +13,29 @@ using namespace bb::avm_trace;
 using namespace testing;
 
 class AvmCastTests : public ::testing::Test {
-  protected:
-    VmPublicInputs public_inputs{};
-    AvmTraceBuilder trace_builder;
-    std::vector<Row> trace;
-    size_t main_addr;
-    size_t alu_addr;
-    size_t mem_addr_c;
-
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+  public:
+    AvmCastTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
+    std::vector<FF> calldata;
+
+    std::vector<Row> trace;
+    size_t main_row_idx;
+    size_t alu_row_idx;
+    size_t mem_c_row_idx;
 
     void gen_trace(
         uint128_t const& a, uint32_t src_address, uint32_t dst_address, AvmMemoryTag src_tag, AvmMemoryTag dst_tag)
     {
         trace_builder.op_set(0, a, src_address, src_tag);
         trace_builder.op_cast(0, src_address, dst_address, dst_tag);
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
         trace = trace_builder.finalize();
         gen_indices();
     }
@@ -46,20 +44,20 @@ class AvmCastTests : public ::testing::Test {
     {
         auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cast == FF(1); });
         ASSERT_TRUE(row != trace.end());
-        main_addr = static_cast<size_t>(row - trace.begin());
+        main_row_idx = static_cast<size_t>(row - trace.begin());
 
         // Find the corresponding Alu trace row
         auto clk = row->main_clk;
         auto alu_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) { return r.alu_clk == clk; });
         ASSERT_TRUE(alu_row != trace.end());
-        alu_addr = static_cast<size_t>(alu_row - trace.begin());
+        alu_row_idx = static_cast<size_t>(alu_row - trace.begin());
 
         // Mem entry output ic write operation
         auto mem_row_c = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
             return r.mem_tsp == FF(AvmMemTraceBuilder::NUM_SUB_CLK) * clk + AvmMemTraceBuilder::SUB_CLK_STORE_C;
         });
         ASSERT_TRUE(mem_row_c != trace.end());
-        mem_addr_c = static_cast<size_t>(mem_row_c - trace.begin());
+        mem_c_row_idx = static_cast<size_t>(mem_row_c - trace.begin());
     }
 
     void validate_cast_trace(FF const& a,
@@ -72,7 +70,7 @@ class AvmCastTests : public ::testing::Test {
 
     )
     {
-        auto const& row = trace.at(main_addr);
+        auto const& row = trace.at(main_row_idx);
         EXPECT_THAT(row,
                     AllOf(MAIN_ROW_FIELD_EQ(sel_op_cast, 1),
                           MAIN_ROW_FIELD_EQ(ia, a),
@@ -92,7 +90,7 @@ class AvmCastTests : public ::testing::Test {
                           MAIN_ROW_FIELD_EQ(sel_rng_8, 1),
                           MAIN_ROW_FIELD_EQ(sel_rng_16, 1)));
 
-        auto const& alu_row = trace.at(alu_addr);
+        auto const& alu_row = trace.at(alu_row_idx);
         EXPECT_THAT(alu_row,
                     AllOf(ALU_ROW_FIELD_EQ(op_cast, 1),
                           ALU_ROW_FIELD_EQ(ia, a),
@@ -110,15 +108,15 @@ class AvmCastTests : public ::testing::Test {
                           ALU_ROW_FIELD_EQ(sel_alu, 1)));
 
         // Check that there is a second ALU row
-        auto alu_row_next = trace.at(alu_addr + 1);
+        auto alu_row_next = trace.at(alu_row_idx + 1);
         EXPECT_THAT(alu_row_next, AllOf(ALU_ROW_FIELD_EQ(op_cast, 0), ALU_ROW_FIELD_EQ(op_cast_prev, 1)));
 
         // We still want the ability to enable proving through the environment variable and therefore we do not pass
         // the boolean variable force_proof to validate_trace second argument.
         if (force_proof) {
-            validate_trace(std::move(trace), public_inputs, true);
+            validate_trace(std::move(trace), public_inputs, calldata, {}, true);
         } else {
-            validate_trace(std::move(trace), public_inputs);
+            validate_trace(std::move(trace), public_inputs, calldata);
         }
     }
 };
@@ -174,9 +172,11 @@ TEST_F(AvmCastTests, noTruncationFFToU32)
 
 TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 {
-    trace_builder.calldata_copy(0, 0, 1, 0, { FF(FF::modulus - 1) });
+    calldata = { FF::modulus - 1 };
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -185,9 +185,11 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 
 TEST_F(AvmCastTests, truncationFFToU16ModMinus2)
 {
-    trace_builder.calldata_copy(0, 0, 1, 0, { FF(FF::modulus_minus_two) });
+    calldata = { FF::modulus_minus_two };
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -211,7 +213,7 @@ TEST_F(AvmCastTests, indirectAddrTruncationU64ToU8)
     trace_builder.op_set(0, 11, 1, AvmMemoryTag::U32);
     trace_builder.op_set(0, 256'000'000'203UL, 10, AvmMemoryTag::U64);
     trace_builder.op_cast(3, 0, 1, AvmMemoryTag::U8);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
@@ -226,7 +228,7 @@ TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
     trace_builder.op_set(0, 11, 6, AvmMemoryTag::U32);
     trace_builder.op_set(0, 4234, 10, AvmMemoryTag::U64);
     trace_builder.op_cast(3, 5, 6, AvmMemoryTag::U8);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_cast == FF(1); });
@@ -254,13 +256,13 @@ TEST_F(AvmCastTests, indirectAddrWrongResolutionU64ToU8)
 TEST_F(AvmCastNegativeTests, nonTruncatedOutputMainIc)
 {
     gen_trace(300, 0, 1, AvmMemoryTag::U16, AvmMemoryTag::U8);
-    ASSERT_EQ(trace.at(main_addr).main_ic, 44);
+    ASSERT_EQ(trace.at(main_row_idx).main_ic, 44);
 
     // Replace the output in main trace with the non-truncated value
-    trace.at(main_addr).main_ic = 300;
+    trace.at(main_row_idx).main_ic = 300;
 
     // Adapt the memory trace entry
-    trace.at(mem_addr_c).mem_val = 300;
+    trace.at(mem_c_row_idx).mem_val = 300;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_ALU");
 }
@@ -268,13 +270,13 @@ TEST_F(AvmCastNegativeTests, nonTruncatedOutputMainIc)
 TEST_F(AvmCastNegativeTests, wrongOutputMainIc)
 {
     gen_trace(151515, 0, 1, AvmMemoryTag::U32, AvmMemoryTag::FF);
-    ASSERT_EQ(trace.at(main_addr).main_ic, 151515);
+    ASSERT_EQ(trace.at(main_row_idx).main_ic, 151515);
 
     // Replace the output in main trace with a wrong value
-    trace.at(main_addr).main_ic = 151516;
+    trace.at(main_row_idx).main_ic = 151516;
 
     // Adapt the memory trace entry
-    trace.at(mem_addr_c).mem_val = 151516;
+    trace.at(mem_c_row_idx).mem_val = 151516;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_ALU");
 }
@@ -282,25 +284,27 @@ TEST_F(AvmCastNegativeTests, wrongOutputMainIc)
 TEST_F(AvmCastNegativeTests, wrongOutputAluIc)
 {
     gen_trace(6582736, 0, 1, AvmMemoryTag::U128, AvmMemoryTag::U16);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 29136);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 29136);
 
     // Replace output in ALU, MAIN, and MEM trace
-    trace.at(alu_addr).alu_ic = 33;
-    trace.at(main_addr).main_ic = 33;
-    trace.at(mem_addr_c).mem_val = 33;
+    trace.at(alu_row_idx).alu_ic = 33;
+    trace.at(main_row_idx).main_ic = 33;
+    trace.at(mem_c_row_idx).mem_val = 33;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_CAST");
 }
 
 TEST_F(AvmCastNegativeTests, wrongLimbDecompositionInput)
 {
-    trace_builder.calldata_copy(0, 0, 1, 0, { FF(FF::modulus_minus_two) });
+    calldata = { FF::modulus_minus_two };
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
-    trace.at(alu_addr).alu_a_lo -= 23;
+    trace.at(alu_row_idx).alu_a_lo -= 23;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "INPUT_DECOMP_1");
 }
@@ -308,22 +312,24 @@ TEST_F(AvmCastNegativeTests, wrongLimbDecompositionInput)
 TEST_F(AvmCastNegativeTests, wrongPSubALo)
 {
     gen_trace(12345, 0, 1, AvmMemoryTag::U32, AvmMemoryTag::U16);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 12345);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 12345);
 
-    trace.at(alu_addr).alu_p_sub_a_lo += 3;
+    trace.at(alu_row_idx).alu_p_sub_a_lo += 3;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUB_LO_1");
 }
 
 TEST_F(AvmCastNegativeTests, wrongPSubAHi)
 {
-    trace_builder.calldata_copy(0, 0, 1, 0, { FF(FF::modulus_minus_two - 987) });
+    calldata = { FF::modulus_minus_two - 987 };
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
-    trace.at(alu_addr).alu_p_sub_a_hi += 3;
+    trace.at(alu_row_idx).alu_p_sub_a_hi += 3;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUB_HI_1");
 }
@@ -332,7 +338,7 @@ TEST_F(AvmCastNegativeTests, disableRangecheck)
 {
     gen_trace(123, 23, 43, AvmMemoryTag::U8, AvmMemoryTag::U8);
 
-    trace.at(alu_addr).alu_sel_rng_chk_lookup = 0;
+    trace.at(alu_row_idx).alu_sel_rng_chk_lookup = 0;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "RNG_CHK_LOOKUP_SELECTOR");
 }
 
@@ -340,38 +346,40 @@ TEST_F(AvmCastNegativeTests, disableRangecheckSub)
 {
     gen_trace(123, 23, 43, AvmMemoryTag::U8, AvmMemoryTag::U8);
 
-    trace.at(alu_addr + 1).alu_sel_rng_chk_lookup = 0;
+    trace.at(alu_row_idx + 1).alu_sel_rng_chk_lookup = 0;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "RNG_CHK_LOOKUP_SELECTOR");
 }
 
 TEST_F(AvmCastNegativeTests, wrongRangeCheckDecompositionLo)
 {
     gen_trace(987344323, 23, 43, AvmMemoryTag::FF, AvmMemoryTag::U128);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 987344323);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 987344323);
 
-    trace.at(alu_addr).alu_u16_r0 = 5555;
+    trace.at(alu_row_idx).alu_u16_r0 = 5555;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "LOWER_CMP_RNG_CHK");
 }
 
 TEST_F(AvmCastNegativeTests, wrongRangeCheckDecompositionHi)
 {
-    trace_builder.calldata_copy(0, 0, 1, 0, { FF(FF::modulus_minus_two - 987) });
+    calldata = { FF::modulus_minus_two - 987 };
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
-    trace.at(alu_addr).alu_u16_r9 = 5555;
+    trace.at(alu_row_idx).alu_u16_r9 = 5555;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "UPPER_CMP_RNG_CHK");
 }
 
 TEST_F(AvmCastNegativeTests, outOfRangeU8Registers)
 {
     gen_trace(987344323, 23, 43, AvmMemoryTag::FF, AvmMemoryTag::U128);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 987344323);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 987344323);
 
-    trace.at(alu_addr).alu_u8_r0 += 256;
-    trace.at(alu_addr).alu_u8_r1 -= 1; // Adjust so that the decomposition is correct.
+    trace.at(alu_row_idx).alu_u8_r0 += 256;
+    trace.at(alu_row_idx).alu_u8_r1 -= 1; // Adjust so that the decomposition is correct.
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "Lookup LOOKUP_U8_0");
 }
@@ -379,10 +387,10 @@ TEST_F(AvmCastNegativeTests, outOfRangeU8Registers)
 TEST_F(AvmCastNegativeTests, outOfRangeU16Registers)
 {
     gen_trace(987344323, 23, 43, AvmMemoryTag::FF, AvmMemoryTag::U128);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 987344323);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 987344323);
 
-    trace.at(alu_addr).alu_u16_r0 += 65536;
-    trace.at(alu_addr).alu_u16_r1 -= 1; // Adjust so that the decomposition is correct.
+    trace.at(alu_row_idx).alu_u16_r0 += 65536;
+    trace.at(alu_row_idx).alu_u16_r1 -= 1; // Adjust so that the decomposition is correct.
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "Lookup LOOKUP_U16_0");
 }
@@ -390,48 +398,50 @@ TEST_F(AvmCastNegativeTests, outOfRangeU16Registers)
 TEST_F(AvmCastNegativeTests, wrongCopySubLoForRangeCheck)
 {
     gen_trace(987344323, 23, 43, AvmMemoryTag::U64, AvmMemoryTag::U128);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 987344323);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 987344323);
 
-    ASSERT_EQ(trace.at(alu_addr + 1).alu_a_lo, trace.at(alu_addr).alu_p_sub_a_lo);
-    trace.at(alu_addr + 1).alu_a_lo -= 1;
+    ASSERT_EQ(trace.at(alu_row_idx + 1).alu_a_lo, trace.at(alu_row_idx).alu_p_sub_a_lo);
+    trace.at(alu_row_idx + 1).alu_a_lo -= 1;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OP_CAST_RNG_CHECK_P_SUB_A_LOW");
 }
 
 TEST_F(AvmCastNegativeTests, wrongCopySubHiForRangeCheck)
 {
-    trace_builder.calldata_copy(0, 0, 1, 0, { FF(FF::modulus_minus_two - 972836) });
+    std::vector<FF> const calldata = { FF::modulus_minus_two - 972836 };
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U128);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
     gen_indices();
 
-    ASSERT_EQ(trace.at(alu_addr + 1).alu_a_hi, trace.at(alu_addr).alu_p_sub_a_hi);
-    trace.at(alu_addr + 1).alu_a_hi += 2;
+    ASSERT_EQ(trace.at(alu_row_idx + 1).alu_a_hi, trace.at(alu_row_idx).alu_p_sub_a_hi);
+    trace.at(alu_row_idx + 1).alu_a_hi += 2;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "OP_CAST_RNG_CHECK_P_SUB_A_HIGH");
 }
 
 TEST_F(AvmCastNegativeTests, secondRowNoOp)
 {
     gen_trace(6583, 0, 1, AvmMemoryTag::U64, AvmMemoryTag::U8);
-    ASSERT_EQ(trace.at(alu_addr).alu_ic, 183);
+    ASSERT_EQ(trace.at(alu_row_idx).alu_ic, 183);
 
     // We have to enable alu_sel otherwise another relation will fail.
-    trace.at(alu_addr + 1).alu_sel_alu = 1;
+    trace.at(alu_row_idx + 1).alu_sel_alu = 1;
 
     // Add an LT selector in the next row (second part of the cast operation)
     auto trace_lt = trace;
-    trace_lt.at(alu_addr + 1).alu_op_lt = 1;
+    trace_lt.at(alu_row_idx + 1).alu_op_lt = 1;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_lt)), "TWO_LINE_OP_NO_OVERLAP");
 
     // Try with EQ selector
     auto trace_eq = trace;
-    trace_eq.at(alu_addr + 1).alu_op_eq = 1;
+    trace_eq.at(alu_row_idx + 1).alu_op_eq = 1;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace_eq)), "TWO_LINE_OP_NO_OVERLAP");
 
     // Try with a second cast selector
-    trace.at(alu_addr + 1).alu_op_cast = 1;
+    trace.at(alu_row_idx + 1).alu_op_cast = 1;
     // Adjust to not violate #[RNG_CHK_LOOKUP_SELECTOR]
-    trace.at(alu_addr + 1).alu_sel_rng_chk_lookup = 2;
+    trace.at(alu_row_idx + 1).alu_sel_rng_chk_lookup = 2;
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "TWO_LINE_OP_NO_OVERLAP");
 }
 

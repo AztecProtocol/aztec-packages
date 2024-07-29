@@ -2,15 +2,10 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHe
 
 use dep::aztec::{
     context::UnconstrainedContext,
-    protocol_types::{
-    traits::{ToField, Serialize, FromField}, grumpkin_point::GrumpkinPoint,
-    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
-},
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys,
+    protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
     note::note_getter::view_notes, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
-use dep::std;
-use dep::std::{option::Option};
 use dep::value_note::{value_note::{ValueNote, VALUE_NOTE_LEN}};
 
 struct Card {
@@ -40,12 +35,14 @@ impl Serialize<2> for Card {
     }
 }
 
+// docs:start:pure_noir_testing
 #[test]
 fn test_to_from_field() {
     let field = 1234567890;
     let card = Card::from_field(field);
     assert(card.to_field() == field);
 }
+// docs:end:pure_noir_testing
 
 struct CardNote {
     card: Card,
@@ -114,7 +111,9 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner_npk_m_hash);
-            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_with_keys(self.set.context, msg_sender_ovpk_m, owner_ivpk_m));
+            self.set.insert(&mut card_note.note).emit(
+                encode_and_encrypt_note_with_keys(self.set.context, msg_sender_ovpk_m, owner_ivpk_m, owner)
+            );
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

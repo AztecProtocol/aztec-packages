@@ -1,6 +1,6 @@
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { EcAdd } from '../opcodes/ec_add.js';
-import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
+import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import type { Instruction } from '../opcodes/index.js';
 import {
   Add,
@@ -21,6 +21,7 @@ import {
   FeePerDAGas,
   FeePerL2Gas,
   FieldDiv,
+  FunctionSelector,
   GetContractInstance,
   InternalCall,
   InternalReturn,
@@ -85,16 +86,16 @@ const INSTRUCTION_SET = () =>
     [Address.opcode, Address],
     [StorageAddress.opcode, StorageAddress],
     [Sender.opcode, Sender],
-    [FeePerL2Gas.opcode, FeePerL2Gas],
-    [FeePerDAGas.opcode, FeePerDAGas],
+    [FunctionSelector.opcode, FunctionSelector],
     [TransactionFee.opcode, TransactionFee],
-    //[Contractcalldepth.opcode, Contractcalldepth],
     // Execution Environment - Globals
     [ChainId.opcode, ChainId],
     [Version.opcode, Version],
     [BlockNumber.opcode, BlockNumber],
     [Timestamp.opcode, Timestamp],
     //[Coinbase.opcode, Coinbase],
+    [FeePerL2Gas.opcode, FeePerL2Gas],
+    [FeePerDAGas.opcode, FeePerDAGas],
     //[Blockl2gaslimit.opcode, Blockl2gaslimit],
     //[Blockdagaslimit.opcode, Blockdagaslimit],
     // Execution Environment - Calldata
@@ -147,6 +148,9 @@ const INSTRUCTION_SET = () =>
     [MultiScalarMul.opcode, MultiScalarMul],
     // Conversions
     [ToRadixLE.opcode, ToRadixLE],
+    // Future Gadgets -- pending changes in noir
+    // SHA256COMPRESSION,
+    [KeccakF1600.opcode, KeccakF1600],
   ]);
 
 interface Serializable {

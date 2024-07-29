@@ -2,21 +2,25 @@ variable "DEPLOY_TAG" {
   type = string
 }
 
+variable "IMAGE_TAG" {
+  type = string
+}
+
 variable "API_KEY" {
   type = string
 }
 
-variable "SEQ_1_PUBLISHER_PRIVATE_KEY" {
-  type = string
+variable "SEQUENCER_PRIVATE_KEYS" {
+  type = list(string)
 }
 
-variable "SEQ_2_PUBLISHER_PRIVATE_KEY" {
-  type = string
+variable "NODE_P2P_PRIVATE_KEYS" {
+  type = list(string)
 }
 
-variable "CHAIN_ID" {
+variable "L1_CHAIN_ID" {
   type    = string
-  default = 31337
+  default = 677692
 }
 
 variable "NODE_P2P_TCP_PORT" {
@@ -27,16 +31,6 @@ variable "NODE_P2P_TCP_PORT" {
 variable "NODE_P2P_UDP_PORT" {
   type    = number
   default = 40300
-}
-
-variable "NODE_1_PRIVATE_KEY" {
-  type    = string
-  default = ""
-}
-
-variable "NODE_2_PRIVATE_KEY" {
-  type    = string
-  default = ""
 }
 
 variable "DOCKERHUB_ACCOUNT" {
@@ -50,7 +44,17 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
-  default = 1
+  default = 0
+}
+
+variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
+  type    = string
+  default = 60
+}
+
+variable "SEQ_MIN_SECONDS_BETWEEN_BLOCKS" {
+  type    = string
+  default = 30
 }
 
 variable "P2P_MIN_PEERS" {
@@ -64,27 +68,11 @@ variable "P2P_MAX_PEERS" {
 }
 
 variable "P2P_ENABLED" {
-  type = bool
-}
-
-variable "AVAILABILITY_ORACLE_CONTRACT_ADDRESS" { type = string }
-variable "ROLLUP_CONTRACT_ADDRESS" { type = string }
-variable "REGISTRY_CONTRACT_ADDRESS" { type = string }
-variable "INBOX_CONTRACT_ADDRESS" { type = string }
-variable "OUTBOX_CONTRACT_ADDRESS" { type = string }
-variable "GAS_TOKEN_CONTRACT_ADDRESS" { type = string }
-variable "GAS_PORTAL_CONTRACT_ADDRESS" { type = string }
-variable "AGENTS_PER_SEQUENCER" { type = string }
-variable "PROVING_ENABLED" {
   type    = bool
   default = true
 }
 
-variable "IMAGE_TAG" {
-  type = string
-}
-
-variable "FULL_IMAGE" {
-  type    = string
-  default = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
+variable "PROVING_ENABLED" {
+  type    = bool
+  default = false
 }

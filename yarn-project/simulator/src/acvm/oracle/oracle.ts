@@ -1,12 +1,12 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { KeyValidationRequest } from '@aztec/circuits.js';
-import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
-import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
+import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
 /**
@@ -49,10 +49,18 @@ export class Oracle {
     return toACVMField(await this.typedOracle.getContractAddress());
   }
 
+  async getVersion(): Promise<ACVMField> {
+    return toACVMField(await this.typedOracle.getVersion());
+  }
+
+  async getChainId(): Promise<ACVMField> {
+    return toACVMField(await this.typedOracle.getChainId());
+  }
+
   async getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
     const { pkM, skApp } = await this.typedOracle.getKeyValidationRequest(fromACVMField(pkMHash));
 
-    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(skApp)];
+    return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(pkM.isInfinite), toACVMField(skApp)];
   }
 
   async getContractInstance([address]: ACVMField[]) {
@@ -244,7 +252,7 @@ export class Oracle {
   ): ACVMField {
     this.typedOracle.notifyCreatedNote(
       fromACVMField(storageSlot),
-      fromACVMField(noteTypeId),
+      NoteSelector.fromField(fromACVMField(noteTypeId)),
       note.map(fromACVMField),
       fromACVMField(innerNoteHash),
       +counter,
@@ -279,8 +287,18 @@ export class Oracle {
     return message.toFields().map(toACVMField);
   }
 
-  async storageRead([startStorageSlot]: ACVMField[], [numberOfElements]: ACVMField[]): Promise<ACVMField[]> {
-    const values = await this.typedOracle.storageRead(fromACVMField(startStorageSlot), +numberOfElements);
+  async storageRead(
+    [contractAddress]: ACVMField[],
+    [startStorageSlot]: ACVMField[],
+    [blockNumber]: ACVMField[],
+    [numberOfElements]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const values = await this.typedOracle.storageRead(
+      fromACVMField(contractAddress),
+      fromACVMField(startStorageSlot),
+      +blockNumber,
+      +numberOfElements,
+    );
     return values.map(toACVMField);
   }
 
@@ -318,19 +336,23 @@ export class Oracle {
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
+    [ovpkMIsInfinite]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ivpkMIsInfinite]: ACVMField[],
+    [recipient]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedEventLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(randomness),
       Fr.fromString(eventTypeId),
       ovKeys,
       ivpkM,
+      AztecAddress.fromString(recipient),
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];
@@ -347,19 +369,23 @@ export class Oracle {
     [ovskApp]: ACVMField[],
     [ovpkMX]: ACVMField[],
     [ovpkMY]: ACVMField[],
+    [ovpkMIsInfinite]: ACVMField[],
     [ivpkMX]: ACVMField[],
     [ivpkMY]: ACVMField[],
+    [ivpkMIsInfinite]: ACVMField[],
+    [recipient]: ACVMField[],
     preimage: ACVMField[],
   ): ACVMField[] {
-    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY));
+    const ovpkM = new Point(fromACVMField(ovpkMX), fromACVMField(ovpkMY), !fromACVMField(ovpkMIsInfinite).isZero());
     const ovKeys = new KeyValidationRequest(ovpkM, Fr.fromString(ovskApp));
-    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY));
+    const ivpkM = new Point(fromACVMField(ivpkMX), fromACVMField(ivpkMY), !fromACVMField(ivpkMIsInfinite).isZero());
     const encLog = this.typedOracle.computeEncryptedNoteLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
-      Fr.fromString(noteTypeId),
+      NoteSelector.fromField(Fr.fromString(noteTypeId)),
       ovKeys,
       ivpkM,
+      AztecAddress.fromString(recipient),
       preimage.map(fromACVMField),
     );
     const bytes: ACVMField[] = [];
@@ -369,18 +395,9 @@ export class Oracle {
     return bytes;
   }
 
-  emitUnencryptedLog(
-    [contractAddress]: ACVMField[],
-    [eventSelector]: ACVMField[],
-    message: ACVMField[],
-    [counter]: ACVMField[],
-  ): ACVMField {
+  emitUnencryptedLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(
-      AztecAddress.fromString(contractAddress),
-      EventSelector.fromField(fromACVMField(eventSelector)),
-      logPayload,
-    );
+    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
 
     this.typedOracle.emitUnencryptedLog(log, +counter);
     return toACVMField(0);
@@ -388,16 +405,11 @@ export class Oracle {
 
   emitContractClassUnencryptedLog(
     [contractAddress]: ACVMField[],
-    [eventSelector]: ACVMField[],
     message: ACVMField[],
     [counter]: ACVMField[],
   ): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(
-      AztecAddress.fromString(contractAddress),
-      EventSelector.fromField(fromACVMField(eventSelector)),
-      logPayload,
-    );
+    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
 
     const logHash = this.typedOracle.emitContractClassUnencryptedLog(log, +counter);
     return toACVMField(logHash);
@@ -417,7 +429,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const callStackItem = await this.typedOracle.callPrivateFunction(
+    const { endSideEffectCounter, returnsHash } = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -425,7 +437,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return callStackItem.toFields().map(toACVMField);
+    return [endSideEffectCounter, returnsHash].map(toACVMField);
   }
 
   async callPublicFunction(
@@ -455,7 +467,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ) {
-    const enqueuedRequest = await this.typedOracle.enqueuePublicFunctionCall(
+    await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -463,7 +475,6 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
   }
 
   async setPublicTeardownFunctionCall(
@@ -474,7 +485,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ) {
-    const teardownRequest = await this.typedOracle.setPublicTeardownFunctionCall(
+    await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -482,7 +493,6 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return toAcvmEnqueuePublicFunctionResult(teardownRequest);
   }
 
   aes128Encrypt(input: ACVMField[], initializationVector: ACVMField[], key: ACVMField[]): ACVMField[] {

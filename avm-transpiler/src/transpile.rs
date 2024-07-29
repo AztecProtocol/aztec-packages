@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use acvm::acir::brillig::Opcode as BrilligOpcode;
+use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
 
 use acvm::acir::circuit::OpcodeLocation;
 use acvm::brillig_vm::brillig::{
@@ -74,7 +74,7 @@ pub fn brillig_to_avm(
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
-                    tag: Some(tag_from_bit_size(*bit_size)),
+                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
                         AvmOperand::U32 { value: lhs.to_usize() as u32 },
                         AvmOperand::U32 { value: rhs.to_usize() as u32 },
@@ -247,7 +247,7 @@ fn handle_foreign_call(
         "avmOpcodeStaticCall" => {
             handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
         }
-        "amvOpcodeEmitUnencryptedLog" => {
+        "avmOpcodeEmitUnencryptedLog" => {
             handle_emit_unencrypted_log(avm_instrs, destinations, inputs);
         }
         "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
@@ -263,8 +263,8 @@ fn handle_foreign_call(
         "avmOpcodeGetContractInstance" => {
             handle_get_contract_instance(avm_instrs, destinations, inputs);
         }
-        "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
-        "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
+        "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
+        "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
@@ -314,11 +314,9 @@ fn handle_external_call(
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer.0 as u32, size.0 as u32),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
-    let temporary_function_selector_offset = match &inputs[4] {
+    let function_selector_offset = match &inputs[4] {
         ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
-        _ => panic!(
-            "Call instruction's temporary function selector input should be a basic MemoryAddress",
-        ),
+        _ => panic!("Call instruction's function selector input should be a basic MemoryAddress",),
     };
 
     let ret_offset_maybe = destinations[0];
@@ -351,7 +349,7 @@ fn handle_external_call(
             AvmOperand::U32 { value: ret_offset },
             AvmOperand::U32 { value: ret_size },
             AvmOperand::U32 { value: success_offset },
-            AvmOperand::U32 { value: temporary_function_selector_offset },
+            AvmOperand::U32 { value: function_selector_offset },
         ],
         ..Default::default()
     });
@@ -361,12 +359,12 @@ fn handle_cast(
     avm_instrs: &mut Vec<AvmInstruction>,
     source: &MemoryAddress,
     destination: &MemoryAddress,
-    bit_size: u32,
+    bit_size: BitSize,
 ) {
     let source_offset = source.to_usize() as u32;
     let dest_offset = destination.to_usize() as u32;
 
-    if bit_size == 1 {
+    if bit_size == BitSize::Integer(IntegerBitSize::U1) {
         assert!(
             matches!(tag_from_bit_size(bit_size), AvmTypeTag::UINT8),
             "If u1 doesn't map to u8 anymore, change this code!"
@@ -435,32 +433,25 @@ fn handle_emit_unencrypted_log(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    if !destinations.is_empty() || inputs.len() != 3 {
+    if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
-            "Transpiler expects ForeignCall::EMITUNENCRYPTEDLOG to have 0 destinations and 3 inputs, got {} and {}",
+            "Transpiler expects ForeignCall::EMITUNENCRYPTEDLOG to have 0 destinations and 2 inputs, got {} and {}",
             destinations.len(),
             inputs.len()
         );
     }
-    let event_offset = match &inputs[0] {
-        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
-        _ => panic!(
-            "Unexpected inputs[0] (event) for ForeignCall::EMITUNENCRYPTEDLOG: {:?}",
-            inputs[0]
-        ),
-    };
+
     // The fields are a slice, and this is represented as a (length: Field, slice: HeapVector).
     // The length field is redundant and we skipt it.
-    let (message_offset, message_size_offset) = match &inputs[2] {
+    let (message_offset, message_size_offset) = match &inputs[1] {
         ValueOrArray::HeapVector(vec) => (vec.pointer.to_usize() as u32, vec.size.0 as u32),
         _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
         // The message array from Brillig is indirect.
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(ZEROTH_OPERAND_INDIRECT),
         operands: vec![
-            AvmOperand::U32 { value: event_offset },
             AvmOperand::U32 { value: message_offset },
             AvmOperand::U32 { value: message_size_offset },
         ],
@@ -657,6 +648,7 @@ fn handle_getter_instruction(
         "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
         "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
         "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
+        "avmOpcodeFunctionSelector" => AvmOpcode::FUNCTIONSELECTOR,
         // "callStackDepth" => AvmOpcode::CallStackDepth,
         _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
     };
@@ -674,7 +666,7 @@ fn handle_const(
     avm_instrs: &mut Vec<AvmInstruction>,
     destination: &MemoryAddress,
     value: &FieldElement,
-    bit_size: &u32,
+    bit_size: &BitSize,
 ) {
     let tag = tag_from_bit_size(*bit_size);
     let dest = destination.to_usize() as u32;
@@ -813,6 +805,23 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
+        BlackBoxOp::Keccakf1600 { message, output } => {
+            let message_offset = message.pointer.0;
+            let message_size_offset = message.size.0;
+            let dest_offset = output.pointer.0;
+            assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
+
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::KECCAKF1600,
+                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                operands: vec![
+                    AvmOperand::U32 { value: dest_offset as u32 },
+                    AvmOperand::U32 { value: message_offset as u32 },
+                    AvmOperand::U32 { value: message_size_offset as u32 },
+                ],
+                ..Default::default()
+            });
+        }
         BlackBoxOp::ToRadix { input, radix, output } => {
             let num_limbs = output.size as u32;
             let input_offset = input.0 as u32;
@@ -933,7 +942,7 @@ fn handle_storage_write(
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 1);
+    assert!(destinations.len() == 0);
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -999,8 +1008,8 @@ fn handle_storage_read(
     inputs: &Vec<ValueOrArray>,
 ) {
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 2); // output, len - but we dont use this len - its for the oracle
-    assert!(destinations.len() == 1);
+    assert!(inputs.len() == 2); // output, len. The latter is not used by the AVM, but required in the oracle call so that TXE knows how many slots to read.
+    assert!(destinations.len() == 1); // return values
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -1070,8 +1079,8 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Const { bit_size: 254, .. } => 2,
-            BrilligOpcode::Cast { bit_size: 1, .. } => 3,
+            BrilligOpcode::Const { bit_size: BitSize::Field, .. } => 2,
+            BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
@@ -1081,19 +1090,27 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map
 }
 
-fn is_integral_bit_size(bit_size: u32) -> bool {
-    matches!(bit_size, 1 | 8 | 16 | 32 | 64 | 128)
+fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
+    matches!(
+        bit_size,
+        IntegerBitSize::U1
+            | IntegerBitSize::U8
+            | IntegerBitSize::U16
+            | IntegerBitSize::U32
+            | IntegerBitSize::U64
+            | IntegerBitSize::U128
+    )
 }
 
-fn tag_from_bit_size(bit_size: u32) -> AvmTypeTag {
+fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     match bit_size {
-        1 => AvmTypeTag::UINT8, // temp workaround
-        8 => AvmTypeTag::UINT8,
-        16 => AvmTypeTag::UINT16,
-        32 => AvmTypeTag::UINT32,
-        64 => AvmTypeTag::UINT64,
-        128 => AvmTypeTag::UINT128,
-        254 => AvmTypeTag::FIELD,
+        BitSize::Integer(IntegerBitSize::U1) => AvmTypeTag::UINT8, // temp workaround
+        BitSize::Integer(IntegerBitSize::U8) => AvmTypeTag::UINT8,
+        BitSize::Integer(IntegerBitSize::U16) => AvmTypeTag::UINT16,
+        BitSize::Integer(IntegerBitSize::U32) => AvmTypeTag::UINT32,
+        BitSize::Integer(IntegerBitSize::U64) => AvmTypeTag::UINT64,
+        BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
+        BitSize::Field => AvmTypeTag::FIELD,
         _ => panic!("The AVM doesn't support integer bit size {:?}", bit_size),
     }
 }

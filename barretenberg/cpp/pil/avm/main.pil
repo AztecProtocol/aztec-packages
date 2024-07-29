@@ -1,14 +1,17 @@
 include "mem.pil";
 include "alu.pil";
 include "binary.pil";
-include "constants.pil";
+include "constants_gen.pil";
+include "constants_misc.pil";
 include "kernel.pil";
-include "gas.pil";
+include "fixed/gas.pil";
+include "fixed/powers.pil";
 include "gadgets/conversion.pil";
 include "gadgets/sha256.pil";
 include "gadgets/poseidon2.pil";
 include "gadgets/keccakf1600.pil";
 include "gadgets/pedersen.pil";
+include "gadgets/mem_slice.pil";
 
 namespace main(256);
     //===== CONSTANT POLYNOMIALS ==================================================
@@ -16,28 +19,34 @@ namespace main(256);
     pol constant sel_first = [1] + [0]*; // Used mostly to toggle off the first row consisting
                                          // only in first element of shifted polynomials.
 
+    //===== PUBLIC COLUMNS=========================================================
+    pol public calldata;
+    pol commit sel_calldata; // Selector used for lookup in calldata. TODO: Might be removed or made constant.
+    pol public returndata;
+    pol commit sel_returndata; // Selector used for lookup in returndata. TODO: Might be removed or made constant.
+
     //===== KERNEL INPUTS =========================================================
     // Kernel lookup selector opcodes
     pol commit sel_q_kernel_lookup;
 
-    // CALL CONTEXT
-    pol commit sel_op_sender;
+    // CONTEXT - ENVIRONMENT
     pol commit sel_op_address;
     pol commit sel_op_storage_address;
-
-    // FEES
-    pol commit sel_op_fee_per_l2_gas;
-    pol commit sel_op_fee_per_da_gas;
+    pol commit sel_op_sender;
+    pol commit sel_op_function_selector;
     pol commit sel_op_transaction_fee;
-    
-    // GLOBALS
+
+    // CONTEXT - ENVIRONMENT - GLOBALS
     pol commit sel_op_chain_id;
     pol commit sel_op_version;
     pol commit sel_op_block_number;
     pol commit sel_op_coinbase;
     pol commit sel_op_timestamp;
+    // CONTEXT - ENVIRONMENT - GLOBALS - FEES
+    pol commit sel_op_fee_per_l2_gas;
+    pol commit sel_op_fee_per_da_gas;
 
-    // MACHINE STATE - GAS
+    // CONTEXT - MACHINE STATE - GAS
     pol commit sel_op_l2gasleft;
     pol commit sel_op_dagasleft;
 
@@ -134,13 +143,14 @@ namespace main(256);
     pol commit sel_op_keccak;
     pol commit sel_op_pedersen;
     
+    //===== Memory Slice Gadget Selectors =========================================
+    pol commit sel_op_calldata_copy;
+    pol commit sel_op_external_return;
+
     //===== Fix Range Checks Selectors=============================================
     // We re-use the clk column for the lookup values of 8-bit resp. 16-bit range check.
     pol commit sel_rng_8;  // Boolean selector for the  8-bit range check lookup
     pol commit sel_rng_16; // Boolean selector for the 16-bit range check lookup
-
-    //===== Lookup table powers of 2 =============================================
-    pol commit table_pow_2; // Table of powers of 2 for 8-bit numbers. 
 
     //===== CONTROL FLOW ==========================================================
     // Program counter
@@ -261,9 +271,11 @@ namespace main(256);
     // Relations on type constraints
     // TODO: Very likely, we can remove these constraints as the selectors should be derived during
     // opcode decomposition.
-    sel_op_sender * (1 - sel_op_sender) = 0;
     sel_op_address * (1 - sel_op_address) = 0;
     sel_op_storage_address * (1 - sel_op_storage_address) = 0;
+    sel_op_sender * (1 - sel_op_sender) = 0;
+    sel_op_function_selector * (1 - sel_op_function_selector) = 0;
+    sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
     sel_op_chain_id * (1 - sel_op_chain_id) = 0;
     sel_op_version * (1 - sel_op_version) = 0;
     sel_op_block_number * (1 - sel_op_block_number) = 0;
@@ -271,7 +283,6 @@ namespace main(256);
     sel_op_timestamp * (1 - sel_op_timestamp) = 0;
     sel_op_fee_per_l2_gas * (1 - sel_op_fee_per_l2_gas) = 0;
     sel_op_fee_per_da_gas * (1 - sel_op_fee_per_da_gas) = 0;
-    sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
 
     // MACHINE STATE - GAS
     sel_op_l2gasleft * (1 - sel_op_l2gasleft) = 0;
@@ -317,6 +328,9 @@ namespace main(256);
     sel_op_jumpi * (1 - sel_op_jumpi) = 0;
     sel_op_halt * (1 - sel_op_halt) = 0;
     sel_op_external_call * (1 - sel_op_external_call) = 0;
+
+    sel_op_calldata_copy * (1 - sel_op_calldata_copy) = 0;
+    sel_op_external_return * (1 - sel_op_external_return) = 0;
 
     // Might be removed if derived from opcode based on a lookup of constants
     sel_op_mov * ( 1 - sel_op_mov) = 0;
@@ -409,8 +423,9 @@ namespace main(256);
     
     //===== KERNEL LOOKUPS =======================================================
     pol KERNEL_INPUT_SELECTORS = (
-        sel_op_sender + sel_op_address + sel_op_storage_address + sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + 
-        sel_op_timestamp + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_transaction_fee
+        sel_op_address + sel_op_storage_address + sel_op_sender + sel_op_function_selector + sel_op_transaction_fee +
+        sel_op_chain_id + sel_op_version + sel_op_block_number + sel_op_coinbase + sel_op_timestamp +
+        sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas
     );
     // Ensure that only one kernel lookup is active when the kernel_in_offset is active
     #[KERNEL_INPUT_ACTIVE_CHECK]
@@ -469,12 +484,13 @@ namespace main(256);
     pol SEL_ALL_BINARY = sel_op_and + sel_op_or + sel_op_xor;
     pol SEL_ALL_GADGET = sel_op_radix_le + sel_op_sha256 + sel_op_poseidon2 + sel_op_keccak + sel_op_pedersen;
     pol SEL_ALL_MEMORY = sel_op_cmov + sel_op_mov;
+    pol SEL_ALL_MEM_SLICE = sel_op_calldata_copy + sel_op_external_return;
     pol OPCODE_SELECTORS = sel_op_fdiv + SEL_ALU_ALL + SEL_ALL_BINARY + SEL_ALL_MEMORY + SEL_ALL_GADGET
-                         + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + SEL_ALL_LEFTGAS;
+                         + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + SEL_ALL_LEFTGAS + SEL_ALL_MEM_SLICE;
 
     // TODO: sel_gas_accounting_active is activating gas accounting on a given row. All opcode with selectors
     //       are activated through the relation below. The other opcodes which are implemented purely
-    //       through memory sub-operations such as CALLDATACOPY, RETURN, SET are activated by
+    //       through memory sub-operations such as RETURN, SET are activated by
     //       setting a newly introduced boolean sel_mem_op_activate_gas which is set in witness generation.
     //       We should remove this shortcut and constrain this activation through bytecode decomposition.
     //       Alternatively, we introduce a boolean selector for the three opcodes mentioned above.
@@ -487,6 +503,11 @@ namespace main(256);
     sel_gas_accounting_active - OPCODE_SELECTORS - SEL_ALL_CTRL_FLOW - sel_op_sload - sel_op_sstore - sel_mem_op_activate_gas = 0;
 
     // Program counter must increment if not jumping or returning
+    // TODO: support for muli-rows opcode in execution trace such as
+    // radix, hash gadgets operations. At the moment, we have to increment
+    // the pc in witness generation for all rows pertaining to the original
+    // opcode. This is misleading. Ultimately, we want the pc to be incremented
+    // just after the last row of a given opcode.
     #[PC_INCREMENT]
     (1 - sel_first) * (1 - sel_op_halt) * OPCODE_SELECTORS * (pc' - (pc + 1)) = 0;
 
@@ -498,7 +519,7 @@ namespace main(256);
 
     //====== SPACE ID CONSTRAINTS ===============================================
     #[SPACE_ID_INTERNAL]
-    (sel_op_internal_call + sel_op_internal_return) * (space_id - constants.INTERNAL_CALL_SPACE_ID) = 0;
+    (sel_op_internal_call + sel_op_internal_return) * (space_id - constants_misc.INTERNAL_CALL_SPACE_ID) = 0;
 
     #[SPACE_ID_STANDARD_OPCODES]
     OPCODE_SELECTORS * (call_ptr - space_id) = 0;
@@ -562,27 +583,23 @@ namespace main(256);
     //  We can lookup into a fixed index of this polynomial by including constraints that force the value
     //  of kernel_in_offset to the value relevant to the given opcode that is active
 
-    // CALL CONTEXT
-    #[SENDER_KERNEL]
-    sel_op_sender * (kernel.kernel_in_offset - constants.SENDER_SELECTOR) = 0;
-
+    // CONTEXT - ENVIRONMENT
     #[ADDRESS_KERNEL]
     sel_op_address * (kernel.kernel_in_offset - constants.ADDRESS_SELECTOR) = 0;
 
     #[STORAGE_ADDRESS_KERNEL]
     sel_op_storage_address * (kernel.kernel_in_offset - constants.STORAGE_ADDRESS_SELECTOR) = 0;
 
-    // FEES
-    #[FEE_DA_GAS_KERNEL]
-    sel_op_fee_per_da_gas  * (kernel.kernel_in_offset - constants.FEE_PER_DA_GAS_SELECTOR) = 0;
+    #[SENDER_KERNEL]
+    sel_op_sender * (kernel.kernel_in_offset - constants.SENDER_SELECTOR) = 0;
 
-    #[FEE_L2_GAS_KERNEL]
-    sel_op_fee_per_l2_gas  * (kernel.kernel_in_offset - constants.FEE_PER_L2_GAS_SELECTOR) = 0;
+    #[FUNCTION_SELECTOR_KERNEL]
+    sel_op_function_selector * (kernel.kernel_in_offset - constants.FUNCTION_SELECTOR_SELECTOR) = 0;
 
     #[FEE_TRANSACTION_FEE_KERNEL]
     sel_op_transaction_fee  * (kernel.kernel_in_offset - constants.TRANSACTION_FEE_SELECTOR) = 0;
 
-    // GLOBALS
+    // CONTEXT - ENVIRONMENT - GLOBALS
     #[CHAIN_ID_KERNEL]
     sel_op_chain_id * (kernel.kernel_in_offset - constants.CHAIN_ID_SELECTOR) = 0;
 
@@ -592,57 +609,72 @@ namespace main(256);
     #[BLOCK_NUMBER_KERNEL]
     sel_op_block_number * (kernel.kernel_in_offset - constants.BLOCK_NUMBER_SELECTOR) = 0;
 
+    #[TIMESTAMP_KERNEL]
+    sel_op_timestamp * (kernel.kernel_in_offset - constants.TIMESTAMP_SELECTOR) = 0;
+
     #[COINBASE_KERNEL]
     sel_op_coinbase * (kernel.kernel_in_offset - constants.COINBASE_SELECTOR) = 0;
 
-    #[TIMESTAMP_KERNEL]
-    sel_op_timestamp * (kernel.kernel_in_offset - constants.TIMESTAMP_SELECTOR) = 0;
+    // CONTEXT - ENVIRONMENT - GLOBALS - FEES
+    #[FEE_DA_GAS_KERNEL]
+    sel_op_fee_per_da_gas  * (kernel.kernel_in_offset - constants.FEE_PER_DA_GAS_SELECTOR) = 0;
+
+    #[FEE_L2_GAS_KERNEL]
+    sel_op_fee_per_l2_gas  * (kernel.kernel_in_offset - constants.FEE_PER_L2_GAS_SELECTOR) = 0;
 
     // OUTPUTS LOOKUPS
     // Constrain the value of kernel_out_offset to be the correct offset for the operation being performed
     #[NOTE_HASH_KERNEL_OUTPUT]
-    sel_op_note_hash_exists * (kernel.kernel_out_offset - (kernel.START_NOTE_HASH_EXISTS_WRITE_OFFSET + kernel.note_hash_exist_write_offset)) = 0;
+    sel_op_note_hash_exists * (kernel.kernel_out_offset - (constants.START_NOTE_HASH_EXISTS_WRITE_OFFSET + kernel.note_hash_exist_write_offset)) = 0;
     sel_first * kernel.note_hash_exist_write_offset = 0;
     
 
     #[EMIT_NOTE_HASH_KERNEL_OUTPUT]
-    sel_op_emit_note_hash * (kernel.kernel_out_offset - (kernel.START_EMIT_NOTE_HASH_WRITE_OFFSET + kernel.emit_note_hash_write_offset)) = 0;
+    sel_op_emit_note_hash * (kernel.kernel_out_offset - (constants.START_EMIT_NOTE_HASH_WRITE_OFFSET + kernel.emit_note_hash_write_offset)) = 0;
     sel_first * kernel.emit_note_hash_write_offset = 0;
 
     #[NULLIFIER_EXISTS_KERNEL_OUTPUT]
-    sel_op_nullifier_exists * (kernel.kernel_out_offset - ((ib * (kernel.START_NULLIFIER_EXISTS_OFFSET + kernel.nullifier_exists_write_offset)) + ((1 - ib) * (kernel.START_NULLIFIER_NON_EXISTS_OFFSET + kernel.nullifier_non_exists_write_offset)))) = 0;
+    sel_op_nullifier_exists * (kernel.kernel_out_offset - ((ib * (constants.START_NULLIFIER_EXISTS_OFFSET + kernel.nullifier_exists_write_offset)) + ((1 - ib) * (constants.START_NULLIFIER_NON_EXISTS_OFFSET + kernel.nullifier_non_exists_write_offset)))) = 0;
     sel_first * kernel.nullifier_exists_write_offset = 0;
     sel_first * kernel.nullifier_non_exists_write_offset = 0;
 
     #[EMIT_NULLIFIER_KERNEL_OUTPUT]
-    sel_op_emit_nullifier * (kernel.kernel_out_offset - (kernel.START_EMIT_NULLIFIER_WRITE_OFFSET + kernel.emit_nullifier_write_offset)) = 0;
+    sel_op_emit_nullifier * (kernel.kernel_out_offset - (constants.START_EMIT_NULLIFIER_WRITE_OFFSET + kernel.emit_nullifier_write_offset)) = 0;
     sel_first * kernel.emit_nullifier_write_offset = 0;
 
     #[L1_TO_L2_MSG_EXISTS_KERNEL_OUTPUT]
-    sel_op_l1_to_l2_msg_exists * (kernel.kernel_out_offset - (kernel.START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + kernel.l1_to_l2_msg_exists_write_offset)) = 0;
+    sel_op_l1_to_l2_msg_exists * (kernel.kernel_out_offset - (constants.START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + kernel.l1_to_l2_msg_exists_write_offset)) = 0;
     sel_first * kernel.l1_to_l2_msg_exists_write_offset = 0;
 
     #[EMIT_UNENCRYPTED_LOG_KERNEL_OUTPUT]
-    sel_op_emit_unencrypted_log * (kernel.kernel_out_offset - (kernel.START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + kernel.emit_unencrypted_log_write_offset)) = 0;
+    sel_op_emit_unencrypted_log * (kernel.kernel_out_offset - (constants.START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + kernel.emit_unencrypted_log_write_offset)) = 0;
     sel_first * kernel.emit_unencrypted_log_write_offset = 0;
 
     // TODO: Add the equivalent for GETCONTRACTINSTANCE?
 
     #[EMIT_L2_TO_L1_MSGS_KERNEL_OUTPUT]
-    sel_op_emit_l2_to_l1_msg * (kernel.kernel_out_offset - (kernel.START_EMIT_L2_TO_l1_MSG + kernel.emit_l2_to_l1_msg_write_offset)) = 0;
+    sel_op_emit_l2_to_l1_msg * (kernel.kernel_out_offset - (constants.START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET + kernel.emit_l2_to_l1_msg_write_offset)) = 0;
     sel_first * kernel.emit_l2_to_l1_msg_write_offset = 0;
 
     #[SLOAD_KERNEL_OUTPUT]
-    sel_op_sload * (kernel.kernel_out_offset - (kernel.START_SLOAD_WRITE_OFFSET + kernel.sload_write_offset)) = 0;
+    sel_op_sload * (kernel.kernel_out_offset - (constants.START_SLOAD_WRITE_OFFSET + kernel.sload_write_offset)) = 0;
     sel_first * kernel.sload_write_offset = 0;
 
     #[SSTORE_KERNEL_OUTPUT]
-    sel_op_sstore * (kernel.kernel_out_offset - (kernel.START_SSTORE_WRITE_OFFSET + kernel.sstore_write_offset)) = 0;
+    sel_op_sstore * (kernel.kernel_out_offset - (constants.START_SSTORE_WRITE_OFFSET + kernel.sstore_write_offset)) = 0;
     sel_first * kernel.sstore_write_offset = 0;
 
     // When we encounter a state writing opcode
     // We increment the side effect counter by 1
     KERNEL_OUTPUT_SELECTORS * (kernel.side_effect_counter' - (kernel.side_effect_counter + 1)) = 0;
+
+    //===== Memory Slice Constraints ============================================
+    pol commit sel_slice_gadget; // Selector to activate a slice gadget operation in the gadget (#[PERM_MAIN_SLICE]).
+
+    // Activate only if tag_err is disabled
+    sel_slice_gadget = (sel_op_calldata_copy + sel_op_external_return) * (1 - tag_err);
+
+    //====== Inter-table Constraints ============================================
 
     #[KERNEL_OUTPUT_LOOKUP]
     sel_q_kernel_output_lookup {kernel.kernel_out_offset, ia, kernel.side_effect_counter, ib} in kernel.q_public_input_kernel_out_add_to_table {clk, kernel.kernel_value_out, kernel.kernel_side_effect_out, kernel.kernel_metadata_out};
@@ -650,7 +682,6 @@ namespace main(256);
     #[LOOKUP_INTO_KERNEL]
     sel_q_kernel_lookup { main.ia, kernel.kernel_in_offset } in kernel.q_public_input_kernel_add_to_table { kernel.kernel_inputs, clk };
 
-    //====== Inter-table Constraints ============================================
     #[INCL_MAIN_TAG_ERR]
     mem.tag_err {mem.clk} in tag_err {clk};
 
@@ -711,6 +742,11 @@ namespace main(256);
     is
     pedersen.sel_pedersen {pedersen.clk, pedersen.input};
 
+    #[PERM_MAIN_SLICE]
+    sel_slice_gadget {clk, space_id, ia, ib, mem_addr_c, sel_op_calldata_copy, sel_op_external_return}
+    is
+    slice.sel_start {slice.clk, slice.space_id, slice.col_offset, slice.cnt, slice.addr, slice.sel_cd_cpy, slice.sel_return};
+
     #[PERM_MAIN_MEM_A]
     sel_mem_op_a {clk, space_id, mem_addr_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_ia_to_ic, sel_op_cmov}
     is
@@ -768,11 +804,11 @@ namespace main(256);
 
     // Lookup for 2**(ib)
     #[LOOKUP_POW_2_0]
-    alu.sel_shift_which {alu.ib, alu.two_pow_s} in sel_rng_8 {clk, table_pow_2};
+    alu.sel_shift_which {alu.ib, alu.two_pow_s} in sel_rng_8 {clk, powers.power_of_2};
 
     // Lookup for 2**(t-ib)
     #[LOOKUP_POW_2_1]
-    alu.sel_shift_which {alu.t_sub_s_bits , alu.two_pow_t_sub_s} in sel_rng_8 {clk, table_pow_2};
+    alu.sel_shift_which {alu.t_sub_s_bits , alu.two_pow_t_sub_s} in sel_rng_8 {clk, powers.power_of_2};
 
     //====== Inter-table Constraints (Range Checks) ============================================
     // TODO: Investigate optimising these range checks. Handling non-FF elements should require less range checks.

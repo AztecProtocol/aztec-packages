@@ -1,9 +1,16 @@
+#pragma once
 
 #define Avm_DECLARE_VIEWS(index)                                                                                       \
     using Accumulator = typename std::tuple_element<index, ContainerOverSubrelations>::type;                           \
     using View = typename Accumulator::View;                                                                           \
     [[maybe_unused]] auto main_clk = View(new_term.main_clk);                                                          \
     [[maybe_unused]] auto main_sel_first = View(new_term.main_sel_first);                                              \
+    [[maybe_unused]] auto kernel_kernel_inputs = View(new_term.kernel_kernel_inputs);                                  \
+    [[maybe_unused]] auto kernel_kernel_value_out = View(new_term.kernel_kernel_value_out);                            \
+    [[maybe_unused]] auto kernel_kernel_side_effect_out = View(new_term.kernel_kernel_side_effect_out);                \
+    [[maybe_unused]] auto kernel_kernel_metadata_out = View(new_term.kernel_kernel_metadata_out);                      \
+    [[maybe_unused]] auto main_calldata = View(new_term.main_calldata);                                                \
+    [[maybe_unused]] auto main_returndata = View(new_term.main_returndata);                                            \
     [[maybe_unused]] auto alu_a_hi = View(new_term.alu_a_hi);                                                          \
     [[maybe_unused]] auto alu_a_lo = View(new_term.alu_a_lo);                                                          \
     [[maybe_unused]] auto alu_b_hi = View(new_term.alu_b_hi);                                                          \
@@ -126,11 +133,7 @@
     [[maybe_unused]] auto kernel_emit_unencrypted_log_write_offset =                                                   \
         View(new_term.kernel_emit_unencrypted_log_write_offset);                                                       \
     [[maybe_unused]] auto kernel_kernel_in_offset = View(new_term.kernel_kernel_in_offset);                            \
-    [[maybe_unused]] auto kernel_kernel_inputs = View(new_term.kernel_kernel_inputs);                                  \
-    [[maybe_unused]] auto kernel_kernel_metadata_out = View(new_term.kernel_kernel_metadata_out);                      \
     [[maybe_unused]] auto kernel_kernel_out_offset = View(new_term.kernel_kernel_out_offset);                          \
-    [[maybe_unused]] auto kernel_kernel_side_effect_out = View(new_term.kernel_kernel_side_effect_out);                \
-    [[maybe_unused]] auto kernel_kernel_value_out = View(new_term.kernel_kernel_value_out);                            \
     [[maybe_unused]] auto kernel_l1_to_l2_msg_exists_write_offset =                                                    \
         View(new_term.kernel_l1_to_l2_msg_exists_write_offset);                                                        \
     [[maybe_unused]] auto kernel_note_hash_exist_write_offset = View(new_term.kernel_note_hash_exist_write_offset);    \
@@ -182,6 +185,7 @@
     [[maybe_unused]] auto main_rwd = View(new_term.main_rwd);                                                          \
     [[maybe_unused]] auto main_sel_alu = View(new_term.main_sel_alu);                                                  \
     [[maybe_unused]] auto main_sel_bin = View(new_term.main_sel_bin);                                                  \
+    [[maybe_unused]] auto main_sel_calldata = View(new_term.main_sel_calldata);                                        \
     [[maybe_unused]] auto main_sel_gas_accounting_active = View(new_term.main_sel_gas_accounting_active);              \
     [[maybe_unused]] auto main_sel_last = View(new_term.main_sel_last);                                                \
     [[maybe_unused]] auto main_sel_mem_op_a = View(new_term.main_sel_mem_op_a);                                        \
@@ -195,6 +199,7 @@
     [[maybe_unused]] auto main_sel_op_address = View(new_term.main_sel_op_address);                                    \
     [[maybe_unused]] auto main_sel_op_and = View(new_term.main_sel_op_and);                                            \
     [[maybe_unused]] auto main_sel_op_block_number = View(new_term.main_sel_op_block_number);                          \
+    [[maybe_unused]] auto main_sel_op_calldata_copy = View(new_term.main_sel_op_calldata_copy);                        \
     [[maybe_unused]] auto main_sel_op_cast = View(new_term.main_sel_op_cast);                                          \
     [[maybe_unused]] auto main_sel_op_chain_id = View(new_term.main_sel_op_chain_id);                                  \
     [[maybe_unused]] auto main_sel_op_cmov = View(new_term.main_sel_op_cmov);                                          \
@@ -207,9 +212,11 @@
     [[maybe_unused]] auto main_sel_op_emit_unencrypted_log = View(new_term.main_sel_op_emit_unencrypted_log);          \
     [[maybe_unused]] auto main_sel_op_eq = View(new_term.main_sel_op_eq);                                              \
     [[maybe_unused]] auto main_sel_op_external_call = View(new_term.main_sel_op_external_call);                        \
+    [[maybe_unused]] auto main_sel_op_external_return = View(new_term.main_sel_op_external_return);                    \
     [[maybe_unused]] auto main_sel_op_fdiv = View(new_term.main_sel_op_fdiv);                                          \
     [[maybe_unused]] auto main_sel_op_fee_per_da_gas = View(new_term.main_sel_op_fee_per_da_gas);                      \
     [[maybe_unused]] auto main_sel_op_fee_per_l2_gas = View(new_term.main_sel_op_fee_per_l2_gas);                      \
+    [[maybe_unused]] auto main_sel_op_function_selector = View(new_term.main_sel_op_function_selector);                \
     [[maybe_unused]] auto main_sel_op_get_contract_instance = View(new_term.main_sel_op_get_contract_instance);        \
     [[maybe_unused]] auto main_sel_op_halt = View(new_term.main_sel_op_halt);                                          \
     [[maybe_unused]] auto main_sel_op_internal_call = View(new_term.main_sel_op_internal_call);                        \
@@ -248,10 +255,11 @@
     [[maybe_unused]] auto main_sel_resolve_ind_addr_b = View(new_term.main_sel_resolve_ind_addr_b);                    \
     [[maybe_unused]] auto main_sel_resolve_ind_addr_c = View(new_term.main_sel_resolve_ind_addr_c);                    \
     [[maybe_unused]] auto main_sel_resolve_ind_addr_d = View(new_term.main_sel_resolve_ind_addr_d);                    \
+    [[maybe_unused]] auto main_sel_returndata = View(new_term.main_sel_returndata);                                    \
     [[maybe_unused]] auto main_sel_rng_16 = View(new_term.main_sel_rng_16);                                            \
     [[maybe_unused]] auto main_sel_rng_8 = View(new_term.main_sel_rng_8);                                              \
+    [[maybe_unused]] auto main_sel_slice_gadget = View(new_term.main_sel_slice_gadget);                                \
     [[maybe_unused]] auto main_space_id = View(new_term.main_space_id);                                                \
-    [[maybe_unused]] auto main_table_pow_2 = View(new_term.main_table_pow_2);                                          \
     [[maybe_unused]] auto main_tag_err = View(new_term.main_tag_err);                                                  \
     [[maybe_unused]] auto main_w_in_tag = View(new_term.main_w_in_tag);                                                \
     [[maybe_unused]] auto mem_addr = View(new_term.mem_addr);                                                          \
@@ -273,6 +281,7 @@
     [[maybe_unused]] auto mem_sel_op_c = View(new_term.mem_sel_op_c);                                                  \
     [[maybe_unused]] auto mem_sel_op_cmov = View(new_term.mem_sel_op_cmov);                                            \
     [[maybe_unused]] auto mem_sel_op_d = View(new_term.mem_sel_op_d);                                                  \
+    [[maybe_unused]] auto mem_sel_op_slice = View(new_term.mem_sel_op_slice);                                          \
     [[maybe_unused]] auto mem_sel_resolve_ind_addr_a = View(new_term.mem_sel_resolve_ind_addr_a);                      \
     [[maybe_unused]] auto mem_sel_resolve_ind_addr_b = View(new_term.mem_sel_resolve_ind_addr_b);                      \
     [[maybe_unused]] auto mem_sel_resolve_ind_addr_c = View(new_term.mem_sel_resolve_ind_addr_c);                      \
@@ -293,16 +302,30 @@
     [[maybe_unused]] auto poseidon2_input = View(new_term.poseidon2_input);                                            \
     [[maybe_unused]] auto poseidon2_output = View(new_term.poseidon2_output);                                          \
     [[maybe_unused]] auto poseidon2_sel_poseidon_perm = View(new_term.poseidon2_sel_poseidon_perm);                    \
+    [[maybe_unused]] auto powers_power_of_2 = View(new_term.powers_power_of_2);                                        \
     [[maybe_unused]] auto sha256_clk = View(new_term.sha256_clk);                                                      \
     [[maybe_unused]] auto sha256_input = View(new_term.sha256_input);                                                  \
     [[maybe_unused]] auto sha256_output = View(new_term.sha256_output);                                                \
     [[maybe_unused]] auto sha256_sel_sha256_compression = View(new_term.sha256_sel_sha256_compression);                \
     [[maybe_unused]] auto sha256_state = View(new_term.sha256_state);                                                  \
+    [[maybe_unused]] auto slice_addr = View(new_term.slice_addr);                                                      \
+    [[maybe_unused]] auto slice_clk = View(new_term.slice_clk);                                                        \
+    [[maybe_unused]] auto slice_cnt = View(new_term.slice_cnt);                                                        \
+    [[maybe_unused]] auto slice_col_offset = View(new_term.slice_col_offset);                                          \
+    [[maybe_unused]] auto slice_one_min_inv = View(new_term.slice_one_min_inv);                                        \
+    [[maybe_unused]] auto slice_sel_cd_cpy = View(new_term.slice_sel_cd_cpy);                                          \
+    [[maybe_unused]] auto slice_sel_mem_active = View(new_term.slice_sel_mem_active);                                  \
+    [[maybe_unused]] auto slice_sel_return = View(new_term.slice_sel_return);                                          \
+    [[maybe_unused]] auto slice_sel_start = View(new_term.slice_sel_start);                                            \
+    [[maybe_unused]] auto slice_space_id = View(new_term.slice_space_id);                                              \
+    [[maybe_unused]] auto slice_val = View(new_term.slice_val);                                                        \
+    [[maybe_unused]] auto perm_slice_mem = View(new_term.perm_slice_mem);                                              \
     [[maybe_unused]] auto perm_main_alu = View(new_term.perm_main_alu);                                                \
     [[maybe_unused]] auto perm_main_bin = View(new_term.perm_main_bin);                                                \
     [[maybe_unused]] auto perm_main_conv = View(new_term.perm_main_conv);                                              \
     [[maybe_unused]] auto perm_main_pos2_perm = View(new_term.perm_main_pos2_perm);                                    \
     [[maybe_unused]] auto perm_main_pedersen = View(new_term.perm_main_pedersen);                                      \
+    [[maybe_unused]] auto perm_main_slice = View(new_term.perm_main_slice);                                            \
     [[maybe_unused]] auto perm_main_mem_a = View(new_term.perm_main_mem_a);                                            \
     [[maybe_unused]] auto perm_main_mem_b = View(new_term.perm_main_mem_b);                                            \
     [[maybe_unused]] auto perm_main_mem_c = View(new_term.perm_main_mem_c);                                            \
@@ -313,6 +336,8 @@
     [[maybe_unused]] auto perm_main_mem_ind_addr_d = View(new_term.perm_main_mem_ind_addr_d);                          \
     [[maybe_unused]] auto lookup_byte_lengths = View(new_term.lookup_byte_lengths);                                    \
     [[maybe_unused]] auto lookup_byte_operations = View(new_term.lookup_byte_operations);                              \
+    [[maybe_unused]] auto lookup_cd_value = View(new_term.lookup_cd_value);                                            \
+    [[maybe_unused]] auto lookup_ret_value = View(new_term.lookup_ret_value);                                          \
     [[maybe_unused]] auto lookup_opcode_gas = View(new_term.lookup_opcode_gas);                                        \
     [[maybe_unused]] auto range_check_l2_gas_hi = View(new_term.range_check_l2_gas_hi);                                \
     [[maybe_unused]] auto range_check_l2_gas_lo = View(new_term.range_check_l2_gas_lo);                                \
@@ -354,6 +379,8 @@
     [[maybe_unused]] auto lookup_div_u16_7 = View(new_term.lookup_div_u16_7);                                          \
     [[maybe_unused]] auto lookup_byte_lengths_counts = View(new_term.lookup_byte_lengths_counts);                      \
     [[maybe_unused]] auto lookup_byte_operations_counts = View(new_term.lookup_byte_operations_counts);                \
+    [[maybe_unused]] auto lookup_cd_value_counts = View(new_term.lookup_cd_value_counts);                              \
+    [[maybe_unused]] auto lookup_ret_value_counts = View(new_term.lookup_ret_value_counts);                            \
     [[maybe_unused]] auto lookup_opcode_gas_counts = View(new_term.lookup_opcode_gas_counts);                          \
     [[maybe_unused]] auto range_check_l2_gas_hi_counts = View(new_term.range_check_l2_gas_hi_counts);                  \
     [[maybe_unused]] auto range_check_l2_gas_lo_counts = View(new_term.range_check_l2_gas_lo_counts);                  \
@@ -465,4 +492,13 @@
     [[maybe_unused]] auto mem_sel_mem_shift = View(new_term.mem_sel_mem_shift);                                        \
     [[maybe_unused]] auto mem_tag_shift = View(new_term.mem_tag_shift);                                                \
     [[maybe_unused]] auto mem_tsp_shift = View(new_term.mem_tsp_shift);                                                \
-    [[maybe_unused]] auto mem_val_shift = View(new_term.mem_val_shift);
+    [[maybe_unused]] auto mem_val_shift = View(new_term.mem_val_shift);                                                \
+    [[maybe_unused]] auto slice_addr_shift = View(new_term.slice_addr_shift);                                          \
+    [[maybe_unused]] auto slice_clk_shift = View(new_term.slice_clk_shift);                                            \
+    [[maybe_unused]] auto slice_cnt_shift = View(new_term.slice_cnt_shift);                                            \
+    [[maybe_unused]] auto slice_col_offset_shift = View(new_term.slice_col_offset_shift);                              \
+    [[maybe_unused]] auto slice_sel_cd_cpy_shift = View(new_term.slice_sel_cd_cpy_shift);                              \
+    [[maybe_unused]] auto slice_sel_mem_active_shift = View(new_term.slice_sel_mem_active_shift);                      \
+    [[maybe_unused]] auto slice_sel_return_shift = View(new_term.slice_sel_return_shift);                              \
+    [[maybe_unused]] auto slice_sel_start_shift = View(new_term.slice_sel_start_shift);                                \
+    [[maybe_unused]] auto slice_space_id_shift = View(new_term.slice_space_id_shift);

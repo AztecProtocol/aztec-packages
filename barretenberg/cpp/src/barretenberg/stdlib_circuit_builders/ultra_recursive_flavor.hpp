@@ -11,7 +11,6 @@
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
@@ -63,12 +62,12 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 43;
+    static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 7;
+    static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
@@ -126,6 +125,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
+            this->contains_recursive_proof = native_key->contains_recursive_proof;
+            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -179,6 +180,19 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                                                    builder, elements.subspan(num_frs_read, num_frs_FF))
                                                    .get_value());
             num_frs_read += num_frs_FF;
+
+            this->contains_recursive_proof = bool(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                                      builder, elements.subspan(num_frs_read, num_frs_FF))
+                                                      .get_value());
+            num_frs_read += num_frs_FF;
+
+            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                this->recursive_proof_public_input_indices[i] =
+                    uint32_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                 builder, elements.subspan(num_frs_read, num_frs_FF))
+                                 .get_value());
+                num_frs_read += num_frs_FF;
+            }
 
             for (Commitment& comm : this->get_all()) {
                 comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
@@ -238,10 +252,11 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 this->w_l = commitments.w_l;
                 this->w_r = commitments.w_r;
                 this->w_o = commitments.w_o;
-                this->sorted_accum = commitments.sorted_accum;
+                this->lookup_inverses = commitments.lookup_inverses;
+                this->lookup_read_counts = commitments.lookup_read_counts;
+                this->lookup_read_tags = commitments.lookup_read_tags;
                 this->w_4 = commitments.w_4;
                 this->z_perm = commitments.z_perm;
-                this->z_lookup = commitments.z_lookup;
             }
         }
     };

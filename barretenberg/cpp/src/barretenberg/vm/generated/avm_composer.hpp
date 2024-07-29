@@ -1,5 +1,3 @@
-
-
 #pragma once
 
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
@@ -9,6 +7,7 @@
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
+
 class AvmComposer {
   public:
     using Flavor = AvmFlavor;
@@ -33,7 +32,7 @@ class AvmComposer {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    std::vector<uint32_t> recursive_proof_public_input_indices;
+    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
     bool computed_witness = false;
 

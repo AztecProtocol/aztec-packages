@@ -1,21 +1,7 @@
-import { type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
 import type { CircuitName } from '@aztec/circuit-types/stats';
 import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
-export function mapPublicKernelToCircuitName(kernelType: PublicKernelRequest['type']): CircuitName {
-  switch (kernelType) {
-    case PublicKernelType.SETUP:
-      return 'public-kernel-setup';
-    case PublicKernelType.APP_LOGIC:
-      return 'public-kernel-app-logic';
-    case PublicKernelType.TEARDOWN:
-      return 'public-kernel-teardown';
-    case PublicKernelType.TAIL:
-      return 'public-kernel-tail';
-    default:
-      throw new Error(`Unknown kernel type: ${kernelType}`);
-  }
-}
+export { mapPublicKernelToCircuitName } from '@aztec/circuit-types';
 
 export function mapProtocolArtifactNameToCircuitName(
   artifact: ServerProtocolArtifact | ClientProtocolArtifact,
@@ -55,6 +41,8 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-reset-medium';
     case 'PrivateKernelResetSmallArtifact':
       return 'private-kernel-reset-small';
+    case 'PrivateKernelResetTinyArtifact':
+      return 'private-kernel-reset-tiny';
     case 'EmptyNestedArtifact':
       return 'empty-nested';
     case 'PrivateKernelEmptyArtifact':

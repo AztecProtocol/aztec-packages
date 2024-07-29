@@ -22,11 +22,11 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { makeProof } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -80,14 +80,14 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [
-        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), makeProof(), []))),
+        await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), []))),
         [],
         [],
       ],
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_a, _b_) => Promise.resolve(publicProcessor),
+      create: (_a, _b_) => publicProcessor,
     });
 
     l2BlockSource = mock<L2BlockSource>({
@@ -115,6 +115,7 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
+      new NoopTelemetryClient(),
     );
   });
 
@@ -130,7 +131,7 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce([tx]);
+    p2p.getTxs.mockReturnValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
@@ -146,7 +147,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -162,7 +163,7 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce([tx]);
+    p2p.getTxs.mockReturnValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
@@ -184,7 +185,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -203,7 +204,7 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce(txs);
+    p2p.getTxs.mockReturnValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
@@ -212,7 +213,7 @@ describe('sequencer', () => {
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
-    const doubleSpendNullifier = doubleSpendTx.data.forRollup!.end.newNullifiers[0].toBuffer();
+    const doubleSpendNullifier = doubleSpendTx.data.forRollup!.end.nullifiers[0].toBuffer();
     merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: any) => {
       return Promise.resolve(
         treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
@@ -227,7 +228,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -247,7 +248,7 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce(txs);
+    p2p.getTxs.mockReturnValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
@@ -266,7 +267,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -285,7 +286,7 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce(txs);
+    p2p.getTxs.mockReturnValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
@@ -305,7 +306,7 @@ describe('sequencer', () => {
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, [], proof);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -321,7 +322,7 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce([tx]);
+    p2p.getTxs.mockReturnValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);

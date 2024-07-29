@@ -42,6 +42,14 @@ export class ViewDataOracle extends TypedOracle {
     return Promise.resolve(this.contractAddress);
   }
 
+  public override getChainId(): Promise<Fr> {
+    return Promise.resolve(this.aztecNode.getChainId().then(id => new Fr(id)));
+  }
+
+  public override getVersion(): Promise<Fr> {
+    return Promise.resolve(this.aztecNode.getVersion().then(v => new Fr(v)));
+  }
+
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
@@ -252,16 +260,25 @@ export class ViewDataOracle extends TypedOracle {
 
   /**
    * Read the public storage data.
+   * @param contractAddress - The address to read storage from.
    * @param startStorageSlot - The starting storage slot.
+   * @param blockNumber - The block number to read storage at.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public override async storageRead(startStorageSlot: Fr, numberOfElements: number) {
+  public override async storageRead(
+    contractAddress: Fr,
+    startStorageSlot: Fr,
+    blockNumber: number,
+    numberOfElements: number,
+  ) {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.aztecNode.getPublicStorageAt(this.contractAddress, storageSlot);
+      const value = await this.aztecNode.getPublicStorageAt(contractAddress, storageSlot, blockNumber);
 
-      this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      this.log.debug(
+        `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
+      );
       values.push(value);
     }
     return values;

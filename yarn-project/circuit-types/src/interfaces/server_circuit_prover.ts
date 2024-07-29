@@ -1,6 +1,7 @@
 import {
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
+  type PublicInputsAndTubeProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   type Tx,
@@ -16,11 +17,13 @@ import {
   type PrivateKernelEmptyInputData,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
+  type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  type VerificationKeys,
+  type TubeInputs,
+  type VerificationKeyData,
 } from '@aztec/circuits.js';
 
 /**
@@ -50,9 +53,18 @@ export interface ServerCircuitProver {
    * @param input - Input to the circuit.
    */
   getBaseRollupProof(
-    input: BaseRollupInputs,
+    baseRollupInput: BaseRollupInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
+
+  /**
+   * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
+   * @param input - Input to the circuit.
+   */
+  getTubeProof(
+    tubeInput: TubeInputs,
+    signal?: AbortSignal,
+  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>;
 
   /**
    * Creates a proof for the given input.
@@ -95,6 +107,11 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
 
+  getEmptyTubeProof(
+    inputs: PrivateKernelEmptyInputData,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndTubeProof<KernelCircuitPublicInputs>>;
+
   /**
    * Create a proof for the AVM circuit.
    * @param inputs - Inputs to the AVM circuit.
@@ -112,9 +129,4 @@ export interface ClientProtocolCircuitVerifier {
    * @returns True if the proof is valid, false otherwise
    */
   verifyProof(tx: Tx): Promise<boolean>;
-
-  /**
-   * Returns the verification keys used to verify tx proofs.
-   */
-  getVerificationKeys(): Promise<VerificationKeys>;
 }

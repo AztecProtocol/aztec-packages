@@ -7,20 +7,15 @@ using namespace bb::avm_trace;
 
 class AvmIndirectMemTests : public ::testing::Test {
   public:
-    AvmTraceBuilder trace_builder;
-    VmPublicInputs public_inputs{};
-
-  protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
-    void SetUp() override
+    AvmIndirectMemTests()
+        : public_inputs(generate_base_public_inputs())
+        , trace_builder(AvmTraceBuilder(public_inputs))
     {
         srs::init_crs_factory("../srs_db/ignition");
-        std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
-        kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_DA_GAS;
-        kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = DEFAULT_INITIAL_L2_GAS;
-        std::get<0>(public_inputs) = kernel_inputs;
-        trace_builder = AvmTraceBuilder(public_inputs);
-    };
+    }
+
+    VmPublicInputs public_inputs;
+    AvmTraceBuilder trace_builder;
 };
 
 /******************************************************************************
@@ -46,7 +41,7 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
 
     // All indirect flags are encoded as 7 = 1 + 2 + 4
     trace_builder.op_add(7, 0, 1, 2, AvmMemoryTag::U16);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the addition selector
@@ -73,7 +68,7 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
     EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
     EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
 
-    validate_trace(std::move(trace), public_inputs, true);
+    validate_trace(std::move(trace), public_inputs, {}, {}, true);
 }
 
 // Testing a subtraction operation with direct input operands a, b, and an indirect
@@ -92,7 +87,7 @@ TEST_F(AvmIndirectMemTests, indirectOutputSub)
 
     // The indirect flag is encoded as 4
     trace_builder.op_sub(4, 50, 51, 5, AvmMemoryTag::U128);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the subtraction selector
@@ -138,7 +133,7 @@ TEST_F(AvmIndirectMemTests, indirectInputAMul)
 
     // The indirect flag is encoded as 1
     trace_builder.op_mul(1, 1000, 101, 102, AvmMemoryTag::U64);
-    trace_builder.return_op(0, 0, 0);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the multiplication selector

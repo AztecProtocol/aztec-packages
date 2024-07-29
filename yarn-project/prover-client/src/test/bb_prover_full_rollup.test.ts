@@ -1,9 +1,11 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, getMockVerificationKeys } from '@aztec/circuits.js';
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -14,7 +16,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig);
+      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
     logger = createDebugLogger('aztec:bb-prover-full-rollup');
@@ -30,13 +32,14 @@ describe('prover/bb_prover/full-rollup', () => {
     const nonEmptyTxs = 0;
 
     logger.info(`Proving a private-only full rollup with ${nonEmptyTxs}/${totalTxs} non-empty transactions`);
-    const initialHeader = await context.actualDb.buildInitialHeader();
+    const initialHeader = context.actualDb.getInitialHeader();
     const txs = times(nonEmptyTxs, (i: number) => {
       const tx = mockTx(1000 * (i + 1), {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
       });
       tx.data.constants.historicalHeader = initialHeader;
+      tx.data.constants.vkTreeRoot = getVKTreeRoot();
       return tx;
     });
 
@@ -46,12 +49,7 @@ describe('prover/bb_prover/full-rollup', () => {
     );
 
     logger.info(`Starting new block`);
-    const provingTicket = await context.orchestrator.startNewBlock(
-      totalTxs,
-      context.globalVariables,
-      l1ToL2Messages,
-      getMockVerificationKeys(),
-    );
+    const provingTicket = await context.orchestrator.startNewBlock(totalTxs, context.globalVariables, l1ToL2Messages);
 
     logger.info(`Processing public functions`);
     const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
@@ -81,7 +79,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }),
     );
     for (const tx of txs) {
-      tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
+      tx.data.constants.historicalHeader = context.actualDb.getInitialHeader();
     }
 
     const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(
@@ -93,7 +91,6 @@ describe('prover/bb_prover/full-rollup', () => {
       numTransactions,
       context.globalVariables,
       l1ToL2Messages,
-      getMockVerificationKeys(),
     );
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);

@@ -27,15 +27,15 @@ export enum Opcode {
   ADDRESS,
   STORAGEADDRESS,
   SENDER,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
+  FUNCTIONSELECTOR,
   TRANSACTIONFEE,
-  CONTRACTCALLDEPTH,
   CHAINID,
   VERSION,
   BLOCKNUMBER,
   TIMESTAMP,
   COINBASE,
+  FEEPERL2GAS,
+  FEEPERDAGAS,
   BLOCKL2GASLIMIT,
   BLOCKDAGASLIMIT,
   CALLDATACOPY,
@@ -80,6 +80,9 @@ export enum Opcode {
   MSM,
   // Conversion
   TORADIXLE,
+  // Future Gadgets -- pending changes in noir
+  SHA256COMPRESSION,
+  KECCAKF1600, // Here for when we eventually support this
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.

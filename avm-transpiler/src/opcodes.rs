@@ -23,15 +23,15 @@ pub enum AvmOpcode {
     ADDRESS,
     STORAGEADDRESS,
     SENDER,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    FUNCTIONSELECTOR,
     TRANSACTIONFEE,
-    CONTRACTCALLDEPTH,
     CHAINID,
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
     COINBASE,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
     BLOCKL2GASLIMIT,
     BLOCKDAGASLIMIT,
     CALLDATACOPY,
@@ -76,6 +76,9 @@ pub enum AvmOpcode {
     MSM,
     // Conversions
     TORADIXLE,
+    // Other
+    SHA256COMPRESSION,
+    KECCAKF1600,
 }
 
 impl AvmOpcode {
@@ -106,16 +109,16 @@ impl AvmOpcode {
             AvmOpcode::ADDRESS => "ADDRESS",
             AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
             AvmOpcode::SENDER => "SENDER",
-            AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
-            AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
+            AvmOpcode::FUNCTIONSELECTOR => "FUNCTIONSELECTOR",
             AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
-            AvmOpcode::CONTRACTCALLDEPTH => "CONTRACTCALLDEPTH",
             // Execution Environment - Globals
             AvmOpcode::CHAINID => "CHAINID",
             AvmOpcode::VERSION => "VERSION",
             AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
             AvmOpcode::TIMESTAMP => "TIMESTAMP",
             AvmOpcode::COINBASE => "COINBASE",
+            AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
+            AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
             AvmOpcode::BLOCKL2GASLIMIT => "BLOCKL2GASLIMIT",
             AvmOpcode::BLOCKDAGASLIMIT => "BLOCKDAGASLIMIT",
             // Execution Environment - Calldata
@@ -169,6 +172,9 @@ impl AvmOpcode {
             AvmOpcode::MSM => "MSM",
             // Conversions
             AvmOpcode::TORADIXLE => "TORADIXLE",
+            // Other
+            AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
         }
     }
 }

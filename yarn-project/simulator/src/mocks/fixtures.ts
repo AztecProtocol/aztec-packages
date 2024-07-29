@@ -1,4 +1,9 @@
-import { type FunctionCall, type SimulationError, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import {
+  type FunctionCall,
+  PublicExecutionRequest,
+  type SimulationError,
+  UnencryptedFunctionL2Logs,
+} from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
   AvmExecutionHints,
@@ -8,16 +13,15 @@ import {
   type ContractStorageUpdateRequest,
   Fr,
   Gas,
-  type PublicCallRequest,
 } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
-import { type PublicExecution, type PublicExecutionResult } from '../public/execution.js';
+import { type PublicExecutionResult, resultToPublicCallRequest } from '../public/execution.js';
 
 export class PublicExecutionResultBuilder {
-  private _execution: PublicExecution;
+  private _executionRequest: PublicExecutionRequest;
   private _nestedExecutions: PublicExecutionResult[] = [];
   private _contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
   private _contractStorageReads: ContractStorageRead[] = [];
@@ -25,11 +29,11 @@ export class PublicExecutionResultBuilder {
   private _reverted = false;
   private _revertReason: SimulationError | undefined = undefined;
 
-  constructor(execution: PublicExecution) {
-    this._execution = execution;
+  constructor(executionRequest: PublicExecutionRequest) {
+    this._executionRequest = executionRequest;
   }
 
-  static fromPublicCallRequest({
+  static fromPublicExecutionRequest({
     request,
     returnValues = [new Fr(1n)],
     nestedExecutions = [],
@@ -37,7 +41,7 @@ export class PublicExecutionResultBuilder {
     contractStorageReads = [],
     revertReason = undefined,
   }: {
-    request: PublicCallRequest;
+    request: PublicExecutionRequest;
     returnValues?: Fr[];
     nestedExecutions?: PublicExecutionResult[];
     contractStorageUpdateRequests?: ContractStorageUpdateRequest[];
@@ -74,12 +78,9 @@ export class PublicExecutionResultBuilder {
     contractStorageReads?: ContractStorageRead[];
     revertReason?: SimulationError;
   }) {
-    const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, tx.selector, false, false, 0),
-      contractAddress: tx.to,
-      functionSelector: tx.selector,
-      args: tx.args,
-    });
+    const builder = new PublicExecutionResultBuilder(
+      new PublicExecutionRequest(tx.to, new CallContext(from, tx.to, tx.selector, false, false), tx.args),
+    );
 
     builder.withNestedExecutions(...nestedExecutions);
     builder.withContractStorageUpdateRequest(...contractStorageUpdateRequests);
@@ -120,17 +121,18 @@ export class PublicExecutionResultBuilder {
 
   build(overrides: Partial<PublicExecutionResult> = {}): PublicExecutionResult {
     return {
-      execution: this._execution,
+      executionRequest: this._executionRequest,
       nestedExecutions: this._nestedExecutions,
+      publicCallRequests: this._nestedExecutions.map(resultToPublicCallRequest),
       noteHashReadRequests: [],
       nullifierReadRequests: [],
       nullifierNonExistentReadRequests: [],
       l1ToL2MsgReadRequests: [],
       contractStorageUpdateRequests: this._contractStorageUpdateRequests,
       returnValues: padArrayEnd(this._returnValues, Fr.ZERO, 4), // TODO(#5450) Need to use the proper return values here
-      newNoteHashes: [],
-      newNullifiers: [],
-      newL2ToL1Messages: [],
+      noteHashes: [],
+      nullifiers: [],
+      l2ToL1Messages: [],
       contractStorageReads: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
@@ -143,7 +145,7 @@ export class PublicExecutionResultBuilder {
       endGasLeft: Gas.test(),
       transactionFee: Fr.ZERO,
       calldata: [],
-      avmHints: AvmExecutionHints.empty(),
+      avmCircuitHints: AvmExecutionHints.empty(),
       functionName: 'unknown',
       ...overrides,
     };
