@@ -10,13 +10,20 @@ template <typename FF> struct WitnessConstant {
     bool is_constant;
     MSGPACK_FIELDS(index, value, is_constant);
     friend bool operator==(WitnessConstant const& lhs, WitnessConstant const& rhs) = default;
+    static WitnessConstant from_index(uint32_t index)
+    {
+        return WitnessConstant{
+            .index = index,
+            .value = FF::zero(),
+            .is_constant = false,
+        };
+    }
 };
 
 template <typename Builder, typename FF>
 bb::stdlib::field_t<Builder> to_field_ct(const WitnessConstant<FF>& input, Builder& builder)
 {
     using field_ct = bb::stdlib::field_t<Builder>;
-    bb::stdlib::bool_t<Builder> infinite;
     if (input.is_constant) {
         return field_ct(input.value);
     }
