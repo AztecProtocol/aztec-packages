@@ -555,14 +555,6 @@ class TranslatorFlavor {
                               ordered_range_constraints_4_shift,                  // column 84
                               z_perm_shift)                                       // column 85
     };
-    /**
-     * @brief Class for AllWitnessEntities, containining the derived ones and shifts.
-     */
-    template <typename DataType>
-    class AllWitnessEntities : public WitnessEntities<DataType>, public ShiftedEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
-    };
 
   public:
     /**
@@ -730,7 +722,10 @@ class TranslatorFlavor {
             return result;
         }
         // Get witness polynomials including shifts. This getter is required by ZK-Sumcheck.
-        auto get_all_witnesses() { return AllWitnessEntities<DataType>::get_all(); };
+        auto get_all_witnesses()
+        {
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
+        };
         // Get all non-witness polynomials. In this case, contains only PrecomputedEntities.
         auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
 

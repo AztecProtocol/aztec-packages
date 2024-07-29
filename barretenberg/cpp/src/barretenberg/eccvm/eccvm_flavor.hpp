@@ -283,14 +283,6 @@ class ECCVMFlavor {
                          entities.precompute_select,            // column 24
                          entities.z_perm };                     // column 25
     }
-    /**
-     * @brief Class for AllWitnessEntities, containining the derived ones and shifts.
-     */
-    template <typename DataType>
-    class AllWitnessEntities : public WitnessEntities<DataType>, public ShiftedEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(WitnessEntities<DataType>, ShiftedEntities<DataType>)
-    };
 
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
@@ -321,14 +313,16 @@ class ECCVMFlavor {
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
-
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         // this getter is necessary for more uniform zk verifiers
         auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
         // the getter for all witnesses including derived and shifted ones
-        auto get_all_witnesses() { return AllWitnessEntities<DataType>::get_all(); };
+        auto get_all_witnesses()
+        {
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
+        };
         // this getter is necessary for a universal ZK Sumcheck
         auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
