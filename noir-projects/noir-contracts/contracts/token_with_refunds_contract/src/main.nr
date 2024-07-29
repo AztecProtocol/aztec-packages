@@ -205,9 +205,9 @@ contract TokenWithRefunds {
         let tx_fee = context.transaction_fee();
         let (fee_payer_note_hiding_point, user_note_hiding_point) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
 
-        // 3. At last we emit the note hashes.
-        context.push_note_hash(fee_payer_slotted_note_hash);
-        context.push_note_hash(user_slotted_note_hash);
+        // 2. At last we emit the note hashes.
+        context.push_note_hash(fee_payer_note_hiding_point.x);
+        context.push_note_hash(user_note_hiding_point.x);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
 
