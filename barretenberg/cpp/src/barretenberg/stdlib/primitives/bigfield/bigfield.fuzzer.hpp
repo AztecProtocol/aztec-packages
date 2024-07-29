@@ -592,7 +592,7 @@ template <typename Builder> class BigFieldBase {
         static constexpr size_t ADD = 3;
         static constexpr size_t SUBTRACT = 3;
         static constexpr size_t MULTIPLY = 3;
-        static constexpr size_t ADD_TWO = static_cast<size_t>(-1);
+        static constexpr size_t ADD_TWO = 4;
 #ifndef DISABLE_DIVISION
         static constexpr size_t DIVIDE = 3;
 #else
@@ -627,7 +627,7 @@ template <typename Builder> class BigFieldBase {
         static constexpr size_t SQR = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t ASSERT_NOT_EQUAL = 2;
-        static constexpr size_t ADD_TWO = 0;
+        static constexpr size_t ADD_TWO = 1;
 #ifndef DISABLE_DIVISION
         static constexpr size_t DIVIDE = 16;
 #endif
@@ -926,7 +926,11 @@ template <typename Builder> class BigFieldBase {
                 abort();
             }
         }
-
+        ExecutionHandler add_two(const ExecutionHandler& other1, const ExecutionHandler& other2)
+        {
+            return ExecutionHandler(this->base + other1.base + other2.base,
+                                    this->bf().add_two(other1.bigfield, other2.bigfield));
+        }
         ExecutionHandler madd(const ExecutionHandler& other1, const ExecutionHandler& other2)
         {
 
@@ -1415,6 +1419,42 @@ template <typename Builder> class BigFieldBase {
             }
             return 0;
         };
+        /**
+         * @brief Execute the ADD_TWO instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+        size_t
+         */
+        static inline size_t execute_ADD_TWO(Builder* builder,
+                                             std::vector<ExecutionHandler>& stack,
+                                             Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.fourArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
+            size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
+            size_t output_index = instruction.arguments.fourArgs.out;
+            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "ADD_TWO:", "+", "+")
+
+            ExecutionHandler result;
+            result = stack[first_index].add_two(stack[second_index], stack[third_index]);
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                PRINT_RESULT("", "pushed to ", stack.size(), result)
+                stack.push_back(result);
+            } else {
+                PRINT_RESULT("", "saved to ", output_index, result)
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+
         /**
          * @brief Execute the MADD instruction
          *
