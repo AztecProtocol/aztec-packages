@@ -135,8 +135,7 @@ impl OwnedNote for TokenNote {
  *
  * So you can think of these (x, y) points as "partial notes": they encode part of the internals of the notes.
  *
- * This is because the compute_note_hiding_point function above defines the content hash to be
- * the x-coordinate of a point defined as:
+ * This is because the compute_note_hiding_point function above defines the hiding point as:
  *
  * G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness
  * 

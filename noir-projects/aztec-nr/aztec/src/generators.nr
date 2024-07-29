@@ -21,7 +21,7 @@ mod test {
     use std::hash::derive_generators;
 
     #[test]
-fn test_generators() {
+    fn test_generators() {
         let generators: [Point; 4] = derive_generators("aztec_nr_generators".as_bytes(), 0);
         assert_eq(generators[0], Ga1);
         assert_eq(generators[1], Ga2);

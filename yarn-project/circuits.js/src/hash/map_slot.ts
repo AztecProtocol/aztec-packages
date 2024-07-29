@@ -10,7 +10,7 @@ import { type Fr } from '@aztec/foundation/fields';
 export function deriveStorageSlotInMap(
   mapSlot: Fr | bigint,
   key: {
-    /** Serialize to a field. */
+    /** Convert key to a field. */
     toField: () => Fr;
   },
 ): Fr {

@@ -494,7 +494,7 @@ fn generate_note_properties_fn(
     Ok(noir_fn)
 }
 
-// Automatically generate the method to compute the note's content hash as:
+// Automatically generate the method to compute the note's hiding point as:
 // fn compute_note_hiding_point(self: NoteType) -> Point {
 //    aztec::hash::pedersen_commitment(self.serialize_content(), aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT)
 // }

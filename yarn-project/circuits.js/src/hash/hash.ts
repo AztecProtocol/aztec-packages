@@ -55,7 +55,7 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
  * @param nonce - The contract address.
- * @param slottedNoteHash - An slotted note hash.
+ * @param slottedNoteHash - A slotted note hash.
  * @returns A unique note hash.
  */
 export function computeUniqueNoteHash(nonce: Fr, slottedNoteHash: Fr): Fr {
