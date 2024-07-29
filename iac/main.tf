@@ -7,7 +7,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.29.0"
+      version = "3.74.2"
     }
   }
 }
@@ -83,13 +83,9 @@ resource "aws_security_group" "security-group-p2p" {
 # static.aztec.network resources
 resource "aws_s3_bucket" "contract_addresses" {
   bucket = "static.aztec.network"
-}
 
-resource "aws_s3_bucket_website_configuration" "addresses_website_bucket" {
-  bucket = aws_s3_bucket.contract_addresses.id
-
-  index_document {
-    suffix = "aztec-static"
+  website {
+    index_document = "index.html"
   }
 }
 
@@ -124,7 +120,7 @@ resource "aws_route53_record" "static" {
   type    = "A"
 
   alias {
-    name                   = aws_s3_bucket_website_configuration.addresses_website_bucket.website_domain
+    name                   = aws_s3_bucket.contract_addresses.website_domain
     zone_id                = aws_s3_bucket.contract_addresses.hosted_zone_id
     evaluate_target_health = true
   }
