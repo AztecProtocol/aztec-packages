@@ -252,14 +252,4 @@ bench-prover:
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 e2e-devnet-smoke:
-  ARG AZTEC_NODE_URL
-  ARG ETHEREUM_HOST
-  ARG FAUCET_URL
-
-  LOCALLY
-
-  ENV AZTEC_NODE_URL=$AZTEC_NODE_URL
-  ENV ETHEREUM_HOST=$ETHEREUM_HOST
-  ENV FAUCET_URL=$FAUCET_URL
-
   DO +E2E_COMPOSE_TEST --test=devnet/e2e_smoke.test.ts --compose_file=scripts/docker-compose-devnet.yml

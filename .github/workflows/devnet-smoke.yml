@@ -1,4 +1,4 @@
-name: Deploy to devnet
+name: Run devnet smoke tests
 on:
   workflow_dispatch:
   workflow_run:
@@ -14,9 +14,12 @@ concurrency:
 
 env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-  GIT_COMMIT: ${{ github.sha }}
+  GIT_COMMIT: devnet
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AZTEC_NODE_URL: https://api.aztec.network/devnet/aztec-node-1/{{ secrets.FORK_API_KEY }}
+  FAUCET_URL: https://api.aztec.network/devnet/aztec-faucet/{{ secrets.FORK_API_KEY }}
+  ETHEREUM_HOST: https://devnet-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }}
 
 jobs:
   setup:
