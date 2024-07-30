@@ -101,12 +101,12 @@ EOF
 }
 
 # Launch template for our prover agents
-# 36 cores and 72 GB memory, we configure the proving agent to use 32 cores and 64 GB, leaving some for the system
+# 32 cores and 128 GB memory
 resource "aws_launch_template" "proving-agent-launch-template" {
   count                  = local.node_count
   name                   = "${var.DEPLOY_TAG}-proving-agent-launch-template-${count.index + 1}"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "c5.9xlarge"
+  instance_type          = "m5.8xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -139,7 +139,7 @@ resource "aws_autoscaling_group" "proving-agent-auto-scaling-group" {
       on_demand_base_capacity                  = 1
       on_demand_percentage_above_base_capacity = 0
       spot_allocation_strategy                 = "lowest-price"
-      spot_max_price                           = "0.7"
+      spot_max_price                           = "0.7" # Current spot instance price for the m5.8xlarge instance type
     }
 
     launch_template {
@@ -202,7 +202,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "command": ["start", "--prover"],
     "essential": true,
     "cpu": 32768,
-    "memoryReservation": 65536,
+    "memoryReservation": 122880,
     "portMappings": [
       {
         "containerPort": 80
