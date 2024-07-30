@@ -28,3 +28,6 @@ export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
+
+export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
+export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';

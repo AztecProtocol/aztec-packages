@@ -47,3 +47,5 @@ export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
 export const BLOCK_SIZE = 'aztec.block.size';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
+/** Whether the tx was accepted or rejected */
+export const TX_ACCEPTED = 'aztec.tx.accepted';
