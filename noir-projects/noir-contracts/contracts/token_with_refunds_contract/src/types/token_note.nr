@@ -159,16 +159,16 @@ impl OwnedNote for TokenNote {
  * incomplete_fee_payer_point := G_npk * fee_payer_npk + G_rnd * fee_payer_randomness
  * incomplete_user_point := G_npk * user_npk + G_rnd * user_randomness
  *
- * where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which
- * the transaction fee will be subtracted.
- *
  * So we pass those points into the teardown function (here) and compute a third point corresponding to the transaction
  * fee as just:
  *
  * fee_point := G_amt * transaction_fee
  * refund_point := G_amt * (funded_amount - transaction_fee)
  *
- * Then we arrive at the final points via addition/subtraction of that transaction fee point:
+ * where `funded_amount` is the total amount in tokens that the sponsored user initially supplied and the transaction
+ * fee is the final transaction fee whose value is made available in the public teardown function.
+ *
+ * Then we arrive at the final points via addition of the fee and refund points:
  *
  * fee_payer_point := incomplete_fee_payer_point + fee_point =
  *                  = (G_npk * fee_payer_npk + G_rnd * fee_payer_randomness) + G_amt * transaction_fee =
