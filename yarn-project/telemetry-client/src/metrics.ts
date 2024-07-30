@@ -31,3 +31,16 @@ export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
 
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
+
+// export const L1_PUBLISHER_PROCESS_L2_BLOCK_DURATION = 'aztec.l1_publisher.process_l2_block.duration';
+// export const L1_PUBLISHER_PROCESS_L2_BLOCK_COUNT = 'aztec.l1_publisher.process_l2_block.count';
+
+// export const L1_PUBLISHER_SUBMIT_PROOF_DURATION = 'aztec.l1_publisher.submit_proof.duration';
+// export const L1_PUBLISHER_SUBMIT_PROOF_COUNT = 'aztec.l1_publisher.submit_proof.count';
+
+export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
+export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
+export const L1_PUBLISHER_TX_DURATION = 'aztec.l1_publisher.tx_duration';
+export const L1_PUBLISHER_TX_GAS = 'aztec.l1_publisher.tx_gas';
+export const L1_PUBLISHER_TX_CALLDATA_SIZE = 'aztec.l1_publisher.tx_calldata_size';
+export const L1_PUBLISHER_TX_CALLDATA_GAS = 'aztec.l1_publisher.tx_calldata_gas';

@@ -29,6 +29,233 @@
         "x": 0,
         "y": 0
       },
+      "id": 13,
+      "panels": [],
+      "title": "L1",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aztec-node-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "aztec-node-metrics"
+          },
+          "editorMode": "code",
+          "expr": "rate(aztec_l1_publisher_gas_price_gwei_sum[$__rate_interval]) / rate(aztec_l1_publisher_gas_price_gwei_count[$__rate_interval])",
+          "instant": false,
+          "legendFormat": "Avg gas price gwei",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Average gas cost gwei",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aztec-node-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "aztec-node-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "increase(aztec_l1_publisher_tx_count{aztec_ok=\"true\"}[$__rate_interval])",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "L1 Tx \"{{aztec_l1_tx_type}}\"",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "aztec-node-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "sum(increase(aztec_l1_publisher_tx_count{aztec_ok=\"false\"}[$__rate_interval]))",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Failed L1 txs",
+          "range": true,
+          "refId": "B",
+          "useBackend": false
+        }
+      ],
+      "title": "L1 transactions",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
       "id": 6,
       "panels": [],
       "title": "Node status",
@@ -71,7 +298,7 @@
         "h": 6,
         "w": 5,
         "x": 0,
-        "y": 1
+        "y": 10
       },
       "id": 7,
       "options": {
@@ -181,7 +408,7 @@
         "h": 6,
         "w": 7,
         "x": 5,
-        "y": 1
+        "y": 10
       },
       "id": 8,
       "options": {
@@ -250,7 +477,7 @@
         "h": 6,
         "w": 5,
         "x": 12,
-        "y": 1
+        "y": 10
       },
       "id": 9,
       "options": {
@@ -326,7 +553,7 @@
         "h": 6,
         "w": 7,
         "x": 17,
-        "y": 1
+        "y": 10
       },
       "id": 10,
       "options": {
@@ -408,7 +635,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -428,13 +655,38 @@
           },
           "unit": "none"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "true"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Accepted tx"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "false"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Rejected tx"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 16
       },
       "id": 11,
       "options": {
@@ -459,23 +711,9 @@
           "exemplar": false,
           "expr": "increase(aztec_node_receive_tx_count[$__rate_interval])",
           "instant": false,
-          "legendFormat": "Total",
+          "legendFormat": "{{ aztec_ok }}",
           "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "aztec-node-metrics"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "increase(aztec_node_receive_tx_count{aztec_tx_accepted=\"false\"}[$__rate_interval])",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Rejected",
-          "range": true,
-          "refId": "B"
         }
       ],
       "title": "Received Txs",
@@ -487,7 +725,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 24
       },
       "id": 3,
       "panels": [],
@@ -560,7 +798,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 25
       },
       "id": 5,
       "options": {
@@ -631,7 +869,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 25
       },
       "id": 2,
       "options": {
@@ -686,6 +924,6 @@
   "timezone": "browser",
   "title": "Aztec Node",
   "uid": "edp4qxqgjoav4e",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

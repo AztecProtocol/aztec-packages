@@ -18,10 +18,10 @@ export class NodeMetrics {
 
   receivedTx(durationMs: number, isAccepted: boolean) {
     this.receiveTxDuration.record(durationMs, {
-      [Attributes.TX_ACCEPTED]: isAccepted,
+      [Attributes.OK]: isAccepted,
     });
     this.receiveTxCount.add(1, {
-      [Attributes.TX_ACCEPTED]: isAccepted,
+      [Attributes.OK]: isAccepted,
     });
   }
 }
