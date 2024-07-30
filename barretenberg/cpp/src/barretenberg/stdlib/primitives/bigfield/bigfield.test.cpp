@@ -779,6 +779,21 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_to_byte_array()
+    {
+        typedef stdlib::bool_t<Builder> bool_t;
+
+        auto composer = Builder();
+
+        const uint256_t a_uint(0x559722a8a60ac475, 0xa3b50c41b7eb2cc8, 0x2dbf26bed85edd78, 0x17bd92855cc976f8);
+
+        const bb::fq a(a_uint);
+        fq_ct a_ct = fq_ct::from_witness(&composer, a);
+        fq_ct c_ct = a_ct.conditional_negate(bool_t(&composer, true));
+        fq_ct d_ct(c_ct.to_byte_array());
+        EXPECT_EQ(bb::fq((d_ct.get_value() % uint512_t(bb::fq::modulus)).lo), -a);
+    }
+
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -986,6 +1001,10 @@ TYPED_TEST(stdlib_bigfield, assert_less_than_success)
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
+}
+TYPED_TEST(stdlib_bigfield, to_byte_array)
+{
+    TestFixture::test_to_byte_array();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {
