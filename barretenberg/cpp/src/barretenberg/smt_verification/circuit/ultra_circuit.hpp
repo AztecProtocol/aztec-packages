@@ -3,6 +3,8 @@
 
 namespace smt_circuit {
 
+enum class TableType : int32_t { XOR, AND, UNKNOWN };
+
 /**
  * @brief Symbolic Circuit class for Standard Circuit Builder.
  *
@@ -22,6 +24,7 @@ class UltraCircuit : public CircuitBase {
 
     std::vector<std::vector<std::vector<bb::fr>>> lookup_tables;
     std::unordered_map<uint32_t, cvc5::Term> cached_symbolic_tables;
+    std::unordered_map<uint32_t, TableType> tables_types;
     std::unordered_map<uint64_t, cvc5::Term> cached_range_tables;
 
     explicit UltraCircuit(CircuitSchema& circuit_info,
@@ -42,6 +45,7 @@ class UltraCircuit : public CircuitBase {
     };
 
     bool simulate_circuit_eval(std::vector<bb::fr>& witness) const override;
+    void process_new_table(uint32_t table_idx);
 
     size_t handle_arithmetic_relation(size_t cursor, size_t idx);
     size_t handle_lookup_relation(size_t cursor, size_t idx);
