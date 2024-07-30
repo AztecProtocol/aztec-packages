@@ -254,11 +254,18 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
                 and_flag &= and_circuit.selectors[0][j + and_props.start_gate] == this->selectors[cursor + j];
 
                 // Before this fix this routine simplified two consecutive n bit xors(ands) into one 2n bit xor(and)
-                // Now it checks out_accumulator_idx and new_out_accumulator_idx to match
-                xor_flag &= (j % 14 != 13) || (j == 13) ||
-                            (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - 14][2]);
-                and_flag &= (j % 14 != 13) || (j == 13) ||
-                            (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - 14][2]);
+                // Now it checks out_accumulator_idx and new_out_accumulator_idx match
+                // 14 here is a size of one iteration of logic_gate for loop in term of gates
+                // 13 is the accumulator index relative to the beginning of the iteration
+
+                size_t single_iteration_size = 14;
+                size_t relative_acc_idx = 13;
+                xor_flag &=
+                    (j % single_iteration_size != relative_acc_idx) || (j == relative_acc_idx) ||
+                    (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - single_iteration_size][2]);
+                and_flag &=
+                    (j % single_iteration_size != relative_acc_index) || (j == relative_acc_index) ||
+                    (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - single_iteration_size][2]);
 
                 if (!xor_flag && !and_flag) {
                     // Won't match at any bit length
