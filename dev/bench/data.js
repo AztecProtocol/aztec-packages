@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722347084543,
+  "lastUpdate": 1722347962799,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -98708,6 +98708,78 @@ window.BENCHMARK_DATA = {
             "value": 168395707,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 168395707 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc3689fab40ebd7778c321cf4d37560e003ba6b8",
+          "message": "chore(master): Release 0.47.1 (#7605)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.47.1</summary>\r\n\r\n##\r\n[0.47.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.47.0...aztec-package-v0.47.1)\r\n(2024-07-30)\r\n\r\n\r\n### Features\r\n\r\n* Do not evict tx objects from p2p tx pool immediately\r\n([#7652](https://github.com/AztecProtocol/aztec-packages/issues/7652))\r\n([96492dc](https://github.com/AztecProtocol/aztec-packages/commit/96492dccbf501eb9d05b57827c79c5977b393df7))\r\n* Min and max block times for sequencer\r\n([#7630](https://github.com/AztecProtocol/aztec-packages/issues/7630))\r\n([2a013b8](https://github.com/AztecProtocol/aztec-packages/commit/2a013b86e554f0516dd1d086a30a4e1e4e4ec684))\r\n* Transaction sender bot\r\n([#7586](https://github.com/AztecProtocol/aztec-packages/issues/7586))\r\n([176fd08](https://github.com/AztecProtocol/aztec-packages/commit/176fd08c7b72bce2beb405080b7992ebf4ba0a31)),\r\ncloses\r\n[#7562](https://github.com/AztecProtocol/aztec-packages/issues/7562)\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Aztec start --prover\r\n([#7617](https://github.com/AztecProtocol/aztec-packages/issues/7617))\r\n([ac206a6](https://github.com/AztecProtocol/aztec-packages/commit/ac206a609b3fa6bcad5d8981de8e42967b41050b))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Add tx bot to terraform\r\n([#7609](https://github.com/AztecProtocol/aztec-packages/issues/7609))\r\n([6caa914](https://github.com/AztecProtocol/aztec-packages/commit/6caa914d96a13d0e50f0403c561aa72e6b455782))\r\n* Merge Devnet back to Master\r\n([#7611](https://github.com/AztecProtocol/aztec-packages/issues/7611))\r\n([112961c](https://github.com/AztecProtocol/aztec-packages/commit/112961cd9c9276e2cd95b41b6de31d27bb43bb41))\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.47.1</summary>\r\n\r\n##\r\n[0.47.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.47.0...barretenberg.js-v0.47.1)\r\n(2024-07-30)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.47.1</summary>\r\n\r\n##\r\n[0.47.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.47.0...aztec-packages-v0.47.1)\r\n(2024-07-30)\r\n\r\n\r\n### Features\r\n\r\n* Add recursive aggregation object to proving/verification keys\r\n([#6770](https://github.com/AztecProtocol/aztec-packages/issues/6770))\r\n([f48b069](https://github.com/AztecProtocol/aztec-packages/commit/f48b069181e316cb2a9d81f0acf6c00ee90e3db3))\r\n* Adding aggregation to honk and rollup\r\n([#7466](https://github.com/AztecProtocol/aztec-packages/issues/7466))\r\n([2633aa9](https://github.com/AztecProtocol/aztec-packages/commit/2633aa91a97684f481a861aee0be8756c956135a))\r\n* Allow get_notes to return zero notes\r\n([#7621](https://github.com/AztecProtocol/aztec-packages/issues/7621))\r\n([e16452a](https://github.com/AztecProtocol/aztec-packages/commit/e16452ab7640169e1235b91d598e3d90ba4ce57e))\r\n* **avm:** Pedersen commit in avm\r\n([#7634](https://github.com/AztecProtocol/aztec-packages/issues/7634))\r\n([45e7867](https://github.com/AztecProtocol/aztec-packages/commit/45e7867f4b42a3392b4b95767621284ebc7378fe))\r\n* **avm:** Pedersen commitment sim\r\n([#7632](https://github.com/AztecProtocol/aztec-packages/issues/7632))\r\n([cc420a0](https://github.com/AztecProtocol/aztec-packages/commit/cc420a081e23558b9441cbf563625002e1d45f18))\r\n* Do not evict tx objects from p2p tx pool immediately\r\n([#7652](https://github.com/AztecProtocol/aztec-packages/issues/7652))\r\n([96492dc](https://github.com/AztecProtocol/aztec-packages/commit/96492dccbf501eb9d05b57827c79c5977b393df7))\r\n* Handle L1toL2 msgs in prover-node\r\n([#7654](https://github.com/AztecProtocol/aztec-packages/issues/7654))\r\n([f35bac5](https://github.com/AztecProtocol/aztec-packages/commit/f35bac5d35d22e269d8bf2ffccc4484a715d70ae))\r\n* Leonidas\r\n([#7597](https://github.com/AztecProtocol/aztec-packages/issues/7597))\r\n([eda498a](https://github.com/AztecProtocol/aztec-packages/commit/eda498aec6d852c8732c86564e4226f13cb4cdcd))\r\n* Min and max block times for sequencer\r\n([#7630](https://github.com/AztecProtocol/aztec-packages/issues/7630))\r\n([2a013b8](https://github.com/AztecProtocol/aztec-packages/commit/2a013b86e554f0516dd1d086a30a4e1e4e4ec684))\r\n* **sol-honk:** Integrate solidity honk verifier with bb and acir tests\r\n([#7573](https://github.com/AztecProtocol/aztec-packages/issues/7573))\r\n([344ca6f](https://github.com/AztecProtocol/aztec-packages/commit/344ca6f413263a3c2c516b388f85a11fada2840f))\r\n* **sol-honk:** Test verifying recursive proof\r\n([#7576](https://github.com/AztecProtocol/aztec-packages/issues/7576))\r\n([26408c1](https://github.com/AztecProtocol/aztec-packages/commit/26408c197f5c6e8a300d24e441f4a4860210b5f0))\r\n* Static.aztec.network\r\n([#7649](https://github.com/AztecProtocol/aztec-packages/issues/7649))\r\n([9dffef5](https://github.com/AztecProtocol/aztec-packages/commit/9dffef598dd5adb6fe02ff697916b63f81a4b054))\r\n* Transaction sender bot\r\n([#7586](https://github.com/AztecProtocol/aztec-packages/issues/7586))\r\n([176fd08](https://github.com/AztecProtocol/aztec-packages/commit/176fd08c7b72bce2beb405080b7992ebf4ba0a31)),\r\ncloses\r\n[#7562](https://github.com/AztecProtocol/aztec-packages/issues/7562)\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Aztec start --prover\r\n([#7617](https://github.com/AztecProtocol/aztec-packages/issues/7617))\r\n([ac206a6](https://github.com/AztecProtocol/aztec-packages/commit/ac206a609b3fa6bcad5d8981de8e42967b41050b))\r\n* Bb mac build\r\n([#7619](https://github.com/AztecProtocol/aztec-packages/issues/7619))\r\n([e3c5602](https://github.com/AztecProtocol/aztec-packages/commit/e3c560216e1bce7d22e30ef18d428f1ab7335a09))\r\n* Faucet correctly derives its account\r\n([#7645](https://github.com/AztecProtocol/aztec-packages/issues/7645))\r\n([921773f](https://github.com/AztecProtocol/aztec-packages/commit/921773fa7fbd614948b1c76f655746483935809f))\r\n* Uniswap e2e test \"nonce too low\"\r\n([#7633](https://github.com/AztecProtocol/aztec-packages/issues/7633))\r\n([e9e2318](https://github.com/AztecProtocol/aztec-packages/commit/e9e231833a50c0763164f9a502a322549ce9d05c))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Add tx bot to terraform\r\n([#7609](https://github.com/AztecProtocol/aztec-packages/issues/7609))\r\n([6caa914](https://github.com/AztecProtocol/aztec-packages/commit/6caa914d96a13d0e50f0403c561aa72e6b455782))\r\n* **bb readme:** Add installation instructions and TODOs\r\n([#7601](https://github.com/AztecProtocol/aztec-packages/issues/7601))\r\n([1a97698](https://github.com/AztecProtocol/aztec-packages/commit/1a97698071a667cd56510c7b7201373a9ac9c646))\r\n* **bb readme:** Update versioning instructions and add Honk Solidity\r\nverifier commands\r\n([#7608](https://github.com/AztecProtocol/aztec-packages/issues/7608))\r\n([9dd9195](https://github.com/AztecProtocol/aztec-packages/commit/9dd9195d8da2d7e2bc85d39e53b33cc82597da1f))\r\n* Bench client ivc proof verification\r\n([#7553](https://github.com/AztecProtocol/aztec-packages/issues/7553))\r\n([b060309](https://github.com/AztecProtocol/aztec-packages/commit/b060309540af2c4db5057ae526ee65f5f1fd6d0e))\r\n* Call requests\r\n([#7483](https://github.com/AztecProtocol/aztec-packages/issues/7483))\r\n([ffedf39](https://github.com/AztecProtocol/aztec-packages/commit/ffedf39d98aee4c4149e55e4a133e878553e1e25))\r\n* Constant inputs for most blackboxes\r\n([#7613](https://github.com/AztecProtocol/aztec-packages/issues/7613))\r\n([3247058](https://github.com/AztecProtocol/aztec-packages/commit/3247058d2e54e1fb84680ad9fcf9ece611235e96))\r\n* **docs:** Fix links\r\n([#7602](https://github.com/AztecProtocol/aztec-packages/issues/7602))\r\n([f2029be](https://github.com/AztecProtocol/aztec-packages/commit/f2029be410ce2381eb4cf56fc5fcc8707492db45))\r\n* Merge Devnet back to Master\r\n([#7611](https://github.com/AztecProtocol/aztec-packages/issues/7611))\r\n([112961c](https://github.com/AztecProtocol/aztec-packages/commit/112961cd9c9276e2cd95b41b6de31d27bb43bb41))\r\n* **p2p:** Tx serialization cleanup\r\n([#7620](https://github.com/AztecProtocol/aztec-packages/issues/7620))\r\n([022a899](https://github.com/AztecProtocol/aztec-packages/commit/022a899bb729ec0cd8403955908f3537b108c61b))\r\n* Replace relative paths to noir-protocol-circuits\r\n([ebaafc7](https://github.com/AztecProtocol/aztec-packages/commit/ebaafc7f660cd0ee915e1b6daa2d2e499d9d7280))\r\n* Replace relative paths to noir-protocol-circuits\r\n([d3b818d](https://github.com/AztecProtocol/aztec-packages/commit/d3b818d8fcaffe51273b9eea91b621f62ccf8f1f))\r\n* Replace relative paths to noir-protocol-circuits\r\n([4a26a19](https://github.com/AztecProtocol/aztec-packages/commit/4a26a19c4f03d2c7800cf769b46724d09dcb8b0e))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.47.1</summary>\r\n\r\n##\r\n[0.47.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.47.0...barretenberg-v0.47.1)\r\n(2024-07-30)\r\n\r\n\r\n### Features\r\n\r\n* Add recursive aggregation object to proving/verification keys\r\n([#6770](https://github.com/AztecProtocol/aztec-packages/issues/6770))\r\n([f48b069](https://github.com/AztecProtocol/aztec-packages/commit/f48b069181e316cb2a9d81f0acf6c00ee90e3db3))\r\n* Adding aggregation to honk and rollup\r\n([#7466](https://github.com/AztecProtocol/aztec-packages/issues/7466))\r\n([2633aa9](https://github.com/AztecProtocol/aztec-packages/commit/2633aa91a97684f481a861aee0be8756c956135a))\r\n* **avm:** Pedersen commit in avm\r\n([#7634](https://github.com/AztecProtocol/aztec-packages/issues/7634))\r\n([45e7867](https://github.com/AztecProtocol/aztec-packages/commit/45e7867f4b42a3392b4b95767621284ebc7378fe))\r\n* **avm:** Pedersen commitment sim\r\n([#7632](https://github.com/AztecProtocol/aztec-packages/issues/7632))\r\n([cc420a0](https://github.com/AztecProtocol/aztec-packages/commit/cc420a081e23558b9441cbf563625002e1d45f18))\r\n* **sol-honk:** Integrate solidity honk verifier with bb and acir tests\r\n([#7573](https://github.com/AztecProtocol/aztec-packages/issues/7573))\r\n([344ca6f](https://github.com/AztecProtocol/aztec-packages/commit/344ca6f413263a3c2c516b388f85a11fada2840f))\r\n* **sol-honk:** Test verifying recursive proof\r\n([#7576](https://github.com/AztecProtocol/aztec-packages/issues/7576))\r\n([26408c1](https://github.com/AztecProtocol/aztec-packages/commit/26408c197f5c6e8a300d24e441f4a4860210b5f0))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Bb mac build\r\n([#7619](https://github.com/AztecProtocol/aztec-packages/issues/7619))\r\n([e3c5602](https://github.com/AztecProtocol/aztec-packages/commit/e3c560216e1bce7d22e30ef18d428f1ab7335a09))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **bb readme:** Add installation instructions and TODOs\r\n([#7601](https://github.com/AztecProtocol/aztec-packages/issues/7601))\r\n([1a97698](https://github.com/AztecProtocol/aztec-packages/commit/1a97698071a667cd56510c7b7201373a9ac9c646))\r\n* **bb readme:** Update versioning instructions and add Honk Solidity\r\nverifier commands\r\n([#7608](https://github.com/AztecProtocol/aztec-packages/issues/7608))\r\n([9dd9195](https://github.com/AztecProtocol/aztec-packages/commit/9dd9195d8da2d7e2bc85d39e53b33cc82597da1f))\r\n* Call requests\r\n([#7483](https://github.com/AztecProtocol/aztec-packages/issues/7483))\r\n([ffedf39](https://github.com/AztecProtocol/aztec-packages/commit/ffedf39d98aee4c4149e55e4a133e878553e1e25))\r\n* Constant inputs for most blackboxes\r\n([#7613](https://github.com/AztecProtocol/aztec-packages/issues/7613))\r\n([3247058](https://github.com/AztecProtocol/aztec-packages/commit/3247058d2e54e1fb84680ad9fcf9ece611235e96))\r\n* Merge Devnet back to Master\r\n([#7611](https://github.com/AztecProtocol/aztec-packages/issues/7611))\r\n([112961c](https://github.com/AztecProtocol/aztec-packages/commit/112961cd9c9276e2cd95b41b6de31d27bb43bb41))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-07-30T09:43:47-04:00",
+          "tree_id": "fb73db4adc6c03b478a6bb99942f48952abaecb1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bc3689fab40ebd7778c321cf4d37560e003ba6b8"
+        },
+        "date": 1722347955704,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13308.741381999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9745.723827999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4804.361208000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4302.569681000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39726.36509199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39726365000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14409.562956999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14409563000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3651847541,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3651847541 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203364399,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203364399 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2994988225,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2994988225 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167876170,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167876170 ns\nthreads: 1"
           }
         ]
       }
