@@ -33,8 +33,19 @@ void create_multi_scalar_mul_constraint(Builder& builder,
         point_y = to_field_ct(input.points[i + 1], builder);
         infinite = bool_ct(to_field_ct(input.points[i + 2], builder));
 
-        if (!has_valid_witness_assignments && !input.points[i + 2].is_constant) {
-            builder.variables[input.points[i + 2].index] = fr(1);
+        // When we do not have the witness assignments, we set is_infinite value to true if it is not constant
+        // else default values would give a point which is not on the curve and this will fail verification
+        if (!has_valid_witness_assignments) {
+            if (!input.points[i + 2].is_constant) {
+                builder.variables[input.points[i + 2].index] = fr(1);
+            } else if (input.points[i + 2].value == fr::zero() &&
+                       !(input.points[i].is_constant || input.points[i + 1].is_constant)) {
+                // else, if is_infinite is false, but the coordinates (x, y) are witness
+                // then we set their value so to a curve point.
+                auto g1 = bb::grumpkin::g1::affine_one;
+                builder.variables[input.points[i].index] = g1.x;
+                builder.variables[input.points[i + 1].index] = g1.y;
+            }
         }
 
         cycle_group_ct input_point(point_x, point_y, infinite);
