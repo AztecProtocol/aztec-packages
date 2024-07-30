@@ -68,7 +68,30 @@ UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::
     for (size_t i = 0; i < key->num_public_inputs; ++i) {
         public_inputs.emplace_back(transcript->template receive_from_prover<FF>("public_input_" + std::to_string(i)));
     }
-    // WORKTODO: parse out the aggregation object here
+    // WORKTODO: parse out the aggregation object here using the key->recursive_proof_public_inputs_indices
+    aggregation_state<typename Flavor::Curve> nested_agg_obj;
+    size_t idx = 0;
+    std::array<typename Curve::Group, 2> nested_pairing_points;
+    for (size_t i = 0; i < 2; i++) {
+        std::array<typename Curve::BaseField, 2> base_field_vals;
+        for (size_t j = 0; j < 2; j++) {
+            std::array<FF, 4> bigfield_limbs;
+            for (size_t k = 0; k < 4; k++) {
+                bigfield_limbs[k] = public_inputs[key->recursive_proof_public_input_indices[idx]];
+                idx++;
+            }
+            base_field_vals[j] =
+                typename Curve::BaseField(bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
+        }
+        nested_pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
+    }
+    nested_agg_obj.P0 = nested_pairing_points[0];
+    nested_agg_obj.P1 = nested_pairing_points[1];
+    // WORKTODO: fix recursion separators
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
+    typename Curve::ScalarField recursion_separator =
+        Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
+    agg_obj.aggregate(nested_agg_obj, recursion_separator);
 
     // Get commitments to first three wire polynomials
     commitments.w_l = transcript->template receive_from_prover<Commitment>(commitment_labels.w_l);
@@ -158,8 +181,8 @@ UltraRecursiveVerifier_<Flavor>::PairingPoints UltraRecursiveVerifier_<Flavor>::
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     // WORKTODO: aggregate here
-    agg_obj.P0 = pairing_points[0];
-    agg_obj.P1 = pairing_points[1];
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
+    agg_obj.aggregate(pairing_points, recursion_separator);
     return agg_obj;
 }
 

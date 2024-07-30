@@ -29,6 +29,18 @@ template <typename Curve> struct aggregation_state {
         //    has_data == other.has_data; can't compare as native
     };
 
+    void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
+    {
+        P0 += other.P0 * recursion_separator;
+        P1 += other.P1 * recursion_separator;
+    }
+
+    void aggregate(std::array<typename Curve::Group, 2> const& other, typename Curve::ScalarField recursion_separator)
+    {
+        P0 += other[0] * recursion_separator;
+        P1 += other[1] * recursion_separator;
+    }
+
     /**
      * @brief TODO(@dbanks12 please migrate A3 circuits to using `assign_object_to_proof_outputs`. Much safer to not
      * independently track `proof_witness_indices` and whether object has been assigned to public inputs)
