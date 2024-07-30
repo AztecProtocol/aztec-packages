@@ -1,7 +1,8 @@
 use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}, utils::arrays::sort_get_order_hints::OrderHint};
 
 // original_array must be valid, i.e. validate_array(original_array) == true
-pub fn assert_sorted_transformed_value_array<T, S, N, Env>(
+// transformed_value_array must be verified against original_array before calling this function.
+pub fn assert_sorted_transformed_value_array<T, S, let N: u32>(
     original_array: [T; N],
     transformed_value_array: [S; N],
     sorted_transformed_value_array: [S; N],
@@ -74,7 +75,7 @@ mod tests {
         TestValue { name: item.name, total: item.price + item.tax }
     }
 
-    struct TestDataBuilder<T, S, N> {
+    struct TestDataBuilder<T, S, let N: u32> {
         original_array: [T; N],
         transformed_value_array: [S; N],
         sorted_transformed_value_array: [S; N],

@@ -1,5 +1,4 @@
 use crate::utils::field::field_from_bytes;
-use dep::std::cmp::Eq;
 use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
 
 global SELECTOR_SIZE = 4;
@@ -52,9 +51,9 @@ impl FunctionSelector {
         Self { inner: value }
     }
 
-    pub fn from_signature<N>(signature: str<N>) -> Self {
+    pub fn from_signature<let N: u32>(signature: str<N>) -> Self {
         let bytes = signature.as_bytes();
-        let hash = dep::std::hash::keccak256(bytes, bytes.len() as u32);
+        let hash = std::hash::keccak256(bytes, bytes.len() as u32);
 
         let mut selector_be_bytes = [0; SELECTOR_SIZE];
         for i in 0..SELECTOR_SIZE {

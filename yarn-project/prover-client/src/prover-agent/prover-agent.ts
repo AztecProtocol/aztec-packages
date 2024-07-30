@@ -62,10 +62,16 @@ export class ProverAgent {
             return;
           }
 
-          const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
-          this.inFlightPromises.set(job.id, promise);
+          try {
+            const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
+            this.inFlightPromises.set(job.id, promise);
+          } catch (err) {
+            this.log.warn(
+              `Error processing job! type=${ProvingRequestType[job.request.type]}: ${err}. ${(err as Error).stack}`,
+            );
+          }
         } catch (err) {
-          this.log.warn(`Error processing job: ${err}`);
+          // no-op
         }
       }
     }, this.pollIntervalMs);
@@ -104,12 +110,16 @@ export class ProverAgent {
     } catch (err) {
       if (this.isRunning()) {
         this.log.error(
-          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${err}`,
+          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${
+            (err as any).stack || err
+          }`,
         );
         await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       } else {
         this.log.debug(
-          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${err}`,
+          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${
+            (err as any).stack || err
+          }`,
         );
       }
     }
@@ -158,6 +168,10 @@ export class ProverAgent {
 
       case ProvingRequestType.PRIVATE_KERNEL_EMPTY: {
         return this.circuitProver.getEmptyPrivateKernelProof(inputs);
+      }
+
+      case ProvingRequestType.TUBE_PROOF: {
+        return this.circuitProver.getTubeProof(inputs);
       }
 
       default: {

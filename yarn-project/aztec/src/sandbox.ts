@@ -1,12 +1,11 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { CANONICAL_AUTH_REGISTRY_ADDRESS, CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js';
+import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2GasToken } from '@aztec/cli/utils';
 import {
   type DeployL1Contracts,
-  type L1ContractAddresses,
   type L1ContractArtifactsForDeployment,
   NULL_KEY,
   createEthereumChain,
@@ -30,12 +29,11 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
-import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
-import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
-import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
-import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -51,13 +49,13 @@ const localAnvil = foundry;
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
  */
 async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Promise<DeployL1Contracts>) {
-  const chain = createEthereumChain(config.rpcUrl, config.apiKey);
+  const chain = createEthereumChain(config.rpcUrl, config.l1ChainId);
   // wait for ETH RPC to respond to a request.
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
     transport: httpViemTransport(chain.rpcUrl),
   });
-  const chainID = await retryUntil(
+  const l1ChainID = await retryUntil(
     async () => {
       let chainId = 0;
       try {
@@ -72,7 +70,7 @@ async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Pro
     1,
   );
 
-  if (!chainID) {
+  if (!l1ChainID) {
     throw Error(`Ethereum node unresponsive at ${chain.rpcUrl}.`);
   }
 
@@ -124,107 +122,13 @@ export async function deployContractsToL1(
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
     deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
       l2GasTokenAddress: GasTokenAddress,
+      vkTreeRoot: getVKTreeRoot(),
     }),
   );
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
 
   return aztecNodeConfig.l1Contracts;
-}
-
-/**
- * Deploys the contract to pay for gas on L2.
- */
-async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: L1ContractAddresses) {
-  const gasPortalAddress = l1ContractAddresses.gasPortalAddress;
-  const canonicalGasToken = getCanonicalGasToken();
-
-  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
-    return;
-  }
-
-  const gasToken = await GasTokenContract.deploy(deployer)
-    .send({ universalDeploy: true, contractAddressSalt: canonicalGasToken.instance.salt })
-    .deployed();
-  await gasToken.methods.set_portal(gasPortalAddress).send().wait();
-
-  if (!gasToken.address.equals(canonicalGasToken.address)) {
-    throw new Error(
-      `Deployed Gas Token address ${gasToken.address} does not match expected address ${canonicalGasToken.address}`,
-    );
-  }
-
-  if (!(await deployer.isContractPubliclyDeployed(canonicalGasToken.address))) {
-    throw new Error(`Failed to deploy Gas Token to ${canonicalGasToken.address}`);
-  }
-
-  logger.info(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
-}
-
-/**
- * Deploys the key registry on L2.
- */
-async function deployCanonicalKeyRegistry(deployer: Wallet) {
-  const canonicalKeyRegistry = getCanonicalKeyRegistry();
-
-  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
-  // the key registry has already been deployed to the correct address.
-  if (
-    (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(
-      canonicalKeyRegistry.contractClass.id,
-    ) &&
-    (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id))
-  ) {
-    return;
-  }
-
-  const keyRegistry = await KeyRegistryContract.deploy(deployer)
-    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
-    .deployed();
-
-  if (
-    !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
-    !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))
-  ) {
-    throw new Error(
-      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}, or they both do not equal CANONICAL_KEY_REGISTRY_ADDRESS`,
-    );
-  }
-
-  logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
-}
-
-/**
- * Deploys the auth registry on L2.
- */
-async function deployCanonicalAuthRegistry(deployer: Wallet) {
-  const canonicalAuthRegistry = getCanonicalAuthRegistry();
-
-  // We check to see if there exists a contract at the canonical Auth Registry address with the same contract class id as we expect. This means that
-  // the auth registry has already been deployed to the correct address.
-  if (
-    (await deployer.getContractInstance(canonicalAuthRegistry.address))?.contractClassId.equals(
-      canonicalAuthRegistry.contractClass.id,
-    ) &&
-    (await deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id))
-  ) {
-    return;
-  }
-
-  const authRegistry = await AuthRegistryContract.deploy(deployer)
-    .send({ contractAddressSalt: canonicalAuthRegistry.instance.salt, universalDeploy: true })
-    .deployed();
-
-  if (
-    !authRegistry.address.equals(canonicalAuthRegistry.address) ||
-    !authRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_AUTH_REGISTRY_ADDRESS))
-  ) {
-    throw new Error(
-      `Deployed Auth Registry address ${authRegistry.address} does not match expected address ${canonicalAuthRegistry.address}, or they both do not equal CANONICAL_AUTH_REGISTRY_ADDRESS`,
-    );
-  }
-
-  logger.info(`Deployed Auth Registry on L2 at ${canonicalAuthRegistry.address}`);
 }
 
 /** Sandbox settings. */
@@ -252,20 +156,20 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await deployContractsToL1(aztecNodeConfig, hdAccount);
   }
 
-  const node = await createAztecNode(aztecNodeConfig);
+  const node = await createAztecNode(new NoopTelemetryClient(), aztecNodeConfig);
   const pxe = await createAztecPXE(node);
 
   await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );
   await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );
 
   if (config.enableGas) {
     await deployCanonicalL2GasToken(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
-      aztecNodeConfig.l1Contracts,
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+      aztecNodeConfig.l1Contracts.gasPortalAddress,
     );
   }
 
@@ -281,9 +185,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  * Create and start a new Aztec RPC HTTP Server
  * @param config - Optional Aztec node settings.
  */
-export async function createAztecNode(config: Partial<AztecNodeConfig> = {}) {
+export async function createAztecNode(telemetryClient: TelemetryClient, config: Partial<AztecNodeConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
   return node;
 }
 

@@ -24,7 +24,7 @@ If you get an error like: `Cannot read file ~/nargo/github.com/AztecProtocol/azt
 Check the `git=` github url, tag, and directory.
 
 :::note
-The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir-projects/aztec-nr`. More details [here](https://docs.aztec.network/misc/migration_notes#aztecnr-aztec-nr-contracts-location-change-in-nargotoml)
+The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir-projects/aztec-nr`. More details [here](../../migration_notes.md#aztecnr-aztec-nr-contracts-location-change-in-nargotoml)
 :::
 
 ### Example contract versions
@@ -51,7 +51,7 @@ diff ~/nargo/github.com/AztecProtocol/aztec-packages-v0.23.0/yarn-project/noir-c
 
 ### Language server version (aztec-nargo)
 
-The [Noir LSP](https://docs.aztec.network/developers/contracts/main.md#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
+The [Noir LSP](../../getting_started.md#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
 The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec-nargo` command.
 
 :::caution
@@ -86,7 +86,7 @@ Inside your project run:
 
 ```shell
 cd your/aztec/project
-aztec-builder update . --contract src/contract1 --contract src/contract2
+aztec update . --contract src/contract1 --contract src/contract2
 ```
 
 The sandbox must be running for the update command to work. Make sure it is [installed and running](../../reference/sandbox_reference/sandbox-reference.md).
@@ -104,16 +104,16 @@ There are four components whose versions need to be kept compatible:
 3. `Aztec.nr`, the Noir framework for writing Aztec contracts
 
 First three are packaged together in docker and are kept compatible by running `aztec-up`.
-But you need to update your Aztec.nr version manually or using `aztec-builder update`.
+But you need to update your Aztec.nr version manually or using `aztec update`.
 
 ## Updating Aztec.nr packages
 
 ### Automatic update
 
-`aztec-builder` will update your Aztec.nr packages to the appropriate version with the `aztec-builder update` command. Run this command from the root of your project and pass the paths to the folders containing the Nargo.toml files for your projects like so:
+You can update your Aztec.nr packages to the appropriate version with the `aztec update` command. Run this command from the root of your project and pass the paths to the folders containing the Nargo.toml files for your projects like so:
 
 ```shell
-aztec-builder update . --contract src/contract1 --contract src/contract2
+aztec update . --contract src/contract1 --contract src/contract2
 ```
 
 ### Manual update

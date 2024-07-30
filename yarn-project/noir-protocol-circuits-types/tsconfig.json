@@ -3,12 +3,10 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "resolveJsonModule": true
   },
   "references": [
-    {
-      "path": "../builder"
-    },
     {
       "path": "../circuits.js"
     },
@@ -19,15 +17,11 @@
       "path": "../types"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../kv-store"
     },
     {
       "path": "../merkle-tree"
     }
   ],
-  "include": ["src", "src/**/*.json"],
-  "exclude": ["src/contracts"]
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]
 }

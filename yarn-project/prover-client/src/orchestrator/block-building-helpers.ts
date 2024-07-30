@@ -9,11 +9,11 @@ import {
   type GlobalVariables,
   KernelData,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -30,30 +30,24 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  ROLLUP_VK_TREE_HEIGHT,
+  type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
   RootRollupInputs,
   type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
+  type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
-  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
-
-// Denotes fields that are not used now, but will be in the future
-const FUTURE_FR = new Fr(0n);
-const FUTURE_NUM = 0;
-
-// Denotes fields that should be deleted
-const DELETE_FR = new Fr(0n);
 
 /**
  * Type representing the names of the trees for the base rollup.
@@ -67,6 +61,7 @@ export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
 export async function buildBaseRollupInput(
   tx: ProcessedTx,
+  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
   kernelVk: VerificationKeyData,
@@ -102,8 +97,8 @@ export async function buildBaseRollupInput(
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-  const newNoteHashes = tx.data.end.newNoteHashes;
-  await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newNoteHashes);
+  const noteHashes = tx.data.end.noteHashes;
+  await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
 
   // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
   // All reads that refer to writes in the same tx are transient and can be simplified out.
@@ -112,12 +107,12 @@ export async function buildBaseRollupInput(
   // Update the nullifier tree, capturing the low nullifier info for each individual operation
   const {
     lowLeavesWitnessData: nullifierWitnessLeaves,
-    newSubtreeSiblingPath: newNullifiersSubtreeSiblingPath,
-    sortedNewLeaves: sortedNewNullifiers,
+    newSubtreeSiblingPath: nullifiersSubtreeSiblingPath,
+    sortedNewLeaves: sortednullifiers,
     sortedNewLeavesIndexes,
   } = await db.batchInsert(
     MerkleTreeId.NULLIFIER_TREE,
-    tx.data.end.newNullifiers.map(n => n.toBuffer()),
+    tx.data.end.nullifiers.map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
   if (nullifierWitnessLeaves === undefined) {
@@ -130,7 +125,7 @@ export async function buildBaseRollupInput(
       MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
     );
 
-  const nullifierSubtreeSiblingPathArray = newNullifiersSubtreeSiblingPath.toFields();
+  const nullifierSubtreeSiblingPathArray = nullifiersSubtreeSiblingPath.toFields();
 
   const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
     i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
@@ -139,18 +134,18 @@ export async function buildBaseRollupInput(
   const publicDataSiblingPath = txPublicDataUpdateRequestInfo.newPublicDataSubtreeSiblingPath;
 
   const stateDiffHints = StateDiffHints.from({
-    nullifierPredecessorPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
+    nullifierPredecessorPreimages: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
       i < nullifierWitnessLeaves.length
         ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
         : NullifierLeafPreimage.empty(),
     ),
-    nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
+    nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NULLIFIERS_PER_TX, i =>
       i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
         ? nullifierPredecessorMembershipWitnessesWithoutPadding[i]
         : makeEmptyMembershipWitness(NULLIFIER_TREE_HEIGHT),
     ),
-    sortedNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortedNewNullifiers[i])),
-    sortedNullifierIndexes: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
+    sortedNullifiers: makeTuple(MAX_NULLIFIERS_PER_TX, i => Fr.fromBuffer(sortednullifiers[i])),
+    sortedNullifierIndexes: makeTuple(MAX_NULLIFIERS_PER_TX, i => sortedNewLeavesIndexes[i]),
     noteHashSubtreeSiblingPath,
     nullifierSubtreeSiblingPath,
     publicDataSiblingPath,
@@ -165,7 +160,7 @@ export async function buildBaseRollupInput(
   );
 
   return BaseRollupInputs.from({
-    kernelData: getKernelDataFor(tx, kernelVk),
+    kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
     stateDiffHints,
     feePayerGasTokenBalanceReadHint,
@@ -267,18 +262,13 @@ export function getPreviousRollupDataFromPublicInputs(
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
+  const leafIndex = getVKIndex(vk);
+
   return new PreviousRollupData(
     rollupOutput,
     rollupProof,
     vk,
-
-    // MembershipWitness for a VK tree to be implemented in the future
-    FUTURE_NUM,
-    new MembershipWitness(
-      ROLLUP_VK_TREE_HEIGHT,
-      BigInt(FUTURE_NUM),
-      makeTuple(ROLLUP_VK_TREE_HEIGHT, () => FUTURE_FR),
-    ),
+    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
   );
 }
 
@@ -287,10 +277,7 @@ export async function getConstantRollupData(
   db: MerkleTreeOperations,
 ): Promise<ConstantRollupData> {
   return ConstantRollupData.from({
-    baseRollupVkHash: DELETE_FR,
-    mergeRollupVkHash: DELETE_FR,
-    privateKernelVkTreeRoot: FUTURE_FR,
-    publicKernelVkTreeRoot: FUTURE_FR,
+    vkTreeRoot: getVKTreeRoot(),
     lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
     globalVariables,
   });
@@ -301,18 +288,20 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vk: VerificationKeyData): KernelData {
-  const recursiveProof = makeRecursiveProofFromBinary(tx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
+export function getKernelDataFor(
+  tx: ProcessedTx,
+  vk: VerificationKeyData,
+  proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+): KernelData {
+  const leafIndex = getVKIndex(vk);
+
   return new KernelData(
     tx.data,
-    recursiveProof,
-
+    proof,
     // VK for the kernel circuit
     vk,
-
-    // MembershipWitness for a VK tree to be implemented in the future
-    FUTURE_NUM,
-    assertLength(Array(VK_TREE_HEIGHT).fill(FUTURE_FR), VK_TREE_HEIGHT),
+    leafIndex,
+    getVKSiblingPath(leafIndex),
   );
 }
 

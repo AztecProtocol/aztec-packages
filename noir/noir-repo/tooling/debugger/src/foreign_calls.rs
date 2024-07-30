@@ -3,10 +3,8 @@ use acvm::{
     pwg::ForeignCallWaitInfo,
     AcirField, FieldElement,
 };
-use nargo::{
-    artifacts::debug::{DebugArtifact, DebugVars, StackFrame},
-    ops::{DefaultForeignCallExecutor, ForeignCallExecutor},
-};
+use nargo::ops::{DefaultForeignCallExecutor, ForeignCallExecutor};
+use noirc_artifacts::debug::{DebugArtifact, DebugVars, StackFrame};
 use noirc_errors::debug_info::{DebugFnId, DebugVarId};
 use noirc_printable_type::ForeignCallError;
 
@@ -51,7 +49,7 @@ pub struct DefaultDebugForeignCallExecutor {
 impl DefaultDebugForeignCallExecutor {
     pub fn new(show_output: bool) -> Self {
         Self {
-            executor: DefaultForeignCallExecutor::new(show_output, None),
+            executor: DefaultForeignCallExecutor::new(show_output, None, None, None),
             debug_vars: DebugVars::default(),
         }
     }

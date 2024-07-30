@@ -13,15 +13,17 @@ impl PreviousKernelValidator {
     }
 
     pub fn validate_for_private_tail(self) {
-        self.validate_empty_private_call_stack();
-        self.validate_empty_public_call_stack();
-        self.verify_empty_validation_requests();
-        self.verify_no_transient_data();
+        self.validate_common();
+        self.validate_empty_public_call_requests();
     }
 
     pub fn validate_for_private_tail_to_public(self) {
+        self.validate_common();
+        self.validate_non_empty_public_call_requests();
+    }
+
+    fn validate_common(self) {
         self.validate_empty_private_call_stack();
-        self.validate_non_empty_public_call_stack();
         self.verify_empty_validation_requests();
         self.verify_no_transient_data();
     }
@@ -32,19 +34,19 @@ impl PreviousKernelValidator {
         );
     }
 
-    fn validate_empty_public_call_stack(self) {
+    fn validate_empty_public_call_requests(self) {
         assert_eq(
-            array_length(self.previous_kernel.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+            array_length(self.previous_kernel.end.public_call_requests), 0, "Public call stack must be empty when executing the tail circuit"
         );
         assert(
             is_empty(self.previous_kernel.public_teardown_call_request), "Public teardown call request must be empty when executing the tail circuit"
         );
     }
 
-    fn validate_non_empty_public_call_stack(self) {
-        let call_stack_len = array_length(self.previous_kernel.end.public_call_stack);
+    fn validate_non_empty_public_call_requests(self) {
+        let len = array_length(self.previous_kernel.end.public_call_requests);
         assert(
-            (call_stack_len != 0) | !is_empty(self.previous_kernel.public_teardown_call_request), "Must have public calls when exporting public kernel data from the tail circuit"
+            (len != 0) | !is_empty(self.previous_kernel.public_teardown_call_request), "Must have public calls when exporting public kernel data from the tail circuit"
         );
     }
 
@@ -61,13 +63,10 @@ impl PreviousKernelValidator {
     }
 
     fn verify_no_transient_data(self) {
-        // Currently all the transient note hashes and nullifiers must be cleared in the reset circuits.
-        // Check that the propagated note hashes don't link to a nullifier, and vice versa.
-        for note_hash in self.previous_kernel.end.new_note_hashes {
-            assert_eq(note_hash.nullifier_counter, 0, "Unresolved transient note hash");
-        }
-        for new_nullifier in self.previous_kernel.end.new_nullifiers {
-            assert_eq(new_nullifier.nullified_note_hash(), 0, "Unresolved transient nullifier");
+        // Currently all the transient nullifiers must be cleared in the reset circuits.
+        // When a transient nullifier is removed, the linked note hash and all the associated note logs will also be removed.
+        for nullifier in self.previous_kernel.end.nullifiers {
+            assert_eq(nullifier.nullified_note_hash(), 0, "Unresolved transient nullifier");
         }
     }
 }

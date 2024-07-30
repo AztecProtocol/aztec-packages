@@ -3,16 +3,17 @@ import {
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  FunctionSelector,
   Gas,
   GlobalVariables,
   Header,
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -21,6 +22,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
+  PublicCallRequest,
   PublicCircuitPublicInputs,
   ReadRequest,
   RevertCode,
@@ -35,6 +37,7 @@ import {
   initContext,
   initExecutionEnvironment,
   initHostStorage,
+  initPersistableStateManager,
 } from '@aztec/simulator/avm/fixtures';
 
 import { jest } from '@jest/globals';
@@ -43,11 +46,7 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import { AvmPersistableStateManager } from '../../simulator/src/avm/journal/journal.js';
-import {
-  convertAvmResultsToPxResult,
-  createPublicExecution,
-} from '../../simulator/src/public/transitional_adaptors.js';
+import { PublicSideEffectTrace } from '../../simulator/src/public/side_effect_trace.js';
 import { SerializableContractInstance } from '../../types/src/contracts/contract_instance.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
 import { extractVkData } from './verification_key/verification_key_data.js';
@@ -171,6 +170,7 @@ describe('AVM WitGen, proof generation and verification', () => {
       'get_fee_per_l2_gas',
       'get_fee_per_da_gas',
       'get_transaction_fee',
+      'get_function_selector',
       'get_chain_id',
       'get_version',
       'get_block_number',
@@ -204,9 +204,10 @@ const proveAndVerifyAvmTestContract = async (
   assertionErrString?: string,
 ) => {
   const startSideEffectCounter = 0;
+  const functionSelector = FunctionSelector.random();
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
-  const environment = initExecutionEnvironment({ calldata, globals });
+  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
   const contractsDb = mock<PublicContractsDB>();
   const contractInstance = new SerializableContractInstance({
@@ -224,15 +225,13 @@ const proveAndVerifyAvmTestContract = async (
   storageDb.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
   const hostStorage = initHostStorage({ contractsDb });
-  const persistableState = new AvmPersistableStateManager(hostStorage);
+  const trace = new PublicSideEffectTrace(startSideEffectCounter);
+  const persistableState = initPersistableStateManager({ hostStorage, trace });
   const context = initContext({ env: environment, persistableState });
   const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
-  jest
-    .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-    .mockReturnValue(Promise.resolve(nestedCallBytecode));
+  jest.spyOn(hostStorage.contractsDb, 'getBytecode').mockResolvedValue(nestedCallBytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
-  const oldPublicExecution = createPublicExecution(startSideEffectCounter, environment, calldata);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
@@ -255,25 +254,21 @@ const proveAndVerifyAvmTestContract = async (
     expect(avmResult.revertReason?.message).toContain(assertionErrString);
   }
 
-  const pxResult = convertAvmResultsToPxResult(
-    avmResult,
-    startSideEffectCounter,
-    oldPublicExecution,
+  const pxResult = trace.toPublicExecutionResult(
+    environment,
     startGas,
-    context,
-    simulator.getBytecode(),
+    /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
+    /*bytecode=*/ simulator.getBytecode()!,
+    avmResult,
     functionName,
   );
-  // TODO(dbanks12): public inputs should not be empty.... Need to construct them from AvmContext?
-  const uncompressedBytecode = simulator.getBytecode()!;
-  const publicInputs = getPublicInputs(pxResult);
 
   const avmCircuitInputs = new AvmCircuitInputs(
     functionName,
-    uncompressedBytecode,
-    context.environment.calldata,
-    publicInputs,
-    pxResult.avmHints,
+    /*bytecode=*/ simulator.getBytecode()!, // uncompressed bytecode
+    /*calldata=*/ context.environment.calldata,
+    /*publicInputs=*/ getPublicInputs(pxResult),
+    /*avmHints=*/ pxResult.avmCircuitHints,
   );
 
   // Then we prove.
@@ -294,12 +289,12 @@ const proveAndVerifyAvmTestContract = async (
 // TODO: pub somewhere more usable - copied from abstract phase manager
 const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInputs => {
   return PublicCircuitPublicInputs.from({
-    callContext: result.execution.callContext,
+    callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,
-    argsHash: computeVarArgsHash(result.execution.args),
-    newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-    newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
-    newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+    argsHash: computeVarArgsHash(result.executionRequest.args),
+    noteHashes: padArrayEnd(result.noteHashes, NoteHash.empty(), MAX_NOTE_HASHES_PER_CALL),
+    nullifiers: padArrayEnd(result.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_CALL),
+    l2ToL1Msgs: padArrayEnd(result.l2ToL1Messages, L2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_CALL),
     startSideEffectCounter: result.startSideEffectCounter,
     endSideEffectCounter: result.endSideEffectCounter,
     returnsHash: computeVarArgsHash(result.returnValues),
@@ -333,7 +328,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
       ContractStorageUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     ),
-    publicCallStackHashes: padArrayEnd([], Fr.zero(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+    publicCallRequests: padArrayEnd([], PublicCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
     unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
     historicalHeader: Header.empty(),
     globalVariables: GlobalVariables.empty(),

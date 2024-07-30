@@ -101,13 +101,20 @@ describe('e2e_token_contract minting', () => {
           'The note has been destroyed.',
         );
         await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
-          `Assertion failed: Cannot return zero notes`,
+          `Assertion failed: Attempted to read past end of BoundedVec`,
         );
       });
 
       it('mint_private as non-minter', async () => {
         await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(
           'Assertion failed: caller is not minter',
+        );
+      });
+
+      it('mint_private as non-minter, bypassing account entrypoint', async () => {
+        const request = await asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).create();
+        await expect(wallets[1].simulateTx(request, true, accounts[0].address)).rejects.toThrow(
+          'Assertion failed: Users cannot set msg_sender in first call',
         );
       });
 

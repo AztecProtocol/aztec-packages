@@ -1,9 +1,12 @@
 #include "barretenberg/vm/avm_trace/avm_gas_trace.hpp"
+
+#include <cstddef>
+#include <cstdint>
+
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
+#include "barretenberg/vm/avm_trace/fixed_gas.hpp"
 
 namespace bb::avm_trace {
-
-AvmGasTraceBuilder::AvmGasTraceBuilder() = default;
 
 void AvmGasTraceBuilder::reset()
 {
@@ -13,7 +16,7 @@ void AvmGasTraceBuilder::reset()
 std::vector<AvmGasTraceBuilder::GasTraceEntry> AvmGasTraceBuilder::finalize()
 {
     return std::move(gas_trace);
-};
+}
 
 void AvmGasTraceBuilder::set_initial_gas(uint32_t l2_gas, uint32_t da_gas)
 {
@@ -41,8 +44,9 @@ void AvmGasTraceBuilder::constrain_gas_lookup(uint32_t clk, OpCode opcode)
     gas_opcode_lookup_counter[opcode]++;
 
     // Get the gas prices for this opcode
-    uint32_t l2_gas_cost = GAS_COST_TABLE.at(opcode).l2_fixed_gas_cost;
-    uint32_t da_gas_cost = GAS_COST_TABLE.at(opcode).da_fixed_gas_cost;
+    const auto& GAS_COST_TABLE = FixedGasTable::get();
+    auto l2_gas_cost = static_cast<uint32_t>(GAS_COST_TABLE.at(opcode).gas_l2_gas_fixed_table);
+    auto da_gas_cost = static_cast<uint32_t>(GAS_COST_TABLE.at(opcode).gas_da_gas_fixed_table);
 
     remaining_l2_gas -= l2_gas_cost;
     remaining_da_gas -= da_gas_cost;
@@ -71,8 +75,9 @@ void AvmGasTraceBuilder::constrain_gas_for_external_call(uint32_t clk,
     // gas_opcode_lookup_counter[opcode]++;
 
     // Get the gas prices for this opcode
-    uint32_t opcode_l2_gas_cost = GAS_COST_TABLE.at(opcode).l2_fixed_gas_cost;
-    uint32_t opcode_da_gas_cost = GAS_COST_TABLE.at(opcode).da_fixed_gas_cost;
+    const auto& GAS_COST_TABLE = FixedGasTable::get();
+    auto opcode_l2_gas_cost = static_cast<uint32_t>(GAS_COST_TABLE.at(opcode).gas_l2_gas_fixed_table);
+    auto opcode_da_gas_cost = static_cast<uint32_t>(GAS_COST_TABLE.at(opcode).gas_da_gas_fixed_table);
 
     remaining_l2_gas -= opcode_l2_gas_cost + nested_l2_gas_cost;
     remaining_da_gas -= opcode_da_gas_cost + nested_da_gas_cost;

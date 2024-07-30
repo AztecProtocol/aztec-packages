@@ -71,7 +71,7 @@ osxcross:
       && apt-get -y autoremove \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-  RUN git clone --depth=1 https://github.com/tpoechtrager/osxcross.git \
+  RUN git clone https://github.com/tpoechtrager/osxcross.git \
       && cd /osxcross \
       && git reset --hard ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b \
       && export OSX_SDK="MacOSX14.0.sdk" \
@@ -116,7 +116,6 @@ foundry:
 # It acts as the base image for all CI builds, and we build on it to produce a developer box.
 build:
   BUILD +wasi-sdk
-  BUILD +osxcross
   BUILD +foundry
   FROM +base-build
   RUN apt update && \
@@ -153,11 +152,6 @@ build:
 
   # Install wasi-sdk.
   COPY +wasi-sdk/opt/wasi-sdk /opt/wasi-sdk
-
-  # Install osxcross. Requires developer to mount SDK from their mac host.
-  COPY +osxcross/opt/osxcross /opt/osxcross
-  ENV PATH="/opt/osxcross/bin:$PATH"
-  ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
   # Install foundry.
   COPY +foundry-build/opt/foundry /opt/foundry
@@ -197,13 +191,24 @@ build:
       && mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin \
       && rm -rf wasmtime*
 
+  # Install yq
+  RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
+          -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+
   ARG TARGETARCH
+  # NOTE: bump this version when doing non-backwards compatible changes
   SAVE IMAGE --push aztecprotocol/build:1.0-$TARGETARCH
+
+from-registry:
+  ARG TARGETARCH
+  # NOTE: match version string above
+  FROM aztecprotocol/build:1.0-$TARGETARCH
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
 basebox:
+  BUILD +osxcross
   BUILD +build
   FROM +build
   RUN yes | unminimize
@@ -236,6 +241,11 @@ basebox:
   # Install earthly.
   RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
       chmod +x /usr/local/bin/earthly
+
+  # Install osxcross. Requires developer to mount SDK from their mac host.
+  COPY +osxcross/opt/osxcross /opt/osxcross
+  ENV PATH="/opt/osxcross/bin:$PATH"
+  ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
   # Install gh (github cli).
   RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg > /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -387,7 +397,7 @@ sysbox:
                     e2scrub_reap.service
 
   # Make use of stopsignal (instead of sigterm) to stop systemd containers.
-  STOPSIGNAL SIGRTMIN+3
+  #STOPSIGNAL SIGRTMIN+3
 
   # Set systemd as entrypoint.
   ENTRYPOINT [ "/sbin/init", "--log-level=err" ]
@@ -398,7 +408,7 @@ sysbox:
   RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
       # Add user "ubuntu" to the Docker group
       && usermod -a -G docker ubuntu
-  ADD https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker /etc/bash_completion.d/docker.sh
+  RUN curl -fsSL https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker -o /etc/bash_completion.d/docker.sh
 
   # Install sshd.
   RUN apt install --no-install-recommends -y openssh-server \

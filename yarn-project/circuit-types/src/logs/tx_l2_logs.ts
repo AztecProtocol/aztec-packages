@@ -1,7 +1,10 @@
 import {
+  Fr,
+  type LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
+  type ScopedLogHash,
 } from '@aztec/circuits.js';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
@@ -22,6 +25,8 @@ import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
  * Data container of logs emitted in 1 tx.
  */
 export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLog | EncryptedL2Log> {
+  abstract hash(): Buffer;
+
   constructor(
     /** * An array containing logs emitted in individual function invocations in this tx. */
     public readonly functionLogs: FunctionL2Logs<TLog>[],
@@ -94,6 +99,57 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
   public equals(other: TxL2Logs<TLog>): boolean {
     return isEqual(this, other);
   }
+
+  /**
+   * Filter the logs from functions from this TxL2Logs that
+   * appear in the provided logHashes
+   * @param logHashes hashes we want to keep
+   * @param output our aggregation
+   * @returns our aggregation
+   */
+  public filter(logHashes: LogHash[], output: TxL2Logs<TLog>): TxL2Logs<TLog> {
+    for (const fnLogs of this.functionLogs) {
+      let include = false;
+      for (const log of fnLogs.logs) {
+        if (logHashes.findIndex(lh => lh.value.equals(Fr.fromBuffer(log.getSiloedHash()))) !== -1) {
+          include = true;
+        }
+      }
+      if (include) {
+        output.addFunctionLogs([fnLogs]);
+      }
+    }
+    return output;
+  }
+
+  /**
+   * Filter the logs from functions from this TxL2Logs that
+   * appear in the provided scopedLogHashes
+   * @param logHashes hashes we want to keep
+   * @param output our aggregation
+   * @returns our aggregation
+   */
+  public filterScoped(scopedLogHashes: ScopedLogHash[], output: TxL2Logs<TLog>): TxL2Logs<TLog> {
+    for (const fnLogs of this.functionLogs) {
+      let include = false;
+      for (const log of fnLogs.logs) {
+        if ('contractAddress' in log === false) {
+          throw new Error("Can't run filterScoped in logs without contractAddress");
+        }
+        if (
+          scopedLogHashes.findIndex(
+            slh => slh.contractAddress.equals(log.contractAddress) && slh.value.equals(Fr.fromBuffer(log.hash())),
+          ) != -1
+        ) {
+          include = true;
+        }
+      }
+      if (include) {
+        output.addFunctionLogs([fnLogs]);
+      }
+    }
+    return output;
+  }
 }
 
 export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
@@ -156,21 +212,31 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
    * Note: This is a TS implementation of `computeKernelUnencryptedLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  public hash(): Buffer {
-    if (this.unrollLogs().length == 0) {
+  public override hash(): Buffer {
+    const unrolledLogs = this.unrollLogs();
+    return UnencryptedTxL2Logs.hashSiloedLogs(unrolledLogs.map(log => log.getSiloedHash()));
+  }
+
+  /**
+   * Hashes siloed unencrypted logs as in the same way as the base rollup would.
+   * @param siloedLogHashes - The siloed log hashes
+   * @returns The hash of the logs.
+   */
+  public static hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
+    if (siloedLogHashes.length == 0) {
       return Buffer.alloc(32);
     }
 
-    let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
-      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
+    let allSiloedLogHashes = Buffer.alloc(0);
+    for (const siloedLogHash of siloedLogHashes) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
-      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - siloedLogHashes.length; i++) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
     }
 
-    return sha256Trunc(flattenedLogs);
+    return sha256Trunc(allSiloedLogHashes);
   }
 }
 
@@ -234,17 +300,18 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
    * Note: This is a TS implementation of `computeKernelNoteEncryptedLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  public hash(): Buffer {
-    if (this.unrollLogs().length == 0) {
+  public override hash(): Buffer {
+    const unrolledLogs = this.unrollLogs();
+    if (unrolledLogs.length == 0) {
       return Buffer.alloc(32);
     }
 
     let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+    for (const logsFromSingleFunctionCall of unrolledLogs) {
       flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
       flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
     }
 
@@ -312,17 +379,18 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    * Note: This is a TS implementation of `computeKernelEncryptedLogsHash` function in Decoder.sol. See that function documentation
    *       for more details.
    */
-  public hash(): Buffer {
-    if (this.unrollLogs().length == 0) {
+  public override hash(): Buffer {
+    const unrolledLogs = this.unrollLogs();
+    if (unrolledLogs.length == 0) {
       return Buffer.alloc(32);
     }
 
     let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
+    for (const logsFromSingleFunctionCall of unrolledLogs) {
       flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_ENCRYPTED_LOGS_PER_TX - this.unrollLogs().length; i++) {
+    for (let i = 0; i < MAX_ENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
       flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
     }
 

@@ -4,12 +4,19 @@ use super::{
     parameter_name_recovery, parameter_recovery, parenthesized, parse_type, pattern,
     self_parameter, where_clause, NoirParser,
 };
-use crate::ast::{
-    FunctionDefinition, FunctionReturnType, Ident, ItemVisibility, NoirFunction, Param, Visibility,
-};
-use crate::parser::labels::ParsingRuleLabel;
-use crate::parser::spanned;
 use crate::token::{Keyword, Token};
+use crate::{ast::IntegerBitSize, parser::spanned};
+use crate::{
+    ast::{
+        FunctionDefinition, FunctionReturnType, ItemVisibility, NoirFunction, Param, Visibility,
+    },
+    macros_api::UnresolvedTypeData,
+    parser::{ParserError, ParserErrorReason},
+};
+use crate::{
+    ast::{Signedness, UnresolvedGeneric, UnresolvedGenerics},
+    parser::labels::ParsingRuleLabel,
+};
 
 use chumsky::prelude::*;
 
@@ -76,16 +83,46 @@ fn function_modifiers() -> impl NoirParser<(bool, ItemVisibility, bool)> {
         })
 }
 
+pub(super) fn numeric_generic() -> impl NoirParser<UnresolvedGeneric> {
+    keyword(Keyword::Let)
+        .ignore_then(ident())
+        .then_ignore(just(Token::Colon))
+        .then(parse_type())
+        .map(|(ident, typ)| UnresolvedGeneric::Numeric { ident, typ })
+        .validate(|generic, span, emit| {
+            if let UnresolvedGeneric::Numeric { typ, .. } = &generic {
+                if let UnresolvedTypeData::Integer(signedness, bit_size) = typ.typ {
+                    if matches!(signedness, Signedness::Signed)
+                        || matches!(bit_size, IntegerBitSize::SixtyFour)
+                    {
+                        emit(ParserError::with_reason(
+                            ParserErrorReason::ForbiddenNumericGenericType,
+                            span,
+                        ));
+                    }
+                }
+            }
+            generic
+        })
+}
+
+pub(super) fn generic_type() -> impl NoirParser<UnresolvedGeneric> {
+    ident().map(UnresolvedGeneric::Variable)
+}
+
+pub(super) fn generic() -> impl NoirParser<UnresolvedGeneric> {
+    generic_type().or(numeric_generic())
+}
+
 /// non_empty_ident_list: ident ',' non_empty_ident_list
 ///                     | ident
 ///
 /// generics: '<' non_empty_ident_list '>'
 ///         | %empty
-pub(super) fn generics() -> impl NoirParser<Vec<Ident>> {
-    ident()
+pub(super) fn generics() -> impl NoirParser<UnresolvedGenerics> {
+    generic()
         .separated_by(just(Token::Comma))
         .allow_trailing()
-        .at_least(1)
         .delimited_by(just(Token::Less), just(Token::Greater))
         .or_not()
         .map(|opt| opt.unwrap_or_default())
@@ -193,6 +230,7 @@ mod test {
                 // fn func_name(x: impl Eq) {} with error Expected an end of input but found end of input
                 // "fn func_name(x: impl Eq) {}",
                 "fn func_name<T>(x: impl Eq, y : T) where T: SomeTrait + Eq {}",
+                "fn func_name<let N: u32>(x: [Field; N]) {}",
             ],
         );
 
@@ -209,6 +247,16 @@ mod test {
                 // A leading plus is not allowed.
                 "fn func_name<T>(f: Field, y : T) where T: + SomeTrait {}",
                 "fn func_name<T>(f: Field, y : T) where T: TraitX + <Y> {}",
+                // Test ill-formed numeric generics
+                "fn func_name<let T>(y: T) {}",
+                "fn func_name<let T:>(y: T) {}",
+                "fn func_name<T:>(y: T) {}",
+                // Test failure of missing `let`
+                "fn func_name<T: u32>(y: T) {}",
+                // Test that signed numeric generics are banned
+                "fn func_name<let N: i8>() {}",
+                // Test that `u64` is banned
+                "fn func_name<let N: u64>(x: [Field; N]) {}",
             ],
         );
     }

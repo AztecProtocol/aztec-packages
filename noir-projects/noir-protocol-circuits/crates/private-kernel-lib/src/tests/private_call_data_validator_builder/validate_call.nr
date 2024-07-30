@@ -38,6 +38,17 @@ fn validate_call_is_delegate_call_from_same_contract_fails() {
     builder.validate();
 }
 
+#[test(should_fail_with="function selector in call context does not match call stack item")]
+fn validate_call_mismatch_function_selector_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new();
+
+    let mut data = builder.get_private_call_data();
+    // Tweak the function selector in the call context to be different to the one in call stack item.
+    data.call_stack_item.public_inputs.call_context.function_selector.inner += 1;
+
+    builder.validate_with_private_call_data(data);
+}
+
 #[test]
 fn validate_call_is_static_succeeds() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
@@ -54,29 +65,29 @@ fn validate_call_is_static_mismatch_storage_contract_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with="new_note_hashes must be empty for static calls")]
+#[test(should_fail_with="note_hashes must be empty for static calls")]
 fn validate_call_is_static_creating_note_hashes_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.append_new_note_hashes(1);
+    builder.private_call.append_note_hashes(1);
 
     builder.validate();
 }
 
-#[test(should_fail_with="new_nullifiers must be empty for static calls")]
+#[test(should_fail_with="nullifiers must be empty for static calls")]
 fn validate_call_is_static_creating_nullifiers_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.append_new_nullifiers(1);
+    builder.private_call.append_nullifiers(1);
 
     builder.validate();
 }
 
-#[test(should_fail_with="new_l2_to_l1_msgs must be empty for static calls")]
+#[test(should_fail_with="l2_to_l1_msgs must be empty for static calls")]
 fn validate_call_is_static_creating_l2_to_l1_msgs_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new().is_static_call();
 
-    builder.private_call.append_new_l2_to_l1_msgs(1);
+    builder.private_call.append_l2_to_l1_msgs(1);
 
     builder.validate();
 }

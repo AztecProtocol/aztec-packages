@@ -1,6 +1,7 @@
 // docs:start:token_all
 // docs:start:imports
 mod types;
+mod test;
 
 // Minimal token implementation that supports `AuthWit` accounts.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
@@ -17,15 +18,28 @@ contract Token {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt, encode_and_encrypt_with_keys}
+        encrypted_logs::{
+        encrypted_note_emission::{
+        encode_and_encrypt_note, encode_and_encrypt_note_with_keys,
+        encode_and_encrypt_note_with_keys_unconstrained
+    },
+        encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
+    }
     };
 
     // docs:start:import_authwit
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
+    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     // docs:end:import_authwit
 
     use crate::types::{transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
     // docs:end::imports
+
+    #[aztec(event)]
+    struct Transfer {
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: Field,
+    }
 
     // docs:start:storage_struct
     #[aztec(storage)]
@@ -195,7 +209,7 @@ contract Token {
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
-        storage.balances.add(caller, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, caller, caller));
+        storage.balances.add(caller, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, caller));
 
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
@@ -281,7 +295,7 @@ contract Token {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes.get_unchecked(0);
+        let note = notes.get(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
@@ -289,7 +303,7 @@ contract Token {
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
         // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
         let from = context.msg_sender();
-        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, from, to));
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, to));
     }
     // docs:end:redeem_shield
 
@@ -302,7 +316,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, from, from));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
 
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -321,11 +335,27 @@ contract Token {
         let to_ivpk = header.get_ivpk_m(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk, from));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
+
+        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
     }
     // docs:end:transfer
 
+    /**
+     * Cancel a private authentication witness.
+     * @param inner_hash The inner hash of the authwit to cancel.
+     */
+    // docs:start:cancel_authwit
+    #[aztec(private)]
+    fn cancel_authwit(inner_hash: Field) {
+        let on_behalf_of = context.msg_sender();
+        let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
+        context.push_nullifier(nullifier, 0);
+    }
+    // docs:end:cancel_authwit
+
+    // docs:start:transfer_from
     #[aztec(private)]
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit
@@ -346,11 +376,12 @@ contract Token {
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, from_ivpk));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk, from));
         // docs:end:encrypted
         // docs:end:increase_private_balance
-        storage.balances.add(to, amount).emit(encode_and_encrypt_with_keys(&mut context, from_ovpk, to_ivpk));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk, to));
     }
+    // docs:end:transfer_from
 
     // docs:start:burn
     #[aztec(private)]
@@ -361,7 +392,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt(&mut context, from, from));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -395,75 +426,5 @@ contract Token {
         storage.balances.balance_of(owner).to_field()
     }
     // docs:end:balance_of_private
-
-    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
-    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
-    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
-    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
-
-    #[test]
-    fn test_private_transfer() {
-        // Setup env, generate keys
-        let mut env = TestEnvironment::new();
-        let owner = env.create_account();
-        let recipient = env.create_account();
-        let mint_amount = 10000;
-
-        // Start the test in the account contract address
-        cheatcodes::set_contract_address(owner);
-
-        // Deploy token contract
-        let initializer_call_interface = Token::interface().constructor(
-            owner,
-            "TestToken0000000000000000000000",
-            "TT00000000000000000000000000000",
-            18
-        );
-        let token_contract_address = env.deploy("@aztec/noir-contracts.js/Token").with_public_initializer(initializer_call_interface);
-        env.advance_block_by(1);
-
-        // Mint some tokens
-        let secret = 1;
-        let secret_hash = compute_secret_hash(secret);
-        let mint_private_call_interface = Token::at(token_contract_address).mint_private(mint_amount, secret_hash);
-        env.call_public(mint_private_call_interface);
-
-        // Time travel so we can read keys from the registry
-        env.advance_block_by(6);
-
-        // Store a note in the cache so we can redeem it
-        env.store_note_in_cache(
-            &mut TransparentNote::new(mint_amount, secret_hash),
-            Token::storage().pending_shields.slot,
-            token_contract_address
-        );
-
-        // Redeem our shielded tokens
-        let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
-        env.call_private_void(redeem_shield_call_interface);
-
-        // Not really sure why this is needed? Nullifier inclusion in contract initializer fails otherwise. 
-        // If it were to fail, it should do it at line 443, investigation required
-        env.advance_block_by(1);
-
-        // Transfer tokens
-        let transfer_amount = 1000;
-        let private_token_transfer_call_interface = Token::at(token_contract_address).transfer(recipient, transfer_amount);
-        env.call_private_void(private_token_transfer_call_interface);
-
-        // Check balances
-        cheatcodes::set_contract_address(token_contract_address);
-
-        let balances_slot = Token::storage().balances.slot;
-        let recipient_slot = derive_storage_slot_in_map(balances_slot, recipient);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<TokenNote, MAX_NOTES_PER_PAGE> = view_notes(recipient_slot, options);
-        assert(notes.get(0).amount.to_field() == transfer_amount);
-
-        let owner_slot = derive_storage_slot_in_map(balances_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<TokenNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
-        assert(notes.get(0).amount.to_field() == mint_amount - transfer_amount);
-    }
 }
 // docs:end:token_all

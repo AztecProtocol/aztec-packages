@@ -76,7 +76,7 @@ const BaseGasCosts: Record<Opcode, Gas> = {
   [Opcode.FEEPERL2GAS]: DefaultBaseGasCost,
   [Opcode.FEEPERDAGAS]: DefaultBaseGasCost,
   [Opcode.TRANSACTIONFEE]: DefaultBaseGasCost,
-  [Opcode.CONTRACTCALLDEPTH]: DefaultBaseGasCost,
+  [Opcode.FUNCTIONSELECTOR]: DefaultBaseGasCost,
   [Opcode.CHAINID]: DefaultBaseGasCost,
   [Opcode.VERSION]: DefaultBaseGasCost,
   [Opcode.BLOCKNUMBER]: DefaultBaseGasCost,
@@ -126,6 +126,9 @@ const BaseGasCosts: Record<Opcode, Gas> = {
   [Opcode.MSM]: DefaultBaseGasCost,
   // Conversions
   [Opcode.TORADIXLE]: DefaultBaseGasCost,
+  // Other
+  [Opcode.SHA256COMPRESSION]: DefaultBaseGasCost,
+  [Opcode.KECCAKF1600]: DefaultBaseGasCost,
 };
 
 /** Returns the fixed base gas cost for a given opcode. */

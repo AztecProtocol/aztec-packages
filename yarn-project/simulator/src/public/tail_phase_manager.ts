@@ -4,12 +4,13 @@ import {
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -31,9 +32,13 @@ export class TailPhaseManager extends AbstractPhaseManager {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
-  override async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
+  override async handle(
+    tx: Tx,
+    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    previousKernelArtifact: ProtocolArtifact,
+  ) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
-    const [inputs, finalKernelOutput] = await this.simulate(previousPublicKernelOutput).catch(
+    const [inputs, finalKernelOutput] = await this.simulate(previousPublicKernelOutput, previousKernelArtifact).catch(
       // the abstract phase manager throws if simulation gives error in non-revertible phase
       async err => {
         await this.publicStateDB.rollbackToCommit();
@@ -50,6 +55,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     return {
       publicProvingRequests: [kernelRequest],
       publicKernelOutput: previousPublicKernelOutput,
+      lastKernelArtifact: 'PublicKernelTailArtifact' as ProtocolArtifact,
       finalKernelOutput,
       returnValues: [],
     };
@@ -57,21 +63,25 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   private async simulate(
     previousOutput: PublicKernelCircuitPublicInputs,
+    previousKernelArtifact: ProtocolArtifact,
   ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
-    const inputs = await this.buildPrivateInputs(previousOutput);
+    const inputs = await this.buildPrivateInputs(previousOutput, previousKernelArtifact);
     // We take a deep copy (clone) of these to pass to the prover
     return [inputs.clone(), await this.publicKernel.publicKernelCircuitTail(inputs)];
   }
 
-  private async buildPrivateInputs(previousOutput: PublicKernelCircuitPublicInputs) {
-    const previousKernel = this.getPreviousKernelData(previousOutput);
+  private async buildPrivateInputs(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousKernelArtifact: ProtocolArtifact,
+  ) {
+    const previousKernel = this.getPreviousKernelData(previousOutput, previousKernelArtifact);
 
     const { validationRequests, endNonRevertibleData: nonRevertibleData, end: revertibleData } = previousOutput;
 
     const pendingNullifiers = mergeAccumulatedData(
-      nonRevertibleData.newNullifiers,
-      revertibleData.newNullifiers,
-      MAX_NEW_NULLIFIERS_PER_TX,
+      nonRevertibleData.nullifiers,
+      revertibleData.nullifiers,
+      MAX_NULLIFIERS_PER_TX,
     );
 
     const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(

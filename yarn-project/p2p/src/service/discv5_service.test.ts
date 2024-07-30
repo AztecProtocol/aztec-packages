@@ -1,14 +1,17 @@
+import { sleep } from '@aztec/foundation/sleep';
+
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { SemVer } from 'semver';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
+import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
-  const timeout = 5_000;
+  const timeout = 7_000;
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
@@ -67,7 +70,17 @@ describe('Discv5Service', () => {
     const node2 = await createNode(basePort);
     await node1.start();
     await node2.start();
-    await waitForPeers(node2, 2);
+    await Promise.all([
+      waitForPeers(node2, 2),
+      (async () => {
+        await sleep(2000); // wait for peer discovery to be able to start
+        for (let i = 0; i < 5; i++) {
+          await node1.runRandomNodesQuery();
+          await node2.runRandomNodesQuery();
+          await sleep(100);
+        }
+      })(),
+    ]);
 
     const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
@@ -110,7 +123,7 @@ describe('Discv5Service', () => {
   const createNode = async (port: number) => {
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createLibP2PPeerId();
-    const config = {
+    const config: P2PConfig = {
       ...baseConfig,
       tcpListenAddress: `0.0.0.0:${port}`,
       udpListenAddress: `0.0.0.0:${port}`,
@@ -123,6 +136,7 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       p2pL2QueueSize: 100,
       txGossipVersion: new SemVer('0.1.0'),
+      keepProvenTxsInPoolFor: 0,
     };
     return new DiscV5Service(peerId, config);
   };

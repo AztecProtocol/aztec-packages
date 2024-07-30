@@ -1,5 +1,4 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { isArrayEmpty } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -15,11 +14,11 @@ import {
   GeneratorIndex,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
+  MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -36,6 +35,7 @@ import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { PrivateCallRequest } from './private_call_request.js';
+import { PublicCallRequest } from './public_call_request.js';
 import { ReadRequest } from './read_request.js';
 import { TxContext } from './tx_context.js';
 
@@ -86,11 +86,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * New note hashes created by the corresponding function call.
      */
-    public newNoteHashes: Tuple<NoteHash, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
+    public noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public newNullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
     /**
      * Private call requests made within the current kernel iteration.
      */
@@ -98,15 +98,15 @@ export class PrivateCircuitPublicInputs {
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallStackHashes: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Hash of the public teardown function.
      */
-    public publicTeardownFunctionHash: Fr,
+    public publicTeardownCallRequest: PublicCallRequest,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public newL2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -170,12 +170,12 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
+      reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
+      reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
-      reader.readObject(Fr),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readObject(PublicCallRequest),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
@@ -198,12 +198,12 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier),
+      reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
+      reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
-      reader.readField(),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readObject(PublicCallRequest),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
       reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash),
@@ -229,12 +229,12 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, NoteHash.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Nullifier.empty),
+      makeTuple(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
+      makeTuple(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      Fr.ZERO,
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest.empty),
+      PublicCallRequest.empty(),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
       makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_CALL, NoteLogHash.empty),
@@ -246,7 +246,6 @@ export class PrivateCircuitPublicInputs {
   }
 
   isEmpty() {
-    const isZeroArray = (arr: { isZero: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
@@ -257,12 +256,12 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.keyValidationRequestsAndGenerators) &&
-      isEmptyArray(this.newNoteHashes) &&
-      isEmptyArray(this.newNullifiers) &&
+      isEmptyArray(this.noteHashes) &&
+      isEmptyArray(this.nullifiers) &&
       isEmptyArray(this.privateCallRequests) &&
-      isZeroArray(this.publicCallStackHashes) &&
-      this.publicTeardownFunctionHash.isZero() &&
-      isEmptyArray(this.newL2ToL1Msgs) &&
+      isEmptyArray(this.publicCallRequests) &&
+      this.publicTeardownCallRequest.isEmpty() &&
+      isEmptyArray(this.l2ToL1Msgs) &&
       isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
       isEmptyArray(this.unencryptedLogsHashes) &&
@@ -287,12 +286,12 @@ export class PrivateCircuitPublicInputs {
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.keyValidationRequestsAndGenerators,
-      fields.newNoteHashes,
-      fields.newNullifiers,
+      fields.noteHashes,
+      fields.nullifiers,
       fields.privateCallRequests,
-      fields.publicCallStackHashes,
-      fields.publicTeardownFunctionHash,
-      fields.newL2ToL1Msgs,
+      fields.publicCallRequests,
+      fields.publicTeardownCallRequest,
+      fields.l2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.noteEncryptedLogsHashes,

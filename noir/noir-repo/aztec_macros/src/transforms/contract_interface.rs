@@ -1,15 +1,18 @@
+use acvm::acir::AcirField;
+
 use noirc_errors::Location;
 use noirc_frontend::ast::{Ident, NoirFunction, UnresolvedTypeData};
 use noirc_frontend::{
     graph::CrateId,
-    macros_api::{FileId, HirContext, HirExpression, HirLiteral, HirStatement},
+    macros_api::{FieldElement, FileId, HirContext, HirExpression, HirLiteral, HirStatement},
     parse_program,
     parser::SortedModule,
     Type,
 };
 
+use tiny_keccak::{Hasher, Keccak};
+
 use crate::utils::{
-    constants::SELECTOR_PLACEHOLDER,
     errors::AztecMacroError,
     hir_utils::{collect_crate_structs, get_contract_module_data, signature_of_type},
 };
@@ -30,12 +33,20 @@ use crate::utils::{
 //   for i in 0..third_arg.len() {
 //     args_acc = args_acc.append(third_arg[i].serialize().as_slice());
 //   }
-//   let args_hash = dep::aztec::hash::hash_args(args_acc);
-//   assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));
+//   let args_hash = aztec::hash::hash_args(args_acc);
+//   assert(args_hash == aztec::oracle::arguments::pack_arguments(args_acc));
 //   PublicCallInterface {
 //     target_contract: self.target_contract,
 //     selector: FunctionSelector::from_signature("SELECTOR_PLACEHOLDER"),
-//     args_hash
+//     args_hash,
+//     name: "a_function",
+//     args_hash,
+//     args: args_acc,
+//     original: | inputs: dep::aztec::context::inputs::PublicContextInputs | -> Field {
+//         a_function(inputs, first_arg, second_arg, third_arg)
+//     },
+//     is_static: false,
+//     gas_opts: dep::aztec::context::gas::GasOpts::default()
 //   }
 // }
 //
@@ -55,8 +66,6 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         .collect::<Vec<_>>()
         .join(", ");
     let fn_return_type: noirc_frontend::ast::UnresolvedType = func.return_type();
-
-    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", SELECTOR_PLACEHOLDER);
 
     let parameters = func.parameters();
     let is_void = if matches!(fn_return_type.typ, UnresolvedTypeData::Unit) { "Void" } else { "" };
@@ -129,57 +138,47 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction, is_static_call
         format!("{}, {}>", return_type_hint, arg_types)
     };
 
-    let fn_body = if aztec_visibility != "Public" {
-        let args_hash = if !parameters.is_empty() {
-            format!(
-                "let mut args_acc: [Field] = &[];
-                {}
-                let args_hash = dep::aztec::hash::hash_args(args_acc);
-                assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));",
-                call_args
-            )
+    let args = format!(
+        "let mut args_acc: [Field] = &[];
+        {}
+        {}",
+        call_args,
+        if aztec_visibility == "Private" {
+            "let args_hash = aztec::hash::hash_args(args_acc);"
         } else {
-            "
-            let mut args_acc: [Field] = &[];
-            let args_hash = 0;
-            "
-            .to_string()
-        };
+            ""
+        }
+    );
 
-        format!(
-            "{}
-            let selector = {};
-            dep::aztec::context::{}{}{}CallInterface {{
-                target_contract: self.target_contract,
-                selector,
-                name: \"{}\",
-                args_hash,
-                args: args_acc,
-                original: {}
-            }}",
-            args_hash, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
-        )
+    let gas_opts = if aztec_visibility == "Public" {
+        "gas_opts: dep::aztec::context::gas::GasOpts::default()"
     } else {
-        let args = format!(
-            "let mut args_acc: [Field] = &[];
-            {}
-            ",
-            call_args
-        );
-        format!(
-            "{}
-            let selector = {};
+        ""
+    };
+
+    let fn_body = format!(
+        "{}
+            let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field(0);
             dep::aztec::context::{}{}{}CallInterface {{
                 target_contract: self.target_contract,
                 selector,
                 name: \"{}\",
+                {}
                 args: args_acc,
-                gas_opts: dep::aztec::context::gas::GasOpts::default(),
-                original: {}
+                original: {},
+                is_static: {},
+                {}
             }}",
-            args, fn_selector, aztec_visibility, is_static, is_void, fn_name, original
-        )
-    };
+        args,
+        aztec_visibility,
+        is_static,
+        is_void,
+        fn_name,
+        if aztec_visibility == "Private" { "args_hash," } else { "" },
+        original,
+        is_static_call,
+        gas_opts
+    );
 
     format!(
         "pub fn {}(self, {}) -> dep::aztec::context::{}{}{}CallInterface<{},{} {{
@@ -215,14 +214,14 @@ pub fn generate_contract_interface(
     let contract_interface = format!(
         "
         struct {0} {{
-            target_contract: dep::aztec::protocol_types::address::AztecAddress
+            target_contract: aztec::protocol_types::address::AztecAddress
         }}
 
         impl {0} {{
             {1}
 
             pub fn at(
-                target_contract: dep::aztec::protocol_types::address::AztecAddress
+                target_contract: aztec::protocol_types::address::AztecAddress
             ) -> Self {{
                 Self {{ target_contract }}
             }}
@@ -236,7 +235,7 @@ pub fn generate_contract_interface(
 
         #[contract_library_method]
         pub fn at(
-            target_contract: dep::aztec::protocol_types::address::AztecAddress
+            target_contract: aztec::protocol_types::address::AztecAddress
         ) -> {0} {{
             {0} {{ target_contract }}
         }}
@@ -289,27 +288,34 @@ pub fn generate_contract_interface(
     Ok(())
 }
 
-fn compute_fn_signature(fn_name: &str, parameters: &[Type]) -> String {
-    format!(
+fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
+    let signature = format!(
         "{}({})",
         fn_name,
         parameters.iter().map(signature_of_type).collect::<Vec<_>>().join(",")
-    )
+    );
+    let mut keccak = Keccak::v256();
+    let mut result = [0u8; 32];
+    keccak.update(signature.as_bytes());
+    keccak.finalize(&mut result);
+    // Take the first 4 bytes of the hash and convert them to an integer
+    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
+    let num_bytes_per_note_type_id = 4;
+    u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
 }
 
 // Updates the function signatures in the contract interface with the actual ones, replacing the placeholder.
-// This is done by locating the contract interface struct, its functions (stubs) and assuming the last statement of each
-// is the constructor for a <visibility>CallInterface. This constructor has a selector field that holds a
-// FunctionSelector::from_signature function that receives the signature as a string literal.
+// This is done by locating the contract interface struct, its functions (stubs) and assuming the second to last statement of each
+// is a let statement initializing the selector with a FunctionSelector::from_field call.
 pub fn update_fn_signatures_in_contract_interface(
     crate_id: &CrateId,
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
-    if let Some((name, _, file_id)) = get_contract_module_data(context, crate_id) {
+    if let Some((struct_name, _, file_id)) = get_contract_module_data(context, crate_id) {
         let maybe_interface_struct =
             collect_crate_structs(crate_id, context).iter().find_map(|struct_id| {
                 let r#struct = context.def_interner.get_struct(*struct_id);
-                if r#struct.borrow().name.0.contents == name {
+                if r#struct.borrow().name.0.contents == struct_name {
                     Some(r#struct)
                 } else {
                     None
@@ -327,7 +333,7 @@ pub fn update_fn_signatures_in_contract_interface(
                     continue;
                 }
 
-                let fn_signature = compute_fn_signature(
+                let fn_signature_hash = compute_fn_signature_hash(
                     name,
                     &fn_parameters
                         .iter()
@@ -379,14 +385,12 @@ pub fn update_fn_signatures_in_contract_interface(
                     context.def_interner.expression(&current_fn_signature_expression_id);
 
                 match current_fn_signature_expression {
-                    HirExpression::Literal(HirLiteral::Str(signature)) => {
-                        if signature != SELECTOR_PLACEHOLDER {
+                    HirExpression::Literal(HirLiteral::Integer(value, _)) => {
+                        if !value.is_zero() {
                             Err((
                                 AztecMacroError::CouldNotGenerateContractInterface {
-                                    secondary_message: Some(format!(
-                                        "Function signature argument must be a placeholder: {}",
-                                        SELECTOR_PLACEHOLDER
-                                    )),
+                                    secondary_message: Some(
+                                        "Function signature argument must be a placeholder with value 0".to_string()),
                                 },
                                 file_id,
                             ))
@@ -395,20 +399,25 @@ pub fn update_fn_signatures_in_contract_interface(
                         }
                     }
                     _ => Err((
-                        AztecMacroError::CouldNotAssignStorageSlots {
+                        AztecMacroError::CouldNotGenerateContractInterface {
                             secondary_message: Some(
-                                "Function signature argument must be a literal string".to_string(),
+                                "Function signature argument must be a literal field element"
+                                    .to_string(),
                             ),
                         },
                         file_id,
                     )),
                 }?;
 
-                context
-                    .def_interner
-                    .update_expression(current_fn_signature_expression_id, |expr| {
-                        *expr = HirExpression::Literal(HirLiteral::Str(fn_signature))
-                    });
+                context.def_interner.update_expression(
+                    current_fn_signature_expression_id,
+                    |expr| {
+                        *expr = HirExpression::Literal(HirLiteral::Integer(
+                            FieldElement::from(fn_signature_hash as u128),
+                            false,
+                        ))
+                    },
+                );
             }
         }
     }

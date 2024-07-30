@@ -298,6 +298,12 @@ export interface PXE {
   getBlockNumber(): Promise<number>;
 
   /**
+   * Fetches the current proven block number.
+   * @returns The block number.
+   */
+  getProvenBlockNumber(): Promise<number>;
+
+  /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
    * L1 chain identifier, protocol version, and L1 address of the rollup contract.
    * @returns - The node information.
@@ -381,14 +387,28 @@ export interface PXE {
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Returns the events of a specified type.
+   * Queries the node to check whether the contract instance with the given address has been initialized,
+   * by checking the standard initialization nullifier.
+   * @param address - Address of the contract to check.
+   */
+  isContractInitialized(address: AztecAddress): Promise<boolean>;
+
+  /**
+   * Returns the events of a specified type given search parameters.
+   * @param type - The type of the event to search for—Encrypted, or Unencrypted.
+   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
-   * @param eventMetadata - Identifier of the event. This should be the class generated from the contract. e.g. Contract.events.Event
-   * @param ivpk - The incoming viewing public key that corresponds to the incoming viewing secret key that can decrypt the log.
+   * @param vpks - (Used for encrypted logs only) The viewing (incoming and outgoing) public keys that correspond to the viewing secret keys that can decrypt the log.
    * @returns - The deserialized events.
    */
-  getEvents<T>(from: number, limit: number, eventMetadata: EventMetadata<T>, ivpk: Point): Promise<T[]>;
+  getEvents<T>(
+    type: EventType,
+    eventMetadata: EventMetadata<T>,
+    from: number,
+    limit: number,
+    vpks: Point[],
+  ): Promise<T[]>;
 }
 // docs:end:pxe-interface
 
@@ -399,6 +419,14 @@ export interface EventMetadata<T> {
   decode(payload: L1EventPayload): T | undefined;
   eventSelector: EventSelector;
   fieldNames: string[];
+}
+
+/**
+ * This is used in getting events via the filter
+ */
+export enum EventType {
+  Encrypted = 'Encrypted',
+  Unencrypted = 'Unencrypted',
 }
 
 /**

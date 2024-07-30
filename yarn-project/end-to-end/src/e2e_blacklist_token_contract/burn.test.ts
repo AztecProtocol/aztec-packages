@@ -112,7 +112,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       it('burn from blacklisted account', async () => {
         await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+          /Assertion failed: Blacklisted: Sender/,
         );
       });
     });
@@ -194,10 +194,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
         const messageHash = computeAuthWitMessageHash(
-          wallets[1].getAddress(),
-          wallets[0].getChainId(),
-          wallets[0].getVersion(),
-          action.request(),
+          { caller: wallets[1].getAddress(), action: action.request() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
@@ -212,10 +210,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
         const expectedMessageHash = computeAuthWitMessageHash(
-          wallets[2].getAddress(),
-          wallets[0].getChainId(),
-          wallets[0].getVersion(),
-          action.request(),
+          { caller: wallets[2].getAddress(), action: action.request() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
@@ -228,7 +224,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       it('burn from blacklisted account', async () => {
         await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+          /Assertion failed: Blacklisted: Sender .*/,
         );
       });
     });

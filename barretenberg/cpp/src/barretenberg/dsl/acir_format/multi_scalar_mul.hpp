@@ -1,13 +1,16 @@
 #pragma once
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "serde/index.hpp"
+#include "witness_constant.hpp"
 #include <cstdint>
 #include <vector>
 
 namespace acir_format {
 
 struct MultiScalarMul {
-    std::vector<uint32_t> points;
-    std::vector<uint32_t> scalars;
+    std::vector<WitnessOrConstant<bb::fr>> points;
+    std::vector<WitnessOrConstant<bb::fr>> scalars;
 
     uint32_t out_point_x;
     uint32_t out_point_y;

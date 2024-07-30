@@ -8,7 +8,7 @@ import {
   type DeployL1Contracts,
   EthCheatCodes,
   Fr,
-  GrumpkinPrivateKey,
+  GrumpkinScalar,
   SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -20,6 +20,7 @@ import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -51,8 +52,8 @@ type SnapshotEntry = {
   snapshotPath: string;
 };
 
-export function createSnapshotManager(testName: string, dataPath?: string) {
-  return dataPath ? new SnapshotManager(testName, dataPath) : new MockSnapshotManager(testName);
+export function createSnapshotManager(testName: string, dataPath?: string, config: Partial<AztecNodeConfig> = {}) {
+  return dataPath ? new SnapshotManager(testName, dataPath, config) : new MockSnapshotManager(testName, config);
 }
 
 export interface ISnapshotManager {
@@ -72,7 +73,7 @@ class MockSnapshotManager implements ISnapshotManager {
   private context?: SubsystemsContext;
   private logger: DebugLogger;
 
-  constructor(testName: string) {
+  constructor(testName: string, private config: Partial<AztecNodeConfig> = {}) {
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
   }
@@ -94,7 +95,7 @@ class MockSnapshotManager implements ISnapshotManager {
 
   public async setup() {
     if (!this.context) {
-      this.context = await setupFromFresh(undefined, this.logger);
+      this.context = await setupFromFresh(undefined, this.logger, this.config);
     }
     return this.context;
   }
@@ -115,7 +116,7 @@ class SnapshotManager implements ISnapshotManager {
   private livePath: string;
   private logger: DebugLogger;
 
-  constructor(testName: string, private dataPath: string) {
+  constructor(testName: string, private dataPath: string, private config: Partial<AztecNodeConfig> = {}) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
   }
@@ -192,7 +193,7 @@ class SnapshotManager implements ISnapshotManager {
           this.logger.verbose(`Restoration of ${e.name} complete.`);
         });
       } else {
-        this.context = await setupFromFresh(this.livePath, this.logger);
+        this.context = await setupFromFresh(this.livePath, this.logger, this.config);
       }
     }
     return this.context;
@@ -226,12 +227,16 @@ async function teardown(context: SubsystemsContext | undefined) {
  * If given a statePath, the state will be written to the path.
  * If there is no statePath, in-memory and temporary state locations will be used.
  */
-async function setupFromFresh(statePath: string | undefined, logger: Logger): Promise<SubsystemsContext> {
+async function setupFromFresh(
+  statePath: string | undefined,
+  logger: Logger,
+  config: Partial<AztecNodeConfig> = {},
+): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
@@ -256,7 +261,7 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, logger);
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
-  aztecNodeConfig.l1BlockPublishRetryIntervalMS = 100;
+  aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
@@ -270,8 +275,9 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
+  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
   logger.verbose('Creating and synching an aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -280,11 +286,11 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
 
   logger.verbose('Deploying key registry...');
   await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );
   logger.verbose('Deploying auth registry...');
   await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );
 
   if (statePath) {
@@ -318,7 +324,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const ethereumHostPort = await getPort();
-  aztecNodeConfig.rpcUrl = `http://localhost:${ethereumHostPort}`;
+  aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
   const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
   await anvil.start();
   // Load anvil state.
@@ -343,7 +349,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, mnemonicToAccount(MNEMONIC));
 
   logger.verbose('Creating aztec node...');
-  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -373,9 +380,9 @@ export const addAccounts =
   (numberOfAccounts: number, logger: DebugLogger) =>
   async ({ pxe }: SubsystemsContext) => {
     // Generate account keys.
-    const accountKeys: [Fr, GrumpkinPrivateKey][] = Array.from({ length: numberOfAccounts }).map(_ => [
+    const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
       Fr.random(),
-      GrumpkinPrivateKey.random(),
+      GrumpkinScalar.random(),
     ]);
 
     logger.verbose('Simulating account deployment...');

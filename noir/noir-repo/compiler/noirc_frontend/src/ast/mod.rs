@@ -22,6 +22,7 @@ pub use traits::*;
 pub use type_alias::*;
 
 use crate::{
+    node_interner::QuotedTypeId,
     parser::{ParserError, ParserErrorReason},
     token::IntType,
     BinaryTypeOperator,
@@ -117,7 +118,11 @@ pub enum UnresolvedTypeData {
     ),
 
     // The type of quoted code for metaprogramming
-    Code,
+    Quoted(crate::QuotedType),
+
+    /// An already resolved type. These can only be parsed if they were present in the token stream
+    /// as a result of being spliced into a macro's token stream input.
+    Resolved(QuotedTypeId),
 
     Unspecified, // This is for when the user declares a variable without specifying it's type
     Error,
@@ -134,11 +139,19 @@ pub struct UnresolvedType {
 }
 
 /// Type wrapper for a member access
-pub(crate) type UnaryRhsMemberAccess =
-    (Ident, Option<(Option<Vec<UnresolvedType>>, Vec<Expression>)>);
+pub struct UnaryRhsMemberAccess {
+    pub method_or_field: Ident,
+    pub method_call: Option<UnaryRhsMethodCall>,
+}
+
+pub struct UnaryRhsMethodCall {
+    pub turbofish: Option<Vec<UnresolvedType>>,
+    pub macro_call: bool,
+    pub args: Vec<Expression>,
+}
 
 /// The precursor to TypeExpression, this is the type that the parser allows
-/// to be used in the length position of an array type. Only constants, variables,
+/// to be used in the length position of an array type. Only constant integers, variables,
 /// and numeric binary operators are allowed here.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum UnresolvedTypeExpression {
@@ -208,11 +221,12 @@ impl std::fmt::Display for UnresolvedTypeData {
                 }
             }
             MutableReference(element) => write!(f, "&mut {element}"),
-            Code => write!(f, "Code"),
+            Quoted(quoted) => write!(f, "{}", quoted),
             Unit => write!(f, "()"),
             Error => write!(f, "error"),
             Unspecified => write!(f, "unspecified"),
             Parenthesized(typ) => write!(f, "({typ})"),
+            Resolved(_) => write!(f, "(resolved type)"),
         }
     }
 }
@@ -251,6 +265,10 @@ impl UnresolvedType {
     pub fn unspecified() -> UnresolvedType {
         UnresolvedType { typ: UnresolvedTypeData::Unspecified, span: None }
     }
+
+    pub(crate) fn is_type_expression(&self) -> bool {
+        matches!(&self.typ, UnresolvedTypeData::Expression(_))
+    }
 }
 
 impl UnresolvedTypeData {
@@ -283,15 +301,12 @@ impl UnresolvedTypeExpression {
     // This large error size is justified because it improves parsing speeds by around 40% in
     // release mode. See `ParserError` definition for further explanation.
     #[allow(clippy::result_large_err)]
-    pub fn from_expr(
+    pub(crate) fn from_expr(
         expr: Expression,
         span: Span,
     ) -> Result<UnresolvedTypeExpression, ParserError> {
         Self::from_expr_helper(expr).map_err(|err_expr| {
-            ParserError::with_reason(
-                ParserErrorReason::InvalidArrayLengthExpression(err_expr),
-                span,
-            )
+            ParserError::with_reason(ParserErrorReason::InvalidTypeExpression(err_expr), span)
         })
     }
 
@@ -305,13 +320,10 @@ impl UnresolvedTypeExpression {
 
     fn from_expr_helper(expr: Expression) -> Result<UnresolvedTypeExpression, Expression> {
         match expr.kind {
-            ExpressionKind::Literal(Literal::Integer(int, sign)) => {
-                assert!(!sign, "Negative literal is not allowed here");
-                match int.try_to_u32() {
-                    Some(int) => Ok(UnresolvedTypeExpression::Constant(int, expr.span)),
-                    None => Err(expr),
-                }
-            }
+            ExpressionKind::Literal(Literal::Integer(int, _)) => match int.try_to_u32() {
+                Some(int) => Ok(UnresolvedTypeExpression::Constant(int, expr.span)),
+                None => Err(expr),
+            },
             ExpressionKind::Variable(path, _) => Ok(UnresolvedTypeExpression::Variable(path)),
             ExpressionKind::Prefix(prefix) if prefix.operator == UnaryOp::Minus => {
                 let lhs = Box::new(UnresolvedTypeExpression::Constant(0, expr.span));

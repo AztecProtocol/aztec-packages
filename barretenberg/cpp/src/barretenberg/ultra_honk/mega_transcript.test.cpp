@@ -60,20 +60,27 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "ECC_OP_WIRE_4", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "CALLDATA_READ_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", frs_per_G);
         manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
 
         round++;
-        manifest_expected.add_entry(round, "SORTED_ACCUM", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "W_4", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
+        manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
-        manifest_expected.add_entry(round, "Z_LOOKUP", frs_per_G);
 
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
             std::string label = "alpha_" + std::to_string(i);
@@ -87,7 +94,7 @@ class MegaTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
             std::string label = "Sumcheck:u_" + idx;
@@ -99,7 +106,7 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
         }
@@ -160,7 +167,12 @@ TEST_F(MegaTranscriptTests, ProverManifestConsistency)
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
+        if (prover_manifest[round] != manifest_expected[round]) {
+            info("Prover manifest discrepency in round ", round);
+            prover_manifest[round].print();
+            manifest_expected[round].print();
+            ASSERT(false);
+        }
     }
 }
 
@@ -192,8 +204,12 @@ TEST_F(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
-            << "Prover/Verifier manifest discrepency in round " << round;
+        if (prover_manifest[round] != verifier_manifest[round]) {
+            info("Prover/Verifier manifest discrepency in round ", round);
+            prover_manifest[round].print();
+            verifier_manifest[round].print();
+            ASSERT(false);
+        }
     }
 }
 
@@ -242,7 +258,7 @@ TEST_F(MegaTranscriptTests, StructureTest)
 
     Flavor::Commitment one_group_val = Flavor::Commitment::one();
     FF rand_val = FF::random_element();
-    prover.transcript->sorted_accum_comm = one_group_val * rand_val; // choose random object to modify
+    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
     EXPECT_TRUE(verifier.verify_proof(
         prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
@@ -250,5 +266,5 @@ TEST_F(MegaTranscriptTests, StructureTest)
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript();
-    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript->sorted_accum_comm), one_group_val * rand_val);
+    EXPECT_EQ(static_cast<Flavor::Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
