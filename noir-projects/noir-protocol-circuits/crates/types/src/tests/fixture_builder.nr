@@ -538,6 +538,12 @@ impl FixtureBuilder {
         );
     }
 
+    pub fn add_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
+        self.nullifiers.push(
+            Nullifier { value, counter: self.next_counter(), note_hash }.scope(self.storage_contract_address)
+        );
+    }
+
     pub fn add_siloed_nullifier(&mut self, value: Field) {
         let siloed_value = compute_siloed_nullifier(self.storage_contract_address, value);
         self.add_nullifier(siloed_value);

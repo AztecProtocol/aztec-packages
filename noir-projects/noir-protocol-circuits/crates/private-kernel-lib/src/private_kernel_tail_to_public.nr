@@ -36,7 +36,8 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         let output = self.generate_output();
 
         // Validate inputs.
-        PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel.public_inputs);
+        previous_kernel_validator.validate_for_private_tail_to_public();
         if !std::runtime::is_unconstrained() {
             // TODO(#7410) currently stubbed out until tube vk handled
             // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
@@ -44,7 +45,11 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 
         // Validate output.
         if !dep::std::runtime::is_unconstrained() {
-            TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+            TailToPublicOutputValidator::new(
+                output,
+                self.previous_kernel.public_inputs,
+                previous_kernel_validator.hints
+            ).validate();
         }
 
         output

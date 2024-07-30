@@ -31,7 +31,7 @@ fn validate_propagated_sorted_siloed_values_note_hashes_unordered_succeeds() {
 }
 
 #[test(should_fail_with="mismatch sorted values")]
-fn validate_propagated_sorted_siloed_values_note_hashes_mismatch_hash_fails() {
+fn validate_propagated_sorted_siloed_values_note_hashes_mismatch_sorted_hash_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
     builder.previous_kernel.append_note_hashes(2);
@@ -40,6 +40,20 @@ fn validate_propagated_sorted_siloed_values_note_hashes_mismatch_hash_fails() {
     builder.output.note_hashes.storage[0].note_hash.value += 1;
 
     builder.validate();
+}
+
+#[test(should_fail_with="mismatch siloed note hashes")]
+fn validate_propagated_sorted_siloed_values_note_hashes_mismatch_siloed_hash_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.previous_kernel.append_note_hashes(2);
+    builder.output.append_siloed_note_hashes(2);
+
+    let mut hints = builder.get_previous_kernel_hints();
+    // Tweak the hash in the hints.
+    hints.siloed_note_hashes[0] += 1;
+
+    builder.validate_with_previous_kernel_hints(hints);
 }
 
 /**

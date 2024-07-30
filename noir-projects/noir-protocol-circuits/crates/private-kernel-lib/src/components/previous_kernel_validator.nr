@@ -1,15 +1,20 @@
+mod previous_kernel_validator_hints;
+
+use crate::components::previous_kernel_validator::previous_kernel_validator_hints::{generate_previous_kernel_validator_hints, PreviousKernelValidatorHints};
 use dep::types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, utils::arrays::array_length,
     traits::is_empty
 };
 
 struct PreviousKernelValidator {
-    previous_kernel: PrivateKernelCircuitPublicInputs
+    previous_kernel: PrivateKernelCircuitPublicInputs,
+    hints: PreviousKernelValidatorHints,
 }
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
-        PreviousKernelValidator { previous_kernel }
+        let hints = generate_previous_kernel_validator_hints(previous_kernel);
+        PreviousKernelValidator { previous_kernel, hints }
     }
 
     pub fn validate_for_private_tail(self) {
@@ -25,6 +30,7 @@ impl PreviousKernelValidator {
     fn validate_common(self) {
         self.validate_empty_private_call_stack();
         self.verify_empty_validation_requests();
+        self.validate_no_transient_data();
     }
 
     fn validate_empty_private_call_stack(self) {
@@ -77,5 +83,24 @@ impl PreviousKernelValidator {
         assert_eq(
             array_length(self.previous_kernel.validation_requests.scoped_key_validation_requests_and_generators), 0, "Non empty key validation requests"
         );
+    }
+
+    fn validate_no_transient_data(self) {
+        let nullifiers = self.previous_kernel.end.nullifiers;
+        let inner_note_hashes = self.previous_kernel.end.note_hashes;
+        let siloed_note_hashes = self.hints.siloed_note_hashes;
+        let note_hash_indexes_for_nullifiers = self.hints.note_hash_indexes_for_nullifiers;
+        for i in 0..nullifiers.len() {
+            let nullified_note_hash = nullifiers[i].nullifier.note_hash;
+            if nullified_note_hash != 0 {
+                let note_hash_index = note_hash_indexes_for_nullifiers[i];
+                assert_eq(
+                    nullified_note_hash, siloed_note_hashes[note_hash_index], "Hinted siloed note hash does not match nullified note hash"
+                );
+                assert(
+                    inner_note_hashes[note_hash_index].counter() < nullifiers[i].counter(), "Cannot link a note hash emitted after a nullifier"
+                );
+            }
+        }
     }
 }

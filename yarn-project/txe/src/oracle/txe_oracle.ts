@@ -745,42 +745,6 @@ export class TXE implements TypedOracle {
     return executionResult;
   }
 
-  async callPublicFunction(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
-    _sideEffectCounter: number,
-    isStaticCall: boolean,
-    isDelegateCall: boolean,
-  ): Promise<Fr[]> {
-    // Store and modify env
-    const currentContractAddress = AztecAddress.fromField(this.contractAddress);
-    const currentMessageSender = AztecAddress.fromField(this.msgSender);
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
-    this.setMsgSender(this.contractAddress);
-    this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
-
-    const callContext = CallContext.empty();
-    callContext.msgSender = this.msgSender;
-    callContext.functionSelector = this.functionSelector;
-    callContext.storageContractAddress = targetContractAddress;
-    callContext.isStaticCall = isStaticCall;
-    callContext.isDelegateCall = isDelegateCall;
-
-    const args = this.packedValuesCache.unpack(argsHash);
-
-    const executionResult = await this.executePublicFunction(targetContractAddress, args, callContext);
-
-    // Apply side effects
-    this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber();
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
-
-    return executionResult.returnValues;
-  }
-
   async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
@@ -833,6 +797,10 @@ export class TXE implements TypedOracle {
       isStaticCall,
       isDelegateCall,
     );
+  }
+
+  notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
+    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {

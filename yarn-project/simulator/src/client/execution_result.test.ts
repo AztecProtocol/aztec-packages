@@ -4,7 +4,7 @@ import { Fr, PrivateCallStackItem } from '@aztec/circuits.js';
 import {
   type ExecutionResult,
   collectNoteHashLeafIndexMap,
-  collectNullifiedNoteHashCounters,
+  collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from './execution_result.js';
 
@@ -16,7 +16,7 @@ function emptyExecutionResult(): ExecutionResult {
     callStackItem: PrivateCallStackItem.empty(),
     noteHashLeafIndexMap: new Map(),
     newNotes: [],
-    nullifiedNoteHashCounters: new Map(),
+    noteHashNullifierCounterMap: new Map(),
     returnValues: [],
     nestedExecutions: [],
     enqueuedPublicFunctionCalls: [],
@@ -70,33 +70,33 @@ describe('execution_result', () => {
     });
   });
 
-  describe('collectNullifiedNoteHashCounters', () => {
+  describe('collectNoteHashNullifierCounterMap', () => {
     it('returns a map for note hash leaf indexes', () => {
-      executionResult.nullifiedNoteHashCounters = new Map();
-      executionResult.nullifiedNoteHashCounters.set(12, 99);
-      executionResult.nullifiedNoteHashCounters.set(34, 88);
-      const res = collectNullifiedNoteHashCounters(executionResult);
+      executionResult.noteHashNullifierCounterMap = new Map();
+      executionResult.noteHashNullifierCounterMap.set(12, 99);
+      executionResult.noteHashNullifierCounterMap.set(34, 88);
+      const res = collectNoteHashNullifierCounterMap(executionResult);
       expect(res.size).toBe(2);
       expect(res.get(12)).toBe(99);
       expect(res.get(34)).toBe(88);
     });
 
     it('returns a map containing note hash leaf indexes for nested executions', () => {
-      executionResult.nullifiedNoteHashCounters.set(12, 99);
-      executionResult.nullifiedNoteHashCounters.set(34, 88);
+      executionResult.noteHashNullifierCounterMap.set(12, 99);
+      executionResult.noteHashNullifierCounterMap.set(34, 88);
 
       const childExecution0 = emptyExecutionResult();
-      childExecution0.nullifiedNoteHashCounters.set(56, 77);
+      childExecution0.noteHashNullifierCounterMap.set(56, 77);
 
       const childExecution1 = emptyExecutionResult();
-      childExecution1.nullifiedNoteHashCounters.set(78, 66);
+      childExecution1.noteHashNullifierCounterMap.set(78, 66);
       const grandchildExecution = emptyExecutionResult();
-      grandchildExecution.nullifiedNoteHashCounters.set(90, 55);
+      grandchildExecution.noteHashNullifierCounterMap.set(90, 55);
       childExecution1.nestedExecutions = [grandchildExecution];
 
       executionResult.nestedExecutions = [childExecution0, childExecution1];
 
-      const res = collectNullifiedNoteHashCounters(executionResult);
+      const res = collectNoteHashNullifierCounterMap(executionResult);
       expect(res.size).toBe(5);
       expect(res.get(12)).toBe(99);
       expect(res.get(34)).toBe(88);

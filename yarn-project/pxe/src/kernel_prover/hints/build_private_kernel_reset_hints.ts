@@ -160,7 +160,6 @@ export async function buildPrivateKernelResetInputs(
     futureNoteHashReads,
     futureNullifierReads,
     noteHashNullifierCounterMap,
-    validationRequestsSplitCounter,
     MAX_NOTE_HASHES_PER_TX,
     MAX_NULLIFIERS_PER_TX,
   );

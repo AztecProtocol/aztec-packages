@@ -19,7 +19,6 @@ describe('buildTransientDataHints', () => {
   let futureNoteHashReads: ScopedReadRequest[];
   let futureNullifierReads: ScopedReadRequest[];
   let noteHashNullifierCounterMap: Map<number, number>;
-  let validationRequestsSplitCounter = 0;
 
   const buildHints = () =>
     buildTransientDataHints(
@@ -28,7 +27,6 @@ describe('buildTransientDataHints', () => {
       futureNoteHashReads,
       futureNullifierReads,
       noteHashNullifierCounterMap,
-      validationRequestsSplitCounter,
     );
 
   beforeEach(() => {
@@ -71,21 +69,15 @@ describe('buildTransientDataHints', () => {
     expect(noteHashIndexesForNullifiers).toEqual([5, 5, 5, 0]);
   });
 
-  it('ignore pair that has revertible nullifier and non-revertible note hash', () => {
-    // Make the note hash non-revertible.
-    validationRequestsSplitCounter = noteHashes[0].counter + 1;
+  it('keeps the pair if note hash does not match', () => {
+    nullifiers[3].nullifier.noteHash = new Fr(9999);
     const [nullifierIndexes, noteHashIndexesForNullifiers] = buildHints();
     expect(nullifierIndexes).toEqual([4, 4, 4, 4, 4]);
     expect(noteHashIndexesForNullifiers).toEqual([5, 5, 5, 5]);
   });
 
-  it('throws if note hash does not match', () => {
-    nullifiers[1].nullifier.noteHash = new Fr(11);
-    expect(buildHints).toThrow('Hinted note hash does not match.');
-  });
-
   it('throws if contract address does not match', () => {
-    nullifiers[1].contractAddress = AztecAddress.fromBigInt(123456n);
+    nullifiers[3].contractAddress = AztecAddress.fromBigInt(123456n);
     expect(buildHints).toThrow('Contract address of hinted note hash does not match.');
   });
 
