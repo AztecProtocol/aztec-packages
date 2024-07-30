@@ -45,7 +45,7 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
-  default = 0
+  default = 2
 }
 
 variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
