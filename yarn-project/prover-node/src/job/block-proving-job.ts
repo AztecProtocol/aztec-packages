@@ -42,70 +42,70 @@ export class BlockProvingJob {
     }
 
     this.log.info(`Starting block proving job`, { fromBlock, toBlock });
-    this.state = 'started';
-
-    // TODO: Fast-forward world state to fromBlock and/or await fromBlock to be published to the unproven chain
-
     this.state = 'processing';
+    try {
+      let historicalHeader = (await this.l2BlockSource.getBlock(fromBlock - 1))?.header;
+      for (let blockNumber = fromBlock; blockNumber <= toBlock; blockNumber++) {
+        const block = await this.getBlock(blockNumber);
+        const globalVariables = block.header.globalVariables;
+        const txHashes = block.body.txEffects.map(tx => tx.txHash);
+        const txCount = block.body.numberOfTxsIncludingPadded;
+        const l1ToL2Messages = await this.getL1ToL2Messages(block);
 
-    let historicalHeader = (await this.l2BlockSource.getBlock(fromBlock - 1))?.header;
-    for (let blockNumber = fromBlock; blockNumber <= toBlock; blockNumber++) {
-      const block = await this.getBlock(blockNumber);
-      const globalVariables = block.header.globalVariables;
-      const txHashes = block.body.txEffects.map(tx => tx.txHash);
-      const txCount = block.body.numberOfTxsIncludingPadded;
-      const l1ToL2Messages = await this.getL1ToL2Messages(block);
+        this.log.verbose(`Starting block processing`, {
+          number: block.number,
+          blockHash: block.hash().toString(),
+          lastArchive: block.header.lastArchive.root,
+          noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
+          nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
+          publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
+          historicalHeader: historicalHeader?.hash(),
+          ...globalVariables,
+        });
 
-      this.log.verbose(`Starting block processing`, {
-        number: block.number,
-        blockHash: block.hash().toString(),
-        lastArchive: block.header.lastArchive.root,
-        noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
-        nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
-        publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
-        historicalHeader: historicalHeader?.hash(),
-        ...globalVariables,
-      });
-      const provingTicket = await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
+        // When we move to proving epochs, this should change into a startNewEpoch and be lifted outside the loop.
+        const provingTicket = await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
 
-      // TODO: When we start proving multiple blocks per epoch, this will create a whole database copy for each block
-      // in the epoch, which we don't want. We should adapt the API so we can fork once and then spawn multiple processors
-      // from it, assuming we haven't moved to https://github.com/AztecProtocol/engineering-designs/pull/9 by then.
-      const publicProcessor = await this.publicProcessorFactory.createFromFork(historicalHeader, globalVariables);
+        const publicProcessor = this.publicProcessorFactory.create(historicalHeader, globalVariables);
 
-      const txs = await this.getTxs(txHashes);
-      await this.processTxs(publicProcessor, txs, txCount);
+        const txs = await this.getTxs(txHashes);
+        await this.processTxs(publicProcessor, txs, txCount);
 
-      this.log.verbose(`Processed all txs for block`, {
-        blockNumber: block.number,
-        blockHash: block.hash().toString(),
-      });
+        this.log.verbose(`Processed all txs for block`, {
+          blockNumber: block.number,
+          blockHash: block.hash().toString(),
+        });
 
-      await this.prover.setBlockCompleted();
+        await this.prover.setBlockCompleted();
 
-      const result = await provingTicket.provingPromise;
-      if (result.status === PROVING_STATUS.FAILURE) {
-        throw new Error(`Block proving failed: ${result.reason}`);
+        // This should be moved outside the loop to match the creation of the proving ticket when we move to epochs.
+        this.state = 'awaiting-prover';
+        const result = await provingTicket.provingPromise;
+        if (result.status === PROVING_STATUS.FAILURE) {
+          throw new Error(`Block proving failed: ${result.reason}`);
+        }
+
+        historicalHeader = block.header;
       }
 
-      historicalHeader = block.header;
+      const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
+      this.log.info(`Finalised proof for block range`, { fromBlock, toBlock });
+
+      this.state = 'publishing-proof';
+      await this.publisher.submitProof(
+        block.header,
+        block.archive.root,
+        this.prover.getProverId(),
+        aggregationObject,
+        proof,
+      );
+      this.log.info(`Submitted proof for block range`, { fromBlock, toBlock });
+
+      this.state = 'completed';
+    } catch (err) {
+      this.log.error(`Error running block prover job: ${err}`);
+      this.state = 'failed';
     }
-
-    this.state = 'awaiting-prover';
-    const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
-    this.log.info(`Finalised proof for block range`, { fromBlock, toBlock });
-
-    this.state = 'publishing-proof';
-    await this.publisher.submitProof(
-      block.header,
-      block.archive.root,
-      this.prover.getProverId(),
-      aggregationObject,
-      proof,
-    );
-    this.log.info(`Submitted proof for block range`, { fromBlock, toBlock });
-
-    this.state = 'completed';
   }
 
   private async getBlock(blockNumber: number): Promise<L2Block> {
@@ -155,8 +155,8 @@ export class BlockProvingJob {
 
 export type BlockProvingJobState =
   | 'initialized'
-  | 'started'
   | 'processing'
   | 'awaiting-prover'
   | 'publishing-proof'
-  | 'completed';
+  | 'completed'
+  | 'failed';
