@@ -68,3 +68,32 @@ unconstrained fn setup_refund_success() {
     utils::check_private_balance(token_contract_address, fee_payer, 1)
 }
 
+#[test(should_fail_with = "tx fee is higher than funded amount")]
+unconstrained fn setup_refund_insufficient_funded_amount() {
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(true);
+
+    // Renaming owner and recipient to match naming in TokenWithRefunds
+    let user = owner;
+    let fee_payer = recipient;
+
+    // We set funded amount to 0 to make the transaction fee higher than the funded amount
+    let funded_amount = 0;
+    let user_randomness = 42;
+    let fee_payer_randomness = 123;
+    let mut context = env.private();
+
+    let setup_refund_from_call_interface = TokenWithRefunds::at(token_contract_address).setup_refund(
+        fee_payer,
+        user,
+        funded_amount,
+        user_randomness,
+        fee_payer_randomness
+    );
+
+    authwit_cheatcodes::add_private_authwit_from_call_interface(user, fee_payer, setup_refund_from_call_interface);
+
+    env.impersonate(fee_payer);
+
+    // The following should fail with "tx fee is higher than funded amount" because funded amount is 0
+    env.call_private_void(setup_refund_from_call_interface);
+}
