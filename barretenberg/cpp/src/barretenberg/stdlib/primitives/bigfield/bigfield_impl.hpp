@@ -450,7 +450,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
                 uint32_t xp(prime_basis_limb.witness_index);
                 uint32_t yp(other.prime_basis_limb.witness_index);
                 bb::fr cp(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
-
                 const auto output_witnesses = ctx->evaluate_non_native_field_addition(
                     { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
                 result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
@@ -825,7 +824,11 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
     const uint1024_t left = uint1024_t(numerator_values);
     const uint1024_t right = uint1024_t(denominator.get_value());
     const uint1024_t modulus(target_basis.modulus);
-    uint512_t inverse_value = right.lo.invmod(target_basis.modulus).lo;
+    // We don't want to trigger the uint assert
+    uint512_t inverse_value(0);
+    if (right.lo != uint512_t(0)) {
+        inverse_value = right.lo.invmod(target_basis.modulus).lo;
+    }
     uint1024_t inverse_1024(inverse_value);
     inverse_value = ((left * inverse_1024) % modulus).lo;
 
@@ -1812,10 +1815,8 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
  * This prevents our field arithmetic from overflowing the native modulus boundary, whilst ensuring we can
  * still use the chinese remainder theorem to validate field multiplications with a reduced number of range checks
  *
- * @param num_products The number of products a*b in the parent function that calls the reduction check. Needed to
- *limit overflow
  **/
-template <typename Builder, typename T> void bigfield<Builder, T>::reduction_check(const size_t num_products) const
+template <typename Builder, typename T> void bigfield<Builder, T>::reduction_check() const
 {
 
     if (is_constant()) { // this seems not a reduction check, but actually computing the reduction
@@ -1847,10 +1848,29 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
     bool limb_overflow_test_1 = binary_basis_limbs[1].maximum_value > maximum_limb_value;
     bool limb_overflow_test_2 = binary_basis_limbs[2].maximum_value > maximum_limb_value;
     bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > maximum_limb_value;
-    if (get_maximum_value() > get_maximum_unreduced_value(num_products) || limb_overflow_test_0 ||
-        limb_overflow_test_1 || limb_overflow_test_2 || limb_overflow_test_3) {
+    if (get_maximum_value() > get_maximum_unreduced_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
+        limb_overflow_test_2 || limb_overflow_test_3) {
         self_reduce();
     }
+}
+
+/**
+ * SANITY CHECK on a value that is about to interact with another value
+ *
+ * @details ASSERTs that the value of all limbs is less than or equal to the prohibited maximum value. Checks that the
+ *maximum value of the whole element is also less than a prohibited maximum value
+ *
+ **/
+template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check() const
+{
+
+    uint256_t maximum_limb_value = get_prohibited_maximum_limb_value();
+    bool limb_overflow_test_0 = binary_basis_limbs[0].maximum_value > maximum_limb_value;
+    bool limb_overflow_test_1 = binary_basis_limbs[1].maximum_value > maximum_limb_value;
+    bool limb_overflow_test_2 = binary_basis_limbs[2].maximum_value > maximum_limb_value;
+    bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > maximum_limb_value;
+    ASSERT(!(get_maximum_value() > get_prohibited_maximum_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
+             limb_overflow_test_2 || limb_overflow_test_3));
 }
 
 // create a version with mod 2^t element part in [0,p-1]
@@ -2199,7 +2219,21 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                                                         const std::vector<bigfield>& input_remainders)
 {
 
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(input_remainders.size() <= MAXIMUM_SUMMAND_COUNT);
+    // Sanity checks
+    input_left.sanity_check();
+    input_to_mul.sanity_check();
+    input_quotient.sanity_check();
+    for (auto& el : to_add) {
+        el.sanity_check();
+    }
+    for (auto& el : input_remainders) {
+        el.sanity_check();
+    }
+
     std::vector<bigfield> remainders(input_remainders);
+
     bigfield left = input_left;
     bigfield to_mul = input_to_mul;
     bigfield quotient = input_quotient;
@@ -2514,7 +2548,26 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                                                                  const bigfield& input_quotient,
                                                                  const std::vector<bigfield>& input_remainders)
 {
+    ASSERT(input_left.size() == input_right.size());
+    ASSERT(input_left.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(input_remainders.size() <= MAXIMUM_SUMMAND_COUNT);
 
+    ASSERT(input_left.size() == input_right.size() && input_left.size() < 1024);
+    // Sanity checks
+    for (auto& el : input_left) {
+        el.sanity_check();
+    }
+    for (auto& el : input_right) {
+        el.sanity_check();
+    }
+    for (auto& el : to_add) {
+        el.sanity_check();
+    }
+    input_quotient.sanity_check();
+    for (auto& el : input_remainders) {
+        el.sanity_check();
+    }
     std::vector<bigfield> remainders(input_remainders);
     std::vector<bigfield> left(input_left);
     std::vector<bigfield> right(input_right);
@@ -3015,6 +3068,15 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
         unsafe_evaluate_multiply_add(left, left, to_add, quotient, { remainder });
         return;
     }
+
+    // Sanity checks
+    left.sanity_check();
+    remainder.sanity_check();
+    quotient.sanity_check();
+    for (auto& el : to_add) {
+        el.sanity_check();
+    }
+
     Builder* ctx = left.context == nullptr ? quotient.context : left.context;
 
     uint512_t max_b0 = (left.binary_basis_limbs[1].maximum_value * left.binary_basis_limbs[0].maximum_value);

@@ -1086,6 +1086,11 @@ using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuit
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 TYPED_TEST(stdlib_bigfield, badmul)
 {
+    TestFixture::test_bad_mul();
+}
+
+TYPED_TEST(stdlib_bigfield, division_formula_regression)
+{
     TestFixture::test_division_formula_bug();
 }
 TYPED_TEST(stdlib_bigfield, basic_tag_logic)

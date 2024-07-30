@@ -392,14 +392,25 @@ template <typename Builder, typename T> class bigfield {
                              prime_basis_limb.tag);
     }
 
-    static constexpr uint512_t get_maximum_unreduced_value(const size_t num_products = 1)
+    static constexpr uint512_t get_maximum_unreduced_value()
     {
-        // return (uint512_t(1) << 256);
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus) /
-                                     uint1024_t(static_cast<uint64_t>(num_products));
+        // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
+
+        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
         // TODO: compute square root (the following is a lower bound, so good for the CRT use)
+        // We use -1 to stay safer, because it provides additional space to avoid the overflow, but get_msb() by itself
+        // should be enough
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
-        return (uint512_t(1) << (maximum_product_bits >> 1)) - uint512_t(1);
+        return (uint512_t(1) << (maximum_product_bits >> 1));
+    }
+
+    // If we encounter this maximum value of a bigfield we stop execution
+    static constexpr uint512_t get_prohibited_maximum_value()
+    {
+        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
+        const size_t arbitrary_secure_margin = 20;
+        return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
     }
 
     static constexpr uint1024_t get_maximum_crt_product()
@@ -501,11 +512,24 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint64_t MAX_ADDITION_LOG = 10;
     // the rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
     // starting with this max limb size
-    static constexpr uint64_t MAX_UNREDUCED_LIMB_SIZE = (bb::fr::modulus.get_msb() + 1) / 2 - MAX_ADDITION_LOG;
 
-    static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_SIZE; }
+    static constexpr uint64_t MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW =
+        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
 
-    static_assert(MAX_UNREDUCED_LIMB_SIZE < (NUM_LIMB_BITS * 2));
+    // If the logarithm of the maximum value of a limb is more than this, we need to reduce
+    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS =
+        NUM_LIMB_BITS + 10; // We allowa an element to be added to itself 10 times. There is no actual usecase
+
+    static constexpr uint64_t PROHIBITED_LIMB_BITS =
+        MAX_UNREDUCED_LIMB_BITS +
+        5; // Shouldn't be reachable through addition, reduction should happen earlier. If we detect this, we stop
+
+    static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_BITS; }
+
+    // If we encounter this maximum value of a limb we stop execution
+    static constexpr uint256_t get_prohibited_maximum_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
+
+    static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW);
 
   private:
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
@@ -560,7 +584,9 @@ template <typename Builder, typename T> class bigfield {
                                  const bigfield& right,
                                  const bigfield& quotient,
                                  const bigfield& remainder);
-    void reduction_check(const size_t num_products = 1) const;
+    void reduction_check() const;
+
+    void sanity_check() const;
 
 }; // namespace stdlib
 
