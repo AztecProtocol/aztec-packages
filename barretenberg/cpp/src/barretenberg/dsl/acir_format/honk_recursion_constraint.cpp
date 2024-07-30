@@ -110,11 +110,13 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
             }
         }
     }
-
+    info("before dummy stuff in create_honk_recursion_constraints");
     if (!has_valid_witness_assignments) {
         // Set vkey->circuit_size correctly based on the proof size
         size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
         size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
+        info("proof size: ", input.proof.size());
+        info("public input size: ", input.public_inputs.size());
         assert((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
                 UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
                 2 * num_frs_comm) %
@@ -128,8 +130,9 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
         builder.assert_equal(builder.add_variable(input.public_inputs.size()), key_fields[1].witness_index);
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
-        builder.assert_equal(builder.add_variable(0), key_fields[4].witness_index);
+        builder.assert_equal(builder.add_variable(1), key_fields[4].witness_index);
         uint32_t offset = 4;
+        size_t num_inner_public_inputs = input.public_inputs.size() - bb::AGGREGATION_OBJECT_SIZE;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
         // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup
         // yet.
@@ -139,6 +142,7 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
         fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
         std::vector<fq> aggregation_object_fq_values = { x0, y0, x1, y1 };
+        size_t public_input_index = num_inner_public_inputs;
         for (fq val : aggregation_object_fq_values) {
             const uint256_t x = val;
             std::array<fr, fq_ct::NUM_LIMBS> val_limbs = { x.slice(0, fq_ct::NUM_LIMB_BITS),
@@ -148,10 +152,18 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
                                                                    stdlib::field_conversion::TOTAL_BITS) };
             for (size_t i = 0; i < fq_ct::NUM_LIMBS; ++i) {
                 uint32_t idx = builder.add_variable(val_limbs[i]);
+                info(idx, " ", offset, " ", key_fields[offset].witness_index);
+                builder.assert_equal(
+                    idx,
+                    proof_fields[HonkRecursionConstraint::inner_public_input_offset + public_input_index]
+                        .witness_index);
+                idx = builder.add_variable(public_input_index);
                 builder.assert_equal(idx, key_fields[offset].witness_index);
                 offset++;
+                public_input_index++;
             }
         }
+        info("after dummy vkey recursion indices in create_honk_recursion_constraints");
 
         for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
             auto comm = curve::BN254::AffineElement::one() * fr::random_element();
@@ -169,11 +181,12 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         builder.assert_equal(builder.add_variable(input.public_inputs.size()), proof_fields[1].witness_index);
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
 
-        // the public inputs
-        for (size_t i = 0; i < input.public_inputs.size(); i++) {
+        // the inner public inputs
+        for (size_t i = 0; i < num_inner_public_inputs; i++) {
             builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
             offset++;
         }
+        offset += bb::AGGREGATION_OBJECT_SIZE;
 
         // first 7 commitments
         for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
@@ -221,10 +234,13 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         }
         ASSERT(offset == input.proof.size() + input.public_inputs.size());
     }
+    info("after dummy stuff in create_honk_recursion_constraints");
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
+    info("vkey recursive_proof_public_input_indices: ", vkey->recursive_proof_public_input_indices);
     RecursiveVerifier verifier(&builder, vkey);
     aggregation_state_ct input_agg_obj = agg_points_from_witness_indicies(builder, input_aggregation_object);
+    info("before verify_proof");
     aggregation_state_ct output_agg_object = verifier.verify_proof(proof_fields, input_agg_obj);
 
     AggregationObjectIndices proof_witness_indices = {
