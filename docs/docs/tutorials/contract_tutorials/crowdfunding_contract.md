@@ -75,8 +75,6 @@ Replace the example functions with an initializer that takes the required campai
 }
 ```
 
-More about initializers [here](../../guides/smart_contracts/writing_contracts/initializers.md).
-
 #### Dependencies
 
 When you compile the contracts by running `aztec-nargo compile` in your project directory, you'll notice it cannot resolve `AztecAddress`. (Or hovering over in VSCode)
@@ -98,8 +96,6 @@ A word about versions:
 - Choose the aztec packages version to match your aztec sandbox version
 - Check that your `compiler_version` in Nargo.toml is satisified by your aztec compiler - `aztec-nargo -V`
 
-More about versions [here](https://docs.aztec.network/developers/versions-updating).
-
 Inside the Crowdfunding contract definition, use the dependency that defines the address type `AztecAddress` (same syntax as Rust)
 
 ```rust
@@ -116,8 +112,6 @@ To retain the initializer parameters in the contract's Storage, we'll need to de
 #include_code storage /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
 The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
-
-(See [here](https://docs.aztec.network/developers/contracts/resources/dependencies) for common dependencies).
 
 ---
 
@@ -137,7 +131,7 @@ You can compile the code so far with `aztec-nargo compile`.
 
 #### Checking campaign duration against the timestamp
 
-To check that the donation occurs before the campaign deadline, we must access the public `timestamp`. It is one of several [Public Global Variables](https://docs.aztec.network/developers/contracts/references/globals#public-global-variables).
+To check that the donation occurs before the campaign deadline, we must access the public `timestamp`. It is one of several Public Global Variables.
 
 Declare an Aztec function that is public and internal
 
@@ -153,7 +147,7 @@ Read the deadline from storage and assert that the `timestamp` from this context
 
 ---
 
-Since donations are to be private, the donate function will have the user's private context which has these [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables). So from the private context there is a little extra to call the (public internal) `_check_deadline` function.
+Since donations are to be private, the donate function will have the user's private context which has these private global variables. So from the private context there is a little extra to call the (public internal) `_check_deadline` function.
 
 ```rust
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
@@ -167,7 +161,7 @@ Now conclude adding all dependencies to the `Crowdfunding` contract:
 
 #include_code all-deps /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-Like before, you can find these and other `aztec::protocol_types` [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
+Like before, you can find these and other `aztec::protocol_types` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
 
 
 #### Interfacing with another contract
@@ -183,7 +177,7 @@ token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract. 
 
 :::note
-The user must have authorised this action (concept [here](../../aztec/concepts/accounts/index.md#authorizing-actions)), example use of `createAuthWit` in 'full donor flow' test [here](../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
+The user must have authorised this action, example use of `createAuthWit` in 'full donor flow' test [here](../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
 :::
 
 #### Creating and storing a private receipt note
@@ -199,19 +193,34 @@ The remaining function to implement, `withdraw`, is reasonably straight-forward:
 2. transfer tokens from the contract to the operator
 3. reveal that an amount has been withdrawn to the operator
 
-The last point is achieved by emitting an unencrypted event log, more [here](https://docs.aztec.network/developers/contracts/writing_contracts/events/emit_event#unencrypted-events).
+The last point is achieved by emitting an unencrypted event log.
 
 Copy the last function into your Crowdfunding contract:
 
 #include_code operator-withdrawals /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-You should be able to compile successfully with `aztec-nargo compile`.
+You should be able to compile successfully with `aztec-nargo compile`. 
+
+**Congraulations,** you have just built a multi-contract project on Aztec!
 
 ## Conclusion
 
-For comparison, the full Crowdfunding contract can be found [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/crowdfunding_contract).
-
-### Next steps?
+For comparison, the full Crowdfunding contract can be found [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/crowdfunding_contract).
 
 If a new token wishes to honour donors with free tokens based on donation amounts, this is possible via the donation_receipts (a `PrivateSet`).
 See [claim_contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/claim_contract).
+
+## Next steps
+
+### Build an accountscontract 
+
+Follow the account contract tutorial on the [next page](./write_accounts_contract.md) and learn more about account abstraction.
+
+### Optional: Learn more about concepts mentioned here
+
+ - [Initializer functions](../../guides/smart_contracts/writing_contracts/initializers.md)
+ - [Versions](https://docs.aztec.network/developers/versions-updating).
+ - [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables)
+ - [Authorizing actions](../../aztec/concepts/accounts/index.md#authorizing-actions)
+ - [Unencrypted logs](https://docs.aztec.network/developers/contracts/writing_contracts/events/emit_event#unencrypted-events)
+ - [Common dependencies](https://docs.aztec.network/developers/contracts/resources/dependencies)

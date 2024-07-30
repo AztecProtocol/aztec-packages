@@ -1,6 +1,6 @@
 ---
 title: "Private & Public token contract"
-sidebar_position: 4
+sidebar_position: 5
 ---
 
 In this tutorial we will go through writing an L2 native token contract
@@ -17,7 +17,7 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the token contract source code defined on Github [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr), and explain what is being added as we go.
+We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
 
@@ -78,7 +78,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 
 ### Private functions
 
-These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data [commitments](https://en.wikipedia.org/wiki/Commitment_scheme) and [nullifiers](../../aztec/concepts/storage/trees/index.md#nullifier-tree), so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
+These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
 - `redeem_shield` enables accounts to claim tokens that have been made private via `mint_private` or `shield` by providing the secret
 - `unshield` enables an account to send tokens from their private balance to any other account's public balance
@@ -122,7 +122,7 @@ Before we can implement the functions, we need set up the contract storage, and 
 
 :::info Copy required files
 
-We will be going over the code in `main.nr` [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
 
 :::
 
@@ -140,8 +140,6 @@ We are importing:
 - `compute_secret_hash` that will help with the shielding and unshielding, allowing someone to claim a token from private to public
 - Types for storing note types
 
-For more detail on execution contexts, see [Contract Communication](../../aztec/concepts/smart_contracts/communication/index.md).
-
 ### Types files
 
 We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src).
@@ -150,7 +148,7 @@ The main thing to note from this types folder is the `TransparentNote` definitio
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](../../aztec/concepts/storage/index.md) to learn more about public and private state in Aztec.
+Private state in Aztec is all [UTXOs](../../aztec/concepts/storage/index.md).
 
 ## Contract Storage
 
@@ -169,8 +167,6 @@ Reading through the storage variables:
 - `pending_shields` is a `PrivateSet` of `TransparentNote`s stored in private state. What is stored publicly is a set of commitments to `TransparentNote`s.
 - `public_balances` is a mapping of Aztec addresses in public state and represents the publicly viewable balances of accounts.
 - `symbol`, `name`, and `decimals` are similar in meaning to ERC20 tokens on Ethereum.
-
-You can read more about it [here](../../aztec/concepts/storage/index.md).
 
 ## Functions
 
@@ -381,12 +377,17 @@ aztec codegen target -o src/artifacts
 
 ## Next Steps
 
-### Testing
-
-Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
-
 ### Token Bridge Contract
 
 The [token bridge tutorial](advanced/token_bridge/index.md) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
+
+### Optional: Dive deeper into this contract and concepts mentioned here
+
+- Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
+-  [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
+-  [Nullifiers](../../aztec/concepts/storage/trees/index.md#nullifier-tree)
+-  [Contract Communication](../../aztec/concepts/smart_contracts/communication/index.md).
+-  [Contract Storage](../../aztec/concepts/storage/index.md)
+-  [Authwit](../../aztec/concepts/accounts/authwit.md)
