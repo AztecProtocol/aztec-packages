@@ -1734,14 +1734,18 @@ impl<'block> BrilligBlock<'block> {
             let initializer_fn =
                 |ctx: &mut BrilligContext<_>, subitem_start_pointer: SingleAddrVariable| {
                     ctx.mov_instruction(subitem_pointer.address, subitem_start_pointer.address);
-                    for subitem in subitem_to_repeat_variables.into_iter() {
+                    for (subitem_index, subitem) in
+                        subitem_to_repeat_variables.into_iter().enumerate()
+                    {
                         ctx.codegen_store_variable_in_pointer(subitem_pointer.address, subitem);
-                        ctx.memory_op_instruction(
-                            subitem_pointer.address,
-                            one.address,
-                            subitem_pointer.address,
-                            BrilligBinaryOp::Add,
-                        );
+                        if subitem_index != item_types.len() - 1 {
+                            ctx.memory_op_instruction(
+                                subitem_pointer.address,
+                                one.address,
+                                subitem_pointer.address,
+                                BrilligBinaryOp::Add,
+                            );
+                        }
                     }
                 };
 
@@ -1786,18 +1790,20 @@ impl<'block> BrilligBlock<'block> {
 
         self.brillig_context.mov_instruction(write_pointer_register, pointer);
 
-        for element_id in data.iter() {
+        for (element_idx, element_id) in data.iter().enumerate() {
             let element_variable = self.convert_ssa_value(*element_id, dfg);
             // Store the item in memory
             self.brillig_context
                 .codegen_store_variable_in_pointer(write_pointer_register, element_variable);
-            // Increment the write_pointer_register
-            self.brillig_context.memory_op_instruction(
-                write_pointer_register,
-                one.address,
-                write_pointer_register,
-                BrilligBinaryOp::Add,
-            );
+            if element_idx != data.len() - 1 {
+                // Increment the write_pointer_register
+                self.brillig_context.memory_op_instruction(
+                    write_pointer_register,
+                    one.address,
+                    write_pointer_register,
+                    BrilligBinaryOp::Add,
+                );
+            }
         }
 
         self.brillig_context.deallocate_register(write_pointer_register);
