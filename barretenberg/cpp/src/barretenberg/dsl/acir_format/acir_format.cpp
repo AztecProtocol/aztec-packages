@@ -336,13 +336,10 @@ void build_constraints(Builder& builder,
             // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
             // state are a circuit constant. The user tells us they how they want these constants set by keeping the
             // nested aggregation object attached to the proof as public inputs.
-            AggregationObjectIndices nested_aggregation_object = {};
             for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                // Set the nested aggregation object indices to witness indices from the proof
-                nested_aggregation_object[i] =
-                    static_cast<uint32_t>(constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
                 // Adding the nested aggregation object to the constraint's public inputs
-                constraint.public_inputs.emplace_back(nested_aggregation_object[i]);
+                constraint.public_inputs.emplace_back(
+                    constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
             }
             // Remove the aggregation object so that they can be handled as normal public inputs
             // in they way that the recursion constraint expects
@@ -350,11 +347,8 @@ void build_constraints(Builder& builder,
                                    constraint.proof.begin() +
                                        static_cast<std::ptrdiff_t>(HonkRecursionConstraint::inner_public_input_offset +
                                                                    bb::AGGREGATION_OBJECT_SIZE));
-            current_aggregation_object = create_honk_recursion_constraints(builder,
-                                                                           constraint,
-                                                                           current_aggregation_object,
-                                                                           nested_aggregation_object,
-                                                                           has_valid_witness_assignments);
+            current_aggregation_object = create_honk_recursion_constraints(
+                builder, constraint, current_aggregation_object, has_valid_witness_assignments);
             track_gate_diff(constraint_system.gates_per_opcode,
                             constraint_system.original_opcode_indices.honk_recursion_constraints.at(i));
         }

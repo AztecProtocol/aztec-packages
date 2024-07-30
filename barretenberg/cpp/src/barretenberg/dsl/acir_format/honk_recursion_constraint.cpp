@@ -15,8 +15,8 @@ using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
-std::array<bn254::Group, 2> agg_points_from_witness_indicies(Builder& builder,
-                                                             const AggregationObjectIndices& obj_witness_indices)
+aggregation_state_ct agg_points_from_witness_indicies(Builder& builder,
+                                                      const AggregationObjectIndices& obj_witness_indices)
 {
     std::array<bn254::BaseField, 4> aggregation_elements;
     for (size_t i = 0; i < 4; ++i) {
@@ -29,7 +29,8 @@ std::array<bn254::Group, 2> agg_points_from_witness_indicies(Builder& builder,
     }
 
     return { bn254::Group(aggregation_elements[0], aggregation_elements[1]),
-             bn254::Group(aggregation_elements[2], aggregation_elements[3]) };
+             bn254::Group(aggregation_elements[2], aggregation_elements[3]),
+             true };
 }
 
 /**
@@ -48,7 +49,6 @@ std::array<bn254::Group, 2> agg_points_from_witness_indicies(Builder& builder,
 AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
                                                            const HonkRecursionConstraint& input,
                                                            AggregationObjectIndices input_aggregation_object,
-                                                           AggregationObjectIndices nested_aggregation_object,
                                                            bool has_valid_witness_assignments)
 {
     using Flavor = UltraRecursiveFlavor_<Builder>;
@@ -57,23 +57,12 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1059): Handle aggregation
 
-    static_cast<void>(input_aggregation_object);
-    static_cast<void>(nested_aggregation_object);
+    // static_cast<void>(input_aggregation_object);
     // Construct aggregation points from the nested aggregation witness indices
-    // std::array<bn254::Group, 2> nested_aggregation_points =
-    //     agg_points_from_witness_indicies(builder, nested_aggregation_object);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    // const auto& aggregation_input = input_aggregation_object;
-    // aggregation_state_ct cur_aggregation_object;
-    // cur_aggregation_object.P0 = nested_aggregation_points[0];
-    // cur_aggregation_object.P1 = nested_aggregation_points[1];
-    // cur_aggregation_object.has_data = true; // the nested aggregation object always exists
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-    // field_ct recursion_separator = bb::stdlib::witness_t<Builder>(&builder, 2);
 
     // If we have previously recursively verified proofs, `previous_aggregation_object_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
@@ -235,31 +224,26 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    aggregation_state_ct pairing_points = verifier.verify_proof(proof_fields);
-
-    // Aggregate the current aggregation object with these pairing points from verify_proof
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1059): Handle aggregation
-    aggregation_state_ct cur_aggregation_object;
-    cur_aggregation_object.P0 = pairing_points.P0; // * recursion_separator;
-    cur_aggregation_object.P1 = pairing_points.P1; // * recursion_separator;
+    aggregation_state_ct input_agg_obj = agg_points_from_witness_indicies(builder, input_aggregation_object);
+    aggregation_state_ct output_agg_object = verifier.verify_proof(proof_fields, input_agg_obj);
 
     AggregationObjectIndices proof_witness_indices = {
-        cur_aggregation_object.P0.x.binary_basis_limbs[0].element.normalize().witness_index,
-        cur_aggregation_object.P0.x.binary_basis_limbs[1].element.normalize().witness_index,
-        cur_aggregation_object.P0.x.binary_basis_limbs[2].element.normalize().witness_index,
-        cur_aggregation_object.P0.x.binary_basis_limbs[3].element.normalize().witness_index,
-        cur_aggregation_object.P0.y.binary_basis_limbs[0].element.normalize().witness_index,
-        cur_aggregation_object.P0.y.binary_basis_limbs[1].element.normalize().witness_index,
-        cur_aggregation_object.P0.y.binary_basis_limbs[2].element.normalize().witness_index,
-        cur_aggregation_object.P0.y.binary_basis_limbs[3].element.normalize().witness_index,
-        cur_aggregation_object.P1.x.binary_basis_limbs[0].element.normalize().witness_index,
-        cur_aggregation_object.P1.x.binary_basis_limbs[1].element.normalize().witness_index,
-        cur_aggregation_object.P1.x.binary_basis_limbs[2].element.normalize().witness_index,
-        cur_aggregation_object.P1.x.binary_basis_limbs[3].element.normalize().witness_index,
-        cur_aggregation_object.P1.y.binary_basis_limbs[0].element.normalize().witness_index,
-        cur_aggregation_object.P1.y.binary_basis_limbs[1].element.normalize().witness_index,
-        cur_aggregation_object.P1.y.binary_basis_limbs[2].element.normalize().witness_index,
-        cur_aggregation_object.P1.y.binary_basis_limbs[3].element.normalize().witness_index,
+        output_agg_object.P0.x.binary_basis_limbs[0].element.normalize().witness_index,
+        output_agg_object.P0.x.binary_basis_limbs[1].element.normalize().witness_index,
+        output_agg_object.P0.x.binary_basis_limbs[2].element.normalize().witness_index,
+        output_agg_object.P0.x.binary_basis_limbs[3].element.normalize().witness_index,
+        output_agg_object.P0.y.binary_basis_limbs[0].element.normalize().witness_index,
+        output_agg_object.P0.y.binary_basis_limbs[1].element.normalize().witness_index,
+        output_agg_object.P0.y.binary_basis_limbs[2].element.normalize().witness_index,
+        output_agg_object.P0.y.binary_basis_limbs[3].element.normalize().witness_index,
+        output_agg_object.P1.x.binary_basis_limbs[0].element.normalize().witness_index,
+        output_agg_object.P1.x.binary_basis_limbs[1].element.normalize().witness_index,
+        output_agg_object.P1.x.binary_basis_limbs[2].element.normalize().witness_index,
+        output_agg_object.P1.x.binary_basis_limbs[3].element.normalize().witness_index,
+        output_agg_object.P1.y.binary_basis_limbs[0].element.normalize().witness_index,
+        output_agg_object.P1.y.binary_basis_limbs[1].element.normalize().witness_index,
+        output_agg_object.P1.y.binary_basis_limbs[2].element.normalize().witness_index,
+        output_agg_object.P1.y.binary_basis_limbs[3].element.normalize().witness_index,
     };
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
