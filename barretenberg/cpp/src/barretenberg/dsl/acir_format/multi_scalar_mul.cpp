@@ -34,11 +34,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
         infinite = bool_ct(to_field_ct(input.points[i + 2], builder));
 
         if (!has_valid_witness_assignments && !input.points[i + 2].is_constant) {
-            if (input.points[i + 2].is_constant) {
-                infinite = bool_ct(field_ct(fr(1)));
-            } else {
-                builder.variables[input.points[i + 2].index] = fr(1);
-            }
+            builder.variables[input.points[i + 2].index] = fr(1);
         }
 
         cycle_group_ct input_point(point_x, point_y, infinite);
