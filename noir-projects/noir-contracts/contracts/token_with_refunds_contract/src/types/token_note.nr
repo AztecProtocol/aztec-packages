@@ -176,7 +176,7 @@ impl OwnedNote for TokenNote {
  *
  * user_point := incomplete_user_point + refund_point =
  *             = (G_npk * user_npk + G_rnd + user_randomness) + G_amt * (funded_amount - transaction_fee) =
- *             = G_amt * (funded_amount - transaction_fee) + G_npk * user_npk + G_rnd + user_randomness
+ *             = G_amt * (funded_amount - transaction_fee) + G_npk * user_npk + G_rnd * user_randomness
  * 
  * The point above matches the note_hiding_point of (and therefore *is*) notes like:
  * {
