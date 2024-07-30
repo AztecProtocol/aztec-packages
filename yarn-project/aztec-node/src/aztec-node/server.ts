@@ -1,7 +1,6 @@
 import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
-  AggregateTxValidator,
   type AztecNode,
   type FromLogType,
   type GetUnencryptedLogsResponse,
@@ -60,7 +59,13 @@ import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import { createProverClient } from '@aztec/prover-client';
-import { type GlobalVariableBuilder, SequencerClient, getGlobalVariableBuilder } from '@aztec/sequencer-client';
+import {
+  AggregateTxValidator,
+  DataTxValidator,
+  type GlobalVariableBuilder,
+  SequencerClient,
+  getGlobalVariableBuilder,
+} from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -151,6 +156,7 @@ export class AztecNodeService implements AztecNode {
 
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     const txValidator = new AggregateTxValidator(
+      new DataTxValidator(),
       new MetadataTxValidator(config.l1ChainId),
       new TxProofValidator(proofVerifier),
     );
@@ -689,18 +695,11 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Returns the currently committed block header.
+   * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
   public async getHeader(): Promise<Header> {
-    const block = await this.getBlock(-1);
-    if (block) {
-      return block.header;
-    }
-
-    // No block was not found so we build the initial header.
-    const committedDb = await this.#getWorldState('latest');
-    return await committedDb.buildInitialHeader();
+    return (await this.getBlock(-1))?.header ?? (await this.#getWorldState('latest')).getInitialHeader();
   }
 
   /**
@@ -733,7 +732,7 @@ export class AztecNodeService implements AztecNode {
       new WASMSimulator(),
       this.telemetry,
     );
-    const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
+    const processor = publicProcessorFactory.create(prevHeader, newGlobalVariables);
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     // REFACTOR: Consider returning the error/revert rather than throwing

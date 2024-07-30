@@ -1,8 +1,8 @@
 
 // This circuit aggregates a single Honk proof from `assert_statement_recursive`.
-global SIZE_OF_PROOF_IF_LOGN_IS_28 : u32 = 393;
+global SIZE_OF_PROOF_IF_LOGN_IS_28 : u32 = 409;
 fn main(
-    verification_key: [Field; 103],
+    verification_key: [Field; 120],
     // This is the proof without public inputs attached.
     // 
     // This means: the size of this does not change with the number of public inputs.
