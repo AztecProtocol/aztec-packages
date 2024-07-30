@@ -1,11 +1,9 @@
-import { Fr, PublicKeys } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import {
-  addOptions,
-  createPrivateKeyOption,
   logJson,
   parseAztecAddress,
   parseEthereumAddress,

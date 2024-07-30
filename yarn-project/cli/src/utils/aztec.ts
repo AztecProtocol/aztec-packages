@@ -1,6 +1,6 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
-import { PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types';
 import { type DeployL1Contracts } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
