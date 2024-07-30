@@ -182,6 +182,7 @@ void StandardCircuit::handle_univariate_constraint(
     }
 }
 
+// TODO(alex): Optimized out variables should be filled with proper values...
 /**
  * @brief Relaxes logic constraints(AND/XOR).
  * @details This function is needed when we use bitwise compatible
@@ -251,6 +252,13 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
                 // unlikely to happen
                 xor_flag &= xor_circuit.selectors[0][j + xor_props.start_gate] == this->selectors[cursor + j];
                 and_flag &= and_circuit.selectors[0][j + and_props.start_gate] == this->selectors[cursor + j];
+
+                // Before this fix this routine simplified two consecutive n bit xors(ands) into one 2n bit xor(and)
+                // Now it checks out_accumulator_idx and new_out_accumulator_idx to match
+                xor_flag &= (j % 14 != 13) || (j == 13) ||
+                            (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - 14][2]);
+                and_flag &= (j % 14 != 13) || (j == 13) ||
+                            (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - 14][2]);
 
                 if (!xor_flag && !and_flag) {
                     // Won't match at any bit length
@@ -411,6 +419,10 @@ size_t StandardCircuit::handle_range_constraint(size_t cursor)
         // preserving shifted values
         // we need this because even right shifts do not create
         // any additional gates and therefore are undetectible
+
+        // TODO(alex): I think I should simulate the whole subcircuit at that point
+        // Otherwise optimized out variables are not correct in the final witness
+        // And I can't fix them by hand each time
         size_t num_accs = range_props.gate_idxs.size() - 1;
         for (size_t j = 1; j < num_accs + 1 && (this->type == TermType::BVTerm); j++) {
             size_t acc_gate = range_props.gate_idxs[j];
@@ -418,10 +430,9 @@ size_t StandardCircuit::handle_range_constraint(size_t cursor)
 
             uint32_t acc_idx = this->real_variable_index[this->wires_idxs[cursor + acc_gate][acc_gate_idx]];
 
-            // TODO(alex): Is it better? Can't come up with why not right now
-            // STerm acc = this->symbolic_vars[acc_idx];
-            // acc == (left >> static_cast<uint32_t>(2 * j));
-            this->symbolic_vars[acc_idx] = (left >> static_cast<uint32_t>(2 * j));
+            this->symbolic_vars[acc_idx] == (left >> static_cast<uint32_t>(2 * j));
+            // I think the following is worse. The name of the variable is lost after that
+            // this->symbolic_vars[acc_idx] = (left >> static_cast<uint32_t>(2 * j));
         }
 
         left <= (bb::fr(2).pow(res) - 1);
