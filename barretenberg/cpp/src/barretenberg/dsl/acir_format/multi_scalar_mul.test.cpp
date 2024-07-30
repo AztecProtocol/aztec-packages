@@ -1,3 +1,4 @@
+#include "multi_scalar_mul.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "acir_to_constraint_buf.hpp"
@@ -5,7 +6,6 @@
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "poseidon2_constraint.hpp"
 
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -29,27 +29,27 @@ using fr = field<Bn254FrParams>;
 TEST_F(MSMTests, TestMSM)
 {
     MultiScalarMul msm_constrain{
-        .points = { WitnessConstant<fr>{
+        .points = { WitnessOrConstant<fr>{
                         .index = 0,
                         .value = fr(1),
                         .is_constant = true,
                     },
-                    WitnessConstant<fr>{
+                    WitnessOrConstant<fr>{
                         .index = 0,
                         .value = fr("0x0000000000000002cf135e7506a45d632d270d45f1181294833fc48d823f272c"),
                         .is_constant = true,
                     },
-                    WitnessConstant<fr>{
+                    WitnessOrConstant<fr>{
                         .index = 0,
                         .value = fr(0),
                         .is_constant = true,
                     } },
-        .scalars = { WitnessConstant<fr>{
+        .scalars = { WitnessOrConstant<fr>{
                          .index = 0,
                          .value = fr(std::string("0x000000000000000000000000000000000000000000000000000000616c696365")),
                          .is_constant = false,
                      },
-                     WitnessConstant<fr>{
+                     WitnessOrConstant<fr>{
                          .index = 0,
                          .value = fr(0),
                          .is_constant = true,
