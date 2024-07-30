@@ -29,21 +29,9 @@ void create_multi_scalar_mul_constraint(Builder& builder,
         field_ct point_y;
         bool_ct infinite;
 
-        if (input.points[i].is_constant) {
-            point_x = field_ct(input.points[i].value);
-        } else {
-            point_x = field_ct::from_witness_index(&builder, input.points[i].index);
-        }
-        if (input.points[i + 1].is_constant) {
-            point_y = field_ct(input.points[i + 1].value);
-        } else {
-            point_y = field_ct::from_witness_index(&builder, input.points[i + 1].index);
-        }
-        if (input.points[i + 2].is_constant) {
-            infinite = bool_ct(field_ct(input.points[i + 2].value));
-        } else {
-            infinite = bool_ct(field_ct::from_witness_index(&builder, input.points[i + 2].index));
-        }
+        point_x = to_field_ct(input.points[i], builder);
+        point_y = to_field_ct(input.points[i + 1], builder);
+        infinite = bool_ct(to_field_ct(input.points[i + 2], builder));
 
         if (!has_valid_witness_assignments && !input.points[i + 2].is_constant) {
             builder.variables[input.points[i + 2].index] = fr(1);
