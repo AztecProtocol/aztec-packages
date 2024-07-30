@@ -29,7 +29,7 @@ The folder structure changed at **0.24.0** from `yarn-project/aztec-nr` to `noir
 
 ### Example contract versions
 
-Example contracts serve as a helpful reference between versions of the aztec-nr framework since they are strictly maintained with each release.
+Example contracts serve as a helpful reference between versions of the Aztec.nr framework since they are strictly maintained with each release.
 
 Code referenced in the documentation is sourced from contracts within [this directory](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts).
 
@@ -80,7 +80,7 @@ To set `VERSION` for a particular git tag, eg for [aztec-package-v**0.35.0**](ht
 VERSION=0.35.0 aztec-up
 ```
 
-2. Update aztec-nr and individual @aztec dependencies:
+2. Update Aztec.nr and individual @aztec dependencies:
 
 Inside your project run:
 
