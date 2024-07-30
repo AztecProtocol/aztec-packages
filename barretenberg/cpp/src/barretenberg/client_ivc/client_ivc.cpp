@@ -20,7 +20,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { instance_vk } } };
         auto verifier_accum = verifier.verify_folding_proof(fold_output.proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+
+        bus_depot.execute(verifier.instances);
     }
+
+    // WORKTODO: eventually need to have two recursive verifiers, one for app proof, one for kernel proof, and each will
+    // need a call to bus depot execution.
 
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
     goblin.merge(circuit);

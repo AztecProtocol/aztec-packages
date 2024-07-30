@@ -5,6 +5,7 @@
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include <algorithm>
@@ -40,6 +41,8 @@ class ClientIVC {
     using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+
+    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
 
     // A full proof for the IVC scheme
     struct Proof {
@@ -110,6 +113,8 @@ class ClientIVC {
     // be needed in the real IVC as they are provided as inputs
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<VerificationKey> instance_vk;
+
+    DataBusDepot bus_depot;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
     TraceStructure trace_structure = TraceStructure::NONE;

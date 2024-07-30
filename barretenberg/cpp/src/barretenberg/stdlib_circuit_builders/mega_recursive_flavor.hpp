@@ -99,6 +99,12 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
+        bool contains_propagated_app_return_data;
+        uint32_t app_return_data_public_input_idx;
+        bool contains_propagated_kernel_return_data;
+        uint32_t kernel_return_data_public_input_idx;
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
