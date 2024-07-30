@@ -26,12 +26,9 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     // TODO(luke): Eventually this will return something like aggregation_state but I'm simplifying for now until we
     // determine the exact interface. Simply returns the two pairing points.
-    PairingPoints verify_proof(
-        const HonkProof& proof,
-        aggregation_state<typename Flavor::Curve> previous_output = aggregation_state<typename Flavor::Curve>());
-    PairingPoints verify_proof(
-        const StdlibProof<Builder>& proof,
-        aggregation_state<typename Flavor::Curve> previous_output = aggregation_state<typename Flavor::Curve>());
+    PairingPoints verify_proof(const HonkProof& proof, aggregation_state<typename Flavor::Curve> previous_output);
+    PairingPoints verify_proof(const StdlibProof<Builder>& proof,
+                               aggregation_state<typename Flavor::Curve> previous_output);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

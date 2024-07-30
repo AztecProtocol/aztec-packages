@@ -69,7 +69,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-
+        AggregationObjectIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
+        builder.add_recursive_proof(agg_obj_indices);
         return builder;
     };
 
@@ -131,7 +132,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            [[maybe_unused]] auto pairing_points = verifier.verify_proof(inner_proof);
+            [[maybe_unused]] auto pairing_points = verifier.verify_proof(
+                inner_proof,
+                init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
             return outer_circuit.blocks;
         };
 
@@ -180,7 +183,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        auto pairing_points = verifier.verify_proof(inner_proof);
+        aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
+            init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        auto pairing_points = verifier.verify_proof(inner_proof, agg_obj);
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
 
         // Check for a failure flag in the recursive verifier circuit
@@ -243,7 +248,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
-        verifier.verify_proof(inner_proof);
+        verifier.verify_proof(
+            inner_proof, init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
 
         // We expect the circuit check to fail due to the bad proof
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
