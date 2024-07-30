@@ -1,5 +1,8 @@
-use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
-use crate::abis::previous_rollup_data::PreviousRollupData;
+use crate::abis::{
+    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient}
+};
+use crate::abis::{previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData};
 use dep::types::{
     hash::{accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash},
     merkle_tree::VariableMerkleTree,
@@ -8,7 +11,7 @@ use dep::types::{
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{uint256::U256, arrays::array_length},
+    utils::{uint256::U256, arrays::{array_length, array_merge}},
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
     public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
@@ -69,11 +72,44 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
 }
 
+// TODO(Miranda): split out?
+pub fn assert_prev_block_rollups_follow_on_from_each_other(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) {
+    assert(
+        left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
+    );
+    assert(
+        left.end_block_hash.eq(right.previous_block_hash), "input block hashes do not follow on from each other"
+    );
+    assert(
+        left.end_global_variables.chain_id == right.start_global_variables.chain_id, "input blocks have different chain id"
+    );
+    assert(
+        left.end_global_variables.version == right.start_global_variables.version, "input blocks have different chain version"
+    );
+    assert(
+        left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
+    );
+    assert(
+        left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
+    );
+}
+
 pub fn accumulate_fees(
     left: BaseOrMergeRollupPublicInputs,
     right: BaseOrMergeRollupPublicInputs
 ) -> Field {
     left.accumulated_fees + right.accumulated_fees
+}
+
+// TODO(Miranda): combine fees for same recipient, throw cleanly if > 32
+pub fn accumulate_blocks_fees(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) -> [FeeRecipient; 32] {
+    array_merge(left.fees, right.fees)
 }
 
 /**
@@ -87,6 +123,15 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
         [
         previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
         previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash
+    ]
+    )
+}
+// TODO(Miranda): combine fns?
+pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
+    accumulate_sha256(
+        [
+        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
+        previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
     ]
     )
 }
