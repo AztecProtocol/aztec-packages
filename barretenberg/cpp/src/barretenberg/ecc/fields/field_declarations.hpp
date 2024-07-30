@@ -161,6 +161,27 @@ template <class Params_> struct alignas(32) field {
         return (hi << 64) | lo;
     }
 
+    /**
+     * We have an assumption throughout our field arithmetic that
+     * all relaxed (greater than modulus) fields within our system are
+     * less than twice the modulus. This makes it explicit during debug builds
+     * to help debug complicated issues that arise e.g. this constraint was broken in
+     * terribly subtle ways by a point at infinity bug that causes intermittent end-to-end failures.
+     */
+    constexpr void debug_check_within_2p() const
+    {
+#ifndef NDEBUG
+        if (!std::is_constant_evaluated()) {
+            if (data[3] == 0x8000000000000000ULL) {
+                // point at infinity, this should be OK
+                return;
+            }
+            uint256_t val{ data[0], data[1], data[2], data[3] };
+            ASSERT(val <= modulus + modulus);
+        }
+#endif
+    }
+
     constexpr operator uint256_t() const noexcept
     {
         field out = from_montgomery_form();
@@ -523,6 +544,7 @@ template <class Params_> struct alignas(32) field {
 
     friend std::ostream& operator<<(std::ostream& os, const field& a)
     {
+        a.debug_check_within_2p();
         field out = a.from_montgomery_form();
         std::ios_base::fmtflags f(os.flags());
         os << std::hex << "0x" << std::setfill('0') << std::setw(16) << out.data[3] << std::setw(16) << out.data[2]

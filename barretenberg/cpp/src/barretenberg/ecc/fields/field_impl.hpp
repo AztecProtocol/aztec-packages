@@ -26,6 +26,8 @@ namespace bb {
  **/
 template <class T> constexpr field<T> field<T>::operator*(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::mul");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -41,6 +43,8 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator*=(const field& other) noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_mul");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -63,6 +67,7 @@ template <class T> constexpr field<T>& field<T>::operator*=(const field& other) 
  **/
 template <class T> constexpr field<T> field<T>::sqr() const noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::sqr");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -77,6 +82,7 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
 
 template <class T> constexpr void field<T>::self_sqr() noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("f::self_sqr");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -97,6 +103,8 @@ template <class T> constexpr void field<T>::self_sqr() noexcept
  **/
 template <class T> constexpr field<T> field<T>::operator+(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::add");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -111,6 +119,8 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator+=(const field& other) noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_add");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -127,6 +137,7 @@ template <class T> constexpr field<T>& field<T>::operator+=(const field& other) 
 
 template <class T> constexpr field<T> field<T>::operator++() noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("++f");
     return *this += 1;
 }
@@ -134,6 +145,7 @@ template <class T> constexpr field<T> field<T>::operator++() noexcept
 // NOLINTNEXTLINE(cert-dcl21-cpp) circular linting errors. If const is added, linter suggests removing
 template <class T> constexpr field<T> field<T>::operator++(int) noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::increment");
     field<T> value_before_incrementing = *this;
     *this += 1;
@@ -147,6 +159,8 @@ template <class T> constexpr field<T> field<T>::operator++(int) noexcept
  **/
 template <class T> constexpr field<T> field<T>::operator-(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::sub");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -161,6 +175,7 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
 
 template <class T> constexpr field<T> field<T>::operator-() const noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("-f");
     if constexpr ((T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -190,6 +205,8 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
 
 template <class T> constexpr field<T>& field<T>::operator-=(const field& other) noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_sub");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -206,6 +223,7 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
 
 template <class T> constexpr void field<T>::self_neg() noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_neg");
     if constexpr ((T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -219,6 +237,7 @@ template <class T> constexpr void field<T>::self_neg() noexcept
 
 template <class T> constexpr void field<T>::self_conditional_negate(const uint64_t predicate) noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_conditional_negate");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -245,6 +264,8 @@ template <class T> constexpr void field<T>::self_conditional_negate(const uint64
  */
 template <class T> constexpr bool field<T>::operator>(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::gt");
     const field left = reduce_once();
     const field right = other.reduce_once();
@@ -270,11 +291,15 @@ template <class T> constexpr bool field<T>::operator>(const field& other) const 
  */
 template <class T> constexpr bool field<T>::operator<(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     return (other > *this);
 }
 
 template <class T> constexpr bool field<T>::operator==(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::eqeq");
     const field left = reduce_once();
     const field right = other.reduce_once();
@@ -284,6 +309,8 @@ template <class T> constexpr bool field<T>::operator==(const field& other) const
 
 template <class T> constexpr bool field<T>::operator!=(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     return (!operator==(other));
 }
 
@@ -386,11 +413,13 @@ template <class T> constexpr field<T> field<T>::pow(const uint256_t& exponent) c
 
 template <class T> constexpr field<T> field<T>::pow(const uint64_t exponent) const noexcept
 {
+    debug_check_within_2p();
     return pow({ exponent, 0, 0, 0 });
 }
 
 template <class T> constexpr field<T> field<T>::invert() const noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::invert");
     if (*this == zero()) {
         throw_or_abort("Trying to invert zero in the field");
@@ -454,6 +483,7 @@ template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
 
 template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noexcept
 {
+    debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::tonelli_shanks_sqrt");
     // Tonelli-shanks algorithm begins by finding a field element Q and integer S,
     // such that (p - 1) = Q.2^{s}
@@ -551,12 +581,16 @@ template <class T> constexpr std::pair<bool, field<T>> field<T>::sqrt() const no
 
 template <class T> constexpr field<T> field<T>::operator/(const field& other) const noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::div");
     return operator*(other.invert());
 }
 
 template <class T> constexpr field<T>& field<T>::operator/=(const field& other) noexcept
 {
+    debug_check_within_2p();
+    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_div");
     *this = operator/(other);
     return *this;
