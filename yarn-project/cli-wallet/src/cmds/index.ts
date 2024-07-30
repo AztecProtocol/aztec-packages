@@ -7,9 +7,9 @@ import {
   parseFieldFromHexString,
   parsePublicKey,
 } from '@aztec/cli/utils';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { Command } from 'commander';
+import { type Command } from 'commander';
 
 import { FeeOpts } from '../fees.js';
 

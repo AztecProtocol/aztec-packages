@@ -26,7 +26,7 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}-salt`, salt.toBuffer());
   }
 
-  async retrieveAccount(aliasOrAddress: AztecAddress | string) {
+  retrieveAccount(aliasOrAddress: AztecAddress | string) {
     const address =
       typeof aliasOrAddress === 'string'
         ? AztecAddress.fromBuffer(this.#accounts.get(aliasOrAddress)!)

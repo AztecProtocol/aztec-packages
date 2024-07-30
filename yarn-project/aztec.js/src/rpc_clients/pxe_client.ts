@@ -27,7 +27,7 @@ import {
 } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import { DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { NoRetryError } from '@aztec/foundation/retry';
 
 import axios, { type AxiosError, type AxiosResponse } from 'axios';
@@ -73,6 +73,15 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
     fetch,
   ) as PXE;
 
+/**
+ * A fetch implementation using axios.
+ * @param host - The URL of the host.
+ * @param rpcMethod - The RPC method to call.
+ * @param body - The body of the request.
+ * @param useApiEndpoints - Whether to use the API endpoints or inject the method in the body.
+ * @param _noRetry - Whether to retry on non-server errors.
+ * @returns The response data.
+ */
 async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean, _noRetry = true) {
   let resp: AxiosResponse;
   if (useApiEndpoints) {

@@ -22,18 +22,18 @@ async function main() {
 
   const db = new WalletDB();
 
-  let program = new Command('wallet');
+  const program = new Command('wallet');
   program
     .description('Aztec wallet')
     .version(walletVersion)
     .addOption(pxeOption)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
-    .hook('preAction', async command => {
+    .hook('preAction', command => {
       const dataDir = command.optsWithGlobals().dataDir;
       db.init(AztecLmdbStore.open(dataDir));
     });
 
-  await injectCommands(program, userLog, debugLogger);
+  injectCommands(program, userLog, debugLogger);
   await program.parseAsync(process.argv);
 }
 
