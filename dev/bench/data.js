@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722329192897,
+  "lastUpdate": 1722329875209,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -97680,6 +97680,74 @@ window.BENCHMARK_DATA = {
             "value": 167804935,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167804935 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "26bcc8d7fefd7736afe69b34eb34a84d4b84d9c9",
+          "message": "fix: BF division underflow issue",
+          "timestamp": "2024-07-30T02:16:36Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7625/commits/26bcc8d7fefd7736afe69b34eb34a84d4b84d9c9"
+        },
+        "date": 1722329866906,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13277.391069999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9865.430212999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4765.564257000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4335.316989 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39909.717856,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39909718000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14524.541486,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14524541000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3620514003,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3620514003 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203435702,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203435702 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2950682962,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2950682962 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167554271,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167554271 ns\nthreads: 1"
           }
         ]
       }
