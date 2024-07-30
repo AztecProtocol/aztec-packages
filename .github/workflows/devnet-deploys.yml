@@ -51,7 +51,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-release-artifacts-${{ github.actor }}
@@ -116,7 +115,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
       - uses: ./.github/ci-setup-action
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -209,7 +207,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
 
       - uses: ./.github/ci-setup-action
 
@@ -256,7 +253,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
       - uses: ./.github/ci-setup-action
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -291,7 +287,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
       - uses: ./.github/ci-setup-action
       - uses: hashicorp/setup-terraform@v3
         with:
