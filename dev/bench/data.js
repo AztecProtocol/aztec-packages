@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722356350752,
+  "lastUpdate": 1722357379556,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -99256,6 +99256,78 @@ window.BENCHMARK_DATA = {
             "value": 169324541,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169324541 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11f3885d11237dbd3e203d07bf4cdb7df316e07a",
+          "message": "fix: ensure dummy values are on the curve for MSM (#7653)\n\nThis PR fix an issue with MSM when trying to verify a circuit having MSM\r\nblackbox, because dummy values are not on the curve.\r\n\r\nI also added a BB unit test which ensure non-constant inputs are\r\nproperly handled in the 'no witness assignment' case",
+          "timestamp": "2024-07-30T16:25:52Z",
+          "tree_id": "bdf6026d498aa70a9c242b1ef447d4bf376135c9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/11f3885d11237dbd3e203d07bf4cdb7df316e07a"
+        },
+        "date": 1722357371694,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13349.959911000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9886.077267 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4835.097388000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4390.287687999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39980.75959,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39980760000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14531.243891999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14531245000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3593353751,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3593353751 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202841089,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202841089 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2949055569,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2949055569 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168581492,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168581492 ns\nthreads: 1"
           }
         ]
       }
