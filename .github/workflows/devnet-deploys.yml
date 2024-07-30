@@ -122,15 +122,17 @@ jobs:
       - name: Deploy L1 Contracts
         run: |
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
-          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
+
+          output=$(docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
             --private-key ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
             --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
-            --json \
-            | tee  ./l1_contracts.json
+            --json) || status=$?
 
 
-          if [ $? -ne 0 ]; then
+          echo "$output" | tee ./l1_contracts.json
+
+          if [ ${status:-0} -ne 0 ]; then
             echo "deploy-l1-contracts command failed"
             exit 1
           fi
@@ -211,13 +213,14 @@ jobs:
         run: |
           set -e
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
-          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-protocol-contracts \
+          ouput=$(docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-protocol-contracts \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
-            --json \
-            | tee  ./protocol_contracts.json
+            --json) || status=$?
 
-          if [ $? -ne 0 ]; then
+          echo "$output" | tee ./protocol_contracts.json
+
+          if [ ${status:-0} -ne 0 ]; then
             echo "deploy-protocol-contracts command failed"
             exit 1
           fi
@@ -227,15 +230,16 @@ jobs:
       - name: Bootstrap network
         run: |
           set -e
-          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap-network \
+          output=$(docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap-network \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
             --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --l1-private-key ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
-            --json \
-            | tee ./basic_contracts.json
+            --json) || status=$?
 
-            if [ $? -ne 0 ]; then
+            echo "$output" | tee ./basic_contracts.json
+
+            if [ ${status:-0} -ne 0 ]; then
               echo "bootstrap-network command failed"
               exit 1
             fi
