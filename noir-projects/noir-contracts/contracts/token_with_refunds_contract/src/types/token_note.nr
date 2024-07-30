@@ -229,29 +229,32 @@ impl PrivatelyRefundable for TokenNote {
     }
 
     fn complete_refund(incomplete_fee_payer_point: Point, incomplete_user_point: Point, funded_amount: Field, transaction_fee: Field) -> (Field, Field) {
-        // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
+        // 1. We check that user funded the fee payer contract with at least the transaction fee.
+        assert(!funded_amount.lt(transaction_fee), "tx fee is higher than funded amount"); // funded_amout >= transaction_fee
+
+        // 2. We convert the transaction fee and refund amount to high and low limbs to be able to use BB API.
         // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
         let transaction_fee_scalar = from_field_unsafe(transaction_fee);
         let refund_scalar = from_field_unsafe(funded_amount - transaction_fee);
 
-        // 2. We compute the fee point as `G_amt * transaction_fee`
+        // 3. We compute the fee point as `G_amt * transaction_fee`
         let fee_point = multi_scalar_mul([G_amt], [transaction_fee_scalar]);
 
-        // 3. We compute the refund amount point as `G_amt * refund`
+        // 4. We compute the refund point as `G_amt * refund`
         let refund_point = multi_scalar_mul([G_amt], [refund_scalar]);
 
-        // 4. Now we leverage homomorphism to privately add the fee to fee payer point and we add refund to the user point.
+        // 5. Now we leverage homomorphism to privately add the fee to fee payer point and we add refund to the user point.
         let fee_payer_point = incomplete_fee_payer_point + fee_point;
         let user_point = incomplete_user_point + refund_point;
 
         assert_eq(user_point.is_infinite, false);
 
-        // 4. We no longer need to do any elliptic curve operations with the points so we collapse them to the final
+        // 6. We no longer need to do any elliptic curve operations with the points so we collapse them to the final
         // note hashes.
         let fee_payer_note_hash = fee_payer_point.x;
         let user_note_hash = user_point.x;
 
-        // 5. Finally we return the hashes.
+        // 7. Finally we return the hashes.
         (fee_payer_note_hash, user_note_hash)
     }
 }

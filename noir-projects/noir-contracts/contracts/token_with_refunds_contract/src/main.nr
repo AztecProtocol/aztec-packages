@@ -482,17 +482,17 @@ contract TokenWithRefunds {
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
-        // 1. We get the final note hiding points by calling a `complete_refund` function on the note.
-        // We use 1:1 exchange rate between fee juice and token. So using `tx_fee` is enough
-        let tx_fee = context.transaction_fee();
+        // 1. We get the final note hashes by calling a `complete_refund` function on the note.
+        // We use 1:1 exchange rate between fee juice and token so just passing transaction fee and funded amount
+        // to `complete_refund(...)` function is enough.
+        let (fee_payer_note_hash, user_note_hash) = TokenNote::complete_refund(
+            fee_payer_point,
+            user_point,
+            funded_amount,
+            context.transaction_fee()
+        );
 
-        // 2. We check that user funded the fee payer contract with at least the tx fee.
-        assert(!funded_amount.lt(tx_fee), "tx fee is higher than funded amount"); // funded_amout >= tx_fee
-
-        // 3. We complete the refund and get the note hashes.
-        let (fee_payer_note_hash, user_note_hash) = TokenNote::complete_refund(fee_payer_point, user_point, funded_amount, tx_fee);
-
-        // 4. At last we emit the note hashes.
+        // 2. At last we emit the note hashes.
         context.push_note_hash(fee_payer_note_hash);
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
