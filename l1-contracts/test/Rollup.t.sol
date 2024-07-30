@@ -184,7 +184,7 @@ contract RollupTest is DecoderBase {
     bytes32 archive = data.archive;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TryingToProveNonExistingBlock.selector));
-    rollup.submitProof(header, archive, "", "");
+    rollup.submitProof(header, archive, bytes32(0), "", "");
   }
 
   function testSubmitProofInvalidArchive() public {
@@ -205,7 +205,7 @@ contract RollupTest is DecoderBase {
         Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(1), 0xdeadbeef
       )
     );
-    rollup.submitProof(header, archive, "", "");
+    rollup.submitProof(header, archive, bytes32(0), "", "");
   }
 
   function testSubmitProofInvalidProposedArchive() public {
@@ -222,7 +222,7 @@ contract RollupTest is DecoderBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidProposedArchive.selector, archive, badArchive)
     );
-    rollup.submitProof(header, badArchive, "", "");
+    rollup.submitProof(header, badArchive, bytes32(0), "", "");
   }
 
   function _testBlock(string memory name, bool _submitProof) public {
@@ -244,7 +244,7 @@ contract RollupTest is DecoderBase {
     rollup.process(header, archive);
 
     if (_submitProof) {
-      rollup.submitProof(header, archive, "", "");
+      rollup.submitProof(header, archive, bytes32(0), "", "");
 
       assertTrue(
         rollup.isBlockProven(full.block.decodedHeader.globalVariables.blockNumber),
