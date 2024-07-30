@@ -22,6 +22,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
+  PublicCallRequest,
   PublicCircuitPublicInputs,
   ReadRequest,
   RevertCode,
@@ -148,11 +149,15 @@ describe('AVM WitGen, proof generation and verification', () => {
    * Avm Embedded Curve functions
    ************************************************************************/
   describe('AVM Embedded Curve functions', () => {
-    const avmEmbeddedCurveFunctions: string[] = ['elliptic_curve_add_and_double', 'variable_base_msm'];
+    const avmEmbeddedCurveFunctions: [string, Fr[]][] = [
+      ['elliptic_curve_add_and_double', []],
+      ['variable_base_msm', []],
+      ['pedersen_commit', [new Fr(1), new Fr(100)]],
+    ];
     it.each(avmEmbeddedCurveFunctions)(
       'Should prove %s',
-      async name => {
-        await proveAndVerifyAvmTestContract(name);
+      async (name, calldata) => {
+        await proveAndVerifyAvmTestContract(name, calldata);
       },
       TIMEOUT,
     );
@@ -327,7 +332,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
       ContractStorageUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     ),
-    publicCallStackHashes: padArrayEnd([], Fr.zero(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+    publicCallRequests: padArrayEnd([], PublicCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
     unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
     historicalHeader: Header.empty(),
     globalVariables: GlobalVariables.empty(),

@@ -572,7 +572,7 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
-    auto num_public_inputs = (size_t)proof.folding_proof[1];
+    auto num_public_inputs = static_cast<size_t>(static_cast<uint256_t>(proof.folding_proof[1]));
     for (size_t i = 0; i < num_public_inputs; i++) {
         // We offset 3
         builder->add_public_variable(proof.folding_proof[i + 3]);
@@ -583,9 +583,7 @@ void prove_tube(const std::string& output_path)
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a valid
     // proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-    std::array<uint32_t, acir_format::HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
+    AggregationObjectIndices current_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
     fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
     fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
@@ -609,9 +607,7 @@ void prove_tube(const std::string& output_path)
     }
     // Make sure the verification key records the public input indices of the
     // final recursion output.
-    std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
-                                                       current_aggregation_object.end());
-    builder->set_recursive_proof(proof_output_witness_indices);
+    builder->set_recursive_proof(current_aggregation_object);
 
     info("num gates in tube circuit: ", builder->get_num_gates());
     using Prover = UltraProver_<UltraFlavor>;
@@ -1038,7 +1034,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     using Prover = UltraProver_<Flavor>;
 
     bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
         honk_recursion = true;
     }
     auto constraint_system = get_constraint_system(bytecodePath, honk_recursion);
