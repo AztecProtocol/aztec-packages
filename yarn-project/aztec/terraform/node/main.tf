@@ -343,6 +343,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "TEL_SERVICE_NAME"
           value = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+        },
+        {
+          name  = "CONTRACT_ADDRESSES_URL",
+          value = "http://static.aztec.network/${var.DEPLOY_TAG}"
         }
       ]
       mountPoints = [

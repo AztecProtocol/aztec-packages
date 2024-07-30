@@ -23,8 +23,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .option('--json', 'Output the result as JSON')
     .action(async options => {
-      const { bootstrapDevnet } = await import('./bootstrap_devnet.js');
-      await bootstrapDevnet(
+      const { bootstrapNetwork } = await import('./bootstrap_network.js');
+      await bootstrapNetwork(
         options[pxeOption.attributeName()],
         options.l1RpcUrl,
         options[l1ChainIdOption.attributeName()],

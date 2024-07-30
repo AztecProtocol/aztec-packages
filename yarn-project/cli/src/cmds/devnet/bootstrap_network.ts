@@ -16,7 +16,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from '../../client.js';
 
-export async function bootstrapDevnet(
+export async function bootstrapNetwork(
   pxeUrl: string,
   l1Url: string,
   l1ChainId: string,

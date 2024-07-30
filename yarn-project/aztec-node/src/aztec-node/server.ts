@@ -43,7 +43,7 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, createEthereumChain, getL1ContractAddressesFromUrl } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -225,8 +225,12 @@ export class AztecNodeService implements AztecNode {
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.
    */
-  public getL1ContractAddresses(): Promise<L1ContractAddresses> {
-    return Promise.resolve(this.config.l1Contracts);
+  public async getL1ContractAddresses(): Promise<L1ContractAddresses> {
+    if (this.config.contractAddressesUrl) {
+      return await getL1ContractAddressesFromUrl(this.config.contractAddressesUrl, this.log);
+    } else {
+      return Promise.resolve(this.config.l1Contracts);
+    }
   }
 
   /**
