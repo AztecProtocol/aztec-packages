@@ -2041,6 +2041,7 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
+    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }
 
@@ -2081,6 +2082,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
+    mapFieldFromNoir(rootRollupPublicInputs.prover_id),
   );
 }
 

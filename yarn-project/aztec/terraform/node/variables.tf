@@ -44,7 +44,17 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
-  default = 1
+  default = 0
+}
+
+variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
+  type    = string
+  default = 60
+}
+
+variable "SEQ_MIN_SECONDS_BETWEEN_BLOCKS" {
+  type    = string
+  default = 30
 }
 
 variable "P2P_MIN_PEERS" {
@@ -60,6 +70,11 @@ variable "P2P_MAX_PEERS" {
 variable "P2P_ENABLED" {
   type    = bool
   default = true
+}
+
+variable "P2P_TX_POOL_KEEP_PROVEN_FOR" {
+  type    = number
+  default = 64
 }
 
 variable "PROVING_ENABLED" {

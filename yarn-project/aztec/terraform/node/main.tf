@@ -225,6 +225,14 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = var.SEQ_MIN_TX_PER_BLOCK
         },
         {
+          name  = "SEQ_MAX_SECONDS_BETWEEN_BLOCKS"
+          value = var.SEQ_MAX_SECONDS_BETWEEN_BLOCKS
+        },
+        {
+          name  = "SEQ_MIN_SECONDS_BETWEEN_BLOCKS"
+          value = var.SEQ_MIN_SECONDS_BETWEEN_BLOCKS
+        },
+        {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
           value = local.sequencer_private_keys[count.index]
         },
@@ -315,6 +323,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "P2P_PEER_CHECK_INTERVAL_MS"
           value = "2000"
+        },
+        {
+          name  = "P2P_TX_POOL_KEEP_PROVEN_FOR",
+          value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
         },
         {
           name  = "PROVER_AGENTS"
