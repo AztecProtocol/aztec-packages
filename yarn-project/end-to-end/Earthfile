@@ -27,7 +27,6 @@ E2E_COMPOSE_TEST:
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   ENV JOB_NAME=$project_name
-  RUN echo "$AZTEC_NODE_URL"
   RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
 E2E_TEST:
