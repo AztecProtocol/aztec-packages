@@ -41,13 +41,13 @@ contract Leonidas is Ownable, ILeonidas {
   }
 
   // The size/duration of a slot in seconds, multiple of 12 to align with Ethereum blocks
-  uint256 public constant SLOT_SIZE = 12 * 5;
+  uint256 public constant SLOT_DURATION = 12 * 5;
 
   // The size/duration of an epoch in slots
-  uint256 public constant EPOCH_SIZE = 32;
+  uint256 public constant EPOCH_DURATION = 32;
 
   // The target number of validators in a committee
-  uint256 public constant TARGET_COMMITTEE_SIZE = EPOCH_SIZE;
+  uint256 public constant TARGET_COMMITTEE_SIZE = EPOCH_DURATION;
 
   // The time that the contract was deployed
   uint256 public immutable GENESIS_TIME;
@@ -158,7 +158,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The current epoch number
    */
   function getCurrentEpoch() public view override(ILeonidas) returns (uint256) {
-    return (block.timestamp - GENESIS_TIME) / (EPOCH_SIZE * SLOT_SIZE);
+    return (block.timestamp - GENESIS_TIME) / (EPOCH_DURATION * SLOT_DURATION);
   }
 
   /**
@@ -167,7 +167,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The current slot number
    */
   function getCurrentSlot() public view override(ILeonidas) returns (uint256) {
-    return (block.timestamp - GENESIS_TIME) / SLOT_SIZE;
+    return (block.timestamp - GENESIS_TIME) / SLOT_DURATION;
   }
 
   /**

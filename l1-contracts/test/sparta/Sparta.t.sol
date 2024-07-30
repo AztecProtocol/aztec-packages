@@ -66,7 +66,9 @@ contract SpartaTest is DecoderBase {
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public {
     uint256 pre = rollup.getCurrentEpoch();
-    vm.warp(block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_SIZE() * rollup.SLOT_SIZE());
+    vm.warp(
+      block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
+    );
     uint256 post = rollup.getCurrentEpoch();
     assertEq(pre + _epochsToJump, post, "Invalid epoch");
 
@@ -92,7 +94,6 @@ contract SpartaTest is DecoderBase {
 
     assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
 
-    // We should not be passing here, something should be breaking! Why is the committe small?
     uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
     _testBlock("mixed_block_2", _insufficientSigs, committeSize, false); // We need signatures!
 
