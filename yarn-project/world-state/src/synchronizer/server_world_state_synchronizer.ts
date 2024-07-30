@@ -142,30 +142,32 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   }
 
   /**
-   * Forces an immediate sync
-   * @param minBlockNumber - The minimum block number that we must sync to
+   * Forces an immediate sync.
+   * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it. Throws if cannot be reached.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(minBlockNumber?: number): Promise<number> {
+  public async syncImmediate(targetBlockNumber?: number): Promise<number> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running, unable to perform sync`);
     }
-    // If we have been given a block number to sync to and we have reached that number
-    // then return.
-    if (minBlockNumber !== undefined && minBlockNumber <= this.currentL2BlockNum) {
+    // If we have been given a block number to sync to and we have reached that number then return.
+    if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
       return this.currentL2BlockNum;
     }
-    const blockToSyncTo = minBlockNumber === undefined ? 'latest' : `${minBlockNumber}`;
+    const blockToSyncTo = targetBlockNumber === undefined ? 'latest' : `${targetBlockNumber}`;
     this.log.debug(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
     // ensure any outstanding block updates are completed first.
     await this.jobQueue.syncPoint();
+
+    // TODO(palla/prover-node): We need to somehow pause the jobQueue and block downloader while we run this, otherwise
+    // we may end up with more blocks past the target than we wanted, which is a problem for prover-node (see ProverNode#createProvingJob).
     while (true) {
       // Check the block number again
-      if (minBlockNumber !== undefined && minBlockNumber <= this.currentL2BlockNum) {
+      if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
         return this.currentL2BlockNum;
       }
       // Poll for more blocks
-      const numBlocks = await this.l2BlockDownloader.pollImmediate();
+      const numBlocks = await this.l2BlockDownloader.pollImmediate(targetBlockNumber);
       this.log.debug(`Block download immediate poll yielded ${numBlocks} blocks`);
       if (numBlocks) {
         // More blocks were received, process them and go round again
@@ -173,9 +175,9 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
         continue;
       }
       // No blocks are available, if we have been given a block number then we can't achieve it
-      if (minBlockNumber !== undefined) {
+      if (targetBlockNumber !== undefined) {
         throw new Error(
-          `Unable to sync to block number ${minBlockNumber}, currently synced to block ${this.currentL2BlockNum}`,
+          `Unable to sync to block number ${targetBlockNumber}, currently synced to block ${this.currentL2BlockNum}`,
         );
       }
       return this.currentL2BlockNum;

@@ -68,15 +68,30 @@ export class L2BlockDownloader {
   /**
    * Repeatedly queries the block source and adds the received blocks to the block queue.
    * Stops when no further blocks are received.
+   * @param targetBlockNumber - Optional block number to stop at. If given, will download even unproven blocks to get to it.
    * @returns The total number of blocks added to the block queue.
    */
-  private async collectBlocks() {
+  private async collectBlocks(targetBlockNumber?: number) {
     let totalBlocks = 0;
     while (true) {
-      const blocks = await this.l2BlockSource.getBlocks(this.from, 10, this.proven);
+      // If we have a target and have reached it, return
+      if (targetBlockNumber !== undefined && this.from >= targetBlockNumber) {
+        return totalBlocks;
+      }
+
+      // If we have a target, then request at most the number of blocks to get to it, bypassing 'proven' restriction
+      const [proven, limit] =
+        targetBlockNumber !== undefined ? [false, Math.max(targetBlockNumber - this.from, 10)] : [this.proven, 10];
+
+      // Hit the archiver for blocks
+      const blocks = await this.l2BlockSource.getBlocks(this.from, limit, proven);
+
+      // If there are no more blocks, return
       if (!blocks.length) {
         return totalBlocks;
       }
+
+      // Push new blocks into the queue and loop
       await this.semaphore.acquire();
       this.blockQueue.put(blocks);
       this.from += blocks.length;
@@ -118,7 +133,7 @@ export class L2BlockDownloader {
    * Forces an immediate request for blocks.
    * @returns A promise that fulfills once the poll is complete
    */
-  public pollImmediate(): Promise<number> {
-    return this.jobQueue.put(() => this.collectBlocks());
+  public pollImmediate(targetBlockNumber?: number): Promise<number> {
+    return this.jobQueue.put(() => this.collectBlocks(targetBlockNumber));
   }
 }

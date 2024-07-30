@@ -46,7 +46,7 @@ export class SequencerClient {
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
     const publicProcessorFactory = new PublicProcessorFactory(
-      worldStateSynchronizer,
+      merkleTreeDb,
       contractDataSource,
       simulationProvider,
       telemetryClient,
