@@ -1,5 +1,6 @@
 import { pedersenCommit } from '@aztec/foundation/crypto';
 
+import { pedersenCommit as pedersenCommitSep } from '../../../../foundation/src/crypto/pedersen/pedersen.elliptic.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, Uint32 } from '../avm_memory_types.js';
 import { initContext, randomMemoryFields } from '../fixtures/index.js';
@@ -48,6 +49,33 @@ describe('Commitment Opcode', () => {
       context.machineState.memory.set(generatorIndexOffset, new Uint32(0));
 
       const expectedCommitment = pedersenCommit(args.map(f => f.toBuffer())).map(f => new Field(f));
+      await new PedersenCommitment(indirect, inputOffset, outputOffset, inputSizeOffset, generatorIndexOffset).execute(
+        context,
+      );
+
+      const result = context.machineState.memory.getSlice(outputOffset, 2);
+      expect(result).toEqual(expectedCommitment);
+      // Check Inf
+      expect(0).toEqual(context.machineState.memory.get(outputOffset + 2).toNumber());
+    });
+
+    it('Should commit correctly with a different gen - direct', async () => {
+      const args = randomMemoryFields(10);
+      const inputOffset = 0;
+      const inputSizeOffset = 20;
+      const outputOffset = 50;
+      const indirect = 0;
+      const generatorIndex = 40;
+      const generatorIndexOffset = 100;
+
+      context.machineState.memory.setSlice(inputOffset, args);
+      context.machineState.memory.set(inputSizeOffset, new Uint32(args.length));
+      context.machineState.memory.set(generatorIndexOffset, new Uint32(generatorIndex));
+
+      const expectedCommitment = pedersenCommitSep(
+        args.map(f => f.toBuffer()),
+        generatorIndex,
+      ).map(f => new Field(f));
       await new PedersenCommitment(indirect, inputOffset, outputOffset, inputSizeOffset, generatorIndexOffset).execute(
         context,
       );

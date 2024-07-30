@@ -3,13 +3,14 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import { keccak256, keccakf1600, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
+import { pedersenCommit } from '../../../foundation/src/crypto/pedersen/pedersen.elliptic.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -149,7 +150,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     // This doesnt include infinites
-    const expectedResult = pedersenCommit([Buffer.from([100]), Buffer.from([1])]).map(f => new Fr(f));
+    const expectedResult = pedersenCommit([Buffer.from([100]), Buffer.from([1])], 10).map(f => new Fr(f));
     // TODO: Come back to the handling of infinities when we confirm how they're handled in bb
     const isInf = expectedResult[0] === new Fr(0) && expectedResult[1] === new Fr(0);
     expectedResult.push(new Fr(isInf));
