@@ -32,7 +32,7 @@ env:
   TF_VAR_BOT_API_KEY: ${{ secrets.BOT_API_KEY }}
   TF_VAR_BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
   TF_VAR_SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 1800 # 30 mins before we force-build a block
-  TF_VAR_BOT_NO_START: false
+  TF_VAR_BOT_NO_START: true
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 1
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
@@ -179,6 +179,12 @@ jobs:
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
 
+      - name: Disable transactions bot
+        working-directory: ./yarn-project/aztec/terraform/bot
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"
+          terraform apply -input=false -auto-approve
+
       - name: Init Aztec Node Terraform
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
@@ -322,6 +328,7 @@ jobs:
         run: |
           set -e
           echo "TF_VAR_PROVING_ENABLED=true" >>$GITHUB_ENV
+          echo "TF_VAR_BOT_NO_START=false" >>$GITHUB_ENV
 
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
@@ -348,7 +355,7 @@ jobs:
         run: |
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
 
-      - name: Deploy transactions bot
+      - name: Enable transactions bot
         working-directory: ./yarn-project/aztec/terraform/bot
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"
