@@ -487,7 +487,7 @@ contract TokenWithRefunds {
         let tx_fee = context.transaction_fee();
 
         // 2. We check that user funded the fee payer contract with at least the tx fee.
-        assert(!funded_amount.lt(tx_fee), "tx fee is higher than funded amount");
+        assert(!funded_amount.lt(tx_fee), "tx fee is higher than funded amount"); // funded_amout >= tx_fee
 
         // 3. We complete the refund and get the note hashes.
         let (fee_payer_note_hash, user_note_hash) = TokenNote::complete_refund(fee_payer_point, user_point, funded_amount, tx_fee);
