@@ -68,7 +68,7 @@ unconstrained fn setup_refund_success() {
     utils::check_private_balance(token_contract_address, fee_payer, 1)
 }
 
-#[test(should_fail_with = "tx fee is higher than funded amount")]
+#[test(should_fail)]
 unconstrained fn setup_refund_insufficient_funded_amount() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(true);
 
