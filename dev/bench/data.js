@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722423637701,
+  "lastUpdate": 1722423821402,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -100084,6 +100084,78 @@ window.BENCHMARK_DATA = {
             "value": 167504968,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167504968 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6c19c7eb91acc47106549fa7943f59d2dca3e0ce",
+          "message": "fix: handle properly invalid witness assignment in ec add (#7690)\n\nApply the strategy added used for MSM in PR #7653 in regard to invalid\r\nwitness assignment for grumpking points with constant or witness input,\r\nalso for ec add.",
+          "timestamp": "2024-07-31T10:57:07Z",
+          "tree_id": "e9fadc12172c05c5ba255e2c9e9123d2ffc6e5cc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6c19c7eb91acc47106549fa7943f59d2dca3e0ce"
+        },
+        "date": 1722423812366,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13420.857146000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9845.848062000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4784.326183999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4401.2899689999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40032.222719,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40032223000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14635.946641999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14635946000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3679496555,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3679496555 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 206809808,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 206809808 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3023326734,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3023326734 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173663734,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173663734 ns\nthreads: 1"
           }
         ]
       }
