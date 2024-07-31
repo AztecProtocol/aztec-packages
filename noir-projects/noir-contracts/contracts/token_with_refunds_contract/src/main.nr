@@ -452,15 +452,16 @@ contract TokenWithRefunds {
         let user_ivpk = header.get_ivpk_m(&mut context, user);
 
         // 3. The fee payer needs to take a flat fee in this function to protect itself from a griefing attack by
-        // the user. Griefing could occurr in case the public part of tx reverted --> then the fee payer would not
+        // the user. Griefing could occur in case the public part of tx reverted --> then the fee payer would not
         // receive the fee note. Since the setup phase is non-revertible (this function call is part of that setup)
         // taking the flat fee here sufficiently protects the fee payer.
         // TODO(#7688): This fee will need to be adjusted to reflect the actual cost the fee payer would incurr in case
         // of a reverting tx. But how much this should be? What if the public tx was super expensive? I assume this
-        // should be somehow derived from the fee limit as fee limit gives us an idea of the max cost.
-        // TODO(#7688): Should we refund this fee to the user and deduct it from fee payer point
+        // should be somehow derived from the fee limit as fee limit gives us an idea of the max cost. Makes sense
+        // to tackle this once we are closer to production and have more of an idea how much things will actually cost.
+        // TODO(#7688): Should we refund this fee to the user and deduct it from the fee payer point
         // in `complete_refund(...)`? --> This might not be necessary if the flat fee is always low enough. OTOH doing
-        // this is also quite simple so maybe it's worth it.
+        // this is also quite simple so IDK.
         let flat_fee = 1;
 
         // 4. Deduct the funded amount and flat fee from the user's balance.
