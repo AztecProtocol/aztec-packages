@@ -43,7 +43,7 @@ export async function deploy(
 
   let wallet;
   if (aliasOrAddress) {
-    const { salt, privateKey } = await WalletDB.getInstance().retrieveAccount(aliasOrAddress);
+    const { salt, privateKey } = WalletDB.getInstance().retrieveAccount(aliasOrAddress);
     wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt).getWallet();
   } else if (privateKey) {
     wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();

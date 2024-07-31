@@ -28,9 +28,9 @@ export class WalletDB {
 
   retrieveAccount(aliasOrAddress: AztecAddress | string) {
     const address =
-      typeof aliasOrAddress === 'string'
-        ? AztecAddress.fromBuffer(this.#accounts.get(aliasOrAddress)!)
-        : aliasOrAddress;
+      typeof aliasOrAddress === 'object'
+        ? aliasOrAddress
+        : AztecAddress.fromBuffer(this.#accounts.get(aliasOrAddress)!);
     const privateKeyBuffer = this.#accounts.get(`${address.toString()}-pk`);
     if (!privateKeyBuffer) {
       throw new Error(
