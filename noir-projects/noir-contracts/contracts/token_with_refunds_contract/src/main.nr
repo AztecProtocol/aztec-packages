@@ -3,10 +3,10 @@ mod test;
 
 // Minimal token implementation that supports `AuthWit` accounts and private refunds
 
-contract PrivateToken {
+contract TokenWithRefunds {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
-        note::utils::compute_inner_note_hash_from_preimage, hash::compute_secret_hash,
+        note::utils::compute_slotted_note_hash_raw, hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
         protocol_types::{abis::function_selector::FunctionSelector, point::Point, hash::pedersen_hash},
         oracle::unsafe_rand::unsafe_rand,
@@ -97,7 +97,7 @@ contract PrivateToken {
         let header = context.get_header();
         let caller_npk_m_hash = header.get_npk_m_hash(&mut context, caller);
         storage.balances.add(caller_npk_m_hash, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, caller));
-        PrivateToken::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
+        TokenWithRefunds::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     #[aztec(public)]
@@ -200,21 +200,14 @@ contract PrivateToken {
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(fee_payer_point: Point, user_point: Point) {
-        // 1. We get the final note content hashes by calling the `complete_refund` on the note.
+        // 1. We get the final note hiding points by calling a `complete_refund` function on the note.
         // We use 1:1 exchange rate between fee juice and token. So using `tx_fee` is enough
         let tx_fee = context.transaction_fee();
-        let (fee_payer_note_content_hash, user_note_content_hash) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
+        let (fee_payer_note_hiding_point, user_note_hiding_point) = TokenNote::complete_refund(fee_payer_point, user_point, tx_fee);
 
-        // 2. Now we "manually" compute the inner note hashes.
-        let fee_payer_inner_note_hash = compute_inner_note_hash_from_preimage(
-            PrivateToken::storage().balances.slot,
-            fee_payer_note_content_hash
-        );
-        let user_inner_note_hash = compute_inner_note_hash_from_preimage(PrivateToken::storage().balances.slot, user_note_content_hash);
-
-        // 3. At last we emit the note hashes.
-        context.push_note_hash(fee_payer_inner_note_hash);
-        context.push_note_hash(user_inner_note_hash);
+        // 2. At last we emit the note hashes.
+        context.push_note_hash(fee_payer_note_hiding_point.x);
+        context.push_note_hash(user_note_hiding_point.x);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
 
