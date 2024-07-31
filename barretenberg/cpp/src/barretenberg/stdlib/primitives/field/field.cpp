@@ -935,6 +935,7 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
 
     if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
         d.witness_index == IS_CONSTANT) {
+        ASSERT(a.get_value() + b.get_value() + c.get_value() + d.get_value() == 0);
         return;
     }
 
@@ -970,6 +971,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
 
     if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
         d.witness_index == IS_CONSTANT) {
+        ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
 
