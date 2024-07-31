@@ -15,6 +15,9 @@ import type {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -325,6 +328,40 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.enqueue(
       {
         type: ProvingRequestType.MERGE_ROLLUP,
+        inputs: input,
+      },
+      signal,
+    );
+  }
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return this.enqueue(
+      {
+        type: ProvingRequestType.BLOCK_ROOT_ROLLUP,
+        inputs: input,
+      },
+      signal,
+    );
+  }
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return this.enqueue(
+      {
+        type: ProvingRequestType.BLOCK_MERGE_ROLLUP,
         inputs: input,
       },
       signal,

@@ -2,6 +2,7 @@ use crate::{
     abis::previous_rollup_block_data::PreviousRollupBlockData,
     components, root::root_rollup_public_inputs::RootRollupPublicInputs
 };
+use types::traits::Empty;
 
 // TODO(Miranda): Handle vks
 // global ALLOWED_PREVIOUS_CIRCUITS = [

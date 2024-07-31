@@ -4,6 +4,9 @@ import {
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
+  BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
   ConstantRollupData,
   Fr,
   type GlobalVariables,
@@ -25,6 +28,7 @@ import {
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
+  PreviousRollupBlockData,
   PreviousRollupData,
   PublicDataHint,
   PublicDataTreeLeaf,
@@ -32,9 +36,8 @@ import {
   PublicDataUpdateRequest,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput,
-  RootRollupInputs,
-  type RootRollupPublicInputs,
+  type RootParityInput, // RootRollupInputs,
+  // type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
   type TUBE_PROOF_LENGTH,
@@ -186,11 +189,31 @@ export function createMergeRollupInputs(
   return mergeInputs;
 }
 
+export function createBlockMergeRollupInputs(
+  left: [
+    BlockRootOrBlockMergePublicInputs,
+    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    VerificationKeyAsFields,
+  ],
+  right: [
+    BlockRootOrBlockMergePublicInputs,
+    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    VerificationKeyAsFields,
+  ],
+) {
+  const mergeInputs = new BlockMergeRollupInputs([
+    getPreviousRollupBlockDataFromPublicInputs(left[0], left[1], left[2]),
+    getPreviousRollupBlockDataFromPublicInputs(right[0], right[1], right[2]),
+  ]);
+  return mergeInputs;
+}
+
 // Validate that the roots of all local trees match the output of the root circuit simulation
-export async function validateRootOutput(rootOutput: RootRollupPublicInputs, db: MerkleTreeOperations) {
+export async function validateBlockRootOutput(rootOutput: BlockRootOrBlockMergePublicInputs, db: MerkleTreeOperations) {
   await Promise.all([
-    validateState(rootOutput.header.state, db),
-    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), rootOutput.archive, 'Archive'),
+    // TODO(Miranda): We have no header in the new block root outputs => no circuit state obj, can recreate and check hash?
+    // validateState(new StateReference(??, ), db),
+    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), rootOutput.newArchive, 'Archive'),
   ]);
 }
 
@@ -212,7 +235,7 @@ export async function validateState(state: StateReference, db: MerkleTreeOperati
 }
 
 // Builds the inputs for the root rollup circuit, without making any changes to trees
-export async function getRootRollupInput(
+export async function getBlockRootRollupInput(
   rollupOutputLeft: BaseOrMergeRollupPublicInputs,
   rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   verificationKeyLeft: VerificationKeyAsFields,
@@ -225,7 +248,7 @@ export async function getRootRollupInput(
   messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   db: MerkleTreeOperations,
 ) {
-  const previousRollupData: RootRollupInputs['previousRollupData'] = [
+  const previousRollupData: BlockRootRollupInputs['previousRollupData'] = [
     getPreviousRollupDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
     getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
   ];
@@ -246,7 +269,7 @@ export async function getRootRollupInput(
     0,
   );
 
-  return RootRollupInputs.from({
+  return BlockRootRollupInputs.from({
     previousRollupData,
     l1ToL2Roots,
     newL1ToL2Messages,
@@ -265,6 +288,22 @@ export function getPreviousRollupDataFromPublicInputs(
   const leafIndex = getVKIndex(vk);
 
   return new PreviousRollupData(
+    rollupOutput,
+    rollupProof,
+    vk,
+    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+  );
+}
+
+//TODO(miranda): handle vks
+export function getPreviousRollupBlockDataFromPublicInputs(
+  rollupOutput: BlockRootOrBlockMergePublicInputs,
+  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  vk: VerificationKeyAsFields,
+) {
+  const leafIndex = getVKIndex(vk);
+
+  return new PreviousRollupBlockData(
     rollupOutput,
     rollupProof,
     vk,

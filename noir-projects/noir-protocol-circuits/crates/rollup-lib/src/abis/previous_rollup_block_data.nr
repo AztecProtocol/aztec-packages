@@ -7,10 +7,10 @@ use dep::types::{
 };
 
 struct PreviousRollupBlockData {
-    block_root_or_block_merge_public_inputs : BlockRootOrBlockMergePublicInputs,
-    proof : NestedRecursiveProof,
-    vk : VerificationKey,
-    vk_witness : MembershipWitness<VK_TREE_HEIGHT>,
+    block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
+    proof: NestedRecursiveProof,
+    vk: VerificationKey,
+    vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupBlockData {
@@ -29,9 +29,9 @@ impl Empty for PreviousRollupBlockData {
     fn empty() -> Self {
         PreviousRollupBlockData {
             block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs::empty(),
-            proof : NestedRecursiveProof::empty(),
-            vk : VerificationKey::empty(),
-            vk_witness : MembershipWitness::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
+            vk_witness: MembershipWitness::empty(),
         }
     }
 }

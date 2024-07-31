@@ -14,6 +14,9 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   EmptyNestedCircuitInputs,
   EmptyNestedData,
   Fr,
@@ -47,6 +50,10 @@ import {
   convertBaseParityOutputsFromWitnessMap,
   convertBaseRollupInputsToWitnessMap,
   convertBaseRollupOutputsFromWitnessMap,
+  convertBlockMergeRollupInputsToWitnessMap,
+  convertBlockMergeRollupOutputsFromWitnessMap,
+  convertBlockRootRollupInputsToWitnessMap,
+  convertBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -334,6 +341,54 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await this.verifyProof('MergeRollupArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
+  /**
+   * Simulates the block root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const { circuitOutput, proof } = await this.createProof(
+      input,
+      'BlockRootRollupArtifact',
+      convertBlockRootRollupInputsToWitnessMap,
+      convertBlockRootRollupOutputsFromWitnessMap,
+    );
+
+    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupArtifact');
+
+    await this.verifyProof('BlockRootRollupArtifact', proof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
+  }
+
+  /**
+   * Simulates the block merge rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const { circuitOutput, proof } = await this.createProof(
+      input,
+      'BlockMergeRollupArtifact',
+      convertBlockMergeRollupInputsToWitnessMap,
+      convertBlockMergeRollupOutputsFromWitnessMap,
+    );
+
+    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockMergeRollupArtifact');
+
+    await this.verifyProof('BlockMergeRollupArtifact', proof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
 
   /**

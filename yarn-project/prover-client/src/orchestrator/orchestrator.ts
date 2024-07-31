@@ -29,8 +29,10 @@ import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
+  ContentCommitment,
   Fr,
   type GlobalVariables,
+  Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -43,6 +45,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  StateReference,
   TubeInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
@@ -50,6 +53,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -64,11 +68,11 @@ import { inspect } from 'util';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,
-  getRootRollupInput,
+  getBlockRootRollupInput,
   getSubtreeSiblingPath,
   getTreeSnapshot,
+  validateBlockRootOutput,
   validatePartialState,
-  validateRootOutput,
   validateTx,
 } from './block-building-helpers.js';
 import { type MergeRollupInputData, ProvingState, type TreeSnapshots } from './proving-state.js';
@@ -370,7 +374,7 @@ export class ProvingOrchestrator {
     try {
       if (
         !this.provingState ||
-        !this.provingState.rootRollupPublicInputs ||
+        !this.provingState.blockRootRollupPublicInputs ||
         !this.provingState.finalProof ||
         !this.provingState.finalAggregationObject
       ) {
@@ -380,12 +384,52 @@ export class ProvingOrchestrator {
         throw new Error('Block already finalised');
       }
 
-      const rootRollupOutputs = this.provingState.rootRollupPublicInputs;
+      const rootRollupOutputs = this.provingState.blockRootRollupPublicInputs;
+      const previousMergeData = this.provingState.getMergeInputs(0).inputs;
+
+      if (
+        !previousMergeData[0] ||
+        !previousMergeData[1] ||
+        !this.provingState.finalRootParityInput?.publicInputs.shaRoot
+      ) {
+        throw new Error(
+          `This can't happen as we cannot create the block root without its input, the merges at index 0. ts complains without this.`,
+        );
+      }
+
+      // TODO(Miranda): handle header better, add back to circuit inputs?
+      const contentCommitment = new ContentCommitment(
+        new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
+        sha256Trunc(
+          Buffer.concat([
+            previousMergeData[0]?.txsEffectsHash.toBuffer(),
+            previousMergeData[1]?.txsEffectsHash.toBuffer(),
+          ]),
+        ),
+        this.provingState.finalRootParityInput?.publicInputs.shaRoot.toBuffer(),
+        sha256Trunc(
+          Buffer.concat([previousMergeData[0]?.outHash.toBuffer(), previousMergeData[1]?.outHash.toBuffer()]),
+        ),
+      );
+      const state = new StateReference(
+        await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db),
+        previousMergeData[1].end,
+      );
+      const header = new Header(
+        rootRollupOutputs.previousArchive,
+        contentCommitment,
+        state,
+        previousMergeData[0].constants.globalVariables,
+        previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
+      );
+      if (header.hash() !== rootRollupOutputs.endBlockHash) {
+        throw new Error(`Block header mismatch in finalise.`);
+      }
 
       logger?.debug(`Updating and validating root trees`);
-      await this.db.updateArchive(rootRollupOutputs.header);
+      await this.db.updateArchive(header);
 
-      await validateRootOutput(rootRollupOutputs, this.db);
+      await validateBlockRootOutput(rootRollupOutputs, this.db);
 
       // Collect all new nullifiers, commitments, and contracts from all txs in this block
       const gasFees = this.provingState.globalVariables.gasFees;
@@ -395,17 +439,17 @@ export class ProvingOrchestrator {
       const blockBody = new Body(nonEmptyTxEffects);
 
       const l2Block = L2Block.fromFields({
-        archive: rootRollupOutputs.archive,
-        header: rootRollupOutputs.header,
+        archive: rootRollupOutputs.newArchive,
+        header: header,
         body: blockBody,
       });
 
-      if (!l2Block.body.getTxsEffectsHash().equals(rootRollupOutputs.header.contentCommitment.txsEffectsHash)) {
+      if (!l2Block.body.getTxsEffectsHash().equals(contentCommitment.txsEffectsHash)) {
         logger.debug(inspect(blockBody));
         throw new Error(
           `Txs effects hash mismatch, ${l2Block.body
             .getTxsEffectsHash()
-            .toString('hex')} == ${rootRollupOutputs.header.contentCommitment.txsEffectsHash.toString('hex')} `,
+            .toString('hex')} == ${contentCommitment.txsEffectsHash.toString('hex')} `,
         );
       }
 
@@ -727,7 +771,7 @@ export class ProvingOrchestrator {
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
 
-    const inputs = await getRootRollupInput(
+    const inputs = await getBlockRootRollupInput(
       mergeInputData.inputs[0]!,
       mergeInputData.proofs[0]!,
       mergeInputData.verificationKeys[0]!,
@@ -750,10 +794,10 @@ export class ProvingOrchestrator {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' as CircuitName,
         },
-        signal => this.prover.getRootRollupProof(inputs, signal),
+        signal => this.prover.getBlockRootRollupProof(inputs, signal),
       ),
       result => {
-        provingState.rootRollupPublicInputs = result.inputs;
+        provingState.blockRootRollupPublicInputs = result.inputs;
         provingState.finalAggregationObject = extractAggregationObject(
           result.proof.binaryProof,
           result.verificationKey.numPublicInputs,
