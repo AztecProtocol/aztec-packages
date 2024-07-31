@@ -2,7 +2,6 @@ import { type PublicKernelType } from '@aztec/circuit-types';
 import { type ContractClassRegisteredEvent } from '@aztec/circuits.js';
 import {
   Attributes,
-  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,

@@ -99,6 +99,10 @@ export class L1PublisherMetrics {
     this.txCalldataGas.record(stats.calldataGas, attributes);
     this.txCalldataSize.record(stats.calldataSize, attributes);
 
-    this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
+    try {
+      this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
+    } catch (e) {
+      // ignore
+    }
   }
 }
