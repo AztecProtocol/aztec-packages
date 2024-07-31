@@ -26,8 +26,6 @@ namespace bb {
  **/
 template <class T> constexpr field<T> field<T>::operator*(const field& other) const noexcept
 {
-    debug_check_within_2p();
-    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::mul");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -43,8 +41,6 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
 
 template <class T> constexpr field<T>& field<T>::operator*=(const field& other) noexcept
 {
-    debug_check_within_2p();
-    other.debug_check_within_2p();
     BB_OP_COUNT_TRACK_NAME("fr::self_mul");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
