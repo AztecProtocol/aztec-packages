@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722453588691,
+  "lastUpdate": 1722453915787,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -101860,6 +101860,78 @@ window.BENCHMARK_DATA = {
             "value": 167716851,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167716851 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1b7d27e310c70a211f30816b42a879118378a049",
+          "message": "chore(avm): update stats (#7701)\n\nI realized much of the \"proving time\" (9 seconds in a 2^19 trace) is actually spent when creating the prover. In particular, when allocating memory for the prover polynomials, so I added some stats to track that.\n\n```\n------- STATS -------\nprove/all_ms: 6879\nprove/check_circuit_ms: 2681\nprove/create_composer_ms: 0\nprove/create_prover_ms: 872\nprove/create_verifier_ms: 0\nprove/execute_log_derivative_inverse_commitments_round_ms: 124\nprove/execute_log_derivative_inverse_round_ms: 179\nprove/execute_pcs_rounds_ms: 268\nprove/execute_relation_check_rounds_ms: 1619\nprove/execute_wire_commitments_round_ms: 86\nprove/gen_trace_ms: 975\n```\n\n-----\n\nAs a side note for posterity, I researched on using `mmap`  (ANON) for allocating zero-initialized memory and changing the following in `polynomial.cpp`\n\n```\ntemplate <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(const size_t n_elements)\n{\n    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)\n    // return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));\n    auto size = sizeof(Fr) * n_elements;\n    auto* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\n    auto shared = std::shared_ptr<void>(ptr, [size](void* p) { munmap(p, size); });\n    return std::static_pointer_cast<Fr[]>(shared);\n}\n```\nplus removing the `memset` in the constructor, made 8 of those 9 seconds go away. I think even better performance (and memory usage) can be achieved for sparse vectors/polynomials if we never set zeroes. At some point I'll talk w/Charlie and Adam about this (which only applies to native and not wasm).\n\nPS: `mmap` anon makes the kernel return a page-aligned zero-initialized page, but it will re-use the same one and be copy-on-write. This saves both time and memory until we write, and possibly a lot of memory if we have sparse matrices with many pages fulls of zeroes.",
+          "timestamp": "2024-07-31T19:58:30+01:00",
+          "tree_id": "bba4690f337bcf5a8db601f0e5399cdbf37b2985",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1b7d27e310c70a211f30816b42a879118378a049"
+        },
+        "date": 1722453907690,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13259.600922000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9880.348379 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4762.767827000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4390.46004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39781.635711,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39781636000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14331.182101999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14331182000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3618219402,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3618219402 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203087966,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203087966 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2987388472,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2987388472 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168196233,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168196233 ns\nthreads: 1"
           }
         ]
       }
