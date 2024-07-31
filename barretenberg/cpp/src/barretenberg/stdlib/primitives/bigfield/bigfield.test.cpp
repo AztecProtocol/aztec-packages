@@ -779,6 +779,61 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    //    static void test_to_byte_array(){
+    //        typedef stdlib::bool_t<Builder> bool_t;
+    //
+    //        auto composer = Builder();
+    //
+    //        const uint256_t a_uint(
+    //            0x559722a8a60ac475, 0xa3b50c41b7eb2cc8, 0x2dbf26bed85edd78, 0x17bd92855cc976f8
+    //        );
+    //
+    //        const bb::fq a(a_uint);
+    //        fq_ct a_ct = fq_ct::from_witness(&composer, a);
+    //        fq_ct c_ct = a_ct.conditional_negate(bool_t(&composer, true));
+    //        fq_ct d_ct(c_ct.to_byte_array());
+    //        EXPECT_TRUE(
+    //                bb::fq((d_ct.get_value() % uint512_t(bb::fq::modulus)).lo) == -a);
+    //    }
+
+    static void test_internal_div_completeness()
+    {
+        typedef stdlib::bool_t<Builder> bool_t;
+        auto builder = Builder();
+
+        fq_ct w0 = fq_ct::from_witness(&builder, 1);
+        w0 = w0.conditional_negate(bool_t(&builder, true));
+        w0 = w0.conditional_negate(bool_t(&builder, false));
+        w0 = w0.conditional_negate(bool_t(&builder, true));
+        w0 = w0.conditional_negate(bool_t(&builder, true));
+        fq_ct w4 = w0.conditional_negate(bool_t(&builder, false));
+        w4 = w4.conditional_negate(bool_t(&builder, true));
+        w4 = w4.conditional_negate(bool_t(&builder, true));
+        fq_ct w5 = w4 - w0;
+        fq_ct w6 = w5 / 1;
+        (void)(w6);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    static void test_internal_div_completeness2()
+    {
+        auto builder = Builder();
+
+        fq_ct numerator = fq_ct::create_from_u512_as_witness(&builder, uint256_t(1) << (68 + 67));
+        numerator.binary_basis_limbs[0].maximum_value = 0;
+        numerator.binary_basis_limbs[1].maximum_value = uint256_t(1) << 67;
+        numerator.binary_basis_limbs[2].maximum_value = 0;
+        numerator.binary_basis_limbs[3].maximum_value = 0;
+
+        for (size_t i = 0; i < 9; i++) {
+            numerator = numerator + numerator;
+        }
+        fq_ct denominator = fq_ct::create_from_u512_as_witness(&builder, uint256_t(1));
+        fq_ct result = numerator / denominator;
+        (void)(result);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -986,6 +1041,15 @@ TYPED_TEST(stdlib_bigfield, assert_less_than_success)
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
+}
+// TYPED_TEST(stdlib_bigfield, to_byte_array)
+// {
+//     TestFixture::test_to_byte_array();
+// }
+TYPED_TEST(stdlib_bigfield, internal_div_completeness)
+{
+    TestFixture::test_internal_div_completeness();
+    TestFixture::test_internal_div_completeness2();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {
