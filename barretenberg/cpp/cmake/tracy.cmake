@@ -1,9 +1,5 @@
 include(FetchContent)
 
-# This library is intrinsically controlled by TRACY_ENABLE which we just forward as a top-level CMake setting.
-option(TRACY_PROFILING "Enable Tracy Profiling" ON)
-option(TRACY_ON_DEMAND "Enable Tracy On Demand" OFF)
-
 set(TRACY_INCLUDE "${CMAKE_BINARY_DIR}/_deps/tracy-src/public")
 
 FetchContent_Declare(tracy

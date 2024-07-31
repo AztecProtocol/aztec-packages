@@ -17,13 +17,13 @@ void* operator new(std::size_t count)
     // NOLINTBEGIN(cppcoreguidelines-no-malloc)
     void* ptr = malloc(count);
     // NOLINTEND(cppcoreguidelines-no-malloc)
-    TracyAllocS(ptr, count, /*depth*/ 5);
+    TracyAlloc(ptr, count);
     return ptr;
 }
 
 void operator delete(void* ptr) noexcept
 {
-    TracyFreeS(ptr, /*depth*/ 5);
+    TracyFree(ptr);
     // NOLINTBEGIN(cppcoreguidelines-no-malloc)
     free(ptr);
     // NOLINTEND(cppcoreguidelines-no-malloc)
@@ -47,6 +47,8 @@ class ClientIVCBench : public benchmark::Fixture {
         bb::srs::init_crs_factory("../srs_db/ignition");
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
+
+    void TearDown([[maybe_unused]] const ::benchmark::State& state) override {}
 
     /**
      * @brief Compute verification key for each circuit in the IVC based on the number of desired function circuits
