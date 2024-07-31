@@ -2111,7 +2111,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_not
     const auto get_overload_count = [target_modulus = modulus_u512](const uint512_t& maximum_value) {
         uint512_t target = target_modulus;
         size_t overload_count = 0;
-        while (target < maximum_value) {
+        while (target <= maximum_value) {
             ++overload_count;
             target += target_modulus;
         }

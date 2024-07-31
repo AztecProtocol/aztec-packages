@@ -1176,12 +1176,31 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         (void)w2;
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
+    static void test_assert_not_equal_regression()
+    {
+        auto builder = Builder();
+        fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint256_t(0));
+        fq_ct alsozero = fq_ct::create_from_u512_as_witness(&builder, fq_ct::modulus_u512);
+        for (size_t i = 0; i < 4; i++) {
+            zero.binary_basis_limbs[i].maximum_value = zero.binary_basis_limbs[i].element.get_value();
+            alsozero.binary_basis_limbs[i].maximum_value = alsozero.binary_basis_limbs[i].element.get_value();
+        }
+        zero.assert_is_not_equal(alsozero);
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+    }
 };
 
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
+
+TYPED_TEST(stdlib_bigfield, assert_not_equal_regression)
+{
+    TestFixture::test_assert_not_equal_regression();
+}
+
 TYPED_TEST(stdlib_bigfield, badmul)
 {
     TestFixture::test_bad_mul();
