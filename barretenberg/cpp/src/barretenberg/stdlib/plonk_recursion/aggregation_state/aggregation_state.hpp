@@ -136,9 +136,9 @@ aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
     for (size_t i = 0; i < 2; i++) {
         std::array<typename Curve::BaseField, 2> base_field_vals;
         for (size_t j = 0; j < 2; j++) {
-            std::array<typename Builder::FF, 4> bigfield_limbs;
+            std::array<typename Curve::ScalarField, 4> bigfield_limbs;
             for (size_t k = 0; k < 4; k++) {
-                bigfield_limbs[k] = builder.get_variable(witness_indices[idx]);
+                bigfield_limbs[k] = Curve::ScalarField::from_witness_index(&builder, witness_indices[idx]);
                 idx++;
             }
             base_field_vals[j] =
