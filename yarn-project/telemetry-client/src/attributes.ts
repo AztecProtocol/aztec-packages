@@ -47,3 +47,11 @@ export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
 export const BLOCK_SIZE = 'aztec.block.size';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
+/** Generic attribute representing whether the action was successful or not */
+export const OK = 'aztec.ok';
+/** The type of the transaction */
+export const L1_TX_TYPE = 'aztec.l1.tx_type';
+/** The phase of the transaction */
+export const TX_PHASE_NAME = 'aztec.tx.phase_name';
+/** The proving job type */
+export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
