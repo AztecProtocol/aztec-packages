@@ -170,13 +170,14 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
+    ZoneScopedN("pre-bench");
     ClientIVC ivc;
 
     auto num_circuits = static_cast<size_t>(state.range(0));
     auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
 
     for (auto _ : state) {
-        ZoneScoped; // Profile the main function
+        ZoneScopedN("bench"); // Profile the main function
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Perform a specified number of iterations of function/kernel accumulation
         perform_ivc_accumulation_rounds(num_circuits, ivc, precomputed_vks);

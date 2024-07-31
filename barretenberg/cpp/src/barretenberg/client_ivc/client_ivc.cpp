@@ -56,7 +56,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    max_block_sizes.print(); // print minimum structured sizes for each block
+    ZoneScopedN("client shizz") max_block_sizes.print(); // print minimum structured sizes for each block
     return { fold_output.proof, decider_prove(), goblin.prove() };
 };
 
