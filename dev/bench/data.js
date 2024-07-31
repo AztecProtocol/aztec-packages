@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722453915787,
+  "lastUpdate": 1722457394526,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -101932,6 +101932,78 @@ window.BENCHMARK_DATA = {
             "value": 168196233,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 168196233 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f26bb32abcdcea4450f4867d2d88efbbcd468c01",
+          "message": "chore(avm): codegen improvements (#7703)\n\n* Moved more things from hpp to cpps\n* Hardcoded AvmProvingKey_\n* In verifier.cpp we now use a for loop to get the logderiv commitments instead of an unrolled loop",
+          "timestamp": "2024-07-31T21:09:41+01:00",
+          "tree_id": "b671bcbf26ad7d237860b77c4e382f30ac535a44",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f26bb32abcdcea4450f4867d2d88efbbcd468c01"
+        },
+        "date": 1722457385694,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13549.623405999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10044.887637000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4794.1231030000035,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4341.151311 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40026.888123,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40026888000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14581.68041,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14581679000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3646691290,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3646691290 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208099685,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208099685 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3024176671,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3024176671 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 174031016,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 174031016 ns\nthreads: 1"
           }
         ]
       }
