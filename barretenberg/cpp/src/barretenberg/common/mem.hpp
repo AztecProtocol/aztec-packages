@@ -5,7 +5,13 @@
 #include "wasm_export.hpp"
 #include <cstdlib>
 #include <memory>
-// #include <malloc.h>
+
+// This can be altered to capture stack traces, though more expensive
+// This is the only reason we wrap TracyAlloc or TracyAllocS
+#define TRACY_ALLOC(t, size) TracyAllocS(t, size, /*stack depth*/ 10)
+#define TRACY_FREE(t) TracyFreeS(t, /*stack depth*/ 10)
+// #define TRACY_ALLOC(t, size) TracyAlloc(t, size)
+// #define TRACY_FREE(t) TracyFree(t)
 
 #define pad(size, alignment) (size - (size % alignment) + ((size % alignment) == 0 ? 0 : alignment))
 
@@ -18,13 +24,13 @@ inline void* aligned_alloc(size_t alignment, size_t size)
         info("bad alloc of size: ", size);
         std::abort();
     }
-    TracyAlloc(t, size);
+    TRACY_ALLOC(t, size);
     return t;
 }
 
 inline void aligned_free(void* mem)
 {
-    TracyFree(mem);
+    TRACY_FREE(mem);
     free(mem);
 }
 #endif
@@ -44,7 +50,7 @@ inline void* protected_aligned_alloc(size_t alignment, size_t size)
         info("bad alloc of size: ", size);
         std::abort();
     }
-    TracyAlloc(t, size);
+    TRACY_ALLOC(t, size);
     return t;
 }
 
@@ -52,7 +58,7 @@ inline void* protected_aligned_alloc(size_t alignment, size_t size)
 
 inline void aligned_free(void* mem)
 {
-    TracyFree(mem);
+    TRACY_FREE(mem);
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory, cppcoreguidelines-no-malloc)
     free(mem);
 }
@@ -62,13 +68,13 @@ inline void aligned_free(void* mem)
 inline void* aligned_alloc(size_t alignment, size_t size)
 {
     void* t = _aligned_malloc(size, alignment);
-    TracyAlloc(t, size);
+    TRACY_ALLOC(t, size);
     return t;
 }
 
 inline void aligned_free(void* mem)
 {
-    TracyFree(mem);
+    TRACY_FREE(mem);
     _aligned_free(mem);
 }
 #endif
@@ -93,13 +99,13 @@ inline void* tracy_malloc(size_t size)
 {
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory, cppcoreguidelines-no-malloc)
     void* t = malloc(size);
-    TracyAlloc(t, size);
+    TRACY_ALLOC(t, size);
     return t;
 }
 
 inline void tracy_free(void* mem)
 {
-    TracyFree(mem);
+    TRACY_FREE(mem);
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory, cppcoreguidelines-no-malloc)
     free(mem);
 }
