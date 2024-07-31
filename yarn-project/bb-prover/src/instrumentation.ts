@@ -86,7 +86,7 @@ export class ProverInstrumentation {
    */
   recordDuration(
     metric: 'simulationDuration' | 'witGenDuration' | 'provingDuration',
-    circuitName: CircuitName,
+    circuitName: CircuitName | 'tubeCircuit',
     timerOrMS: Timer | number,
   ) {
     const ms = typeof timerOrMS === 'number' ? timerOrMS : timerOrMS.ms();
@@ -117,7 +117,7 @@ export class ProverInstrumentation {
    */
   recordSize(
     metric: 'witGenInputSize' | 'witGenOutputSize' | 'proofSize' | 'circuitSize' | 'circuitPublicInputCount',
-    circuitName: CircuitName,
+    circuitName: CircuitName | 'tubeCircuit',
     size: number,
   ) {
     this[metric].record(Math.ceil(size), {

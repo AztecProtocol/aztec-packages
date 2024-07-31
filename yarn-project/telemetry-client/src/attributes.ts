@@ -53,3 +53,5 @@ export const OK = 'aztec.ok';
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
+/** The proving job type */
+export const PROVING_JOB_TYPE = 'aztec.proving.job_type';

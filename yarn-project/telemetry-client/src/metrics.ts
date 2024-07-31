@@ -56,3 +56,5 @@ export const PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.
 
 export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
   'aztec.proving_orchestrator.base_rollup.inputs_duration';
+
+export const PROVING_QUEUE_JOB_SIZE = 'aztec.proving_queue.job_size';
