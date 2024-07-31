@@ -46,7 +46,9 @@ export async function bootstrapDevnet(
   );
 
   const { erc20Address, portalAddress } = await deployERC20(l1Clients);
+
   const { token, bridge } = await deployToken(wallet, portalAddress);
+
   await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridge.address);
 
   const fpc = await deployFPC(wallet, token.address);
