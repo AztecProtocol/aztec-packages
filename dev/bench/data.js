@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722417892635,
+  "lastUpdate": 1722418104452,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -99808,6 +99808,78 @@ window.BENCHMARK_DATA = {
             "value": 166831261,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166831261 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cfb4aa8602c316003d018bf3192e2a13e36cacad",
+          "message": "feat: extend SMT Utils (#7126)\n\nThis pr resolves several issues with Symbolic Circuits and adds new\r\nfunctionality to smt_util\r\n\r\n## CircuitBase / StandardCircuit / UltraCircuit\r\n\r\n`bool optimizations` -> `bool enable_optimizations`\r\n\r\n## STerm\r\n\r\nAdded comment about an origin of the division result name\r\n\r\n## smt_util.cpp\r\n\r\n- new function `bb::fr string_to_fr(std::string number, int base, size_t\r\nstep = 0)` allows to convert string values of an arbitrary base(but most\r\nimportantly 2, 10 and 16) to `bb::fr`. Need this because of the huge\r\nwitnesses, provided by the solver, that cause segfaults during ordinary\r\nimport.\r\n\r\n- `default_model` and `default_model_single` now export the `msgpack`'d\r\nversion of a witness too.\r\n- `import_witness`, `import_witness_single` imports the packed witness\r\nfrom file\r\n\r\n## README\r\n\r\nadded all this to README.md file\r\n\r\n## Standard Symbolic Circuit\r\n\r\nFixed an issue that caused merging of two consecutive xors into one\r\nwhile applying an optimization. It thought that two consecutive 32 bit\r\nxors is one 64 bit xor. Now it's not.\r\n\r\n+ added the test to check this behavior\r\n\r\n## Ultra Symbolic Circuit\r\n\r\nMoved lookup table initialization to the separate method. Added xor and\r\nand tables detection with further optimizations.\r\n\r\nAdded two tests that check that everything is fine.",
+          "timestamp": "2024-07-31T12:07:15+03:00",
+          "tree_id": "838f9342b30ee4fbf24a894b55b5f63b629dcc81",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cfb4aa8602c316003d018bf3192e2a13e36cacad"
+        },
+        "date": 1722418096279,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13279.460485000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9776.021109 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4806.624999999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4375.155038 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39707.451098,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39707451000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14597.392381000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14597392000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3632293998,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3632293998 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201678122,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201678122 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2977156861,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2977156861 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 170607677,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 170607677 ns\nthreads: 1"
           }
         ]
       }
