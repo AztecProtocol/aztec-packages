@@ -53,6 +53,7 @@ function(barretenberg_module MODULE_NAME)
             ${MODULE_NAME}
             PUBLIC
             ${ARGN}
+            Tracy::TracyClient
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -89,6 +90,7 @@ function(barretenberg_module MODULE_NAME)
         target_link_libraries(
             ${MODULE_NAME}_test_objects
             PRIVATE
+            Tracy::TracyClient
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
