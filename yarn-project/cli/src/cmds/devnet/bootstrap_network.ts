@@ -9,7 +9,6 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
-import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -94,6 +93,10 @@ export async function bootstrapNetwork(
  * Step 1. Deploy the L1 contracts, but don't initialize
  */
 async function deployERC20({ walletClient, publicClient }: L1Clients) {
+  const { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import(
+    '@aztec/l1-artifacts'
+  );
+
   const erc20: ContractArtifacts = {
     contractAbi: PortalERC20Abi,
     contractBytecode: PortalERC20Bytecode,
@@ -134,8 +137,12 @@ async function deployToken(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenContract, TokenBridgeContract } = await import('@aztec/noir-contracts.js');
-  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18).send().deployed();
-  const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal).send().deployed();
+  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
+    .send({ universalDeploy: true })
+    .deployed();
+  const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal)
+    .send({ universalDeploy: true })
+    .deployed();
 
   await new BatchCall(wallet, [
     devCoin.methods.set_minter(bridge.address, true).request(),
@@ -168,6 +175,7 @@ async function initPortal(
   portal: EthAddress,
   bridge: AztecAddress,
 ) {
+  const { TokenPortalAbi } = await import('@aztec/l1-artifacts');
   const {
     l1ContractAddresses: { registryAddress },
   } = await pxe.getNodeInfo();

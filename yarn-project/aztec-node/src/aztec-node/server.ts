@@ -232,11 +232,7 @@ export class AztecNodeService implements AztecNode {
    * @returns - The currently deployed L1 contract addresses.
    */
   public async getL1ContractAddresses(): Promise<L1ContractAddresses> {
-    if (this.config.contractAddressesUrl) {
-      return await getL1ContractAddressesFromUrl(this.config.contractAddressesUrl, this.log);
-    } else {
-      return Promise.resolve(this.config.l1Contracts);
-    }
+    return Promise.resolve(this.config.l1Contracts);
   }
 
   /**

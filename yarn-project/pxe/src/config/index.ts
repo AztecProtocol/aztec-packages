@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { type Network } from '@aztec/types/network';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -29,10 +30,6 @@ export interface PXEConfig {
   l2StartingBlock: number;
   /** Where to store PXE data. If not set, will store in memory */
   dataDirectory?: string;
-}
-
-export enum Network {
-  DEVNET = 'devnet',
 }
 
 export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig;

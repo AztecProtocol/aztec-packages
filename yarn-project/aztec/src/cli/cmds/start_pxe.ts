@@ -1,7 +1,21 @@
+import {
+  type ContractArtifact,
+  type ContractInstanceWithAddress,
+  Fr,
+  getContractClassFromArtifact,
+} from '@aztec/aztec.js';
 import { type AztecNode, createAztecNodeClient } from '@aztec/circuit-types';
+import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { Network, type PXEServiceConfig, createPXERpcServer, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import {
+  AztecAddress,
+  type PXEServiceConfig,
+  createPXERpcServer,
+  createPXEService,
+  getPXEServiceConfig,
+} from '@aztec/pxe';
+import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
 
@@ -17,7 +31,13 @@ function isValidNetwork(value: any): value is Network {
   return Object.values(Network).includes(value);
 }
 
-async function fetchBasicContracts(url: string) {}
+async function fetchBasicContractAddresses(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch basic contract addresses from ${url}`);
+  }
+  return response.json();
+}
 
 export async function addPXE(
   options: any,
@@ -54,8 +74,33 @@ export async function addPXE(
 
   // register basic contracts
   if (options.network) {
-    const contracts = await fetchBasicContracts(`${contractAddressesUrl}/${options.network}/basic_contracts.json`);
-    pxe.registerContracts(contracts);
+    userLog(`Registering basic contracts for ${options.network}`);
+    const basicContractsInfo = await fetchBasicContractAddresses(
+      `${contractAddressesUrl}/${options.network}/basic_contracts.json`,
+    );
+    const l2Contracts: Record<string, { address: AztecAddress; initHash: Fr; salt: Fr; artifact: ContractArtifact }> =
+      {};
+    for (const [key, artifactName] of Object.entries(L2BasicContractsMap[options.network as Network])) {
+      l2Contracts[key] = {
+        address: AztecAddress.fromString(basicContractsInfo[`${key}L2`]),
+        initHash: Fr.fromString(basicContractsInfo[`${key}L2InitHash`]),
+        salt: Fr.fromString(basicContractsInfo[`${key}L2Salt`]),
+        artifact: await getContractArtifact(artifactName, userLog),
+      };
+    }
+
+    Object.values(l2Contracts).forEach(async ({ address, artifact, initHash, salt }) => {
+      const instance: ContractInstanceWithAddress = {
+        version: 1,
+        salt,
+        initializationHash: initHash,
+        address,
+        deployer: AztecAddress.ZERO,
+        contractClassId: getContractClassFromArtifact(artifact!).id,
+        publicKeysHash: Fr.ZERO,
+      };
+      await pxe.registerContract({ artifact, instance });
+    });
   }
 
   // Add PXE to services list

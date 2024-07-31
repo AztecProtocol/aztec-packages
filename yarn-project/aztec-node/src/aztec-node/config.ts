@@ -21,9 +21,6 @@ export type AztecNodeConfig = ArchiverConfig &
 
     /** Whether the prover is disabled for this node. */
     disableProver: boolean;
-
-    /** URL where contract addresses are stored. */
-    contractAddressesUrl?: string;
   };
 
 /**
@@ -31,7 +28,7 @@ export type AztecNodeConfig = ArchiverConfig &
  * @returns A valid aztec node config.
  */
 export function getConfigEnvVars(): AztecNodeConfig {
-  const { SEQ_DISABLED, PROVER_DISABLED = '', CONTRACT_ADDRESSES_URL } = process.env;
+  const { SEQ_DISABLED, PROVER_DISABLED = '' } = process.env;
 
   const allEnvVars: AztecNodeConfig = {
     ...getSequencerVars(),
@@ -41,7 +38,6 @@ export function getConfigEnvVars(): AztecNodeConfig {
     ...getProverEnvVars(),
     disableSequencer: !!SEQ_DISABLED,
     disableProver: ['1', 'true'].includes(PROVER_DISABLED),
-    contractAddressesUrl: CONTRACT_ADDRESSES_URL,
   };
 
   return allEnvVars;
