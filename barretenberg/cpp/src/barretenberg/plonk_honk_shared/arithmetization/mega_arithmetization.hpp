@@ -49,7 +49,7 @@ template <typename FF_> class MegaArith {
             const uint32_t FIXED_SIZE = 1 << 14;
             this->ecc_op = FIXED_SIZE;
             this->pub_inputs = FIXED_SIZE;
-            this->arithmetic = FIXED_SIZE;
+            this->arithmetic = 1 << 15;
             this->delta_range = FIXED_SIZE;
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;

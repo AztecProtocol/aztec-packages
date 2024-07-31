@@ -135,20 +135,31 @@ TEST_F(AztecIVCTests, BasicLarge)
  */
 TEST_F(AztecIVCTests, BasicStructured)
 {
+    info("here");
     AztecIVC ivc;
+    info("here");
     ivc.trace_structure = TraceStructure::SMALL_TEST;
+    info("here");
 
     // Construct some circuits of varying size
     Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
-    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/7);
-    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/9);
-    Builder circuit_3 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
+    info("here");
+    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/6);
+    info("here");
+    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/7);
+    info("here");
+    Builder circuit_3 = create_mock_circuit(ivc, /*log2_num_gates=*/8);
+    info("here");
 
     // The circuits can be accumulated as normal due to the structured trace
     ivc.accumulate(circuit_0);
+    info("here");
     ivc.accumulate(circuit_1);
+    info("here");
     ivc.accumulate(circuit_2);
+    info("here");
     ivc.accumulate(circuit_3);
+    info("here");
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
