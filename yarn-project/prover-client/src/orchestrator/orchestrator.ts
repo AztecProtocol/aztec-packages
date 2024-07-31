@@ -99,7 +99,12 @@ export class ProvingOrchestrator {
 
   private metrics: ProvingOrchestratorMetrics;
 
-  constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver, telemetryClient: TelemetryClient) {
+  constructor(
+    private db: MerkleTreeOperations,
+    private prover: ServerCircuitProver,
+    telemetryClient: TelemetryClient,
+    public readonly proverId: Fr = Fr.ZERO,
+  ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }
 
@@ -750,6 +755,7 @@ export class ProvingOrchestrator {
       provingState.messageTreeSnapshot,
       provingState.messageTreeRootSiblingPath,
       this.db,
+      this.proverId,
     );
 
     this.deferredProving(

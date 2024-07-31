@@ -351,6 +351,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "ACVM_WORKING_DIRECTORY"
           value = "${local.data_dir}/node_${count.index + 1}/temp"
+        },
+        {
+          name  = "LOG_LEVEL"
+          value = "info"
         }
       ]
       mountPoints = [

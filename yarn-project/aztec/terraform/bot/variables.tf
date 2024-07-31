@@ -29,3 +29,12 @@ variable "BOT_PRIVATE_TRANSFERS_PER_TX" {
 variable "BOT_PUBLIC_TRANSFERS_PER_TX" {
   type = string
 }
+variable "LOG_LEVEL" {
+  type    = string
+  default = "verbose"
+}
+
+variable "BOT_TX_INTERVAL_SECONDS" {
+  type    = string
+  default = "300"
+}
