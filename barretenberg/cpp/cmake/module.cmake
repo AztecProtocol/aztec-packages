@@ -239,6 +239,7 @@ function(barretenberg_module MODULE_NAME)
                 ${BENCHMARK_NAME}_bench_objects
                 PRIVATE
                 benchmark::benchmark
+                Tracy::TracyClient
                 ${TBB_IMPORTED_TARGETS}
             )
 
