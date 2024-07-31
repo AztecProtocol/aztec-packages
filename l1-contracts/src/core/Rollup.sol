@@ -166,7 +166,8 @@ contract Rollup is Leonidas, IRollup {
   /**
    * @notice  Submit a proof for a block in the pending chain
    *
-   * @dev     Will call `_progressState` to update the proven chain. Notice that this has
+   * @dev     Will call `_progressState` to update the proven chain. Notice this have potentially
+   *          unbounded gas consumption.
    *
    * @dev     Will emit `L2ProofVerified` if the proof is valid
    *
