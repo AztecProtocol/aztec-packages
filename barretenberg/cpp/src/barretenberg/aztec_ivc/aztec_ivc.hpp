@@ -13,9 +13,12 @@
 namespace bb {
 
 /**
- * @brief The IVC interface to be used by the aztec client for private function execution
+ * @brief The IVC scheme used by the aztec client for private function execution
  * @details Combines Protogalaxy with Goblin to accumulate one circuit instance at a time with efficient EC group
- * operations
+ * operations. It is assumed that the circuits being accumulated correspond alternatingly to an app and a kernel, as is
+ * the case in Aztec. Two recursive folding verifiers are appended to each kernel (except the first one) to verify the
+ * folding of a previous kernel and an app/function circuit. Due to this structure it is enforced that the total number
+ * of circuits being accumulated is even.
  *
  */
 class AztecIVC {
@@ -63,27 +66,20 @@ class AztecIVC {
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
-    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
-    // be needed in the real IVC as they are provided as inputs
 
   public:
     GoblinProver goblin;
-    ProverFoldOutput fold_output;
-    std::vector<FoldProof> fold_proofs;
-    std::shared_ptr<ProverInstance> prover_accumulator;
-    std::shared_ptr<VerifierInstance> verifier_accumulator;
-    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
-    // be needed in the real IVC as they are provided as inputs
-    std::shared_ptr<ProverInstance> prover_instance;
-    std::shared_ptr<VerificationKey> instance_vk;
 
+    ProverFoldOutput fold_output; // prover accumulator instance and fold proof
+
+    std::shared_ptr<VerifierInstance> verifier_accumulator; // verifier accumulator instance
+    std::shared_ptr<VerificationKey> instance_vk;           // verification key for instance to be folded
+
+    // Set of pairs of {fold_proof, verification_key} to be recursively verified
     std::vector<FoldingVerifierInputs> verification_queue;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
     TraceStructure trace_structure = TraceStructure::NONE;
-
-    // A flag indicating whether the IVC has been initialized with an initial instance
-    bool initialized = false;
 
     // The number of circuits processed into the IVC
     size_t circuit_count = 0;

@@ -5,25 +5,23 @@ namespace bb {
 /**
  * @brief Accumulate a circuit into the IVC scheme
  * @details If this is the first circuit being accumulated, initialize the prover and verifier accumulators. Otherwise,
- * fold the instance for the provided circuit into the accumulator. If a previous fold proof exists, a recursive folding
- * verification is appended to the provided circuit prior to its accumulation. Similarly, if a merge proof exists, a
- * recursive merge verifier is appended.
+ * fold the instance for the provided circuit into the accumulator. When two fold proofs have been enqueued, two
+ * recursive folding verifications are appended to the next circuit that is accumulated, which must be a kernel.
+ * Similarly, if a merge proof exists, a recursive merge verifier is appended.
  *
  * @param circuit Circuit to be accumulated/folded
  * @param precomputed_vk Optional precomputed VK (otherwise will be computed herein)
  */
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
-    circuit_count++; // increment the number of circuits processed into the IVC
+    circuit_count++; // increment the count of circuits processed into the IVC
 
-    info("Num proofs = ", verification_queue.size());
-
-    // Append two recursive verifiers when there are two fold proofs present
+    // When there are two fold proofs present, append two recursive verifiers to the kernel
     if (verification_queue.size() == 2) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
         ASSERT(circuit_count % 2 == 0); // ensure this is a kernel
+
         for (auto& [proof, vkey] : verification_queue) {
-            info("Recursive verfifying");
             FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
             auto verifier_accum = verifier.verify_folding_proof(proof);
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
@@ -36,7 +34,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     goblin.merge(circuit);
 
     // Construct the prover instance for circuit
-    prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+    auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
@@ -45,11 +43,10 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
         instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
     }
 
-    // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
-    if (!initialized) {
+    // If this is the first circuit simply initialize the prover and verifier accumulator instances
+    if (circuit_count == 1) {
         fold_output.accumulator = prover_instance;
         verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
-        initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
         fold_output = folding_prover.fold_instances();
