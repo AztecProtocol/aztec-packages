@@ -38,3 +38,7 @@ variable "BOT_TX_INTERVAL_SECONDS" {
   type    = string
   default = "300"
 }
+
+variable "BOT_TX_MINED_WAIT_SECONDS" {
+  type = string
+}
