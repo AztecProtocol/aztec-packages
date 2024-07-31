@@ -26,6 +26,10 @@ describe('e2e_fees/private_refunds', () => {
   let initialBobBalance: bigint;
   let initialFPCGasBalance: bigint;
 
+  // The fee payer needs to take a flat fee to protect itself from a griefing attack. See
+  // the `TokenWithRefunds::setup_refund(...)` function for more details.
+  const flatFee = 1n;
+
   const t = new FeesTest('private_refunds');
 
   beforeAll(async () => {
@@ -122,11 +126,12 @@ describe('e2e_fees/private_refunds', () => {
 
     // 8. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
     await expectMapping(t.getGasBalanceFn, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
-    // ... and that the transaction fee was correctly transferred from Alice to Bob.
+    // ... and that the total transaction fee was correctly transferred from Alice to Bob.
+    const totalFee = tx.transactionFee! + flatFee;
     await expectMapping(
       t.getTokenWithRefundsBalanceFn,
       [aliceAddress, t.bobAddress],
-      [initialAliceBalance - tx.transactionFee!, initialBobBalance + tx.transactionFee!],
+      [initialAliceBalance - totalFee, initialBobBalance + totalFee],
     );
   });
 

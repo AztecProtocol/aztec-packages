@@ -443,17 +443,35 @@ contract TokenWithRefunds {
 
         // 2. Get all the relevant keys
         let header = context.get_header();
+
         let fee_payer_npk_m_hash = header.get_npk_m_hash(&mut context, fee_payer);
+        let fee_payer_ivpk = header.get_ivpk_m(&mut context, fee_payer);
+
         let user_npk_m_hash = header.get_npk_m_hash(&mut context, user);
         let user_ovpk = header.get_ovpk_m(&mut context, user);
         let user_ivpk = header.get_ivpk_m(&mut context, user);
 
-        // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
-        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
-        // to the user in the `complete_refund(...)` function.
-        storage.balances.sub(user, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk, user));
+        // 3. The fee payer needs to take a flat fee in this function to protect itself from a griefing attack by
+        // the user. Griefing could occurr in case the public part of tx reverted --> then the fee payer would not
+        // receive the fee note. Since the setup phase is non-revertible (this function call is part of that setup)
+        // taking the flat fee here sufficiently protects the fee payer.
+        // TODO(#7688): This fee will need to be adjusted to reflect the actual cost the fee payer would incurr in case
+        // of a reverting tx. But how much this should be? What if the public tx was super expensive? I assume this
+        // should be somehow derived from the fee limit as fee limit gives us an idea of the max cost.
+        // TODO(#7688): Should we refund this fee to the user and deduct it from fee payer point
+        // in `complete_refund(...)`? --> This might not be necessary if the flat fee is always low enough. OTOH doing
+        // this is also quite simple so maybe it's worth it.
+        let flat_fee = 1;
 
-        // 4. We generate the refund points.
+        // 4. Deduct the funded amount and flat fee from the user's balance.
+        // Funded amount is the maximum fee a user is willing to pay (called fee limit in aztec spec). The difference
+        // between fee limit and the actual tx fee will be refunded to the user in the `complete_refund(...)` function.
+        storage.balances.sub(user, U128::from_integer(funded_amount + flat_fee)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk, user));
+
+        // 5. Add the flat fee as a note to the fee payer.
+        storage.balances.add(fee_payer, U128::from_integer(flat_fee)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, fee_payer_ivpk, fee_payer));
+
+        // 6. We generate the refund points.
         let (fee_payer_point, user_point) = TokenNote::generate_refund_points(
             fee_payer_npk_m_hash,
             user_npk_m_hash,
@@ -461,14 +479,14 @@ contract TokenWithRefunds {
             fee_payer_randomness
         );
 
-        // 5. Now we "manually" compute the slots and the slotted note hiding points
+        // 7. Now we "manually" compute the slots and the slotted note hiding points.
         let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
         let slotted_fee_payer_point = compute_slotted_note_hiding_point_raw(fee_payer_balances_slot, fee_payer_point);
         let slotted_user_point = compute_slotted_note_hiding_point_raw(user_balances_slot, user_point);
 
-        // 6. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 8. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
