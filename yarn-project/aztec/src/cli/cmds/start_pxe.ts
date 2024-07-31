@@ -78,10 +78,13 @@ export async function addPXE(
     const basicContractsInfo = await fetchBasicContractAddresses(
       `${contractAddressesUrl}/${pxeCliOptions.network}/basic_contracts.json`,
     );
-    const l2Contracts: Record<string, { address: AztecAddress; initHash: Fr; salt: Fr; artifact: ContractArtifact }> =
-      {};
+    const l2Contracts: Record<
+      string,
+      { name: string; address: AztecAddress; initHash: Fr; salt: Fr; artifact: ContractArtifact }
+    > = {};
     for (const [key, artifactName] of Object.entries(L2BasicContractsMap[pxeCliOptions.network as Network])) {
       l2Contracts[key] = {
+        name: key,
         address: AztecAddress.fromString(basicContractsInfo[`${key}L2`]),
         initHash: Fr.fromString(basicContractsInfo[`${key}L2InitHash`]),
         salt: Fr.fromString(basicContractsInfo[`${key}L2Salt`]),
@@ -89,7 +92,7 @@ export async function addPXE(
       };
     }
 
-    Object.values(l2Contracts).forEach(async ({ address, artifact, initHash, salt }) => {
+    Object.values(l2Contracts).forEach(async ({ name, address, artifact, initHash, salt }) => {
       const instance: ContractInstanceWithAddress = {
         version: 1,
         salt,
@@ -99,6 +102,7 @@ export async function addPXE(
         contractClassId: getContractClassFromArtifact(artifact!).id,
         publicKeysHash: Fr.ZERO,
       };
+      userLog(`Registering ${name} at ${address.toString()}`);
       await pxe.registerContract({ artifact, instance });
     });
   }
