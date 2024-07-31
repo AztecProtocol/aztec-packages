@@ -49,21 +49,21 @@ export async function addPXE(
   const pxeCliOptions = parseModuleOptions(options.pxe);
   const pxeConfig = mergeEnvVarsAndCliOptions<PXEServiceConfig>(getPXEServiceConfig(), pxeCliOptions);
   let nodeUrl;
-  if (options.network) {
-    if (isValidNetwork(options.network)) {
-      if (!options.apiKey) {
+  if (pxeCliOptions.network) {
+    if (isValidNetwork(pxeCliOptions.network)) {
+      if (!pxeCliOptions.apiKey) {
         userLog('API Key is required to connect to Devnet');
         process.exit(1);
       }
-      nodeUrl = `https://api.aztec.network/${options.network}/aztec-node-1/${options.apiKey}`;
+      nodeUrl = `https://api.aztec.network/${pxeCliOptions.network}/aztec-node-1/${pxeCliOptions.apiKey}`;
     } else {
-      userLog(`Network ${options.network} is not supported`);
+      userLog(`Network ${pxeCliOptions.network} is not supported`);
       process.exit(1);
     }
   } else {
     nodeUrl = pxeCliOptions.nodeUrl ?? process.env.AZTEC_NODE_URL;
   }
-  if (!nodeUrl && !deps.node && !options.network) {
+  if (!nodeUrl && !deps.node && !pxeCliOptions.network) {
     userLog('Aztec Node URL (nodeUrl | AZTEC_NODE_URL) option is required to start PXE without --node option');
     process.exit(1);
   }
@@ -73,14 +73,14 @@ export async function addPXE(
   const pxeServer = createPXERpcServer(pxe);
 
   // register basic contracts
-  if (options.network) {
-    userLog(`Registering basic contracts for ${options.network}`);
+  if (pxeCliOptions.network) {
+    userLog(`Registering basic contracts for ${pxeCliOptions.network}`);
     const basicContractsInfo = await fetchBasicContractAddresses(
-      `${contractAddressesUrl}/${options.network}/basic_contracts.json`,
+      `${contractAddressesUrl}/${pxeCliOptions.network}/basic_contracts.json`,
     );
     const l2Contracts: Record<string, { address: AztecAddress; initHash: Fr; salt: Fr; artifact: ContractArtifact }> =
       {};
-    for (const [key, artifactName] of Object.entries(L2BasicContractsMap[options.network as Network])) {
+    for (const [key, artifactName] of Object.entries(L2BasicContractsMap[pxeCliOptions.network as Network])) {
       l2Contracts[key] = {
         address: AztecAddress.fromString(basicContractsInfo[`${key}L2`]),
         initHash: Fr.fromString(basicContractsInfo[`${key}L2InitHash`]),
