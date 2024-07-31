@@ -70,7 +70,7 @@ export class Bot {
 
     const txHash = tx.getTxHash();
 
-    if (this.config.txMinedWaitSeconds === 0) {
+    if (!this.config.txMinedWaitSeconds) {
       this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
       return;
     }

@@ -54,7 +54,7 @@ export class BotFactory {
       return account.register();
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
-      return account.waitSetup();
+      return account.waitSetup({ timeout: 1200 });
     }
   }
 
@@ -80,7 +80,7 @@ export class BotFactory {
       return deploy.register();
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
-      return deploy.send(deployOpts).deployed();
+      return deploy.send(deployOpts).deployed({ timeout: 1200 });
     }
   }
 
