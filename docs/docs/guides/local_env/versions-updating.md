@@ -55,7 +55,7 @@ diff ~/nargo/github.com/AztecProtocol/aztec-packages-v0.23.0/yarn-project/noir-c
 
 ### Language server version (aztec-nargo)
 
-The [Noir LSP](https://docs.aztec.network/developers/contracts/main.md#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
+The [Noir LSP](../../getting_started.md#install-noir-lsp-recommended) uses your local version of `aztec-nargo`, and thus also `aztec-nargo compile`.
 The path of the former (once installed) can be seen by hovering over "Nargo" in the bottom status bar of VS Code, and the latter via the `which aztec-nargo` command.
 
 :::caution

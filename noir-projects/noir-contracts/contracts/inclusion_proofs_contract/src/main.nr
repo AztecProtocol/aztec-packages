@@ -53,7 +53,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get_unchecked(0);
+        let note = private_values.get_notes(options).get(0);
         // docs:end:get_note_from_pxe
 
         // docs:start:prove_note_inclusion
@@ -105,7 +105,7 @@ contract InclusionProofs {
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get_unchecked(0);
+        let note = private_values.get_notes(options).get(0);
 
         let header = if (use_block_number) {
             context.get_header_at(block_number)

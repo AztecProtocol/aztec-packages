@@ -108,9 +108,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send()
       .wait();
-    await expect(deployedContract.methods.get_note_zero_balance(owner).prove()).rejects.toThrow(
-      `Assertion failed: Cannot return zero notes`,
-    );
+    await deployedContract.methods.get_note_zero_balance(owner).send().wait();
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -190,7 +188,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(1);
   });
 
-  it('Squash! Aztec.nr function can "create" 2 notes with the same inner note hash and "nullify" 1 in the same TX', async () => {
+  it('Squash! Aztec.nr function can "create" 2 notes with the same slotted note hash and "nullify" 1 in the same TX', async () => {
     // Kernel will squash one noteHash and its nullifier, where two notes with the same inner hash exist.
     // The other note will become persistent!
     // Realistic way to describe this test is "Mint notes A and B, then burn note A in the same transaction"
@@ -244,9 +242,8 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send()
       .wait();
-    await expect(deployedContract.methods.get_note_zero_balance(owner).prove()).rejects.toThrow(
-      `Assertion failed: Cannot return zero notes`,
-    );
+
+    await deployedContract.methods.get_note_zero_balance(owner).send().wait();
 
     // second TX creates 1 note, but it is squashed!
     await expectNoteHashesSquashedExcept(0);

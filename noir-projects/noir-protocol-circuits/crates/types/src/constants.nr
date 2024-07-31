@@ -274,7 +274,7 @@ global RECURSIVE_PROOF_LENGTH = 409;
 global NESTED_RECURSIVE_PROOF_LENGTH = 409;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 120;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
@@ -339,9 +339,8 @@ global GENERATOR_INDEX__OVSK_M = 50;
 global GENERATOR_INDEX__TSK_M = 51;
 global GENERATOR_INDEX__PUBLIC_KEYS_HASH = 52;
 global GENERATOR_INDEX__NOTE_NULLIFIER = 53;
-global GENERATOR_INDEX__INNER_NOTE_HASH = 54;
-global GENERATOR_INDEX__NOTE_CONTENT_HASH = 55;
-global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 56;
+global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
+global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
 
 global SENDER_SELECTOR: u32 = 0;
 // "address" actually does not exist in PublicCircuitPublicInputs,
