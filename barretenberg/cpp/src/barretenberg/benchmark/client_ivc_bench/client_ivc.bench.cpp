@@ -12,23 +12,6 @@
 using namespace benchmark;
 using namespace bb;
 
-void* operator new(std::size_t count)
-{
-    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
-    void* ptr = malloc(count);
-    // NOLINTEND(cppcoreguidelines-no-malloc)
-    TracyAlloc(ptr, count);
-    return ptr;
-}
-
-void operator delete(void* ptr) noexcept
-{
-    TracyFree(ptr);
-    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
-    free(ptr);
-    // NOLINTEND(cppcoreguidelines-no-malloc)
-}
-
 namespace {
 
 /**
