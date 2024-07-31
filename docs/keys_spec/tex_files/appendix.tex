@@ -1,0 +1,36 @@
+\section{Non-hardened key derivation}
+
+We've concluded that non-hardened keys aren't useful in Aztec. For posterity, we explain non-hardened key derivation (without rigour or review) here.\\
+\\
+$i := \poseidon("az\_ivpk\_app\_non\_hardened", \appaddress, \Ivpkm) \in \Fr$\\
+\\
+\Mike{Note: it's not decided how $\Ivpkm$ should be serialised as $\Fr$ values when passed to this hash function. Either as an x-coord and a y-coord; or as an x-coord and a sign bit. There will be no difference in constraints, given how poseidon2 works.}\\
+\\
+$\Ivpkappnonhardened := i \cdot G + \Ivpkm \in \G$\\
+\\
+\Khashayar{suggested in the Miro diagram: we don't think we need to add $\Ivpkm$ as an argument to the hash. The value of $i$ can be the same across users for the same app. This shouldn't cause an issue as $i$ is a public value anyways.}\\
+\\
+\Mike{Interesting observation. If that's true, we could perhaps remove $i$ altogether and define $\Ivpkappnonhardened := \appaddress \cdot G + \Ivpkm$. But a concern I have with removing $\Ivpkm$ from the derivation of $i$, or removing $i$ altogether, is that it's easier for a user to then cleverly choose strange and potentially-malicious values for $\ivskm$.\\
+E.g. in the case of defining $i := \poseidon("az\_ivpk\_app", \appaddress)$, one could choose $ivskm \leftarrow -i$, which seems bad, to me, as it results in $\Ivpkappnonhardened = O$.}\\
+\\
+The recipient can derive the same key as:\\
+\\
+$\ivskappnonhardened := i + \ivskm \mod r \in \Fr$\\
+\\
+\Mike{Notice: the suggestion is to use $\mod r$ instead of using the grumpkin scalar field $\mod q$, just because working with $\Fr$ is more efficient in a snark.}\\
+\\
+$\Ivpkappnonhardened = \ivskappnonhardened \cdot G = (i + \ivskm) \cdot G = i \cdot G + \Ivpkm$\\
+\\
+\Mike{Note that the proper BIP32 spec uses SHAHMAC512 instead of $\poseidon$ to derive a 512-bit value for $i$. The left-hand half of their 512-bit $i$ gets used in a similar fashion to our $i \in \Fr$ above, whilst the right-hand half of their 512-bit $i$ is used as a "chain code". I've removed the notion of a "chain code" from this derivation, as even the author of BIP32 later admitted it's unnecessary \href{https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2020-October/018250.html}{here}.}\\ 
+\\
+There's a big problem with non-hardened BIP32-style derivation: if someone learns your $\ivskappnonhardened$, then they can compute your master secret key as:\\
+\\
+$\ivskm = \ivskappnonhardened - i \mod r$\\
+\\
+That's pretty bad. It means a user can't safely share their $\ivskappnonhardened$ with a 3rd party (to give that 3rd party view access into the notes being sent to the user), without enabling the 3rd party to derive the user's $\ivskm$.\\
+\\
+It also means a user can't use this $\ivskappnonhardened$ to decrypt within an app contract, because we can't trust the app not to derive the user's $\ivskm$ and pass it to the dapp's javascript code, or emit it as an event to the world!\\
+\\
+Now, one could argue that if a user has read the contract themselves to check for such malicious app behaviour, or if the contract has some "seal of approval" from a reputable auditor, then perhaps the app could safely derive keys in this way. But blockchain users aren't renound for their due diligence.\\
+\\
+There is actually a way to avoid divulging $\ivskappnonhardened$ to a 3rd party or to an app contract, but its performance might not be fast enough for some use cases. The user could prove (not a zk-snark; a schnorr-protocol-type proof) correct derivation of a symmetric key - given some ciphertext and ephemeral public key - without divulging $\ivskappnonhardened$. But then, we argue that this approach can just be used with master keys, and so non-hardened app-siloed keys remain unnecessary.
