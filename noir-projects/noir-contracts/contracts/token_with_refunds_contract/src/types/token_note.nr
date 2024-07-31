@@ -247,8 +247,6 @@ impl PrivatelyRefundable for TokenNote {
         let fee_payer_point = incomplete_fee_payer_point + fee_point;
         let user_point = incomplete_user_point + refund_point;
 
-        assert_eq(user_point.is_infinite, false);
-
         // 6. We no longer need to do any elliptic curve operations with the points so we collapse them to the final
         // note hashes.
         let fee_payer_note_hash = fee_payer_point.x;
