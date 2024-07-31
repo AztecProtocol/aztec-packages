@@ -77,6 +77,7 @@ export function createProvingJobSourceClient(
       ParityPublicInputs,
       Proof,
       ProvingError,
+      PrivateKernelEmptyInputData,
       PublicKernelCircuitPrivateInputs,
       PublicKernelCircuitPublicInputs,
       PublicKernelTailCircuitPrivateInputs,
