@@ -20,12 +20,11 @@ fn validate_propagated_sorted_siloed_values_note_hashes_unordered_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
     builder.previous_kernel.append_note_hashes(3);
-    swap_items(&mut builder.previous_kernel.note_hashes, 0, 2);
     for i in 0..3 {
         // Need to silo the note hashes in the right order to hash with the correct index.
         builder.output.add_siloed_note_hash(builder.previous_kernel.note_hashes.storage[i].value());
     }
-    swap_items(&mut builder.output.note_hashes, 0, 2);
+    swap_items(&mut builder.previous_kernel.note_hashes, 0, 2);
 
     builder.validate();
 }

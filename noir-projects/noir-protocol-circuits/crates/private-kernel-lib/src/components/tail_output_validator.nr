@@ -65,10 +65,15 @@ impl TailOutputValidator {
     fn validate_propagated_sorted_siloed_values(self) {
         // note_hashes
         let siloed_note_hashes = self.previous_kernel_hints.siloed_note_hashes;
+        let sorted_note_hash_hints = self.hints.sorted_note_hash_hints;
         let unsiloed_note_hashes = self.previous_kernel.end.note_hashes;
         let tx_hash = self.output.end.nullifiers[0]; // First nullifier is tx hash.
         for i in 0..unsiloed_note_hashes.len() {
-            let siloed_note_hash = silo_note_hash(unsiloed_note_hashes[i], tx_hash, i);
+            let siloed_note_hash = silo_note_hash(
+                unsiloed_note_hashes[i],
+                tx_hash,
+                sorted_note_hash_hints[i].sorted_index
+            );
             assert_eq(siloed_note_hashes[i], siloed_note_hash, "mismatch siloed note hashes");
         }
 
@@ -76,7 +81,7 @@ impl TailOutputValidator {
             self.previous_kernel.end.note_hashes,
             siloed_note_hashes,
             self.output.end.note_hashes,
-            self.hints.sorted_note_hash_hints
+            sorted_note_hash_hints
         );
 
         // nullifiers

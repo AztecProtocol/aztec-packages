@@ -15,6 +15,7 @@ use dep::types::{
     hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
     traits::{Empty, is_empty, is_empty_array},
     utils::arrays::{
+        array_length,
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
     validate_array
 }
@@ -89,8 +90,16 @@ impl TailToPublicOutputValidator {
         let siloed_note_hashes = previous_kernel_hints.siloed_note_hashes;
         let unsiloed_note_hashes = prev_data.note_hashes;
         let tx_hash = output_non_revertible.nullifiers[0].value;
+        let sorted_split_indexes = hints.sorted_note_hash_hints.sorted_indexes;
+        let sorted_counters_gte = hints.sorted_note_hash_hints.sorted_counters_gte;
+        let num_non_revertible = array_length(output_non_revertible.note_hashes);
         for i in 0..unsiloed_note_hashes.len() {
-            let siloed_note_hash = silo_note_hash(unsiloed_note_hashes[i], tx_hash, i);
+            let note_hash = unsiloed_note_hashes[i];
+            let mut index = sorted_split_indexes[i];
+            if sorted_counters_gte[index] == note_hash.counter() {
+                index += num_non_revertible;
+            }
+            let siloed_note_hash = silo_note_hash(note_hash, tx_hash, index);
             assert_eq(siloed_note_hashes[i], siloed_note_hash, "mismatch siloed note hashes");
         }
 
