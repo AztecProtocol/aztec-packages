@@ -36,7 +36,7 @@ env:
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 1
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
-  TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1 # set to 1 for bootstrapping
+  TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
   TF_VAR_SEQ_MAX_TX_PER_BLOCK: 64
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 60
 
@@ -330,7 +330,6 @@ jobs:
           set -e
           echo "TF_VAR_PROVING_ENABLED=true" >>$GITHUB_ENV
           echo "TF_VAR_BOT_NO_START=false" >>$GITHUB_ENV
-          echo "TF_VAR_SEQ_MIN_TX_PER_BLOCK=2" >>$GITHUB_ENV
 
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
