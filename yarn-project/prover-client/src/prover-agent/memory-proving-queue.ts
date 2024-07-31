@@ -247,7 +247,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
       throw new Error();
     }
 
-    const byteSize = serializeToBuffer(item.request.inputs as any).length;
+    const byteSize = serializeToBuffer(item.request.inputs).length;
     this.metrics.recordNewJob(item.request.type, byteSize);
 
     return promise;

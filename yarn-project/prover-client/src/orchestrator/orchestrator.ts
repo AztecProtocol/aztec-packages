@@ -37,6 +37,7 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  PrivateKernelEmptyInputData,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
@@ -312,15 +313,15 @@ export class ProvingOrchestrator {
         },
         signal =>
           this.prover.getEmptyPrivateKernelProof(
-            {
+            new PrivateKernelEmptyInputData(
+              unprovenPaddingTx.data.constants.historicalHeader,
               // Chain id and version should not change even if the proving state does, so it's safe to use them for the padding tx
               // which gets cached across multiple runs of the orchestrator with different proving states. If they were to change,
               // we'd have to clear out the paddingTx here and regenerate it when they do.
-              chainId: unprovenPaddingTx.data.constants.txContext.chainId,
-              version: unprovenPaddingTx.data.constants.txContext.version,
-              header: unprovenPaddingTx.data.constants.historicalHeader,
-              vkTreeRoot: getVKTreeRoot(),
-            },
+              unprovenPaddingTx.data.constants.txContext.chainId,
+              unprovenPaddingTx.data.constants.txContext.version,
+              getVKTreeRoot(),
+            ),
             signal,
           ),
       ),
@@ -563,12 +564,12 @@ export class ProvingOrchestrator {
     }
 
     const getBaseInputsEmptyTx = async () => {
-      const inputs = {
-        header: this.db.getInitialHeader(),
-        chainId: tx.data.constants.globalVariables.chainId,
-        version: tx.data.constants.globalVariables.version,
-        vkTreeRoot: tx.data.constants.vkTreeRoot,
-      };
+      const inputs = new PrivateKernelEmptyInputData(
+        this.db.getInitialHeader(),
+        tx.data.constants.globalVariables.chainId,
+        tx.data.constants.globalVariables.version,
+        tx.data.constants.vkTreeRoot,
+      );
 
       const proof = await this.prover.getEmptyTubeProof(inputs);
       return await buildBaseRollupInput(tx, proof.proof, provingState.globalVariables, this.db, proof.verificationKey);
