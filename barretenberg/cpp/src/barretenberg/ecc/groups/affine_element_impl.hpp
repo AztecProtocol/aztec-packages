@@ -103,7 +103,6 @@ template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>:
         x.data[1] = Fq::modulus.data[1];
         x.data[2] = Fq::modulus.data[2];
         x.data[3] = Fq::modulus.data[3];
-
     } else {
         x.self_set_msb();
     }

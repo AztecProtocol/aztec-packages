@@ -6,7 +6,10 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -119,6 +122,164 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     // check_circuit has limited value.
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
+
+TEST(RecursiveHonkTranscript, Infinity)
+{
+    using NativeGroup = typename grumpkin::g1;
+    using NativeCommitment = typename NativeGroup::affine_element;
+
+    // using Group = cycle_group<Builder>;
+    // // using ElemLent = Group;
+    // using Commitment = Group;
+
+    NativeCommitment infinity1 = NativeCommitment::infinity();
+    info(infinity1);
+    NativeCommitment infinity2 = NativeCommitment::infinity();
+    info(infinity2);
+    EXPECT_EQ(infinity1, infinity2);
+}
+
+TEST(RecursiveHonkTranscript, TwoHashes)
+{
+    using NativeGroup = typename grumpkin::g1;
+    using NativeCommitment = typename NativeGroup::affine_element;
+    using NativeFF = fr;
+
+    NativeTranscript transcript1;
+    NativeCommitment infinity = NativeCommitment::infinity();
+    transcript1.send_to_verifier("infinity", infinity);
+    auto challenge1 = transcript1.get_challenge<NativeFF>("challenge");
+    info(challenge1);
+    auto proof_data = transcript1.proof_data;
+
+    NativeTranscript transcript2(proof_data);
+    transcript2.receive_from_prover<NativeCommitment>("infinity");
+    auto challenge2 = transcript2.get_challenge<NativeFF>("challenge");
+    info(challenge2);
+    EXPECT_EQ(challenge1, challenge2);
+}
+
+TEST(RecursiveHonkTranscript, ProblematicTest)
+{
+    srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    bb::srs::init_crs_factory("../srs_db/ignition");
+
+    using NativeTranscript = NativeTranscript;
+    using StdlibTranscript = BaseTranscript<StdlibTranscriptParams<Builder>>;
+    using NativeFF = fr;
+    // using NativeBF = fq;
+    using NativeGroup = typename grumpkin::g1;
+    // using NativeElement = typename NativeGroup::element;
+    using NativeCommitment = typename NativeGroup::affine_element;
+
+    using FF = field_t<Builder>;
+    //  using BF = bigfield<Builder, bb::Bn254FqParams>;
+    using Group = cycle_group<Builder>;
+    // using ElemLent = Group;
+    using Commitment = Group;
+
+    using Instance = ProverInstance_<UltraFlavor>;
+    using Prover = UltraProver_<UltraFlavor>;
+    using Verifier = UltraVerifier_<UltraFlavor>;
+    g Builder builder;
+    // auto bf_element = NativeBF::random_element();
+    // auto dummy = NativeCommitment::one() * NativeBF::random_element();
+    NativeCommitment expected_issue = NativeCommitment::infinity();
+    info(expected_issue);
+
+    NativeTranscript prover_transcript;
+    prover_transcript.send_to_verifier("infinity", expected_issue);
+    auto native_challenge = prover_transcript.get_challenge<NativeFF>("challenge");
+    static_cast<void>(native_challenge);
+    auto proof_data = prover_transcript.proof_data;
+
+    info("stdlib transcript");
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+    StdlibTranscript stdlib_transcript{ stdlib_proof };
+    auto comm = stdlib_transcript.receive_from_prover<Commitment>("infinity");
+    auto challenge = stdlib_transcript.get_challenge<FF>("challenge");
+    info(comm);
+    info("recursive challenge ", challenge);
+
+    info("native verifier transcript");
+    NativeTranscript native_verifier_transcript(proof_data);
+    native_verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
+    auto native_verifier_challenge = native_verifier_transcript.get_challenge<NativeFF>("challenge");
+    info("native challenge ", native_verifier_challenge);
+
+    // EXPECT_EQ(native_challenge, challenge.get_value());
+    bool result = CircuitChecker::check(builder);
+    info("Result of circuit checker ", result);
+    ASSERT(result == 1);
+
+    {
+        info("Ultra");
+        auto instance = std::make_shared<Instance>(builder);
+        Prover prover(instance);
+        auto verification_key = std::make_shared<typename UltraFlavor::VerificationKey>(instance->proving_key);
+        Verifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+
+        ASSERT(verified);
+    }
+}
+
+// TEST(RecursiveHonkTranscript, NonProblematicTest)
+// {
+//     srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+//     bb::srs::init_crs_factory("../srs_db/ignition");
+
+//     using NativeFF = fr;
+//     using NativeBF = fq;
+//     using NativeGroup = typename grumpkin::g1;
+//     // using NativeElement = typename NativeGroup::element;
+//     using NativeCommitment = typename NativeGroup::affine_element;
+
+//     using FF = field_t<Builder>;
+//     //  using BF = bigfield<Builder, bb::Bn254FqParams>;
+//     using Group = cycle_group<Builder>;
+//     // using Element = Group;
+//     using Commitment = Group;
+
+//     using Instance = ProverInstance_<UltraFlavor>;
+//     using Prover = UltraProver_<UltraFlavor>;
+//     using Verifier = UltraVerifier_<UltraFlavor>;
+
+//     Builder builder;
+//     // auto bf_element = NativeBF::random_element();
+//     auto dummy = NativeCommitment::one() * NativeBF::random_element();
+//     // NativeCommitment expected_issue = NativeGroup::point_at_infinity;
+//     // ASSERT(expected_issue.is_point_at_infinity());
+
+//     NativeTranscript prover_transcript;
+//     prover_transcript.send_to_verifier("nice commitment", dummy);
+//     auto native_challenge = prover_transcript.get_challenge<NativeFF>("challenge");
+//     auto proof_data = prover_transcript.proof_data;
+
+//     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+//     StdlibTranscript stdlib_transcript{ stdlib_proof };
+//     stdlib_transcript.receive_from_prover<Commitment>("nice commitment");
+
+//     auto challenge = stdlib_transcript.get_challenge<FF>("challenge");
+
+//     EXPECT_EQ(native_challenge, challenge.get_value());
+//     bool result = CircuitChecker::check(builder);
+//     info("Result of circuit checker ", result);
+//     ASSERT(result == 1);
+
+//     {
+//         info("Ultra");
+//         auto instance = std::make_shared<Instance>(builder);
+//         Prover prover(instance);
+//         auto verification_key = std::make_shared<typename UltraFlavor::VerificationKey>(instance->proving_key);
+//         Verifier verifier(verification_key);
+//         auto proof = prover.construct_proof();
+//         bool verified = verifier.verify_proof(proof);
+
+//         ASSERT(verified);
+//     }
+// }
 
 /**
  * @brief Check that native and stdlib verifier transcript functions produce equivalent outputs

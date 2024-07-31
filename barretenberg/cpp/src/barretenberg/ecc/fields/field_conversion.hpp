@@ -60,7 +60,9 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
         T val;
         val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
+        info("native x: ", val.x);
         val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
+        info("native y: ", val.y);
         return val;
     } else {
         // Array or Univariate

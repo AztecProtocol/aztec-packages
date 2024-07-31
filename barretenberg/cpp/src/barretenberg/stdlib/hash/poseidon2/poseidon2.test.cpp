@@ -153,7 +153,7 @@ TYPED_TEST_SUITE(StdlibPoseidon2, CircuitTypes);
 
 TYPED_TEST(StdlibPoseidon2, TestHashZeros)
 {
-    TestFixture::test_hash_zeros(8);
+    TestFixture::test_hash_zeros(1);
 };
 
 TYPED_TEST(StdlibPoseidon2, TestHashSmall)

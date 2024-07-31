@@ -93,11 +93,12 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         using BaseField = fr<Builder>;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
         ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
-        grumpkin_element<Builder> result(
-            convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE)),
-            convert_from_bn254_frs<Builder, fr<Builder>>(
-                builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE)),
-            false);
+        auto x = convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
+        auto y = convert_from_bn254_frs<Builder, fr<Builder>>(
+            builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
+        auto is_infinity = x.get_value().is_msb_set();
+
+        grumpkin_element<Builder> result(x, y, is_infinity);
         return result;
     } else {
         // Array or Univariate

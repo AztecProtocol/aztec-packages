@@ -22,8 +22,10 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     ASSERT(circuit_size == key->circuit_size);
 
+    info("Printing wire comms in native verifier");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
+        info(label, " ", comm, " is infinity flag ", comm.is_point_at_infinity());
     }
 
     // Get challenge for sorted list batching and wire four memory records
