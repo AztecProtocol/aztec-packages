@@ -76,8 +76,8 @@ locals {
 resource "aws_ecs_task_definition" "aztec-bot" {
   family                   = "${var.DEPLOY_TAG}-aztec-bot"
   network_mode             = "awsvpc"
-  cpu                      = 2048
-  memory                   = 4096
+  cpu                      = 16384
+  memory                   = 32768
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
@@ -86,7 +86,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
     {
       name      = "${var.DEPLOY_TAG}-aztec-bot"
       image     = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
-      command   = ["start", "--bot"]
+      command   = ["start", "--bot", "--pxe"]
       essential = true
       portMappings = [
         {
@@ -96,12 +96,16 @@ resource "aws_ecs_task_definition" "aztec-bot" {
       ]
       environment = [
         { name = "BOT_PRIVATE_KEY", value = var.BOT_PRIVATE_KEY },
-        { name = "BOT_NO_START", value = "true" },
-        { name = "BOT_PXE_URL", value = "http://${var.DEPLOY_TAG}-aztec-pxe-1.local/${var.DEPLOY_TAG}/aztec-pxe-1/${var.API_KEY}" },
-        { name = "BOT_TX_INTERVAL_SECONDS", value = 300 },
+        { name = "BOT_NO_START", value = var.BOT_NO_START },
+        { name = "BOT_TX_INTERVAL_SECONDS", value = var.BOT_TX_INTERVAL_SECONDS },
         { name = "LOG_LEVEL", value = var.LOG_LEVEL },
         { name = "AZTEC_PORT", value = "80" },
         { name = "API_PREFIX", value = local.api_prefix },
+        { name = "BOT_PRIVATE_TRANSFERS_PER_TX", value = var.BOT_PRIVATE_TRANSFERS_PER_TX },
+        { name = "BOT_PUBLIC_TRANSFERS_PER_TX", value = var.BOT_PUBLIC_TRANSFERS_PER_TX },
+        { name = "BOT_TX_MINED_WAIT_SECONDS", value = var.BOT_TX_MINED_WAIT_SECONDS },
+        { name = "AZTEC_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-1.local/${var.DEPLOY_TAG}/aztec-node-1/${var.API_KEY}" },
+        { name = "PXE_PROVER_ENABLED", value = tostring(var.PROVING_ENABLED) }
       ]
       logConfiguration = {
         logDriver = "awslogs"

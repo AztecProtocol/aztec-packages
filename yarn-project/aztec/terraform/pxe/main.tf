@@ -105,8 +105,8 @@ locals {
 resource "aws_ecs_task_definition" "aztec-pxe" {
   family                   = "${var.DEPLOY_TAG}-aztec-pxe"
   network_mode             = "awsvpc"
-  cpu                      = 2048
-  memory                   = 4096
+  cpu                      = 16384
+  memory                   = 32768
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
@@ -146,6 +146,10 @@ resource "aws_ecs_task_definition" "aztec-pxe" {
         {
           name  = "API_PREFIX"
           value = local.api_prefix
+        },
+        {
+          name  = "PXE_PROVER_ENABLED"
+          value = tostring(var.PROVING_ENABLED)
         }
       ]
       mountPoints = [

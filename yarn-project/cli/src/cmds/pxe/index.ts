@@ -45,6 +45,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .option('--json', 'Emit output as json')
     .action(async args => {
       const { createAccount } = await import('./create_account.js');
       const { rpcUrl, privateKey, wait, registerOnly, skipInitialization, publicDeploy } = args;
@@ -56,6 +57,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         publicDeploy,
         wait,
         FeeOpts.fromCli(args, log),
+        args.json,
         debugLogger,
         log,
       );
