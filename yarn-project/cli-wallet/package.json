@@ -50,6 +50,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/accounts": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",

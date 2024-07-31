@@ -105,6 +105,7 @@ if [ -z "${SKIP_PULL:-}" ]; then
   info "Pulling aztec version $VERSION..."
   pull_container aztec-nargo
   pull_container aztec
+  pull_container cli-wallet
 fi
 
 # Download the Docker Compose file. Used by aztec.
@@ -123,6 +124,7 @@ install_bin .aztec-run
 install_bin aztec
 install_bin aztec-up
 install_bin aztec-nargo
+install_bin aztec-wallet
 
 function update_path_env_var {
   TARGET_DIR="${1}"

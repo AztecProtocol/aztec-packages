@@ -373,6 +373,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
   dependencies:
+    "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
