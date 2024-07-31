@@ -27,6 +27,7 @@ export class L1PublisherMetrics {
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
       description: 'The gas price used for transactions',
       unit: 'gwei',
+      valueType: ValueType.DOUBLE,
     });
 
     this.txCount = meter.createUpDownCounter(Metrics.L1_PUBLISHER_TX_COUNT, {
@@ -36,6 +37,7 @@ export class L1PublisherMetrics {
     this.txDuration = meter.createHistogram(Metrics.L1_PUBLISHER_TX_DURATION, {
       description: 'The duration of transaction processing',
       unit: 'ms',
+      valueType: ValueType.INT,
       advice: {
         explicitBucketBoundaries: [10, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
       },
@@ -44,12 +46,13 @@ export class L1PublisherMetrics {
     this.txGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_GAS, {
       description: 'The gas consumed by transactions',
       unit: 'gas',
-      valueType: ValueType.DOUBLE,
+      valueType: ValueType.INT,
     });
 
     this.txCalldataSize = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_SIZE, {
       description: 'The size of the calldata in transactions',
       unit: 'bytes',
+      valueType: ValueType.INT,
       advice: {
         explicitBucketBoundaries: [0, 100, 200, 500, 1000, 2000, 5000, 10000],
       },
@@ -58,7 +61,7 @@ export class L1PublisherMetrics {
     this.txCalldataGas = meter.createHistogram(Metrics.L1_PUBLISHER_TX_CALLDATA_GAS, {
       description: 'The gas consumed by the calldata in transactions',
       unit: 'gas',
-      valueType: ValueType.DOUBLE,
+      valueType: ValueType.INT,
     });
   }
 
@@ -87,7 +90,7 @@ export class L1PublisherMetrics {
       [Attributes.OK]: true,
     });
 
-    this.txDuration.record(durationMs, attributes);
+    this.txDuration.record(Math.ceil(durationMs), attributes);
     this.txGas.record(
       // safe to downcast - total block limit is 30M gas which fits in a JS number
       Number(stats.gasUsed),

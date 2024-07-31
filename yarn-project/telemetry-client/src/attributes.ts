@@ -51,3 +51,5 @@ export const TX_HASH = 'aztec.tx.hash';
 export const OK = 'aztec.ok';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
+/** The phase of the transaction */
+export const TX_PHASE_NAME = 'aztec.tx.phase_name';

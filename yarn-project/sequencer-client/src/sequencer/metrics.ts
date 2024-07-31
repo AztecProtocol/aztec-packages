@@ -5,6 +5,7 @@ import {
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
+  ValueType,
 } from '@aztec/telemetry-client';
 
 export class SequencerMetrics {
@@ -23,6 +24,7 @@ export class SequencerMetrics {
     this.blockBuildDuration = meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION, {
       unit: 'ms',
       description: 'Duration to build a block',
+      valueType: ValueType.INT,
     });
   }
 
@@ -34,7 +36,7 @@ export class SequencerMetrics {
     this.blocksBuiltCounter.add(1, {
       [Attributes.OK]: true,
     });
-    this.blockBuildDuration.record(buildDurationMs);
+    this.blockBuildDuration.record(Math.ceil(buildDurationMs));
   }
 
   recordFailedBlock() {

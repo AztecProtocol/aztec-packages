@@ -42,3 +42,13 @@ export const L1_PUBLISHER_TX_DURATION = 'aztec.l1_publisher.tx_duration';
 export const L1_PUBLISHER_TX_GAS = 'aztec.l1_publisher.tx_gas';
 export const L1_PUBLISHER_TX_CALLDATA_SIZE = 'aztec.l1_publisher.tx_calldata_size';
 export const L1_PUBLISHER_TX_CALLDATA_GAS = 'aztec.l1_publisher.tx_calldata_gas';
+
+export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
+export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
+export const PUBLIC_PROCESSOR_TX_PHASE_COUNT = 'aztec.public_processor.tx_phase_count';
+export const PUBLIC_PROCESSOR_PHASE_DURATION = 'aztec.public_processor.phase_duration';
+export const PUBLIC_PROCESSOR_PHASE_COUNT = 'aztec.public_processor.phase_count';
+
+export const PUBLIC_EXECUTOR_SIMULATION_COUNT = 'aztec.public_executor.simulation_count';
+export const PUBLIC_EXECUTOR_SIMULATION_DURATION = 'aztec.public_executor.simulation_duration';
+export const PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
