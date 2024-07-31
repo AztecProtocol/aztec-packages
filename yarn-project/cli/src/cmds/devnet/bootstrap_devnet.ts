@@ -17,6 +17,12 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createCompatibleClient } from '../../client.js';
 import { FeeJuicePortalManager } from '../../portal_manager.js';
 
+type ContractDeploymentInfo = {
+  address: AztecAddress;
+  initHash: Fr;
+  salt: Fr;
+};
+
 export async function bootstrapDevnet(
   pxeUrl: string,
   l1Url: string,
@@ -40,14 +46,14 @@ export async function bootstrapDevnet(
   );
 
   const { erc20Address, portalAddress } = await deployERC20(l1Clients);
-  const { tokenAddress, bridgeAddress } = await deployToken(wallet, portalAddress);
-  await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridgeAddress);
+  const { token, bridge } = await deployToken(wallet, portalAddress);
+  await initPortal(pxe, l1Clients, erc20Address, portalAddress, bridge.address);
 
-  const fpcAddress = await deployFPC(wallet, tokenAddress);
+  const fpc = await deployFPC(wallet, token.address);
 
-  const counterAddress = await deployCounter(wallet);
+  const counter = await deployCounter(wallet);
 
-  await fundFPC(counterAddress, wallet, l1Clients, fpcAddress, debugLog);
+  await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
 
   if (json) {
     log(
@@ -55,10 +61,18 @@ export async function bootstrapDevnet(
         {
           devCoinL1: erc20Address.toString(),
           devCoinPortalL1: portalAddress.toString(),
-          devCoinL2: tokenAddress.toString(),
-          devCoinBridgeL2: bridgeAddress.toString(),
-          devCoinFpcL2: fpcAddress.toString(),
-          counterL2: counterAddress.toString(),
+          devCoinL2: token.address.toString(),
+          devCoinL2InitHash: token.initHash.toString(),
+          devCoinL2Salt: token.salt.toString(),
+          devCoinBridgeL2: bridge.address.toString(),
+          devCoinBridgeL2InitHash: bridge.initHash.toString(),
+          devCoinBridgeL2Salt: bridge.salt.toString(),
+          devCoinFpcL2: fpc.address.toString(),
+          devCoinFpcL2InitHash: fpc.initHash.toString(),
+          devCoinFpcL2Salt: fpc.salt.toString(),
+          counterL2: counter.address.toString(),
+          counterL2InitHash: counter.initHash.toString(),
+          counterL2Salt: counter.salt.toString(),
         },
         null,
         2,
@@ -67,10 +81,10 @@ export async function bootstrapDevnet(
   } else {
     log(`DevCoin L1: ${erc20Address}`);
     log(`DevCoin L1 Portal: ${portalAddress}`);
-    log(`DevCoin L2: ${tokenAddress}`);
-    log(`DevCoin L2 Bridge: ${bridgeAddress}`);
-    log(`DevCoin FPC: ${fpcAddress}`);
-    log(`Counter: ${counterAddress}`);
+    log(`DevCoin L2: ${token.address}`);
+    log(`DevCoin L2 Bridge: ${bridge.address}`);
+    log(`DevCoin FPC: ${fpc.address}`);
+    log(`Counter: ${counter.address}`);
   }
 }
 
@@ -114,7 +128,7 @@ async function deployERC20({ walletClient, publicClient }: L1Clients) {
 async function deployToken(
   wallet: Wallet,
   l1Portal: EthAddress,
-): Promise<{ tokenAddress: AztecAddress; bridgeAddress: AztecAddress }> {
+): Promise<{ token: ContractDeploymentInfo; bridge: ContractDeploymentInfo }> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenContract, TokenBridgeContract } = await import('@aztec/noir-contracts.js');
@@ -129,8 +143,16 @@ async function deployToken(
     .wait();
 
   return {
-    tokenAddress: devCoin.address,
-    bridgeAddress: bridge.address,
+    token: {
+      address: devCoin.address,
+      initHash: devCoin.instance.initializationHash,
+      salt: devCoin.instance.salt,
+    },
+    bridge: {
+      address: bridge.address,
+      initHash: bridge.instance.initializationHash,
+      salt: bridge.instance.salt,
+    },
   };
 }
 
@@ -158,7 +180,7 @@ async function initPortal(
   await publicClient.waitForTransactionReceipt({ hash });
 }
 
-async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<AztecAddress> {
+async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js');
@@ -166,15 +188,25 @@ async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<Az
     protocolContractAddresses: { gasToken },
   } = await wallet.getPXEInfo();
   const fpc = await FPCContract.deploy(wallet, tokenAddress, gasToken).send().deployed();
-  return fpc.address;
+  const info: ContractDeploymentInfo = {
+    address: fpc.address,
+    initHash: fpc.instance.initializationHash,
+    salt: fpc.instance.salt,
+  };
+  return info;
 }
 
-async function deployCounter(wallet: Wallet): Promise<AztecAddress> {
+async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-contracts.js');
   const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress()).send().deployed();
-  return counter.address;
+  const info: ContractDeploymentInfo = {
+    address: counter.address,
+    initHash: counter.instance.initializationHash,
+    salt: counter.instance.salt,
+  };
+  return info;
 }
 
 async function fundFPC(
