@@ -14,23 +14,23 @@ namespace bb {
  */
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
-    // If a previous fold proof exists, add a recursive folding verification to the circuit
-    if (!fold_output.proof.empty()) {
-        BB_OP_COUNT_TIME_NAME("construct_circuits");
-        FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { instance_vk } } };
-        auto verifier_accum = verifier.verify_folding_proof(fold_output.proof);
-        verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
-        verifier_inputs.accumulator = verifier_accumulator;
-    }
-
     if (is_kernel) {
-        info("KERNEL!");
-        for ([[maybe_unused]] auto& proof : fold_proofs) {
-            info("Verify fold proof.");
-        }
-        fold_proofs.clear();
+        info("KERNEL");
     } else {
         info("APP");
+    }
+
+    info("Num proofs = ", verifier_inputs.size());
+
+    // If a previous fold proof exists, add a recursive folding verification to the circuit
+    if (verifier_inputs.size() == 2) {
+        BB_OP_COUNT_TIME_NAME("construct_circuits");
+        for (auto& [proof, vkey] : verifier_inputs) {
+            info("Recursive verfifying");
+            FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
+            auto verifier_accum = verifier.verify_folding_proof(proof);
+            verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+        }
     }
 
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
@@ -48,18 +48,18 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     } else {
         instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
     }
-    verifier_inputs.instance_vk = instance_vk;
 
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
     if (!initialized) {
+        info("Initializing");
         fold_output.accumulator = prover_instance;
         verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
+        info("Folding");
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
         fold_output = folding_prover.fold_instances();
-        fold_proofs.emplace_back(fold_output.proof);
-        verifier_inputs.proof = fold_output.proof;
+        verifier_inputs.emplace_back(fold_output.proof, instance_vk);
     }
 
     is_kernel = !is_kernel;

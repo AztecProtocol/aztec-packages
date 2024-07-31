@@ -31,26 +31,12 @@ class AztecIVCTests : public ::testing::Test {
     using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
 
     /**
-     * @brief Prove and verify the IVC scheme
-     * @details Constructs four proofs: merge, eccvm, translator, decider; Verifies these four plus the final folding
-     * proof constructed on the last accumulation round
-     *
-     */
-    static bool prove_and_verify(AztecIVC& ivc)
-    {
-        auto proof = ivc.prove();
-
-        auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
-        return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
-    }
-
-    /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
      * @details Currently default sized to 2^16 to match kernel. (Note: dummy op gates added to avoid non-zero
      * polynomials will bump size to next power of 2)
      *
      */
-    static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 15)
+    static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -136,7 +122,7 @@ TEST_F(AztecIVCTests, BasicLarge)
         ivc.accumulate(circuit);
     }
 
-    EXPECT_TRUE(prove_and_verify(ivc));
+    EXPECT_TRUE(ivc.prove_and_verify());
 };
 
 // /**

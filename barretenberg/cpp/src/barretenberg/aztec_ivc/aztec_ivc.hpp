@@ -54,7 +54,6 @@ class AztecIVC {
 
     struct FoldingVerifierInputs {
         FoldProof proof;
-        std::shared_ptr<VerifierInstance> accumulator;
         std::shared_ptr<VerificationKey> instance_vk;
     };
 
@@ -118,7 +117,7 @@ class AztecIVC {
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<VerificationKey> instance_vk;
 
-    FoldingVerifierInputs verifier_inputs;
+    std::vector<FoldingVerifierInputs> verifier_inputs;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
     TraceStructure trace_structure = TraceStructure::NONE;
