@@ -15,9 +15,8 @@ use dep::types::{
     hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
     traits::{Empty, is_empty, is_empty_array},
     utils::arrays::{
-        array_length,
-    assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
-    validate_array
+    array_length, assert_split_sorted_transformed_value_arrays_asc,
+    assert_split_sorted_transformed_value_arrays_desc, validate_array
 }
 };
 

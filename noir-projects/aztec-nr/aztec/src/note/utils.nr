@@ -73,7 +73,8 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
 
     let slotted_note_hash = compute_slotted_note_hash(note);
 
-    if ((header.note_hash_counter != 0) & (header.nonce == 0)) { // Case 1.
+    if ((header.note_hash_counter != 0) & (header.nonce == 0)) {
+        // Case 1.
         // If a note is transient, we just read the slotted_note_hash (kernel will silo by contract address).
         slotted_note_hash
     } else {

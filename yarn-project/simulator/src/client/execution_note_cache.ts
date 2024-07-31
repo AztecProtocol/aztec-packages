@@ -96,7 +96,7 @@ export class ExecutionNoteCache {
     // Find and remove the matching new note and log(s) if the emitted slottedNoteHash is not empty.
     if (!slottedNoteHash.isEmpty()) {
       const notesInContract = this.noteMap.get(contractAddress.toBigInt()) ?? [];
-      const noteIndexToRemove = notesInContract.findIndex(n => n.note.slottedNoteHash.equals(slottedNoteHash));
+      const noteIndexToRemove = notesInContract.findIndex(n => n.noteHashForConsumption.equals(slottedNoteHash));
       if (noteIndexToRemove === -1) {
         throw new Error('Attempt to remove a pending note that does not exist.');
       }
