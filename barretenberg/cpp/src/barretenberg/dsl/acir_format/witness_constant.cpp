@@ -23,8 +23,8 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
         if (!input_infinite.is_constant) {
             builder.variables[input_infinite.index] = fr(1);
         } else if (input_infinite.value == fr::zero() && !(input_x.is_constant || input_y.is_constant)) {
-            // else, if is_infinite is false, but the coordinates (x, y) are witness
-            // then we set their value so to a curve point.
+            // else, if is_infinite is false, but the coordinates (x, y) are witness (and not constant)
+            // then we set their value to a valid curve point.
             auto g1 = bb::grumpkin::g1::affine_one;
             builder.variables[input_x.index] = g1.x;
             builder.variables[input_y.index] = g1.y;
