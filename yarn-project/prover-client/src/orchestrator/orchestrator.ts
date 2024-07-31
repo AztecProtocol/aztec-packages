@@ -55,6 +55,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
+import { elapsed } from '@aztec/foundation/timer';
 import { ProtocolCircuitVks, getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 import { type MerkleTreeOperations } from '@aztec/world-state';
@@ -71,6 +72,7 @@ import {
   validateRootOutput,
   validateTx,
 } from './block-building-helpers.js';
+import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { type MergeRollupInputData, ProvingState, type TreeSnapshots } from './proving-state.js';
 import { TX_PROVING_CODE, TxProvingState } from './tx-proving-state.js';
 
@@ -95,10 +97,14 @@ export class ProvingOrchestrator {
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: PaddingProcessedTx | undefined = undefined;
 
-  public readonly tracer: Tracer;
+  private metrics: ProvingOrchestratorMetrics;
 
   constructor(private db: MerkleTreeOperations, private prover: ServerCircuitProver, telemetryClient: TelemetryClient) {
-    this.tracer = telemetryClient.getTracer('ProvingOrchestrator');
+    this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
+  }
+
+  get tracer(): Tracer {
+    return this.metrics.tracer;
   }
 
   /**
@@ -566,7 +572,12 @@ export class ProvingOrchestrator {
       const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
       return await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
     };
-    const inputs = tx.isEmpty ? await getBaseInputsEmptyTx() : await getBaseInputsNonEmptyTx();
+    const [ms, inputs] = tx.isEmpty ? await elapsed(getBaseInputsEmptyTx()) : await elapsed(getBaseInputsNonEmptyTx());
+
+    if (!tx.isEmpty) {
+      this.metrics.recordBaseRollupInputs(ms);
+    }
+
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
         return { key: id, value: await getTreeSnapshot(id, this.db) };

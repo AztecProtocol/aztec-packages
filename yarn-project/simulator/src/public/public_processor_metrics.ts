@@ -1,6 +1,8 @@
 import { type PublicKernelType } from '@aztec/circuit-types';
+import { type ContractClassRegisteredEvent } from '@aztec/circuits.js';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -18,6 +20,8 @@ export class PublicProcessorMetrics {
 
   private phaseDuration: Histogram;
   private phaseCount: UpDownCounter;
+
+  private bytecodeDeployed: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicProcessor') {
     this.tracer = client.getTracer(name);
@@ -46,6 +50,11 @@ export class PublicProcessorMetrics {
     this.phaseCount = meter.createUpDownCounter(Metrics.PUBLIC_PROCESSOR_PHASE_COUNT, {
       description: 'Number of failed phases',
     });
+
+    this.bytecodeDeployed = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_DEPLOY_BYTECODE_SIZE, {
+      description: 'Size of deployed bytecode',
+      unit: 'By',
+    });
   }
 
   recordPhaseDuration(phaseName: PublicKernelType, durationMs: number) {
@@ -69,5 +78,14 @@ export class PublicProcessorMetrics {
 
   recordRevertedPhase(phaseName: PublicKernelType) {
     this.phaseCount.add(1, { [Attributes.TX_PHASE_NAME]: phaseName, [Attributes.OK]: false });
+  }
+
+  recordClassRegistration(...events: ContractClassRegisteredEvent[]) {
+    let totalBytecode = 0;
+    for (const event of events) {
+      totalBytecode += event.packedPublicBytecode.length;
+    }
+
+    this.bytecodeDeployed.record(totalBytecode);
   }
 }

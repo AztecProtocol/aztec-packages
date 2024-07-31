@@ -13,6 +13,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  ContractClassRegisteredEvent,
   GAS_TOKEN_ADDRESS,
   type GlobalVariables,
   type Header,
@@ -25,6 +26,7 @@ import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
+import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import {
   PublicExecutor,
   type PublicStateDB,
@@ -291,6 +293,10 @@ export class PublicProcessor {
       this.metrics.recordFailedTx();
       throw new Error('Final public kernel was not executed.');
     }
+
+    this.metrics.recordClassRegistration(
+      ...ContractClassRegisteredEvent.fromLogs(tx.unencryptedLogs.unrollLogs(), ClassRegistererAddress),
+    );
 
     this.metrics.recordTx(phaseCount, timer.ms());
     const processedTx = makeProcessedTx(tx, finalKernelOutput, publicProvingRequests, revertReason, gasUsed);
