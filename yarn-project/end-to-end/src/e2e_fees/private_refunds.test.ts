@@ -137,9 +137,8 @@ describe('e2e_fees/private_refunds', () => {
     const bobRandomness = poseidon2Hash([aliceRandomness]); // Called fee_payer_randomness in contracts
 
     // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
-    await expect(tokenWithRefunds.methods
-      .private_get_name()
-      .prove({
+    await expect(
+      tokenWithRefunds.methods.private_get_name().prove({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateRefundPaymentMethod(
@@ -152,7 +151,8 @@ describe('e2e_fees/private_refunds', () => {
             true, // We set max fee/funded amount to zero to trigger the error.
           ),
         },
-      })).rejects.toThrow('tx fee is higher than funded amount');
+      }),
+    ).rejects.toThrow('tx fee is higher than funded amount');
   });
 });
 
