@@ -19,7 +19,13 @@ export class BotFactory {
       throw new Error(`Either a PXE client or a PXE URL must be provided`);
     }
 
-    this.pxe = dependencies.pxe ?? createPXEClient(config.pxeUrl!);
+    if (dependencies.pxe) {
+      this.log.info(`Using local PXE`);
+      this.pxe = dependencies.pxe;
+      return;
+    }
+    this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
+    this.pxe = createPXEClient(config.pxeUrl!);
   }
 
   /**

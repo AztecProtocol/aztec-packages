@@ -42,3 +42,8 @@ variable "BOT_TX_INTERVAL_SECONDS" {
 variable "BOT_TX_MINED_WAIT_SECONDS" {
   type = string
 }
+
+variable "PROVING_ENABLED" {
+  type    = bool
+  default = false
+}
