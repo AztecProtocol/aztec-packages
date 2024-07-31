@@ -51,24 +51,26 @@ class AztecIVCTests : public ::testing::Test {
     }
 };
 
-// /**
-//  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
-//  *
-//  */
-// TEST_F(AztecIVCTests, Basic)
-// {
-//     AztecIVC ivc;
+/**
+ * @brief A simple-as-possible test demonstrating IVC for two mock circuits
+ * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
+ * verfication occurs.
+ *
+ */
+TEST_F(AztecIVCTests, Basic)
+{
+    AztecIVC ivc;
 
-//     // Initialize the IVC with an arbitrary circuit
-//     Builder circuit_0 = create_mock_circuit(ivc);
-//     ivc.accumulate(circuit_0);
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_0);
 
-//     // Create another circuit and accumulate
-//     Builder circuit_1 = create_mock_circuit(ivc);
-//     ivc.accumulate(circuit_1);
+    // Create another circuit and accumulate
+    Builder circuit_1 = create_mock_circuit(ivc);
+    ivc.accumulate(circuit_1);
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
-// };
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
 
 // /**
 //  * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
@@ -99,7 +101,7 @@ class AztecIVCTests : public ::testing::Test {
 //     ivc.accumulate(circuit_2);
 
 //     // The bad fold proof should result in an invalid witness in the final circuit and the IVC should fail to verify
-//     EXPECT_FALSE(prove_and_verify(ivc));
+//     EXPECT_FALSE(ivc.prove_and_verify());
 // };
 
 /**
@@ -111,7 +113,7 @@ TEST_F(AztecIVCTests, BasicLarge)
     AztecIVC ivc;
 
     // Construct a set of arbitrary circuits
-    size_t NUM_CIRCUITS = 4;
+    size_t NUM_CIRCUITS = 6;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         circuits.emplace_back(create_mock_circuit(ivc));
@@ -122,30 +124,34 @@ TEST_F(AztecIVCTests, BasicLarge)
         ivc.accumulate(circuit);
     }
 
+    info(ivc.goblin.op_queue->get_current_size());
+
     EXPECT_TRUE(ivc.prove_and_verify());
 };
 
-// /**
-//  * @brief Using a structured trace allows for the accumulation of circuits of varying size
-//  *
-//  */
-// TEST_F(AztecIVCTests, BasicStructured)
-// {
-//     AztecIVC ivc;
-//     ivc.trace_structure = TraceStructure::SMALL_TEST;
+/**
+ * @brief Using a structured trace allows for the accumulation of circuits of varying size
+ *
+ */
+TEST_F(AztecIVCTests, BasicStructured)
+{
+    AztecIVC ivc;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-//     // Construct some circuits of varying size
-//     Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
-//     Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/8);
-//     Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
+    // Construct some circuits of varying size
+    Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/7);
+    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/9);
+    Builder circuit_3 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
 
-//     // The circuits can be accumulated as normal due to the structured trace
-//     ivc.accumulate(circuit_0);
-//     ivc.accumulate(circuit_1);
-//     ivc.accumulate(circuit_2);
+    // The circuits can be accumulated as normal due to the structured trace
+    ivc.accumulate(circuit_0);
+    ivc.accumulate(circuit_1);
+    ivc.accumulate(circuit_2);
+    ivc.accumulate(circuit_3);
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
-// };
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
 
 // /**
 //  * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
@@ -170,7 +176,7 @@ TEST_F(AztecIVCTests, BasicLarge)
 //         ivc.accumulate(circuit, precomputed_vk);
 //     }
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
+//     EXPECT_TRUE(ivc.prove_and_verify());
 // };
 
 // /**
@@ -197,5 +203,5 @@ TEST_F(AztecIVCTests, BasicLarge)
 //         ivc.accumulate(circuit, precomputed_vk);
 //     }
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
+//     EXPECT_TRUE(ivc.prove_and_verify());
 // };

@@ -14,23 +14,22 @@ namespace bb {
  */
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
-    if (is_kernel) {
-        info("KERNEL");
-    } else {
-        info("APP");
-    }
+    circuit_count++; // increment the number of circuits processed into the IVC
 
-    info("Num proofs = ", verifier_inputs.size());
+    info("Num proofs = ", verification_queue.size());
 
-    // If a previous fold proof exists, add a recursive folding verification to the circuit
-    if (verifier_inputs.size() == 2) {
+    // Append two recursive verifiers when there are two fold proofs present
+    if (verification_queue.size() == 2) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
-        for (auto& [proof, vkey] : verifier_inputs) {
+        ASSERT(circuit_count % 2 == 0); // ensure this is a kernel
+        for (auto& [proof, vkey] : verification_queue) {
             info("Recursive verfifying");
             FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
             auto verifier_accum = verifier.verify_folding_proof(proof);
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+            info("Num gates = ", circuit.get_num_gates());
         }
+        verification_queue.clear();
     }
 
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
@@ -38,9 +37,6 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 
     // Construct the prover instance for circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
-
-    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
-    max_block_sizes.update(circuit);
 
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
@@ -51,18 +47,19 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
     if (!initialized) {
-        info("Initializing");
         fold_output.accumulator = prover_instance;
         verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
-        info("Folding");
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
         fold_output = folding_prover.fold_instances();
-        verifier_inputs.emplace_back(fold_output.proof, instance_vk);
+
+        // Add fold proof and corresponding verification key to the verification queue
+        verification_queue.emplace_back(fold_output.proof, instance_vk);
     }
 
-    is_kernel = !is_kernel;
+    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
+    max_block_size_tracker.update(circuit);
 }
 
 /**
@@ -72,7 +69,8 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
  */
 AztecIVC::Proof AztecIVC::prove()
 {
-    max_block_sizes.print(); // print minimum structured sizes for each block
+    ASSERT(circuit_count % 2 == 0); // ensure last circuit accumulatd was a kernel
+    max_block_size_tracker.print(); // print minimum structured sizes for each block
     return { fold_output.proof, decider_prove(), goblin.prove() };
 };
 

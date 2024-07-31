@@ -2,6 +2,7 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
@@ -52,49 +53,8 @@ class ClientIVC {
         MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
 
-    // A debugging utility for tracking the max size of each block over all circuits in the IVC
-    struct MaxBlockSizes {
-        size_t ecc_op{ 0 };
-        size_t pub_inputs{ 0 };
-        size_t arithmetic{ 0 };
-        size_t delta_range{ 0 };
-        size_t elliptic{ 0 };
-        size_t aux{ 0 };
-        size_t lookup{ 0 };
-        size_t busread{ 0 };
-        size_t poseidon_external{ 0 };
-        size_t poseidon_internal{ 0 };
-
-        void update(ClientCircuit& circuit)
-        {
-            ecc_op = std::max(circuit.blocks.ecc_op.size(), ecc_op);
-            pub_inputs = std::max(circuit.public_inputs.size(), pub_inputs);
-            arithmetic = std::max(circuit.blocks.arithmetic.size(), arithmetic);
-            delta_range = std::max(circuit.blocks.delta_range.size(), delta_range);
-            elliptic = std::max(circuit.blocks.elliptic.size(), elliptic);
-            aux = std::max(circuit.blocks.aux.size(), aux);
-            lookup = std::max(circuit.blocks.lookup.size(), lookup);
-            busread = std::max(circuit.blocks.busread.size(), busread);
-            poseidon_external = std::max(circuit.blocks.poseidon_external.size(), poseidon_external);
-            poseidon_internal = std::max(circuit.blocks.poseidon_internal.size(), poseidon_internal);
-        }
-
-        void print()
-        {
-            info("Minimum required block sizes for structured trace: ");
-            info("goblin ecc op :\t", ecc_op);
-            info("pub inputs    :\t", pub_inputs);
-            info("arithmetic    :\t", arithmetic);
-            info("delta range   :\t", delta_range);
-            info("elliptic      :\t", elliptic);
-            info("auxiliary     :\t", aux);
-            info("lookups       :\t", lookup);
-            info("busread       :\t", busread);
-            info("poseidon ext  :\t", poseidon_external);
-            info("poseidon int  :\t", poseidon_internal);
-            info("");
-        }
-    };
+    // Utility for tracking the max size of each block across the full IVC
+    MaxBlockSizeTracker max_block_size_tracker;
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
@@ -134,7 +94,5 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
-
-    MaxBlockSizes max_block_sizes; // for tracking minimum block size requirements across an IVC
 };
 } // namespace bb
