@@ -147,6 +147,7 @@ function(barretenberg_module MODULE_NAME)
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
+            Tracy::TracyClient
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -253,6 +254,7 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_LINK_NAME}
                 ${ARGN}
                 benchmark::benchmark
+                Tracy::TracyClient
                 ${TBB_IMPORTED_TARGETS}
             )
             if(CHECK_CIRCUIT_STACKTRACES)
