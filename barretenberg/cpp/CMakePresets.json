@@ -90,7 +90,7 @@
       "inherits": "clang16",
       "binaryDir": "build-tracy",
       "cacheVariables": {
-        "TRACY_ENABLE": "ON"
+        "ENABLE_TRACY": "ON"
       }
     },
     {

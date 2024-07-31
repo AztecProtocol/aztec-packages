@@ -7,9 +7,27 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "tracy/Tracy.hpp"
 
 using namespace benchmark;
 using namespace bb;
+
+void* operator new(std::size_t count)
+{
+    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
+    void* ptr = malloc(count);
+    // NOLINTEND(cppcoreguidelines-no-malloc)
+    TracyAllocS(ptr, count, /*depth*/ 5);
+    return ptr;
+}
+
+void operator delete(void* ptr) noexcept
+{
+    TracyFreeS(ptr, /*depth*/ 5);
+    // NOLINTBEGIN(cppcoreguidelines-no-malloc)
+    free(ptr);
+    // NOLINTEND(cppcoreguidelines-no-malloc)
+}
 
 namespace {
 
@@ -156,6 +174,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
 
     for (auto _ : state) {
+        ZoneScoped; // Profile the main function
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         // Perform a specified number of iterations of function/kernel accumulation
         perform_ivc_accumulation_rounds(num_circuits, ivc, precomputed_vks);
