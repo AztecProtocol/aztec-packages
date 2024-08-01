@@ -70,7 +70,7 @@ variable "P2P_MAX_PEERS" {
 
 variable "P2P_ENABLED" {
   type    = bool
-  default = true
+  default = false
 }
 
 variable "P2P_TX_POOL_KEEP_PROVEN_FOR" {
@@ -81,4 +81,9 @@ variable "P2P_TX_POOL_KEEP_PROVEN_FOR" {
 variable "PROVING_ENABLED" {
   type    = bool
   default = false
+}
+
+variable "BOOTSTRAP_NODES" {
+  type    = string
+  default = ""
 }

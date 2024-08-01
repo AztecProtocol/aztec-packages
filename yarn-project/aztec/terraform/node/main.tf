@@ -294,7 +294,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "BOOTSTRAP_NODES"
-          value = "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
+          value = var.BOOTSTRAP_NODES
         },
         {
           name  = "P2P_ENABLED"
