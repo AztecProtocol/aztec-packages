@@ -463,6 +463,13 @@ class MegaFlavor {
     // using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
+        bool contains_propagated_app_return_data = false;
+        size_t app_return_data_public_input_idx = 0;
+        bool contains_propagated_kernel_return_data = false;
+        size_t kernel_return_data_public_input_idx = 0;
+        bool is_kernel = false;
+
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)

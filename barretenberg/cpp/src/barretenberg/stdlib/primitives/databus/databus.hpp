@@ -82,7 +82,7 @@ template <class Builder> class DataBusDepot {
         // fold proof thus contains two oink proofs. The return data R_0' from the first app will be contained in the
         // first oink proof (stored in instance 0), and its calldata counterpart C_0' in the kernel will be
         // contained in the second oink proof (stored in instance 1). In this special case, we can check directly that
-        // \pi_0.R_0' = \pi_0.C_0', without needing to utilize the public inputs mechanism.
+        // \pi_0.R_0' = \pi_0.C_0', without having had to propagate the return data commitment via the public inputs.
         if (!inst_0->is_accumulator) {
             // Assert equality of \pi_0.R_0' and \pi_0.C_0'
             auto& app_return_data = inst_0->witness_commitments.return_data;
@@ -94,16 +94,16 @@ template <class Builder> class DataBusDepot {
         auto& public_inputs = inst_1->public_inputs;
         auto& commitments = inst_1->witness_commitments;
 
-        // Check app return data equal to kernel secondary calldata
+        // Assert equality between the app return data commitment and the kernel secondary calldata commitment
         if (vkey->contains_propagated_app_return_data) {
-            uint32_t start_idx = vkey->app_return_data_public_input_idx;
+            size_t start_idx = vkey->app_return_data_public_input_idx;
             Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
         }
 
-        // Check previous kernel return data equal to kernel calldata
+        // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
         if (vkey->contains_propagated_kernel_return_data) {
-            uint32_t start_idx = vkey->kernel_return_data_public_input_idx;
+            size_t start_idx = vkey->kernel_return_data_public_input_idx;
             Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             assert_equality_of_commitments(kernel_return_data, commitments.calldata);
         }
@@ -121,7 +121,7 @@ template <class Builder> class DataBusDepot {
      * @return Commitment
      */
     Commitment reconstruct_commitment_from_public_inputs(const std::span<Fr> public_inputs,
-                                                         uint32_t& return_data_commitment_limbs_start_idx)
+                                                         size_t& return_data_commitment_limbs_start_idx)
     {
         std::span<Fr, NUM_FR_LIMBS_PER_COMMITMENT> return_data_commitment_limbs{
             public_inputs.data() + return_data_commitment_limbs_start_idx, NUM_FR_LIMBS_PER_COMMITMENT
@@ -159,12 +159,12 @@ template <class Builder> class DataBusDepot {
         P0.y.assert_equal(P1.y);
     }
 
-    uint32_t propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
+    void propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
     {
         auto context = commitment.get_context();
 
         // Set flag indicating propagation of return data and save the index at which it's stored in public inputs.
-        uint32_t start_idx = context->public_inputs.size();
+        size_t start_idx = context->public_inputs.size();
         if (is_kernel) {
             context->contains_propagated_kernel_return_data = true;
             context->kernel_return_data_public_input_idx = start_idx;

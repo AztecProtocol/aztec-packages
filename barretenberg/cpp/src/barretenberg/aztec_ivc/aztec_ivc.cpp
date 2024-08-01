@@ -26,6 +26,8 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
             auto verifier_accum = verifier.verify_folding_proof(proof);
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
             info("Num gates = ", circuit.get_num_gates());
+
+            bus_depot.execute(verifier.instances);
         }
         verification_queue.clear();
     }
@@ -44,6 +46,9 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     } else {
         instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
     }
+
+    // Store whether the present circuit is a kernel
+    instance_vk->is_kernel = (circuit_count % 2 == 0);
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (circuit_count == 1) {
