@@ -137,12 +137,8 @@ async function deployToken(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenContract, TokenBridgeContract } = await import('@aztec/noir-contracts.js');
-  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
-    .send({ universalDeploy: true })
-    .deployed();
-  const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal)
-    .send({ universalDeploy: true })
-    .deployed();
+  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18).send().deployed();
+  const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal).send().deployed();
 
   await new BatchCall(wallet, [
     devCoin.methods.set_minter(bridge.address, true).request(),
