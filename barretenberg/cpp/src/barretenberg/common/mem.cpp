@@ -17,7 +17,7 @@ void operator delete(void* ptr) noexcept
     // NOLINTEND(cppcoreguidelines-no-malloc)
 }
 
-void operator delete(void* ptr, std::size_t size) noexcept 
+void operator delete(void* ptr, std::size_t size) noexcept
 {
     static_cast<void>(size); // unused
     TRACY_FREE(ptr);
