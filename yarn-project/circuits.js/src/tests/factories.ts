@@ -929,6 +929,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x502),
     fr(seed + 0x600),
     makeTuple(32, () => makeFeeRecipient(seed), 0x700),
+    fr(seed + 0x800),
   );
 }
 
@@ -1039,9 +1040,7 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  * @param blockNumber - The block number to use in the global variables of a header.
  * @returns A root rollup public inputs.
  */
-export function makeRootRollupPublicInputs(
-  seed = 0,
-): RootRollupPublicInputs {
+export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),

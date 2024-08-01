@@ -42,6 +42,7 @@ impl Eq for FeeRecipient {
 }
 
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
+// may be confusing as new_constant.last_archive would actually be the new_archive
 struct BlockRootOrBlockMergePublicInputs {
   previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
   new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
@@ -50,7 +51,8 @@ struct BlockRootOrBlockMergePublicInputs {
   start_global_variables: GlobalVariables, // Global variables for the first block in the range
   end_global_variables: GlobalVariables, // Global variables for the last block in the range
   out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
-  fees: [FeeRecipient; 32] // Concatenation of all coinbase and fees for the block range
+  fees: [FeeRecipient; 32], // Concatenation of all coinbase and fees for the block range
+  vk_tree_root: Field, // Root of allowed vk tree
 }
 
 impl Empty for BlockRootOrBlockMergePublicInputs {
@@ -63,7 +65,8 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             start_global_variables: GlobalVariables::empty(),
             end_global_variables: GlobalVariables::empty(),
             out_hash: 0,
-            fees: [FeeRecipient::empty(); 32]
+            fees: [FeeRecipient::empty(); 32],
+            vk_tree_root: 0,
         }
     }
 }
@@ -77,7 +80,8 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
     (self.start_global_variables.eq(other.start_global_variables)) &
     (self.end_global_variables.eq(other.end_global_variables)) &
     (self.out_hash == other.out_hash) &
-    (self.fees.eq(other.fees))
+    (self.fees.eq(other.fees)) &
+    (self.vk_tree_root == other.vk_tree_root) 
   }
 }
 
@@ -95,6 +99,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
     for i in 0..32 {
       fields.extend_from_array(self.fees[i].serialize());
     }
+    fields.push(self.vk_tree_root as Field);
     assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
     fields.storage
@@ -112,7 +117,8 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
         start_global_variables: reader.read_struct(GlobalVariables::deserialize),
         end_global_variables: reader.read_struct(GlobalVariables::deserialize),
         out_hash: reader.read(),
-        fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32])
+        fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
+        vk_tree_root: reader.read(),
     };
 
     reader.finish();

@@ -295,7 +295,6 @@ export function getPreviousRollupDataFromPublicInputs(
   );
 }
 
-//TODO(miranda): handle vks
 export function getPreviousRollupBlockDataFromPublicInputs(
   rollupOutput: BlockRootOrBlockMergePublicInputs,
   rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,

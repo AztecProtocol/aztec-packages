@@ -22,10 +22,7 @@ use dep::types::{
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
  *
  */
-pub fn assert_txs_filled_from_left(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) {
+pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
         let left_txs = left.num_txs;
@@ -48,10 +45,7 @@ pub fn assert_txs_filled_from_left(
  * Asserts that the constants used in the left and right child are identical
  *
  */
-pub fn assert_equal_constants(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) {
+pub fn assert_equal_constants(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
     assert(left.constants.eq(right.constants), "input proofs have different constants");
 }
 
@@ -77,6 +71,7 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs
 ) {
+    assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
     assert(
         left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
     );
@@ -97,10 +92,7 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     );
 }
 
-pub fn accumulate_fees(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) -> Field {
+pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) -> Field {
     left.accumulated_fees + right.accumulated_fees
 }
 

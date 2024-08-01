@@ -1,14 +1,13 @@
 use crate::{
-    abis::previous_rollup_block_data::PreviousRollupBlockData,
-    components, root::root_rollup_public_inputs::RootRollupPublicInputs
+    abis::previous_rollup_block_data::PreviousRollupBlockData, components,
+    root::root_rollup_public_inputs::RootRollupPublicInputs
 };
-use types::traits::Empty;
-
-// TODO(Miranda): Handle vks
-// global ALLOWED_PREVIOUS_CIRCUITS = [
-//     BASE_ROLLUP_INDEX,
-//     MERGE_ROLLUP_INDEX,
-// ];
+use types::{traits::Empty, constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX}};
+// TODO(Miranda): Do we want the final root to be fixed height (=> block_merge only) or variable (block_merge OR block_root)?
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    BLOCK_ROOT_ROLLUP_INDEX,
+    BLOCK_MERGE_ROLLUP_INDEX,
+];
 
 struct RootRollupInputs {
     previous_rollup_data : [PreviousRollupBlockData; 2],

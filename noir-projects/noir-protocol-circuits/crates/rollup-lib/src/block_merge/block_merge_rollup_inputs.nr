@@ -1,13 +1,12 @@
-use dep::types::{traits::Empty, constants::{BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX}};
+use dep::types::{traits::Empty, constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX}};
 use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use crate::components;
 
-// TODO(Miranda) handle vks
-// global ALLOWED_PREVIOUS_CIRCUITS = [
-//     BASE_ROLLUP_INDEX,
-//     MERGE_ROLLUP_INDEX,
-// ];
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    BLOCK_ROOT_ROLLUP_INDEX,
+    BLOCK_MERGE_ROLLUP_INDEX,
+];
 
 struct BlockMergeRollupInputs {
     previous_rollup_data : [PreviousRollupBlockData; 2]
@@ -54,7 +53,8 @@ impl BlockMergeRollupInputs {
             start_global_variables: left.start_global_variables,
             end_global_variables: right.end_global_variables,
             out_hash,
-            fees
+            fees,
+            vk_tree_root: left.vk_tree_root
         }
     }
 }
@@ -65,6 +65,7 @@ mod tests {
         tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs
     };
     use dep::types::hash::accumulate_sha256;
+    use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX};
 
     #[test(should_fail_with="input blocks have different chain id")]
     fn constants_different_chain_id_fails() {
@@ -125,23 +126,34 @@ mod tests {
             outputs.fees[1], inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0]
         );
     }
-    // TODO(Miranda): handle vks
-    // #[test]
-    // fn valid_previous_circuit_base() {
-    //     let mut inputs = default_merge_rollup_inputs();
-    //     let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
-    //     inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[BASE_ROLLUP_INDEX];
-    //     inputs.previous_rollup_data[0].vk_witness.leaf_index = BASE_ROLLUP_INDEX as Field;
-    //     inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(BASE_ROLLUP_INDEX);
-    //     let _outputs = inputs.merge_rollup_circuit();
-    // }
-    // #[test]
-    // fn valid_previous_circuit_merge() {
+
+    #[test]
+    fn valid_previous_circuit_block_root() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
+        inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[BLOCK_ROOT_ROLLUP_INDEX];
+        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_ROOT_ROLLUP_INDEX as Field;
+        inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(BLOCK_ROOT_ROLLUP_INDEX);
+        let _outputs = inputs.block_merge_rollup_circuit();
+    }
+
+    #[test]
+    fn valid_previous_circuit_block_merge() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
+        inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[BLOCK_MERGE_ROLLUP_INDEX];
+        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_MERGE_ROLLUP_INDEX as Field;
+        inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(BLOCK_MERGE_ROLLUP_INDEX);
+        let _outputs = inputs.block_merge_rollup_circuit();
+    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_circuit() {
     //     let mut inputs = default_block_merge_rollup_inputs();
     //     let vk_tree = dep::types::tests::fixtures::vk_tree::get_vk_merkle_tree();
-    //     inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[MERGE_ROLLUP_INDEX];
-    //     inputs.previous_rollup_data[0].vk_witness.leaf_index = MERGE_ROLLUP_INDEX as Field;
-    //     inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(MERGE_ROLLUP_INDEX);
+    //     inputs.previous_rollup_data[0].vk.hash = vk_tree.leaves[ROOT_PARITY_INDEX];
+    //     inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
+    //     inputs.previous_rollup_data[0].vk_witness.sibling_path = vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
     //     let _outputs = inputs.block_merge_rollup_circuit();
     // }
 }

@@ -1,31 +1,32 @@
 use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
+use dep::types::constants::BLOCK_ROOT_ROLLUP_INDEX;
 use dep::types::tests::fixtures;
 use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
+use dep::types::merkle_tree::MembershipWitness;
 
 pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     let mut previous_rollup_data = [PreviousRollupBlockData::empty(); 2];
 
-    // TODO(Miranda): manage vks
-    // let vk_index = BASE_ROLLUP_INDEX;
-    // let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
-    // let vk_hash = vk_tree.leaves[vk_index];
-    // let vk_path = vk_tree.get_sibling_path(vk_index);
-    // let vk_tree_root = vk_tree.get_root();
+    let vk_index = BLOCK_ROOT_ROLLUP_INDEX;
+    let vk_tree = fixtures::vk_tree::get_vk_merkle_tree();
+    let vk_hash = vk_tree.leaves[vk_index];
+    let vk_path = vk_tree.get_sibling_path(vk_index);
+    let vk_tree_root = vk_tree.get_root();
 
-    // previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.vk_tree_root = vk_tree_root;
-    // previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.vk_tree_root = vk_tree_root;
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.vk_tree_root = vk_tree_root;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.vk_tree_root = vk_tree_root;
 
-    // previous_rollup_data[0].vk.hash = vk_hash;
-    // previous_rollup_data[1].vk.hash = vk_hash;
+    previous_rollup_data[0].vk.hash = vk_hash;
+    previous_rollup_data[1].vk.hash = vk_hash;
 
-    // previous_rollup_data[0].vk_witness = MembershipWitness {
-    //     leaf_index: vk_index as Field,
-    //     sibling_path: vk_path
-    // };
-    // previous_rollup_data[1].vk_witness =  MembershipWitness {
-    //     leaf_index: vk_index as Field,
-    //     sibling_path: vk_path
-    // };
+    previous_rollup_data[0].vk_witness = MembershipWitness {
+        leaf_index: vk_index as Field,
+        sibling_path: vk_path
+    };
+    previous_rollup_data[1].vk_witness =  MembershipWitness {
+        leaf_index: vk_index as Field,
+        sibling_path: vk_path
+    };
 
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.previous_archive = AppendOnlyTreeSnapshot {
         root: 0,

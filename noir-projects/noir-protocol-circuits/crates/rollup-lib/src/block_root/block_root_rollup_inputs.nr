@@ -18,11 +18,10 @@ use types::{
     state_reference::StateReference, traits::Empty
 };
 
-// TODO(Miranda): Handle vks
-// global ALLOWED_PREVIOUS_CIRCUITS = [
-//     BASE_ROLLUP_INDEX,
-//     MERGE_ROLLUP_INDEX,
-// ];
+global ALLOWED_PREVIOUS_CIRCUITS = [
+    BASE_ROLLUP_INDEX,
+    MERGE_ROLLUP_INDEX,
+];
 
 struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
@@ -89,9 +88,6 @@ impl BlockRootRollupInputs {
 
         let total_fees = components::accumulate_fees(left, right);
 
-        // TODO(Miranda): how do we handle this in batch?
-        // let vk_tree_root = left.constants.vk_tree_root;
-
         let header = Header {
             last_archive: left.constants.last_archive,
             content_commitment,
@@ -125,7 +121,8 @@ impl BlockRootRollupInputs {
             start_global_variables: left.constants.global_variables, // we have asserted that left.constants == right.constants => ...
             end_global_variables: left.constants.global_variables, // with a current block range of 1, we only have 1 set of constants
             out_hash: content_commitment.out_hash,
-            fees: fee_arr
+            fees: fee_arr,
+            vk_tree_root: left.constants.vk_tree_root
         }
     }
 }

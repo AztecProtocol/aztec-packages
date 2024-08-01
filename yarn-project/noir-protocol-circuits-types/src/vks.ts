@@ -1,6 +1,8 @@
 import {
   BASE_PARITY_INDEX,
   BASE_ROLLUP_INDEX,
+  BLOCK_MERGE_ROLLUP_INDEX,
+  BLOCK_ROOT_ROLLUP_INDEX,
   EMPTY_NESTED_INDEX,
   Fr,
   MERGE_ROLLUP_INDEX,
@@ -126,9 +128,8 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   RootParityArtifact: ROOT_PARITY_INDEX,
   BaseRollupArtifact: BASE_ROLLUP_INDEX,
   MergeRollupArtifact: MERGE_ROLLUP_INDEX,
-  // TODO(Miranda): handle vks
-  BlockRootRollupArtifact: 0,
-  BlockMergeRollupArtifact: 0,
+  BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_INDEX,
+  BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
 };
 

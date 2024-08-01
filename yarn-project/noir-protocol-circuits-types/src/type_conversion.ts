@@ -1924,6 +1924,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     end_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.endGlobalVariables),
     out_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.outHash),
     fees: mapTuple(blockRootOrBlockMergePublicInputs.fees, mapFeeRecipientToNoir),
+    vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
   };
 }
 
@@ -1990,6 +1991,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.end_global_variables),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
     mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, 32, mapFeeRecipientFromNoir),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
   );
 }
 

@@ -44,6 +44,10 @@ export class BlockRootOrBlockMergePublicInputs {
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
     public fees: Tuple<FeeRecipient, 32>,
+    /**
+     * Root of the verification key tree.
+     */
+    public vkTreeRoot: Fr,
   ) {}
 
   /**
@@ -62,6 +66,7 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
       reader.readArray(32, FeeRecipient),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -79,6 +84,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.endGlobalVariables,
       this.outHash,
       this.fees,
+      this.vkTreeRoot,
     );
   }
 
