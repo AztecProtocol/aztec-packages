@@ -88,17 +88,18 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         result.y = convert_from_bn254_frs<Builder, BaseField>(
             builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
+        // WORKTODO make an is_zero() function -_-
+        // bool_t<Builder> is_infinity = result.x.is_zero() && result.y.is_zero();
         return result;
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
         ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
-        auto x = convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
-        auto y = convert_from_bn254_frs<Builder, fr<Builder>>(
+        fr<Builder> x =
+            convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
+        fr<Builder> y = convert_from_bn254_frs<Builder, fr<Builder>>(
             builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
-        auto is_infinity = x.get_value().is_msb_set();
-
-        grumpkin_element<Builder> result(x, y, is_infinity);
+        grumpkin_element<Builder> result(x, y, x.is_zero() && y.is_zero());
         return result;
     } else {
         // Array or Univariate

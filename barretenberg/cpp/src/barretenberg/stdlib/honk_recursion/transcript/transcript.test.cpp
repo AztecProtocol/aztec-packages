@@ -340,4 +340,36 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     EXPECT_EQ(static_cast<FF>(native_alpha), stdlib_alpha.get_value());
     EXPECT_EQ(static_cast<FF>(native_beta), stdlib_beta.get_value());
 }
+
+TEST(RecursiveTranscript, PointAtInfinityConsistency)
+{
+    using NativeCurve = curve::Grumpkin;
+    using NativeCommitment = typename NativeCurve::AffineElement;
+    using NativeFF = NativeCurve::ScalarField;
+
+    using FF = bigfield<Builder, bb::Bn254FqParams>;
+    using Commitment = cycle_group<Builder>;
+
+    Builder builder;
+
+    NativeCommitment infinity = NativeCommitment::infinity();
+
+    NativeTranscript prover_transcript;
+    prover_transcript.send_to_verifier("infinity", infinity);
+    NativeFF challenge = prover_transcript.get_challenge<NativeFF>("challenge");
+    auto proof_data = prover_transcript.proof_data;
+    info(challenge);
+
+    NativeTranscript verifier_transcript(proof_data);
+    verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
+    auto verifier_challenge = verifier_transcript.get_challenge<NativeFF>("challenge");
+    info(verifier_challenge);
+
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+    StdlibTranscript stdlib_transcript{ stdlib_proof };
+    stdlib_transcript.receive_from_prover<Commitment>("infinity");
+    auto stdlib_challenge = stdlib_transcript.get_challenge<FF>("challenge");
+    // info(stdlib_challenge.get_value());
+    EXPECT_EQ(verifier_challenge, NativeFF(stdlib_challenge.get_value() % FF::modulus));
+}
 } // namespace bb::stdlib::recursion::honk
