@@ -31,7 +31,7 @@ env:
   TF_VAR_L1_CHAIN_ID: 677692
   TF_VAR_DEPLOY_TAG: none
   TF_VAR_IMAGE_TAG: ${{ github.sha }}
-  TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
+  TF_VAR_API_KEY: ${{ secrets.DEVNET_API_KEY }}
 
   # Node / Sequencer
   TF_VAR_BOOTSTRAP_NODES: ""
@@ -70,8 +70,32 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
-  build:
+  set-network:
     needs: setup
+    runs-on: ${{ github.actor }}-x86
+    outputs:
+      deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
+    steps:
+      - name: Set network vars
+        shell: bash
+        run: |
+          env
+          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          if [ "$BRANCH_NAME" = "devnet" ]
+          then
+              echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH_NAME" = "provernet" ]
+          then
+              echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
+          else
+              echo "Unrecognized Branch!!"
+          fi
+        id: set_network_vars
+
+  build:
+    needs: set-network
+    env:
+      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -90,11 +114,13 @@ jobs:
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
               echo "DEPLOY_TAG=devnet" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=provernet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
+              echo "deploy_tag=provernet" >> $GITHUB_ENV
           else
               echo "Unrecognized Branch!!"
           fi
@@ -155,7 +181,9 @@ jobs:
 
   terraform_deploy:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, set-network]
+    env:
+      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -172,7 +200,7 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Set network vars
+      - name: Set network api key
         shell: bash
         run: |
           env
@@ -180,11 +208,11 @@ jobs:
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=devnet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=provernet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
           else
               echo "Unrecognized Branch!!"
           fi
@@ -194,7 +222,6 @@ jobs:
         working-directory: ./iac/mainnet-fork/terraform
         run: |
           env
-          echo "DEPLOY_TAG ${{ env.DEPLOY_TAG }}"
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
 
@@ -267,7 +294,9 @@ jobs:
 
   bootstrap:
     runs-on: ubuntu-latest
-    needs: [terraform_deploy]
+    needs: [terraform_deploy, set-network]
+    env:
+      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -282,7 +311,7 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Set network vars
+      - name: Set network api key
         shell: bash
         run: |
           env
@@ -290,11 +319,11 @@ jobs:
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=devnet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=provernet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
           else
               echo "Unrecognized Branch!!"
           fi
@@ -332,7 +361,9 @@ jobs:
 
   deploy-faucet:
     runs-on: ubuntu-latest
-    needs: [terraform_deploy, bootstrap]
+    needs: [terraform_deploy, bootstrap, set-network]
+    env:
+      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -349,7 +380,7 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Set network vars
+      - name: Set network api key
         shell: bash
         run: |
           env
@@ -357,11 +388,11 @@ jobs:
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=devnet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=provernet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
           else
               echo "Unrecognized Branch!!"
           fi
@@ -384,7 +415,9 @@ jobs:
 
   enable_proving:
     runs-on: ubuntu-latest
-    needs: [deploy-faucet]
+    needs: [deploy-faucet, set-network]
+    env:
+      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -401,7 +434,7 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Set network vars
+      - name: Set network api key
         shell: bash
         run: |
           env
@@ -409,11 +442,11 @@ jobs:
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=devnet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=provernet" >> $GITHUB_ENV
+              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
           else
               echo "Unrecognized Branch!!"
           fi
