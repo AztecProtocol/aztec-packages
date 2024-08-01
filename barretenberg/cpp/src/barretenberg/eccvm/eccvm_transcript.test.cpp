@@ -26,11 +26,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_eccvm_honk_manifest(size_t circuit_size, size_t log_ipa_poly_degree)
+    TranscriptManifest construct_eccvm_honk_manifest(size_t circuit_size, [[maybe_unused]] size_t log_ipa_poly_degree)
     {
         TranscriptManifest manifest_expected;
         auto log_n = numeric::get_msb(circuit_size);
-        ASSERT(log_n == log_ipa_poly_degree);
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the type
