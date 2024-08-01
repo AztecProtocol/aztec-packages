@@ -68,9 +68,10 @@ export function getCliPXEOptions(): CliPXEOptions {
 
   return {
     ...pxeServiceConfig,
-    network: NETWORK as Network,
+    network: NETWORK ? NETWORK as Network : undefined,
     apiKey: ΑPI_KEY,
     nodeUrl: AZTEC_NODE_URL,
+    proverEnabled: !!NETWORK,
   };
 }
 
