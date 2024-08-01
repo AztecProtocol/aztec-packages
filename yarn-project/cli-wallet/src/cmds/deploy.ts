@@ -1,12 +1,11 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { ContractDeployer, type DeployMethod, Fr, createCompatibleClient } from '@aztec/aztec.js';
-import { type PublicKeys, deriveSigningKey } from '@aztec/circuits.js';
+import { type PublicKeys } from '@aztec/circuits.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../fees.js';
-import { WalletDB } from '../storage/wallet_db.js';
+import { AccountType, createOrRetrieveWallet } from '../utils/accounts.js';
 
 export async function deploy(
   artifactPath: string,
@@ -41,15 +40,7 @@ export async function deploy(
     );
   }
 
-  let wallet;
-  if (aliasOrAddress) {
-    const { salt, privateKey } = WalletDB.getInstance().retrieveAccount(aliasOrAddress);
-    wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt).getWallet();
-  } else if (privateKey) {
-    wallet = await getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
-  } else {
-    throw new Error('Either a private key or an account address/alias must be provided');
-  }
+  const wallet = await createOrRetrieveWallet(AccountType.SCHNORR, client, privateKey, aliasOrAddress);
 
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);
 

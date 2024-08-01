@@ -79,7 +79,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '-a, --alias-or-address <string>',
       'Alias or address of the account to deploy from. Incompatible with --private-key.',
     )
-    .addOption(createPrivateKeyOption("The sender's private key. Incompatible with --alias-or-address", false))
+    .addOption(
+      createPrivateKeyOption("The sender's private key. Incompatible with --alias-or-address", false).conflicts(
+        'alias',
+      ),
+    )
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
@@ -137,7 +141,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '-a, --alias-or-address <string>',
       'Alias or address of the account to deploy from. Incompatible with --private-key.',
     )
-    .addOption(createPrivateKeyOption("The sender's private key.", false))
+    .addOption(createPrivateKeyOption("The sender's private key.", false).conflicts('alias'))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
 
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
