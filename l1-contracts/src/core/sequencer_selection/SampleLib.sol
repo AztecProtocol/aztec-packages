@@ -5,7 +5,7 @@ pragma solidity >=0.8.18;
 import {Errors} from "../libraries/Errors.sol";
 
 /**
- * @title   SimpleLib
+ * @title   SampleLib
  * @author  Anaxandridas II
  * @notice  A tiny library to shuffle indices using the swap-or-not algorithm and then
  *          draw a committee from the shuffled indices.
