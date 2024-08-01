@@ -2089,6 +2089,7 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
+    previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
   };
 }
 

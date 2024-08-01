@@ -25,19 +25,23 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
 
 struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
-    previous_rollup_data : [PreviousRollupData; 2],
+    previous_rollup_data: [PreviousRollupData; 2],
 
     l1_to_l2_roots: RootRollupParityInput,
 
     // inputs required to process l1 to l2 messages
-    l1_to_l2_messages : [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
-    l1_to_l2_message_subtree_sibling_path : [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    l1_to_l2_messages: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
+    l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
 
-    start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot,
+    start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
 
     // inputs required to add the block hash
-    start_archive_snapshot : AppendOnlyTreeSnapshot,
-    new_archive_sibling_path : [Field; ARCHIVE_HEIGHT],
+    start_archive_snapshot: AppendOnlyTreeSnapshot,
+    new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+    // Added previous_block_hash to be passed through to the final root, where it will be either:
+    // - checked on L1 for first block in batch
+    // - checked against previous block_root.end_block_hash in a block_merge
+    previous_block_hash: Field,
 }
 
 impl BlockRootRollupInputs {
@@ -108,7 +112,6 @@ impl BlockRootRollupInputs {
             0
         );
 
-        // TODO(Miranda) make nice
         let mut fee_arr = [FeeRecipient::empty(); 32];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
@@ -116,7 +119,7 @@ impl BlockRootRollupInputs {
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
             new_archive: archive, // archive once this block was added
-            previous_block_hash: 0, // TODO(Miranda): get
+            previous_block_hash: self.previous_block_hash,
             end_block_hash: block_hash, // current newest block hash = this block hash
             start_global_variables: left.constants.global_variables, // we have asserted that left.constants == right.constants => ...
             end_global_variables: left.constants.global_variables, // with a current block range of 1, we only have 1 set of constants
@@ -130,13 +133,14 @@ impl BlockRootRollupInputs {
 impl Empty for BlockRootRollupInputs {
     fn empty() -> Self {
         BlockRootRollupInputs {
-            previous_rollup_data : [PreviousRollupData::empty(); 2],
+            previous_rollup_data: [PreviousRollupData::empty(); 2],
             l1_to_l2_roots: RootRollupParityInput::empty(),
-            l1_to_l2_messages : [0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
-            l1_to_l2_message_subtree_sibling_path : [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-            start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot::zero(),
-            start_archive_snapshot : AppendOnlyTreeSnapshot::zero(),
-            new_archive_sibling_path : [0; ARCHIVE_HEIGHT],
+            l1_to_l2_messages: [0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
+            l1_to_l2_message_subtree_sibling_path: [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+            start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot::zero(),
+            start_archive_snapshot: AppendOnlyTreeSnapshot::zero(),
+            new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
+            previous_block_hash: 0,
         }
     }
 }

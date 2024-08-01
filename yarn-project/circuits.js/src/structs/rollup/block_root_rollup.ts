@@ -47,6 +47,10 @@ export class BlockRootRollupInputs {
      * Sibling path of the new block tree root.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    /**
+     * The hash of the block preceding this one. TODO(Miranda): ensure this is passed to final root and checked on L1
+     */
+    public previousBlockHash: Fr,
   ) {}
 
   /**
@@ -88,6 +92,7 @@ export class BlockRootRollupInputs {
       fields.startL1ToL2MessageTreeSnapshot,
       fields.startArchiveSnapshot,
       fields.newArchiveSiblingPath,
+      fields.previousBlockHash,
     ] as const;
   }
 
@@ -106,6 +111,7 @@ export class BlockRootRollupInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
+      Fr.fromBuffer(reader),
     );
   }
 

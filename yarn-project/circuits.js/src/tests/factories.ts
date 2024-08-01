@@ -997,6 +997,7 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
+    fr(seed + 0x2300),
   );
 }
 

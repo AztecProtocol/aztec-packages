@@ -36,10 +36,9 @@ import {
   PublicDataUpdateRequest,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput, // RootRollupInputs,
-  // type RootRollupPublicInputs,
+  type RootParityInput,
   StateDiffHints,
-  type StateReference,
+  StateReference,
   type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
@@ -209,11 +208,18 @@ export function createBlockMergeRollupInputs(
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
-export async function validateBlockRootOutput(rootOutput: BlockRootOrBlockMergePublicInputs, db: MerkleTreeOperations) {
+export async function validateBlockRootOutput(
+  blockRootOutput: BlockRootOrBlockMergePublicInputs,
+  blockRootInputState: PartialStateReference,
+  db: MerkleTreeOperations,
+) {
+  // TODO(Miranda): Check the below
   await Promise.all([
-    // TODO(Miranda): We have no header in the new block root outputs => no circuit state obj, can recreate and check hash?
-    // validateState(new StateReference(??, ), db),
-    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), rootOutput.newArchive, 'Archive'),
+    validateState(
+      new StateReference(await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db), blockRootInputState),
+      db,
+    ),
+    validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), blockRootOutput.newArchive, 'Archive'),
   ]);
 }
 
@@ -277,6 +283,7 @@ export async function getBlockRootRollupInput(
     startL1ToL2MessageTreeSnapshot: messageTreeSnapshot,
     startArchiveSnapshot,
     newArchiveSiblingPath,
+    previousBlockHash: Fr.ZERO, // TODO(Miranda): init orchestrator with previous block hash, pass here?
   });
 }
 

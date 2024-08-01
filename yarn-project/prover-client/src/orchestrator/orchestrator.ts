@@ -396,8 +396,8 @@ export class ProvingOrchestrator {
           `This can't happen as we cannot create the block root without its input, the merges at index 0. ts complains without this.`,
         );
       }
-
-      // TODO(Miranda): handle header better, add back to circuit inputs?
+      // <--------
+      // TODO(Miranda): extract below to some recreateHeader() fn
       const contentCommitment = new ContentCommitment(
         new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
         sha256Trunc(
@@ -425,11 +425,12 @@ export class ProvingOrchestrator {
       if (header.hash() !== rootRollupOutputs.endBlockHash) {
         throw new Error(`Block header mismatch in finalise.`);
       }
+      // -------->
 
       logger?.debug(`Updating and validating root trees`);
       await this.db.updateArchive(header);
 
-      await validateBlockRootOutput(rootRollupOutputs, this.db);
+      await validateBlockRootOutput(rootRollupOutputs, previousMergeData[1].end, this.db);
 
       // Collect all new nullifiers, commitments, and contracts from all txs in this block
       const gasFees = this.provingState.globalVariables.gasFees;
