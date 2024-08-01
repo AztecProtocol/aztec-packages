@@ -70,6 +70,8 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
  * @param builder
  * @param fr_vec
  * @return T
+ * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimise validate_on_curve and check points
+ * reconstructed from the transcript
  */
 template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec)
 {
@@ -91,7 +93,6 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
 
         result.set_point_at_infinity(fr_vec[0].is_zero() && fr_vec[1].is_zero() && fr_vec[2].is_zero() &&
                                      fr_vec[3].is_zero());
-        result.validate_on_curve();
         return result;
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
@@ -102,7 +103,6 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         fr<Builder> y = convert_from_bn254_frs<Builder, fr<Builder>>(
             builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
         grumpkin_element<Builder> result(x, y, x.is_zero() && y.is_zero());
-        result.validate_is_on_curve();
         return result;
     } else {
         // Array or Univariate
