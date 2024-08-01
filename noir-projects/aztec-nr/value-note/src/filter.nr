@@ -15,6 +15,6 @@ pub fn filter_notes_min_sum(
             sum += U128::from_integer(note.value);
         }
     }
-    
+
     selected
 }
