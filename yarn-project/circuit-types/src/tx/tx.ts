@@ -13,11 +13,14 @@ import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '.
 import { PublicExecutionRequest } from '../public_execution_request.js';
 import { type TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
+import { Gossipable } from '../p2p/gossipable.js';
+import { GOSSIP_PREFIX, TOPIC_VERSION } from '../p2p/interface.js';
+import { TopicType } from '../p2p/interface.js';
 
 /**
  * The interface of an L2 transaction.
  */
-export class Tx {
+export class Tx extends Gossipable {
   constructor(
     /**
      * Output of the private kernel circuit for this tx.
@@ -49,7 +52,17 @@ export class Tx {
      * Public function call to be run by the sequencer as part of teardown.
      */
     public readonly publicTeardownFunctionCall: PublicExecutionRequest,
-  ) {}
+  ) {
+    super()
+  }
+
+  // Gossipable method
+  static override getTopic = GOSSIP_PREFIX + TopicType.tx + TOPIC_VERSION;
+
+  // Gossipable method
+  override messageIdentifier(): TxHash {
+    return this.getTxHash();
+  }
 
   hasPublicCalls() {
     return this.data.numberOfPublicCallRequests() > 0;
