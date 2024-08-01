@@ -84,7 +84,7 @@ impl<F: AcirField> NargoError<F> {
             NargoError::ForeignCallError(error) => Some(error.to_string()),
             _ => None,
         }
-     }
+    }
 }
 
 #[derive(Debug, Error)]
