@@ -86,11 +86,13 @@ jobs:
           export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
-              echo "api_key=${{ env.DEVNET_API_KEY }}" >> $GITHUB_OUTPUT
+              API_KEY_BASE64=`echo -n ${{ env.DEVNET_API_KEY }} | base64 -w 0`
+              echo -n "api_key=$API_KEY_BASE64" >> $GITHUB_OUTPUT
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
-              echo "api_key=${{ env.PROVERNET_API_KEY }}" >> $GITHUB_OUTPUT
+              API_KEY_BASE64=`echo -n ${{ env.PROVERNET_API_KEY }} | base64 -w 0`
+              echo -n "api_key=$API_KEY_BASE64" >> $GITHUB_OUTPUT
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
@@ -101,8 +103,8 @@ jobs:
     needs: set-network
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ needs.set-network.outputs.api_key }}
-      TF_VAR_API_KEY: ${{ needs.set-network.outputs.api_key }}
+      API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
+      TF_VAR_API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -172,8 +174,8 @@ jobs:
     needs: [build, set-network]
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ needs.set-network.outputs.api_key }}
-      TF_VAR_API_KEY: ${{ needs.set-network.outputs.api_key }}
+      API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
+      TF_VAR_API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
     steps:
       - uses: actions/checkout@v4
         with:
@@ -269,8 +271,8 @@ jobs:
     needs: [terraform_deploy, set-network]
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ needs.set-network.outputs.api_key }}
-      TF_VAR_API_KEY: ${{ needs.set-network.outputs.api_key }}
+      API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
+      TF_VAR_API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
     steps:
       - uses: actions/checkout@v4
         with:
@@ -320,8 +322,8 @@ jobs:
     needs: [terraform_deploy, bootstrap, set-network]
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ needs.set-network.outputs.api_key }}
-      TF_VAR_API_KEY: ${{ needs.set-network.outputs.api_key }}
+      API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
+      TF_VAR_API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
     steps:
       - uses: actions/checkout@v4
         with:
@@ -358,8 +360,8 @@ jobs:
     needs: [deploy-faucet, set-network]
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ needs.set-network.outputs.api_key }}
-      TF_VAR_API_KEY: ${{ needs.set-network.outputs.api_key }}
+      API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
+      TF_VAR_API_KEY: `echo -n ${{ needs.set-network.outputs.api_key }} | base64 --decode`
     steps:
       - uses: actions/checkout@v4
         with:
