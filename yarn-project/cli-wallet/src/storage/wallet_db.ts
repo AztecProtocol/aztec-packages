@@ -1,6 +1,8 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
+import { AccountType } from '../utils/accounts.js';
+
 export class WalletDB {
   #accounts!: AztecMap<string, Buffer>;
 
@@ -17,13 +19,28 @@ export class WalletDB {
 
   async storeAccount(
     address: AztecAddress,
-    { privateKey, salt, alias }: { privateKey: Fr; salt: Fr; alias: string | undefined },
+    { type, secretKey, salt, alias }: { type: AccountType; secretKey: Fr; salt: Fr; alias: string | undefined },
   ) {
     if (alias) {
       await this.#accounts.set(`${alias}`, address.toBuffer());
     }
-    await this.#accounts.set(`${address.toString()}-pk`, privateKey.toBuffer());
+    await this.#accounts.set(`${address.toString()}-type`, Buffer.from(type));
+    await this.#accounts.set(`${address.toString()}-sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}-salt`, salt.toBuffer());
+  }
+
+  async storeAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string, metadata: Buffer) {
+    const { address } = this.retrieveAccount(aliasOrAddress);
+    await this.#accounts.set(`${address.toString()}-${metadataKey}`, metadata);
+  }
+
+  retrieveAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string) {
+    const { address } = this.retrieveAccount(aliasOrAddress);
+    const result = this.#accounts.get(`${address.toString()}-${metadataKey}`);
+    if (!result) {
+      throw new Error(`Could not find metadata with key ${metadataKey} for account ${aliasOrAddress}`);
+    }
+    return result;
   }
 
   retrieveAccount(aliasOrAddress: AztecAddress | string) {
@@ -31,14 +48,15 @@ export class WalletDB {
       typeof aliasOrAddress === 'object'
         ? aliasOrAddress
         : AztecAddress.fromBuffer(this.#accounts.get(aliasOrAddress)!);
-    const privateKeyBuffer = this.#accounts.get(`${address.toString()}-pk`);
-    if (!privateKeyBuffer) {
+    const secretKeyBuffer = this.#accounts.get(`${address.toString()}-sk`);
+    if (!secretKeyBuffer) {
       throw new Error(
-        `Could not find ${address}-pk. Account "${aliasOrAddress.toString}" does not exist on this wallet.`,
+        `Could not find ${address}-sk. Account "${aliasOrAddress.toString}" does not exist on this wallet.`,
       );
     }
-    const privateKey = Fr.fromBuffer(privateKeyBuffer);
+    const secretKey = Fr.fromBuffer(secretKeyBuffer);
     const salt = Fr.fromBuffer(this.#accounts.get(`${address.toString()}-salt`)!);
-    return { privateKey, salt };
+    const type = this.#accounts.get(`${address.toString()}-type`)!.toString('utf8') as AccountType;
+    return { address, secretKey, salt, type };
   }
 }

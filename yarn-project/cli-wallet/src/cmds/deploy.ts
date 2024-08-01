@@ -5,7 +5,7 @@ import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../fees.js';
-import { AccountType, createOrRetrieveWallet } from '../utils/accounts.js';
+import { retrieveWallet } from '../utils/accounts.js';
 
 export async function deploy(
   artifactPath: string,
@@ -14,8 +14,7 @@ export async function deploy(
   publicKeys: PublicKeys | undefined,
   rawArgs: any[],
   salt: Fr | undefined,
-  privateKey: Fr | undefined,
-  aliasOrAddress: string | undefined,
+  aliasOrAddress: string,
   initializer: string | undefined,
   skipPublicDeployment: boolean,
   skipClassRegistration: boolean,
@@ -40,7 +39,7 @@ export async function deploy(
     );
   }
 
-  const wallet = await createOrRetrieveWallet(AccountType.SCHNORR, client, privateKey, aliasOrAddress);
+  const wallet = await retrieveWallet(client, aliasOrAddress);
 
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);
 

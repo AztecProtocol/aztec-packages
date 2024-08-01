@@ -4,15 +4,14 @@ import { prepTx } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../fees.js';
-import { AccountType, createOrRetrieveWallet } from '../utils/accounts.js';
+import { retrieveWallet } from '../utils/accounts.js';
 
 export async function send(
   functionName: string,
   functionArgsIn: any[],
   contractArtifactPath: string,
   contractAddress: AztecAddress,
-  privateKey: Fr | undefined,
-  aliasOrAddress: string | undefined,
+  aliasOrAddress: string,
   rpcUrl: string,
   wait: boolean,
   feeOpts: IFeeOpts,
@@ -23,7 +22,7 @@ export async function send(
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-  const wallet = await createOrRetrieveWallet(AccountType.SCHNORR, client, privateKey, aliasOrAddress);
+  const wallet = await retrieveWallet(client, aliasOrAddress);
 
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);

@@ -1,4 +1,6 @@
+import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getIdentities } from '@aztec/accounts/utils';
 import { type DeployAccountOptions, createCompatibleClient } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -6,10 +8,14 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../fees.js';
 import { WalletDB } from '../storage/wallet_db.js';
+import { AccountType, createAndStoreAccount } from '../utils/accounts.js';
+import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
 
 export async function createAccount(
   rpcUrl: string,
-  privateKey: Fr | undefined,
+  accountType: AccountType,
+  secretKey: Fr | undefined,
+  publicKey: string | undefined,
   alias: string | undefined,
   registerOnly: boolean,
   publicDeploy: boolean,
@@ -20,21 +26,18 @@ export async function createAccount(
   log: LogFn,
 ) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const printPK = typeof privateKey === 'undefined';
-  privateKey ??= Fr.random();
 
   const salt = Fr.ZERO;
+  secretKey ??= Fr.random();
 
-  const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
+  const account = await createAndStoreAccount(client, accountType, secretKey, publicKey, salt, alias);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
-
-  await WalletDB.getInstance().storeAccount(address, { alias, privateKey, salt });
 
   log(`\nNew account:\n`);
   log(`Address:         ${address.toString()}`);
   log(`Public key:      0x${publicKeys.toString()}`);
-  if (printPK) {
-    log(`Private key:     ${privateKey.toString()}`);
+  if (secretKey) {
+    log(`Secret key:     ${secretKey.toString()}`);
   }
   log(`Partial address: ${partialAddress.toString()}`);
   log(`Salt:            ${salt.toString()}`);

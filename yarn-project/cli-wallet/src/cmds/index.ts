@@ -1,7 +1,7 @@
 import { PublicKeys } from '@aztec/circuits.js';
 import {
   addOptions,
-  createPrivateKeyOption,
+  createSecretKeyOption,
   logJson,
   parseAztecAddress,
   parseFieldFromHexString,
@@ -24,8 +24,13 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '--skip-initialization',
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
+    .option('-t, --type <string>', 'Type of account to create. Default is schnorr.', 'schnorr')
     .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
-    .addOption(createPrivateKeyOption('Private key for account. Uses random by default.', false))
+    .addOption(createSecretKeyOption('Secret key for account. Uses random by default.', false).conflicts('public-key'))
+    .option(
+      '-p, --public-key <string>',
+      'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
+    )
     .option('-a, --alias <string>', 'Alias for the account. Used for easy reference in the PXE.');
 
   addOptions(createAccountCommand, FeeOpts.getOptions())
@@ -39,10 +44,13 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (_options, command) => {
       const { createAccount } = await import('../cmds/create_account.js');
       const options = command.optsWithGlobals();
-      const { privateKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias } = options;
+      const { secretKey, publicKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, type } =
+        options;
       await createAccount(
         rpcUrl,
-        privateKey,
+        type,
+        secretKey,
+        publicKey,
         alias,
         registerOnly,
         skipInitialization,
@@ -75,14 +83,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       parseFieldFromHexString,
     )
     .option('--universal', 'Do not mix the sender address into the deployment.')
-    .option(
+    .requiredOption(
       '-a, --alias-or-address <string>',
       'Alias or address of the account to deploy from. Incompatible with --private-key.',
-    )
-    .addOption(
-      createPrivateKeyOption("The sender's private key. Incompatible with --alias-or-address", false).conflicts(
-        'alias',
-      ),
     )
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -115,7 +118,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicKey ? PublicKeys.fromString(publicKey) : undefined,
       rawArgs,
       salt,
-      privateKey,
       aliasOrAddress,
       typeof init === 'string' ? init : undefined,
       !publicDeployment,
@@ -137,11 +139,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--args [functionArgs...]', 'Function arguments', [])
     .requiredOption('-c, --contract-artifact <fileLocation>', "A compiled Aztec.nr contract's ABI in JSON format")
     .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .option(
+    .requiredOption(
       '-a, --alias-or-address <string>',
       'Alias or address of the account to deploy from. Incompatible with --private-key.',
     )
-    .addOption(createPrivateKeyOption("The sender's private key.", false).conflicts('alias'))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
 
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
@@ -153,7 +154,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       args,
       contractArtifact,
       contractAddress,
-      privateKey,
       aliasOrAddress,
       rpcUrl,
       !noWait,
