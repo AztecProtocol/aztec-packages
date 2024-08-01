@@ -614,7 +614,7 @@ export class TXE implements TypedOracle {
 
       // Apply side effects
       const endSideEffectCounter = publicInputs.endSideEffectCounter;
-      this.sideEffectsCounter = endSideEffectCounter.toNumber();
+      this.sideEffectsCounter = endSideEffectCounter.toNumber() + 1;
 
       await this.addNullifiers(
         targetContractAddress,
@@ -752,7 +752,7 @@ export class TXE implements TypedOracle {
 
     // Apply side effects
     if (!executionResult.reverted) {
-      this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+      this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber() + 1;
     }
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
@@ -798,7 +798,7 @@ export class TXE implements TypedOracle {
     }
 
     // Apply side effects
-    this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
+    this.sideEffectsCounter = executionResult.endSideEffectCounter.toNumber() + 1;
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
     this.setFunctionSelector(currentFunctionSelector);
