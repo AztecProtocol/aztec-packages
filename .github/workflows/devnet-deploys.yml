@@ -104,6 +104,12 @@ jobs:
           fi
         id: set_network_vars
 
+      - name: Print network vars
+        shell: bash
+        run: |
+          env
+        id: print_network_vars
+
   build:
     needs: set-network
     runs-on: ${{ github.actor }}-x86
