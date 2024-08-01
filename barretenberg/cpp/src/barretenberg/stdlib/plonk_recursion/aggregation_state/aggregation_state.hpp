@@ -173,17 +173,40 @@ template <typename Builder> AggregationObjectIndices init_default_agg_obj_indice
                                                 x.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
                                                 x.slice(NUM_LIMB_BITS * 3, TOTAL_BITS) };
         for (size_t i = 0; i < NUM_LIMBS; ++i) {
+            info("val_limbs[", i, "] = ", val_limbs[i]);
             uint32_t idx = builder.add_variable(val_limbs[i]);
             agg_obj_indices[agg_obj_indices_idx] = idx;
             agg_obj_indices_idx++;
         }
     }
+    for (size_t i = 0; i < agg_obj_indices_idx; ++i) {
+        info(builder.get_variable(agg_obj_indices[i]));
+    }
     return agg_obj_indices;
 }
-template <typename Builder, typename Curve> aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
+template <typename Builder, typename Curve>
+aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
+    requires(!IsSimulator<Builder>)
 {
     AggregationObjectIndices agg_obj_indices = init_default_agg_obj_indices(builder);
     return convert_witness_indices_to_agg_obj<Builder, Curve>(builder, agg_obj_indices);
+}
+template <typename Builder, typename Curve>
+aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
+    requires IsSimulator<Builder>
+{
+    uint256_t x0_val("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+    uint256_t y0_val("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+    uint256_t x1_val("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+    uint256_t y1_val("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+    typename Curve::BaseField x0(&builder, x0_val);
+    typename Curve::BaseField y0(&builder, y0_val);
+    typename Curve::BaseField x1(&builder, x1_val);
+    typename Curve::BaseField y1(&builder, y1_val);
+    aggregation_state<Curve> agg_obj;
+    agg_obj.P0 = typename Curve::Group(x0, y0);
+    agg_obj.P1 = typename Curve::Group(x1, y1);
+    return agg_obj;
 }
 
 } // namespace bb::stdlib::recursion
