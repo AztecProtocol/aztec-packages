@@ -1,5 +1,4 @@
 import { BatchCall, EventType, Fr } from '@aztec/aztec.js';
-import { currentLevel } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 import { TokenContractTest } from './token_contract_test.js';
