@@ -7,7 +7,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "tracy/Tracy.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -30,8 +29,6 @@ class ClientIVCBench : public benchmark::Fixture {
         bb::srs::init_crs_factory("../srs_db/ignition");
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
-
-    void TearDown([[maybe_unused]] const ::benchmark::State& state) override {}
 
     /**
      * @brief Compute verification key for each circuit in the IVC based on the number of desired function circuits
