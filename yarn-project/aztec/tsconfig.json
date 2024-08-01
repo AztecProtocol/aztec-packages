@@ -80,6 +80,9 @@
     },
     {
       "path": "../txe"
+    },
+    {
+      "path": "../types"
     }
   ],
   "include": ["src"]

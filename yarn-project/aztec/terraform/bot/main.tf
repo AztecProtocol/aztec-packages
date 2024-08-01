@@ -69,6 +69,69 @@ resource "aws_service_discovery_service" "aztec-bot" {
   }
 }
 
+# Create a fleet. Entirely from spot capacity.
+data "template_file" "user_data" {
+  template = <<EOF
+#!/bin/bash
+echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
+echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-bot"}' >> /etc/ecs/ecs.config
+EOF
+}
+
+resource "aws_launch_template" "bot_launch_template" {
+  name                   = "${var.DEPLOY_TAG}-launch-template"
+  image_id               = "ami-0cd4858f2b923aa6b"
+  instance_type          = "t3.2xlarge"
+  vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
+
+  iam_instance_profile {
+    name = data.terraform_remote_state.setup_iac.outputs.ecs_instance_profile_name
+  }
+
+  key_name = data.terraform_remote_state.setup_iac.outputs.ecs_instance_key_pair_name
+
+  user_data = base64encode(data.template_file.user_data.rendered)
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name       = "${var.DEPLOY_TAG}-bot"
+      prometheus = ""
+    }
+  }
+}
+
+resource "aws_ec2_fleet" "bot_fleet" {
+  launch_template_config {
+    launch_template_specification {
+      launch_template_id = aws_launch_template.bot_launch_template.id
+      version            = aws_launch_template.bot_launch_template.latest_version
+    }
+
+    override {
+      subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
+      availability_zone = "eu-west-2a"
+      max_price         = "0.15"
+    }
+
+    override {
+      subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
+      availability_zone = "eu-west-2b"
+      max_price         = "0.15"
+    }
+  }
+
+  target_capacity_specification {
+    default_target_capacity_type = "spot"
+    total_target_capacity        = var.BOT_COUNT
+    spot_target_capacity         = var.BOT_COUNT
+    on_demand_target_capacity    = 0
+  }
+
+  terminate_instances                 = true
+  terminate_instances_with_expiration = true
+}
+
 locals {
   api_prefix = "/${var.DEPLOY_TAG}/aztec-bot/${var.BOT_API_KEY}"
 }
@@ -76,18 +139,18 @@ locals {
 resource "aws_ecs_task_definition" "aztec-bot" {
   family                   = "${var.DEPLOY_TAG}-aztec-bot"
   network_mode             = "awsvpc"
-  cpu                      = 16384
-  memory                   = 32768
-  requires_compatibilities = ["FARGATE"]
+  requires_compatibilities = ["EC2"]
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
   task_role_arn            = data.terraform_remote_state.aztec2_iac.outputs.cloudwatch_logging_ecs_role_arn
 
   container_definitions = jsonencode([
     {
-      name      = "${var.DEPLOY_TAG}-aztec-bot"
-      image     = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
-      command   = ["start", "--bot", "--pxe"]
-      essential = true
+      name              = "${var.DEPLOY_TAG}-aztec-bot"
+      image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
+      command           = ["start", "--bot", "--pxe"]
+      essential         = true
+      cpu               = 8192
+      memoryReservation = 30720
       portMappings = [
         {
           containerPort = 80
@@ -123,11 +186,10 @@ resource "aws_ecs_task_definition" "aztec-bot" {
 resource "aws_ecs_service" "aztec-bot" {
   name                               = "${var.DEPLOY_TAG}-aztec-bot"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
-  launch_type                        = "FARGATE"
-  desired_count                      = 1
+  launch_type                        = "EC2"
+  desired_count                      = var.BOT_COUNT
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
-  platform_version                   = "1.4.0"
   force_new_deployment               = true
 
   network_configuration {
@@ -138,11 +200,11 @@ resource "aws_ecs_service" "aztec-bot" {
     security_groups = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
   }
 
-  load_balancer {
-    target_group_arn = aws_alb_target_group.bot_http.arn
-    container_name   = "${var.DEPLOY_TAG}-aztec-bot"
-    container_port   = 80
-  }
+  # load_balancer {
+  #   target_group_arn = aws_alb_target_group.bot_http.arn
+  #   container_name   = "${var.DEPLOY_TAG}-aztec-bot"
+  #   container_port   = 80
+  # }
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-bot.arn
@@ -150,43 +212,48 @@ resource "aws_ecs_service" "aztec-bot" {
     container_port = 80
   }
 
+  placement_constraints {
+    type       = "memberOf"
+    expression = "attribute:group == ${var.DEPLOY_TAG}-bot"
+  }
+
   task_definition = aws_ecs_task_definition.aztec-bot.family
 }
 
-resource "aws_alb_target_group" "bot_http" {
-  name                 = "${var.DEPLOY_TAG}-bot-http"
-  port                 = 80
-  protocol             = "HTTP"
-  target_type          = "ip"
-  vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
-  deregistration_delay = 5
+# resource "aws_alb_target_group" "bot_http" {
+#   name                 = "${var.DEPLOY_TAG}-bot-http"
+#   port                 = 80
+#   protocol             = "HTTP"
+#   target_type          = "ip"
+#   vpc_id               = data.terraform_remote_state.setup_iac.outputs.vpc_id
+#   deregistration_delay = 5
 
-  health_check {
-    path                = "${local.api_prefix}/status"
-    matcher             = 200
-    interval            = 10
-    healthy_threshold   = 2
-    unhealthy_threshold = 5
-    timeout             = 5
-  }
+#   health_check {
+#     path                = "${local.api_prefix}/status"
+#     matcher             = 200
+#     interval            = 10
+#     healthy_threshold   = 2
+#     unhealthy_threshold = 5
+#     timeout             = 5
+#   }
 
-  tags = {
-    name = "${var.DEPLOY_TAG}-bot-http"
-  }
-}
+#   tags = {
+#     name = "${var.DEPLOY_TAG}-bot-http"
+#   }
+# }
 
-resource "aws_lb_listener_rule" "bot_api" {
-  listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
-  priority     = 700
+# resource "aws_lb_listener_rule" "bot_api" {
+#   listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
+#   priority     = 700
 
-  action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.bot_http.arn
-  }
+#   action {
+#     type             = "forward"
+#     target_group_arn = aws_alb_target_group.bot_http.arn
+#   }
 
-  condition {
-    path_pattern {
-      values = ["${local.api_prefix}*"]
-    }
-  }
-}
+#   condition {
+#     path_pattern {
+#       values = ["${local.api_prefix}*"]
+#     }
+#   }
+# }

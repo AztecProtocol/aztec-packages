@@ -52,3 +52,8 @@ variable "PROVING_ENABLED" {
   type    = bool
   default = false
 }
+
+variable "BOT_COUNT" {
+  type    = string
+  default = "1"
+}
