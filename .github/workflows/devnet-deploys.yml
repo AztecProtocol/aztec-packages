@@ -86,11 +86,11 @@ jobs:
           export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
-              echo "api_key=$DEVNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "api_key=${{ env.DEVNET_API_KEY }}" >> $GITHUB_OUTPUT
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
-              echo "api_key=$PROVERNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "api_key=${{ env.PROVERNET_API_KEY }}" >> $GITHUB_OUTPUT
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
