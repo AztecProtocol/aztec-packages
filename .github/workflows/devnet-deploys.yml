@@ -109,8 +109,8 @@ jobs:
   build:
     needs: set-network
     env:
-      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag )}}
-      API_KEY: ${{ needs.set-network.outputs.api_key )}}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ needs.set-network.outputs.api_key }}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
