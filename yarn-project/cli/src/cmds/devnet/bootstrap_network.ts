@@ -9,7 +9,6 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
-import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -23,7 +22,7 @@ type ContractDeploymentInfo = {
   salt: Fr;
 };
 
-export async function bootstrapDevnet(
+export async function bootstrapNetwork(
   pxeUrl: string,
   l1Url: string,
   l1ChainId: string,
@@ -63,18 +62,26 @@ export async function bootstrapDevnet(
         {
           devCoinL1: erc20Address.toString(),
           devCoinPortalL1: portalAddress.toString(),
-          devCoinL2: token.address.toString(),
-          devCoinL2InitHash: token.initHash.toString(),
-          devCoinL2Salt: token.salt.toString(),
-          devCoinBridgeL2: bridge.address.toString(),
-          devCoinBridgeL2InitHash: bridge.initHash.toString(),
-          devCoinBridgeL2Salt: bridge.salt.toString(),
-          devCoinFpcL2: fpc.address.toString(),
-          devCoinFpcL2InitHash: fpc.initHash.toString(),
-          devCoinFpcL2Salt: fpc.salt.toString(),
-          counterL2: counter.address.toString(),
-          counterL2InitHash: counter.initHash.toString(),
-          counterL2Salt: counter.salt.toString(),
+          devCoin: {
+            address: token.address.toString(),
+            initHash: token.initHash.toString(),
+            salt: token.salt.toString(),
+          },
+          devCoinBridge: {
+            address: bridge.address.toString(),
+            initHash: bridge.initHash.toString(),
+            salt: bridge.salt.toString(),
+          },
+          devCoinFpc: {
+            address: fpc.address.toString(),
+            initHash: fpc.initHash.toString(),
+            salt: fpc.salt.toString(),
+          },
+          counter: {
+            address: counter.address.toString(),
+            initHash: counter.initHash.toString(),
+            salt: counter.salt.toString(),
+          },
         },
         null,
         2,
@@ -94,6 +101,10 @@ export async function bootstrapDevnet(
  * Step 1. Deploy the L1 contracts, but don't initialize
  */
 async function deployERC20({ walletClient, publicClient }: L1Clients) {
+  const { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import(
+    '@aztec/l1-artifacts'
+  );
+
   const erc20: ContractArtifacts = {
     contractAbi: PortalERC20Abi,
     contractBytecode: PortalERC20Bytecode,
@@ -168,6 +179,7 @@ async function initPortal(
   portal: EthAddress,
   bridge: AztecAddress,
 ) {
+  const { TokenPortalAbi } = await import('@aztec/l1-artifacts');
   const {
     l1ContractAddresses: { registryAddress },
   } = await pxe.getNodeInfo();
