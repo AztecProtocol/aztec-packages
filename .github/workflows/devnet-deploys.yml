@@ -17,11 +17,13 @@ concurrency:
 env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
   GIT_COMMIT: ${{ github.sha }}
-  DEPLOY_TAG: devnet
+  DEPLOY_TAG: none
   L1_CHAIN_ID: 677692
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  FORK_API_KEY: ${{ secrets.FORK_API_KEY }}
+  DEVNET_API_KEY: ${{ secrets.DEVNET_API_KEY }}
+  PROVERNET_API_KEY: ${{ secrets.PROVERNET_API_KEY }}
+  API_KEY: ${{ secrets.DEVNET_API_KEY }}
   FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   CONTRACT_PUBLISHER_PRIVATE_KEY: ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }}
   CONTRACT_S3_BUCKET: s3://static.aztec.network
@@ -29,28 +31,38 @@ env:
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_L1_CHAIN_ID: 677692
-  TF_VAR_SEQUENCER_PRIVATE_KEYS: '["${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}"]'
-  TF_VAR_NODE_P2P_PRIVATE_KEYS: '[""]'
-  TF_VAR_DEPLOY_TAG: devnet
+  TF_VAR_DEPLOY_TAG: none
   TF_VAR_IMAGE_TAG: ${{ github.sha }}
   TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
+
+  # Node / Sequencer
+  TF_VAR_BOOTSTRAP_NODES: ""
+  TF_VAR_P2P_ENABLED: "false"
+  TF_VAR_SEQUENCER_PRIVATE_KEYS: '["${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}"]'
+  TF_VAR_NODE_P2P_PRIVATE_KEYS: '[""]'
+  TF_VAR_SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 0 # disable auto block building
+  TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
+  TF_VAR_SEQ_MAX_TX_PER_BLOCK: 64
+
+  # Anvil
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+
+  # Faucet
+  TF_VAR_FAUCET_ACCOUNT_INDEX: 9
+
+  # Prover
   TF_VAR_AGENTS_PER_PROVER: 2
   TF_VAR_PROVING_ENABLED: false
+
+  # Transaction Bot
   TF_VAR_BOT_API_KEY: ${{ secrets.BOT_API_KEY }}
   TF_VAR_BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
-  TF_VAR_SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 0 # disable auto block building
   TF_VAR_BOT_NO_START: true
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 0 # no private transfers
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
   TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 0
-  TF_VAR_FAUCET_ACCOUNT_INDEX: 9
-  TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
-  TF_VAR_SEQ_MAX_TX_PER_BLOCK: 64
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 60
-  TF_VAR_BOOTSTRAP_NODES: ""
-  TF_VAR_P2P_ENABLED: "false"
 
 jobs:
   setup:
@@ -60,7 +72,7 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
-  get-branch-name:
+  set-network:
     needs: setup
     runs-on: ${{ github.actor }}-x86
     steps:
@@ -73,8 +85,27 @@ jobs:
           env
         id: extract_branch
 
+      - name: Set network vars
+        shell: bash
+        run: |
+          env
+          echo "BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_ENV
+          echo "TF_VAR_DEPLOY_TAG=${BRANCH_NAME}" >>$GITHUB_ENV
+          echo "DEPLOY_TAG=${BRANCH_NAME}" >>$GITHUB_ENV
+
+          if [ "$BRANCH_NAME" = "devnet" ]
+          then
+              echo "API_KEY=${DEVNET_API_KEY}" >>$GITHUB_ENV
+          elif [ "$BRANCH_NAME" = "provernet" ]
+          then
+              echo "API_KEY=${PROVERNET_API_KEY}" >>$GITHUB_ENV
+          else
+              echo "Unrecognized Branch!!"
+          fi
+        id: set_network_vars
+
   build:
-    needs: get-branch-name
+    needs: set-network
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -105,6 +136,7 @@ jobs:
         timeout-minutes: 40
         if: steps.check_only_workflow_changes.outputs.result == 'false'
         run: |
+          emv
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ env.DEPLOY_TAG }}
@@ -216,7 +248,6 @@ jobs:
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
-          env
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store"
 
       - name: Deploy Provers
@@ -228,7 +259,6 @@ jobs:
       - name: Deploy PXE
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
-          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.pxe_data_store"
 
@@ -347,14 +377,12 @@ jobs:
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
         run: |
-          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
           terraform apply -input=false -auto-approve
 
       - name: Deploy PXE
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
-          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
           terraform apply -input=false -auto-approve
 
