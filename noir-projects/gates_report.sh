@@ -30,12 +30,13 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
         fi
     done
 
-    # If it's mega honk, we need to pass the -m flag
+    # If it's mega honk, we need to use the gates_mega_honk command    
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates -h -m -b "./target/$ARTIFACT_NAME.json")
+        GATES_INFO=$($BB_BIN gates_mega_honk -h -b "$pathname")
     else
-        GATES_INFO=$($BB_BIN gates -h -b "./target/$ARTIFACT_NAME.json")
+        GATES_INFO=$($BB_BIN gates -h -b "$pathname")
     fi
+    
     MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r '.functions[0] | .name = "main"')
     echo "{\"package_name\": \"$ARTIFACT_NAME\", \"functions\": [$MAIN_FUNCTION_INFO]" >> gates_report.json
 

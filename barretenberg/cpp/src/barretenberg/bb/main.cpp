@@ -1421,12 +1421,9 @@ int main(int argc, char* argv[])
             auto tube_vk_path = output_path + "/vk";
             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
-            bool mega_honk = flag_present(args, "-m");
-            if (mega_honk) {
-                gateCount<MegaCircuitBuilder>(bytecode_path, honk_recursion);
-            } else {
-                gateCount(bytecode_path, honk_recursion);
-            }
+            gateCount<UltraCircuitBuilder>(bytecode_path, honk_recursion);
+        } else if (command == "gates_mega_honk") {
+            gateCount<MegaCircuitBuilder>(bytecode_path, honk_recursion);
         } else if (command == "verify") {
             return verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "contract") {
