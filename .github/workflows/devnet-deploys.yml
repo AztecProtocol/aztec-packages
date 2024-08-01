@@ -95,7 +95,7 @@ jobs:
   build:
     needs: set-network
     env:
-      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -183,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, set-network]
     env:
-      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -296,7 +296,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [terraform_deploy, set-network]
     env:
-      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -363,7 +363,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [terraform_deploy, bootstrap, set-network]
     env:
-      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -417,7 +417,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-faucet, set-network]
     env:
-      DEPLOY_TAG: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
       - uses: actions/checkout@v4
         with:
