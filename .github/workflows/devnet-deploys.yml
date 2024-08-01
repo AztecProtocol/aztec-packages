@@ -89,10 +89,6 @@ jobs:
         shell: bash
         run: |
           env
-          echo "BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_ENV
-          echo "TF_VAR_DEPLOY_TAG=${BRANCH_NAME}" >>$GITHUB_ENV
-          echo "DEPLOY_TAG=${BRANCH_NAME}" >>$GITHUB_ENV
-
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${DEVNET_API_KEY}" >>$GITHUB_ENV
