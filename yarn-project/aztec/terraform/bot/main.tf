@@ -167,6 +167,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "BOT_PRIVATE_TRANSFERS_PER_TX", value = var.BOT_PRIVATE_TRANSFERS_PER_TX },
         { name = "BOT_PUBLIC_TRANSFERS_PER_TX", value = var.BOT_PUBLIC_TRANSFERS_PER_TX },
         { name = "BOT_TX_MINED_WAIT_SECONDS", value = var.BOT_TX_MINED_WAIT_SECONDS },
+        { name = "BOT_NO_WAIT_FOR_TRANSFERS", value = var.BOT_NO_WAIT_FOR_TRANSFERS },
         { name = "AZTEC_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-1.local/${var.DEPLOY_TAG}/aztec-node-1/${var.API_KEY}" },
         { name = "PXE_PROVER_ENABLED", value = tostring(var.PROVING_ENABLED) }
       ]
