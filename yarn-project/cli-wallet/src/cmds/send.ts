@@ -1,4 +1,4 @@
-import { type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
+import { type AztecAddress, Contract, type Fr } from '@aztec/aztec.js';
 import { createCompatibleClient } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
