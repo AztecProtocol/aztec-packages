@@ -678,16 +678,16 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
-void gateCount(const std::string& bytecodePath, bool honk_recursion)
+template <typename Builder = UltraCircuitBuilder> void gateCount(const std::string& bytecodePath, bool honk_recursion)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath, honk_recursion);
     size_t i = 0;
     for (auto constraint_system : constraint_systems) {
-        acir_proofs::AcirComposer acir_composer(0, verbose_logging);
-        acir_composer.create_circuit(constraint_system, {}, true);
-        auto circuit_size = acir_composer.get_total_circuit_size();
+        auto builder = acir_format::create_circuit<Builder>(
+            constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
+        auto circuit_size = builder.get_total_circuit_size();
 
         // Build individual circuit report
         std::string gates_per_opcode_str;
@@ -1421,7 +1421,12 @@ int main(int argc, char* argv[])
             auto tube_vk_path = output_path + "/vk";
             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
-            gateCount(bytecode_path, honk_recursion);
+            bool mega_honk = flag_present(args, "-m");
+            if (mega_honk) {
+                gateCount<MegaCircuitBuilder>(bytecode_path, honk_recursion);
+            } else {
+                gateCount(bytecode_path, honk_recursion);
+            }
         } else if (command == "verify") {
             return verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "contract") {

@@ -1,0 +1,4 @@
+[
+  "private_kernel_reset_[a-z]+$",
+  "private_kernel_init"
+]
