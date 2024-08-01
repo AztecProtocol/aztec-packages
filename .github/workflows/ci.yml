@@ -281,7 +281,7 @@ jobs:
   bb-native-tests:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: ${{ 'true' == 'true' }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
