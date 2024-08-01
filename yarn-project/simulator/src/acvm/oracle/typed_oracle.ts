@@ -27,8 +27,8 @@ export interface NoteData {
   storageSlot: Fr;
   /** The nonce of the note. */
   nonce: Fr;
-  /** The inner note hash of the note. */
-  innerNoteHash: Fr;
+  /** The slotted note hash of the note. */
+  slottedNoteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the note hash tree. Undefined for pending notes. */
@@ -162,13 +162,13 @@ export abstract class TypedOracle {
     _storageSlot: Fr,
     _noteTypeId: NoteSelector,
     _note: Fr[],
-    _innerNoteHash: Fr,
+    _slottedNoteHash: Fr,
     _counter: number,
   ): void {
     throw new OracleMethodNotAvailableError('notifyCreatedNote');
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _innerNoteHash: Fr, _counter: number): Promise<void> {
+  notifyNullifiedNote(_innerNullifier: Fr, _slottedNoteHash: Fr, _counter: number): Promise<void> {
     throw new OracleMethodNotAvailableError('notifyNullifiedNote');
   }
 
@@ -253,17 +253,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('callPrivateFunction');
   }
 
-  callPublicFunction(
-    _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-    _isDelegateCall: boolean,
-  ): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('callPublicFunction');
-  }
-
   enqueuePublicFunctionCall(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
@@ -284,6 +273,10 @@ export abstract class TypedOracle {
     _isDelegateCall: boolean,
   ): Promise<void> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
+  }
+
+  notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): void {
+    throw new OracleMethodNotAvailableError('notifySetMinRevertibleSideEffectCounter');
   }
 
   aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
