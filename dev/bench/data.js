@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722529316289,
+  "lastUpdate": 1722541118504,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -104536,6 +104536,78 @@ window.BENCHMARK_DATA = {
             "value": 169827522,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169827522 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "67efb8b13f8009b55d540b85b849a2172c28edd8",
+          "message": "feat(bb): integrate tracy memory/cpu profiler (#7718)\n\nThis is an in-depth profiler that has a bit of a learning curve but has\nreally good thorough results\n\n![image](https://github.com/user-attachments/assets/156c70ba-c7c5-4eab-94c2-f375b867381c)",
+          "timestamp": "2024-08-01T23:26:45+04:00",
+          "tree_id": "4004e8035e27d338be470f1cdf13cd9e18d786d8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/67efb8b13f8009b55d540b85b849a2172c28edd8"
+        },
+        "date": 1722541113473,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13226.301191000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9714.753247 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4740.855621999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4306.188193999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39779.39401699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39779393000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14496.437337,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14496438000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3645860090,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3645860090 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 203453204,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 203453204 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2953176084,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2953176084 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166854587,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166854587 ns\nthreads: 1"
           }
         ]
       }
