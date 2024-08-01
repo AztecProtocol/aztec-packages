@@ -181,7 +181,7 @@ TEST(RecursiveHonkTranscript, ProblematicTest)
     using Instance = ProverInstance_<UltraFlavor>;
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
-    g Builder builder;
+    Builder builder;
     // auto bf_element = NativeBF::random_element();
     // auto dummy = NativeCommitment::one() * NativeBF::random_element();
     NativeCommitment expected_issue = NativeCommitment::infinity();
