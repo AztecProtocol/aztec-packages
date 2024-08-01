@@ -107,6 +107,8 @@ template <typename Builder, typename T> class bigfield {
                                                 const field_t<Builder>& d,
                                                 const bool can_overflow = false)
     {
+        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
+               c.is_constant() == d.is_constant());
         bigfield result;
         result.context = a.context;
         result.binary_basis_limbs[0] = Limb(field_t(a));
@@ -132,6 +134,8 @@ template <typename Builder, typename T> class bigfield {
                                          const field_t<Builder>& d,
                                          const bool can_overflow = false)
     {
+        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
+               c.is_constant() == d.is_constant());
         bigfield result;
         auto ctx = a.context;
         result.context = a.context;
@@ -177,6 +181,8 @@ template <typename Builder, typename T> class bigfield {
                                                 const field_t<Builder>& prime_limb,
                                                 const bool can_overflow = false)
     {
+        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
+               c.is_constant() == d.is_constant() && d.is_constant() == prime_limb.is_constant());
         bigfield result;
         result.context = a.context;
         result.binary_basis_limbs[0] = Limb(field_t(a));
