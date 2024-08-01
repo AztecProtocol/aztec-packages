@@ -52,7 +52,7 @@ export async function addPXE(
   if (pxeCliOptions.network) {
     if (isValidNetwork(pxeCliOptions.network)) {
       if (!pxeCliOptions.apiKey) {
-        userLog('API Key is required to connect to Devnet');
+        userLog(`API Key is required to connect to ${pxeCliOptions.network}`);
         process.exit(1);
       }
       nodeUrl = `https://api.aztec.network/${pxeCliOptions.network}/aztec-node-1/${pxeCliOptions.apiKey}`;
