@@ -231,7 +231,7 @@ export class AztecNodeService implements AztecNode {
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.
    */
-  public async getL1ContractAddresses(): Promise<L1ContractAddresses> {
+  public getL1ContractAddresses(): Promise<L1ContractAddresses> {
     return Promise.resolve(this.config.l1Contracts);
   }
 
