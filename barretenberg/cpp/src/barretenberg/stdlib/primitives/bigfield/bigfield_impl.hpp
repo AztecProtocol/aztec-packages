@@ -1663,6 +1663,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     if (is_constant() && predicate.is_constant()) {
         auto result = *this;
         if (predicate.get_value()) {
+            ASSERT(get_value() < modulus_u512);
             uint512_t out_val = (modulus_u512 - get_value()) % modulus_u512;
             result = bigfield(ctx, out_val.lo);
         }
