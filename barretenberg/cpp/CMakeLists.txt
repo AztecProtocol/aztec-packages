@@ -55,6 +55,9 @@ endif()
 
 if(ENABLE_TRACY)
     add_compile_options(-DTRACY_ENABLE)
+    SET(TRACY_LIBS Tracy::TracyClient)
+else()
+    SET(TRACY_LIBS)
 endif()
 
 if(ENABLE_ASAN)

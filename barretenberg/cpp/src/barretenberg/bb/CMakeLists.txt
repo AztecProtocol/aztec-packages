@@ -12,7 +12,7 @@ if (NOT(FUZZING) AND NOT(WASM))
         barretenberg
         env
         circuit_checker
-        Tracy::TracyClient
+        ${TRACY_LIBS}
         libdeflate::libdeflate_static
     )
     if(CHECK_CIRCUIT_STACKTRACES)

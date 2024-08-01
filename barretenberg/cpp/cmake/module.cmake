@@ -53,7 +53,7 @@ function(barretenberg_module MODULE_NAME)
             ${MODULE_NAME}
             PUBLIC
             ${ARGN}
-            Tracy::TracyClient
+            ${TRACY_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -90,7 +90,7 @@ function(barretenberg_module MODULE_NAME)
         target_link_libraries(
             ${MODULE_NAME}_test_objects
             PRIVATE
-            Tracy::TracyClient
+            ${TRACY_LIBS}
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
@@ -149,7 +149,7 @@ function(barretenberg_module MODULE_NAME)
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
-            Tracy::TracyClient
+            ${TRACY_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -241,7 +241,7 @@ function(barretenberg_module MODULE_NAME)
                 ${BENCHMARK_NAME}_bench_objects
                 PRIVATE
                 benchmark::benchmark
-                Tracy::TracyClient
+                ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
 
@@ -257,7 +257,7 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_LINK_NAME}
                 ${ARGN}
                 benchmark::benchmark
-                Tracy::TracyClient
+                ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
             if(CHECK_CIRCUIT_STACKTRACES)
