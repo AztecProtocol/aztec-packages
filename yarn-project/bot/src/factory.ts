@@ -54,7 +54,7 @@ export class BotFactory {
       return account.register();
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
-      return account.waitSetup({ timeout: 1200 });
+      return account.waitSetup({ timeout: this.config.txMinedWaitSeconds });
     }
   }
 
@@ -80,7 +80,7 @@ export class BotFactory {
       return deploy.register();
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
-      return deploy.send(deployOpts).deployed({ timeout: 1200 });
+      return deploy.send(deployOpts).deployed({ timeout: this.config.txMinedWaitSeconds });
     }
   }
 
@@ -104,6 +104,6 @@ export class BotFactory {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
       return;
     }
-    await new BatchCall(token.wallet, calls).send().wait();
+    await new BatchCall(token.wallet, calls).send().wait({ timeout: this.config.txMinedWaitSeconds });
   }
 }
