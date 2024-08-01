@@ -793,6 +793,10 @@ export class TXE implements TypedOracle {
       sideEffectCounter,
     );
 
+    if (executionResult.reverted) {
+      throw new Error(`Execution reverted with reason: ${executionResult.revertReason}`);
+    }
+
     // Apply side effects
     this.sideEffectsCounter += executionResult.endSideEffectCounter.toNumber();
     this.setContractAddress(currentContractAddress);

@@ -1,12 +1,11 @@
 use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd},
-    prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
+    prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, scalar::Scalar, hash::poseidon2_hash},
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
 };
-use dep::std::field::bn254::decompose;
-use dep::std::embedded_curve_ops::multi_scalar_mul;
+use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
@@ -19,7 +18,6 @@ trait PrivatelyRefundable {
     fn generate_refund_points(
         fee_payer_npk_m_hash: Field,
         user_npk_m_hash: Field,
-        funded_amount: Field,
         user_randomness: Field,
         fee_payer_randomness: Field
     ) -> (Point, Point);
@@ -27,8 +25,9 @@ trait PrivatelyRefundable {
     fn complete_refund(
         incomplete_fee_payer_point: Point,
         incomplete_user_point: Point,
+        funded_amount: Field,
         transaction_fee: Field
-    ) -> (Point, Point);
+    ) -> (Field, Field);
 }
 
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
@@ -72,8 +71,9 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
 
 
     fn compute_note_hiding_point(self) -> Point {
-        let (npk_lo, npk_hi) = decompose(self.npk_m_hash);
-        let (random_lo, random_hi) = decompose(self.randomness);
+        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
+        let npk_m_hash_scalar = from_field_unsafe(self.npk_m_hash);
+        let randomness_scalar = from_field_unsafe(self.randomness);
         // We compute the note hiding point as `G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness` instead
         // of using pedersen or poseidon2 because it allows us to privately add and subtract from amount in public
         // by leveraging homomorphism.
@@ -83,14 +83,8 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
                 lo: self.amount.to_integer(),
                 hi: 0
             },
-            Scalar {
-                lo: npk_lo,
-                hi: npk_hi
-            },
-            Scalar {
-                lo: random_lo,
-                hi: random_hi,
-            }]
+            npk_m_hash_scalar,
+            randomness_scalar]
         )
     }
 }
@@ -163,25 +157,26 @@ impl OwnedNote for TokenNote {
  *
  * However we can still perform addition/subtraction on points! That is why we generate those two points, which are:
  * incomplete_fee_payer_point := G_npk * fee_payer_npk + G_rnd * fee_payer_randomness
- * incomplete_user_point := G_npk * user_npk + G_amt * funded_amount + G_rnd * user_randomness
- *
- * where `funded_amount` is the total amount in tokens that the sponsored user initially supplied, from which
- * the transaction fee will be subtracted.
+ * incomplete_user_point := G_npk * user_npk + G_rnd * user_randomness
  *
  * So we pass those points into the teardown function (here) and compute a third point corresponding to the transaction
  * fee as just:
  *
  * fee_point := G_amt * transaction_fee
+ * refund_point := G_amt * (funded_amount - transaction_fee)
  *
- * Then we arrive at the final points via addition/subtraction of that transaction fee point:
+ * where `funded_amount` is the total amount in tokens that the sponsored user initially supplied and the transaction
+ * fee is the final transaction fee whose value is made available in the public teardown function.
+ *
+ * Then we arrive at the final points via addition of the fee and refund points:
  *
  * fee_payer_point := incomplete_fee_payer_point + fee_point =
  *                  = (G_npk * fee_payer_npk + G_rnd * fee_payer_randomness) + G_amt * transaction_fee =
  *                  = G_amt * transaction_fee + G_npk * fee_payer_npk + G_rnd * fee_payer_randomness
  *
- * user_point := incomplete_user_point - fee_point =
- *             = (G_amt * funded_amount + G_npk * user_npk + G_rnd + user_randomness) - G_amt * transaction_fee =
- *             = G_amt * (funded_amount - transaction_fee) + G_npk * user_npk + G_rnd + user_randomness
+ * user_point := incomplete_user_point + refund_point =
+ *             = (G_npk * user_npk + G_rnd + user_randomness) + G_amt * (funded_amount - transaction_fee) =
+ *             = G_amt * (funded_amount - transaction_fee) + G_npk * user_npk + G_rnd * user_randomness
  * 
  * The point above matches the note_hiding_point of (and therefore *is*) notes like:
  * {
@@ -195,9 +190,8 @@ impl OwnedNote for TokenNote {
  *      1) randomness_influence = incomplete_fee_payer_point - G_npk * fee_payer_npk =
  *                              = (G_npk * fee_payer_npk + G_rnd * randomness) - G_npk * fee_payer_npk =
  *                              = G_rnd * randomness
- *      2) user_fingerprint = incomplete_user_point - G_amt * funded_amount - randomness_influence =
- *                          = (G_npk * user_npk + G_amt * funded_amount + G_rnd * randomness) - G_amt * funded_amount
- *                            - G_rnd * randomness =
+ *      2) user_fingerprint = incomplete_user_point - randomness_influence =
+ *                          = (G_npk * user_npk + G_rnd * randomness) - G_rnd * randomness =
  *                          = G_npk * user_npk
  *      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint and
  *         link that the 2 transactions were made by the same user. Given that it's expected that only a limited set
@@ -205,75 +199,60 @@ impl OwnedNote for TokenNote {
  *         fee payer npk values of these known contracts is a feasible attack.
  */
 impl PrivatelyRefundable for TokenNote {
-    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, funded_amount: Field, user_randomness: Field, fee_payer_randomness: Field) -> (Point, Point) {
+    fn generate_refund_points(fee_payer_npk_m_hash: Field, user_npk_m_hash: Field, user_randomness: Field, fee_payer_randomness: Field) -> (Point, Point) {
         // 1. To be able to multiply generators with randomness and npk_m_hash using barretneberg's (BB) blackbox
         // function we first need to convert the fields to high and low limbs.
-        // TODO(#7606): replace decompose with from_field_unsafe
-        let (fee_payer_randomness_lo, fee_payer_randomness_hi) = decompose(fee_payer_randomness);
-        let (fee_payer_npk_m_hash_lo, fee_payer_npk_m_hash_hi) = decompose(fee_payer_npk_m_hash);
+        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
+        let fee_payer_randomness_scalar = from_field_unsafe(fee_payer_randomness);
+        let fee_payer_npk_m_hash_scalar = from_field_unsafe(fee_payer_npk_m_hash);
 
         // 2. Now that we have correct representationsn of fee payer and randomness we can compute
         // `G_npk * fee_payer_npk + G_rnd * randomness`.
         let incomplete_fee_payer_point = multi_scalar_mul(
             [G_npk, G_rnd],
-            [Scalar {
-                lo: fee_payer_npk_m_hash_lo,
-                hi: fee_payer_npk_m_hash_hi
-            },
-            Scalar {
-                lo: fee_payer_randomness_lo,
-                hi: fee_payer_randomness_hi
-            }]
+            [fee_payer_npk_m_hash_scalar, fee_payer_randomness_scalar]
         );
 
         // 3. We do the necessary conversion for values relevant for the sponsored user point.
-        let (user_randomness_lo, user_randomness_hi) = decompose(user_randomness);
-        // TODO(#7324), TODO(#7323): using npk_m_hash here is vulnerable in 2 ways described in the linked issues.
-        let (user_npk_lo, user_npk_hi) = decompose(user_npk_m_hash);
-        let (funded_amount_lo, funded_amount_hi) = decompose(funded_amount);
+        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
+        let user_npk_m_hash_scalar = from_field_unsafe(user_npk_m_hash);
+        let user_randomness_scalar = from_field_unsafe(user_randomness);
 
-        // 4. We compute `G_amt * funded_amount + G_npk * user_npk_m_hash + G_rnd * randomness`.
+        // 4. We compute `G_npk * user_npk_m_hash + G_rnd * randomness`.
         let incomplete_user_point = multi_scalar_mul(
-            [G_amt, G_npk, G_rnd],
-            [Scalar {
-                lo: funded_amount_lo,
-                hi: funded_amount_hi
-            },
-            Scalar {
-                lo: user_npk_lo,
-                hi: user_npk_hi
-            },
-            Scalar {
-                lo: user_randomness_lo,
-                hi: user_randomness_hi
-            }]
+            [G_npk, G_rnd],
+            [user_npk_m_hash_scalar, user_randomness_scalar]
         );
 
         // 5. At last we return the points.
         (incomplete_fee_payer_point, incomplete_user_point)
     }
 
-    fn complete_refund(incomplete_fee_payer_point: Point, incomplete_user_point: Point, transaction_fee: Field) -> (Point, Point) {
-        // 1. We convert the transaction fee to high and low limbs to be able to use BB API.
-        let (transaction_fee_lo, transaction_fee_hi) = decompose(transaction_fee);
+    fn complete_refund(incomplete_fee_payer_point: Point, incomplete_user_point: Point, funded_amount: Field, transaction_fee: Field) -> (Field, Field) {
+        // 1. We check that user funded the fee payer contract with at least the transaction fee.
+        assert(!funded_amount.lt(transaction_fee), "tx fee is higher than funded amount"); // funded_amout >= transaction_fee
 
-        // 2. We compute the fee point as `G_amt * transaction_fee`
-        let fee_point = multi_scalar_mul(
-            [G_amt],
-            [Scalar {
-                lo: transaction_fee_lo,
-                hi: transaction_fee_hi,
-            }]
-        );
+        // 2. We convert the transaction fee and refund amount to high and low limbs to be able to use BB API.
+        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
+        let transaction_fee_scalar = from_field_unsafe(transaction_fee);
+        let refund_scalar = from_field_unsafe(funded_amount - transaction_fee);
 
-        // 3. Now we leverage homomorphism to privately add the fee to fee payer point and subtract it from
-        // the sponsored user point in public.
+        // 3. We compute the fee point as `G_amt * transaction_fee`
+        let fee_point = multi_scalar_mul([G_amt], [transaction_fee_scalar]);
+
+        // 4. We compute the refund point as `G_amt * refund`
+        let refund_point = multi_scalar_mul([G_amt], [refund_scalar]);
+
+        // 5. Now we leverage homomorphism to privately add the fee to fee payer point and we add refund to the user point.
         let fee_payer_point = incomplete_fee_payer_point + fee_point;
-        let user_point = incomplete_user_point - fee_point;
+        let user_point = incomplete_user_point + refund_point;
 
-        assert_eq(user_point.is_infinite, false);
+        // 6. We no longer need to do any elliptic curve operations with the points so we collapse them to the final
+        // note hashes.
+        let fee_payer_note_hash = fee_payer_point.x;
+        let user_note_hash = user_point.x;
 
-        // Finally we return the points which represent the note hiding points.
-        (fee_payer_point, user_point)
+        // 7. Finally we return the hashes.
+        (fee_payer_note_hash, user_note_hash)
     }
 }
