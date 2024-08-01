@@ -328,7 +328,18 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
-// Test the verifier
+
+#define SKIP_IF_ZK()                                                                                                   \
+    if (std::is_same<TypeParam, UltraFlavorWithZK>::value) {                                                           \
+        GTEST_SKIP() << "Skipping test for UltraFlavorWithZK";                                                         \
+    }
+
+TYPED_TEST(SumcheckTests, PolynomialNormalization)
+{
+    SKIP_IF_ZK();
+    this->test_polynomial_normalization();
+}
+// Test the prover
 TYPED_TEST(SumcheckTests, Prover)
 {
     this->test_prover();
@@ -343,20 +354,4 @@ TYPED_TEST(SumcheckTests, ProverAndVerifierSimpleFailure)
 {
     this->test_failure_prover_verifier_flow();
 }
-
-// UltraFlavor-specific tests
-using UltraFlavorSumcheckTests = SumcheckTests<UltraFlavor>;
-// Checks that polynomials are updated correctly
-TEST_F(UltraFlavorSumcheckTests, PolynomialNormalization)
-{
-    test_polynomial_normalization();
-}
-// UltraFlavorWithZK-specific tests
-using UltraFlavorWithZKSumcheckTests = SumcheckTests<UltraFlavorWithZK>;
-
-// TEST_F(UltraFlavorSumcheckTests, LibraPolynomialsNormalization)
-// {
-//     test_libra_polynomials_normalization();
-// }
-
 } // namespace

@@ -126,7 +126,7 @@ template <typename Flavor> class SumcheckProver {
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using ZKSumcheckData = SumcheckProverRound<Flavor>::ZKSumcheckData;
+    using ZKSumcheckData = ZKSumcheckData<Flavor>;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
@@ -281,16 +281,14 @@ template <typename Flavor> class SumcheckProver {
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations;
         if constexpr (Flavor::HasZK) {
-            extract_zk_claimed_evaluations(
-                partially_evaluated_polynomials, zk_sumcheck_data.masking_terms_evaluations, multivariate_evaluations);
+            extract_claimed_evaluations(
+                partially_evaluated_polynomials, multivariate_evaluations, zk_sumcheck_data.masking_terms_evaluations);
         } else {
             extract_claimed_evaluations(partially_evaluated_polynomials, multivariate_evaluations);
         };
 
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
-        return SumcheckOutput<Flavor>{
-            multivariate_challenge, multivariate_evaluations
-        }; // seemingly also need to add libra_total_sum, libra_challenge and libra_evaluations to the output// NOT SURE
+        return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations };
     };
 
     /**
@@ -353,44 +351,39 @@ template <typename Flavor> class SumcheckProver {
             }
         });
     };
+
     /**
-     * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a
-vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$.
-     *
-     * @param partially_evaluated_polynomials
-     * @param multivariate_evaluations
-     */
-    void extract_claimed_evaluations(PartiallyEvaluatedMultivariates partially_evaluated_polynomials,
-                                     ClaimedEvaluations& multivariate_evaluations)
-    {
-        for (auto [eval, poly] :
-             zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
-            eval = poly[0];
-        };
-    };
-    /**
-    * @brief For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
+    * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a
+    * vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$.
+    * For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
 and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$
 masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all non-witness
 polynomials that are sent in clear.
-     *
-     * @param partially_evaluated_polynomials
-     * @param multivariate_evaluations
-     */
-    void extract_zk_claimed_evaluations(PartiallyEvaluatedMultivariates partially_evaluated_polynomials,
-                                        EvaluationMaskingTable masking_terms_evaluations,
-                                        ClaimedEvaluations& multivariate_evaluations)
+    *
+    * @param partially_evaluated_polynomials
+    * @param multivariate_evaluations
+    */
+    void extract_claimed_evaluations(PartiallyEvaluatedMultivariates partially_evaluated_polynomials,
+                                     ClaimedEvaluations& multivariate_evaluations,
+                                     std::optional<EvaluationMaskingTable> masking_terms_evaluations = std::nullopt)
     {
-        // Extract claimed evaluations of non-witness polynomials
-        for (auto [eval, poly] : zip_view(multivariate_evaluations.get_non_witnesses(),
-                                          partially_evaluated_polynomials.get_non_witnesses())) {
-            eval = poly[0];
-        };
-        // Extract claimed evaluations of all witness polynomials
-        for (auto [eval, poly, masking_term] : zip_view(multivariate_evaluations.get_all_witnesses(),
-                                                        partially_evaluated_polynomials.get_all_witnesses(),
-                                                        masking_terms_evaluations)) {
-            eval = poly[0] + masking_term.value_at(0);
+        if constexpr (!Flavor::HasZK) {
+            for (auto [eval, poly] :
+                 zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
+                eval = poly[0];
+            };
+        } else {
+            // Extract claimed evaluations of non-witness polynomials
+            for (auto [eval, poly] : zip_view(multivariate_evaluations.get_non_witnesses(),
+                                              partially_evaluated_polynomials.get_non_witnesses())) {
+                eval = poly[0];
+            };
+            // Extract claimed evaluations of all witness polynomials
+            for (auto [eval, poly, masking_term] : zip_view(multivariate_evaluations.get_all_witnesses(),
+                                                            partially_evaluated_polynomials.get_all_witnesses(),
+                                                            masking_terms_evaluations.value())) {
+                eval = poly[0] + masking_term.value_at(0);
+            }
         }
     };
 
@@ -433,13 +426,13 @@ polynomials that are sent in clear.
 
         std::vector<FF> libra_evaluations;
         libra_evaluations.reserve(multivariate_d);
-        zk_sumcheck_data.eval_masking_scalars = eval_masking_scalars;
-        zk_sumcheck_data.masking_terms_evaluations = masking_terms_evaluations;
-        zk_sumcheck_data.libra_univariates = libra_univariates;
-        zk_sumcheck_data.libra_scaling_factor = libra_scaling_factor;
-        zk_sumcheck_data.libra_challenge = libra_challenge;
-        zk_sumcheck_data.libra_running_sum = libra_running_sum;
-        zk_sumcheck_data.libra_evaluations = libra_evaluations;
+        zk_sumcheck_data = ZKSumcheckData(eval_masking_scalars,
+                                          masking_terms_evaluations,
+                                          libra_univariates,
+                                          libra_scaling_factor,
+                                          libra_challenge,
+                                          libra_running_sum,
+                                          libra_evaluations);
     };
 
     /**
@@ -738,17 +731,17 @@ template <typename Flavor> class SumcheckVerifier {
         }
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
+        // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
+        // challenge
+        if constexpr (Flavor::HasZK) {
+            round.target_total_sum += libra_total_sum * libra_challenge;
+        };
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
-            // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
-            // challenge
-            if ((round_idx == 0) && (Flavor::HasZK)) {
-                round.target_total_sum += libra_total_sum * libra_challenge;
-            };
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
             if constexpr (IsRecursiveFlavor<Flavor>) {

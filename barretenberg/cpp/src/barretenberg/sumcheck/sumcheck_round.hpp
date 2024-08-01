@@ -6,6 +6,7 @@
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "zk_sumcheck_data.hpp"
 
 namespace bb {
 
@@ -39,6 +40,8 @@ template <typename Flavor> class SumcheckProverRound {
   public:
     using FF = typename Flavor::FF;
     using ExtendedEdges = typename Flavor::ExtendedEdges;
+    using ZKSumcheckData = ZKSumcheckData<Flavor>;
+
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -61,36 +64,37 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
-    /**
-     * @brief This structure is created for contain various polynomials and constants required by ZK Sumcheck.
-     *
-     */
-    struct ZKSumcheckData {
-        // The number of all witnesses including shifts and derived witnesses from flavors that have ZK,
-        // otherwise, set this constant to 0.
-        static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
-        // Array of random scalars used to hide the witness info from leaking through the claimed evaluations
-        using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
-        // Auxiliary table that represents the evaluations of quadratic polynomials r_j * X(1-X) at 0,...,
-        // MAX_PARTIAL_RELATION_LENGTH - 1
-        using EvaluationMaskingTable =
-            std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESS_ENTITIES>;
-        // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK
-        // Sumcheck.
-        static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;
-        // Container for the Libra Univariates. Their number depends on the size of the circuit.
-        using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
-        // Container for the evaluations of Libra Univariates that have to be proven.
-        using ClaimedLibraEvaluations = std::vector<FF>;
+    // /**
+    //  * @brief This structure is created for contain various polynomials and constants required by ZK Sumcheck.
+    //  *
+    //  */
+    // struct ZKSumcheckData {
+    //     // The number of all witnesses including shifts and derived witnesses from flavors that have ZK,
+    //     // otherwise, set this constant to 0.
+    //     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
+    //     // Array of random scalars used to hide the witness info from leaking through the claimed evaluations
+    //     using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
+    //     // Auxiliary table that represents the evaluations of quadratic polynomials r_j * X(1-X) at 0,...,
+    //     // MAX_PARTIAL_RELATION_LENGTH - 1
+    //     using EvaluationMaskingTable =
+    //         std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESS_ENTITIES>;
+    //     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK
+    //     // Sumcheck.
+    //     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH :
+    //     0;
+    //     // Container for the Libra Univariates. Their number depends on the size of the circuit.
+    //     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
+    //     // Container for the evaluations of Libra Univariates that have to be proven.
+    //     using ClaimedLibraEvaluations = std::vector<FF>;
 
-        EvalMaskingScalars eval_masking_scalars;
-        EvaluationMaskingTable masking_terms_evaluations;
-        LibraUnivariates libra_univariates;
-        FF libra_scaling_factor{ 1 };
-        FF libra_challenge;
-        FF libra_running_sum;
-        ClaimedLibraEvaluations libra_evaluations;
-    };
+    //     EvalMaskingScalars eval_masking_scalars;
+    //     EvaluationMaskingTable masking_terms_evaluations;
+    //     LibraUnivariates libra_univariates;
+    //     FF libra_scaling_factor{ 1 };
+    //     FF libra_challenge;
+    //     FF libra_running_sum;
+    //     ClaimedLibraEvaluations libra_evaluations;
+    // };
 
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
@@ -119,7 +123,9 @@ template <typename Flavor> class SumcheckProverRound {
      input in the first round, or from the \ref multivariates table. Using general method
      \ref bb::Univariate::extend_to "extend_to", the evaluations of these polynomials are extended from the
      domain \f$ \{0,1\} \f$ to the domain \f$ \{0,\ldots, D\} \f$ required for the computation of the round univariate.
-
+     * In the case when witness polynomials are masked (ZK Flavors), this method has to distinguish between witness and
+     * non-witness polynomials. The witness univariates obtained from witness multilinears are corrected by a masking
+     * quadratic term extended to the same length MAX_PARTIAL_RELATION_LENGTH.
      * Should only be called externally with relation_idx equal to 0.
      * In practice, #multivariates is either ProverPolynomials or PartiallyEvaluatedMultivariates.
      *
@@ -130,42 +136,32 @@ template <typename Flavor> class SumcheckProverRound {
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
-                      const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                      size_t edge_idx)
+                      ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                      size_t edge_idx,
+                      std::optional<ZKSumcheckData> zk_sumcheck_data = std::nullopt)
     {
-        for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-        }
-    }
-    /**
-     * @brief A variant of extend edges used by ZK Sumcheck.
-     *
-     * @details In the case when witness polynomials are masked, this method has to distinguish between witness and
-     * non-witness polynomials. The witness univariates obtained from witness multilinears are corrected by a masking
-     * quadratic term extended to the same length MAX_PARTIAL_RELATION_LENGTH.
-     *
-     */
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    void extend_zk_edges(ExtendedEdges& extended_edges,
-                         ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
-                         size_t edge_idx,
-                         ZKSumcheckData zk_sumcheck_data)
-    {
-        // extend edges of witness polynomials and add correcting terms
-        for (auto [extended_edge, multivariate, masking_univariate] :
-             zip_view(extended_edges.get_all_witnesses(),
-                      multivariates.get_all_witnesses(),
-                      zk_sumcheck_data.masking_terms_evaluations)) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
-            extended_edge += masking_univariate;
-        };
-        // extend edges of public polynomials
-        for (auto [extended_edge, multivariate] :
-             zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
-            extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+
+        if constexpr (!Flavor::HasZK) {
+            for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+                bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            }
+        } else {
+            // extend edges of witness polynomials and add correcting terms
+            for (auto [extended_edge, multivariate, masking_univariate] :
+                 zip_view(extended_edges.get_all_witnesses(),
+                          multivariates.get_all_witnesses(),
+                          zk_sumcheck_data.value().masking_terms_evaluations)) {
+                bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                extended_edge += masking_univariate;
+            };
+            // extend edges of public polynomials
+            for (auto [extended_edge, multivariate] :
+                 zip_view(extended_edges.get_non_witnesses(), multivariates.get_non_witnesses())) {
+                bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+            };
         };
     }
 
@@ -226,12 +222,11 @@ template <typename Flavor> class SumcheckProverRound {
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                if constexpr (Flavor::HasZK) {
-                    extend_zk_edges(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data.value());
-                } else {
+                if constexpr (!Flavor::HasZK) {
                     extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
-                };
-
+                } else {
+                    extend_edges(extended_edges[thread_idx], polynomials, edge_idx, zk_sumcheck_data);
+                }
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
