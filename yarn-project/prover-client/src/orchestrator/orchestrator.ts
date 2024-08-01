@@ -7,6 +7,7 @@ import {
   PublicKernelType,
   Tx,
   type TxEffect,
+  UnencryptedTxL2Logs,
   makeEmptyProcessedTx,
   makePaddingProcessedTx,
   mapPublicKernelToCircuitName,
@@ -30,7 +31,6 @@ import {
   type BaseRollupInputs,
   Fr,
   type GlobalVariables,
-  type Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -101,7 +101,7 @@ export class ProvingOrchestrator {
     private db: MerkleTreeOperations,
     private prover: ServerCircuitProver,
     telemetryClient: TelemetryClient,
-    private initialHeader?: Header,
+    public readonly proverId: Fr = Fr.ZERO,
   ) {
     this.tracer = telemetryClient.getTracer('ProvingOrchestrator');
   }
@@ -130,11 +130,6 @@ export class ProvingOrchestrator {
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
   ): Promise<ProvingTicket> {
-    // Create initial header if not done so yet
-    if (!this.initialHeader) {
-      this.initialHeader = await this.db.buildInitialHeader();
-    }
-
     if (!Number.isInteger(numTxs) || numTxs < 2) {
       throw new Error(`Length of txs for the block should be at least two (got ${numTxs})`);
     }
@@ -267,7 +262,7 @@ export class ProvingOrchestrator {
     // base rollup inputs
     // Then enqueue the proving of all the transactions
     const unprovenPaddingTx = makeEmptyProcessedTx(
-      this.initialHeader ?? (await this.db.buildInitialHeader()),
+      this.db.getInitialHeader(),
       this.provingState.globalVariables.chainId,
       this.provingState.globalVariables.version,
       getVKTreeRoot(),
@@ -563,7 +558,7 @@ export class ProvingOrchestrator {
 
     const getBaseInputsEmptyTx = async () => {
       const inputs = {
-        header: await this.db.buildInitialHeader(),
+        header: this.db.getInitialHeader(),
         chainId: tx.data.constants.globalVariables.chainId,
         version: tx.data.constants.globalVariables.version,
         vkTreeRoot: tx.data.constants.vkTreeRoot,
@@ -648,15 +643,17 @@ export class ProvingOrchestrator {
       );
       return;
     }
-    if (
-      !tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
-        .toBuffer()
-        .equals(tx.processedTx.unencryptedLogs.hash())
-    ) {
+
+    const txUnencryptedLogs = UnencryptedTxL2Logs.hashSiloedLogs(
+      tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHashes
+        .filter(log => !log.isEmpty())
+        .map(log => log.getSiloedHash()),
+    );
+    if (!txUnencryptedLogs.equals(tx.processedTx.unencryptedLogs.hash())) {
       provingState.reject(
-        `Unencrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.unencryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.unencryptedLogs.hash())}`,
+        `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogs)} === ${Fr.fromBuffer(
+          tx.processedTx.unencryptedLogs.hash(),
+        )}`,
       );
       return;
     }
@@ -747,6 +744,7 @@ export class ProvingOrchestrator {
       provingState.messageTreeSnapshot,
       provingState.messageTreeRootSiblingPath,
       this.db,
+      this.proverId,
     );
 
     this.deferredProving(

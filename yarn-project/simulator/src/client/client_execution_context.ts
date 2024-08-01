@@ -8,6 +8,7 @@ import {
   L1NotePayload,
   Note,
   type NoteStatus,
+  PublicExecutionRequest,
   TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -17,7 +18,6 @@ import {
   type Header,
   type KeyValidationRequest,
   PrivateContextInputs,
-  PublicCallRequest,
   type TxContext,
 } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
@@ -29,7 +29,7 @@ import {
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
@@ -38,7 +38,13 @@ import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
-import { CountedLog, CountedNoteLog, type ExecutionResult, type NoteAndSlot } from './execution_result.js';
+import {
+  CountedLog,
+  CountedNoteLog,
+  CountedPublicExecutionRequest,
+  type ExecutionResult,
+  type NoteAndSlot,
+} from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -65,13 +71,13 @@ export class ClientExecutionContext extends ViewDataOracle {
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
-  private nullifiedNoteHashCounters: Map<number, number> = new Map();
+  private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
   private nestedExecutions: ExecutionResult[] = [];
-  private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
-  private publicTeardownFunctionCall: PublicCallRequest = PublicCallRequest.empty();
+  private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
+  private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
   constructor(
     contractAddress: AztecAddress,
@@ -129,14 +135,14 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Get the data for the newly created notes.
-   * @param innerNoteHashes - Inner note hashes for the notes.
+   * @param slottedNoteHashes - Slotted note hashes for the notes.
    */
   public getNewNotes(): NoteAndSlot[] {
     return this.newNotes;
   }
 
-  public getNullifiedNoteHashCounters() {
-    return this.nullifiedNoteHashCounters;
+  public getNoteHashNullifierCounterMap() {
+    return this.noteHashNullifierCounterMap;
   }
 
   /**
@@ -272,7 +278,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       if (n.index !== undefined) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always call computeUniqueNoteHash when publicly created notes include nonces.
-        const uniqueNoteHash = n.nonce.isZero() ? n.innerNoteHash : computeUniqueNoteHash(n.nonce, n.innerNoteHash);
+        const uniqueNoteHash = n.nonce.isZero() ? n.slottedNoteHash : computeUniqueNoteHash(n.nonce, n.slottedNoteHash);
         const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
         const noteHashForReadRequest = siloedNoteHash;
         this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
@@ -289,14 +295,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param slottedNoteHash - The slotted note hash of the new note.
    * @returns
    */
   public override notifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
-    innerNoteHash: Fr,
+    slottedNoteHash: Fr,
     counter: number,
   ) {
     const note = new Note(noteItems);
@@ -307,7 +313,7 @@ export class ClientExecutionContext extends ViewDataOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        innerNoteHash,
+        slottedNoteHash,
       },
       counter,
     );
@@ -322,16 +328,16 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Adding a siloed nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param slottedNoteHash - The slotted note hash of the new note.
    */
-  public override notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, counter: number) {
+  public override notifyNullifiedNote(innerNullifier: Fr, slottedNoteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = this.noteCache.nullifyNote(
       this.callContext.storageContractAddress,
       innerNullifier,
-      innerNoteHash,
+      slottedNoteHash,
     );
     if (nullifiedNoteHashCounter !== undefined) {
-      this.nullifiedNoteHashCounters.set(nullifiedNoteHashCounter, counter);
+      this.noteHashNullifierCounterMap.set(nullifiedNoteHashCounter, counter);
     }
     return Promise.resolve();
   }
@@ -377,6 +383,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param eventTypeId - The type ID of the event (function selector).
    * @param ovKeys - The outgoing viewing keys to use to encrypt.
    * @param ivpkM - The master incoming viewing public key.
+   * @param recipient - The recipient of the encrypted event log.
    * @param preimage - The event preimage.
    */
   public override computeEncryptedEventLog(
@@ -385,6 +392,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     eventTypeId: Fr,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
+    recipient: AztecAddress,
     preimage: Fr[],
   ) {
     const event = new Event(preimage);
@@ -392,8 +400,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const taggedEvent = new TaggedLog(l1EventPayload);
 
     const ephSk = GrumpkinScalar.random();
-
-    const recipient = AztecAddress.random();
 
     return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
@@ -405,6 +411,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param noteTypeId - The type ID of the note.
    * @param ovKeys - The outgoing viewing keys to use to encrypt.
    * @param ivpkM - The master incoming viewing public key.
+   * @param recipient - The recipient of the encrypted note log.
    * @param preimage - The note preimage.
    */
   public override computeEncryptedNoteLog(
@@ -413,6 +420,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     noteTypeId: NoteSelector,
     ovKeys: KeyValidationRequest,
     ivpkM: Point,
+    recipient: AztecAddress,
     preimage: Fr[],
   ) {
     const note = new Note(preimage);
@@ -420,11 +428,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     const taggedNote = new TaggedLog(l1NotePayload);
 
     const ephSk = GrumpkinScalar.random();
-
-    // @todo This should be populated properly.
-    // Note that this encryption function SHOULD not be used, but is currently used
-    // as oracle for encrypted event logs.
-    const recipient = AztecAddress.random();
 
     return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
@@ -531,7 +534,11 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     this.nestedExecutions.push(childExecutionResult);
 
-    return childExecutionResult.callStackItem;
+    const publicInputs = childExecutionResult.callStackItem.publicInputs;
+    return {
+      endSideEffectCounter: publicInputs.endSideEffectCounter,
+      returnsHash: publicInputs.returnsHash,
+    };
   }
 
   /**
@@ -543,7 +550,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
    */
-  protected async createPublicCallRequest(
+  protected async createPublicExecutionRequest(
     callType: 'enqueued' | 'teardown',
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
@@ -551,9 +558,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
-    isStaticCall = isStaticCall || this.callContext.isStaticCall;
-
+  ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
@@ -563,22 +568,21 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
     const args = this.packedValuesCache.unpack(argsHash);
 
-    // TODO($846): if enqueued public calls are associated with global
-    // side-effect counter, that will leak info about how many other private
-    // side-effects occurred in the TX. Ultimately the private kernel should
-    // just output everything in the proper order without any counters.
     this.log.verbose(
-      `Created PublicCallRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
+      `Created PublicExecutionRequest of type [${callType}], side-effect counter [${sideEffectCounter}] to ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
     );
 
-    return PublicCallRequest.from({
+    const request = PublicExecutionRequest.from({
       args,
       callContext: derivedCallContext,
-      parentCallContext: this.callContext,
-      functionSelector,
       contractAddress: targetContractAddress,
-      sideEffectCounter,
     });
+
+    if (callType === 'enqueued') {
+      this.enqueuedPublicFunctionCalls.push(new CountedPublicExecutionRequest(request, sideEffectCounter));
+    } else {
+      this.publicTeardownFunctionCall = request;
+    }
   }
 
   /**
@@ -599,8 +603,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
-    const enqueuedRequest = await this.createPublicCallRequest(
+  ) {
+    await this.createPublicExecutionRequest(
       'enqueued',
       targetContractAddress,
       functionSelector,
@@ -609,10 +613,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       isStaticCall,
       isDelegateCall,
     );
-
-    this.enqueuedPublicFunctionCalls.push(enqueuedRequest);
-
-    return enqueuedRequest;
   }
 
   /**
@@ -633,8 +633,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
     isDelegateCall: boolean,
-  ): Promise<PublicCallRequest> {
-    const publicTeardownFunctionCall = await this.createPublicCallRequest(
+  ) {
+    await this.createPublicExecutionRequest(
       'teardown',
       targetContractAddress,
       functionSelector,
@@ -643,10 +643,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       isStaticCall,
       isDelegateCall,
     );
+  }
 
-    this.publicTeardownFunctionCall = publicTeardownFunctionCall;
-
-    return publicTeardownFunctionCall;
+  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
+    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   /**

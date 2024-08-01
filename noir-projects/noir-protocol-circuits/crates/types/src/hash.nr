@@ -16,7 +16,7 @@ use crate::{
 };
 use std::hash::{pedersen_hash_with_separator, sha256};
 
-pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
+pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
@@ -45,8 +45,8 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, inner_note_hash: Field) -> Field {
-    let inputs = [nonce, inner_note_hash];
+pub fn compute_unique_note_hash(nonce: Field, slotted_note_hash: Field) -> Field {
+    let inputs = [nonce, slotted_note_hash];
     pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
@@ -113,7 +113,7 @@ pub fn silo_encrypted_log_hash(log_hash: ScopedEncryptedLogHash) -> Field {
     }
 }
 
-pub fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
+fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }
 
@@ -248,11 +248,11 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     hash
 }
 
-pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
+pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
-pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
+pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 

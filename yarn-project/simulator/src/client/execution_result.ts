@@ -4,10 +4,11 @@ import {
   type EncryptedL2NoteLog,
   EncryptedNoteFunctionL2Logs,
   type Note,
+  PublicExecutionRequest,
   UnencryptedFunctionL2Logs,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type IsEmpty, type PrivateCallStackItem, PublicCallRequest, sortByCounter } from '@aztec/circuits.js';
+import { type IsEmpty, type PrivateCallStackItem, sortByCounter } from '@aztec/circuits.js';
 import { type NoteSelector } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
 
@@ -38,6 +39,15 @@ export class CountedNoteLog extends CountedLog<EncryptedL2NoteLog> {
     super(log, counter);
   }
 }
+
+export class CountedPublicExecutionRequest {
+  constructor(public request: PublicExecutionRequest, public counter: number) {}
+
+  isEmpty(): boolean {
+    return this.request.isEmpty() && !this.counter;
+  }
+}
+
 /**
  * The result of executing a private function.
  */
@@ -57,15 +67,15 @@ export interface ExecutionResult {
   /** The notes created in the executed function. */
   newNotes: NoteAndSlot[];
   /** Mapping of note hash counter to the counter of its nullifier. */
-  nullifiedNoteHashCounters: Map<number, number>;
+  noteHashNullifierCounterMap: Map<number, number>;
   /** The raw return values of the executed function. */
   returnValues: Fr[];
   /** The nested executions. */
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
-  enqueuedPublicFunctionCalls: PublicCallRequest[];
+  enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[];
   /** Public function execution requested for teardown */
-  publicTeardownFunctionCall: PublicCallRequest;
+  publicTeardownFunctionCall: PublicExecutionRequest;
   /**
    * Encrypted note logs emitted during execution of this function call.
    * Note: These are preimages to `noteEncryptedLogsHashes`.
@@ -89,9 +99,12 @@ export function collectNoteHashLeafIndexMap(execResult: ExecutionResult, accum: 
   return accum;
 }
 
-export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, accum: Map<number, number> = new Map()) {
-  execResult.nullifiedNoteHashCounters.forEach((value, key) => accum.set(key, value));
-  execResult.nestedExecutions.forEach(nested => collectNullifiedNoteHashCounters(nested, accum));
+export function collectNoteHashNullifierCounterMap(
+  execResult: ExecutionResult,
+  accum: Map<number, number> = new Map(),
+) {
+  execResult.noteHashNullifierCounterMap.forEach((value, key) => accum.set(key, value));
+  execResult.nestedExecutions.forEach(nested => collectNoteHashNullifierCounterMap(nested, accum));
   return accum;
 }
 
@@ -102,11 +115,20 @@ export function collectNullifiedNoteHashCounters(execResult: ExecutionResult, ac
  */
 function collectNoteEncryptedLogs(
   execResult: ExecutionResult,
-  nullifiedNoteHashCounters: Map<number, number>,
+  noteHashNullifierCounterMap: Map<number, number>,
+  minRevertibleSideEffectCounter: number,
 ): CountedLog<EncryptedL2NoteLog>[] {
   return [
-    execResult.noteEncryptedLogs.filter(noteLog => !nullifiedNoteHashCounters.has(noteLog.noteHashCounter)),
-    ...execResult.nestedExecutions.flatMap(res => collectNoteEncryptedLogs(res, nullifiedNoteHashCounters)),
+    execResult.noteEncryptedLogs.filter(noteLog => {
+      const nullifierCounter = noteHashNullifierCounterMap.get(noteLog.noteHashCounter);
+      return (
+        nullifierCounter === undefined ||
+        (noteLog.noteHashCounter < minRevertibleSideEffectCounter && nullifierCounter >= minRevertibleSideEffectCounter)
+      );
+    }),
+    ...execResult.nestedExecutions.flatMap(res =>
+      collectNoteEncryptedLogs(res, noteHashNullifierCounterMap, minRevertibleSideEffectCounter),
+    ),
   ].flat();
 }
 
@@ -116,8 +138,9 @@ function collectNoteEncryptedLogs(
  * @returns All encrypted logs.
  */
 export function collectSortedNoteEncryptedLogs(execResult: ExecutionResult): EncryptedNoteFunctionL2Logs {
-  const nullifiedNoteHashCounters = collectNullifiedNoteHashCounters(execResult);
-  const allLogs = collectNoteEncryptedLogs(execResult, nullifiedNoteHashCounters);
+  const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(execResult);
+  const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(execResult);
+  const allLogs = collectNoteEncryptedLogs(execResult, noteHashNullifierCounterMap, minRevertibleSideEffectCounter);
   const sortedLogs = sortByCounter(allLogs);
   return new EncryptedNoteFunctionL2Logs(sortedLogs.map(l => l.log));
 }
@@ -161,21 +184,26 @@ export function collectSortedUnencryptedLogs(execResult: ExecutionResult): Unenc
   return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
 }
 
+function collectEnqueuedCountedPublicExecutionRequests(execResult: ExecutionResult): CountedPublicExecutionRequest[] {
+  return [
+    ...execResult.enqueuedPublicFunctionCalls,
+    ...execResult.nestedExecutions.flatMap(collectEnqueuedCountedPublicExecutionRequests),
+  ];
+}
+
 /**
  * Collect all enqueued public function calls across all nested executions.
  * @param execResult - The topmost execution result.
  * @returns All enqueued public function calls.
  */
-export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult): PublicCallRequest[] {
+export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult): PublicExecutionRequest[] {
+  const countedRequests = collectEnqueuedCountedPublicExecutionRequests(execResult);
   // without the reverse sort, the logs will be in a queue like fashion which is wrong
   // as the kernel processes it like a stack, popping items off and pushing them to output
-  return [
-    ...execResult.enqueuedPublicFunctionCalls,
-    ...execResult.nestedExecutions.flatMap(collectEnqueuedPublicFunctionCalls),
-  ].sort((a, b) => b.sideEffectCounter - a.sideEffectCounter);
+  return sortByCounter(countedRequests, false).map(r => r.request);
 }
 
-export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicCallRequest {
+export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): PublicExecutionRequest {
   const teardownCalls = [
     execResult.publicTeardownFunctionCall,
     ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
@@ -189,5 +217,12 @@ export function collectPublicTeardownFunctionCall(execResult: ExecutionResult): 
     throw new Error('Multiple public teardown calls detected');
   }
 
-  return PublicCallRequest.empty();
+  return PublicExecutionRequest.empty();
+}
+
+export function getFinalMinRevertibleSideEffectCounter(execResult: ExecutionResult): number {
+  return execResult.nestedExecutions.reduce((counter, exec) => {
+    const nestedCounter = getFinalMinRevertibleSideEffectCounter(exec);
+    return nestedCounter ? nestedCounter : counter;
+  }, execResult.callStackItem.publicInputs.minRevertibleSideEffectCounter.toNumber());
 }

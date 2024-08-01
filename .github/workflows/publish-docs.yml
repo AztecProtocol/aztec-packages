@@ -24,6 +24,8 @@ jobs:
       - uses: ./.github/ci-setup-action
         env:
           DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         with:
           concurrency_key: docs-preview-${{ inputs.username || github.actor }}-x86
 
@@ -32,9 +34,7 @@ jobs:
           earthly-ci --no-output ./docs/+deploy-prod \
           --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
           --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }} \
-          --COMMIT_TAG=${{ inputs.tag }} \
-          --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-          --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+          --COMMIT_TAG=${{ inputs.tag }}
 
   pdf:
     needs: setup

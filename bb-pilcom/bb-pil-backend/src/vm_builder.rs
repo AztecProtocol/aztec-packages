@@ -114,13 +114,11 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &lookups,
     );
 
-    bb_files.create_declare_views(file_name, &all_cols_with_shifts);
-
     // ----------------------- Create the full row files -----------------------
     bb_files.create_full_row_hpp(file_name, &all_cols);
     bb_files.create_full_row_cpp(file_name, &all_cols);
 
-    // ----------------------- Create the circuit builder file -----------------------
+    // ----------------------- Create the circuit builder files -----------------------
     bb_files.create_circuit_builder_hpp(
         file_name,
         &relations,
@@ -129,9 +127,23 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &all_cols,
         &to_be_shifted,
     );
+    bb_files.create_circuit_builder_cpp(file_name, &all_cols_without_inverses);
 
-    // ----------------------- Create the flavor file -----------------------
+    // ----------------------- Create the flavor files -----------------------
     bb_files.create_flavor_hpp(
+        file_name,
+        &relations,
+        &inverses,
+        &fixed,
+        &witness,
+        &witnesses_without_inverses,
+        &all_cols,
+        &to_be_shifted,
+        &shifted,
+        &all_cols_with_shifts,
+    );
+
+    bb_files.create_flavor_cpp(
         file_name,
         &relations,
         &inverses,

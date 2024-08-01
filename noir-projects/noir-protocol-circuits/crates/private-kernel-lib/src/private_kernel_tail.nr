@@ -35,15 +35,20 @@ impl PrivateKernelTailCircuitPrivateInputs {
         let output = self.generate_output();
 
         // Validate inputs.
-        PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail();
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel.public_inputs);
+        previous_kernel_validator.validate_for_private_tail();
         if !std::runtime::is_unconstrained() {
             // TODO(#7410) currently stubbed out until tube vk handled
             // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         // Validate output.
-        if !std::runtime::is_unconstrained() {
-            TailOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+        if dep::types::validate::should_validate_output() {
+            TailOutputValidator::new(
+                output,
+                self.previous_kernel.public_inputs,
+                previous_kernel_validator.hints
+            ).validate();
         }
 
         output
@@ -60,13 +65,11 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas
+        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas,
+        log_hash::ScopedLogHash
     },
         address::{AztecAddress, EthAddress}, scalar::Scalar,
-        hash::{
-        sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash,
-        compute_siloed_unencrypted_log_hash
-    },
+        hash::{sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash},
         tests::fixture_builder::FixtureBuilder, utils::{arrays::array_length},
         traits::{Empty, is_empty}, point::Point
     };
@@ -176,23 +179,9 @@ mod tests {
         let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
-        let siloed_unencrypted_logs_hashes = [
-            compute_siloed_unencrypted_log_hash(
-                builder.previous_kernel.storage_contract_address,
-                prev_unencrypted_logs_hash
-            ), compute_siloed_unencrypted_log_hash(
-                builder.previous_kernel.storage_contract_address,
-                unencrypted_logs_hash
-            )
-        ];
-        // noir-fmt:ignore
-        let hash_bytes: [u8; MAX_UNENCRYPTED_LOGS_PER_TX * 32] = siloed_unencrypted_logs_hashes[0]
-            .to_be_bytes(32)
-            .append(siloed_unencrypted_logs_hashes[1].to_be_bytes(32))
-            .append(&[0; MAX_UNENCRYPTED_LOGS_PER_TX * 32 - 64])
-            .as_array();
-        let expected_unencrypted_logs_hash = sha256_to_field(hash_bytes);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(
+            public_inputs.end.unencrypted_logs_hashes, builder.previous_kernel.unencrypted_logs_hashes.storage.map(|log: ScopedLogHash| log.expose_to_public())
+        );
     }
 
     unconstrained fn compute_hash_bytes(
@@ -297,21 +286,28 @@ mod tests {
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.add_private_call_request(1, false);
+        builder.previous_kernel.append_private_call_requests(1);
         builder.failed();
     }
 
     #[test(should_fail_with="Public call stack must be empty when executing the tail circuit")]
     fn non_empty_public_call_stack_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.push_public_call_request(1, false);
+        builder.previous_kernel.append_public_call_requests(1);
         builder.failed();
     }
 
     #[test(should_fail_with="Public teardown call request must be empty when executing the tail circuit")]
     fn non_empty_public_teardown_call_request_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.push_public_teardown_call_request(1, false);
+        builder.previous_kernel.append_public_teardown_call_request();
+        builder.failed();
+    }
+
+    #[test(should_fail_with="split_counter must be 0 for pure private tx")]
+    fn non_zero_validation_requests_split_counter_fail() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.validation_requests_split_counter = Option::some(123);
         builder.failed();
     }
 

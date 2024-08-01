@@ -4,9 +4,9 @@
 ; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = https://github.com/AztecProtocol/aztec-nr
+remote = https://github.com/AztecProtocol/aztec-nr
 	branch = master
-	commit = 723cb65a595121d44c94fb2735821b84d3ff5731
+	commit = 714772e1455aee7811fbfeee0dbfc061ace0d4c9
 	method = merge
 	cmdver = 0.4.6
-	parent = 13c5fa97ec69424d1e6d6503e96b35054571c46d
+	parent = dde929d6052cfa7970532250716bf78ad245ad0c

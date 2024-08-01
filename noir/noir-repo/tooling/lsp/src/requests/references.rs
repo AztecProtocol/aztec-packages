@@ -12,20 +12,16 @@ pub(crate) fn on_references_request(
     params: ReferenceParams,
 ) -> impl Future<Output = Result<Option<Vec<Location>>, ResponseError>> {
     let include_declaration = params.context.include_declaration;
-    let result = process_request(
-        state,
-        params.text_document_position,
-        |location, interner, files, cached_interners| {
-            find_all_references_in_workspace(
-                location,
-                interner,
-                cached_interners,
-                files,
-                include_declaration,
-                true,
-            )
-        },
-    );
+    let result = process_request(state, params.text_document_position, |args| {
+        find_all_references_in_workspace(
+            args.location,
+            args.interner,
+            args.interners,
+            args.files,
+            include_declaration,
+            true,
+        )
+    });
     future::ready(result)
 }
 
@@ -112,7 +108,16 @@ mod references_tests {
         let two_lib = Url::from_file_path(workspace_dir.join("two/src/lib.nr")).unwrap();
 
         // We call this to open the document, so that the entire workspace is analyzed
-        notifications::process_workspace_for_noir_document(one_lib.clone(), &mut state).unwrap();
+        let only_process_document_uri_package = false;
+        let output_diagnostics = true;
+
+        notifications::process_workspace_for_noir_document(
+            &mut state,
+            one_lib.clone(),
+            only_process_document_uri_package,
+            output_diagnostics,
+        )
+        .unwrap();
 
         let params = ReferenceParams {
             text_document_position: TextDocumentPositionParams {

@@ -12,10 +12,7 @@ use crate::{
     hir::{
         comptime::{Interpreter, Value},
         def_map::ModuleDefId,
-        resolution::{
-            errors::ResolverError,
-            resolver::{verify_mutable_reference, SELF_TYPE_NAME, WILDCARD_TYPE},
-        },
+        resolution::errors::ResolverError,
         type_check::{NoMatchingImplFoundError, Source, TypeCheckError},
     },
     hir_def::{
@@ -27,16 +24,20 @@ use crate::{
         traits::TraitConstraint,
     },
     macros_api::{
-        HirExpression, HirLiteral, HirStatement, Path, PathKind, SecondaryAttribute, Signedness,
-        UnaryOp, UnresolvedType, UnresolvedTypeData,
+        HirExpression, HirLiteral, HirStatement, NodeInterner, Path, PathKind, SecondaryAttribute,
+        Signedness, UnaryOp, UnresolvedType, UnresolvedTypeData,
     },
     node_interner::{
-        DefinitionKind, DependencyId, ExprId, GlobalId, TraitId, TraitImplKind, TraitMethodId,
+        DefinitionKind, DependencyId, ExprId, FuncId, GlobalId, TraitId, TraitImplKind,
+        TraitMethodId,
     },
     Generics, Kind, ResolvedGeneric, Type, TypeBinding, TypeVariable, TypeVariableKind,
 };
 
 use super::{lints, Elaborator};
+
+pub const SELF_TYPE_NAME: &str = "Self";
+pub const WILDCARD_TYPE: &str = "_";
 
 impl<'context> Elaborator<'context> {
     /// Translates an UnresolvedType to a Type with a `TypeKind::Normal`
@@ -57,12 +58,16 @@ impl<'context> Elaborator<'context> {
         use crate::ast::UnresolvedTypeData::*;
 
         let span = typ.span;
-        let (is_self_type_name, is_synthetic) = if let Named(ref named_path, _, synthetic) = typ.typ
-        {
-            (named_path.last_segment().is_self_type_name(), synthetic)
-        } else {
-            (false, false)
-        };
+        let (named_path_span, is_self_type_name, is_synthetic) =
+            if let Named(ref named_path, _, synthetic) = typ.typ {
+                (
+                    Some(named_path.last_segment().span()),
+                    named_path.last_segment().is_self_type_name(),
+                    synthetic,
+                )
+            } else {
+                (None, false, false)
+            };
 
         let resolved_type = match typ.typ {
             FieldElement => Type::FieldElement,
@@ -153,7 +158,7 @@ impl<'context> Elaborator<'context> {
         };
 
         if let Some(unresolved_span) = typ.span {
-            let location = Location::new(unresolved_span, self.file);
+            let location = Location::new(named_path_span.unwrap_or(unresolved_span), self.file);
 
             match resolved_type {
                 Type::Struct(ref struct_type, _) => {
@@ -423,6 +428,7 @@ impl<'context> Elaborator<'context> {
                         generic.type_var.clone()
                     })),
                     trait_id,
+                    span: path.span(),
                 };
 
                 return Some((method, constraint, false));
@@ -439,28 +445,20 @@ impl<'context> Elaborator<'context> {
         &mut self,
         path: &Path,
     ) -> Option<(TraitMethodId, TraitConstraint, bool)> {
-        if path.kind == PathKind::Plain && path.segments.len() == 2 {
-            let method = &path.segments[1];
-
-            let mut trait_path = path.clone();
-            trait_path.pop();
-            let trait_id = self.lookup(trait_path).ok()?;
-            let the_trait = self.interner.get_trait(trait_id);
-
-            let method = the_trait.find_method(method.0.contents.as_str())?;
-            let constraint = TraitConstraint {
-                typ: Type::TypeVariable(
-                    the_trait.self_type_typevar.clone(),
-                    TypeVariableKind::Normal,
-                ),
-                trait_generics: Type::from_generics(&vecmap(&the_trait.generics, |generic| {
-                    generic.type_var.clone()
-                })),
-                trait_id,
-            };
-            return Some((method, constraint, false));
-        }
-        None
+        let func_id: FuncId = self.lookup(path.clone()).ok()?;
+        let meta = self.interner.function_meta(&func_id);
+        let trait_id = meta.trait_id?;
+        let the_trait = self.interner.get_trait(trait_id);
+        let method = the_trait.find_method(&path.last_segment().0.contents)?;
+        let constraint = TraitConstraint {
+            typ: Type::TypeVariable(the_trait.self_type_typevar.clone(), TypeVariableKind::Normal),
+            trait_generics: Type::from_generics(&vecmap(&the_trait.generics, |generic| {
+                generic.type_var.clone()
+            })),
+            trait_id,
+            span: path.span(),
+        };
+        Some((method, constraint, false))
     }
 
     // This resolves a static trait method T::trait_method by iterating over the where clause
@@ -1611,5 +1609,31 @@ impl<'context> Elaborator<'context> {
         let context = self.function_context.last_mut();
         let context = context.expect("The function_context stack should always be non-empty");
         context.trait_constraints.push((constraint, expr_id));
+    }
+}
+
+/// Gives an error if a user tries to create a mutable reference
+/// to an immutable variable.
+fn verify_mutable_reference(interner: &NodeInterner, rhs: ExprId) -> Result<(), ResolverError> {
+    match interner.expression(&rhs) {
+        HirExpression::MemberAccess(member_access) => {
+            verify_mutable_reference(interner, member_access.lhs)
+        }
+        HirExpression::Index(_) => {
+            let span = interner.expr_span(&rhs);
+            Err(ResolverError::MutableReferenceToArrayElement { span })
+        }
+        HirExpression::Ident(ident, _) => {
+            if let Some(definition) = interner.try_definition(ident.id) {
+                if !definition.mutable {
+                    return Err(ResolverError::MutableReferenceToImmutableVariable {
+                        span: interner.expr_span(&rhs),
+                        variable: definition.name.clone(),
+                    });
+                }
+            }
+            Ok(())
+        }
+        _ => Ok(()),
     }
 }
