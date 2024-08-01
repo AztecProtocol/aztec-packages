@@ -75,6 +75,9 @@ jobs:
   set-network:
     needs: setup
     runs-on: ${{ github.actor }}-x86
+    outputs:
+      api_key: ${{ steps.set_network_vars.outputs.api_key }}
+      deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
     steps:
       - name: Extract branch name
         shell: bash
@@ -89,25 +92,25 @@ jobs:
         shell: bash
         run: |
           env
+          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
-              echo "API_KEY=${DEVNET_API_KEY}" >>$GITHUB_ENV
+              echo "api_key=${DEVNET_API_KEY}" >> $GITHUB_OUTPUT
+              echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
-              echo "API_KEY=${PROVERNET_API_KEY}" >>$GITHUB_ENV
+              echo "api_key=${PROVERNET_API_KEY}" >> $GITHUB_OUTPUT
+              echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
           fi
         id: set_network_vars
 
-      - name: Print network vars
-        shell: bash
-        run: |
-          env
-        id: print_network_vars
-
   build:
     needs: set-network
+    env:
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag )}}
+      API_KEY: ${{ needs.set-network.outputs.api_key )}}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -138,7 +141,7 @@ jobs:
         timeout-minutes: 40
         if: steps.check_only_workflow_changes.outputs.result == 'false'
         run: |
-          emv
+          env
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ env.DEPLOY_TAG }}
