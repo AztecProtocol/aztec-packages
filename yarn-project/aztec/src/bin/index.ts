@@ -12,7 +12,7 @@ import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { injectAztecCommands } from '../cli/index.js';
+import { injectAztecCommands, injectFooCommands } from '../cli/index.js';
 
 const userLog = createConsoleLogger();
 const debugLogger = createDebugLogger('aztec:cli');
@@ -31,6 +31,7 @@ async function main() {
   program = injectPXECommands(program, userLog, debugLogger);
   program = injectUtilsCommands(program, userLog);
   program = injectDevnetCommands(program, userLog, debugLogger);
+  program = injectFooCommands(program, userLog);
 
   await program.parseAsync(process.argv);
 }

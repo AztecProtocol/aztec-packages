@@ -4,7 +4,7 @@ import { type ServerList, createNamespacedJsonRpcServer, createStatusRouter } fr
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { createPXERpcServer } from '@aztec/pxe';
 
-import { type Command } from 'commander';
+import { Command } from 'commander';
 import http from 'http';
 
 import { createSandbox } from '../sandbox.js';
@@ -13,6 +13,89 @@ import { cliTexts } from './texts.js';
 import { createAccountLogs, installSignalHandlers } from './util.js';
 
 const { AZTEC_PORT = '8080', API_PREFIX = '', TEST_ACCOUNTS = 'true', ENABLE_GAS = '' } = process.env;
+
+// Define an interface for options
+interface Option {
+  flag: string;
+  description: string;
+  defaultValue: string;
+  envVar: string;
+}
+
+// Define categories and options
+const categories: { [key: string]: Option[] } = {
+  'TRANSACTION POOL (BLOB)': [
+    {
+      flag: '--blobpool.datacap <value>',
+      description: 'Disk space to allocate for pending blob transactions (soft limit)',
+      defaultValue: '2684354560',
+      envVar: 'GETH_BLOBPOOL_DATACAP',
+    },
+    {
+      flag: '--blobpool.datadir <value>',
+      description: 'Data directory to store blob transactions in',
+      defaultValue: 'blobpool',
+      envVar: 'GETH_BLOBPOOL_DATADIR',
+    },
+    {
+      flag: '--blobpool.pricebump <value>',
+      description: 'Price bump percentage to replace an already existing blob transaction',
+      defaultValue: '100',
+      envVar: 'GETH_BLOBPOOL_PRICEBUMP',
+    },
+  ],
+  'TRANSACTION POOL (EVM)': [
+    {
+      flag: '--txpool.accountqueue <value>',
+      description: 'Maximum number of non-executable transaction slots permitted per account',
+      defaultValue: '64',
+      envVar: 'GETH_TXPOOL_ACCOUNTQUEUE',
+    },
+    {
+      flag: '--txpool.accountslots <value>',
+      description: 'Minimum number of executable transaction slots guaranteed per account',
+      defaultValue: '16',
+      envVar: 'GETH_TXPOOL_ACCOUNTSLOTS',
+    },
+  ],
+};
+
+// Function to add options dynamically
+const addOptions = (cmd: Command, options: Option[]) => {
+  options.forEach(opt => {
+    cmd.option(
+      opt.flag,
+      `${opt.description} (default: ${opt.defaultValue}) ($${opt.envVar})`,
+      process.env[opt.envVar] || opt.defaultValue,
+    );
+  });
+};
+
+export function injectFooCommands(program: Command, userLog: LogFn) {
+  // const fooCmd = program.command('foo').description('Foo Description');
+  const fooCmd = new Command('foo').description('Foo Description');
+
+  // Assuming commands are added elsewhere, here we just add options to the main program
+  Object.keys(categories).forEach(category => {
+    addOptions(fooCmd, categories[category]);
+  });
+
+  // fooCmd.on('--help', () => {
+  fooCmd.helpInformation = () => {
+    let helpText = '\n';
+    Object.keys(categories).forEach(category => {
+      helpText += `  ${category}\n\n`;
+      categories[category].forEach(opt => {
+        helpText += `    ${opt.flag}         (default: ${opt.defaultValue})              ($${opt.envVar})\n`;
+        helpText += `          ${opt.description}\n\n`;
+      });
+    });
+    return helpText;
+  };
+
+  program.addCommand(fooCmd);
+  return program;
+}
 
 /**
  * Returns commander program that defines the 'aztec' command line interface.
@@ -125,7 +208,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
     test [options]: starts a dockerized TXE node via
       $ aztec start --txe
-    then runs 
+    then runs
       $ aztec-nargo test --silence-warnings --oracle-resolver=<TXE_ADDRESS> [options]
     `,
   );
