@@ -79,15 +79,6 @@ jobs:
       api_key: ${{ steps.set_network_vars.outputs.api_key }}
       deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
     steps:
-      - name: Extract branch name
-        shell: bash
-        run: |
-          echo "BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_ENV
-          echo "TF_VAR_DEPLOY_TAG=${BRANCH_NAME}" >>$GITHUB_ENV
-          echo "DEPLOY_TAG=${BRANCH_NAME}" >>$GITHUB_ENV
-          env
-        id: extract_branch
-
       - name: Set network vars
         shell: bash
         run: |
@@ -95,11 +86,11 @@ jobs:
           export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
-              echo "api_key=${DEVNET_API_KEY}" >> $GITHUB_OUTPUT
+              echo "api_key=$DEVNET_API_KEY" >> $GITHUB_OUTPUT
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
-              echo "api_key=${PROVERNET_API_KEY}" >> $GITHUB_OUTPUT
+              echo "api_key=$PROVERNET_API_KEY" >> $GITHUB_OUTPUT
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
