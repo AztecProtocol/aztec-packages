@@ -19,7 +19,7 @@ ssh $BOX "
 	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
 	sleep 0.1 ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
-	cmake --preset tracy && cmake --build --preset tracy --parallel ;
+	cmake --preset tracy && cmake --build --preset tracy --parallel $BENCHMARK ;
 	cd build-tracy ;
 	ninja $BENCHMARK ;
 	$COMMAND ;
