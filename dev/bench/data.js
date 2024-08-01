@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722496061027,
+  "lastUpdate": 1722496756016,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -102616,6 +102616,78 @@ window.BENCHMARK_DATA = {
             "value": 180718092,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 180718092 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f8a76c1a65c7c25f49bf2d7b4ef5302a0d0fbd58",
+          "message": "feat: New IVC class that better reflects the aztec architecture (#7695)\n\nImplement new class `AztecIvc` that resembles `ClientIvc` but better\r\nreflects what is needed for the actual aztec architecture. Rather than\r\nappending a recursive folding verifier to each circuit being\r\naccumulated, none are appended to apps and two are appended to kernels.\r\nThis PR does not remove/disable/replace ClientIvc anywhere. (Admittedly\r\nthis is a bit quick-n-dirty because I need it in order to make progress\r\non the databus but the tests are thorough).",
+          "timestamp": "2024-08-01T11:07:18+04:00",
+          "tree_id": "200cb9cb2be212d7a35609883ceff329cd04df3e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f8a76c1a65c7c25f49bf2d7b4ef5302a0d0fbd58"
+        },
+        "date": 1722496746790,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13225.417459999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9953.662822999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4755.985000999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4370.6893199999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39962.421482000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39962422000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14360.785473999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14360786000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3571400794,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3571400794 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201337767,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201337767 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2955373464,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2955373464 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168928054,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168928054 ns\nthreads: 1"
           }
         ]
       }
