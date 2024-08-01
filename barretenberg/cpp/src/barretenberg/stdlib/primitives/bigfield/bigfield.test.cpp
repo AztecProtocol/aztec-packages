@@ -1254,6 +1254,10 @@ TYPED_TEST(stdlib_bigfield, msub_div)
 {
     TestFixture::test_msub_div();
 }
+TYPED_TEST(stdlib_bigfield, msb_div_ctx_crash_regression)
+{
+    TestFixture::test_msub_div_ctx_crash_regression();
+}
 TYPED_TEST(stdlib_bigfield, conditional_negate)
 {
     TestFixture::test_conditional_negate();

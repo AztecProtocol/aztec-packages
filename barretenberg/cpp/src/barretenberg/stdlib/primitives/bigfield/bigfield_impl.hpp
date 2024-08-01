@@ -1543,12 +1543,6 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
                                                     const std::vector<bigfield>& to_sub,
                                                     bool enable_divisor_nz_check)
 {
-    Builder* ctx = divisor.context;
-
-    const size_t num_multiplications = mul_left.size();
-    native product_native = 0;
-    bool products_constant = true;
-
     // Check the basics
     ASSERT(mul_left.size() == mul_right.size());
     ASSERT(divisor.get_value() != 0);
@@ -1560,6 +1554,35 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     for (auto& element : to_sub) {
         new_tag = OriginTag(new_tag, element.get_origin_tag());
     }
+    // Gett he context
+    Builder* ctx = divisor.context;
+    if (ctx == NULL) {
+        for (auto& el : mul_left) {
+            if (el.context != NULL) {
+                ctx = el.context;
+                break;
+            }
+        }
+    }
+    if (ctx == NULL) {
+        for (auto& el : mul_right) {
+            if (el.context != NULL) {
+                ctx = el.context;
+                break;
+            }
+        }
+    }
+    if (ctx == NULL) {
+        for (auto& el : to_sub) {
+            if (el.context != NULL) {
+                ctx = el.context;
+                break;
+            }
+        }
+    }
+    const size_t num_multiplications = mul_left.size();
+    native product_native = 0;
+    bool products_constant = true;
 
     // This check is optional, because it is heavy and often we don't need it at all
     if (enable_divisor_nz_check) {
@@ -1593,8 +1616,10 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     if (sub_constant && products_constant && divisor.is_constant()) {
         auto result = bigfield(ctx, uint256_t(result_value.lo.lo));
         result.set_origin_tag(new_tag);
+        return result;
     }
 
+    ASSERT(ctx != NULL);
     // Create the result witness
     bigfield result = create_from_u512_as_witness(ctx, result_value.lo);
 
