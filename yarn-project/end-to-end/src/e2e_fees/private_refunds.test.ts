@@ -171,8 +171,10 @@ describe('e2e_fees/private_refunds', () => {
     // The tx reverted but the setup phase was non-revertible so the token balances were updated anyway. We check
     // that the non-revertible balances were updated as expected.
 
-    // TODO(#7717): It's currently not possible to check that correct amount of notes and nullifiers were emitted
-    // because of the linked issue. Once the issue is tackled add the checks.
+    // TODO(#7717): It's currently not possible to do proper balance checks here because of the linked issue. Once the
+    // issue is tackled add the checks.
+
+    await expectMapping(t.getTokenWithRefundsBalanceFn, [t.bobAddress], [initialBobBalance + flatFee]);
   });
 });
 
