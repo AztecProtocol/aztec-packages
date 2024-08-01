@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722528409066,
+  "lastUpdate": 1722528706056,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -104328,6 +104328,78 @@ window.BENCHMARK_DATA = {
             "value": 167431453,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 167431453 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3270662882bf98d81cf4a897957fb65cbbaa2464",
+          "message": "chore(avm): rearrange files (#7723)\n\nOne step closer to being able to create parallel VMs again (like the\nSpike VM).\n* Moved common files under `bb/vm`\n* Moved AVM files to `bb/vm/avm` and removed the prefixes\n* Moved relations from a random folder in bb to\n`bb/vm/avm/generated/relations`\n* Deleted old leftover files in `bb/relations/generated/avm/`\n\nNow everything generated is truly under `generated`",
+          "timestamp": "2024-08-01T16:59:51+01:00",
+          "tree_id": "86d403891dd955740e98afd627ef3559502669c8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3270662882bf98d81cf4a897957fb65cbbaa2464"
+        },
+        "date": 1722528696820,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13250.65587200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9848.783727 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4778.312892999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4375.098960000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39638.072147,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39638072000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14349.859232,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14349859000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3633818581,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3633818581 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200764754,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 200764754 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2980752986,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2980752986 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168078470,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168078470 ns\nthreads: 1"
           }
         ]
       }
