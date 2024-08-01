@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722527175817,
+  "lastUpdate": 1722528409066,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -104256,6 +104256,78 @@ window.BENCHMARK_DATA = {
             "value": 174118317,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 174118317 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d83cde126789016cc15087b7ff0cfb26eb31818",
+          "message": "chore(avm): vm compilation metrics (#7704)\n\n```\r\n% /path/to/aztec-packages/barretenberg/cpp/scripts/analyze_vm_compile_time.sh clang16 bb\r\nVM Total Compilation time(ms): 539039\r\n\r\n% cat build-clang16-compiler-profile/avm_compilation_summary.json\r\n[\r\n    {\r\n      \"name\": \"avm_trace/avm_alu_trace.cpp.json\",\r\n      \"time(ms)\": 11563\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_binary_trace.cpp.json\",\r\n      \"time(ms)\": 9615\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_deserialization.cpp.json\",\r\n      \"time(ms)\": 9933\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_execution.cpp.json\",\r\n      \"time(ms)\": 60117\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_gas_trace.cpp.json\",\r\n      \"time(ms)\": 8830\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_helper.cpp.json\",\r\n      \"time(ms)\": 9032\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_kernel_trace.cpp.json\",\r\n      \"time(ms)\": 8271\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_mem_trace.cpp.json\",\r\n      \"time(ms)\": 9633\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_opcode.cpp.json\",\r\n      \"time(ms)\": 2278\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/avm_trace.cpp.json\",\r\n      \"time(ms)\": 17569\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/fixed_gas.cpp.json\",\r\n      \"time(ms)\": 8957\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/fixed_powers.cpp.json\",\r\n      \"time(ms)\": 8296\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/gadgets/avm_conversion_trace.cpp.json\",\r\n      \"time(ms)\": 8487\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/gadgets/avm_ecc.cpp.json\",\r\n      \"time(ms)\": 9261\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/gadgets/avm_keccak.cpp.json\",\r\n      \"time(ms)\": 7960\r\n      {\r\n      \"name\": \"avm_trace/gadgets/avm_pedersen.cpp.json\",\r\n      \"time(ms)\": 8289\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/gadgets/avm_poseidon2.cpp.json\",\r\n      \"time(ms)\": 8536\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/gadgets/avm_sha256.cpp.json\",\r\n      \"time(ms)\": 8177\r\n    },\r\n    {\r\n      \"name\": \"avm_trace/gadgets/avm_slice_trace.cpp.json\",\r\n      \"time(ms)\": 8233\r\n    },\r\n    {\r\n      \"name\": \"generated/avm_circuit_builder.cpp.json\",\r\n      \"time(ms)\": 55427\r\n    },\r\n    {\r\n      \"name\": \"generated/avm_composer.cpp.json\",\r\n      \"time(ms)\": 52066\r\n    },\r\n    {\r\n      \"name\": \"generated/avm_flavor.cpp.json\",\r\n      \"time(ms)\": 45989\r\n    },\r\n    {\r\n      \"name\": \"generated/avm_full_row.cpp.json\",\r\n      \"time(ms)\": 12241\r\n    },\r\n    {\r\n      \"name\": \"generated/avm_prover.cpp.json\",\r\n      \"time(ms)\": 88277\r\n    },\r\n    {\r\n      \"name\": \"generated/avm_verifier.cpp.json\",\r\n      \"time(ms)\": 57994\r\n    },\r\n    {\r\n      \"name\": \"stats.cpp.json\",\r\n      \"time(ms)\": 4008\r\n    }\r\n  ]\r\n\r\n  ```",
+          "timestamp": "2024-08-01T15:57:33Z",
+          "tree_id": "64d821707129f9139db2549c8e6d380771a53615",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d83cde126789016cc15087b7ff0cfb26eb31818"
+        },
+        "date": 1722528399366,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13260.456781000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9787.252018 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4774.817472999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4332.620667 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39775.841377000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39775841000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14377.569082000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14377569000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3657071595,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3657071595 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201705274,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 201705274 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2981790181,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2981790181 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167431453,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167431453 ns\nthreads: 1"
           }
         ]
       }
