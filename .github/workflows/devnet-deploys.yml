@@ -55,12 +55,13 @@ env:
 
   # Transaction Bot
   TF_VAR_BOT_API_KEY: ${{ secrets.BOT_API_KEY }}
-  TF_VAR_BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
+  TF_VAR_BOT_PRIVATE_KEY: ""
   TF_VAR_BOT_NO_START: true
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 0 # no private transfers
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
   TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 0
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 60
+  TF_VAR_BOT_COUNT: 1
 
 jobs:
   setup:
@@ -70,6 +71,9 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
+  # Set network specific variables as outputs from this job to be referenced in later jobs
+  # The only exception is the network api key which needs to be re-derived in every job as it is a secret
+  # Secrets can't be passed between jobs
   set-network:
     needs: setup
     runs-on: ${{ github.actor }}-x86
