@@ -31,6 +31,8 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     }
 
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1063): update recursive merge verification to only
+    // occur in kernels, similar to folding recursive verification.
     goblin.merge(circuit);
 
     // Construct the prover instance for circuit
@@ -66,9 +68,10 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
  */
 AztecIVC::Proof AztecIVC::prove()
 {
-    ASSERT(circuit_count % 2 == 0); // ensure last circuit accumulatd was a kernel
-    max_block_size_tracker.print(); // print minimum structured sizes for each block
-    return { fold_output.proof, decider_prove(), goblin.prove() };
+    max_block_size_tracker.print();         // print minimum structured sizes for each block
+    ASSERT(verification_queue.size() == 1); // ensure only a single fold proof remains in the queue
+    auto& fold_proof = verification_queue[0].proof;
+    return { fold_proof, decider_prove(), goblin.prove() };
 };
 
 bool AztecIVC::verify(const Proof& proof,
@@ -154,7 +157,8 @@ bool AztecIVC::prove_and_verify()
 {
     auto proof = prove();
 
-    auto verifier_inst = std::make_shared<VerifierInstance>(this->instance_vk);
+    ASSERT(verification_queue.size() == 1); // ensure only a single fold proof remains in the queue
+    auto verifier_inst = std::make_shared<VerifierInstance>(this->verification_queue[0].instance_vk);
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 
