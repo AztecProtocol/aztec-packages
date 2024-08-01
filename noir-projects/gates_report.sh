@@ -24,7 +24,7 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
     # Check if the current artifact is a mega honk circuit
     IS_MEGA_HONK_CIRCUIT="false"
     for pattern in $MEGA_HONK_CIRCUIT_PATTERNS; do
-        if echo "$ARTIFACT_NAME" | perl -ne "print if /$pattern/"; then
+        if echo "$ARTIFACT_NAME" | grep -qE "$pattern"; then
             IS_MEGA_HONK_CIRCUIT="true"
             break
         fi
@@ -32,8 +32,7 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
 
     # If it's mega honk, we need to pass the -m flag
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-        echo "Processing mega honk circuit: $ARTIFACT_NAME"
-        GATES_INFO=$($BB_BIN gates -h -b -m "./target/$ARTIFACT_NAME.json")
+        GATES_INFO=$($BB_BIN gates -h -m -b "./target/$ARTIFACT_NAME.json")
     else
         GATES_INFO=$($BB_BIN gates -h -b "./target/$ARTIFACT_NAME.json")
     fi

@@ -8,7 +8,11 @@ const { S3 } = require("@aws-sdk/client-s3");
 
 const crypto = require("crypto");
 
-const BB_BIN_PATH = process.env.BB_BIN || "../../barretenberg/cpp/build/bin/bb";
+const megaHonkPatterns = require("../mega_honk_circuits.json");
+
+const BB_BIN_PATH =
+  process.env.BB_BIN ||
+  path.join(__dirname, "../../../barretenberg/cpp/build/bin/bb");
 const BUCKET_NAME = "aztec-ci-artifacts";
 const PREFIX = "protocol";
 
@@ -72,8 +76,15 @@ async function getNewArtifactHash(artifactPath, outputFolder, artifactName) {
   return artifactHash;
 }
 
+function isMegaHonkCircuit(artifactName) {
+  return megaHonkPatterns.some((pattern) =>
+    artifactName.match(new RegExp(pattern))
+  );
+}
+
 async function processArtifact(artifactPath, outputFolder) {
   const artifactName = path.basename(artifactPath, ".json");
+  const isMegaHonk = isMegaHonkCircuit(artifactName);
 
   const artifactHash = await getNewArtifactHash(
     artifactPath,
@@ -92,7 +103,8 @@ async function processArtifact(artifactPath, outputFolder) {
       artifactName,
       outputFolder,
       artifactPath,
-      artifactHash
+      artifactHash,
+      isMegaHonk
     );
     await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
   } else {
@@ -109,9 +121,14 @@ async function generateVKData(
   artifactName,
   outputFolder,
   artifactPath,
-  artifactHash
+  artifactHash,
+  isMegaHonk
 ) {
-  console.log("Generating new vk for", artifactName);
+  if (isMegaHonk) {
+    console.log("Generating new mega honk vk for", artifactName);
+  } else {
+    console.log("Generating new vk for", artifactName);
+  }
 
   const binaryVkPath = vkBinaryFileNameForArtifactName(
     outputFolder,
@@ -119,8 +136,12 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} write_vk_ultra_honk -h -b "${artifactPath}" -o "${binaryVkPath}"`;
-  const vkAsFieldsCommand = `${BB_BIN_PATH} vk_as_fields_ultra_honk -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+  const writeVkCommand = `${BB_BIN_PATH} ${
+    isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
+  } -h -b "${artifactPath}" -o "${binaryVkPath}"`;
+  const vkAsFieldsCommand = `${BB_BIN_PATH} ${
+    isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
+  } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {
