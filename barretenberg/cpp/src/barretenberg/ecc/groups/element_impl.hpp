@@ -517,6 +517,7 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_s
     } else {
         (*this).x = Fq::zero();
         (*this).y = Fq::zero();
+        (*this).z = Fq::zero();
         x.self_set_msb();
     }
 }

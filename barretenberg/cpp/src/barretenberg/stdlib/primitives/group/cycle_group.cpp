@@ -38,6 +38,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     } else {
         context = is_infinity.get_context();
     }
+    ASSERT(get_value().on_curve());
 }
 
 /**
