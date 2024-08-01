@@ -8,13 +8,7 @@ import { type AztecNode, createAztecNodeClient } from '@aztec/circuit-types';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import {
-  AztecAddress,
-  type PXEServiceConfig,
-  createPXERpcServer,
-  createPXEService,
-  getCliPXEOptions,
-} from '@aztec/pxe';
+import { AztecAddress, type CliPXEOptions, createPXERpcServer, createPXEService, getCliPXEOptions } from '@aztec/pxe';
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
