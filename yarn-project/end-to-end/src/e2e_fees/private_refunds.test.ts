@@ -149,31 +149,30 @@ describe('e2e_fees/private_refunds', () => {
     const aliceRandomness = Fr.random(); // Called user_randomness in contracts
     const bobRandomness = poseidon2Hash([aliceRandomness]); // Called fee_payer_randomness in contracts
 
-    // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
-    await expect(
-      tokenWithRefunds.methods
-        .private_get_name()
-        .send({
-          fee: {
-            gasSettings: t.gasSettings,
-            paymentMethod: new PrivateRefundPaymentMethod(
-              tokenWithRefunds.address,
-              privateFPC.address,
-              aliceWallet,
-              aliceRandomness,
-              bobRandomness,
-              t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
-              true, // We set max fee/funded amount to zero to trigger the error.
-            ),
-          },
-        })
-        .wait(),
-    ).rejects.toThrow('tx fee is higher than funded amount');
+    // 2. We call arbitrary `private_get_name(...)` function to trigger the refund flow.
+    const sentTx = tokenWithRefunds.methods.private_get_name().send({
+      fee: {
+        gasSettings: t.gasSettings,
+        paymentMethod: new PrivateRefundPaymentMethod(
+          tokenWithRefunds.address,
+          privateFPC.address,
+          aliceWallet,
+          aliceRandomness,
+          bobRandomness,
+          t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
+          true, // We set max fee/funded amount to zero to trigger the error.
+        ),
+      },
+    });
+
+    // 3. We check that the transaction was reverted with the expected error.
+    await expect(sentTx.wait()).rejects.toThrow('tx fee is higher than funded amount');
 
     // The tx reverted but the setup phase was non-revertible so the token balances were updated anyway. We check
     // that the non-revertible balances were updated as expected.
 
-
+    // TODO(#7717): It's currently not possible to check that correct amount of notes and nullifiers were emitted
+    // because of the linked issue. Once the issue is tackled add the checks.
   });
 });
 
