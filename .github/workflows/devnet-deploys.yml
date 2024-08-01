@@ -71,6 +71,9 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
+  # Set network specific variables as outputs from this job to be referenced in later jobs
+  # The only exception is the network api key which needs to be re-derived in every job as it is a secret
+  # Secrets can't be passed between jobs
   set-network:
     needs: setup
     runs-on: ${{ github.actor }}-x86
