@@ -349,8 +349,7 @@
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
-        "MULTITHREADING": "ON",
-        "Threads_FOUND": "ON"
+        "MULTITHREADING": "ON"
       }
     },
     {
