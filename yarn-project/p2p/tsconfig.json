@@ -22,5 +22,4 @@
       "path": "../telemetry-client"
     }
   ],
-  "include": ["src"]
 }

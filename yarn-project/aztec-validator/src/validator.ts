@@ -1,0 +1,9 @@
+
+/** Validator
+ * 
+
+ * 
+ */
+export class Validator {
+
+}
