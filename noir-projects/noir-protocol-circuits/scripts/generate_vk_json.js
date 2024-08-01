@@ -53,10 +53,25 @@ function getBarretenbergHash() {
   });
 }
 
-async function getNewArtifactHash(artifactPath, outputFolder, artifactName) {
+function generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk) {
+  return `${barretenbergHash}-${bytecodeHash}-${
+    isMegaHonk ? "mega-honk" : "ultra-honk"
+  }`;
+}
+
+async function getNewArtifactHash(
+  artifactPath,
+  outputFolder,
+  artifactName,
+  isMegaHonk
+) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
-  const artifactHash = `${barretenbergHash}-${bytecodeHash}`;
+  const artifactHash = generateArtifactHash(
+    barretenbergHash,
+    bytecodeHash,
+    isMegaHonk
+  );
 
   const vkDataPath = vkDataFileNameForArtifactName(outputFolder, artifactName);
   try {
@@ -91,7 +106,8 @@ async function processArtifact(artifactPath, outputFolder) {
   const artifactHash = await getNewArtifactHash(
     artifactPath,
     outputFolder,
-    artifactName
+    artifactName,
+    isMegaHonk
   );
   if (!artifactHash) {
     console.log("Reusing on disk vk for", artifactName);
