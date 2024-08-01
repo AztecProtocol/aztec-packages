@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm_trace/avm_execution.hpp"
 #include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
@@ -11,10 +12,11 @@
 #include "barretenberg/vm/avm_trace/avm_trace.hpp"
 #include "barretenberg/vm/avm_trace/aztec_constants.hpp"
 #include "barretenberg/vm/avm_trace/constants.hpp"
-#include "barretenberg/vm/avm_trace/stats.hpp"
 #include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_composer.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
+#include "barretenberg/vm/generated/avm_verifier.hpp"
+#include "barretenberg/vm/stats.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -124,11 +126,16 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
 
+    if (circuit_builder.get_circuit_subgroup_size() > SRS_SIZE) {
+        throw_or_abort("Circuit subgroup size (" + std::to_string(circuit_builder.get_circuit_subgroup_size()) +
+                       ") exceeds SRS_SIZE (" + std::to_string(SRS_SIZE) + ")");
+    }
+
     AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
 
-    auto composer = AvmComposer();
-    auto prover = composer.create_prover(circuit_builder);
-    auto verifier = composer.create_verifier(circuit_builder);
+    auto composer = AVM_TRACK_TIME_V("prove/create_composer", AvmComposer());
+    auto prover = AVM_TRACK_TIME_V("prove/create_prover", composer.create_prover(circuit_builder));
+    auto verifier = AVM_TRACK_TIME_V("prove/create_verifier", composer.create_verifier(circuit_builder));
 
     vinfo("------- PROVING EXECUTION -------");
     // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
@@ -790,6 +797,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                          std::get<uint32_t>(inst.operands.at(1)),
                                          std::get<uint32_t>(inst.operands.at(2)),
                                          std::get<uint32_t>(inst.operands.at(3)));
+
+            break;
+        case OpCode::PEDERSENCOMMITMENT:
+            trace_builder.op_pedersen_commit(std::get<uint8_t>(inst.operands.at(0)),
+                                             std::get<uint32_t>(inst.operands.at(1)),
+                                             std::get<uint32_t>(inst.operands.at(2)),
+                                             std::get<uint32_t>(inst.operands.at(3)),
+                                             std::get<uint32_t>(inst.operands.at(4)));
 
             break;
         default:

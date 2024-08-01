@@ -18,10 +18,9 @@ pub(crate) struct FunctionInserter<'f> {
     pub(crate) function: &'f mut Function,
 
     values: HashMap<ValueId, ValueId>,
-    /// Map containing repeat array constant so that we do not initialize a new
-    /// array unnecessarily. An extra bool is included as part of the key to
-    /// distinguish between Type::Array and Type::Slice, as both are valid
-    /// types for a Value::Array
+    /// Map containing repeat array constants so that we do not initialize a new
+    /// array unnecessarily. An extra tuple field is included as part of the key to
+    /// distinguish between array/slice types.
     const_arrays: HashMap<(im::Vector<ValueId>, Type), ValueId>,
 }
 
@@ -44,8 +43,6 @@ impl<'f> FunctionInserter<'f> {
                     let new_array: im::Vector<ValueId> =
                         array.iter().map(|id| self.resolve(*id)).collect();
 
-                    // Flag to determine the type of the value's array list
-                    // let is_array = matches!(typ, Type::Array { .. });
                     if let Some(fetched_value) =
                         self.const_arrays.get(&(new_array.clone(), typ.clone()))
                     {

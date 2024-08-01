@@ -39,10 +39,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     info("wire comms in recursive verifier");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1017): This is a hack to ensure zero commitments
-        // are still on curve as the transcript doesn't currently support a point at infinity representation for
-        // cycle_group
-        info(label, " ", comm, " is infinity flag ", comm.is_point_at_infinity());
     }
 
     // Get challenge for sorted list batching and wire four memory records

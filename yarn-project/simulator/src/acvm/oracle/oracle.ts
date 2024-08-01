@@ -6,7 +6,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
-import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
+import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
 /**
@@ -247,14 +247,14 @@ export class Oracle {
     [storageSlot]: ACVMField[],
     [noteTypeId]: ACVMField[],
     note: ACVMField[],
-    [innerNoteHash]: ACVMField[],
+    [slottedNoteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): ACVMField {
     this.typedOracle.notifyCreatedNote(
       fromACVMField(storageSlot),
       NoteSelector.fromField(fromACVMField(noteTypeId)),
       note.map(fromACVMField),
-      fromACVMField(innerNoteHash),
+      fromACVMField(slottedNoteHash),
       +counter,
     );
     return toACVMField(0);
@@ -262,10 +262,10 @@ export class Oracle {
 
   async notifyNullifiedNote(
     [innerNullifier]: ACVMField[],
-    [innerNoteHash]: ACVMField[],
+    [slottedNoteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField> {
-    await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(innerNoteHash), +counter);
+    await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(slottedNoteHash), +counter);
     return toACVMField(0);
   }
 
@@ -429,7 +429,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const callStackItem = await this.typedOracle.callPrivateFunction(
+    const { endSideEffectCounter, returnsHash } = await this.typedOracle.callPrivateFunction(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -437,7 +437,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return callStackItem.toFields().map(toACVMField);
+    return [endSideEffectCounter, returnsHash].map(toACVMField);
   }
 
   async callPublicFunction(
@@ -467,7 +467,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ) {
-    const enqueuedRequest = await this.typedOracle.enqueuePublicFunctionCall(
+    await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -475,7 +475,6 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
   }
 
   async setPublicTeardownFunctionCall(
@@ -486,7 +485,7 @@ export class Oracle {
     [isStaticCall]: ACVMField[],
     [isDelegateCall]: ACVMField[],
   ) {
-    const teardownRequest = await this.typedOracle.setPublicTeardownFunctionCall(
+    await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(fromACVMField(functionSelector)),
       fromACVMField(argsHash),
@@ -494,7 +493,6 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return toAcvmEnqueuePublicFunctionResult(teardownRequest);
   }
 
   aes128Encrypt(input: ACVMField[], initializationVector: ACVMField[], key: ACVMField[]): ACVMField[] {
