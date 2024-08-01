@@ -24,7 +24,7 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use std::embedded_curve_ops::multi_scalar_mul;
+    use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
@@ -151,6 +151,12 @@ contract AvmTest {
         let scalar2 = Scalar { lo: 20, hi: 0 };
         let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
         triple_g
+    }
+
+    #[aztec(public)]
+    fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
+        let commitment = dep::std::hash::pedersen_commitment_with_separator([x, y], 20);
+        commitment
     }
 
     /************************************************************************
@@ -367,7 +373,7 @@ contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn new_nullifier(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // Use the standard context interface to check for a nullifier
@@ -384,7 +390,7 @@ contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn emit_nullifier_and_check(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         let exists = context.nullifier_exists(nullifier, context.storage_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
@@ -392,9 +398,9 @@ contract AvmTest {
     // Create the same nullifier twice (shouldn't work!)
     #[aztec(public)]
     fn nullifier_collision(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         // Can't do this twice!
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     #[aztec(public)]
@@ -440,13 +446,13 @@ contract AvmTest {
 
     #[aztec(public)]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
     #[aztec(public)]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 

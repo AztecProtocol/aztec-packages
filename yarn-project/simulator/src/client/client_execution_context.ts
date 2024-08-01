@@ -71,7 +71,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
-  private nullifiedNoteHashCounters: Map<number, number> = new Map();
+  private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
@@ -135,14 +135,14 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Get the data for the newly created notes.
-   * @param innerNoteHashes - Inner note hashes for the notes.
+   * @param slottedNoteHashes - Slotted note hashes for the notes.
    */
   public getNewNotes(): NoteAndSlot[] {
     return this.newNotes;
   }
 
-  public getNullifiedNoteHashCounters() {
-    return this.nullifiedNoteHashCounters;
+  public getNoteHashNullifierCounterMap() {
+    return this.noteHashNullifierCounterMap;
   }
 
   /**
@@ -278,7 +278,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       if (n.index !== undefined) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always call computeUniqueNoteHash when publicly created notes include nonces.
-        const uniqueNoteHash = n.nonce.isZero() ? n.innerNoteHash : computeUniqueNoteHash(n.nonce, n.innerNoteHash);
+        const uniqueNoteHash = n.nonce.isZero() ? n.slottedNoteHash : computeUniqueNoteHash(n.nonce, n.slottedNoteHash);
         const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
         const noteHashForReadRequest = siloedNoteHash;
         this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
@@ -295,14 +295,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param slottedNoteHash - The slotted note hash of the new note.
    * @returns
    */
   public override notifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
-    innerNoteHash: Fr,
+    slottedNoteHash: Fr,
     counter: number,
   ) {
     const note = new Note(noteItems);
@@ -313,7 +313,7 @@ export class ClientExecutionContext extends ViewDataOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        innerNoteHash,
+        slottedNoteHash,
       },
       counter,
     );
@@ -328,16 +328,16 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Adding a siloed nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param slottedNoteHash - The slotted note hash of the new note.
    */
-  public override notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, counter: number) {
+  public override notifyNullifiedNote(innerNullifier: Fr, slottedNoteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = this.noteCache.nullifyNote(
       this.callContext.storageContractAddress,
       innerNullifier,
-      innerNoteHash,
+      slottedNoteHash,
     );
     if (nullifiedNoteHashCounter !== undefined) {
-      this.nullifiedNoteHashCounters.set(nullifiedNoteHashCounter, counter);
+      this.noteHashNullifierCounterMap.set(nullifiedNoteHashCounter, counter);
     }
     return Promise.resolve();
   }
@@ -643,6 +643,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       isStaticCall,
       isDelegateCall,
     );
+  }
+
+  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
+    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   /**
