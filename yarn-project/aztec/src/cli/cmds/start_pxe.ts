@@ -85,9 +85,9 @@ export async function addPXE(
     for (const [key, artifactName] of Object.entries(L2BasicContractsMap[pxeCliOptions.network as Network])) {
       l2Contracts[key] = {
         name: key,
-        address: AztecAddress.fromString(basicContractsInfo[`${key}L2`]),
-        initHash: Fr.fromString(basicContractsInfo[`${key}L2InitHash`]),
-        salt: Fr.fromString(basicContractsInfo[`${key}L2Salt`]),
+        address: AztecAddress.fromString(basicContractsInfo[key].address),
+        initHash: Fr.fromString(basicContractsInfo[key].initHash),
+        salt: Fr.fromString(basicContractsInfo[key].salt),
         artifact: await getContractArtifact(artifactName, userLog),
       };
     }

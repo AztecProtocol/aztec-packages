@@ -3,6 +3,7 @@
  */
 export enum Network {
   DEVNET = 'devnet',
+  PROVERNET = 'provernet',
 }
 
 /**
@@ -10,6 +11,12 @@ export enum Network {
  */
 export const L2BasicContractsMap = {
   [Network.DEVNET]: {
+    devCoin: 'TokenContract',
+    devCoinBridge: 'TokenBridgeContract',
+    devCoinFpc: 'FPCContract',
+    counter: 'CounterContract',
+  },
+  [Network.PROVERNET]: {
     devCoin: 'TokenContract',
     devCoinBridge: 'TokenBridgeContract',
     devCoinFpc: 'FPCContract',
