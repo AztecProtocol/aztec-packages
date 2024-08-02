@@ -20,6 +20,11 @@ struct Cli {
     /// BBerg: Name of the output file for bberg
     #[arg(long)]
     name: Option<String>,
+
+    /// Delete the output directory if it already exists
+    #[arg(short, long)]
+    #[arg(default_value_t = false)]
+    yes: bool,
 }
 
 fn extract_col_name(cols: Vec<&(Symbol, Option<FunctionValueDefinition>)>) -> Vec<String> {
@@ -33,7 +38,7 @@ fn main() -> Result<(), io::Error> {
     let args = Cli::parse();
 
     let file_name = args.file;
-    let name = args.name;
+    let name = args.name.unwrap();
 
     let analyzed: Analyzed<Bn254Field> = analyze_file(Path::new(&file_name));
 
@@ -46,7 +51,8 @@ fn main() -> Result<(), io::Error> {
         &extract_col_name(fixed),
         &extract_col_name(witness),
         &extract_col_name(public),
-        name,
+        &name,
+        args.yes,
     );
     Ok(())
 }
