@@ -1,4 +1,11 @@
-import { type Histogram, Metrics, type TelemetryClient, type Tracer, ValueType } from '@aztec/telemetry-client';
+import {
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  type Tracer,
+  ValueType,
+  millisecondBuckets,
+} from '@aztec/telemetry-client';
 
 export class ProvingOrchestratorMetrics {
   public readonly tracer: Tracer;
@@ -13,6 +20,9 @@ export class ProvingOrchestratorMetrics {
       unit: 'ms',
       description: 'Duration to build base rollup inputs',
       valueType: ValueType.INT,
+      advice: {
+        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
+      },
     });
   }
 

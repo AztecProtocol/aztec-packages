@@ -572,13 +572,17 @@ export class ProvingOrchestrator {
       );
 
       const proof = await this.prover.getEmptyTubeProof(inputs);
-      return await buildBaseRollupInput(tx, proof.proof, provingState.globalVariables, this.db, proof.verificationKey);
+      return await elapsed(
+        buildBaseRollupInput(tx, proof.proof, provingState.globalVariables, this.db, proof.verificationKey),
+      );
     };
     const getBaseInputsNonEmptyTx = async () => {
       const proof = await this.prover.getTubeProof(new TubeInputs(tx.clientIvcProof));
-      return await buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK);
+      return await elapsed(
+        buildBaseRollupInput(tx, proof.tubeProof, provingState.globalVariables, this.db, proof.tubeVK),
+      );
     };
-    const [ms, inputs] = tx.isEmpty ? await elapsed(getBaseInputsEmptyTx()) : await elapsed(getBaseInputsNonEmptyTx());
+    const [ms, inputs] = tx.isEmpty ? await getBaseInputsEmptyTx() : await getBaseInputsNonEmptyTx();
 
     if (!tx.isEmpty) {
       this.metrics.recordBaseRollupInputs(ms);
