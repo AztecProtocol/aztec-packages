@@ -6,6 +6,7 @@
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
+#include "client_ivc_accumulation_constraint.hpp"
 #include "ec_operations.hpp"
 #include "ecdsa_secp256k1.hpp"
 #include "ecdsa_secp256r1.hpp"
@@ -50,6 +51,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
+    std::vector<size_t> client_ivc_accumulation_constraints;
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
@@ -95,6 +97,7 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<HonkRecursionConstraint> honk_recursion_constraints;
+    std::vector<ClientIVCAccumulationConstraint> client_ivc_accumulation_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -139,6 +142,7 @@ struct AcirFormat {
                    ec_add_constraints,
                    recursion_constraints,
                    honk_recursion_constraints,
+                   client_ivc_accumulation_constraints,
                    poly_triple_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
@@ -194,14 +198,18 @@ Builder create_circuit(AcirFormat& constraint_system,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
+MegaCircuitBuilder create_circuit_with_accumulation_witnesses(AcirFormat&, WitnessVector const&, ClientIVC const&);
+
+// WORKTODO: break this function up or assure that we're not copying anything when we pass ClientIVC via a std::optional
 template <typename Builder>
-void build_constraints(
-    Builder& builder,
-    AcirFormat& constraint_system,
-    bool has_valid_witness_assignments,
-    bool honk_recursion = false,
-    bool collect_gates_per_opcode = false); // honk_recursion means we will honk to recursively verify this
-                                            // circuit. This distinction is needed to not add the default
-                                            // aggregation object when we're not using the honk RV.
+void build_constraints(Builder& builder,
+                       AcirFormat& constraint_system,
+                       bool has_valid_witness_assignments,
+                       bool honk_recursion = false, /* honk_recursion means we will honk to recursively verify this
+                                                     * circuit. This distinction is needed to not add the default
+                                                     * aggregation object when we're not using the honk RV.
+                                                     */
+                       bool collect_gates_per_opcode = false,
+                       std::optional<ClientIVC> = std::nullopt);
 
 } // namespace acir_format

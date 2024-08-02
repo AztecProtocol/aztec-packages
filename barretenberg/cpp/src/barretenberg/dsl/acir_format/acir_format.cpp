@@ -18,7 +18,8 @@ void build_constraints(Builder& builder,
                        AcirFormat& constraint_system,
                        bool has_valid_witness_assignments,
                        bool honk_recursion,
-                       bool collect_gates_per_opcode)
+                       bool collect_gates_per_opcode,
+                       std::optional<ClientIVC> ivc)
 {
     if (collect_gates_per_opcode) {
         constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
@@ -408,6 +409,21 @@ void build_constraints(Builder& builder,
             builder.set_recursive_proof(current_aggregation_object);
         }
     }
+
+    // ClientIVCAccumulationConstraint
+    if constexpr (IsMegaBuilder<Builder>) {
+        if (!constraint_system.client_ivc_accumulation_constraints.empty()) {
+            info("WARNING: this circuit contains client_ivc_accumulation_constraints that are being ignored!");
+        }
+    } else {
+        for (size_t i = 0; i < constraint_system.client_ivc_accumulation_constraints.size(); ++i) {
+            auto& constraint = constraint_system.honk_recursion_constraints.at(i);
+
+            create_client_ivc_accumulation_constraints(builder, constraint, ivc);
+            track_gate_diff(constraint_system.gates_per_opcode,
+                            constraint_system.original_opcode_indices.client_ivc_accumulation_constraints.at(i));
+        }
+    }
 }
 
 /**
@@ -466,6 +482,30 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
     return builder;
 };
 
+/**
+ * @brief Create a circuit with accumulation witnesses object
+ *
+ * @param constraint_system
+ * @param witness
+ * @param ivc
+ * @return MegaCircuitBuilder
+ */
+MegaCircuitBuilder create_circuit_with_accumulation_witnesses(AcirFormat& constraint_system,
+                                                              WitnessVector const& witness,
+                                                              ClientIVC const& ivc)
+{
+    // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
+    ivc.builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
+
+    // Populate constraints in the builder via the data in constraint_system
+    bool has_valid_witness_assignments = !witness.empty();
+    acir_format::build_constraints(
+        builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode, ivc);
+
+    return builder;
+};
+
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool, bool);
+template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, bool, bool, bool);
 
 } // namespace acir_format

@@ -522,6 +522,73 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 }
 
 /**
+ * @brief Recieves an ACIR Program stack that gets accumulated with the ClientIVC logic and produces a client IVC proof.
+ * @note This will replace client_ivc_prove_output_all_msgpack, which does not correctly handle linking of public inputs
+ * in our kernel circuits.
+ *
+ * @param bytecodePath Path to the serialised circuit
+ * @param witnessPath Path to witness data
+ * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
+ * going to be specified when bb main is called, i.e. as the working directory in typescript).
+ */
+void client_ivc_prove_redux(const std::string& bytecodePath,
+                            const std::string& witnessPath,
+                            const std::string& outputPath)
+{
+    using Flavor = MegaFlavor; // This is the only option
+    using Builder = Flavor::CircuitBuilder;
+    using ECCVMVK = ECCVMFlavor::VerificationKey;
+    using TranslatorVK = TranslatorFlavor::VerificationKey;
+
+    init_bn254_crs(1 << 18);
+    init_grumpkin_crs(1 << 14);
+
+    // this class stores an accumulator
+    ivc.structured_flag = true;
+
+    auto program_stack = acir_format::get_acir_program_stack(
+        bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
+                                           // assumes that folding is never done with ultrahonk.
+
+    // Accumulate the entire program stack into the IVC
+    ClientIVCProver ivc;
+    while (!program_stack.empty()) {
+        auto stack_item = program_stack.back();
+
+        // Construct a bberg circuit from the acir representation, handling merge and databus ivc steps also
+        auto circuit =
+            acir_format::create_circuit_with_accumulation_witnesses(stack_item.constraints, stack_item.witness, ivc);
+
+        // call fold and merge to get the next proof
+        accumulation_proof = ivc.accumulate(circuit);
+
+        program_stack.pop_back();
+    }
+
+    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
+    // directory is passed by bb.js)
+    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
+    std::string accPath = outputPath + "/pg_acc";
+    std::string proofPath = outputPath + "/client_ivc_proof";
+    std::string translatorVkPath = outputPath + "/translator_vk";
+    std::string eccVkPath = outputPath + "/ecc_vk";
+
+    auto proof = ivc.prove();
+    auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
+
+    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
+
+    vinfo("write proof and vk data to files..");
+    write_file(proofPath, to_buffer(proof));
+    write_file(vkPath, to_buffer(ivc.instance_vk)); // maybe dereference
+    write_file(accPath, to_buffer(ivc.verifier_accumulator));
+    write_file(translatorVkPath, to_buffer(translator_vk));
+    write_file(eccVkPath, to_buffer(eccvm_vk));
+}
+
+/**
  * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
  *
  * @param output_path the working directory from which the proof and verification data are read
@@ -1377,6 +1444,11 @@ int main(int argc, char* argv[])
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1050) we need a verify_client_ivc bb cli command
         // TODO(#7371): remove this
         if (command == "client_ivc_prove_output_all_msgpack") {
+            std::filesystem::path output_dir = get_option(args, "-o", "./target");
+            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
+            return 0;
+        }
+        if (command == "client_ivc_prove_redux") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
             client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
             return 0;
