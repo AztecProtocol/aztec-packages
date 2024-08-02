@@ -288,7 +288,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
           userLog(`Cannot run a standalone sequencer without a node`);
           process.exit(1);
         } else {
-          userLog(`No module specified to start`);
+          userLog(`No module specified to start ${JSON.stringify(options, null, 2)}`);
           process.exit(1);
         }
       }

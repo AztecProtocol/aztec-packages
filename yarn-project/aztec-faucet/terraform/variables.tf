@@ -2,6 +2,10 @@ variable "DEPLOY_TAG" {
   type = string
 }
 
+variable "IMAGE_TAG" {
+  type = string
+}
+
 variable "API_KEY" {
   type = string
 }
@@ -11,7 +15,8 @@ variable "L1_CHAIN_ID" {
 }
 
 variable "FAUCET_PRIVATE_KEY" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "DOCKERHUB_ACCOUNT" {

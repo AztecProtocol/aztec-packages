@@ -152,7 +152,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       name      = "init-container"
       image     = "amazonlinux:latest"
       essential = false
-      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}"]
+      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}/data ${local.data_dir}/node_${count.index + 1}/temp"]
       mountPoints = [
         {
           containerPath = local.data_dir
@@ -206,7 +206,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "DATA_DIRECTORY"
-          value = "${local.data_dir}_${count.index + 1}"
+          value = "${local.data_dir}/node_${count.index + 1}/data"
         },
         {
           name  = "ARCHIVER_POLLING_INTERVAL"
@@ -294,7 +294,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "BOOTSTRAP_NODES"
-          value = "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
+          value = var.BOOTSTRAP_NODES
         },
         {
           name  = "P2P_ENABLED"
@@ -343,6 +343,18 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "TEL_SERVICE_NAME"
           value = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+        },
+        {
+          name  = "BB_WORKING_DIRECTORY"
+          value = "${local.data_dir}/node_${count.index + 1}/temp"
+        },
+        {
+          name  = "ACVM_WORKING_DIRECTORY"
+          value = "${local.data_dir}/node_${count.index + 1}/temp"
+        },
+        {
+          name  = "LOG_LEVEL"
+          value = "info"
         }
       ]
       mountPoints = [

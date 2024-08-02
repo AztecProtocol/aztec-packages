@@ -3,7 +3,8 @@ variable "DEPLOY_TAG" {
 }
 
 variable "IMAGE_TAG" {
-  type = string
+  type    = string
+  default = "latest"
 }
 
 variable "API_KEY" {
@@ -44,7 +45,7 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
-  default = 0
+  default = 2
 }
 
 variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
@@ -69,7 +70,7 @@ variable "P2P_MAX_PEERS" {
 
 variable "P2P_ENABLED" {
   type    = bool
-  default = true
+  default = false
 }
 
 variable "P2P_TX_POOL_KEEP_PROVEN_FOR" {
@@ -80,4 +81,9 @@ variable "P2P_TX_POOL_KEEP_PROVEN_FOR" {
 variable "PROVING_ENABLED" {
   type    = bool
   default = false
+}
+
+variable "BOOTSTRAP_NODES" {
+  type    = string
+  default = ""
 }
