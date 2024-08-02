@@ -1,5 +1,5 @@
 use dep::aztec::{
-    generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd},
+    generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd, G_slot},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{
     constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, scalar::Scalar,
@@ -93,6 +93,10 @@ impl TokenNoteHidingPoint {
 
     fn add_randomness(&mut self, randomness: Field) {
         self.inner = multi_scalar_mul([G_rnd], [from_field_unsafe(randomness)]) + self.inner;
+    }
+
+    fn add_slot(&mut self, slot: Field) {
+        self.inner = multi_scalar_mul([G_slot], [from_field_unsafe(slot)]) + self.inner;
     }
 
     fn finalize(self) -> Field {

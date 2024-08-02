@@ -470,16 +470,15 @@ contract TokenWithRefunds {
         };
 
         // 5. Now we get the note hiding points.
-        let fee_payer_point = fee_payer_partial_note.to_note_hiding_point();
-        let user_point = user_partial_note.to_note_hiding_point();
+        let mut fee_payer_point = fee_payer_partial_note.to_note_hiding_point();
+        let mut user_point = user_partial_note.to_note_hiding_point();
 
         // 6. Now we "manually" compute the slot points and add them to hiding points.
         let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
-        // TODO(benesjan): do not access longer access .inner here
-        let slotted_fee_payer_point = compute_slotted_note_hiding_point_raw(fee_payer_balances_slot, fee_payer_point.inner);
-        let slotted_user_point = compute_slotted_note_hiding_point_raw(user_balances_slot, user_point.inner);
+        fee_payer_point.add_slot(fee_payer_balances_slot);
+        user_point.add_slot(user_balances_slot);
 
         // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
