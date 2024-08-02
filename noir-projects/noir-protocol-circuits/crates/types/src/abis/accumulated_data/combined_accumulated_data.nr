@@ -67,10 +67,16 @@ impl CombinedAccumulatedData {
         );
 
         let mut siloed_note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
-        let unsiloed_note_hashes = combine_hints.sorted_note_hashes;
+        let sorted_note_hashes = combine_hints.sorted_note_hashes;
         let tx_hash = non_revertible.nullifiers[0].value;
-        for i in 0..unsiloed_note_hashes.len() {
-            siloed_note_hashes[i] = silo_note_hash(unsiloed_note_hashes[i], tx_hash, i);
+        for i in 0..sorted_note_hashes.len() {
+            let note_hash = sorted_note_hashes[i];
+            siloed_note_hashes[i] = if note_hash.counter() == 0 {
+                // If counter is zero, the note hash was emitted from private and has been siloed in private_kernel_tail_to_public.
+                note_hash.value()
+            } else {
+                silo_note_hash(note_hash, tx_hash, i)
+            };
         }
 
         let merged_public_data_update_requests = array_merge(
