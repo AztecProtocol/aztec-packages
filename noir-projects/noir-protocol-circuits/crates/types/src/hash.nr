@@ -11,13 +11,12 @@ use crate::{
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     merkle_tree::root::root_from_sibling_path, messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    recursion::verification_key::VerificationKey, traits::is_empty,
-    utils::field::field_from_bytes_32_trunc
+    recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
+    utils::field::field_from_bytes_32_trunc, point::Point
 };
-use std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = sha256(bytes_to_hash);
+    let sha256_hashed = std::hash::sha256(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
@@ -256,6 +255,26 @@ pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 
+#[no_predicates]
+pub fn poseidon2_hash_with_separator<N, T>(inputs: [Field; N], separator: T) -> Field where T: ToField {
+    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
+    let in_len = N + 1;
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs[i]);
+    }
+
+    sponge.squeeze()
+}
+
+pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
+    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
+}
+
 #[test]
 fn smoke_sha256_to_field() {
     let full_buffer = [
@@ -273,7 +292,7 @@ fn smoke_sha256_to_field() {
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
-    let result_bytes = sha256(full_buffer);
+    let result_bytes = std::hash::sha256(full_buffer);
     let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
     assert(truncated_field == result);
     let mod_res = result + (result_bytes[31] as Field);

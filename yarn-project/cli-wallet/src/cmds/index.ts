@@ -173,18 +173,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
     const { send } = await import('../cmds/send.js');
     const options = command.optsWithGlobals();
-    const {
-      args,
-      contractArtifact,
-      contractAddress,
-      privateKey,
-      aliasOrAddress,
-      noWait,
-      rpcUrl,
-      type,
-      secretKey,
-      publicKey,
-    } = options;
+    const { args, contractArtifact, contractAddress, aliasOrAddress, noWait, rpcUrl, type, secretKey, publicKey } =
+      options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
     await send(
