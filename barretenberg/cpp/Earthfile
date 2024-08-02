@@ -187,6 +187,15 @@ bench-client-ivc:
     RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/client_ivc_bench --benchmark_out=../client_ivc_wasm.json --benchmark_filter="ClientIVCBench/Full/6$"
     SAVE ARTIFACT client_ivc*.json
 
+bench-tube: # AKA recursive client-ivc verification in a circuit
+    BUILD +wasmtime # prefetch
+    FROM ubuntu:noble
+    COPY --dir +bench-binaries/* .
+    # install SRS needed for proving
+    COPY --dir ./srs_db/+build/. srs_db
+    RUN cd release && ./bin/tube_bench --benchmark_out=../tube_bench.json
+    SAVE ARTIFACT tube_bench.json
+
 bench:
     FROM aztecprotocol/bb-ubuntu-lunar
     # for sequential running
@@ -196,10 +205,14 @@ bench:
     WAIT
     COPY +bench-client-ivc/* .
     END
+    WAIT
+    COPY +bench-tube/* .
+    END
     COPY ./scripts/ci/combine_benchmarks.py ./scripts/ci/combine_benchmarks.py
     RUN ./scripts/ci/combine_benchmarks.py \
         native client_ivc_release.json \
         native ultra_honk_release.json \
+        native tube_bench.json \
         wasm client_ivc_wasm.json \
         wasm ultra_honk_wasm.json \
         "" client_ivc_op_count.json \
