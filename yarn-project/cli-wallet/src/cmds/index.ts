@@ -14,7 +14,7 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type Command, Option } from 'commander';
 
 import { type WalletDB } from '../storage/wallet_db.js';
-import { AccountType, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
+import { AccountTypes, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/fees.js';
 
 function createAliasOption(allowAddress: boolean, description: string, hide: boolean) {
@@ -22,8 +22,8 @@ function createAliasOption(allowAddress: boolean, description: string, hide: boo
 }
 
 function createTypeOption() {
-  return new Option('-t, --type <string>', 'Type of account to create. Default is schnorr.')
-    .default('schnorr')
+  return new Option('-t, --type <string>', 'Type of account to create')
+    .choices(AccountTypes)
     .conflicts('alias-or-address');
 }
 
@@ -77,7 +77,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         log,
       );
       if (db) {
-        const { alias, address, secretKey, salt } = accountCreationResult;
+        const { alias, secretKey, salt } = accountCreationResult;
         await createAndStoreAccount(client, type, secretKey, publicKey, salt, alias, db);
         log(`Account stored in database with alias ${alias}`);
       }

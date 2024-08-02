@@ -7,7 +7,8 @@ import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
 import { type WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
-export type AccountType = 'schnorr' | 'ecdsasecp256r1ssh' | 'ecdsasecp256k1';
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
+export type AccountType = (typeof AccountTypes)[number];
 
 export async function createAndStoreAccount(
   client: PXE,
