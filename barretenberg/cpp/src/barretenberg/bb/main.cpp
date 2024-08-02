@@ -1450,7 +1450,7 @@ int main(int argc, char* argv[])
         }
         if (command == "client_ivc_prove_redux") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
-            client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
+            client_ivc_prove_output_all_redux(bytecode_path, witness_path, output_dir);
             return 0;
         }
         if (command == "verify_client_ivc") {
