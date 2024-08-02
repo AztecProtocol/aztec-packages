@@ -25,7 +25,6 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
             FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
             auto verifier_accum = verifier.verify_folding_proof(proof);
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
-            info("Num gates = ", circuit.get_num_gates());
 
             bus_depot.execute(verifier.instances);
         }
