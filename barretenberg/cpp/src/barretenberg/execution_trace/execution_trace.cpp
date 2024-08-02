@@ -9,8 +9,9 @@ namespace bb {
 template <class Flavor>
 void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
+    ZoneScopedN("trace populate");
     // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data
-    auto trace_data = construct_trace_data(builder, proving_key.circuit_size, is_structured);
+    auto trace_data = construct_trace_data(builder, proving_key, is_structured);
 
     add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
@@ -71,11 +72,10 @@ void ExecutionTrace_<Flavor>::add_memory_records_to_proving_key(TraceData& trace
 }
 
 template <class Flavor>
-typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(Builder& builder,
-                                                                                          size_t dyadic_circuit_size,
-                                                                                          bool is_structured)
+typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
+    Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-    TraceData trace_data{ dyadic_circuit_size, builder };
+    TraceData trace_data{ builder, proving_key };
 
     // Complete the public inputs execution trace block from builder.public_inputs
     populate_public_inputs_block(builder);
@@ -129,6 +129,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
 template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
 {
+    ZoneScopedN("populate block");
+
     // Update the public inputs block
     for (auto& idx : builder.public_inputs) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {

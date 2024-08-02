@@ -24,14 +24,40 @@ template <class Flavor> class ExecutionTrace_ {
         uint32_t ram_rom_offset = 0;    // offset of the RAM/ROM block in the execution trace
         uint32_t pub_inputs_offset = 0; // offset of the public inputs block in the execution trace
 
-        TraceData(size_t dyadic_circuit_size, Builder& builder)
+        TraceData(Builder& builder, ProvingKey& proving_key)
         {
-            // Initializate the wire and selector polynomials
-            for (auto& wire : wires) {
-                wire = Polynomial(dyadic_circuit_size);
-            }
-            for (auto& selector : selectors) {
-                selector = Polynomial(dyadic_circuit_size);
+            ZoneScopedN("TraceData construction");
+            if constexpr (IsHonkFlavor<Flavor>) {
+                {
+                    ZoneScopedN("wires initialization");
+                    // Initializate the wire and selector polynomials
+                    for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
+                        wire = other_wire.share();
+                    }
+                }
+                {
+                    ZoneScopedN("selector initialization");
+                    for (auto [selector, other_selector] :
+                         zip_view(selectors, proving_key.polynomials.get_selectors())) {
+                        selector = other_selector.share();
+                    }
+                }
+            } else {
+                {
+                    ZoneScopedN("wires initialization");
+                    // Initializate the wire and selector polynomials
+                    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+                        wires[idx] =
+                            proving_key.polynomial_store.get("w_" + std::to_string(idx + 1) + "_lagrange").share();
+                    }
+                }
+                {
+                    ZoneScopedN("selector initialization");
+                    for (auto [selector, other_selector] :
+                         zip_view(selectors, proving_key.polynomials.get_selectors())) {
+                        selector = other_selector.share();
+                    }
+                }
             }
             copy_cycles.resize(builder.variables.size());
         }
@@ -87,7 +113,9 @@ template <class Flavor> class ExecutionTrace_ {
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      * @return TraceData
      */
-    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size, bool is_structured = false);
+    static TraceData construct_trace_data(Builder& builder,
+                                          typename Flavor::ProvingKey& proving_key,
+                                          bool is_structured = false);
 
     /**
      * @brief Populate the public inputs block
