@@ -81,7 +81,7 @@ EOF
 resource "aws_launch_template" "bot_launch_template" {
   name                   = "${var.DEPLOY_TAG}-launch-template"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "t3.2xlarge"
+  instance_type          = "m4.4xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -111,13 +111,13 @@ resource "aws_ec2_fleet" "bot_fleet" {
     override {
       subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
       availability_zone = "eu-west-2a"
-      max_price         = "0.15"
+      max_price         = "0.4"
     }
 
     override {
       subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
       availability_zone = "eu-west-2b"
-      max_price         = "0.15"
+      max_price         = "0.4"
     }
   }
 
