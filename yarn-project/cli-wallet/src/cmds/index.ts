@@ -105,7 +105,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .option('--universal', 'Do not mix the sender address into the deployment.')
     .addOption(pxeOption)
-    .option('-t, --type <string>', 'Type of account to create. Default is schnorr.', 'schnorr')
     .addOption(createSecretKeyOption("The sender's private key", !db).conflicts('alias'))
     .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
     .addOption(createTypeOption())
