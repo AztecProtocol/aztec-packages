@@ -49,7 +49,7 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -995,10 +995,8 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.callStackItem.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2HashWithSeparator([
-        slottedNoteHash,
-        computeAppNullifierSecretKey(ownerNskM, contractAddress),
-      ],
+      const expectedNullifier = poseidon2HashWithSeparator(
+        [slottedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);
@@ -1080,10 +1078,8 @@ describe('Private Execution test suite', () => {
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2HashWithSeparator([
-        slottedNoteHash,
-        computeAppNullifierSecretKey(ownerNskM, contractAddress),
-      ],
+      const expectedNullifier = poseidon2HashWithSeparator(
+        [slottedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);
