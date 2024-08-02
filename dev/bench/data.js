@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722589088082,
+  "lastUpdate": 1722589231262,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -105840,6 +105840,74 @@ window.BENCHMARK_DATA = {
             "value": 173489742,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173489742 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "3f6532ca0e0b33124d9f88d88e80b3127b6d9875",
+          "message": "feat: ECDSA R account contract + touchid wallet",
+          "timestamp": "2024-08-02T08:43:19Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7725/commits/3f6532ca0e0b33124d9f88d88e80b3127b6d9875"
+        },
+        "date": 1722589222547,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13307.704838000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9897.335216 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4732.744163999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4344.431912 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39806.614593000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39806615000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14612.623561999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14612623000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3926932903,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3926932903 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217973858,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 217973858 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3030318691,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3030318691 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 181925258,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 181925258 ns\nthreads: 1"
           }
         ]
       }
