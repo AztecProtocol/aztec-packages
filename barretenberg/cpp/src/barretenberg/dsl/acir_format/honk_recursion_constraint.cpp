@@ -41,12 +41,12 @@ std::array<bn254::Group, 2> agg_points_from_witness_indicies(Builder& builder,
  * @param nested_aggregation_object. The aggregation object coming from the inner proof.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  *
- * @note We currently only support HonkRecursionConstraint where inner_proof_contains_recursive_proof = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
- *       or we need non-witness data to be provided as metadata in the ACIR opcode
+ * @note We currently only support RecursionConstraint of type HONK_RECURSION where inner_proof_contains_recursive_proof
+ * = false. We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true, or we need
+ * non-witness data to be provided as metadata in the ACIR opcode
  */
 AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
-                                                           const HonkRecursionConstraint& input,
+                                                           const RecursionConstraint& input,
                                                            AggregationObjectIndices input_aggregation_object,
                                                            AggregationObjectIndices nested_aggregation_object,
                                                            bool has_valid_witness_assignments)
@@ -105,8 +105,8 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     }
 
     std::vector<field_ct> proof_fields;
-    // Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this is how the
-    // core barretenberg library processes proofs (with the public inputs starting at the third element and not
+    // Insert the public inputs in the middle the proof fields after 'HONK_INNER_PUBLIC_INPUT_OFFSET' because this is
+    // how the core barretenberg library processes proofs (with the public inputs starting at the third element and not
     // separate from the rest of the proof)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
     size_t i = 0;
@@ -114,7 +114,7 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
         i++;
-        if (i == HonkRecursionConstraint::inner_public_input_offset) {
+        if (i == HONK_INNER_PUBLIC_INPUT_OFFSET) {
             for (const auto& idx : input.public_inputs) {
                 auto field = field_ct::from_witness_index(&builder, idx);
                 proof_fields.emplace_back(field);
@@ -126,16 +126,15 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         // Set vkey->circuit_size correctly based on the proof size
         size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
         size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
-        assert((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
-                UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
-                2 * num_frs_comm) %
+        assert((input.proof.size() - HONK_INNER_PUBLIC_INPUT_OFFSET - UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+                UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) %
                    (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
                0);
         // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
-        auto log_circuit_size = (input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
-                                 UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-                                 UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
-                                (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+        auto log_circuit_size =
+            (input.proof.size() - HONK_INNER_PUBLIC_INPUT_OFFSET - UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+             UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+            (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
         builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
         builder.assert_equal(builder.add_variable(input.public_inputs.size()), key_fields[1].witness_index);
         builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
@@ -157,7 +156,7 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
             offset += 4;
         }
 
-        offset = HonkRecursionConstraint::inner_public_input_offset;
+        offset = HONK_INNER_PUBLIC_INPUT_OFFSET;
         // first 3 things
         builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
         builder.assert_equal(builder.add_variable(input.public_inputs.size()), proof_fields[1].witness_index);

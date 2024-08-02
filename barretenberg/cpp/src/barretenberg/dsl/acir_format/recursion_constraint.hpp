@@ -44,6 +44,7 @@ using Builder = bb::UltraCircuitBuilder;
  * the previous recursion constraint in the circuit (the one that verifies A)
  *
  */
+// WORKTODO: rename to something more general
 struct RecursionConstraint {
     // An aggregation state is represented by two G1 affine elements. Each G1 point has
     // two field element coordinates (x, y). Thus, four field elements

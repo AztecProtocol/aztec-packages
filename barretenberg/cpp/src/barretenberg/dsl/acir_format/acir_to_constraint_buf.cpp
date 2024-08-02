@@ -416,7 +416,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
                 if (honk_recursion) { // if we're using the honk recursive verifier
-                    auto c = HonkRecursionConstraint{
+                    auto c = RecursionConstraint{
                         .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
                         .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
                         .public_inputs =

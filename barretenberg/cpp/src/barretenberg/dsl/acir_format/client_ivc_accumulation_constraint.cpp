@@ -24,7 +24,7 @@ namespace acir_format {
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
 void create_client_ivc_accumulation_constraints(Builder& builder,
-                                                const ClientIVCAccumulationConstraint& input,
+                                                const RecursionConstraint& input,
                                                 const ClientIVC& ivc)
 {
     // take a native folding proof and instantiate as witnesses
