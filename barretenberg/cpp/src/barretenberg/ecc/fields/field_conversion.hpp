@@ -64,6 +64,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
             val.self_set_infinity();
         }
+        ASSERT(val.on_curve());
         return val;
     } else {
         // Array or Univariate
@@ -102,6 +103,8 @@ template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
 
         std::vector<bb::fr> fr_vec_x;
         std::vector<bb::fr> fr_vec_y;
+        // When encountering a point at infinity we pass a zero point in the proof to ensure that on the receiving size
+        // there are no inconsistencies whenre constructing and hashing.
         if (val.is_point_at_infinity()) {
             fr_vec_x = convert_to_bn254_frs(BaseField::zero());
             fr_vec_y = convert_to_bn254_frs(BaseField::zero());

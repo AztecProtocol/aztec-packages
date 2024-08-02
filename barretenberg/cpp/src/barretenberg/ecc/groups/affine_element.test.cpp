@@ -150,13 +150,19 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    /**
+     * @brief Ensure that the point at inifinity has a fixed value.
+     *
+     */
     static void test_fixed_point_at_infinity()
     {
         using Fq = affine_element::Fq;
         affine_element P = affine_element::infinity();
         affine_element Q(Fq::zero(), Fq::zero());
         Q.x.self_set_msb();
+        affine_element R = affine_element(element::random_element());
         EXPECT_EQ(P, Q);
+        EXPECT_NE(P, R);
     }
 };
 
