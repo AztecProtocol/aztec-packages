@@ -1,4 +1,4 @@
-name: Deploy to devnet
+name: Deploy to network
 on:
   push:
     branches: [devnet]
@@ -468,6 +468,12 @@ jobs:
           echo "TF_VAR_PROVING_ENABLED=true" >>$GITHUB_ENV
           echo "TF_VAR_BOT_NO_START=false" >>$GITHUB_ENV
 
+      - name: Deploy PXE
+        working-directory: ./yarn-project/aztec/terraform/pxe
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
+          terraform apply -input=false -auto-approve
+
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
@@ -479,12 +485,6 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/prover
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
-          terraform apply -input=false -auto-approve
-
-      - name: Deploy PXE
-        working-directory: ./yarn-project/aztec/terraform/pxe
-        run: |
-          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
           terraform apply -input=false -auto-approve
 
       - name: Wait for PXE to be available
