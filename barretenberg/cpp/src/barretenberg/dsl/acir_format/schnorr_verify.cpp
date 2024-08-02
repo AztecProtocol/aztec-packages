@@ -92,7 +92,9 @@ template <typename Builder> void create_schnorr_verify_constraints(Builder& buil
     fr pubkey_value_x = builder.get_variable(input.public_key_x);
     fr pubkey_value_y = builder.get_variable(input.public_key_y);
 
-    cycle_group_ct pub_key{ witness_ct(&builder, pubkey_value_x), witness_ct(&builder, pubkey_value_y), false };
+    cycle_group_ct pub_key{ witness_ct(&builder, pubkey_value_x),
+                            witness_ct(&builder, pubkey_value_y),
+                            pubkey_value_x.is_zero() && pubkey_value_y.is_zero() };
 
     schnorr_signature_bits_ct sig = schnorr_convert_signature(&builder, new_sig);
 
