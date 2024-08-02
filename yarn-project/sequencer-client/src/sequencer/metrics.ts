@@ -6,6 +6,7 @@ import {
   type Tracer,
   type UpDownCounter,
   ValueType,
+  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 export class SequencerMetrics {
@@ -14,6 +15,7 @@ export class SequencerMetrics {
   private cancelledBlockCounter: UpDownCounter;
   private blocksBuiltCounter: UpDownCounter;
   private blockBuildDuration: Histogram;
+  private blockTxCount: Histogram;
 
   constructor(client: TelemetryClient, name = 'Sequencer') {
     const meter = client.getMeter(name);
@@ -24,6 +26,14 @@ export class SequencerMetrics {
     this.blockBuildDuration = meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION, {
       unit: 'ms',
       description: 'Duration to build a block',
+      valueType: ValueType.INT,
+      advice: {
+        explicitBucketBoundaries: millisecondBuckets(2),
+      },
+    });
+
+    this.blockTxCount = meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_TX_COUNT, {
+      description: 'Number of transactions in a block',
       valueType: ValueType.INT,
     });
   }
@@ -43,5 +53,9 @@ export class SequencerMetrics {
     this.blocksBuiltCounter.add(1, {
       [Attributes.OK]: false,
     });
+  }
+
+  recordNewBlock(txCount: number) {
+    this.blockTxCount.record(txCount);
   }
 }

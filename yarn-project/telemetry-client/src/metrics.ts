@@ -35,6 +35,7 @@ export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block_build.duration';
 export const SEQUENCER_BLOCK_BUILD_COUNT = 'aztec.sequencer.block_build.ok_count';
 export const SEQUENCER_BLOCK_BUILD_CANCELLED_COUNT = 'aztec.sequencer.block_build.cancelled_count';
+export const SEQUENCER_BLOCK_BUILD_TX_COUNT = 'aztec.sequencer.block_build.tx_count';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
