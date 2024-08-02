@@ -68,7 +68,7 @@ export class Bot {
     this.log.verbose(`Sending tx`, logCtx);
     const tx = batch.send(opts);
 
-    const txHash = tx.getTxHash();
+    const txHash = await tx.getTxHash();
 
     if (this.config.noWaitForTransfers) {
       this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
