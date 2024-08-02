@@ -183,14 +183,15 @@ library Constants {
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
-  uint256 internal constant VALIDATION_REQUESTS_LENGTH = 1090;
+  uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
+  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 514;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 364;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 41;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1336;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2483;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2165;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1215;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 4011;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3435;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 415;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 11;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 28;
@@ -209,7 +210,7 @@ library Constants {
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 409;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 409;
   uint256 internal constant TUBE_PROOF_LENGTH = 409;
-  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 103;
+  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 120;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;

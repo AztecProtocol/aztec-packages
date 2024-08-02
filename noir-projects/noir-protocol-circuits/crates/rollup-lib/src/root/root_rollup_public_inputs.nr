@@ -9,5 +9,6 @@ struct RootRollupPublicInputs {
     end_timestamp: u64,
     end_block_number: Field,
     out_hash: Field,
-    fees: [FeeRecipient; 32]
+    fees: [FeeRecipient; 32],
+    prover_id: Field,
 }

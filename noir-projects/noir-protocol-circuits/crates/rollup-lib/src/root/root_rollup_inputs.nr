@@ -10,13 +10,15 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
 ];
 
 struct RootRollupInputs {
-    previous_rollup_data : [PreviousRollupBlockData; 2],
+    previous_rollup_data: [PreviousRollupBlockData; 2],
+    prover_id: Field,
 }
 
 impl Empty for RootRollupInputs {
     fn empty() -> Self {
         RootRollupInputs {
-            previous_rollup_data : [PreviousRollupBlockData::empty(); 2],
+            previous_rollup_data: [PreviousRollupBlockData::empty(); 2],
+            prover_id: 0,
         }
     }
 }
@@ -50,7 +52,8 @@ impl RootRollupInputs {
             end_timestamp: right.end_global_variables.timestamp,
             end_block_number: right.end_global_variables.block_number,
             out_hash,
-            fees
+            fees,
+            prover_id: self.prover_id,
         }
     }
 }
