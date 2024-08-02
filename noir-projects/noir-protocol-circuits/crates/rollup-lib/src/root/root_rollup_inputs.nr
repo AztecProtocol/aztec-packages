@@ -53,7 +53,7 @@ impl RootRollupInputs {
             end_block_number: right.end_global_variables.block_number,
             out_hash,
             fees,
-            prover_id: self.prover_id,
+            prover_id: self.prover_id
         }
     }
 }

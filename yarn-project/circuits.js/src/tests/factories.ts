@@ -960,10 +960,10 @@ export function makePreviousRollupBlockData(
  * @returns A root rollup inputs.
  */
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
-  return new RootRollupInputs([
-    makePreviousRollupBlockData(seed, globalVariables),
-    makePreviousRollupBlockData(seed + 0x1000, globalVariables),
-  ], fr(seed + 0x2000));
+  return new RootRollupInputs(
+    [makePreviousRollupBlockData(seed, globalVariables), makePreviousRollupBlockData(seed + 0x1000, globalVariables)],
+    fr(seed + 0x2000),
+  );
 }
 
 /**

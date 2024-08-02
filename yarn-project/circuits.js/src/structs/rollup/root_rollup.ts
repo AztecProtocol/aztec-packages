@@ -62,10 +62,10 @@ export class RootRollupInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): RootRollupInputs {
     const reader = BufferReader.asReader(buffer);
-    return new RootRollupInputs([
-      reader.readObject(PreviousRollupBlockData),
-      reader.readObject(PreviousRollupBlockData),
-    ], Fr.fromBuffer(reader),);
+    return new RootRollupInputs(
+      [reader.readObject(PreviousRollupBlockData), reader.readObject(PreviousRollupBlockData)],
+      Fr.fromBuffer(reader),
+    );
   }
 
   /**
