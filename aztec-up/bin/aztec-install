@@ -43,6 +43,7 @@ function title() {
   echo -e "  ${bold}${g}aztec${r}         - a collection of tools to launch subsystems and interact with the aztec network."
   echo -e "  ${bold}${g}aztec-nargo${r}   - aztec's build of nargo, the noir compiler toolchain."
   echo -e "  ${bold}${g}aztec-up${r}      - a tool to upgrade the aztec toolchain to the latest, or specific versions."
+  echo -e "  ${bold}${g}aztec-wallet${r}  - our minimalistic CLI wallet"
   echo
   read -p "Do you wish to continue? (y/n)" -n 1 -r
   echo

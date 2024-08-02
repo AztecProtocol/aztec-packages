@@ -1,5 +1,4 @@
 import { fileURLToPath } from '@aztec/aztec.js';
-import { pxeOption } from '@aztec/cli/utils';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
@@ -20,20 +19,19 @@ async function main() {
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const walletVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
-  const db = new WalletDB();
+  const db = WalletDB.getInstance();
 
   const program = new Command('wallet');
   program
     .description('Aztec wallet')
     .version(walletVersion)
-    .addOption(pxeOption)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
     .hook('preAction', command => {
       const dataDir = command.optsWithGlobals().dataDir;
       db.init(AztecLmdbStore.open(dataDir));
     });
 
-  injectCommands(program, userLog, debugLogger);
+  injectCommands(program, userLog, debugLogger, db);
   await program.parseAsync(process.argv);
 }
 

@@ -4,7 +4,7 @@ import { getIdentities } from '@aztec/accounts/utils';
 import { AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
-import { WalletDB } from '../storage/wallet_db.js';
+import { type WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
 export type AccountType = 'schnorr' | 'ecdsasecp256r1ssh' | 'ecdsasecp256k1';
@@ -16,14 +16,16 @@ export async function createAndStoreAccount(
   publicKey: string | undefined,
   salt: Fr,
   alias: string | undefined,
+  db?: WalletDB,
 ) {
   let account;
-  const db = WalletDB.getInstance();
   switch (type) {
     case 'schnorr': {
       account = getSchnorrAccount(client, secretKey, deriveSigningKey(secretKey), salt);
       const { address } = account.getCompleteAddress();
-      await db.storeAccount(address, { type, alias, secretKey, salt });
+      if (db) {
+        await db.storeAccount(address, { type, alias, secretKey, salt });
+      }
       break;
     }
     case 'ecdsasecp256r1ssh': {
@@ -39,11 +41,12 @@ export async function createAndStoreAccount(
       }
 
       const publicSigningKey = extractECDSAPublicKeyFromBase64String(foundIdentity.publicKey);
-      console.log(publicSigningKey.toString('hex'));
       account = getEcdsaRSSHAccount(client, secretKey, publicSigningKey, salt);
       const { address } = account.getCompleteAddress();
-      await db.storeAccount(address, { type, alias, secretKey, salt });
-      await db.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
+      if (db) {
+        await db.storeAccount(address, { type, alias, secretKey, salt });
+        await db.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
+      }
       break;
     }
     default: {
@@ -54,9 +57,26 @@ export async function createAndStoreAccount(
   return account;
 }
 
-export async function retrieveWallet(pxe: PXE, aliasOrAddress: string | AztecAddress) {
-  let wallet;
-  const { type, salt, secretKey } = WalletDB.getInstance().retrieveAccount(aliasOrAddress);
+export async function createOrRetrieveWallet(
+  pxe: PXE,
+  aliasOrAddress?: string | AztecAddress,
+  type?: AccountType,
+  secretKey?: Fr,
+  publicKey?: string | undefined,
+  db?: WalletDB,
+) {
+  let wallet, salt;
+
+  if (db && aliasOrAddress) {
+    ({ type, secretKey, salt } = db.retrieveAccount(aliasOrAddress));
+  } else {
+    type = 'schnorr';
+    salt = Fr.ZERO;
+  }
+
+  if (!secretKey) {
+    throw new Error('Cannot retrieve wallet without secret key');
+  }
 
   switch (type) {
     case 'schnorr': {
@@ -64,7 +84,14 @@ export async function retrieveWallet(pxe: PXE, aliasOrAddress: string | AztecAdd
       break;
     }
     case 'ecdsasecp256r1ssh': {
-      const publicSigningKey = WalletDB.getInstance().retrieveAccountMetadata(aliasOrAddress, 'publicSigningKey');
+      let publicSigningKey;
+      if (db && aliasOrAddress) {
+        publicSigningKey = db.retrieveAccountMetadata(aliasOrAddress, 'publicSigningKey');
+      } else if (publicKey) {
+        publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
+      } else {
+        throw new Error('Public key must be provided for ECDSA SSH account');
+      }
       wallet = await getEcdsaRSSHAccount(pxe, secretKey, publicSigningKey, salt).getWallet();
       break;
     }

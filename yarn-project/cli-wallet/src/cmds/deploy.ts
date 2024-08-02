@@ -1,20 +1,19 @@
-import { ContractDeployer, type DeployMethod, Fr, createCompatibleClient } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
 import { type PublicKeys } from '@aztec/circuits.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import { getInitializer } from '@aztec/foundation/abi';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type IFeeOpts, printGasEstimates } from '../fees.js';
-import { retrieveWallet } from '../utils/accounts.js';
+import { type IFeeOpts, printGasEstimates } from '../utils/fees.js';
 
 export async function deploy(
+  client: PXE,
+  wallet: AccountWalletWithSecretKey,
   artifactPath: string,
   json: boolean,
-  rpcUrl: string,
   publicKeys: PublicKeys | undefined,
   rawArgs: any[],
   salt: Fr | undefined,
-  aliasOrAddress: string,
   initializer: string | undefined,
   skipPublicDeployment: boolean,
   skipClassRegistration: boolean,
@@ -30,7 +29,6 @@ export async function deploy(
   const contractArtifact = await getContractArtifact(artifactPath, log);
   const constructorArtifact = getInitializer(contractArtifact, initializer);
 
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
   const nodeInfo = await client.getNodeInfo();
   const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
   if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
@@ -38,8 +36,6 @@ export async function deploy(
       `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
     );
   }
-
-  const wallet = await retrieveWallet(client, aliasOrAddress);
 
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys?.hash() ?? Fr.ZERO, initializer);
 

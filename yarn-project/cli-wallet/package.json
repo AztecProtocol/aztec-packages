@@ -2,7 +2,20 @@
   "name": "@aztec/cli-wallet",
   "version": "0.0.0",
   "type": "module",
-  "bin": "./dest/bin/index.js",
+  "exports": {
+    ".": "./dest/cmds/index.js",
+    "./cli": "./dest/bin/index.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/cmds/index.ts"
+    ],
+    "name": "Aztec CLI wallet",
+    "tsconfig": "./tsconfig.json"
+  },
+  "bin": {
+    "aztec-wallet": "./dest/bin/index.js"
+  },
   "scripts": {
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",

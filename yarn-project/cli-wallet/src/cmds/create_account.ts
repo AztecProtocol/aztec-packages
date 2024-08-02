@@ -1,18 +1,12 @@
-import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getIdentities } from '@aztec/accounts/utils';
-import { type DeployAccountOptions, createCompatibleClient } from '@aztec/aztec.js';
-import { deriveSigningKey } from '@aztec/circuits.js';
+import { type DeployAccountOptions, type PXE, createCompatibleClient } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type IFeeOpts, printGasEstimates } from '../fees.js';
-import { WalletDB } from '../storage/wallet_db.js';
 import { AccountType, createAndStoreAccount } from '../utils/accounts.js';
-import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
+import { type IFeeOpts, printGasEstimates } from '../utils/fees.js';
 
 export async function createAccount(
-  rpcUrl: string,
+  client: PXE,
   accountType: AccountType,
   secretKey: Fr | undefined,
   publicKey: string | undefined,
@@ -25,8 +19,6 @@ export async function createAccount(
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
-
   const salt = Fr.ZERO;
   secretKey ??= Fr.random();
 
@@ -76,4 +68,6 @@ export async function createAccount(
   if (txReceipt) {
     log(`Deploy tx fee:   ${txReceipt.transactionFee}`);
   }
+
+  return { alias, address, secretKey, salt };
 }
