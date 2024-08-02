@@ -1,6 +1,6 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash, pedersenHashBuffer, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { pedersenHashBuffer, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
