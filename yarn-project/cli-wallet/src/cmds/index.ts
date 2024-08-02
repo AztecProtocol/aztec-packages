@@ -39,7 +39,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
     .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
-    .addOption(createSecretKeyOption('Secret key for account. Uses random by default.', false).conflicts('public-key'))
     .option(
       '-p, --public-key <string>',
       'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
