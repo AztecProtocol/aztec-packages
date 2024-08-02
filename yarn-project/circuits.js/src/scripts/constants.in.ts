@@ -229,7 +229,7 @@ function generateCppConstants({ constants }: ParsedContent, targetPath: string) 
 #pragma once
 
 ${processConstantsCpp(constants)}
-\n`;
+`;
 
   fs.writeFileSync(targetPath, resultCpp);
 }
