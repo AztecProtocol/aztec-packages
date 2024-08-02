@@ -284,6 +284,7 @@ export class Sequencer {
     historicalHeader: Header | undefined,
     elapsedSinceLastBlock: number,
   ): Promise<void> {
+    this.metrics.recordNewBlock(validTxs.length);
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
     this.log.info(`Building block ${newGlobalVariables.blockNumber.toNumber()} with ${validTxs.length} transactions`);
