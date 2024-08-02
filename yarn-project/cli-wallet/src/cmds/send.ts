@@ -1,4 +1,4 @@
-import { AccountWalletWithSecretKey, type AztecAddress, Contract, type Fr, PXE } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 

@@ -1,4 +1,4 @@
-import { AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
 import { type PublicKeys } from '@aztec/circuits.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import { getInitializer } from '@aztec/foundation/abi';

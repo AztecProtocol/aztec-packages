@@ -1,5 +1,4 @@
 import { fileURLToPath } from '@aztec/aztec.js';
-import { pxeOption } from '@aztec/cli/utils';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 

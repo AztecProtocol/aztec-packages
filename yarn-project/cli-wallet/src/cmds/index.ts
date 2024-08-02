@@ -13,7 +13,7 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
 
-import { WalletDB } from '../storage/wallet_db.js';
+import { type WalletDB } from '../storage/wallet_db.js';
 import { AccountType, createOrRetrieveWallet } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/fees.js';
 

@@ -2,7 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
-import { WalletDB } from '../storage/wallet_db.js';
+import { type WalletDB } from '../storage/wallet_db.js';
 
 export enum AccountType {
   SCHNORR = 'schnorr',
