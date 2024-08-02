@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722599794174,
+  "lastUpdate": 1722601322905,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -106868,6 +106868,78 @@ window.BENCHMARK_DATA = {
             "value": 166819429,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166819429 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd5a26eed42a8e23e2c9ea158419836a2b0b3333",
+          "message": "feat(avm): poseidon2 constraints (#7269)\n\nToken transfer\n```\n% time AVM_ENABLE_FULL_PROVING=1 build/bin/bb avm_prove --avm-bytecode ~/tmp-8Q3xgk/avm_bytecode.bin --avm-calldata ~/tmp-8Q3xgk/avm_calldata.bin --avm-public-inputs ~/tmp-8Q3xgk/avm_public_inputs.bin --avm-hints ~/tmp-8Q3xgk/avm_hints.bin -o ~/tmp-8Q3xgk -v\nbytecode size: 31218\ncalldata size: 6\npublic_inputs size: 481\nhints.storage_value_hints size: 2\nhints.note_hash_exists_hints size: 0\nhints.nullifier_exists_hints size: 1\nhints.l1_to_l2_message_exists_hints size: 0\nhints.externalcall_hints size: 0\nhints.contract_instance_hints size: 0\nusing cached crs of size 8388609 at \"/mnt/user-data/facundo/.bb-crs/bn254_g1.dat\"\nDeserialized 2524 instructions\n------- GENERATING TRACE -------\nTrace sizes before padding:\n        main_trace_size: 1638\n        mem_trace_size: 3880\n        alu_trace_size: 811\n        range_check_size: 65536\n        conv_trace_size: 1\n        lookup_table_size: 0\n        sha256_trace_size: 0\n        poseidon2_trace_size: 0\n        pedersen_trace_size: 4\n        gas_trace_size: 1620\n        fixed_gas_table_size: 65\n        slice_trace_size: 7\nFinal trace size: 65537\n------- PROVING EXECUTION -------\nproof written to: \"/mnt/user-data/facundo/tmp-8Q3xgk/proof\"\nvk written to: \"/mnt/user-data/facundo/tmp-8Q3xgk/vk\"\nvk as fields written to: \"/mnt/user-data/facundo/tmp-8Q3xgk/vk_fields.json\"\n------- STATS -------\nincl_main_tag_err_ms: 198\nincl_mem_tag_err_ms: 195\nkernel_output_lookup_ms: 199\nlookup_byte_lengths_ms: 202\nlookup_byte_operations_ms: 195\nlookup_cd_value_ms: 200\nlookup_div_u16_0_ms: 219\nlookup_div_u16_1_ms: 216\nlookup_div_u16_2_ms: 215\nlookup_div_u16_3_ms: 214\nlookup_div_u16_4_ms: 216\nlookup_div_u16_5_ms: 214\nlookup_div_u16_6_ms: 215\nlookup_div_u16_7_ms: 213\nlookup_into_kernel_ms: 198\nlookup_mem_rng_chk_hi_ms: 201\nlookup_mem_rng_chk_lo_ms: 219\nlookup_mem_rng_chk_mid_ms: 218\nlookup_opcode_gas_ms: 200\nlookup_pow_2_0_ms: 197\nlookup_pow_2_1_ms: 196\nlookup_ret_value_ms: 203\nlookup_u16_0_ms: 217\nlookup_u16_10_ms: 218\nlookup_u16_11_ms: 214\nlookup_u16_12_ms: 214\nlookup_u16_13_ms: 214\nlookup_u16_14_ms: 216\nlookup_u16_1_ms: 216\nlookup_u16_2_ms: 215\nlookup_u16_3_ms: 216\nlookup_u16_4_ms: 217\nlookup_u16_5_ms: 215\nlookup_u16_6_ms: 214\nlookup_u16_7_ms: 214\nlookup_u16_8_ms: 214\nlookup_u16_9_ms: 217\nlookup_u8_0_ms: 195\nlookup_u8_1_ms: 193\nperm_main_alu_ms: 197\nperm_main_bin_ms: 194\nperm_main_conv_ms: 196\nperm_main_mem_a_ms: 197\nperm_main_mem_b_ms: 199\nperm_main_mem_c_ms: 200\nperm_main_mem_d_ms: 195\nperm_main_mem_ind_addr_a_ms: 201\nperm_main_mem_ind_addr_b_ms: 202\nperm_main_mem_ind_addr_c_ms: 203\nperm_main_mem_ind_addr_d_ms: 203\nperm_main_pedersen_ms: 198\nperm_main_pos2_perm_ms: 193\nperm_main_slice_ms: 194\nperm_pos_mem_a_ms: 197\nperm_pos_mem_b_ms: 197\nperm_pos_mem_c_ms: 199\nperm_pos_mem_d_ms: 196\nperm_slice_mem_ms: 198\nprove/check_circuit: 31504\nprove/execute_log_derivative_inverse_commitments_round_ms: 550\nprove/execute_log_derivative_inverse_round_ms: 12899\nprove/execute_pcs_rounds_ms: 803\nprove/execute_relation_check_rounds_ms: 2918\nprove/execute_wire_commitments_round_ms: 2416\nprove/gen_trace: 1105\nrange_check_da_gas_hi_ms: 219\nrange_check_da_gas_lo_ms: 220\nrange_check_l2_gas_hi_ms: 219\nrange_check_l2_gas_lo_ms: 221\n\nAVM_ENABLE_FULL_PROVING=1 build/bin/bb avm_prove --avm-bytecode        -o  -v  340.59s user 84.63s system 731% cpu 58.117 total\n```",
+          "timestamp": "2024-08-02T13:11:00+01:00",
+          "tree_id": "51a39cc26312576929f45e6d4725352d322eb321",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bd5a26eed42a8e23e2c9ea158419836a2b0b3333"
+        },
+        "date": 1722601313035,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13286.480708000028,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9897.271375 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4770.104524000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4255.543065000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39526.588328,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39526589000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14372.323980999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14372323000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3637712076,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3637712076 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208760852,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208760852 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2984079323,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2984079323 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173269316,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173269316 ns\nthreads: 1"
           }
         ]
       }
