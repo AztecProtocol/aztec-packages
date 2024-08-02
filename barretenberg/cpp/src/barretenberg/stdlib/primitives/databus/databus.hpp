@@ -57,6 +57,11 @@ template <typename Builder> class databus {
     bus_vector return_data{ BusId::RETURNDATA };
 };
 
+/**
+ * @brief Class for managing the linking circuit input/output via the databus
+ *
+ * @tparam Builder
+ */
 template <class Builder> class DataBusDepot {
   public:
     using Curve = stdlib::bn254<Builder>;
@@ -90,7 +95,7 @@ template <class Builder> class DataBusDepot {
      */
     void execute([[maybe_unused]] RecursiveVerifierInstances& instances)
     {
-        auto inst_0 = instances[0]; // instance being folded *into* (an accumulator, except on the initial round)
+        auto inst_0 = instances[0]; // instance into which we're folding (an accumulator, except on the initial round)
         auto inst_1 = instances[1]; // instance being folded
 
         // The first folding round is a special case in that it folds an instance into a non-accumulator instance. The
@@ -146,6 +151,12 @@ template <class Builder> class DataBusDepot {
     }
 
   private:
+    /**
+     * @brief Reconstruct a commitment (point) from the Fr limbs of the coordinates (Fq, Fq)
+     *
+     * @param limbs
+     * @return Commitment
+     */
     Commitment reconstruct_commitment_from_fr_limbs(std::span<Fr, NUM_FR_LIMBS_PER_COMMITMENT> limbs)
     {
         std::span<Fr, NUM_FR_LIMBS_PER_FQ> x_limbs{ limbs.data(), NUM_FR_LIMBS_PER_FQ };
@@ -153,9 +164,16 @@ template <class Builder> class DataBusDepot {
         const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
         const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
 
+        // WORKTODO: do I need to assert on curve here?
         return Commitment(x, y);
     }
 
+    /**
+     * @brief Reconstruct a bn254 Fq from four limbs represented as bn254 Fr's
+     *
+     * @param limbs
+     * @return Fq
+     */
     Fq reconstruct_fq_from_fr_limbs(std::span<Fr, NUM_FR_LIMBS_PER_FQ>& limbs)
     {
         const Fr l0 = limbs[0];
@@ -175,11 +193,19 @@ template <class Builder> class DataBusDepot {
         P0.y.assert_equal(P1.y);
     }
 
+    /**
+     * @brief Set the witness indices for a commitment to public
+     * @details Indicate the presence of the propagated commitment by setting the corresponding flag and index in the
+     * public inputs
+     *
+     * @param commitment
+     * @param is_kernel
+     */
     void propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
     {
         auto context = commitment.get_context();
 
-        // Set flag indicating propagation of return data and save the index at which it's stored in public inputs.
+        // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
         size_t start_idx = context->public_inputs.size();
         if (is_kernel) {
             context->databus_propagation_data.contains_kernel_return_data_commitment = true;
@@ -190,13 +216,18 @@ template <class Builder> class DataBusDepot {
         }
 
         // Set public the witness indices corresponding to the limbs of the point coordinates
-        auto witness_indices = commitment_to_witness_indices(commitment);
-        for (auto& index : witness_indices) {
+        for (auto& index : get_witness_indices_for_commitment(commitment)) {
             context->set_public_input(index);
         }
     }
 
-    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> commitment_to_witness_indices(Commitment& point)
+    /**
+     * @brief Get the witness indices for a commitment (biggroup)
+     *
+     * @param point A biggroup element
+     * @return std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT>
+     */
+    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(Commitment& point)
     {
         return { point.x.binary_basis_limbs[0].element.normalize().witness_index,
                  point.x.binary_basis_limbs[1].element.normalize().witness_index,
