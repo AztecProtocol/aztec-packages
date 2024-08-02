@@ -201,6 +201,7 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
+    "@aztec/cli-wallet": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -369,7 +370,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/cli-wallet@workspace:cli-wallet":
+"@aztec/cli-wallet@workspace:^, @aztec/cli-wallet@workspace:cli-wallet":
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
   dependencies:
@@ -392,7 +393,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
   bin:
-    cli-wallet: ./dest/bin/index.js
+    aztec-wallet: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 

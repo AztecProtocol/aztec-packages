@@ -15,10 +15,11 @@ export async function createOrRetrieveWallet(
   pxe: PXE,
   privateKey: Fr | undefined,
   aliasOrAddress: string | undefined,
+  db?: WalletDB,
 ) {
   let wallet;
-  if (aliasOrAddress) {
-    const { salt, privateKey } = WalletDB.getInstance().retrieveAccount(aliasOrAddress);
+  if (db && aliasOrAddress) {
+    const { salt, privateKey } = db.retrieveAccount(aliasOrAddress);
     wallet = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), salt).getWallet();
   } else if (privateKey) {
     wallet = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();

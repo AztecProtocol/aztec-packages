@@ -4,8 +4,8 @@ import { deriveSigningKey } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type IFeeOpts, printGasEstimates } from '../fees.js';
 import { WalletDB } from '../storage/wallet_db.js';
+import { type IFeeOpts, printGasEstimates } from '../utils/fees.js';
 
 export async function createAccount(
   rpcUrl: string,
@@ -27,8 +27,6 @@ export async function createAccount(
 
   const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
-
-  await WalletDB.getInstance().storeAccount(address, { alias, privateKey, salt });
 
   log(`\nNew account:\n`);
   log(`Address:         ${address.toString()}`);
@@ -73,4 +71,6 @@ export async function createAccount(
   if (txReceipt) {
     log(`Deploy tx fee:   ${txReceipt.transactionFee}`);
   }
+
+  return { alias, address, privateKey, salt };
 }

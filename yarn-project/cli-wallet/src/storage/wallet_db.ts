@@ -7,12 +7,15 @@ export class WalletDB {
   private static instance: WalletDB;
 
   static getInstance() {
+    if (!WalletDB.instance) {
+      WalletDB.instance = new WalletDB();
+    }
+
     return WalletDB.instance;
   }
 
   init(store: AztecKVStore) {
     this.#accounts = store.openMap('accounts');
-    WalletDB.instance = this;
   }
 
   async storeAccount(
