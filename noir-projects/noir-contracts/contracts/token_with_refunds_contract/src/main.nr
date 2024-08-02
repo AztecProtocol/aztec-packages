@@ -430,6 +430,21 @@ contract TokenWithRefunds {
     };
     use crate::types::token_note::TokenNoteHidingPoint;
 
+    /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
+    /// were the same we could fingerprint the user by doing the following:
+    ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
+    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness) - G_npk * fee_payer_npk =
+    ///                              = G_rnd * randomness
+    ///      2) user_fingerprint = user_point - randomness_influence =
+    ///                          = (G_npk * user_npk + G_rnd * randomness) - G_rnd * randomness =
+    ///                          = G_npk * user_npk
+    ///      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint
+    ///         and link that the 2 transactions were made by the same user. Given that it's expected that only
+    ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
+    ///         by trying different fee payer npk values of these known contracts is a feasible attack.
+    ///
+    /// fee_payer_point and user_point above are public information since there are args to the public
+    /// `complete_refund(...)` function.
     #[aztec(private)]
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
