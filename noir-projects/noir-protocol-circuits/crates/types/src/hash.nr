@@ -256,7 +256,8 @@ pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 
-pub fn poseidon2_hash_with_separator<N>(inputs: [Field; N], separator: Field) -> Field {
+#[no_predicates]
+pub fn poseidon2_hash_with_separator<let N: u32>(inputs: [Field; N], separator: Field) -> Field {
     // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
     let in_len = N + 1;
     let two_pow_64 = 18446744073709551616;
