@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/avm_trace/aztec_constants.hpp';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/avm/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
@@ -229,7 +229,7 @@ function generateCppConstants({ constants }: ParsedContent, targetPath: string) 
 #pragma once
 
 ${processConstantsCpp(constants)}
-\n`;
+`;
 
   fs.writeFileSync(targetPath, resultCpp);
 }
@@ -322,6 +322,9 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
   const prelude = expressions
     .map(([name, rhs]) => {
       const guardedRhs = rhs
+        // Remove 'as u8' and 'as u32' castings
+        .replaceAll(' as u8', '')
+        .replaceAll(' as u32', '')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')
