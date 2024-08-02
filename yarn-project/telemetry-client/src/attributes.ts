@@ -52,6 +52,8 @@ export const BLOCK_SIZE = 'aztec.block.size';
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */
 export const OK = 'aztec.ok';
+/** Generic status attribute */
+export const STATUS = 'aztec.status';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The phase of the transaction */
