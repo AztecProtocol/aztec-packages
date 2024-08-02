@@ -425,7 +425,7 @@ contract TokenWithRefunds {
 
     // REFUNDS SPECIFIC FUNCTIONALITY FOLLOWS
     use dep::aztec::{
-        note::utils::compute_slotted_note_hiding_point_raw, prelude::{FunctionSelector, NoteHeader},
+        prelude::{FunctionSelector, NoteHeader},
         protocol_types::{storage::map::derive_storage_slot_in_map, point::Point}
     };
     use crate::types::token_note::TokenNoteHidingPoint;
@@ -477,16 +477,17 @@ contract TokenWithRefunds {
         let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
+        // 7. We add the slot to the points --> this way we insert the notes into the balances Map under the respective key.
         fee_payer_point.add_slot(fee_payer_balances_slot);
         user_point.add_slot(user_balances_slot);
 
-        // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 8. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
             FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)"),
             [
-            slotted_fee_payer_point.x, slotted_fee_payer_point.y, slotted_fee_payer_point.is_infinite as Field, slotted_user_point.x, slotted_user_point.y, slotted_user_point.is_infinite as Field, funded_amount
+            fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
         ]
         );
     }
