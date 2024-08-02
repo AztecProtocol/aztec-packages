@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722588895444,
+  "lastUpdate": 1722589088082,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -105768,6 +105768,78 @@ window.BENCHMARK_DATA = {
             "value": 169097690,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169097690 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a763c07a29229ba1b1c4f8667e797c2a160022f",
+          "message": "feat: consistent handling of point at infinity in transcript (#7709)\n\nHave a fixed representation of point at infinity and engineer the\r\ntranscript to add 0s when encountering a point at infinity in order to\r\navoid discrepancy in challenge generation between the native and\r\nrecursive world. This is preliminary work to a (finally!) robust\r\nhandling of point at infinity. Added TODO to validate points retrieved\r\nfrom the transcript when a more optimal validate_on_curve is implemented.",
+          "timestamp": "2024-08-02T08:43:14Z",
+          "tree_id": "3830efd03f0938dda101576661a435467774fea9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7a763c07a29229ba1b1c4f8667e797c2a160022f"
+        },
+        "date": 1722589078122,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13302.811808000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9877.585890000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4792.213739999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4395.452807000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39620.95710099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39620957000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14384.812358,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14384812000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3657771025,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3657771025 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208793062,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208793062 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2976884589,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2976884589 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173489742,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173489742 ns\nthreads: 1"
           }
         ]
       }
