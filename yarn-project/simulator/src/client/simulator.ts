@@ -68,6 +68,9 @@ export class AcirSimulator {
       false,
       entryPointArtifact.isStatic,
     );
+
+    const txHash = request.toTxRequest().hash();
+
     const context = new ClientExecutionContext(
       contractAddress,
       request.firstCallArgsHash,
@@ -76,7 +79,7 @@ export class AcirSimulator {
       header,
       request.authWitnesses,
       PackedValuesCache.create(request.argsOfCalls),
-      new ExecutionNoteCache(),
+      new ExecutionNoteCache(txHash),
       this.db,
       this.node,
       startSideEffectCounter,
@@ -188,14 +191,14 @@ export class AcirSimulator {
       returnTypes: artifact.returnTypes,
     };
 
-    const [innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+    const [slottedNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
       artifact,
       contractAddress,
     )) as bigint[];
 
     return {
-      innerNoteHash: new Fr(innerNoteHash),
+      slottedNoteHash: new Fr(slottedNoteHash),
       uniqueNoteHash: new Fr(uniqueNoteHash),
       siloedNoteHash: new Fr(siloedNoteHash),
       innerNullifier: new Fr(innerNullifier),
@@ -203,20 +206,20 @@ export class AcirSimulator {
   }
 
   /**
-   * Computes the inner note hash of a note, which contains storage slot and the custom note hash.
+   * Computes the slotted note hash of a note, which contains storage slot and the custom note hash.
    * @param contractAddress - The address of the contract.
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The note type identifier.
    * @param note - The note.
    * @returns The note hash.
    */
-  public async computeInnerNoteHash(
+  public async computeSlottedNoteHash(
     contractAddress: AztecAddress,
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     note: Note,
   ) {
-    const { innerNoteHash } = await this.computeNoteHashAndOptionallyANullifier(
+    const { slottedNoteHash } = await this.computeNoteHashAndOptionallyANullifier(
       contractAddress,
       Fr.ZERO,
       storageSlot,
@@ -224,6 +227,6 @@ export class AcirSimulator {
       false,
       note,
     );
-    return innerNoteHash;
+    return slottedNoteHash;
   }
 }

@@ -5,8 +5,6 @@ import {
   type BaseParityInputs,
   type BaseRollupInputs,
   CallContext,
-  CallRequest,
-  CallerContext,
   type CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
@@ -63,6 +61,7 @@ import {
   type NullifierLeafPreimage,
   type NullifierNonExistentReadRequestHints,
   type NullifierReadRequestHints,
+  OptionalNumber,
   type PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
   PartialPrivateTailPublicInputsForPublic,
@@ -85,9 +84,12 @@ import {
   type PrivateKernelResetHints,
   type PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateValidationRequests,
   PublicAccumulatedData,
   type PublicCallData,
+  PublicCallRequest,
   type PublicCallStackItem,
+  PublicCallStackItemCompressed,
   type PublicCircuitPublicInputs,
   type PublicDataHint,
   PublicDataRead,
@@ -99,6 +101,7 @@ import {
   PublicKernelCircuitPublicInputs,
   type PublicKernelData,
   type PublicKernelTailCircuitPrivateInputs,
+  PublicValidationRequests,
   type RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   type ReadRequestStatus,
@@ -115,14 +118,12 @@ import {
   ScopedLogHash,
   ScopedNoteHash,
   ScopedNullifier,
-  ScopedPrivateCallRequest,
   ScopedReadRequest,
   type SettledReadHint,
   type StateDiffHints,
   StateReference,
   TxContext,
   type TxRequest,
-  ValidationRequests,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -134,8 +135,6 @@ import type {
   BaseParityInputs as BaseParityInputsNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
   CallContext as CallContextNoir,
-  CallRequest as CallRequestNoir,
-  CallerContext as CallerContextNoir,
   CombineHints as CombineHintsNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
@@ -179,6 +178,7 @@ import type {
   NullifierNonMembershipHint as NullifierNonMembershipHintNoir,
   NullifierReadRequestHints as NullifierReadRequestHintsNoir,
   NullifierSettledReadHint as NullifierSettledReadHintNoir,
+  Option as OptionalNumberNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
   PartialStateReference as PartialStateReferenceNoir,
@@ -198,8 +198,11 @@ import type {
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailToPublicCircuitPrivateInputs as PrivateKernelTailToPublicCircuitPrivateInputsNoir,
+  PrivateValidationRequests as PrivateValidationRequestsNoir,
   PublicAccumulatedData as PublicAccumulatedDataNoir,
   PublicCallData as PublicCallDataNoir,
+  PublicCallRequest as PublicCallRequestNoir,
+  PublicCallStackItemCompressed as PublicCallStackItemCompressedNoir,
   PublicCallStackItem as PublicCallStackItemNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicDataHint as PublicDataHintNoir,
@@ -212,6 +215,7 @@ import type {
   PublicKernelData as PublicKernelDataNoir,
   PublicKernelSetupCircuitPrivateInputs as PublicKernelSetupCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+  PublicValidationRequests as PublicValidationRequestsNoir,
   ReadRequest as ReadRequestNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
@@ -225,7 +229,6 @@ import type {
   ScopedLogHash as ScopedLogHashNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
-  ScopedPrivateCallRequest as ScopedPrivateCallRequestNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
   StateDiffHints as StateDiffHintsNoir,
   StateReference as StateReferenceNoir,
@@ -233,7 +236,6 @@ import type {
   StorageUpdateRequest as StorageUpdateRequestNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
-  ValidationRequests as ValidationRequestsNoir,
 } from './types/index.js';
 
 /* eslint-disable camelcase */
@@ -503,40 +505,12 @@ export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir 
   };
 }
 
-/**
- * Maps a caller context to a noir caller context.
- * @param callContext - The caller context.
- * @returns The noir caller context.
- */
-export function mapCallerContextFromNoir(callerContext: CallerContextNoir): CallerContext {
-  return new CallerContext(
-    mapAztecAddressFromNoir(callerContext.msg_sender),
-    mapAztecAddressFromNoir(callerContext.storage_contract_address),
-    callerContext.is_static_call,
-  );
-}
-
-/**
- * Maps a caller context to a noir caller context.
- * @param callContext - The caller context.
- * @returns The noir caller context.
- */
-export function mapCallerContextToNoir(callerContext: CallerContext): CallerContextNoir {
-  return {
-    msg_sender: mapAztecAddressToNoir(callerContext.msgSender),
-    storage_contract_address: mapAztecAddressToNoir(callerContext.storageContractAddress),
-    is_static_call: callerContext.isStaticCall,
-  };
-}
-
 function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
   return new PrivateCallRequest(
-    mapAztecAddressFromNoir(callRequest.target),
+    mapAztecAddressFromNoir(callRequest.contract_address),
     mapCallContextFromNoir(callRequest.call_context),
-    mapFunctionDataFromNoir(callRequest.function_data),
     mapFieldFromNoir(callRequest.args_hash),
     mapFieldFromNoir(callRequest.returns_hash),
-    mapCallerContextFromNoir(callRequest.caller_context),
     mapNumberFromNoir(callRequest.start_side_effect_counter),
     mapNumberFromNoir(callRequest.end_side_effect_counter),
   );
@@ -544,28 +518,38 @@ function mapPrivateCallRequestFromNoir(callRequest: PrivateCallRequestNoir) {
 
 function mapPrivateCallRequestToNoir(callRequest: PrivateCallRequest): PrivateCallRequestNoir {
   return {
-    target: mapAztecAddressToNoir(callRequest.target),
+    contract_address: mapAztecAddressToNoir(callRequest.contractAddress),
     call_context: mapCallContextToNoir(callRequest.callContext),
-    function_data: mapFunctionDataToNoir(callRequest.functionData),
     args_hash: mapFieldToNoir(callRequest.argsHash),
     returns_hash: mapFieldToNoir(callRequest.returnsHash),
-    caller_context: mapCallerContextToNoir(callRequest.callerContext),
     start_side_effect_counter: mapNumberToNoir(callRequest.startSideEffectCounter),
     end_side_effect_counter: mapNumberToNoir(callRequest.endSideEffectCounter),
   };
 }
 
-function mapScopedPrivateCallRequestFromNoir(callRequest: ScopedPrivateCallRequestNoir) {
-  return new ScopedPrivateCallRequest(
-    mapPrivateCallRequestFromNoir(callRequest.call_request),
-    mapAztecAddressFromNoir(callRequest.contract_address),
+function mapPublicCallStackItemCompressedFromNoir(data: PublicCallStackItemCompressedNoir) {
+  return new PublicCallStackItemCompressed(
+    mapAztecAddressFromNoir(data.contract_address),
+    mapCallContextFromNoir(data.call_context),
+    mapFieldFromNoir(data.args_hash),
+    mapFieldFromNoir(data.returns_hash),
+    mapRevertCodeFromNoir(data.revert_code),
+    mapGasFromNoir(data.start_gas_left),
+    mapGasFromNoir(data.end_gas_left),
   );
 }
 
-function mapScopedPrivateCallRequestToNoir(callRequest: ScopedPrivateCallRequest): ScopedPrivateCallRequestNoir {
+function mapPublicCallStackItemCompressedToNoir(
+  data: PublicCallStackItemCompressed,
+): PublicCallStackItemCompressedNoir {
   return {
-    call_request: mapPrivateCallRequestToNoir(callRequest.callRequest),
-    contract_address: mapAztecAddressToNoir(callRequest.contractAddress),
+    contract_address: mapAztecAddressToNoir(data.contractAddress),
+    call_context: mapCallContextToNoir(data.callContext),
+    args_hash: mapFieldToNoir(data.argsHash),
+    returns_hash: mapFieldToNoir(data.returnsHash),
+    revert_code: mapRevertCodeToNoir(data.revertCode),
+    start_gas_left: mapGasToNoir(data.startGasLeft),
+    end_gas_left: mapGasToNoir(data.endGasLeft),
   };
 }
 
@@ -574,13 +558,10 @@ function mapScopedPrivateCallRequestToNoir(callRequest: ScopedPrivateCallRequest
  * @param callRequest - The noir call request.
  * @returns The call request.
  */
-export function mapCallRequestFromNoir(callRequest: CallRequestNoir): CallRequest {
-  return new CallRequest(
-    mapFieldFromNoir(callRequest.hash),
-    mapAztecAddressFromNoir(callRequest.caller_contract_address),
-    mapCallerContextFromNoir(callRequest.caller_context),
-    mapFieldFromNoir(callRequest.start_side_effect_counter),
-    mapFieldFromNoir(callRequest.end_side_effect_counter),
+function mapPublicCallRequestFromNoir(request: PublicCallRequestNoir) {
+  return new PublicCallRequest(
+    mapPublicCallStackItemCompressedFromNoir(request.item),
+    mapNumberFromNoir(request.counter),
   );
 }
 
@@ -589,13 +570,10 @@ export function mapCallRequestFromNoir(callRequest: CallRequestNoir): CallReques
  * @param privateCallStackItem - The call stack item.
  * @returns The noir call stack item.
  */
-export function mapCallRequestToNoir(callRequest: CallRequest): CallRequestNoir {
+export function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCallRequestNoir {
   return {
-    hash: mapFieldToNoir(callRequest.hash),
-    caller_contract_address: mapAztecAddressToNoir(callRequest.callerContractAddress),
-    caller_context: mapCallerContextToNoir(callRequest.callerContext),
-    start_side_effect_counter: mapFieldToNoir(callRequest.startSideEffectCounter),
-    end_side_effect_counter: mapFieldToNoir(callRequest.endSideEffectCounter),
+    item: mapPublicCallStackItemCompressedToNoir(request.item),
+    counter: mapNumberToNoir(request.counter),
   };
 }
 
@@ -938,8 +916,8 @@ export function mapPrivateCircuitPublicInputsToNoir(
     note_hashes: mapTuple(privateCircuitPublicInputs.noteHashes, mapNoteHashToNoir),
     nullifiers: mapTuple(privateCircuitPublicInputs.nullifiers, mapNullifierToNoir),
     private_call_requests: mapTuple(privateCircuitPublicInputs.privateCallRequests, mapPrivateCallRequestToNoir),
-    public_call_stack_hashes: mapTuple(privateCircuitPublicInputs.publicCallStackHashes, mapFieldToNoir),
-    public_teardown_function_hash: mapFieldToNoir(privateCircuitPublicInputs.publicTeardownFunctionHash),
+    public_call_requests: mapTuple(privateCircuitPublicInputs.publicCallRequests, mapPublicCallRequestToNoir),
+    public_teardown_call_request: mapPublicCallRequestToNoir(privateCircuitPublicInputs.publicTeardownCallRequest),
     l2_to_l1_msgs: mapTuple(privateCircuitPublicInputs.l2ToL1Msgs, mapL2ToL1MessageToNoir),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
@@ -974,8 +952,6 @@ export function mapPrivateCallStackItemToNoir(privateCallStackItem: PrivateCallS
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataNoir {
   return {
     call_stack_item: mapPrivateCallStackItemToNoir(privateCallData.callStackItem),
-    public_call_stack: mapTuple(privateCallData.publicCallStack, mapCallRequestToNoir),
-    public_teardown_call_request: mapCallRequestToNoir(privateCallData.publicTeardownCallRequest),
     vk: mapVerificationKeyToNoir(privateCallData.vk),
     function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
     contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
@@ -1193,25 +1169,32 @@ function mapPublicDataReadRequestHintsToNoir(hints: PublicDataReadRequestHints):
   };
 }
 
-function mapValidationRequestsToNoir(requests: ValidationRequests): ValidationRequestsNoir {
+function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
+  return {
+    _is_some: option.isSome,
+    _value: mapNumberToNoir(option.value),
+  };
+}
+
+function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
+  return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
+}
+
+function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests): PrivateValidationRequestsNoir {
   return {
     for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
     note_hash_read_requests: mapTuple(requests.noteHashReadRequests, mapScopedReadRequestToNoir),
     nullifier_read_requests: mapTuple(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
-    nullifier_non_existent_read_requests: mapTuple(
-      requests.nullifierNonExistentReadRequests,
-      mapScopedReadRequestToNoir,
-    ),
     scoped_key_validation_requests_and_generators: mapTuple(
       requests.scopedKeyValidationRequestsAndGenerators,
       mapScopedKeyValidationRequestAndGeneratorToNoir,
     ),
-    public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
+    split_counter: mapOptionalNumberToNoir(requests.splitCounter),
   };
 }
 
-function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): ValidationRequests {
-  return new ValidationRequests(
+function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequestsNoir) {
+  return new PrivateValidationRequests(
     mapRollupValidationRequestsFromNoir(requests.for_rollup),
     mapTupleFromNoir(
       requests.note_hash_read_requests,
@@ -1224,14 +1207,38 @@ function mapValidationRequestsFromNoir(requests: ValidationRequestsNoir): Valida
       mapScopedReadRequestFromNoir,
     ),
     mapTupleFromNoir(
-      requests.nullifier_non_existent_read_requests,
-      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-      mapScopedReadRequestFromNoir,
-    ),
-    mapTupleFromNoir(
       requests.scoped_key_validation_requests_and_generators,
       MAX_KEY_VALIDATION_REQUESTS_PER_TX,
       mapScopedKeyValidationRequestAndGeneratorFromNoir,
+    ),
+    mapOptionalNumberFromNoir(requests.split_counter),
+  );
+}
+
+function mapPublicValidationRequestsToNoir(requests: PublicValidationRequests): PublicValidationRequestsNoir {
+  return {
+    for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
+    nullifier_read_requests: mapTuple(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
+    nullifier_non_existent_read_requests: mapTuple(
+      requests.nullifierNonExistentReadRequests,
+      mapScopedReadRequestToNoir,
+    ),
+    public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
+  };
+}
+
+function mapPublicValidationRequestsFromNoir(requests: PublicValidationRequestsNoir): PublicValidationRequests {
+  return new PublicValidationRequests(
+    mapRollupValidationRequestsFromNoir(requests.for_rollup),
+    mapTupleFromNoir(
+      requests.nullifier_read_requests,
+      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+      mapScopedReadRequestFromNoir,
+    ),
+    mapTupleFromNoir(
+      requests.nullifier_non_existent_read_requests,
+      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+      mapScopedReadRequestFromNoir,
     ),
     mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );
@@ -1260,14 +1267,14 @@ export function mapPrivateAccumulatedDataFromNoir(
       mapScopedLogHashFromNoir,
     ),
     mapTupleFromNoir(
-      privateAccumulatedData.private_call_stack,
-      MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-      mapScopedPrivateCallRequestFromNoir,
+      privateAccumulatedData.public_call_requests,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      mapPublicCallRequestFromNoir,
     ),
     mapTupleFromNoir(
-      privateAccumulatedData.public_call_stack,
-      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      mapCallRequestFromNoir,
+      privateAccumulatedData.private_call_stack,
+      MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+      mapPrivateCallRequestFromNoir,
     ),
   );
 }
@@ -1280,8 +1287,8 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     note_encrypted_logs_hashes: mapTuple(data.noteEncryptedLogsHashes, mapNoteLogHashToNoir),
     encrypted_logs_hashes: mapTuple(data.encryptedLogsHashes, mapScopedEncryptedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
-    private_call_stack: mapTuple(data.privateCallStack, mapScopedPrivateCallRequestToNoir),
-    public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
+    public_call_requests: mapTuple(data.publicCallRequests, mapPublicCallRequestToNoir),
+    private_call_stack: mapTuple(data.privateCallStack, mapPrivateCallRequestToNoir),
   };
 }
 
@@ -1311,7 +1318,7 @@ export function mapPublicAccumulatedDataFromNoir(
     mapTupleFromNoir(
       publicAccumulatedData.public_call_stack,
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      mapCallRequestFromNoir,
+      mapPublicCallRequestFromNoir,
     ),
     mapGasFromNoir(publicAccumulatedData.gas_used),
   );
@@ -1331,7 +1338,7 @@ export function mapPublicAccumulatedDataToNoir(
       publicAccumulatedData.publicDataUpdateRequests,
       mapPublicDataUpdateRequestToNoir,
     ),
-    public_call_stack: mapTuple(publicAccumulatedData.publicCallStack, mapCallRequestToNoir),
+    public_call_stack: mapTuple(publicAccumulatedData.publicCallStack, mapPublicCallRequestToNoir),
     gas_used: mapGasToNoir(publicAccumulatedData.gasUsed),
   };
 }
@@ -1462,11 +1469,11 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
 ): PublicKernelCircuitPublicInputsNoir {
   return {
     constants: mapCombinedConstantDataToNoir(inputs.constants),
-    validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
+    validation_requests: mapPublicValidationRequestsToNoir(inputs.validationRequests),
     end: mapPublicAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapPublicAccumulatedDataToNoir(inputs.endNonRevertibleData),
     revert_code: mapRevertCodeToNoir(inputs.revertCode),
-    public_teardown_call_stack: mapTuple(inputs.publicTeardownCallStack, mapCallRequestToNoir),
+    public_teardown_call_stack: mapTuple(inputs.publicTeardownCallStack, mapPublicCallRequestToNoir),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
 }
@@ -1530,10 +1537,10 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
 ): PrivateKernelCircuitPublicInputs {
   return new PrivateKernelCircuitPublicInputs(
     mapFieldFromNoir(inputs.min_revertible_side_effect_counter),
-    mapValidationRequestsFromNoir(inputs.validation_requests),
+    mapPrivateValidationRequestsFromNoir(inputs.validation_requests),
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
-    mapCallRequestFromNoir(inputs.public_teardown_call_request),
+    mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
   );
 }
@@ -1543,10 +1550,10 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
 ): PrivateKernelCircuitPublicInputsNoir {
   return {
     constants: mapCombinedConstantDataToNoir(inputs.constants),
-    validation_requests: mapValidationRequestsToNoir(inputs.validationRequests),
+    validation_requests: mapPrivateValidationRequestsToNoir(inputs.validationRequests),
     end: mapPrivateAccumulatedDataToNoir(inputs.end),
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
-    public_teardown_call_request: mapCallRequestToNoir(inputs.publicTeardownCallRequest),
+    public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
 }
@@ -1585,10 +1592,10 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
   inputs: PublicKernelCircuitPublicInputsNoir,
 ): PrivateKernelTailCircuitPublicInputs {
   const forPublic = new PartialPrivateTailPublicInputsForPublic(
-    mapValidationRequestsFromNoir(inputs.validation_requests),
+    mapPublicValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedDataFromNoir(inputs.end_non_revertible),
     mapPublicAccumulatedDataFromNoir(inputs.end),
-    mapTupleFromNoir(inputs.public_teardown_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
+    mapPublicCallRequestFromNoir(inputs.public_teardown_call_stack[0]),
   );
   return new PrivateKernelTailCircuitPublicInputs(
     mapCombinedConstantDataFromNoir(inputs.constants),
@@ -1644,6 +1651,7 @@ function mapPrivateKernelResetHintsToNoir<
       KeyValidationHintNoir,
       KEY_VALIDATION_REQUESTS
     >,
+    validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
 }
 
@@ -1746,12 +1754,16 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
   inputs: PublicKernelCircuitPublicInputsNoir,
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
-    mapValidationRequestsFromNoir(inputs.validation_requests),
+    mapPublicValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedDataFromNoir(inputs.end_non_revertible),
     mapPublicAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapRevertCodeFromNoir(inputs.revert_code),
-    mapTupleFromNoir(inputs.public_teardown_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapCallRequestFromNoir),
+    mapTupleFromNoir(
+      inputs.public_teardown_call_stack,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      mapPublicCallRequestFromNoir,
+    ),
     mapAztecAddressFromNoir(inputs.fee_payer),
   );
 }
@@ -1861,7 +1873,7 @@ export function mapPublicCircuitPublicInputsToNoir(
       mapStorageUpdateRequestToNoir,
     ),
     contract_storage_reads: mapTuple(publicInputs.contractStorageReads, mapStorageReadToNoir),
-    public_call_stack_hashes: mapTuple(publicInputs.publicCallStackHashes, mapFieldToNoir),
+    public_call_requests: mapTuple(publicInputs.publicCallRequests, mapPublicCallRequestToNoir),
     note_hashes: mapTuple(publicInputs.noteHashes, mapNoteHashToNoir),
     nullifiers: mapTuple(publicInputs.nullifiers, mapNullifierToNoir),
     l2_to_l1_msgs: mapTuple(publicInputs.l2ToL1Msgs, mapL2ToL1MessageToNoir),
@@ -1932,7 +1944,6 @@ export function mapPublicCallStackItemToNoir(publicCallStackItem: PublicCallStac
 export function mapPublicCallDataToNoir(publicCall: PublicCallData): PublicCallDataNoir {
   return {
     call_stack_item: mapPublicCallStackItemToNoir(publicCall.callStackItem),
-    public_call_stack: mapTuple(publicCall.publicCallStack, mapCallRequestToNoir),
     proof: {},
     bytecode_hash: mapFieldToNoir(publicCall.bytecodeHash),
   };
@@ -2030,6 +2041,7 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
+    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }
 
@@ -2070,6 +2082,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapHeaderFromNoir(rootRollupPublicInputs.header),
+    mapFieldFromNoir(rootRollupPublicInputs.prover_id),
   );
 }
 

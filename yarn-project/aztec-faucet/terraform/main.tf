@@ -132,6 +132,22 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
       {
         "name": "ETH_AMOUNT",
         "value": "1.0"
+      },
+      {
+        "name": "FAUCET_ACCOUNT_INDEX",
+        "value": "${var.FAUCET_ACCOUNT_INDEX}"
+      },
+      {
+        "name": "FORK_MNEMONIC",
+        "value": "${var.FORK_MNEMONIC}"
+      },
+      {
+        "name": "EXTRA_ASSETS",
+        "value": "fee_juice:${var.GAS_TOKEN_CONTRACT_ADDRESS},dev_coin:${var.DEV_COIN_CONTRACT_ADDRESS}"
+      },
+      {
+        "name": "EXTRA_ASSET_AMOUNT",
+        "value": "1000000000"
       }
     ],
     "logConfiguration": {
