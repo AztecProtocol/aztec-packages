@@ -1,7 +1,13 @@
 import { type DebugLogger } from '@aztec/foundation/log';
 
-import { type Meter, type Tracer, type TracerProvider } from '@opentelemetry/api';
-import { DiagConsoleLogger, DiagLogLevel, diag } from '@opentelemetry/api';
+import {
+  DiagConsoleLogger,
+  DiagLogLevel,
+  type Meter,
+  type Tracer,
+  type TracerProvider,
+  diag,
+} from '@opentelemetry/api';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
@@ -11,10 +17,12 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import { NETWORK_ID } from './attributes.js';
-import { type TelemetryClient } from './telemetry.js';
+import { type Gauge, type TelemetryClient } from './telemetry.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
+  targetInfo: Gauge | undefined;
+
   protected constructor(
     private resource: Resource,
     private meterProvider: MeterProvider,
@@ -38,6 +46,14 @@ export class OpenTelemetryClient implements TelemetryClient {
       name: this.resource.attributes[SEMRESATTRS_SERVICE_NAME] as string,
       meterProvider: this.meterProvider,
     });
+
+    // See these two links for more information on providing target information:
+    // https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#resource-attributes
+    // https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#supporting-target-metadata-in-both-push-based-and-pull-based-systems
+    this.targetInfo = this.meterProvider.getMeter('target').createGauge('target_info', {
+      description: 'Target information',
+    });
+    this.targetInfo.record(1, this.resource.attributes);
 
     this.hostMetrics.start();
   }
