@@ -112,6 +112,8 @@ describe('e2e_fees dapp_subscription', () => {
       new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
     );
 
+    aliceWallet.setScopes([aliceAddress, bobAddress]);
+
     await expectMapping(
       t.getGasBalanceFn,
       [sequencerAddress, bananaFPC.address],

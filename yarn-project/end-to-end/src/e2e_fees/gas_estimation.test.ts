@@ -33,6 +33,7 @@ describe('e2e_fees gas_estimation', () => {
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
 
     teardownFixedFee = gasSettings.teardownGasLimits.computeFee(GasFees.default()).toBigInt();
+    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   afterAll(async () => {

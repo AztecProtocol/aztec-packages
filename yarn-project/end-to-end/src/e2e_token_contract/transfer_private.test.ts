@@ -34,6 +34,9 @@ describe('e2e_token_contract transfer private', () => {
     const balance0 = await asset.methods.balance_of_private(accounts[0].address).simulate();
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
+
+    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
+
     const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
@@ -90,6 +93,8 @@ describe('e2e_token_contract transfer private', () => {
     });
     // docs:end:authwit_transfer_example
 
+    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
+
     // Perform the transfer
     await action.send().wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
@@ -100,6 +105,8 @@ describe('e2e_token_contract transfer private', () => {
       .methods.transfer_from(accounts[0].address, accounts[1].address, amount, nonce)
       .send();
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+
+    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   describe('failure cases', () => {
@@ -195,6 +202,8 @@ describe('e2e_token_contract transfer private', () => {
 
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
       await wallets[2].addAuthWitness(witness);
+
+      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
 
       await expect(action.simulate()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,

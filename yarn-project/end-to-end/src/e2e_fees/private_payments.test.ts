@@ -1,10 +1,10 @@
 import {
+  type AccountWallet,
   type AztecAddress,
   BatchCall,
   Fr,
   PrivateFeePaymentMethod,
   type TxReceipt,
-  type Wallet,
   computeSecretHash,
 } from '@aztec/aztec.js';
 import { type GasSettings } from '@aztec/circuits.js';
@@ -14,7 +14,7 @@ import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
-  let aliceWallet: Wallet;
+  let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -73,6 +73,8 @@ describe('e2e_fees private_payment', () => {
       t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
+
+    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   const getFeeAndRefund = (tx: Pick<TxReceipt, 'transactionFee'>) => [tx.transactionFee!, maxFee - tx.transactionFee!];

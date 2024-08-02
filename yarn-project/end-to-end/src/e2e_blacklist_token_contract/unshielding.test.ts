@@ -50,6 +50,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
     await wallets[1].addAuthWitness(witness);
 
+    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
+
     await action.send().wait();
     tokenSim.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
@@ -121,6 +123,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[2].addAuthWitness(witness);
+
+      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
 
       await expect(action.prove()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
