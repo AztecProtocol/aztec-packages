@@ -78,12 +78,16 @@ export enum Opcode {
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
+  PEDERSENCOMMITMENT,
   // Conversion
   TORADIXLE,
+  // Future Gadgets -- pending changes in noir
+  SHA256COMPRESSION,
+  KECCAKF1600, // Here for when we eventually support this
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
-// See vm/avm_trace/avm_deserialization.cpp)
+// See vm/avm_trace/deserialization.cpp)
 // Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,
 // this one is parsed as UINT8.
 export enum OperandType {

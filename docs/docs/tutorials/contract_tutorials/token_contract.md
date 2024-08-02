@@ -463,7 +463,7 @@ Unconstrained functions are similar to `view` functions in Solidity in that they
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk_app` ([incoming viewing secret key](../../aztec/concepts/accounts/keys.md##incoming-viewing-keys)) in order to decrypt the notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../aztec/concepts/accounts/keys.md##incoming-viewing-keys)) in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -480,16 +480,14 @@ aztec-nargo compile
 Once your contract is compiled, optionally generate a typescript interface with the following command:
 
 ```bash
-aztec-builder target -o src/artifacts
+aztec codegen target -o src/artifacts
 ```
 
 ## Next Steps
 
 ### Testing
 
-Review the end to end tests for reference:
-
-https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/*.test.ts
+Review [the end to end tests](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 
 ### Token Bridge Contract
 

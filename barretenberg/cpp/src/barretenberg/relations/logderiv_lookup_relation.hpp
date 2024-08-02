@@ -22,6 +22,15 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         LENGTH, // inverse construction sub-relation
         LENGTH  // log derivative lookup argument sub-relation
     };
+    /**
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
+        2, // inverse construction sub-relation
+        3, // log derivative lookup argument sub-relation
+    };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1036): Scrutinize these adjustment factors. Counting
     // degrees suggests the first subrelation should require an adjustment of 2.
@@ -128,11 +137,39 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto derived_table_entry_2 = w_2 + negative_column_2_step_size * w_2_shift;
         auto derived_table_entry_3 = w_3 + negative_column_3_step_size * w_3_shift;
 
-        // (w_1 + q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
+        // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
         return derived_table_entry_1 + derived_table_entry_2 * eta + derived_table_entry_3 * eta_two +
                table_index * eta_three;
     }
+
+    /**
+     * @brief Construct the polynomial I whose components are the inverse of the product of the read and write terms
+     * @details If the denominators of log derivative lookup relation are read_term and write_term, then I_i =
+     * (read_term_i*write_term_i)^{-1}.
+     * @note Importantly, I_i = 0 for rows i at which there is no read or write, so the cost of this method is
+     * proportional to the actual number of lookups.
+     *
+     */
+    template <typename Polynomials>
+    static void compute_logderivative_inverse(Polynomials& polynomials,
+                                              auto& relation_parameters,
+                                              const size_t circuit_size)
+    {
+        auto& inverse_polynomial = get_inverse_polynomial(polynomials);
+
+        for (size_t i = 0; i < circuit_size; ++i) {
+            // We only compute the inverse if this row contains a lookup gate or data that has been looked up
+            if (polynomials.q_lookup[i] == 1 || polynomials.lookup_read_tags[i] == 1) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+                auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+                inverse_polynomial[i] = compute_read_term<FF, 0>(row, relation_parameters) *
+                                        compute_write_term<FF, 0>(row, relation_parameters);
+            }
+        }
+        // Compute inverse polynomial I in place by inverting the product at each row
+        FF::batch_invert(inverse_polynomial);
+    };
 
     /**
      * @brief Log-derivative style lookup argument for conventional lookups form tables with 3 or fewer columns
@@ -178,8 +215,14 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                            const FF& scaling_factor)
     {
         BB_OP_COUNT_TIME_NAME("Lookup::accumulate");
-        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
+        // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
+        // longest
+        using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+        // allows to re-use the values accumulated by the accumulator of the size smaller than
+        // the size of Accumulator declared above
+        using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
 
         const auto inverses = View(in.lookup_inverses);                         // Degree 1
         const auto read_counts = View(in.lookup_read_counts);                   // Degree 1
@@ -193,7 +236,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
         // Degrees:                     2 (3)       1 (2)        1              1
-        std::get<0>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor; // Deg 4 (6)
+        std::get<0>(accumulator) +=
+            ShortView((read_term * write_term * inverses - inverse_exists) * scaling_factor); // Deg 4 (6)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
