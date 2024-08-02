@@ -242,8 +242,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
       },
       {
-        name  = "TEL_NETWORK_ID",
-        value = "${var.DEPLOY_TAG}"
+        "name"  = "TEL_NETWORK_ID",
+        "value" = "${var.DEPLOY_TAG}"
       }
     ],
     "logConfiguration": {
