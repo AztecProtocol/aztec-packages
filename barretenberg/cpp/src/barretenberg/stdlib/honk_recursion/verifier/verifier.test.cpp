@@ -195,6 +195,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // verifier and check that the result agrees.
         InnerVerifier native_verifier(verification_key);
         auto native_result = native_verifier.verify_proof(inner_proof);
+        using VerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
+        auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+        bool result = pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        info("input pairing points result: ", result);
         auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points.P0.get_value(),
                                                                                          pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);

@@ -61,8 +61,6 @@ class ClientIVCTests : public ::testing::Test {
         // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices(circuit));
-        info(circuit.num_gates);
         return circuit;
     }
 };
