@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722604347477,
+  "lastUpdate": 1722604479503,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -107212,6 +107212,78 @@ window.BENCHMARK_DATA = {
             "value": 172953864,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 172953864 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83f8d9c5e4f53b3691d5a1168c69a160ab657139",
+          "message": "feat: CLI wallet initial version (#7651)\n\nInitial version of the CLI wallet, basically porting the old CLI\r\ncommands `create-account`, `deploy` and `send`.\r\n\r\nInstead of specifying a private key, whenever an account is created an\r\nalias can be given to it via the `-a` param. This will store the account\r\ninfo (including secret key!) in a DB, so that the account alias can be\r\nreferenced later in the other commands.\r\n\r\n`aztec-wallet create-account -a main`\r\n\r\n```\r\nNew account:\r\n\r\nAddress:         0x032fc6676fea75427cffc4fafffb1ae8ec29340bc1d5814ec56c5d82fe8eec51\r\nPublic key:      0x27aaf1b4f4250d45a085524ae0e7dd4bfe62c3e7de7c3c614fd7b0fe34af21152cea6630aed6b3bddda2f2918bdd8e590e1cbcdd01a82fa95ac44dc758d6cac526ccd74bb8c11c4fc7014ed558a001583c7cf9a65c8adb2840763c325e29fc6e185acaa0f6dce3ccfec068ef090d7b450c6ad540a4e86baf204f53acab7839542bb4c2b71210b02c59bca7870d0973861a01688811acf2263f1eeefa459c240e280b949204c944e63349710c939898e739354f700cbcd427b059b558e818625325426f0ab1586937384e222000974bd917d5e498cfa7f83118096fdf176b617b2a41aeae4d6ab0d1ff9035d6295782d42a40087111aa6215cdbdd633402dd726\r\nPrivate key:     0x252cef68955eee66a0f346eea4eff84d8dfca1740794436913c10c49ce1b5566\r\nPartial address: 0x011e89c12b17cb0a602369148e82c2dd2910a7ad847cbcb818fb9bffbce02b6b\r\nSalt:            0x0000000000000000000000000000000000000000000000000000000000000000\r\nInit hash:       0x0673bba8f408c1bcf6faaaec4e526662871386562d8c98ff303a138599a977c1\r\nDeployer:        0x0000000000000000000000000000000000000000000000000000000000000000\r\n\r\nWaiting for account contract deployment...\r\nDeploy tx hash:  2e6f063986636d3aa96c1bdc9546f96c5f40472fac2ff1031cc79186c0a87573\r\nDeploy tx fee:   200013616\r\n```\r\n\r\nAnd then you can do:\r\n\r\n`aztec-wallet deploy\r\n./noir-projects/noir-contracts.js/artifacts/token_contract-Token.json\r\n--args\r\n0x032fc6676fea75427cffc4fafffb1ae8ec29340bc1d5814ec56c5d82fe8eec51 Test\r\nTST 18 -a main`\r\n\r\nThe new wallet command (`aztec-wallet`) is added as part of the suite of\r\ntools users get when doing `aztec-up`",
+          "timestamp": "2024-08-02T14:49:00+02:00",
+          "tree_id": "714929ff954cff84e0721f75f81f1195bf882e69",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/83f8d9c5e4f53b3691d5a1168c69a160ab657139"
+        },
+        "date": 1722604469939,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13477.927209000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10119.799244000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5166.802439999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4645.604369 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40023.767699,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40023767000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14380.877403999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14380877000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3610828747,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3610828747 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 209333189,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 209333189 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2993068692,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2993068692 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 176026699,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 176026699 ns\nthreads: 1"
           }
         ]
       }
