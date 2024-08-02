@@ -44,7 +44,6 @@ import {
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -124,7 +123,6 @@ import {
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  ScopedKeyValidationRequestAndGenerator,
   ScopedLogHash,
   ScopedReadRequest,
   StateDiffHints,
@@ -148,10 +146,10 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
+import { PublicValidationRequests } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
-import { ValidationRequests } from '../structs/validation_requests.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -249,18 +247,6 @@ function makeKeyValidationRequestAndGenerators(seed: number): KeyValidationReque
 }
 
 /**
- * Creates arbitrary scoped ScopedKeyValidationRequestAndGenerator from the given seed.
- * @param seed - The seed to use for generating the ScopedKeyValidationRequestAndGenerator.
- * @returns A ScopedKeyValidationRequestAndGenerator.
- */
-function makeScopedKeyValidationRequestAndGenerators(seed: number): ScopedKeyValidationRequestAndGenerator {
-  return new ScopedKeyValidationRequestAndGenerator(
-    makeKeyValidationRequestAndGenerators(seed),
-    makeAztecAddress(seed + 4),
-  );
-}
-
-/**
  * Creates arbitrary public data update request.
  * @param seed - The seed to use for generating the public data update request.
  * @returns A public data update request.
@@ -312,13 +298,11 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
   return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
-export function makeValidationRequests(seed = 1) {
-  return new ValidationRequests(
+function makePublicValidationRequests(seed = 1) {
+  return new PublicValidationRequests(
     makeRollupValidationRequests(seed),
     makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
-    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x90),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
-    makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, makeScopedKeyValidationRequestAndGenerators, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -467,7 +451,7 @@ export function makePublicKernelCircuitPublicInputs(
 ): PublicKernelCircuitPublicInputs {
   const tupleGenerator = fullAccumulatedData ? makeTuple : makeHalfFullTuple;
   return new PublicKernelCircuitPublicInputs(
-    makeValidationRequests(seed),
+    makePublicValidationRequests(seed),
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
@@ -488,7 +472,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
 ): PrivateKernelTailCircuitPublicInputs {
   const forPublic = isForPublic
     ? new PartialPrivateTailPublicInputsForPublic(
-        ValidationRequests.empty(),
+        PublicValidationRequests.empty(),
         makePublicAccumulatedData(seed + 0x100, false),
         makePublicAccumulatedData(seed + 0x200, false),
         makePublicCallRequest(seed + 0x400),
@@ -780,33 +764,20 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
   });
 }
 
-/**
- * Makes global variables.
- * @param seed - The seed to use for generating the global variables.
- * @param blockNumber - The block number to use for generating the global variables.
- * If blockNumber is undefined, it will be set to seed + 2.
- * @returns Global variables.
- */
-export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = undefined): GlobalVariables {
-  if (blockNumber !== undefined) {
-    return new GlobalVariables(
-      fr(seed),
-      fr(seed + 1),
-      fr(blockNumber),
-      fr(seed + 3),
-      EthAddress.fromField(fr(seed + 4)),
-      AztecAddress.fromField(fr(seed + 5)),
-      makeGasFees(seed + 6),
-    );
-  }
+export function makeGlobalVariables(
+  seed = 1,
+  blockNumber: number | undefined = undefined,
+  slotNumber: number | undefined = undefined,
+): GlobalVariables {
   return new GlobalVariables(
-    fr(seed),
-    fr(seed + 1),
-    fr(seed + 2),
-    fr(seed + 3),
-    EthAddress.fromField(fr(seed + 4)),
-    AztecAddress.fromField(fr(seed + 5)),
-    makeGasFees(seed + 6),
+    new Fr(seed),
+    new Fr(seed + 1),
+    new Fr(blockNumber ?? seed + 2),
+    new Fr(slotNumber ?? seed + 3),
+    new Fr(seed + 4),
+    EthAddress.fromField(new Fr(seed + 5)),
+    AztecAddress.fromField(new Fr(seed + 6)),
+    new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
   );
 }
 
@@ -932,6 +903,7 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
+    fr(0x2500),
   );
 }
 
@@ -978,11 +950,13 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
 export function makeRootRollupPublicInputs(
   seed = 0,
   blockNumber: number | undefined = undefined,
+  slotNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, blockNumber),
+    header: makeHeader(seed + 0x200, blockNumber, slotNumber),
     vkTreeRoot: fr(seed + 0x300),
+    proverId: fr(seed + 0x400),
   });
 }
 
@@ -1004,13 +978,14 @@ export function makeContentCommitment(seed = 0, txsEffectsHash: Buffer | undefin
 export function makeHeader(
   seed = 0,
   blockNumber: number | undefined = undefined,
+  slotNumber: number | undefined = undefined,
   txsEffectsHash: Buffer | undefined = undefined,
 ): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), blockNumber),
+    makeGlobalVariables((seed += 0x700), blockNumber, slotNumber),
     fr(seed + 0x800),
   );
 }

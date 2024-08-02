@@ -94,6 +94,8 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
+  // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
+  // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   beforeEach(async () => {
@@ -230,6 +232,7 @@ describe('L1Publisher integration', () => {
           },
           globalVariables: {
             blockNumber: block.number,
+            slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
@@ -345,6 +348,7 @@ describe('L1Publisher integration', () => {
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
+        new Fr(1 + i) /** slot number */,
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
@@ -366,7 +370,7 @@ describe('L1Publisher integration', () => {
       // Check that we have not yet written a root to this blocknumber
       expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-      writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
+      writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
       await publisher.processL2Block(block);
 
@@ -436,6 +440,7 @@ describe('L1Publisher integration', () => {
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
+        new Fr(1 + i) /** slot number */,
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
@@ -451,7 +456,7 @@ describe('L1Publisher integration', () => {
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-      writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+      writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
       await publisher.processL2Block(block);
 
