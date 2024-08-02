@@ -143,7 +143,7 @@ mod test {
         // All the values in this test were copied over from `tagged_log.test.ts`
         let contract_address = AztecAddress::from_field(0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04);
         let storage_slot = 0x0fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e6599;
-        let ovsk_app = 0x1b99ba138fa7ef8a2f122a98dd80c8ee70d447218dd780f45e165ac17ca38a5e;
+        let ovsk_app = 0x03a6513d6def49f41d20373d2cec894c23e7492794b08fc50c0e8a1bd2512612;
         let ovpk_m = Point {
             x: 0x1961448682803198631f299340e4206bb12809d4bebbf012b30f59af73ba1a15,
             y: 0x133674060c3925142aceb4f1dcd9f9137d0217d37ff8729ee5ceaa6e2790353d,
