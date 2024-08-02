@@ -14,6 +14,9 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/attribute-naming/}
  */
 
+/** The Aztec network identifier */
+export const NETWORK_ID = 'aztec.network.id';
+
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
  * @see {@link @aztec/circuit-types/stats:CircuitName}

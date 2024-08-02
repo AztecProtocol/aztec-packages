@@ -10,6 +10,7 @@ import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
+import { NETWORK_ID } from './attributes.js';
 import { type TelemetryClient } from './telemetry.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
@@ -48,12 +49,14 @@ export class OpenTelemetryClient implements TelemetryClient {
   public static createAndStart(
     name: string,
     version: string,
+    networkIdentifier: string,
     collectorBaseUrl: URL,
     log: DebugLogger,
   ): OpenTelemetryClient {
     const resource = new Resource({
       [SEMRESATTRS_SERVICE_NAME]: name,
       [SEMRESATTRS_SERVICE_VERSION]: version,
+      [NETWORK_ID]: networkIdentifier,
     });
 
     const tracerProvider = new NodeTracerProvider({
