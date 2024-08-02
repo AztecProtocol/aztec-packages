@@ -65,32 +65,6 @@ class AztecIVCTests : public ::testing::Test {
     }
 };
 
-// /**
-//  * @brief Prove and verify accumulation of an arbitrary set of circuits
-//  *
-//  */
-// TEST_F(AztecIVCTests, DataBusDepot)
-// {
-//     AztecIVC ivc;
-//     ivc.trace_structure = TraceStructure::SMALL_TEST;
-
-//     // Construct a set of arbitrary circuits
-//     size_t NUM_CIRCUITS = 6;
-//     std::vector<Builder> circuits;
-//     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-//         circuits.emplace_back(create_mock_circuit(ivc, /*log2_num_gates=*/5));
-//     }
-
-//     // Accumulate each circuit
-//     for (auto& circuit : circuits) {
-//         ivc.accumulate(circuit);
-//     }
-
-//     info(ivc.goblin.op_queue->get_current_size());
-
-//     EXPECT_TRUE(ivc.prove_and_verify());
-// };
-
 /**
  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
