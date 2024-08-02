@@ -67,18 +67,60 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
         // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
         let npk_m_hash_scalar = from_field_unsafe(self.npk_m_hash);
         let randomness_scalar = from_field_unsafe(self.randomness);
+        // TODO(benesjan): decompose amount with from_field_unsafe or constrain it fits into limb
+        let amount_scalar = Scalar {
+            lo: self.amount.to_integer(),
+            hi: 0
+        };
         // We compute the note hiding point as `G_amt * amount + G_npk * npk_m_hash + G_rnd * randomness` instead
         // of using pedersen or poseidon2 because it allows us to privately add and subtract from amount in public
         // by leveraging homomorphism.
         multi_scalar_mul(
             [G_amt, G_npk, G_rnd],
-            [Scalar {
-                lo: self.amount.to_integer(),
-                hi: 0
-            },
-            npk_m_hash_scalar,
-            randomness_scalar]
+            [amount_scalar, npk_m_hash_scalar, randomness_scalar]
         )
+    }
+}
+
+impl TokenNote {
+    // TODO: Merge this func with `compute_note_hiding_point`. I (benesjan) didn't do it in the initial PR to not have
+    // to modify macros and all the related funcs in it.
+    fn to_note_hiding_point(self) -> TokenNoteHidingPoint {
+        TokenNoteHidingPoint::new(self.compute_note_hiding_point())
+    }
+}
+
+struct TokenNoteHidingPoint {
+  inner: Point
+}
+
+impl TokenNoteHidingPoint {
+    fn new(point: Point) -> Self {
+        Self { inner: point }
+    }
+
+    fn add_amount(self, amount: Field) -> Self {
+        // TODO(benesjan): decompose amount with from_field_unsafe or constrain it fits into limb
+        let amount_scalar = Scalar {
+            lo: self.amount.to_integer(),
+            hi: 0
+        };
+        let new_point = multi_scalar_mul([G_amt], [amount_scalar]) + self.inner;
+        Self { inner: new_point }
+    }
+
+    fn add_npk_m_hash(self, npk_m_hash: Field) -> Self {
+        let new_point = multi_scalar_mul([G_npk], [from_field_unsafe(npk_m_hash)]) + self.inner;
+        Self { inner: new_point }
+    }
+
+    fn add_randomness(self, randomness: Field) -> Self {
+        let new_point = multi_scalar_mul([G_rnd], [from_field_unsafe(randomness)]) + self.inner;
+        Self { inner: new_point }
+    }
+
+    fn finalize(self) -> Field {
+        self.inner.x
     }
 }
 

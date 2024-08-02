@@ -453,22 +453,31 @@ contract TokenWithRefunds {
         // to the user in the `complete_refund(...)` function.
         storage.balances.sub(user, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk, user));
 
-        // 4. We generate the refund points.
-        let (fee_payer_point, user_point) = TokenNote::generate_refund_points(
-            fee_payer_npk_m_hash,
-            user_npk_m_hash,
-            user_randomness,
-            fee_payer_randomness
-        );
+        // 4. We create the partial notes for the fee payer and the user.
+        // --> Called "partial" because they don't have the amount set yet (that will be done in `complete_refund(...)`).
+        let fee_payer_partial_note = TokenNote {
+            amount: U128::zero(),
+            npk_m_hash: fee_payer_npk_m_hash,
+            randomness: fee_payer_randomness,
+        };
+        let user_partial_note = TokenNote {
+            amount: U128::zero(),
+            npk_m_hash: user_npk_m_hash,
+            randomness: user_randomness,
+        };
 
-        // 5. Now we "manually" compute the slots and the slotted note hiding points
+        // 5. Now we get the note hiding points.
+        let fee_payer_point = fee_payer_partial_note.to_note_hiding_point();
+        let user_point = user_partial_note.to_note_hiding_point();
+
+        // 6. Now we "manually" compute the slot points and add them to hiding points.
         let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
         let slotted_fee_payer_point = compute_slotted_note_hiding_point_raw(fee_payer_balances_slot, fee_payer_point);
         let slotted_user_point = compute_slotted_note_hiding_point_raw(user_balances_slot, user_point);
 
-        // 6. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
+        // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
