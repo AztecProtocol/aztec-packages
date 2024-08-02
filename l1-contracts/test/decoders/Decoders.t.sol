@@ -27,10 +27,10 @@ contract DecodersTest is DecoderBase {
   }
 
   function testDecodeBlocks() public {
-    _testDecodeBlock("mixed_block_0");
     _testDecodeBlock("mixed_block_1");
-    _testDecodeBlock("empty_block_0");
+    _testDecodeBlock("mixed_block_2");
     _testDecodeBlock("empty_block_1");
+    _testDecodeBlock("empty_block_2");
   }
 
   function _testDecodeBlock(string memory name) public virtual {
@@ -47,6 +47,9 @@ contract DecodersTest is DecoderBase {
 
         assertEq(
           header.globalVariables.blockNumber, globalVariables.blockNumber, "Invalid block number"
+        );
+        assertEq(
+          header.globalVariables.slotNumber, globalVariables.slotNumber, "Invalid slot number"
         );
         assertEq(header.globalVariables.chainId, globalVariables.chainId, "Invalid chain Id");
         assertEq(header.globalVariables.timestamp, globalVariables.timestamp, "Invalid timestamp");

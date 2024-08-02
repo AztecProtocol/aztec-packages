@@ -26,6 +26,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/bot": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
@@ -112,7 +113,8 @@
   "jest": {
     "slowTestThreshold": 300,
     "setupFilesAfterEnv": [
-      "jest-extended/all"
+      "jest-extended/all",
+      "./shared/jest_setup.ts"
     ],
     "extensionsToTreatAsEsm": [
       ".ts"

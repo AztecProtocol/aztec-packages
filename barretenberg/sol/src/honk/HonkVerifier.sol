@@ -32,12 +32,11 @@ error ZeromorphFailed();
 abstract contract BaseHonkVerifier is IVerifier {
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
 
-    // TODO(md): I would perfer the publicInputs to be uint256
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = loadProof(proof);
 
-        if (vk.publicInputsSize != publicInputs.length) {
+        if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();
         }
 
@@ -96,7 +95,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         });
 
         // Lookup / Permutation Helper Commitments
-        // TODO(md): update the log deriv prover commitment rounds
         p.lookupReadCounts = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x1e0:0x200])),
             x_1: uint256(bytes32(proof[0x200:0x220])),
@@ -332,7 +330,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
 
         // Accumulate all 6 custom gates - each with varying number of subrelations
-        // TODO: annotate how many subrealtions each has
         accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePermutationRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulateLogDerivativeLookupRelation(purportedEvaluations, tp, evaluations, powPartialEval);
@@ -435,19 +432,6 @@ abstract contract BaseHonkVerifier is IVerifier {
             evals[3] = acc;
         }
     }
-
-    // Lookup parameters have been yoinked into memory to avoid stack too deep
-    struct LookupParams {
-        Fr eta_sqr;
-        Fr eta_cube;
-        Fr one_plus_beta;
-        Fr gamma_by_one_plus_beta;
-        Fr wire_accum;
-        Fr table_accum;
-        Fr table_accum_shift;
-    }
-
-    // TODO(md): calculate eta one two and three above
 
     function accumulateLogDerivativeLookupRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
@@ -969,11 +953,12 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr x_pow_2kp1;
     }
 
-    function computeCZetaX(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp, Fr batchedEval)
-        internal
-        view
-        returns (Honk.G1Point memory)
-    {
+    function computeCZetaX(
+        Honk.Proof memory proof,
+        Honk.VerificationKey memory vk,
+        Transcript memory tp,
+        Fr batchedEval
+    ) internal view returns (Honk.G1Point memory) {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] memory commitments;
         CZetaXParams memory cp;
@@ -1163,11 +1148,12 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
     }
 
-    function zkgReduceVerify(Honk.Proof memory proof, Transcript memory tp, Fr evaluation, Honk.G1Point memory commitment)
-        internal
-        view
-        returns (bool)
-    {
+    function zkgReduceVerify(
+        Honk.Proof memory proof,
+        Transcript memory tp,
+        Fr evaluation,
+        Honk.G1Point memory commitment
+    ) internal view returns (bool) {
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.zmPi);
         Honk.G1Point memory ONE = Honk.G1Point({x: 1, y: 2});
 
