@@ -203,8 +203,11 @@ pub fn generate_note_interface_impl(
         }
 
         if !check_trait_method_implemented(trait_impl, "compute_note_hiding_point") {
-            let compute_note_hiding_point_fn =
-                generate_compute_note_hiding_point(&note_type, note_interface_impl_span)?;
+            let compute_note_hiding_point_fn = generate_compute_note_hiding_point(
+                &note_type,
+                note_interface_impl_span,
+                empty_spans,
+            )?;
             trait_impl.items.push(TraitImplItem::Function(compute_note_hiding_point_fn));
         }
 
