@@ -18,44 +18,145 @@ const { AZTEC_PORT = '8080', API_PREFIX = '', TEST_ACCOUNTS = 'true', ENABLE_GAS
 interface Option {
   flag: string;
   description: string;
-  defaultValue: string;
-  envVar: string;
+  defaultValue: string | undefined;
+  envVar: string | undefined;
 }
 
 // Define categories and options
 const categories: { [key: string]: Option[] } = {
-  'TRANSACTION POOL (BLOB)': [
+  ETHEREUM: [
     {
-      flag: '--blobpool.datacap <value>',
-      description: 'Disk space to allocate for pending blob transactions (soft limit)',
-      defaultValue: '2684354560',
-      envVar: 'GETH_BLOBPOOL_DATACAP',
+      flag: '--l1-rpc-url <value>',
+      description: 'URL of the Ethereum RPC node',
+      defaultValue: 'http://localhost:8545',
+      envVar: 'ETHEREUM_HOST',
     },
     {
-      flag: '--blobpool.datadir <value>',
-      description: 'Data directory to store blob transactions in',
-      defaultValue: 'blobpool',
-      envVar: 'GETH_BLOBPOOL_DATADIR',
-    },
-    {
-      flag: '--blobpool.pricebump <value>',
-      description: 'Price bump percentage to replace an already existing blob transaction',
-      defaultValue: '100',
-      envVar: 'GETH_BLOBPOOL_PRICEBUMP',
+      flag: '--l1-chain-id <value>',
+      description: 'The L1 chain ID',
+      defaultValue: '1337',
+      envVar: 'L1_CHAIN_ID',
     },
   ],
-  'TRANSACTION POOL (EVM)': [
+  'L1 CONTRACT ADDRESSES': [
     {
-      flag: '--txpool.accountqueue <value>',
-      description: 'Maximum number of non-executable transaction slots permitted per account',
-      defaultValue: '64',
-      envVar: 'GETH_TXPOOL_ACCOUNTQUEUE',
+      flag: '--rolup-address <value>',
+      description: 'The deployed L1 rollup contract address',
+      defaultValue: undefined,
+      envVar: 'ROLUP_CONTRACT_ADDRESS',
     },
     {
-      flag: '--txpool.accountslots <value>',
-      description: 'Minimum number of executable transaction slots guaranteed per account',
-      defaultValue: '16',
-      envVar: 'GETH_TXPOOL_ACCOUNTSLOTS',
+      flag: '--registry-address <value>',
+      description: 'The deployed L1 registry contract address',
+      defaultValue: undefined,
+      envVar: 'REGISTRY_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--inbox-address <value>',
+      description: 'The deployed L1 -> L2 inbox contract address',
+      defaultValue: undefined,
+      envVar: 'INBOX_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--outbox-address <value>',
+      description: 'The deployed L2 -> L1 outbox contract address',
+      defaultValue: undefined,
+      envVar: 'OUTBOX_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--availability-oracle-address <value>',
+      description: 'The deployed L1 availability oracle contract address',
+      defaultValue: undefined,
+      envVar: 'AVAILABILITY_ORACLE_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--gas-token-address <value>',
+      description: 'The deployed L1 gas token contract address',
+      defaultValue: undefined,
+      envVar: 'GAS_TOKEN_CONTRACT_ADDRESS',
+    },
+    {
+      flag: '--gas-portal-address <value>',
+      description: 'The deployed L1 gas portal contract address',
+      defaultValue: undefined,
+      envVar: 'GAS_PORTAL_CONTRACT_ADDRESS',
+    },
+  ],
+  'AZTEC NODE': [
+    {
+      flag: '--node',
+      description: 'Starts Aztec Node with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    {
+      flag: '--node.p2pEnabled',
+      description: 'Enable P2P subsystem',
+      defaultValue: 'false',
+      envVar: 'P2P_ENABLED',
+    },
+    // We don't need one for node right? It's only used for the node's archiver (if used)
+    // {
+    //   flag: '--node.dataDirectory <value>',
+    //   description: 'Where to store node data. If not set, will store temporarily',
+    //   defaultValue: undefined,
+    //   envVar: 'NODE_DATA_DIRECTORY',
+    // }
+    {
+      flag: '--node.deployAztecContracts',
+      description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
+      defaultValue: 'false',
+      envVar: 'DEPLOY_AZTEC_CONTRACTS',
+    },
+    {
+      flag: '--node.l2QueueSize <value>',
+      description: 'Size of queue of L2 blocks to store in world state.',
+      defaultValue: '1000',
+      envVar: 'L2_QUEUE_SIZE',
+    },
+    {
+      flag: '--node.worldStateBlockCheckIntervalMS <value>',
+      description: 'Frequency in which to check for blocks in ms',
+      defaultValue: '100',
+      envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
+    },
+  ],
+  PXE: [
+    {
+      flag: '--pxe',
+      description: 'Starts a PXE with options. If started with --node, the PXE will attach to that node',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    {
+      flag: '--pxe.nodeUrl <value>',
+      description: 'The URL of the Aztec Node to connect to. Required if not started with --node',
+      defaultValue: undefined,
+      envVar: 'AZTEC_NODE_URL',
+    },
+    {
+      flag: '--pxe.port <value>',
+      description: 'The port on which the PXE should listen for connections',
+      defaultValue: '79',
+      envVar: 'PXE_PORT',
+    },
+    {
+      flag: '--pxe.l2BlockPollingIntervalMS <value>',
+      description: 'The frequency in which to check for blocks in ms',
+      defaultValue: '1000',
+      envVar: 'PXE_BLOCK_POLLING_INTERVAL_MS',
+    },
+    {
+      flag: '--pxe.l2StartingBlock <value>',
+      description: 'The block number from which to start polling',
+      defaultValue: '1',
+      envVar: 'PXE_L2_STARTING_BLOCK',
+    },
+    {
+      flag: '--pxe.dataDirectory <value>',
+      description: 'Where to store PXE data. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'PXE_DATA_DIRECTORY',
     },
   ],
 };
@@ -66,7 +167,7 @@ const addOptions = (cmd: Command, options: Option[]) => {
     cmd.option(
       opt.flag,
       `${opt.description} (default: ${opt.defaultValue}) ($${opt.envVar})`,
-      process.env[opt.envVar] || opt.defaultValue,
+      process.env[opt.envVar || ''] || opt.defaultValue,
     );
   });
 };
@@ -82,15 +183,24 @@ export function injectFooCommands(program: Command, userLog: LogFn) {
 
   // fooCmd.on('--help', () => {
   fooCmd.helpInformation = () => {
-    let helpText = '\n';
+    const helpTextLines: string[] = [''];
+
     Object.keys(categories).forEach(category => {
-      helpText += `  ${category}\n\n`;
+      helpTextLines.push(`  ${category}`);
+      helpTextLines.push('');
+
       categories[category].forEach(opt => {
-        helpText += `    ${opt.flag}         (default: ${opt.defaultValue})              ($${opt.envVar})\n`;
-        helpText += `          ${opt.description}\n\n`;
+        const defaultValueText = opt.defaultValue ? `(default: ${opt.defaultValue})` : '';
+        const envVarText = `($${opt.envVar})`;
+        const padding = ' '.repeat(Math.max(0, 35 - opt.flag.length - defaultValueText.length));
+
+        helpTextLines.push(`    ${opt.flag} ${defaultValueText}${padding}${envVarText}`);
+        helpTextLines.push(`          ${opt.description}`);
+        helpTextLines.push('');
       });
     });
-    return helpText;
+
+    return helpTextLines.join('\n');
   };
 
   program.addCommand(fooCmd);
