@@ -1328,7 +1328,7 @@ export function mapPublicAccumulatedDataToNoir(
   publicAccumulatedData: PublicAccumulatedData,
 ): PublicAccumulatedDataNoir {
   return {
-    note_hashes: mapTuple(publicAccumulatedData.noteHashes, mapNoteHashToNoir),
+    note_hashes: mapTuple(publicAccumulatedData.noteHashes, mapScopedNoteHashToNoir),
     nullifiers: mapTuple(publicAccumulatedData.nullifiers, mapNullifierToNoir),
     l2_to_l1_msgs: mapTuple(publicAccumulatedData.l2ToL1Msgs, mapFieldToNoir),
     note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
