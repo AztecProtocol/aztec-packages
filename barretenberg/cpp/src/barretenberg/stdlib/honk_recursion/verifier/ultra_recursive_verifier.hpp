@@ -17,18 +17,16 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using PairingPoints = aggregation_state<typename Flavor::Curve>;
+    using AggregationObject = aggregation_state<typename Flavor::Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
     explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    // TODO(luke): Eventually this will return something like aggregation_state but I'm simplifying for now until we
-    // determine the exact interface. Simply returns the two pairing points.
-    PairingPoints verify_proof(const HonkProof& proof, aggregation_state<typename Flavor::Curve> previous_output);
-    PairingPoints verify_proof(const StdlibProof<Builder>& proof,
-                               aggregation_state<typename Flavor::Curve> previous_output);
+    AggregationObject verify_proof(const HonkProof& proof, aggregation_state<typename Flavor::Curve> previous_output);
+    AggregationObject verify_proof(const StdlibProof<Builder>& proof,
+                                   aggregation_state<typename Flavor::Curve> previous_output);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

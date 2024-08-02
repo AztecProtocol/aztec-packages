@@ -8,25 +8,17 @@ namespace bb::stdlib::recursion {
 /**
  * Aggregation state contains the following:
  *   (P0, P1): the aggregated elements storing the verification results of proofs in the past
- *   proof_witness_indices: witness indices that point to (P0, P1)
- *   public_inputs: the public inputs of the inner proof, these become the private inputs to the recursive circuit
  *   has_data: indicates if this aggregation state contain past (P0, P1)
  */
 template <typename Curve> struct aggregation_state {
     typename Curve::Group P0;
     typename Curve::Group P1;
 
-    // The public inputs of the inner circuit are now private inputs of the outer circuit!
-    // std::vector<typename Curve::ScalarField> public_inputs;
-    // AggregationObjectIndices proof_witness_indices;
     bool has_data = false;
 
     typename Curve::bool_ct operator==(aggregation_state const& other) const
     {
         return P0 == other.P0 && P1 == other.P1;
-        // && public_inputs == other.public_inputs &&
-        //        proof_witness_indices == other.proof_witness_indices;
-        //    has_data == other.has_data; can't compare as native
     };
 
     void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
@@ -40,17 +32,6 @@ template <typename Curve> struct aggregation_state {
         P0 += other[0] * recursion_separator;
         P1 += other[1] * recursion_separator;
     }
-
-    /**
-     * @brief TODO(@dbanks12 please migrate A3 circuits to using `assign_object_to_proof_outputs`. Much safer to not
-     * independently track `proof_witness_indices` and whether object has been assigned to public inputs)
-     *
-     */
-    // void add_proof_outputs_as_public_inputs()
-    // {
-    //     auto* context = P0.get_context();
-    //     context->add_recursive_proof(proof_witness_indices);
-    // }
 
     AggregationObjectIndices get_witness_indices()
     {
@@ -76,12 +57,6 @@ template <typename Curve> struct aggregation_state {
     }
     void assign_object_to_proof_outputs()
     {
-        // if (proof_witness_indices.size() == 0) {
-        //     std::cerr << "warning. calling `assign_object_to_proof_outputs`, but aggregation object already has "
-        //                  "assigned proof outputs to public inputs.";
-        //     return;
-        // }
-
         P0 = P0.reduce();
         P1 = P1.reduce();
         AggregationObjectIndices proof_witness_indices = get_witness_indices();
@@ -89,7 +64,6 @@ template <typename Curve> struct aggregation_state {
         auto* context = P0.get_context();
 
         CircuitChecker::check(*context);
-        info("checked circuit before add_recursive_proof");
         context->add_recursive_proof(proof_witness_indices);
     }
 };
@@ -100,8 +74,6 @@ template <typename Curve> void read(uint8_t const*& it, aggregation_state<Curve>
 
     read(it, as.P0);
     read(it, as.P1);
-    // read(it, as.public_inputs);
-    // read(it, as.proof_witness_indices);
     read(it, as.has_data);
 };
 
@@ -111,20 +83,26 @@ template <typename Curve> void write(std::vector<uint8_t>& buf, aggregation_stat
 
     write(buf, as.P0);
     write(buf, as.P1);
-    // write(buf, as.public_inputs);
-    // write(buf, as.proof_witness_indices);
     write(buf, as.has_data);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, aggregation_state<NCT> const& as)
 {
     return os << "P0: " << as.P0 << "\n"
-              << "P1: " << as.P1
-              << "\n"
-              //   << "public_inputs: " << as.public_inputs << "\n"
-              //   << "proof_witness_indices: " << as.proof_witness_indices << "\n"
+              << "P1: " << as.P1 << "\n"
               << "has_data: " << as.has_data << "\n";
 }
+
+/**
+ * @brief Converts a list of 16 witness indices corresponding to the bigfield limbs of an aggregation object to an
+ * aggregation_state.
+ *
+ * @tparam Builder
+ * @tparam Curve
+ * @param builder
+ * @param witness_indices
+ * @return aggregation_state<Curve>
+ */
 template <typename Builder, typename Curve>
 aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
                                                             AggregationObjectIndices const& witness_indices)
@@ -151,6 +129,13 @@ aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
     return agg_obj;
 }
 
+/**
+ * @brief Creates the 16 witness indices for a default aggregation_state object.
+ *
+ * @tparam Builder
+ * @param builder
+ * @return AggregationObjectIndices
+ */
 template <typename Builder> AggregationObjectIndices init_default_agg_obj_indices(Builder& builder)
 {
     constexpr uint32_t NUM_LIMBS = 4;
@@ -184,6 +169,13 @@ template <typename Builder> AggregationObjectIndices init_default_agg_obj_indice
     }
     return agg_obj_indices;
 }
+
+/**
+ * @brief Creates a default aggregation_state object.
+ *
+ * @tparam Builder
+ * @tparam Curve
+ */
 template <typename Builder, typename Curve>
 aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
     requires(!IsSimulator<Builder>)
@@ -191,10 +183,21 @@ aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
     AggregationObjectIndices agg_obj_indices = init_default_agg_obj_indices(builder);
     return convert_witness_indices_to_agg_obj<Builder, Curve>(builder, agg_obj_indices);
 }
+
+/**
+ * @brief Creates a default aggregation_state object for the Simulator.
+ *
+ * @tparam Builder
+ * @tparam Curve
+ * @param builder
+ * @return aggregation_state<Curve>
+ */
 template <typename Builder, typename Curve>
 aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
     requires IsSimulator<Builder>
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a valid
+    // proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
     uint256_t x0_val("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
     uint256_t y0_val("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
     uint256_t x1_val("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");

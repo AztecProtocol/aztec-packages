@@ -38,8 +38,7 @@ aggregation_state_ct agg_points_from_witness_indicies(Builder& builder,
  *
  * @param builder
  * @param input
- * @param input_aggregation_object. The aggregation object coming from previous Honk recursion constraints.
- * @param nested_aggregation_object. The aggregation object coming from the inner proof.
+ * @param input_aggregation_object_indices. The aggregation object coming from previous Honk recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  *
  * @note We currently only support HonkRecursionConstraint where inner_proof_contains_recursive_proof = false.
@@ -48,44 +47,16 @@ aggregation_state_ct agg_points_from_witness_indicies(Builder& builder,
  */
 AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
                                                            const HonkRecursionConstraint& input,
-                                                           AggregationObjectIndices input_aggregation_object,
+                                                           AggregationObjectIndices input_aggregation_object_indices,
                                                            bool has_valid_witness_assignments)
 {
     using Flavor = UltraRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1059): Handle aggregation
-
-    // static_cast<void>(input_aggregation_object);
-    // Construct aggregation points from the nested aggregation witness indices
-
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-
-    // If we have previously recursively verified proofs, `previous_aggregation_object_nonzero = true`
-    // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
-    // bool previous_aggregation_indices_all_zero = true;
-    // for (const auto& idx : aggregation_input) {
-    //     previous_aggregation_indices_all_zero &= (idx == 0);
-    // }
-
-    // // Aggregate the aggregation object if it exists. It exists if we have previously verified proofs, i.e. if this
-    // is
-    // // not the first recursion constraint.
-    // if (!previous_aggregation_indices_all_zero) {
-    //     std::array<bn254::Group, 2> inner_agg_points = agg_points_from_witness_indicies(builder, aggregation_input);
-    //     // If we have a previous aggregation object, aggregate it into the current aggregation object.
-    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): Verify that using challenge and challenge
-    //     // squared is safe.
-    //     cur_aggregation_object.P0 += inner_agg_points[0] * recursion_separator;
-    //     cur_aggregation_object.P1 += inner_agg_points[1] * recursion_separator;
-    //     recursion_separator =
-    //         recursion_separator *
-    //         recursion_separator; // update the challenge to be challenge squared for the next aggregation
-    // }
-
     std::vector<field_ct> key_fields;
     key_fields.reserve(input.key.size());
     for (const auto& idx : input.key) {
@@ -110,13 +81,10 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
             }
         }
     }
-    info("before dummy stuff in create_honk_recursion_constraints");
     if (!has_valid_witness_assignments) {
         // Set vkey->circuit_size correctly based on the proof size
         size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
         size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
-        info("proof size: ", input.proof.size());
-        info("public input size: ", input.public_inputs.size());
         assert((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
                 UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
                 2 * num_frs_comm) %
@@ -139,7 +107,6 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
             builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
             offset++;
         }
-        info("after dummy vkey recursion indices in create_honk_recursion_constraints");
 
         for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
             auto comm = curve::BN254::AffineElement::one() * fr::random_element();
@@ -215,37 +182,15 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         }
         ASSERT(offset == input.proof.size() + input.public_inputs.size());
     }
-    info("after dummy stuff in create_honk_recursion_constraints");
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
-    info("vkey recursive_proof_public_input_indices: ", vkey->recursive_proof_public_input_indices);
     RecursiveVerifier verifier(&builder, vkey);
-    aggregation_state_ct input_agg_obj = agg_points_from_witness_indicies(builder, input_aggregation_object);
-    info("before verify_proof");
+    aggregation_state_ct input_agg_obj = agg_points_from_witness_indicies(builder, input_aggregation_object_indices);
     aggregation_state_ct output_agg_object = verifier.verify_proof(proof_fields, input_agg_obj);
-
-    AggregationObjectIndices proof_witness_indices = {
-        output_agg_object.P0.x.binary_basis_limbs[0].element.normalize().witness_index,
-        output_agg_object.P0.x.binary_basis_limbs[1].element.normalize().witness_index,
-        output_agg_object.P0.x.binary_basis_limbs[2].element.normalize().witness_index,
-        output_agg_object.P0.x.binary_basis_limbs[3].element.normalize().witness_index,
-        output_agg_object.P0.y.binary_basis_limbs[0].element.normalize().witness_index,
-        output_agg_object.P0.y.binary_basis_limbs[1].element.normalize().witness_index,
-        output_agg_object.P0.y.binary_basis_limbs[2].element.normalize().witness_index,
-        output_agg_object.P0.y.binary_basis_limbs[3].element.normalize().witness_index,
-        output_agg_object.P1.x.binary_basis_limbs[0].element.normalize().witness_index,
-        output_agg_object.P1.x.binary_basis_limbs[1].element.normalize().witness_index,
-        output_agg_object.P1.x.binary_basis_limbs[2].element.normalize().witness_index,
-        output_agg_object.P1.x.binary_basis_limbs[3].element.normalize().witness_index,
-        output_agg_object.P1.y.binary_basis_limbs[0].element.normalize().witness_index,
-        output_agg_object.P1.y.binary_basis_limbs[1].element.normalize().witness_index,
-        output_agg_object.P1.y.binary_basis_limbs[2].element.normalize().witness_index,
-        output_agg_object.P1.y.binary_basis_limbs[3].element.normalize().witness_index,
-    };
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
-    return proof_witness_indices;
+    return output_agg_object.get_witness_indices();
 }
 
 } // namespace acir_format

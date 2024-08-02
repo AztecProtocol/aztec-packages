@@ -63,8 +63,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
         // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
         ASSERT(uint1024_t(point.x.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
-        info("uint1024_t(point.y.get_maximum_value()): ", uint1024_t(point.y.get_maximum_value()));
-        info("Fq::DEFAULT_MAXIMUM_REMAINDER: ", Fq::DEFAULT_MAXIMUM_REMAINDER);
         ASSERT(uint1024_t(point.y.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
         auto shift = Fr::from_witness(builder, Fq::shift_1);
         x_lo.assert_equal(point.x.binary_basis_limbs[0].element + shift * point.x.binary_basis_limbs[1].element);

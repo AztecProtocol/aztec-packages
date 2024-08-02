@@ -581,6 +581,8 @@ void prove_tube(const std::string& output_path)
 
     verifier.verify(proof);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
+    // This is currently just setting the aggregation object to the default one.
     AggregationObjectIndices current_aggregation_object =
         stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
 
