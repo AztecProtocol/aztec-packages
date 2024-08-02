@@ -34,11 +34,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq();
 
     // Metadata for propagating databus return data commitments via the public input mechanism
-    // WORKTODO: make sure these get used to set corresponding members in VKEY
-    bool contains_propagated_app_return_data;
-    size_t app_return_data_public_input_idx;
-    bool contains_propagated_kernel_return_data;
-    size_t kernel_return_data_public_input_idx;
+    DatabusPropagationData databus_propagation_data;
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);

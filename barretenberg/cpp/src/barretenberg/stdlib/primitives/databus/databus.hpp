@@ -95,22 +95,21 @@ template <class Builder> class DataBusDepot {
         auto& commitments = inst_1->witness_commitments;
 
         // Assert equality between the app return data commitment and the kernel secondary calldata commitment
-        if (vkey->contains_propagated_app_return_data) {
-            size_t start_idx = vkey->app_return_data_public_input_idx;
+        if (vkey->databus_propagation_data.contains_app_return_data_commitment) {
+            size_t start_idx = vkey->databus_propagation_data.app_return_data_public_input_idx;
             Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
         }
 
         // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
-        if (vkey->contains_propagated_kernel_return_data) {
-            size_t start_idx = vkey->kernel_return_data_public_input_idx;
+        if (vkey->databus_propagation_data.contains_kernel_return_data_commitment) {
+            size_t start_idx = vkey->databus_propagation_data.kernel_return_data_public_input_idx;
             Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             assert_equality_of_commitments(kernel_return_data, commitments.calldata);
         }
 
         // Propagate return data via the public inputs mechanism
-        bool is_kernel = false; // WORKTODO: set based on something
-        propagate_commitment_via_public_inputs(commitments.return_data, is_kernel);
+        propagate_commitment_via_public_inputs(commitments.return_data, vkey->databus_propagation_data.is_kernel);
     };
 
     /**
@@ -166,11 +165,11 @@ template <class Builder> class DataBusDepot {
         // Set flag indicating propagation of return data and save the index at which it's stored in public inputs.
         size_t start_idx = context->public_inputs.size();
         if (is_kernel) {
-            context->contains_propagated_kernel_return_data = true;
-            context->kernel_return_data_public_input_idx = start_idx;
+            context->databus_propagation_data.contains_kernel_return_data_commitment = true;
+            context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
         } else {
-            context->contains_propagated_app_return_data = true;
-            context->app_return_data_public_input_idx = start_idx;
+            context->databus_propagation_data.contains_app_return_data_commitment = true;
+            context->databus_propagation_data.app_return_data_public_input_idx = start_idx;
         }
 
         // Set public the witness indices corresponding to the limbs of the point coordinates

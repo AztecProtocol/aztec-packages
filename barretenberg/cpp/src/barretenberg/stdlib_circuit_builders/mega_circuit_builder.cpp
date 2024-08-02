@@ -47,7 +47,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_gates_to_ensure_all_pol
     read_secondary_calldata(read_idx);
 
     // Create an arbitrary return data read gate
-    add_public_return_data(this->add_variable(17)); // ensure there is at least one entry in return data
+    add_public_return_data(this->add_variable(25)); // ensure there is at least one entry in return data
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1; // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
     read_return_data(read_idx);

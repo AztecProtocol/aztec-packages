@@ -99,12 +99,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
-        bool contains_propagated_app_return_data = false;
-        size_t app_return_data_public_input_idx = 0;
-        bool contains_propagated_kernel_return_data = false;
-        size_t kernel_return_data_public_input_idx = 0;
-        bool is_kernel = false;
+        // Data pertaining to transfer of databus return data via public inputs of the proof
+        DatabusPropagationData databus_propagation_data;
 
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
@@ -122,11 +118,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->contains_propagated_app_return_data = native_key->contains_propagated_app_return_data;
-            this->app_return_data_public_input_idx = native_key->app_return_data_public_input_idx;
-            this->contains_propagated_kernel_return_data = native_key->contains_propagated_kernel_return_data;
-            this->kernel_return_data_public_input_idx = native_key->kernel_return_data_public_input_idx;
-            this->is_kernel = native_key->is_kernel;
+
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
@@ -134,6 +126,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->pub_inputs_offset = native_key->pub_inputs_offset;
             this->contains_recursive_proof = native_key->contains_recursive_proof;
             this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
+            this->databus_propagation_data = native_key->databus_propagation_data;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);

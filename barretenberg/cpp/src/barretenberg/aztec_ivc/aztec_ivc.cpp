@@ -48,7 +48,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     }
 
     // Store whether the present circuit is a kernel
-    instance_vk->is_kernel = (circuit_count % 2 == 0);
+    instance_vk->databus_propagation_data.is_kernel = (circuit_count % 2 == 0);
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (circuit_count == 1) {
