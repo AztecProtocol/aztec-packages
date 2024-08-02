@@ -39,7 +39,7 @@ If you have [the sandbox](../../../getting_started.md) installed, you can run TX
 
 `aztec test`
 
-Process for running tests:
+The complete process for running tests:
 
 1. Compile contracts
 2. Start the sandbox
