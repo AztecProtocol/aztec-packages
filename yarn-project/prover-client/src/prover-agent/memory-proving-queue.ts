@@ -198,6 +198,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
 
   private poll = () => {
     const now = this.timeSource();
+    this.metrics.recordQueueSize(this.queue.length());
 
     for (const job of this.jobsInProgress.values()) {
       if (job.signal?.aborted) {
