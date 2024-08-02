@@ -428,6 +428,7 @@ contract TokenWithRefunds {
         note::utils::compute_slotted_note_hiding_point_raw, prelude::{FunctionSelector, NoteHeader},
         protocol_types::{storage::map::derive_storage_slot_in_map, point::Point}
     };
+    use crate::types::token_note::TokenNoteHidingPoint;
 
     #[aztec(private)]
     fn setup_refund(
@@ -491,18 +492,29 @@ contract TokenWithRefunds {
         );
     }
 
+    // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
+    // to serialization issues.
     #[aztec(public)]
     #[aztec(internal)]
-    fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
-        // 1. We get the final note hashes by calling a `complete_refund` function on the note.
-        // We use 1:1 exchange rate between fee juice and token so just passing transaction fee and funded amount
-        // to `complete_refund(...)` function is enough.
-        let (fee_payer_note_hash, user_note_hash) = TokenNote::complete_refund(
-            fee_payer_point,
-            user_point,
-            funded_amount,
-            context.transaction_fee()
-        );
+    fn complete_refund(fee_payer_point_inner: Point, user_point_inner: Point, funded_amount: Field) {
+        let mut fee_payer_point = TokenNoteHidingPoint::new(fee_payer_point_inner);
+        let mut user_point = TokenNoteHidingPoint::new(user_point_inner);
+
+        // TODO(#7728): Remove next line
+        let funded_amount = U128::from_integer(funded_amount);
+        let tx_fee = U128::from_integer(context.transaction_fee());
+
+        // 1. We check that user funded the fee payer contract with at least the transaction fee.
+        assert(funded_amount >= tx_fee, "funded amount not enough to conver tx fee");
+
+        let refund = funded_amount - tx_fee;
+
+        // We add fee to fee payer point and refund to user point.
+        fee_payer_point.add_amount(tx_fee);
+        user_point.add_amount(refund);
+
+        let fee_payer_note_hash = fee_payer_point.finalize();
+        let user_note_hash = user_point.finalize();
 
         // 2. At last we emit the note hashes.
         context.push_note_hash(fee_payer_note_hash);
