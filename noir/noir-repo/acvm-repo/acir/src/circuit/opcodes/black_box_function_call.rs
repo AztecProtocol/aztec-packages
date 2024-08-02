@@ -277,7 +277,8 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::BigIntDiv { .. }
             | BlackBoxFuncCall::BigIntToLeBytes { .. } => Vec::new(),
             BlackBoxFuncCall::MultiScalarMul { points, scalars, .. } => {
-                let mut inputs: Vec<FunctionInput<F>> = Vec::with_capacity(points.len() * 2);
+                let mut inputs: Vec<FunctionInput<F>> =
+                    Vec::with_capacity(points.len() + scalars.len());
                 inputs.extend(points.iter().copied());
                 inputs.extend(scalars.iter().copied());
                 inputs
@@ -520,7 +521,7 @@ mod tests {
     use crate::{circuit::Opcode, native_types::Witness};
     use acir_field::{AcirField, FieldElement};
 
-    use super::{BlackBoxFuncCall, ConstantOrWitnessEnum, FunctionInput};
+    use super::{BlackBoxFuncCall, FunctionInput};
 
     fn keccakf1600_opcode<F: AcirField>() -> Opcode<F> {
         let inputs: Box<[FunctionInput<F>; 25]> =

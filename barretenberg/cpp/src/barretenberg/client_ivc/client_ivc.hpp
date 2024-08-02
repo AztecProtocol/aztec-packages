@@ -2,11 +2,13 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include <algorithm>
 
 namespace bb {
 
@@ -46,8 +48,13 @@ class ClientIVC {
         HonkProof decider_proof;
         GoblinProof goblin_proof;
 
+        size_t size() const { return folding_proof.size() + decider_proof.size() + goblin_proof.size(); }
+
         MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
+
+    // Utility for tracking the max size of each block across the full IVC
+    MaxBlockSizeTracker max_block_size_tracker;
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
@@ -65,7 +72,7 @@ class ClientIVC {
     std::shared_ptr<VerificationKey> instance_vk;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
-    bool structured_flag = false;
+    TraceStructure trace_structure = TraceStructure::NONE;
 
     // A flag indicating whether the IVC has been initialized with an initial instance
     bool initialized = false;
@@ -74,7 +81,13 @@ class ClientIVC {
 
     Proof prove();
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
+    static bool verify(const Proof& proof,
+                       const std::shared_ptr<VerifierInstance>& accumulator,
+                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
+                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
+
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances) const;
 
     bool prove_and_verify();
 

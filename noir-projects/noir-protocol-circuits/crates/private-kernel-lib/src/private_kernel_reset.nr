@@ -20,6 +20,7 @@ struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
+    validation_requests_split_counter: u32,
 }
 
 struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
@@ -42,9 +43,8 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
 
         // Validate inputs.
         if !std::runtime::is_unconstrained() {
-            // verify/aggregate the previous kernel
-            self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) currently stubbed out until tube vk handled
+            // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let previous_public_inputs = self.previous_kernel.public_inputs;
@@ -56,11 +56,12 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
             pending_nullifiers: previous_public_inputs.end.nullifiers,
             nullifier_tree_root: previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root,
-            key_validation_hints: self.hints.key_validation_hints
+            key_validation_hints: self.hints.key_validation_hints,
+            validation_requests_split_counter: self.hints.validation_requests_split_counter
         }.validate();
 
         // Validate output.
-        if !dep::std::runtime::is_unconstrained() {
+        if dep::types::validate::should_validate_output() {
             let transient_or_propagated_note_hash_indexes_for_logs = get_transient_or_propagated_note_hash_indexes_for_logs(
                 previous_public_inputs.end.note_encrypted_logs_hashes,
                 previous_public_inputs.end.note_hashes,
@@ -75,7 +76,8 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
                 output.note_encrypted_log_hashes,
                 self.hints.transient_nullifier_indexes_for_note_hashes,
                 self.hints.transient_note_hash_indexes_for_nullifiers,
-                transient_or_propagated_note_hash_indexes_for_logs
+                transient_or_propagated_note_hash_indexes_for_logs,
+                updated_validation_requests.split_counter.unwrap_unchecked()
             );
         }
 
@@ -124,6 +126,7 @@ mod tests {
         transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
+        validation_requests_split_counter: u32,
     }
 
     impl PrivateKernelResetInputsBuilder {
@@ -136,7 +139,8 @@ mod tests {
                 transient_nullifier_indexes_for_note_hashes: [MAX_NULLIFIERS_PER_TX; MAX_NOTE_HASHES_PER_TX],
                 transient_note_hash_indexes_for_nullifiers: [MAX_NOTE_HASHES_PER_TX; MAX_NULLIFIERS_PER_TX],
                 note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
-                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
+                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX),
+                validation_requests_split_counter: 0
             }
         }
 
@@ -170,7 +174,8 @@ mod tests {
                 transient_note_hash_indexes_for_nullifiers: self.transient_note_hash_indexes_for_nullifiers,
                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                key_validation_hints: [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]
+                key_validation_hints: [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+                validation_requests_split_counter: self.validation_requests_split_counter
             };
 
             let kernel = PrivateKernelResetCircuitPrivateInputs { previous_kernel: self.previous_kernel.to_private_kernel_data(), hints };
@@ -291,7 +296,11 @@ mod tests {
         let remaining_nullifier_rr_index = builder.previous_kernel.add_read_request_for_pending_nullifier(1);
         let nullifier_rr = builder.previous_kernel.nullifier_read_requests.storage[remaining_nullifier_rr_index];
 
-        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(Point::new(1, 2, false), 27, GENERATOR_INDEX__OVSK_M);
+        let key_validation_index = builder.previous_kernel.add_request_for_key_validation(
+            Point { x: 1, y: 2, is_infinite: false },
+            27,
+            GENERATOR_INDEX__OVSK_M
+        );
         let key_validation = builder.previous_kernel.scoped_key_validation_requests_and_generators.storage[key_validation_index];
 
         // Check that they have been propagated to the next kernel
@@ -399,11 +408,11 @@ mod tests {
     fn wrong_transient_nullifier_index_for_note_hash_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.append_note_hashes(1);
-        builder.previous_kernel.append_nullifiers(1);
+        builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
-        // Change the hint to be out of bounds.
-        builder.transient_nullifier_indexes_for_note_hashes[0] = 0;
+        // Change the hint for the note hash to be pointing to a different nullifier.
+        builder.transient_nullifier_indexes_for_note_hashes[0] = 2;
         builder.failed();
     }
 
@@ -445,13 +454,11 @@ mod tests {
             let _res = builder.execute();
         }
     }
-
-    #[test(should_fail_with="Invalid vk index")]
-    fn invalid_previous_kernel() {
-        let mut builder = PrivateKernelResetInputsBuilder::new();
-
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-
-        let _res = builder.execute();
-    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PrivateKernelResetInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
 }

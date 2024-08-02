@@ -18,7 +18,9 @@ import PrivateKernelResetSimulatedJson from '../artifacts/private_kernel_reset_s
 import PrivateKernelResetBigSimulatedJson from '../artifacts/private_kernel_reset_simulated_big.json' assert { type: 'json' };
 import PrivateKernelResetMediumSimulatedJson from '../artifacts/private_kernel_reset_simulated_medium.json' assert { type: 'json' };
 import PrivateKernelResetSmallSimulatedJson from '../artifacts/private_kernel_reset_simulated_small.json' assert { type: 'json' };
+import PrivateKernelResetTinySimulatedJson from '../artifacts/private_kernel_reset_simulated_tiny.json' assert { type: 'json' };
 import PrivateKernelResetSmallJson from '../artifacts/private_kernel_reset_small.json' assert { type: 'json' };
+import PrivateKernelResetTinyJson from '../artifacts/private_kernel_reset_tiny.json' assert { type: 'json' };
 import PrivateKernelTailJson from '../artifacts/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from '../artifacts/private_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateKernelTailToPublicJson from '../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
@@ -40,13 +42,15 @@ export type PrivateResetArtifacts =
   | 'PrivateKernelResetFullArtifact'
   | 'PrivateKernelResetBigArtifact'
   | 'PrivateKernelResetMediumArtifact'
-  | 'PrivateKernelResetSmallArtifact';
+  | 'PrivateKernelResetSmallArtifact'
+  | 'PrivateKernelResetTinyArtifact';
 
 export const PrivateResetTagToArtifactName: Record<PrivateKernelResetTags, PrivateResetArtifacts> = {
   full: 'PrivateKernelResetFullArtifact',
   big: 'PrivateKernelResetBigArtifact',
   medium: 'PrivateKernelResetMediumArtifact',
   small: 'PrivateKernelResetSmallArtifact',
+  tiny: 'PrivateKernelResetTinyArtifact',
 };
 
 export type ServerProtocolArtifact =
@@ -104,6 +108,7 @@ export const ResetSimulatedArtifacts: Record<PrivateResetArtifacts, NoirCompiled
   PrivateKernelResetBigArtifact: PrivateKernelResetBigSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetMediumArtifact: PrivateKernelResetMediumSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetSmallArtifact: PrivateKernelResetSmallSimulatedJson as NoirCompiledCircuit,
+  PrivateKernelResetTinyArtifact: PrivateKernelResetTinySimulatedJson as NoirCompiledCircuit,
 };
 
 export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
@@ -113,6 +118,7 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
   PrivateKernelResetBigArtifact: PrivateKernelResetBigJson as NoirCompiledCircuit,
   PrivateKernelResetMediumArtifact: PrivateKernelResetMediumJson as NoirCompiledCircuit,
   PrivateKernelResetSmallArtifact: PrivateKernelResetSmallJson as NoirCompiledCircuit,
+  PrivateKernelResetTinyArtifact: PrivateKernelResetTinyJson as NoirCompiledCircuit,
   PrivateKernelTailArtifact: PrivateKernelTailJson as NoirCompiledCircuit,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicJson as NoirCompiledCircuit,
 };

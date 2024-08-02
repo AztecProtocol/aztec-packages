@@ -6,8 +6,8 @@ variable "API_KEY" {
   type = string
 }
 
-variable "CHAIN_ID" {
-  type    = string
+variable "L1_CHAIN_ID" {
+  type = string
 }
 
 variable "FAUCET_PRIVATE_KEY" {
@@ -15,5 +15,21 @@ variable "FAUCET_PRIVATE_KEY" {
 }
 
 variable "DOCKERHUB_ACCOUNT" {
+  type = string
+}
+
+variable "FORK_MNEMONIC" {
+  type = string
+}
+
+variable "FAUCET_ACCOUNT_INDEX" {
+  type = string
+}
+
+variable "GAS_TOKEN_CONTRACT_ADDRESS" {
+  type = string
+}
+
+variable "DEV_COIN_CONTRACT_ADDRESS" {
   type = string
 }

@@ -37,6 +37,7 @@ contract Test {
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
+    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     use crate::test_note::TestNote;
 
@@ -247,13 +248,13 @@ contract Test {
     // Purely exists for testing
     #[aztec(public)]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // For testing non-note encrypted logs
@@ -276,7 +277,8 @@ contract Test {
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
                 outgoing_viewer_ovpk_m,
-                owner_ivpk_m
+                owner_ivpk_m,
+                owner
             )
         );
 
@@ -293,7 +295,8 @@ contract Test {
                     // testing only - a randomness of 0 signals the kerels to not mask the address
                     0,
                     outgoing_viewer_ovpk_m,
-                    owner_ivpk_m
+                    owner_ivpk_m,
+                    owner
                 )
             );
         }
@@ -424,11 +427,11 @@ contract Test {
     fn compute_outgoing_log_body_ciphertext(
         eph_sk: Scalar,
         recipient: AztecAddress,
-        recipient_ivpk_app: Point,
+        recipient_ivpk: Point,
         ovsk_app: Scalar
-    ) -> [u8; 176] {
-        let eph_pk = eph_sk.derive_public_key();
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk_app).compute_ciphertext(ovsk_app, eph_pk)
+    ) -> [u8; 144] {
+        let eph_pk = derive_public_key(eph_sk);
+        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
     }
 
     #[aztec(public)]
@@ -472,7 +475,7 @@ contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
-        let note = notes.get_unchecked(0);
+        let note = notes.get(0);
         notes_set.remove(note);
     }
 

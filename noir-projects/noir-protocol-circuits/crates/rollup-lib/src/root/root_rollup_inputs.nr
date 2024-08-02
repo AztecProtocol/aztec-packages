@@ -34,6 +34,8 @@ struct RootRollupInputs {
     // inputs required to add the block hash
     start_archive_snapshot : AppendOnlyTreeSnapshot,
     new_archive_sibling_path : [Field; ARCHIVE_HEIGHT],
+
+    prover_id: Field,
 }
 
 impl RootRollupInputs {
@@ -41,14 +43,17 @@ impl RootRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) we need the tube vk to reinstate this
+            // self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410) we need the tube vk to reinstate this
+            // self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             // verify the root parity
             self.l1_to_l2_roots.verify();
-            self.l1_to_l2_roots.validate_in_vk_tree();
+            // TODO(#7410) we need the tube vk to reinstate this
+            // self.l1_to_l2_roots.validate_in_vk_tree();
         }
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
@@ -65,7 +70,7 @@ impl RootRollupInputs {
             self.l1_to_l2_message_subtree_sibling_path,
             empty_l1_to_l2_subtree_root,
             self.l1_to_l2_roots.public_inputs.converted_root,
-            // TODO(Kev): For now we can add a test that this fits inside of 
+            // TODO(Kev): For now we can add a test that this fits inside of
             // a u8.
             L1_TO_L2_MSG_SUBTREE_HEIGHT as u8
         );
@@ -103,7 +108,7 @@ impl RootRollupInputs {
             0
         );
 
-        RootRollupPublicInputs { archive, header, vk_tree_root }
+        RootRollupPublicInputs { archive, header, vk_tree_root, prover_id: self.prover_id }
     }
 }
 
@@ -117,6 +122,7 @@ impl Empty for RootRollupInputs {
             start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot::zero(),
             start_archive_snapshot : AppendOnlyTreeSnapshot::zero(),
             new_archive_sibling_path : [0; ARCHIVE_HEIGHT],
+            prover_id: 0
         }
     }
 }
