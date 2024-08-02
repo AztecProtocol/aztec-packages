@@ -7,7 +7,6 @@ import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infra
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
-import { pxeOption } from '@aztec/cli/utils';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
