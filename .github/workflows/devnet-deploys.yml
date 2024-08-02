@@ -1,7 +1,6 @@
 name: Deploy to network
 on:
-  push:
-    branches: [devnet]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -80,6 +79,7 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     outputs:
       deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      branch_name: ${{ steps.set_network_vars.outputs.branch_name }}
     steps:
       - name: Set network vars
         shell: bash
@@ -89,17 +89,21 @@ jobs:
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
+              echo "branch_name=devnet" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
+              echo "branch_name=provernet" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
+              exit 1
           fi
         id: set_network_vars
 
   build:
     needs: set-network
     env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     runs-on: ${{ github.actor }}-x86
@@ -116,17 +120,14 @@ jobs:
         shell: bash
         run: |
           env
-          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
               echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "DEPLOY_TAG=devnet" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
               echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "deploy_tag=provernet" >> $GITHUB_ENV
           else
               echo "Unrecognized Branch!!"
           fi
@@ -189,6 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, set-network]
     env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
@@ -211,7 +213,6 @@ jobs:
         shell: bash
         run: |
           env
-          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
@@ -303,6 +304,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [terraform_deploy, set-network]
     env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
@@ -323,7 +325,6 @@ jobs:
         shell: bash
         run: |
           env
-          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
@@ -371,6 +372,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [terraform_deploy, bootstrap, set-network]
     env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
@@ -393,7 +395,6 @@ jobs:
         shell: bash
         run: |
           env
-          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
@@ -426,6 +427,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-faucet, set-network]
     env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     steps:
@@ -448,7 +450,6 @@ jobs:
         shell: bash
         run: |
           env
-          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
           if [ "$BRANCH_NAME" = "devnet" ]
           then
               echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
