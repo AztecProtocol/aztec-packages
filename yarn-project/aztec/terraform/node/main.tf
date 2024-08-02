@@ -355,6 +355,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "LOG_LEVEL"
           value = "info"
+        },
+        {
+          name  = "TEL_NETWORK_ID",
+          value = "${var.DEPLOY_TAG}"
         }
       ]
       mountPoints = [
