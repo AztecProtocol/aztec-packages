@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722590038882,
+  "lastUpdate": 1722591255415,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -105976,6 +105976,78 @@ window.BENCHMARK_DATA = {
             "value": 169904040,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169904040 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e7c1dc343eaaa9d126d18b7456c207ac50c43d39",
+          "message": "feat: Plumbing for slot numbers (#7663)\n\nFixes #7594 partially, only putting down plumbing here. The constraints\r\ncomes later to not wreck all tests in the same pr and make it a huge\r\nmess.",
+          "timestamp": "2024-08-02T10:21:52+01:00",
+          "tree_id": "c27bdae7f42a59aba232dc62958ed2c4a7f08936",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e7c1dc343eaaa9d126d18b7456c207ac50c43d39"
+        },
+        "date": 1722591246140,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13233.902376000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9807.844584000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4799.523105999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4316.989445 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39664.506323999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39664507000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14423.034585,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14423035000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3651509343,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3651509343 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208311963,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208311963 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2987749956,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2987749956 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 175134840,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 175134840 ns\nthreads: 1"
           }
         ]
       }
