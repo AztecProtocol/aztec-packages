@@ -3,7 +3,7 @@ use dep::aztec::{
     prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{
     constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::{Point, POINT_LENGTH}, scalar::Scalar,
-    hash::poseidon2_hash_with_separator
+    hash::poseidon2_hash_with_separator, traits::Serialize
 },
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app
