@@ -1,7 +1,8 @@
 import { type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
+import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
@@ -239,14 +240,12 @@ export class AztecCheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
-   * @param baseSlot - The base slot of the map (specified in Aztec.nr contract)
+   * @param mapSlot - The slot of the map (specified in Aztec.nr contract)
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
-    // Based on `at` function in
-    // aztec3-packages/aztec-nr/aztec/src/state_vars/map.nr
-    return pedersenHash([new Fr(baseSlot), new Fr(key)]);
+  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
+    return deriveStorageSlotInMap(mapSlot, new Fr(key));
   }
 
   /**
@@ -267,9 +266,9 @@ export class AztecCheatCodes {
     await this.eth.setNextBlockTimestamp(to);
     // also store this time on the rollup contract (slot 2 tracks `lastBlockTs`).
     // This is because when the sequencer executes public functions, it uses the timestamp stored in the rollup contract.
-    await this.eth.store(rollupContract, 7n, BigInt(to));
+    await this.eth.store(rollupContract, 6n, BigInt(to));
     // also store this on slot of the rollup contract (`lastWarpedBlockTs`) which tracks the last time warp was used.
-    await this.eth.store(rollupContract, 8n, BigInt(to));
+    await this.eth.store(rollupContract, 7n, BigInt(to));
   }
 
   /**
