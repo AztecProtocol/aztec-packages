@@ -75,7 +75,7 @@ TEST_F(AztecIVCTests, DataBusDepot)
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // Construct a set of arbitrary circuits
-    size_t NUM_CIRCUITS = 4;
+    size_t NUM_CIRCUITS = 6;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         circuits.emplace_back(create_mock_circuit(ivc, /*log2_num_gates=*/5));

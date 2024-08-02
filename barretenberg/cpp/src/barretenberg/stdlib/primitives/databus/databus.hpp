@@ -70,13 +70,28 @@ template <class Builder> class DataBusDepot {
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
     static constexpr size_t NUM_FR_LIMBS_PER_COMMITMENT = NUM_FR_LIMBS_PER_FQ * 2;
 
+    /**
+     * @brief Execute circuit logic to establish proper transfer of databus data between circuits
+     * @details The databus mechanism establishes the transfer of data between two circuits (i-1 and i) in a third
+     * circuit (i+1) via commitment equality checks of the form [R_{i-1}] = [C_i]. In practice, circuit (i+1) is given
+     * access to [R_{i-1}] via the public inputs of \pi_i, and it has access to [C_i] directly from \pi_i. The
+     * consistency checks in circuit (i+1) are thus of the form \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i]. This method
+     * peforms the two primary operations required for these checks: (1) extract commitments [R] from proofs received as
+     * private witnesses and propagate them to the next circuit via adding them to the public inputs. (2) Asserting
+     * equality of commitments.
+     *
+     * In Aztec private function execution, this mechanism is used as follows. Kernel circuit K_{i+1} must in general
+     * perform two databus consistency checks: (1) that the return_data of app circuit A_{i} was calldata to K_{i}, and
+     * (2) that the return_data of K_{i-1} was calldata to K_{i}. (Note that kernel circuits have two databus calldata
+     * columns). The relevant databus column commitments are extracted from non-accumulator verifier instances (which
+     * contain all witness polynomial commitments extracted from a proof in oink).
+     *
+     * @param instances
+     */
     void execute([[maybe_unused]] RecursiveVerifierInstances& instances)
     {
-        info("instances[0]->is_accumulator = ", instances[0]->is_accumulator);
-        info("instances[1]->is_accumulator = ", instances[1]->is_accumulator);
-
-        auto inst_0 = instances[0];
-        auto inst_1 = instances[1];
+        auto inst_0 = instances[0]; // instance being folded *into* (an accumulator, except on the initial round)
+        auto inst_1 = instances[1]; // instance being folded
 
         // The first folding round is a special case in that it folds an instance into a non-accumulator instance. The
         // fold proof thus contains two oink proofs. The return data R_0' from the first app will be contained in the
@@ -96,6 +111,7 @@ template <class Builder> class DataBusDepot {
 
         // Assert equality between the app return data commitment and the kernel secondary calldata commitment
         if (vkey->databus_propagation_data.contains_app_return_data_commitment) {
+            ASSERT(!vkey->databus_propagation_data.is_kernel);
             size_t start_idx = vkey->databus_propagation_data.app_return_data_public_input_idx;
             Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
@@ -103,6 +119,7 @@ template <class Builder> class DataBusDepot {
 
         // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
         if (vkey->databus_propagation_data.contains_kernel_return_data_commitment) {
+            ASSERT(!vkey->databus_propagation_data.is_kernel);
             size_t start_idx = vkey->databus_propagation_data.kernel_return_data_public_input_idx;
             Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             assert_equality_of_commitments(kernel_return_data, commitments.calldata);
