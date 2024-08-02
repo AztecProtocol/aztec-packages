@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722582687060,
+  "lastUpdate": 1722582914208,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -105016,6 +105016,78 @@ window.BENCHMARK_DATA = {
             "value": 166962422,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166962422 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76acff9a51190fd2faddd3913d625509d545702a",
+          "message": "fix(ci): fix circle-ci issue (#7734)\n\nCMake version differences, this line was cargo-culted anyway.",
+          "timestamp": "2024-08-02T07:04:57Z",
+          "tree_id": "c9db299d715a6c07db4cb388fe3d1ba3b50ac91d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76acff9a51190fd2faddd3913d625509d545702a"
+        },
+        "date": 1722582908477,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13178.004189999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9839.242062000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4735.100371000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4376.2109230000015 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39621.826909,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39621827000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14487.75456,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14487753000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3652920502,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3652920502 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202209345,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 202209345 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2968949815,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2968949815 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167487299,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167487299 ns\nthreads: 1"
           }
         ]
       }
