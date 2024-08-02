@@ -1,5 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -77,9 +77,13 @@ export class ViemTxSender implements L1PublisherTxSender {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  async getSubmitterAddressForBlock(): Promise<EthAddress> {
+  // Computes who will be the L2 proposer at the next Ethereum block
+  // Using next Ethereum block so we do NOT need to wait for it being mined before seeing the effect
+  // @note Assumes that all ethereum slots have blocks
+  async getProposerAtNextEthBlock(): Promise<EthAddress> {
     try {
-      const submitter = await this.rollupContract.read.getCurrentProposer();
+      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+      const submitter = await this.rollupContract.read.getProposerAt([ts]);
       return EthAddress.fromString(submitter);
     } catch (err) {
       this.log.warn(`Failed to get submitter: ${err}`);
@@ -164,6 +168,29 @@ export class ViemTxSender implements L1PublisherTxSender {
       account: this.account,
     });
     const hash = await this.rollupContract.write.process(args, {
+      gas,
+      account: this.account,
+    });
+    return hash;
+  }
+
+  /**
+   * @notice  Publishes the body AND process the block in one transaction
+   * @param encodedData - Serialized data for processing the new L2 block.
+   * @param encodedBody - Encoded block body.
+   * @returns The hash of the transaction
+   */
+  async sendPublishAndProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
+    const args = [
+      `0x${encodedData.header.toString('hex')}`,
+      `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.body.toString('hex')}`,
+    ] as const;
+
+    const gas = await this.rollupContract.estimateGas.publishAndProcess(args, {
+      account: this.account,
+    });
+    const hash = await this.rollupContract.write.publishAndProcess(args, {
       gas,
       account: this.account,
     });

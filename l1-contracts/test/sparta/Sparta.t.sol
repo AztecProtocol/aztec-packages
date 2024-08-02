@@ -15,6 +15,7 @@ import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
 import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 import {Rollup} from "../../src/core/Rollup.sol";
+import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
@@ -40,7 +41,20 @@ contract SpartaTest is DecoderBase {
 
   SignatureLib.Signature internal emptySignature;
 
-  function setUp() public virtual {
+  /**
+   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   */
+  modifier setup(uint256 _sigCount) {
+    string memory _name = "mixed_block_1";
+    {
+      Leonidas leo = new Leonidas(address(1));
+      DecoderBase.Full memory full = load(_name);
+      uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
+      uint256 initialTime =
+        full.block.decodedHeader.globalVariables.timestamp - slotNumber * leo.SLOT_DURATION();
+      vm.warp(initialTime);
+    }
+
     registry = new Registry();
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
@@ -56,15 +70,16 @@ contract SpartaTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    for (uint256 i = 1; i < 5; i++) {
+    for (uint256 i = 1; i < _sigCount; i++) {
       uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       rollup.addValidator(validator);
     }
+    _;
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(5) {
     uint256 pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
@@ -81,21 +96,14 @@ contract SpartaTest is DecoderBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public {
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
+    assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
     _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
 
-    // Adding more validators!
-    for (uint256 i = 5; i < 100; i++) {
-      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
-      address validator = vm.addr(privateKey);
-      privateKeys[validator] = privateKey;
-      rollup.addValidator(validator);
-    }
-
-    assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
+    uint256 ts = block.timestamp + rollup.EPOCH_DURATION() * rollup.SLOT_DURATION();
 
     uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
-    _testBlock("mixed_block_2", _insufficientSigs, committeSize, false); // We need signatures!
+    _testBlock("mixed_block_2", _insufficientSigs, committeSize, false, ts); // We need signatures!
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -104,17 +112,17 @@ contract SpartaTest is DecoderBase {
     );
   }
 
-  function testHappyPath() public {
+  function testHappyPath() public setup(5) {
     _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
     _testBlock("mixed_block_2", false, 3, false); // We need signatures!
   }
 
-  function testInvalidProposer() public {
+  function testInvalidProposer() public setup(5) {
     _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
     _testBlock("mixed_block_2", true, 3, true); // We need signatures!
   }
 
-  function testInsufficientSigs() public {
+  function testInsufficientSigs() public setup(5) {
     _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
     _testBlock("mixed_block_2", true, 2, false); // We need signatures!
   }
@@ -130,7 +138,17 @@ contract SpartaTest is DecoderBase {
     bool _expectRevert,
     uint256 _signatureCount,
     bool _invalidaProposer
-  ) public {
+  ) internal {
+    _testBlock(_name, _expectRevert, _signatureCount, _invalidaProposer, 0);
+  }
+
+  function _testBlock(
+    string memory _name,
+    bool _expectRevert,
+    uint256 _signatureCount,
+    bool _invalidaProposer,
+    uint256 _ts
+  ) internal {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
@@ -139,7 +157,18 @@ contract SpartaTest is DecoderBase {
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
+    vm.warp(max(block.timestamp, max(full.block.decodedHeader.globalVariables.timestamp, _ts)));
+
+    if (_ts > 0) {
+      // Update the timestamp and slot in the header
+      uint256 slotValue = rollup.getCurrentSlot();
+      uint256 timestampMemoryPosition = 0x01b4;
+      uint256 slotMemoryPosition = 0x0194;
+      assembly {
+        mstore(add(header, add(0x20, timestampMemoryPosition)), _ts)
+        mstore(add(header, add(0x20, slotMemoryPosition)), slotValue)
+      }
+    }
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -161,13 +190,19 @@ contract SpartaTest is DecoderBase {
         signatures[i] = createSignature(validators[i], archive);
       }
 
-      if (_expectRevert && _signatureCount < ree.needed) {
-        vm.expectRevert(
-          abi.encodeWithSelector(
-            Errors.Leonidas__InsufficientAttestations.selector, ree.needed, _signatureCount
-          )
-        );
+      if (_expectRevert) {
         ree.shouldRevert = true;
+        if (_signatureCount < ree.needed) {
+          vm.expectRevert(
+            abi.encodeWithSelector(
+              Errors.Leonidas__InsufficientAttestationsProvided.selector,
+              ree.needed,
+              _signatureCount
+            )
+          );
+        }
+        // @todo Handle SignatureLib__InvalidSignature case
+        // @todo Handle Leonidas__InsufficientAttestations case
       }
 
       if (_expectRevert && _invalidaProposer) {

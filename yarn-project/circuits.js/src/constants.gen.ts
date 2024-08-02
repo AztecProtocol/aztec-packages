@@ -77,6 +77,7 @@ export const ROOT_PARITY_INDEX = 19;
 export const BASE_ROLLUP_INDEX = 20;
 export const MERGE_ROLLUP_INDEX = 21;
 export const ROOT_ROLLUP_INDEX = 22;
+export const ETHEREUM_SLOT_DURATION = 12;
 export const FUNCTION_SELECTOR_NUM_BYTES = 4;
 export const ARGS_HASH_CHUNK_LENGTH = 16;
 export const ARGS_HASH_CHUNK_COUNT = 16;

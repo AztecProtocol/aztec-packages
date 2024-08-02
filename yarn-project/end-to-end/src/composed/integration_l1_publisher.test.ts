@@ -1,6 +1,15 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, Body, Fr, GlobalVariables, type L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  Body,
+  EthCheatCodes,
+  Fr,
+  GlobalVariables,
+  type L2Block,
+  createDebugLogger,
+  mockTx,
+} from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type BlockProver,
@@ -10,6 +19,7 @@ import {
   makeProcessedTx,
 } from '@aztec/circuit-types';
 import {
+  ETHEREUM_SLOT_DURATION,
   EthAddress,
   GasFees,
   type Header,
@@ -97,10 +107,25 @@ describe('L1Publisher integration', () => {
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
 
+  let ethCheatCodes: EthCheatCodes;
+
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
   // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
   // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
+
+  const setTimeToNextSlot = async () => {
+    const currentTime = (await publicClient.getBlock()).timestamp;
+    const currentSlot = await rollup.read.getCurrentSlot();
+    const timestamp = (await rollup.read.getTimestampForSlot([currentSlot + 1n])) - BigInt(ETHEREUM_SLOT_DURATION);
+
+    // @todo @LHerskind figure out why we have issues here if we do not entirely ENTER the next slot
+    // My guess would be that it is somewhere because of a bad calculation with global variables or such
+
+    if (timestamp > currentTime) {
+      await ethCheatCodes.warp(Number(timestamp));
+    }
+  };
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -109,6 +134,8 @@ describe('L1Publisher integration', () => {
       deployerAccount,
       logger,
     ));
+
+    ethCheatCodes = new EthCheatCodes(config.rpcUrl);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
@@ -161,6 +188,8 @@ describe('L1Publisher integration', () => {
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
     prevHeader = builderDb.getInitialHeader();
+
+    await setTimeToNextSlot();
   });
 
   const makeEmptyProcessedTx = () =>
@@ -357,12 +386,14 @@ describe('L1Publisher integration', () => {
         makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
       ];
 
+      const ts = (await publicClient.getBlock()).timestamp;
+      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
-        new Fr(1 + i) /** slot number */,
-        new Fr(await rollup.read.lastBlockTs()),
+        new Fr(slot),
+        new Fr(await rollup.read.getTimestampForSlot([slot])),
         coinbase,
         feeRecipient,
         GasFees.empty(),
@@ -404,8 +435,12 @@ describe('L1Publisher integration', () => {
 
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
-        functionName: 'process',
-        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
+        functionName: 'publishAndProcess',
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.body.toBuffer().toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
 
@@ -436,6 +471,9 @@ describe('L1Publisher integration', () => {
       currentL1ToL2Messages = nextL1ToL2Messages;
       // We wipe the messages from previous iteration
       nextL1ToL2Messages = [];
+
+      // @todo @LHerskind need to make sure that time have progressed to the next slot!
+      await setTimeToNextSlot();
     }
   });
 
@@ -449,12 +487,14 @@ describe('L1Publisher integration', () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
+      const ts = (await publicClient.getBlock()).timestamp;
+      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
-        new Fr(1 + i) /** slot number */,
-        new Fr(await rollup.read.lastBlockTs()),
+        new Fr(slot),
+        new Fr(await rollup.read.getTimestampForSlot([slot])),
         coinbase,
         feeRecipient,
         GasFees.empty(),
@@ -488,12 +528,28 @@ describe('L1Publisher integration', () => {
         hash: logs[i].transactionHash!,
       });
 
-      const expectedData = encodeFunctionData({
-        abi: RollupAbi,
-        functionName: 'process',
-        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
-      });
+      const expectedData =
+        i == 0
+          ? encodeFunctionData({
+              abi: RollupAbi,
+              functionName: 'publishAndProcess',
+              args: [
+                `0x${block.header.toBuffer().toString('hex')}`,
+                `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.body.toBuffer().toString('hex')}`,
+              ],
+            })
+          : encodeFunctionData({
+              abi: RollupAbi,
+              functionName: 'process',
+              args: [
+                `0x${block.header.toBuffer().toString('hex')}`,
+                `0x${block.archive.root.toBuffer().toString('hex')}`,
+              ],
+            });
       expect(ethTx.input).toEqual(expectedData);
+
+      await setTimeToNextSlot();
     }
   });
 });

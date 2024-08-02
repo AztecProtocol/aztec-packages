@@ -91,6 +91,7 @@ library Constants {
   uint256 internal constant BASE_ROLLUP_INDEX = 20;
   uint256 internal constant MERGE_ROLLUP_INDEX = 21;
   uint256 internal constant ROOT_ROLLUP_INDEX = 22;
+  uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 16;
   uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
