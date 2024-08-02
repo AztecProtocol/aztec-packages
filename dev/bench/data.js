@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722592085352,
+  "lastUpdate": 1722592709814,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -106252,6 +106252,78 @@ window.BENCHMARK_DATA = {
             "value": 169000719,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 169000719 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c1d98ff53ff0d39956d9837ce7b32cd75e860c3",
+          "message": "fix(avm): correctly build spike vm (#7726)\n\nAfter this PR you can now generate an alternative (spike) vm and it will\nbuild correctly. Most of the changes are to account for empty entity\nsubsets.\n\nI had to add some typing information to `flavor_macros.hpp` to work when\nthe flavor is empty. This is annoying but shouldn't have any runtime\nimplications.",
+          "timestamp": "2024-08-02T10:44:17+01:00",
+          "tree_id": "e6b1e7cfddfc7dc78cdfa7d68d5b16e01775e638",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c1d98ff53ff0d39956d9837ce7b32cd75e860c3"
+        },
+        "date": 1722592700560,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13556.867874999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10085.352824000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4922.562896999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4483.314993000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39857.777140000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39857777000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14608.752342,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14608752000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3683807669,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3683807669 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213450280,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213450280 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3004280343,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3004280343 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173760913,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173760913 ns\nthreads: 1"
           }
         ]
       }
