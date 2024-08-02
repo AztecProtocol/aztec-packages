@@ -8,7 +8,7 @@ import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
 export class BlockMergeRollupInputs {
   constructor(
     /**
-     * Previous rollup data from the 2 merge or base rollup circuits that preceded this merge rollup circuit.
+     * Previous rollup data from the 2 block merge or block root rollup circuits that preceded this merge rollup circuit.
      */
     public previousRollupData: [PreviousRollupBlockData, PreviousRollupBlockData],
   ) {}

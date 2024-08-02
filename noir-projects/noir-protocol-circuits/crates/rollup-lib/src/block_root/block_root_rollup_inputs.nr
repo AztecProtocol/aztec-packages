@@ -115,7 +115,6 @@ impl BlockRootRollupInputs {
         let mut fee_arr = [FeeRecipient::empty(); 32];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
-        // RootRollupPublicInputs { archive, header, vk_tree_root }
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
             new_archive: archive, // archive once this block was added

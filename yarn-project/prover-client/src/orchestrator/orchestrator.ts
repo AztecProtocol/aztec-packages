@@ -427,7 +427,7 @@ export class ProvingOrchestrator {
         previousMergeData[0].constants.globalVariables,
         previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
       );
-      if (header.hash() !== rootRollupOutputs.endBlockHash) {
+      if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
         throw new Error(`Block header mismatch in finalise.`);
       }
       // -------->
@@ -769,7 +769,7 @@ export class ProvingOrchestrator {
   }
 
   // Executes the root rollup circuit
-  private async enqueueRootRollup(provingState: ProvingState | undefined) {
+  private async enqueueBlockRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.verifyState()) {
       logger.debug('Not running root rollup, state no longer valid');
       return;
@@ -789,17 +789,16 @@ export class ProvingOrchestrator {
       provingState.messageTreeSnapshot,
       provingState.messageTreeRootSiblingPath,
       this.db,
-      this.proverId,
     );
 
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getRootRollupProof',
+        'ProvingOrchestrator.prover.getBlockRootRollupProof',
         {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' as CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-root-rollup' as CircuitName,
         },
         signal => this.prover.getBlockRootRollupProof(inputs, signal),
       ),
@@ -864,17 +863,17 @@ export class ProvingOrchestrator {
       ),
       async rootInput => {
         provingState!.finalRootParityInput = rootInput;
-        await this.checkAndEnqueueRootRollup(provingState);
+        await this.checkAndEnqueueBlockRootRollup(provingState);
       },
     );
   }
 
-  private async checkAndEnqueueRootRollup(provingState: ProvingState | undefined) {
+  private async checkAndEnqueueBlockRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.isReadyForRootRollup()) {
       logger.debug('Not ready for root rollup');
       return;
     }
-    await this.enqueueRootRollup(provingState);
+    await this.enqueueBlockRootRollup(provingState);
   }
 
   /**
@@ -903,7 +902,7 @@ export class ProvingOrchestrator {
 
     if (result.mergeLevel === 0n) {
       // TODO (alexg) remove this `void`
-      void this.checkAndEnqueueRootRollup(provingState);
+      void this.checkAndEnqueueBlockRootRollup(provingState);
     } else {
       // onto the next merge level
       this.enqueueMergeRollup(provingState, result.mergeLevel, result.indexWithinMergeLevel, result.mergeInputData);

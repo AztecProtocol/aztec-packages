@@ -13,14 +13,12 @@ import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
 /**
- * Represents inputs of the root rollup circuit.
+ * Represents inputs of the block root rollup circuit.
  */
 export class BlockRootRollupInputs {
   constructor(
     /**
-     * The previous rollup data.
-     * Note: Root rollup circuit is the latest circuit the chain of circuits and the previous rollup data is the data
-     * from 2 merge or base rollup circuits.
+     * The previous rollup data from 2 merge or base rollup circuits.
      */
     public previousRollupData: [PreviousRollupData, PreviousRollupData],
     /**

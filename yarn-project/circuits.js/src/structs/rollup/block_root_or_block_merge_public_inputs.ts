@@ -7,7 +7,7 @@ import { EthAddress } from '../index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 /**
- * Output of the base and merge rollup circuits.
+ * Output of the block root and block merge rollup circuits.
  */
 export class BlockRootOrBlockMergePublicInputs {
   constructor(

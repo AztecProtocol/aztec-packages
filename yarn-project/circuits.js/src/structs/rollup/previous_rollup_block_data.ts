@@ -12,15 +12,15 @@ import { BlockRootOrBlockMergePublicInputs } from './block_root_or_block_merge_p
 export class PreviousRollupBlockData {
   constructor(
     /**
-     * Public inputs to the base or merge rollup circuit.
+     * Public inputs to the block merge or block root rollup circuit.
      */
     public blockRootOrBlockMergePublicInputs: BlockRootOrBlockMergePublicInputs,
     /**
-     * The proof of the base or merge rollup circuit.
+     * The proof of the block merge or block root rollup circuit.
      */
     public proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
     /**
-     * The verification key of the base or merge rollup circuit.
+     * The verification key of the block merge or block root rollup circuit.
      */
     public vk: VerificationKeyAsFields,
     /**

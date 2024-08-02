@@ -895,10 +895,10 @@ export function makeBaseOrMergeRollupPublicInputs(
 }
 
 /**
- * Makes arbitrary base or merge rollup circuit public inputs.
- * @param seed - The seed to use for generating the base rollup circuit public inputs.
- * @param blockNumber - The block number to use for generating the base rollup circuit public inputs.
- * @returns A base or merge rollup circuit public inputs.
+ * Makes arbitrary block merge or block root rollup circuit public inputs.
+ * @param seed - The seed to use for generating the block merge or block root rollup circuit public inputs.
+ * @param blockNumber - The block number to use for generating the block merge or block root rollup circuit public inputs.
+ * @returns A block merge or block root rollup circuit public inputs.
  */
 export function makeBlockRootOrBlockMergeRollupPublicInputs(
   seed = 0,
