@@ -493,6 +493,7 @@ contract TokenWithRefunds {
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
         // 7. We add the slot to the points --> this way we insert the notes into the balances Map under the respective key.
+        // TODO(#7753): Consider making slots part of the initital note hiding point creation.
         fee_payer_point.add_slot(fee_payer_balances_slot);
         user_point.add_slot(user_balances_slot);
 
