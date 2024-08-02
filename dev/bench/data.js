@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722604479503,
+  "lastUpdate": 1722606131955,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -107284,6 +107284,78 @@ window.BENCHMARK_DATA = {
             "value": 176026699,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 176026699 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4b793b014b31382c10ea0ff7c35bd324b834410a",
+          "message": "chore(avm): make fixed tables use constant polys (#7744)\n\nThe witnesses are gone but these columns are still NOT correctly loaded\nfrom the pk/vk.",
+          "timestamp": "2024-08-02T14:31:32+01:00",
+          "tree_id": "d4f9eccd42fa5b5cc14baccbcea3c27fe66d31f9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4b793b014b31382c10ea0ff7c35bd324b834410a"
+        },
+        "date": 1722606121887,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13613.435782000011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10189.213943 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5279.767297000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4747.675135 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40109.76153599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40109761000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14900.892452999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14900892000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3671331694,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3671331694 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 211395655,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 211395655 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2998367731,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2998367731 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173252800,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173252800 ns\nthreads: 1"
           }
         ]
       }
