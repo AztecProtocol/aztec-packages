@@ -6,15 +6,13 @@ use dep::aztec::{
     hash::poseidon2_hash_with_separator
 },
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
-    keys::getters::get_nsk_app, note::note_getter_options::PropertySelector
+    keys::getters::get_nsk_app
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
     fn get_amount(self) -> U128;
-    fn get_owner_npk_m_hash(self) -> Field;
-    fn get_owner_selector() -> PropertySelector;
 }
 
 trait PrivatelyRefundable {
@@ -99,12 +97,9 @@ impl TokenNoteHidingPoint {
         Self { inner: point }
     }
 
-    fn add_amount(self, amount: Field) -> Self {
+    fn add_amount(self, amount: U128) -> Self {
         // TODO(benesjan): decompose amount with from_field_unsafe or constrain it fits into limb
-        let amount_scalar = Scalar {
-            lo: self.amount.to_integer(),
-            hi: 0
-        };
+        let amount_scalar = Scalar { lo: amount.to_integer(), hi: 0 };
         let new_point = multi_scalar_mul([G_amt], [amount_scalar]) + self.inner;
         Self { inner: new_point }
     }
@@ -144,14 +139,6 @@ impl OwnedNote for TokenNote {
 
     fn get_amount(self) -> U128 {
         self.amount
-    }
-
-    fn get_owner_npk_m_hash(self) -> Field {
-        self.npk_m_hash
-    }
-
-    fn get_owner_selector() -> PropertySelector {
-        PropertySelector { index: 1, offset: 0, length: 32 }
     }
 }
 

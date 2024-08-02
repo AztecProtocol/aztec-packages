@@ -425,7 +425,7 @@ contract TokenWithRefunds {
 
     // REFUNDS SPECIFIC FUNCTIONALITY FOLLOWS
     use dep::aztec::{
-        note::utils::compute_slotted_note_hiding_point_raw, prelude::FunctionSelector,
+        note::utils::compute_slotted_note_hiding_point_raw, prelude::{FunctionSelector, NoteHeader},
         protocol_types::{storage::map::derive_storage_slot_in_map, point::Point}
     };
 
@@ -456,14 +456,16 @@ contract TokenWithRefunds {
         // 4. We create the partial notes for the fee payer and the user.
         // --> Called "partial" because they don't have the amount set yet (that will be done in `complete_refund(...)`).
         let fee_payer_partial_note = TokenNote {
+            header: NoteHeader::empty(),
             amount: U128::zero(),
             npk_m_hash: fee_payer_npk_m_hash,
-            randomness: fee_payer_randomness,
+            randomness: fee_payer_randomness
         };
         let user_partial_note = TokenNote {
+            header: NoteHeader::empty(),
             amount: U128::zero(),
             npk_m_hash: user_npk_m_hash,
-            randomness: user_randomness,
+            randomness: user_randomness
         };
 
         // 5. Now we get the note hiding points.
@@ -474,8 +476,9 @@ contract TokenWithRefunds {
         let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
-        let slotted_fee_payer_point = compute_slotted_note_hiding_point_raw(fee_payer_balances_slot, fee_payer_point);
-        let slotted_user_point = compute_slotted_note_hiding_point_raw(user_balances_slot, user_point);
+        // TODO(benesjan): do not access longer access .inner here
+        let slotted_fee_payer_point = compute_slotted_note_hiding_point_raw(fee_payer_balances_slot, fee_payer_point.inner);
+        let slotted_user_point = compute_slotted_note_hiding_point_raw(user_balances_slot, user_point.inner);
 
         // 7. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
