@@ -443,7 +443,7 @@ contract TokenWithRefunds {
     ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
     ///         by trying different fee payer npk values of these known contracts is a feasible attack.
     ///
-    /// fee_payer_point and user_point above are public information since there are args to the public
+    /// `fee_payer_point` and `user_point` above are public information because they are passed as args to the public
     /// `complete_refund(...)` function.
     #[aztec(private)]
     fn setup_refund(
@@ -529,7 +529,7 @@ contract TokenWithRefunds {
         let tx_fee = U128::from_integer(context.transaction_fee());
 
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
-        assert(funded_amount >= tx_fee, "funded amount not enough to conver tx fee");
+        assert(funded_amount >= tx_fee, "funded amount not enough to cover tx fee");
 
         // 2. We compute the refund amount as the difference between funded amount and tx fee.
         let refund_amount = funded_amount - tx_fee;

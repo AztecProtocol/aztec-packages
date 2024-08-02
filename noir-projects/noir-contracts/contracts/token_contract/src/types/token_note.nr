@@ -12,8 +12,6 @@ use dep::aztec::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-// This trait is only used by `balances_map.nr` and it's name is quite weird now (all the notes have npk_m_hash so why
-// call it OwnedNote?) TODO: Rename or nuke.
 trait OwnedNote {
     fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
     fn get_amount(self) -> U128;
