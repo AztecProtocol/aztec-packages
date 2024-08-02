@@ -485,7 +485,7 @@ contract TokenWithRefunds {
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)"),
+            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)"),
             [
             fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
         ]
@@ -496,27 +496,37 @@ contract TokenWithRefunds {
     // to serialization issues.
     #[aztec(public)]
     #[aztec(internal)]
-    fn complete_refund(fee_payer_point_inner: Point, user_point_inner: Point, funded_amount: Field) {
-        let mut fee_payer_point = TokenNoteHidingPoint::new(fee_payer_point_inner);
-        let mut user_point = TokenNoteHidingPoint::new(user_point_inner);
+    fn complete_refund(
+        // TODO: the following makes macros crash --> try getting it work once we migrate to metaprogramming
+        // mut fee_payer_point: TokenNoteHidingPoint,
+        // mut user_point: TokenNoteHidingPoint,
+        fee_payer_point_immutable: TokenNoteHidingPoint,
+        user_point_immutable: TokenNoteHidingPoint,
+        funded_amount: Field
+    ) {
+        // TODO: nuke the following 2 lines once we have mutable args
+        let mut fee_payer_point = fee_payer_point_immutable;
+        let mut user_point = user_point_immutable;
 
-        // TODO(#7728): Remove next line
+        // TODO(#7728): Remove the next line
         let funded_amount = U128::from_integer(funded_amount);
         let tx_fee = U128::from_integer(context.transaction_fee());
 
         // 1. We check that user funded the fee payer contract with at least the transaction fee.
         assert(funded_amount >= tx_fee, "funded amount not enough to conver tx fee");
 
-        let refund = funded_amount - tx_fee;
+        // 2. We compute the refund amount as the difference between funded amount and tx fee.
+        let refund_amount = funded_amount - tx_fee;
 
-        // We add fee to fee payer point and refund to user point.
+        // 3. We add fee to the fee payer point and refund amount to the user point.
         fee_payer_point.add_amount(tx_fee);
-        user_point.add_amount(refund);
+        user_point.add_amount(refund_amount);
 
+        // 4. We finalize the hiding points to get the note hashes.
         let fee_payer_note_hash = fee_payer_point.finalize();
         let user_note_hash = user_point.finalize();
 
-        // 2. At last we emit the note hashes.
+        // 5. At last we emit the note hashes.
         context.push_note_hash(fee_payer_note_hash);
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.

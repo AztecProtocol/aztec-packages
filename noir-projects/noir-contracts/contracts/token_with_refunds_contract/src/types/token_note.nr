@@ -2,7 +2,7 @@ use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd, G_slot},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, scalar::Scalar,
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::{Point, POINT_LENGTH}, scalar::Scalar,
     hash::poseidon2_hash_with_separator
 },
     note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
@@ -101,6 +101,12 @@ impl TokenNoteHidingPoint {
 
     fn finalize(self) -> Field {
         self.inner.x
+    }
+}
+
+impl Serialize<POINT_LENGTH> for TokenNoteHidingPoint {
+    fn serialize(self) -> [Field; POINT_LENGTH] {
+        self.inner.serialize()
     }
 }
 
