@@ -82,7 +82,7 @@ template <class Builder> class DataBusDepot {
      * access to [R_{i-1}] via the public inputs of \pi_i, and it has access to [C_i] directly from \pi_i. The
      * consistency checks in circuit (i+1) are thus of the form \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i]. This method
      * peforms the two primary operations required for these checks: (1) extract commitments [R] from proofs received as
-     * private witnesses and propagate them to the next circuit via adding them to the public inputs. (2) Asserting
+     * private witnesses and propagate them to the next circuit via adding them to the public inputs. (2) Assert
      * equality of commitments.
      *
      * In Aztec private function execution, this mechanism is used as follows. Kernel circuit K_{i+1} must in general
@@ -95,44 +95,51 @@ template <class Builder> class DataBusDepot {
      */
     void execute(RecursiveVerifierInstances& instances)
     {
-        auto inst_0 = instances[0]; // instance into which we're folding (an accumulator, except on the initial round)
-        auto inst_1 = instances[1]; // instance being folded
+        // Upon completion of folding recursive verfication, the verifier contains two completed verifier instances
+        // which store data from a fold proof. The first is the instance into which we're folding and the second
+        // corresponds to an instance being folded.
+        auto inst_1 = instances[0]; // instance into which we're folding (an accumulator, except on the initial round)
+        auto inst_2 = instances[1]; // instance that has been folded
 
         // The first folding round is a special case in that it folds an instance into a non-accumulator instance. The
-        // fold proof thus contains two oink proofs. The return data R_0' from the first app will be contained in the
-        // first oink proof (stored in instance 0), and its calldata counterpart C_0' in the kernel will be
-        // contained in the second oink proof (stored in instance 1). In this special case, we can check directly that
-        // \pi_0.R_0' = \pi_0.C_0', without having had to propagate the return data commitment via the public inputs.
-        if (!inst_0->is_accumulator) {
+        // fold proof thus contains two oink proofs. The first oink proof (stored in instance 0) contains the return
+        // data R_0' from the first app, and its calldata counterpart C_0' in the kernel will be contained in the second
+        // oink proof (stored in instance 1). In this special case, we can check directly that \pi_0.R_0' = \pi_0.C_0',
+        // without having had to propagate the return data commitment via the public inputs.
+        if (!inst_1->is_accumulator) {
             // Assert equality of \pi_0.R_0' and \pi_0.C_0'
-            auto& app_return_data = inst_0->witness_commitments.return_data;
-            auto& secondary_calldata = inst_1->witness_commitments.secondary_calldata;
-            assert_equality_of_commitments(app_return_data, secondary_calldata);
+            auto& app_return_data = inst_1->witness_commitments.return_data;           // \pi_0.R_0'
+            auto& secondary_calldata = inst_2->witness_commitments.secondary_calldata; // \pi_0.C_0'
+            assert_equality_of_commitments(app_return_data, secondary_calldata);       // assert equality R_0' == C_0'
         }
 
-        // Define aliases for members in the non-accumulator instance
-        auto vkey = inst_1->verification_key;
-        auto& public_inputs = inst_1->public_inputs;
-        auto& commitments = inst_1->witness_commitments;
+        // Define aliases for members in the second (non-accumulator) instance which contains witness commitments and
+        // public inputs from an instance folded into the IVC.
+        bool is_kernel_instance = inst_2->verification_key->databus_propagation_data.is_kernel;
+        auto& propagation_data = inst_2->verification_key->databus_propagation_data;
+        auto& public_inputs = inst_2->public_inputs;
+        auto& commitments = inst_2->witness_commitments;
 
-        // Assert equality between the app return data commitment and the kernel secondary calldata commitment
-        if (vkey->databus_propagation_data.contains_app_return_data_commitment) {
-            ASSERT(!vkey->databus_propagation_data.is_kernel);
-            size_t start_idx = vkey->databus_propagation_data.app_return_data_public_input_idx;
-            Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-            assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
+        // Assert equality between return data commitments propagated via the public inputs and the corresponding
+        // calldata commitment
+        if (is_kernel_instance) { // only kernels can contain commitments propagated via public inputs
+            if (propagation_data.contains_app_return_data_commitment) {
+                // Assert equality between the app return data commitment and the kernel secondary calldata commitment
+                size_t start_idx = propagation_data.app_return_data_public_input_idx;
+                Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+                assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
+            }
+
+            if (propagation_data.contains_kernel_return_data_commitment) {
+                // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
+                size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
+                Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+                assert_equality_of_commitments(kernel_return_data, commitments.calldata);
+            }
         }
 
-        // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
-        if (vkey->databus_propagation_data.contains_kernel_return_data_commitment) {
-            ASSERT(!vkey->databus_propagation_data.is_kernel);
-            size_t start_idx = vkey->databus_propagation_data.kernel_return_data_public_input_idx;
-            Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-            assert_equality_of_commitments(kernel_return_data, commitments.calldata);
-        }
-
-        // Propagate return data via the public inputs mechanism
-        propagate_commitment_via_public_inputs(commitments.return_data, vkey->databus_propagation_data.is_kernel);
+        // Propagate the return data commitment via the public inputs mechanism
+        propagate_commitment_via_public_inputs(commitments.return_data, is_kernel_instance);
     };
 
     /**
@@ -166,7 +173,6 @@ template <class Builder> class DataBusDepot {
         const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
         const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
 
-        // WORKTODO: do I need to assert on curve here?
         return Commitment(x, y);
     }
 
@@ -198,10 +204,11 @@ template <class Builder> class DataBusDepot {
     /**
      * @brief Set the witness indices for a commitment to public
      * @details Indicate the presence of the propagated commitment by setting the corresponding flag and index in the
-     * public inputs
+     * public inputs. A distinction is made between kernel and app return data so consistency can be checked against the
+     * correct calldata entry later on.
      *
      * @param commitment
-     * @param is_kernel
+     * @param is_kernel Indicates whether the return data being propagated is from a kernel or an app
      */
     void propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
     {

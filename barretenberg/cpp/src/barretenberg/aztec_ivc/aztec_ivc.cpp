@@ -22,10 +22,12 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
         ASSERT(circuit_count % 2 == 0); // ensure this is a kernel
 
         for (auto& [proof, vkey] : verification_queue) {
+            // Perform folding recursive verification
             FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
             auto verifier_accum = verifier.verify_folding_proof(proof);
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
 
+            // Perform databus commitment consistency checks and propagate return data commitments via the public inputs
             bus_depot.execute(verifier.instances);
         }
         verification_queue.clear();
