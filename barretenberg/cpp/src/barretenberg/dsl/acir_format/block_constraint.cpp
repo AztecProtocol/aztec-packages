@@ -199,4 +199,21 @@ void process_return_data_operations(const BlockConstraint& constraint, std::vect
     ASSERT(constraint.trace.size() == 0);
 }
 
+template <> void assign_calldata_ids<UltraCircuitBuilder>([[maybe_unused]] std::vector<BlockConstraint>& constraints)
+{
+    // do nothing
+}
+
+template <> void assign_calldata_ids<MegaCircuitBuilder>(std::vector<BlockConstraint>& constraints)
+{
+    uint32_t calldata_id = 0;
+    for (auto& constraint : constraints) {
+        if (constraint.type == BlockType::CallData) {
+            constraint.calldata_id = calldata_id++;
+        }
+    }
+    // The backend only supports 2 calldata columns
+    ASSERT(calldata_id <= 2);
+}
+
 } // namespace acir_format
