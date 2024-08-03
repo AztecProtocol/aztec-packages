@@ -40,6 +40,18 @@ pub enum IntegerBitSize {
 }
 
 impl IntegerBitSize {
+    pub fn bit_size(&self) -> u8 {
+        match self {
+            IntegerBitSize::One => 1,
+            IntegerBitSize::Eight => 8,
+            IntegerBitSize::Sixteen => 16,
+            IntegerBitSize::ThirtyTwo => 32,
+            IntegerBitSize::SixtyFour => 64,
+        }
+    }
+}
+
+impl IntegerBitSize {
     pub fn allowed_sizes() -> Vec<Self> {
         vec![Self::One, Self::Eight, Self::ThirtyTwo, Self::SixtyFour]
     }
@@ -291,10 +303,19 @@ impl UnresolvedTypeData {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash, PartialOrd, Ord)]
 pub enum Signedness {
     Unsigned,
     Signed,
+}
+
+impl Signedness {
+    pub fn is_signed(&self) -> bool {
+        match self {
+            Signedness::Unsigned => false,
+            Signedness::Signed => true,
+        }
+    }
 }
 
 impl UnresolvedTypeExpression {
@@ -324,7 +345,7 @@ impl UnresolvedTypeExpression {
                 Some(int) => Ok(UnresolvedTypeExpression::Constant(int, expr.span)),
                 None => Err(expr),
             },
-            ExpressionKind::Variable(path, _) => Ok(UnresolvedTypeExpression::Variable(path)),
+            ExpressionKind::Variable(path) => Ok(UnresolvedTypeExpression::Variable(path)),
             ExpressionKind::Prefix(prefix) if prefix.operator == UnaryOp::Minus => {
                 let lhs = Box::new(UnresolvedTypeExpression::Constant(0, expr.span));
                 let rhs = Box::new(UnresolvedTypeExpression::from_expr_helper(prefix.rhs)?);
@@ -390,7 +411,9 @@ pub enum Visibility {
     Private,
     /// DataBus is public input handled as private input. We use the fact that return values are properly computed by the program to avoid having them as public inputs
     /// it is useful for recursion and is handled by the proving system.
-    DataBus,
+    /// The u32 value is used to group inputs having the same value.
+    CallData(u32),
+    ReturnData,
 }
 
 impl std::fmt::Display for Visibility {
@@ -398,7 +421,8 @@ impl std::fmt::Display for Visibility {
         match self {
             Self::Public => write!(f, "pub"),
             Self::Private => write!(f, "priv"),
-            Self::DataBus => write!(f, "databus"),
+            Self::CallData(id) => write!(f, "calldata{id}"),
+            Self::ReturnData => write!(f, "returndata"),
         }
     }
 }
