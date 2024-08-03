@@ -1,8 +1,7 @@
 mod lib;
 
 contract PrivateFPC {
-    use dep::aztec::protocol_types::{abis::log_hash::LogHash, address::AztecAddress, hash::poseidon2_hash};
-    use dep::aztec::state_vars::SharedImmutable;
+    use dep::aztec::{protocol_types::{address::AztecAddress, hash::poseidon2_hash}, state_vars::SharedImmutable};
     use dep::token_with_refunds::TokenWithRefunds;
     use crate::lib::emit_randomness_as_unencrypted_log;
 
@@ -23,7 +22,7 @@ contract PrivateFPC {
     fn fund_transaction_privately(amount: Field, asset: AztecAddress, user_randomness: Field) {
         assert(asset == storage.other_asset.read_private());
         // convince the FPC we are not cheating
-        context.push_nullifier(user_randomness, 0);
+        context.push_nullifier(user_randomness);
 
         // We use different randomness for fee payer to prevent a potential privay leak (see impl
         // of PrivatelyRefundable for TokenNote for details).

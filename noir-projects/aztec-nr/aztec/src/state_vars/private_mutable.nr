@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator
+};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
@@ -36,7 +39,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     // Note: subsequent nullification of this state variable, via the `replace` method will not be leaky, if the `compute_note_hash_and_nullifier()` method of the underlying note is designed to ensure privacy.
     // For example, if the `compute_note_hash_and_nullifier()` method injects the secret key of a note owner into the computed nullifier's preimage.
     pub fn compute_initialization_nullifier(self) -> Field {
-        pedersen_hash(
+        poseidon2_hash_with_separator(
             [self.storage_slot],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
@@ -48,7 +51,7 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
     pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
-        self.context.push_nullifier(nullifier, 0);
+        self.context.push_nullifier(nullifier);
 
         create_note(self.context, self.storage_slot, note)
     }
