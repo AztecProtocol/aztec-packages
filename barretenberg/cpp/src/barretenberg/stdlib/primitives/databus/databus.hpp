@@ -91,9 +91,9 @@ template <class Builder> class DataBusDepot {
      * columns). The relevant databus column commitments are extracted from non-accumulator verifier instances (which
      * contain all witness polynomial commitments extracted from a proof in oink).
      *
-     * @param instances
+     * @param instances Completed verifier instances corresponding to prover instances that have been folded
      */
-    void execute([[maybe_unused]] RecursiveVerifierInstances& instances)
+    void execute(RecursiveVerifierInstances& instances)
     {
         auto inst_0 = instances[0]; // instance into which we're folding (an accumulator, except on the initial round)
         auto inst_1 = instances[1]; // instance being folded
@@ -110,6 +110,7 @@ template <class Builder> class DataBusDepot {
             assert_equality_of_commitments(app_return_data, secondary_calldata);
         }
 
+        // Define aliases for members in the non-accumulator instance
         auto vkey = inst_1->verification_key;
         auto& public_inputs = inst_1->public_inputs;
         auto& commitments = inst_1->witness_commitments;
@@ -138,12 +139,13 @@ template <class Builder> class DataBusDepot {
      * @brief Reconstruct a commitment from limbs stored in public inputs
      *
      * @param public_inputs Vector of public inputs in which a propagated return data commitment is stored
-     * @param return_data_commitment_limbs_start_idx Index at which the commitment is stored
+     * @param return_data_commitment_limbs_start_idx Start index for range where commitment limbs are stored
      * @return Commitment
      */
     Commitment reconstruct_commitment_from_public_inputs(const std::span<Fr> public_inputs,
                                                          size_t& return_data_commitment_limbs_start_idx)
     {
+        // Extract from the public inputs the limbs needed reconstruct a commitment
         std::span<Fr, NUM_FR_LIMBS_PER_COMMITMENT> return_data_commitment_limbs{
             public_inputs.data() + return_data_commitment_limbs_start_idx, NUM_FR_LIMBS_PER_COMMITMENT
         };
