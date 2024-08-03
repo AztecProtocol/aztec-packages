@@ -453,6 +453,29 @@ TEST_F(AcirIntegrationTest, DISABLED_Databus)
 }
 
 /**
+ *@brief Test a program that uses two databus calldata columns
+ *
+ */
+TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
+{
+    using Flavor = MegaFlavor;
+    using Builder = Flavor::CircuitBuilder;
+
+    std::string test_name = "databus_two_calldata";
+    info("Test: ", test_name);
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
+
+    // Construct a bberg circuit from the acir representation
+    Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+
+    // This prints a summary of the types of gates in the circuit
+    builder.blocks.summarize();
+
+    // Construct and verify Honk proof
+    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
+}
+
+/**
  * @brief Ensure that adding gates post-facto to a circuit generated from acir still results in a valid circuit
  * @details This is a pattern required by e.g. ClientIvc which appends recursive verifiers to acir-generated circuits
  *
