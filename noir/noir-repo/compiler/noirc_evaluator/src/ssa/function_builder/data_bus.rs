@@ -206,7 +206,7 @@ impl FunctionBuilder {
             .flat_map(|(ssa_param_index, ssa_param)| {
                 let flattened_size =
                     self.current_function.dfg[*ssa_param].get_type().flattened_size();
-                std::iter::repeat(ssa_param_index).take(flattened_size as usize)
+                std::iter::repeat(ssa_param_index).take(flattened_size)
             })
             .collect();
 
