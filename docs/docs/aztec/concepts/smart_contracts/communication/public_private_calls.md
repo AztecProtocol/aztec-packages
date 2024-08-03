@@ -46,7 +46,7 @@ It is important to note that the execution of private functions is prioritized b
 
 <Image img={require("/img/com-abs-2.png")} />
 
-Multiple of these transactions are then ordered into a L2 block by the sequencer, who will also be executing the public functions (as they require the current head). Example seen below.
+Multiple of these transactions are then ordered into a L2 block by the sequencer, who will also be executing the public functions (as they require the current head). Example is seen below.
 
 <Image img={require("/img/com-abs-3.png")} />
 
