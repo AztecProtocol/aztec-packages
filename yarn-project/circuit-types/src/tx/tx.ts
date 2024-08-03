@@ -5,17 +5,18 @@ import {
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { BaseHashType } from '@aztec/foundation/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
-import { PublicExecutionRequest } from '../public_execution_request.js';
-import { type TxStats } from '../stats/stats.js';
-import { TxHash } from './tx_hash.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { GOSSIP_PREFIX, TOPIC_VERSION } from '../p2p/interface.js';
 import { TopicType } from '../p2p/interface.js';
+import { PublicExecutionRequest } from '../public_execution_request.js';
+import { type TxStats } from '../stats/stats.js';
+import { TxHash } from './tx_hash.js';
 
 /**
  * The interface of an L2 transaction.
@@ -53,14 +54,14 @@ export class Tx extends Gossipable {
      */
     public readonly publicTeardownFunctionCall: PublicExecutionRequest,
   ) {
-    super()
+    super();
   }
 
   // Gossipable method
-  static override getTopic = GOSSIP_PREFIX + TopicType.tx + TOPIC_VERSION;
+  static override p2pTopic = GOSSIP_PREFIX + TopicType.tx + TOPIC_VERSION;
 
   // Gossipable method
-  override messageIdentifier(): TxHash {
+  override p2pMessageIdentifier(): BaseHashType {
     return this.getTxHash();
   }
 

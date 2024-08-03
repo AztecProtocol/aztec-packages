@@ -1,14 +1,26 @@
-import { TxHash } from "../index.js";
+import { BaseHashType } from '@aztec/foundation/hash';
 
 /**
  * Gossipable
- * 
+ *
  * Any class which extends gossipable will be able to be Gossiped over the p2p network
  */
 export abstract class Gossipable {
-    static getTopic: string;
-    abstract toBuffer(): Buffer;
+  /** p2p Topic
+   *
+   * - The p2p topic identifier, this determines how the message is handled
+   */
+  static p2pTopic: string;
 
-    // TODO: comment on what this is (a hash)! TODO: maybe alias this?
-    abstract messageIdentifier(): TxHash;
+  /** p2p Message Identifier
+   *
+   *  - A digest of the message information, this key is used for deduplication
+   */
+  abstract p2pMessageIdentifier(): BaseHashType;
+
+  /** To Buffer
+   *
+   * - Serialization method
+   */
+  abstract toBuffer(): Buffer;
 }

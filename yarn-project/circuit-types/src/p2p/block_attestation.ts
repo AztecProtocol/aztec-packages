@@ -1,46 +1,44 @@
-import { Header } from "@aztec/circuits.js";
-import { BufferReader, serializeToBuffer } from "@aztec/foundation/serialize";
-import { Gossipable } from "./gossipable.js";
-import { GOSSIP_PREFIX, TOPIC_VERSION, TopicType } from "./interface.js";
-import { TxHash } from "../index.js";
+import { Header } from '@aztec/circuits.js';
+import { BaseHashType } from '@aztec/foundation/hash';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { Gossipable } from './gossipable.js';
+import { GOSSIP_PREFIX, TOPIC_VERSION, TopicType } from './interface.js';
+
+export class BlockAttestationHash extends BaseHashType {
+  constructor(hash: Buffer) {
+    super(hash);
+  }
+}
 
 /**
  * BlockAttestation
- * 
- * A validator that has attested to seeing the contents of a block 
+ *
+ * A validator that has attested to seeing the contents of a block
  * will produce a block attestation over the header of the block
  */
 export class BlockAttestation extends Gossipable {
-    constructor(
-        /** The block header the attestation is made over */
-        public readonly header: Header,
-        /** The signature of the block attester */
-        public readonly signature: Buffer
-    ) {
-        super()
-    }
+  constructor(
+    /** The block header the attestation is made over */
+    public readonly header: Header,
+    /** The signature of the block attester */
+    public readonly signature: Buffer,
+  ) {
+    super();
+  }
 
-    static override getTopic = GOSSIP_PREFIX + TopicType.block_attestation + TOPIC_VERSION;
-    override messageIdentifier(): TxHash {
-        // Yuck!
-        return TxHash.fromBuffer(this.header.hash().toBuffer());
-    }
+  static override p2pTopic = GOSSIP_PREFIX + TopicType.block_attestation + TOPIC_VERSION;
 
-    toBuffer(): Buffer {
-        return serializeToBuffer(
-            [
-                this.header,
-                this.signature.length,
-                this.signature
-            ]
-        )
-    }
+  override p2pMessageIdentifier(): BaseHashType {
+    return BlockAttestationHash.fromField(this.header.hash());
+  }
 
-    static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
-        const reader = BufferReader.asReader(buf);
-        return new BlockAttestation(
-            reader.readObject(Header),
-            reader.readBuffer()
-        )
-    }
+  toBuffer(): Buffer {
+    return serializeToBuffer([this.header, this.signature.length, this.signature]);
+  }
+
+  static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
+    const reader = BufferReader.asReader(buf);
+    return new BlockAttestation(reader.readObject(Header), reader.readBuffer());
+  }
 }

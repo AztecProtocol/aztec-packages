@@ -1,4 +1,5 @@
-import { Tx, TopicType, TopicTypeMap } from '@aztec/circuit-types';
+import { TopicType, TopicTypeMap, Tx } from '@aztec/circuit-types';
+import { Gossipable, RawGossipMessage } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -21,9 +22,6 @@ import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-
-import {RawGossipMessage} from "@aztec/circuit-types";
-import { Gossipable } from '@aztec/circuit-types/dest/p2p/gossipable.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -50,7 +48,6 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
  * Lib P2P implementation of the P2PService interface.
  */
 export class LibP2PService implements P2PService {
-
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
@@ -238,7 +235,7 @@ export class LibP2PService implements P2PService {
    * @param data - The message data
    */
   private async handleNewGossipMessage(message: RawGossipMessage) {
-    if (message.topic === Tx.getTopic) {
+    if (message.topic === Tx.p2pTopic) {
       // Invalid TX Topic, ignore
       const tx = Tx.fromBuffer(Buffer.from(message.data));
       await this.processTxFromPeer(tx);
@@ -263,12 +260,12 @@ export class LibP2PService implements P2PService {
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {
-    const parent = message.constructor as typeof Gossipable
+    const parent = message.constructor as typeof Gossipable;
 
-    const identifier = message.messageIdentifier().toString();
+    const identifier = message.p2pMessageIdentifier().toString();
     this.logger.verbose(`Sending tx ${identifier} to peers`);
 
-    const recipientsNum = await this.publishToTopic(parent.getTopic, message.toBuffer());
+    const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
     this.logger.verbose(`Sent tx ${identifier} to ${recipientsNum} peers`);
   }
 
