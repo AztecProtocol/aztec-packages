@@ -102,10 +102,10 @@ template <class Builder> class DataBusDepot {
         auto inst_2 = instances[1]; // instance that has been folded
 
         // The first folding round is a special case in that it folds an instance into a non-accumulator instance. The
-        // fold proof thus contains two oink proofs. The first oink proof (stored in instance 0) contains the return
+        // fold proof thus contains two oink proofs. The first oink proof (stored in first instance) contains the return
         // data R_0' from the first app, and its calldata counterpart C_0' in the kernel will be contained in the second
-        // oink proof (stored in instance 1). In this special case, we can check directly that \pi_0.R_0' = \pi_0.C_0',
-        // without having had to propagate the return data commitment via the public inputs.
+        // oink proof (stored in second instance). In this special case, we can check directly that \pi_0.R_0' =
+        // \pi_0.C_0', without having had to propagate the return data commitment via the public inputs.
         if (!inst_1->is_accumulator) {
             // Assert equality of \pi_0.R_0' and \pi_0.C_0'
             auto& app_return_data = inst_1->witness_commitments.return_data;           // \pi_0.R_0'
@@ -113,8 +113,7 @@ template <class Builder> class DataBusDepot {
             assert_equality_of_commitments(app_return_data, secondary_calldata);       // assert equality R_0' == C_0'
         }
 
-        // Define aliases for members in the second (non-accumulator) instance which contains witness commitments and
-        // public inputs from an instance folded into the IVC.
+        // Define aliases for members in the second (non-accumulator) instance
         bool is_kernel_instance = inst_2->verification_key->databus_propagation_data.is_kernel;
         auto& propagation_data = inst_2->verification_key->databus_propagation_data;
         auto& public_inputs = inst_2->public_inputs;
@@ -141,6 +140,35 @@ template <class Builder> class DataBusDepot {
         // Propagate the return data commitment via the public inputs mechanism
         propagate_commitment_via_public_inputs(commitments.return_data, is_kernel_instance);
     };
+
+    /**
+     * @brief Set the witness indices for a commitment to public
+     * @details Indicate the presence of the propagated commitment by setting the corresponding flag and index in the
+     * public inputs. A distinction is made between kernel and app return data so consistency can be checked against the
+     * correct calldata entry later on.
+     *
+     * @param commitment
+     * @param is_kernel Indicates whether the return data being propagated is from a kernel or an app
+     */
+    void propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
+    {
+        auto context = commitment.get_context();
+
+        // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
+        size_t start_idx = context->public_inputs.size();
+        if (is_kernel) {
+            context->databus_propagation_data.contains_kernel_return_data_commitment = true;
+            context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
+        } else {
+            context->databus_propagation_data.contains_app_return_data_commitment = true;
+            context->databus_propagation_data.app_return_data_public_input_idx = start_idx;
+        }
+
+        // Set public the witness indices corresponding to the limbs of the point coordinates
+        for (auto& index : get_witness_indices_for_commitment(commitment)) {
+            context->set_public_input(index);
+        }
+    }
 
     /**
      * @brief Reconstruct a commitment from limbs stored in public inputs
@@ -199,35 +227,6 @@ template <class Builder> class DataBusDepot {
     {
         P0.x.assert_equal(P1.x);
         P0.y.assert_equal(P1.y);
-    }
-
-    /**
-     * @brief Set the witness indices for a commitment to public
-     * @details Indicate the presence of the propagated commitment by setting the corresponding flag and index in the
-     * public inputs. A distinction is made between kernel and app return data so consistency can be checked against the
-     * correct calldata entry later on.
-     *
-     * @param commitment
-     * @param is_kernel Indicates whether the return data being propagated is from a kernel or an app
-     */
-    void propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
-    {
-        auto context = commitment.get_context();
-
-        // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
-        size_t start_idx = context->public_inputs.size();
-        if (is_kernel) {
-            context->databus_propagation_data.contains_kernel_return_data_commitment = true;
-            context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
-        } else {
-            context->databus_propagation_data.contains_app_return_data_commitment = true;
-            context->databus_propagation_data.app_return_data_public_input_idx = start_idx;
-        }
-
-        // Set public the witness indices corresponding to the limbs of the point coordinates
-        for (auto& index : get_witness_indices_for_commitment(commitment)) {
-            context->set_public_input(index);
-        }
     }
 
     /**
