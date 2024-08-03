@@ -1,0 +1,34 @@
+\section{Notation}
+\label{sec:notation}
+
+The AltBN-254 group is $E(\Fq)$ with scalars in $\Fr$.
+We won't be using this group at all, so ignore it immediately and forget you ever read this paragraph.\\
+\\
+$\G$ is the Grumpkin group $E(\Fr)$ with scalars in $\Fq$.
+Note that both fields are 254 bits, but $q > r$. The "Field" type in Noir is $\Fr$.
+Operations in $\Fr$ are cheapest within a snark.\\
+\\
+Grumpkin points are denoted with a starting capital letter.
+Scalars are denoted in lower-case.
+Elliptic curve group operations are written in additive notation, so operators $+$ and $\cdot$ are used to denote addition and scalar multiplication, respectively.\\
+\\
+A subscript $_m$ often denotes "master" key.
+A subscript $_{app}$ often denotes "app-siloed" key.\\
+\\
+$\poseidon: \Fr^t \rightarrow \Fr$ is the Poseidon2 hash function (and $t$ can take values as per the \href{https://eprint.iacr.org/2023/323.pdf}{Poseidon2 spec}).\\
+\\
+\Mike{Note that $q > r$.
+Below, we'll often define secret keys as an element of $\Fr$, because it's efficient to derive secrets as the output of a snark-friendly hash, which outputs an element of $\Fr$.
+We'll then use such secret keys in scalar multiplications with Grumpkin points.
+Strictly speaking, such scalars in Grumpkin scalar multiplication should be in $\Fq$.  
+A potential consequence of using elements of $\Fr$ as secret keys could be that the resulting public keys are not uniformly-distributed in the Grumpkin group, so we should check this.
+From an old chat with Patrick: The distribution of such public keys will have a statistical distance of $\frac{2(q - r)}{q}$ from uniform.
+It turns out that $\frac{1}{2^{126}} < \frac{2(q - r)}{q} < \frac{1}{2^{125}}$, so the statistical distance from uniform is broadly negligible, especially considering that the AltBN254 curve has fewer than 125-bits of security.}\\
+\\
+\Mike{Below, illustrative domain separator strings are given as inputs to hashes.
+It's implied that these strings would be encoded in a single $\Fr$ element, so as to be compatible as an input to the hash function.
+If the current illustrative string is more bits than would fit, the string would need to be changed.}\\
+\\
+\Mike{Throughout, $\poseidon$ is assumed to be a pseudo-random function.}\\
+\\
+The notation $value[0:256]$ is lazy shorthand for a slice - i.e. "decompose this value into bits and take the 0th-255th bits, inclusive".
