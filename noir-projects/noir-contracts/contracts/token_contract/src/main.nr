@@ -295,7 +295,7 @@ contract Token {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes.get_unchecked(0);
+        let note = notes.get(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
@@ -351,7 +351,7 @@ contract Token {
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
     // docs:end:cancel_authwit
 

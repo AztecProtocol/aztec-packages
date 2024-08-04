@@ -350,7 +350,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+      const { slottedNoteHash, siloedNoteHash, innerNullifier } =
         await this.simulator.computeNoteHashAndOptionallyANullifier(
           note.contractAddress,
           nonce,
@@ -379,7 +379,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          innerNoteHash,
+          slottedNoteHash,
           siloedNullifier,
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
@@ -400,7 +400,7 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { innerNoteHash, siloedNoteHash, innerNullifier } =
+      const { slottedNoteHash, siloedNoteHash, innerNullifier } =
         await this.simulator.computeNoteHashAndOptionallyANullifier(
           note.contractAddress,
           nonce,
@@ -427,7 +427,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          innerNoteHash,
+          slottedNoteHash,
           Fr.ZERO, // We are not able to derive
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
@@ -450,24 +450,6 @@ export class PXEService implements PXE {
     }
 
     const nonces: Fr[] = [];
-
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-    // Remove this once notes added from public also include nonces.
-    {
-      const publicNoteNonce = Fr.ZERO;
-      const { siloedNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
-        note.contractAddress,
-        publicNoteNonce,
-        note.storageSlot,
-        note.noteTypeId,
-        false,
-        note.note,
-      );
-      if (tx.noteHashes.some(hash => hash.equals(siloedNoteHash))) {
-        nonces.push(publicNoteNonce);
-      }
-    }
-
     const firstNullifier = tx.nullifiers[0];
     const hashes = tx.noteHashes;
     for (let i = 0; i < hashes.length; ++i) {
@@ -590,7 +572,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -853,6 +835,11 @@ export class PXEService implements PXE {
 
   public async isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
+  }
+
+  public async isContractInitialized(address: AztecAddress): Promise<boolean> {
+    const initNullifier = siloNullifier(address, address);
+    return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
   public getEvents<T>(

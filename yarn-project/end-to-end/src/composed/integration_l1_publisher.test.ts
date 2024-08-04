@@ -1,15 +1,6 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  Body,
-  Fr,
-  GlobalVariables,
-  L2Actor,
-  type L2Block,
-  createDebugLogger,
-  mockTx,
-} from '@aztec/aztec.js';
+import { AztecAddress, Body, Fr, GlobalVariables, type L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   PROVING_STATUS,
@@ -60,6 +51,7 @@ import {
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
+import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
@@ -102,6 +94,8 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
+  // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
+  // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   beforeEach(async () => {
@@ -188,35 +182,11 @@ describe('L1Publisher integration', () => {
     return processedTx;
   };
 
-  const sendToL2 = async (content: Fr, recipientAddress: AztecAddress): Promise<Fr> => {
-    // @todo @LHerskind version hardcoded here (update to bigint or field)
-    const recipient = new L2Actor(recipientAddress, 1);
-    // getting the 32 byte hex string representation of the content
-    const contentString = content.toString();
-    // Using the 0 value for the secretHash.
-    const emptySecretHash = Fr.ZERO.toString();
-
-    const txHash = await inbox.write.sendL2Message(
-      [{ actor: recipient.recipient.toString(), version: BigInt(recipient.version) }, contentString, emptySecretHash],
-      {} as any,
+  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
+    return sendL1ToL2Message(
+      { content, secretHash: Fr.ZERO, recipient },
+      { publicClient, walletClient, l1ContractAddresses },
     );
-
-    const txReceipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
-    });
-
-    // Exactly 1 event should be emitted in the transaction
-    expect(txReceipt.logs.length).toBe(1);
-
-    // We decode the event log before checking it
-    const txLog = txReceipt.logs[0];
-    const topics = decodeEventLog({
-      abi: InboxAbi,
-      data: txLog.data,
-      topics: txLog.topics,
-    });
-
-    return Fr.fromString(topics.args.hash);
   };
 
   /**
@@ -262,6 +232,7 @@ describe('L1Publisher integration', () => {
           },
           globalVariables: {
             blockNumber: block.number,
+            slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
@@ -377,6 +348,7 @@ describe('L1Publisher integration', () => {
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
+        new Fr(1 + i) /** slot number */,
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
@@ -398,7 +370,7 @@ describe('L1Publisher integration', () => {
       // Check that we have not yet written a root to this blocknumber
       expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-      writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
+      writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
       await publisher.processL2Block(block);
 
@@ -468,6 +440,7 @@ describe('L1Publisher integration', () => {
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
+        new Fr(1 + i) /** slot number */,
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
@@ -483,7 +456,7 @@ describe('L1Publisher integration', () => {
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-      writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+      writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
       await publisher.processL2Block(block);
 

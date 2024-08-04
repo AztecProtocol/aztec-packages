@@ -1,7 +1,7 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_inner_note_hash, compute_note_hash_for_consumption}, note_emission::NoteEmission
+    utils::{compute_slotted_note_hash, compute_note_hash_for_consumption}, note_emission::NoteEmission
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
@@ -15,7 +15,7 @@ pub fn create_note<Note, N, M>(
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
     note.set_header(header);
-    let inner_note_hash = compute_inner_note_hash(*note);
+    let slotted_note_hash = compute_slotted_note_hash(*note);
 
     let serialized_note = Note::serialize_content(*note);
     assert(
@@ -23,13 +23,13 @@ pub fn create_note<Note, N, M>(
         storage_slot,
         Note::get_note_type_id(),
         serialized_note,
-        inner_note_hash,
+        slotted_note_hash,
         note_hash_counter
     )
         == 0
     );
 
-    context.push_note_hash(inner_note_hash);
+    context.push_note_hash(slotted_note_hash);
 
     NoteEmission::new(*note)
 }
@@ -43,9 +43,9 @@ pub fn create_note_hash_from_public<Note, N, M>(
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };
     note.set_header(header);
-    let inner_note_hash = compute_inner_note_hash(*note);
+    let slotted_note_hash = compute_slotted_note_hash(*note);
 
-    context.push_note_hash(inner_note_hash);
+    context.push_note_hash(slotted_note_hash);
 }
 
 pub fn destroy_note<Note, N, M>(
@@ -56,19 +56,19 @@ pub fn destroy_note<Note, N, M>(
 
     let note_hash_counter = note.get_header().note_hash_counter;
     let note_hash_for_consumption = if (note_hash_counter == 0) {
-        // Counter is zero, so we're nullifying a non-transient note and we don't populate the note_hash with real
-        // value (if we did so the `notifyNullifiedNote` oracle would throw).
+        // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
         0
     } else {
-        // A non-zero note hash counter implies that we're nullifying a transient note (i.e. one that has not yet been
+        // A non-zero note hash counter implies that we're nullifying a pending note (i.e. one that has not yet been
         // persisted in the trees and is instead in the pending new note hashes array). In such a case we populate its
-        // hash with real value to inform the kernel which note we're nullifyng so that it can find it and squash both
-        // the note and the nullifier.
+        // hash with real value to inform the kernel which note we're nullifyng so that it can either squash both
+        // the note and the nullifier if it's an inner note hash, or check that the it matches a pending note if it's
+        // a siloed note hash.
         note_hash
     };
 
     let nullifier_counter = context.side_effect_counter;
     assert(notify_nullified_note(nullifier, note_hash_for_consumption, nullifier_counter) == 0);
 
-    context.push_nullifier(nullifier, note_hash_for_consumption)
+    context.push_nullifier_for_note_hash(nullifier, note_hash_for_consumption)
 }
