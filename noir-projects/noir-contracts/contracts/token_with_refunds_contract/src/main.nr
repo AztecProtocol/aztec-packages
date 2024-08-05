@@ -469,7 +469,8 @@ contract TokenWithRefunds {
         // to the user in the `complete_refund(...)` function.
         storage.balances.sub(user, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk, user));
 
-        // 4. Now we "manually" compute the slots (by setting the slots we insert the notes to the balances map under a correct key)
+        // 4. Now we "manually" compute the slots (by setting the slots we insert the notes to the balances map under
+        // the correct keys)
         let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
         let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
 
@@ -518,14 +519,14 @@ contract TokenWithRefunds {
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(
-        // TODO: the following makes macros crash --> try getting it work once we migrate to metaprogramming
+        // TODO(#7771): the following makes macros crash --> try getting it work once we migrate to metaprogramming
         // mut fee_payer_point: TokenNoteHidingPoint,
         // mut user_point: TokenNoteHidingPoint,
         fee_payer_point_immutable: TokenNoteHidingPoint,
         user_point_immutable: TokenNoteHidingPoint,
         funded_amount: Field
     ) {
-        // TODO: nuke the following 2 lines once we have mutable args
+        // TODO(#7771): nuke the following 2 lines once we have mutable args
         let mut fee_payer_point = fee_payer_point_immutable;
         let mut user_point = user_point_immutable;
 

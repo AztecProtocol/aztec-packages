@@ -23,7 +23,7 @@ export class IncomingNoteDao implements NoteData {
     /** The nonce of the note. */
     public nonce: Fr,
     /**
-     * Note hash of the note. This is customizable by the app circuit.
+     * A hash of the note. This is customizable by the app circuit.
      * We can use this value to compute siloedNoteHash and uniqueSiloedNoteHash.
      */
     public noteHash: Fr,

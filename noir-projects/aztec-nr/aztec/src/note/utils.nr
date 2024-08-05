@@ -49,7 +49,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
 
     if header.nonce == 0 {
         // Case 1.
-        // If a note is transient, we just read the note_hash (kernel will hash with nonce and silo by contract address).
+        // If a note is transient, we just read the note_hash (kernel will hash it with nonce and silo by contract address).
         note_hash
     } else {
         // Case 2: If a note is non-revertible, and is nullified by a revertible nullifier, we cannot squash them in the 

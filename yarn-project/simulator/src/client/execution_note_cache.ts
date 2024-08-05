@@ -83,8 +83,8 @@ export class ExecutionNoteCache {
    * Add a nullifier to cache. It could be for a db note or a new note created during execution.
    * @param contractAddress - Contract address of the note.
    * @param innerNullifier - Inner nullifier of the note.
-   * @param noteHash - A note hash of the note. If this value equals 0, it means the
-   * note being nullified is from a previous transaction (and thus not a new note).
+   * @param noteHash - A hash of the note. If this value equals 0, it means the note being nullified is from a previous
+   * transaction (and thus not a new note).
    */
   public nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
     const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
