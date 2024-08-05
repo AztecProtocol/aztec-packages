@@ -1,6 +1,6 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { GeneratorIndex, KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { computeUniqueNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
@@ -63,9 +63,8 @@ describe('Simulator', () => {
       const note = createNote();
       const noteHash = computeNoteHash(storageSlot, note.items);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
-      const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
       const innerNullifier = poseidon2HashWithSeparator(
-        [siloedNoteHash, appNullifierSecretKey],
+        [uniqueNoteHash, appNullifierSecretKey],
         GeneratorIndex.NOTE_NULLIFIER,
       );
 
@@ -78,12 +77,9 @@ describe('Simulator', () => {
         note,
       );
 
-      expect(result).toEqual({
-        noteHash,
-        uniqueNoteHash,
-        siloedNoteHash,
-        innerNullifier,
-      });
+      expect(result.noteHash).toEqual(noteHash);
+      expect(result.uniqueNoteHash).toEqual(uniqueNoteHash);
+      expect(result.innerNullifier).toEqual(innerNullifier);
     });
 
     it('throw if the contract does not implement "compute_note_hash_and_optionally_a_nullifier"', async () => {

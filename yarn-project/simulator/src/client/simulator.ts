@@ -130,14 +130,14 @@ export class AcirSimulator {
   }
 
   /**
-   * Computes the inner nullifier of a note.
+   * Computes note hashes and an inner nullifier.
    * @param contractAddress - The address of the contract.
    * @param nonce - The nonce of the note hash.
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The note type identifier.
    * @param computeNullifier - A flag indicating whether to compute the nullifier or just return 0.
    * @param note - The note.
-   * @returns The nullifier.
+   * @returns Note hashes and inner nullifier (nullifier before contract address siloing).
    */
   public async computeNoteHashAndOptionallyANullifier(
     contractAddress: AztecAddress,
