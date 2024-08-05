@@ -469,7 +469,8 @@ mod tests {
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
         accumulated_data::CombinedAccumulatedData, gas::Gas
     },
-        merkle_tree::MembershipWitness, data::public_data_hint::PublicDataHint,
+        messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
+        hash::silo_l2_to_l1_message, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
         ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -1089,18 +1090,23 @@ mod tests {
         assert_eq(outputs.out_hash, expected_out_hash);
     }
 
-    // #[test]
-    // unconstrained fn nonempty_block_out_hash() {
-    //     let mut end = CombinedAccumulatedData::empty();
-    //     for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-    //         end.l2_to_l1_msgs[i] = 10 + i as Field;
-    //     }
+    #[test]
+    unconstrained fn nonempty_block_out_hash() {
+        let mut builder = BaseRollupInputsBuilder::new();
 
-    //     let out_hash = compute_kernel_out_hash(end);
-    //     // Since we fill the tree completely, we know to expect a full tree as below
-    //     let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(end.l2_to_l1_msgs);
-    //     assert_eq(out_hash, expected_tree.get_root());
-    // }
+        for i in 0..MAX_L2_TO_L1_MSGS_PER_TX {
+            builder.kernel_data.add_exposed_l2_to_l1_message(i as Field, EthAddress::from_field(1 + i as Field));
+        }
+
+        let out_hash = builder.execute().out_hash;
+        let siloed_l2_to_l1_msgs = builder.kernel_data.l2_to_l1_msgs.map(
+            |l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(l2_to_l1_message, builder.constants.global_variables.version, builder.constants.global_variables.chain_id)
+        );
+
+        // Since we fill the tree completely, we know to expect a full tree as below
+        let expected_tree = dep::types::merkle_tree::variable_merkle_tree::tests::generate_full_sha_tree(siloed_l2_to_l1_msgs.storage);
+        assert_eq(out_hash, expected_tree.get_root());
+    }
 
     #[test(should_fail_with = "membership check failed")]
     unconstrained fn compute_membership_archive_negative() {
