@@ -12,6 +12,7 @@ use dep::protocol_types::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
+// TODO(benesjan): nuke altogether
 pub fn compute_slotted_note_hash<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
     note.compute_note_hiding_point().x
 }
