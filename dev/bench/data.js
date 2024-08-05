@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722869231885,
+  "lastUpdate": 1722873702458,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -108652,6 +108652,78 @@ window.BENCHMARK_DATA = {
             "value": 174751824,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 174751824 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a09636c88dc1db8038e3c9fa68cc7c7d2ddf8894",
+          "message": "feat(bb): optimize tuple creation (#7770)\n\n35% improvement in VM compilation time, and I'm sure it will improve\nBB's compilation time in general. Using this same trick, avoiding tuple\nconcat and recursive usage, we can make other functions faster to\ncompile as well.\n\nBEFORE\n```\nVM Total Compilation time(ms): 684615\n255329 ms: std::tuple_cat<$> (3092 times, avg 82 ms)\n243861 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates<$> (99 times, avg 2463 ms)\n188579 ms: std::__tuple_concater<$>::_S_do<$> (3092 times, avg 60 ms)\n118890 ms: bb::create_tuple_of_arrays_of_values<$> (177 times, avg 671 ms)\n112903 ms: std::tuple<$> (6588 times, avg 17 ms)\n```\n\nAFTER\n```\nVM Total Compilation time(ms): 451748\n41011 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates<$> (99 times, avg 414 ms)\n40975 ms: bb::create_sumcheck_tuple_of_tuples_of_univariates_internal<$> (99 times, avg 413 ms)\n```",
+          "timestamp": "2024-08-05T16:39:31+01:00",
+          "tree_id": "aa184b49552c1ddf6ce9cf85117b0220c6693056",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a09636c88dc1db8038e3c9fa68cc7c7d2ddf8894"
+        },
+        "date": 1722873693316,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13327.43683800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9994.703361000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4777.261061000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4286.848913999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39740.943113,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39740943000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14340.227816,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14340228000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3658475532,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3658475532 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213932028,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213932028 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3005883589,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3005883589 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173915477,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173915477 ns\nthreads: 1"
           }
         ]
       }
