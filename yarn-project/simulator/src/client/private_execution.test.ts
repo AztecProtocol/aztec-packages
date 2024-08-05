@@ -49,13 +49,13 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash, poseidon2Hash, randomInt } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, INITIAL_LEAF, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, INITIAL_LEAF, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -145,8 +145,8 @@ describe('Private Execution test suite', () => {
     }
     if (!trees[name]) {
       const db = openTmpStore();
-      const pedersen = new Pedersen();
-      trees[name] = await newTree(StandardTree, db, pedersen, name, Fr, treeHeights[name]);
+      const poseidon = new Poseidon();
+      trees[name] = await newTree(StandardTree, db, poseidon, name, Fr, treeHeights[name]);
     }
     const tree = trees[name];
 
@@ -264,7 +264,7 @@ describe('Private Execution test suite', () => {
       new PublicDataWitness(
         0n,
         PublicDataTreeLeafPreimage.empty(),
-        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Pedersen()),
+        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Poseidon()),
       ),
     );
 
@@ -297,7 +297,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedLog.length).toEqual(new Fr(functionLogs.getKernelLength()));
       // 5 is hardcoded in the test contract
       expect(encryptedLog.randomness).toEqual(new Fr(5));
-      const expectedMaskedAddress = pedersenHash([result.callStackItem.contractAddress, new Fr(5)], 0);
+      const expectedMaskedAddress = poseidon2HashWithSeparator([result.callStackItem.contractAddress, new Fr(5)], 0);
       expect(expectedMaskedAddress).toEqual(functionLogs.logs[0].maskedContractAddress);
     });
   });
@@ -995,11 +995,10 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.callStackItem.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2Hash([
-        slottedNoteHash,
-        computeAppNullifierSecretKey(ownerNskM, contractAddress),
+      const expectedNullifier = poseidon2HashWithSeparator(
+        [slottedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
-      ]);
+      );
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 
@@ -1079,11 +1078,10 @@ describe('Private Execution test suite', () => {
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2Hash([
-        slottedNoteHash,
-        computeAppNullifierSecretKey(ownerNskM, contractAddress),
+      const expectedNullifier = poseidon2HashWithSeparator(
+        [slottedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
-      ]);
+      );
       expect(nullifier.value).toEqual(expectedNullifier);
     });
 

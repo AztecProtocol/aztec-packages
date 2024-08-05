@@ -35,7 +35,7 @@ pub fn private_functions_root_from_siblings(
 
 fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     // Hashing tx hash with note index in tx is guaranteed to be unique
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         tx_hash,
         note_index_in_tx as Field
@@ -46,11 +46,11 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
 
 pub fn compute_unique_note_hash(nonce: Field, slotted_note_hash: Field) -> Field {
     let inputs = [nonce, slotted_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+    poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         app.to_field(),
         unique_note_hash
@@ -70,7 +70,7 @@ pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_t
 }
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         app.to_field(),
         nullifier
@@ -90,7 +90,7 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
 pub fn compute_siloed_encrypted_log_hash(address: AztecAddress, randomness: Field, log_hash: Field) -> Field {
     // TODO: Using 0 GENERATOR_INDEX here as interim before we move to posiedon
     // NB: A unique separator will be needed for masked_contract_address
-    let mut masked_contract_address = pedersen_hash([address.to_field(), randomness], 0);
+    let mut masked_contract_address = poseidon2_hash_with_separator([address.to_field(), randomness], 0);
     if randomness == 0 {
         // In some cases, we actually want to reveal the contract address we are siloing with:
         // e.g. 'handshaking' contract w/ known address
@@ -125,7 +125,7 @@ pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
-    pedersen_hash([left, right], 0)
+    poseidon2_hash([left, right])
 }
 
 pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey) -> Field {
@@ -256,7 +256,10 @@ pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
 }
 
 #[no_predicates]
-pub fn poseidon2_hash_with_separator<N, T>(inputs: [Field; N], separator: T) -> Field where T: ToField {
+pub fn poseidon2_hash_with_separator<let N: u32, T>(
+    inputs: [Field; N],
+    separator: T
+) -> Field where T: ToField {
     // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
     let in_len = N + 1;
     let two_pow_64 = 18446744073709551616;
