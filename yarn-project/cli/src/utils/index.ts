@@ -1,4 +1,3 @@
-export { getContractArtifact } from './aztec.js';
 export * from './commands.js';
 export * from './aztec.js';
 export * from './encoding.js';

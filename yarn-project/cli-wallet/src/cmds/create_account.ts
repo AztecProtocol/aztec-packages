@@ -1,10 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type DeployAccountOptions, createCompatibleClient } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js';
+import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { prettyPrintJSON } from '../utils/commands.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/fees.js';
 
 export async function createAccount(
