@@ -81,6 +81,7 @@ jobs:
     outputs:
       deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
       branch_name: ${{ steps.set_network_vars.outputs.branch_name }}
+      network_api_key: ${{ steps.set_network_vars.outputs.network_api_key }}
     steps:
       - name: Set network vars
         shell: bash
@@ -91,10 +92,12 @@ jobs:
           then
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
               echo "branch_name=devnet" >> $GITHUB_OUTPUT
+              echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
+              echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -107,6 +110,8 @@ jobs:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -117,22 +122,6 @@ jobs:
         with:
           concurrency_key: build-release-artifacts-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: Set network vars
-        shell: bash
-        run: |
-          env
-          if [ "$BRANCH_NAME" = "devnet" ]
-          then
-              echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "provernet" ]
-          then
-              echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-          else
-              echo "Unrecognized Branch!!"
-          fi
-        id: set_network_vars
       - name: Check if only workflow flows have changed
         id: check_only_workflow_changes
         uses: actions/github-script@v7
@@ -194,6 +183,8 @@ jobs:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -209,23 +200,6 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-
-      - name: Set network api key
-        shell: bash
-        run: |
-          env
-          if [ "$BRANCH_NAME" = "devnet" ]
-          then
-              echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "provernet" ]
-          then
-              echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-          else
-              echo "Unrecognized Branch!!"
-          fi
-        id: set_network_vars
 
       - name: Deploy mainnet fork
         working-directory: ./iac/mainnet-fork/terraform
@@ -308,6 +282,8 @@ jobs:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -321,23 +297,6 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-
-      - name: Set network api key
-        shell: bash
-        run: |
-          env
-          if [ "$BRANCH_NAME" = "devnet" ]
-          then
-              echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "provernet" ]
-          then
-              echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-          else
-              echo "Unrecognized Branch!!"
-          fi
-        id: set_network_vars
 
       - name: Wait for PXE to be available
         run: |
@@ -376,6 +335,8 @@ jobs:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -391,23 +352,6 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-
-      - name: Set network api key
-        shell: bash
-        run: |
-          env
-          if [ "$BRANCH_NAME" = "devnet" ]
-          then
-              echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "provernet" ]
-          then
-              echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-          else
-              echo "Unrecognized Branch!!"
-          fi
-        id: set_network_vars
 
       - name: Retrieve contract addresses
         run: |
@@ -431,6 +375,10 @@ jobs:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      TF_VAR_PROVING_ENABLED: true
+      TF_VAR_BOT_NO_START: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -446,29 +394,6 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
-
-      - name: Set network api key
-        shell: bash
-        run: |
-          env
-          if [ "$BRANCH_NAME" = "devnet" ]
-          then
-              echo "API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.DEVNET_API_KEY }}" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "provernet" ]
-          then
-              echo "API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-              echo "TF_VAR_API_KEY=${{ secrets.PROVERNET_API_KEY }}" >> $GITHUB_ENV
-          else
-              echo "Unrecognized Branch!!"
-          fi
-        id: set_network_vars
-
-      - name: Switch on proving
-        run: |
-          set -e
-          echo "TF_VAR_PROVING_ENABLED=true" >>$GITHUB_ENV
-          echo "TF_VAR_BOT_NO_START=false" >>$GITHUB_ENV
 
       - name: Deploy PXE
         working-directory: ./yarn-project/aztec/terraform/pxe
