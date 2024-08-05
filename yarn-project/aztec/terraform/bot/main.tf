@@ -122,10 +122,10 @@ resource "aws_ec2_fleet" "bot_fleet" {
   }
 
   target_capacity_specification {
-    default_target_capacity_type = "spot"
+    default_target_capacity_type = "on-demand"
     total_target_capacity        = var.BOT_COUNT
-    spot_target_capacity         = var.BOT_COUNT
-    on_demand_target_capacity    = 0
+    spot_target_capacity         = 0
+    on_demand_target_capacity    = var.BOT_COUNT
   }
 
   terminate_instances                 = true
@@ -169,7 +169,8 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "BOT_TX_MINED_WAIT_SECONDS", value = var.BOT_TX_MINED_WAIT_SECONDS },
         { name = "BOT_NO_WAIT_FOR_TRANSFERS", value = var.BOT_NO_WAIT_FOR_TRANSFERS },
         { name = "AZTEC_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-1.local/${var.DEPLOY_TAG}/aztec-node-1/${var.API_KEY}" },
-        { name = "PXE_PROVER_ENABLED", value = tostring(var.PROVING_ENABLED) }
+        { name = "PXE_PROVER_ENABLED", value = tostring(var.PROVING_ENABLED) },
+        { name = "NETWORK", value = var.DEPLOY_TAG }
       ]
       logConfiguration = {
         logDriver = "awslogs"

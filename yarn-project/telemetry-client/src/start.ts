@@ -9,6 +9,7 @@ export interface TelemetryClientConfig {
   collectorBaseUrl?: URL;
   serviceName: string;
   serviceVersion: string;
+  networkId: string;
 }
 
 export const telemetryClientConfigMappings = {
@@ -20,14 +21,17 @@ export const telemetryClientConfigMappings = {
   serviceName: {
     env: 'TEL_SERVICE_NAME',
     description: 'The name of the telemetry service',
-    parseEnv: (val: string) => val,
     default: 'aztec',
   },
   serviceVersion: {
     env: 'TEL_SERVICE_VERSION',
     description: 'The version of the telemetry service',
-    parseEnv: (val: string) => val,
     default: '0.0.0',
+  },
+  networkId: {
+    env: 'TEL_NETWORK_ID',
+    description: 'The network ID of the telemetry service',
+    default: 'local',
   },
 };
 
@@ -35,7 +39,13 @@ export function createAndStartTelemetryClient(config: TelemetryClientConfig): Te
   const log = createDebugLogger('aztec:telemetry-client');
   if (config.collectorBaseUrl) {
     log.info('Using OpenTelemetry client');
-    return OpenTelemetryClient.createAndStart(config.serviceName, config.serviceVersion, config.collectorBaseUrl, log);
+    return OpenTelemetryClient.createAndStart(
+      config.serviceName,
+      config.serviceVersion,
+      config.networkId,
+      config.collectorBaseUrl,
+      log,
+    );
   } else {
     log.info('Using NoopTelemetryClient');
     return new NoopTelemetryClient();

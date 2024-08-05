@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   workflow_run:
     workflows:
-      - Deploy to devnet
+      - Deploy to network
     types:
       # triggered even if the workflow fails
       - completed
@@ -17,9 +17,9 @@ env:
   GIT_COMMIT: devnet
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AZTEC_NODE_URL: https://api.aztec.network/devnet/aztec-node-1/{{ secrets.FORK_API_KEY }}
-  FAUCET_URL: https://api.aztec.network/devnet/aztec-faucet/{{ secrets.FORK_API_KEY }}
-  ETHEREUM_HOST: https://devnet-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }}
+  AZTEC_NODE_URL: https://api.aztec.network/devnet/aztec-node-1/{{ secrets.DEVNET_API_KEY }}
+  FAUCET_URL: https://api.aztec.network/devnet/aztec-faucet/{{ secrets.DEVNET_API_KEY }}
+  ETHEREUM_HOST: https://devnet-mainnet-fork.aztec.network:8545/${{ secrets.DEVNET_API_KEY }}
 
 jobs:
   setup:

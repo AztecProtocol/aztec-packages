@@ -14,6 +14,9 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/attribute-naming/}
  */
 
+/** The Aztec network identifier */
+export const NETWORK_ID = 'aztec.network.id';
+
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
  * @see {@link @aztec/circuit-types/stats:CircuitName}
@@ -49,6 +52,8 @@ export const BLOCK_SIZE = 'aztec.block.size';
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */
 export const OK = 'aztec.ok';
+/** Generic status attribute */
+export const STATUS = 'aztec.status';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The phase of the transaction */
