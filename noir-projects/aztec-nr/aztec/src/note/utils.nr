@@ -64,16 +64,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // tree) created in a previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash);
-        compute_siloed_note_hash(header.contract_address, unique_note_hash)
-        // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
-        // "siloed" by contract address. When a note hash is computed solely for the purpose of
-        // nullification, it is not strictly necessary to silo the note hash before computing
-        // its nullifier. In other words, it is NOT NECESSARY for protocol security that a nullifier
-        // be computed from a siloed note hash. After all, persistable note hashes and nullifiers are
-        // siloed by the kernel circuit. That being said, the siloed note hash computed above CAN be
-        // used for nullifier computation, and this achieves the (arguably unnecessary) property that
-        // nullifiers are computed from a note hash's fully-computed note hash tree leaf.
+        compute_unique_note_hash(header.nonce, note_hash)
     }
 }
 
