@@ -446,7 +446,7 @@ resource "aws_alb_target_group" "aztec-node-http" {
 resource "aws_lb_listener_rule" "api" {
   count        = local.node_count
   listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
-  priority     = 500 + count.index
+  priority     = var.NODE_LB_RULE_PRIORITY + count.index
 
   action {
     type             = "forward"
@@ -481,18 +481,20 @@ resource "aws_security_group_rule" "allow-node-tcp-out" {
 }
 
 resource "aws_security_group_rule" "allow-node-udp-in" {
+  count             = local.node_count
   type              = "ingress"
   from_port         = var.NODE_P2P_UDP_PORT
-  to_port           = var.NODE_P2P_UDP_PORT + 100
+  to_port           = var.NODE_P2P_UDP_PORT + count.index
   protocol          = "udp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
 resource "aws_security_group_rule" "allow-node-udp-out" {
+  count             = local.node_count
   type              = "egress"
   from_port         = var.NODE_P2P_UDP_PORT
-  to_port           = var.NODE_P2P_UDP_PORT + 100
+  to_port           = var.NODE_P2P_UDP_PORT + count.index
   protocol          = "udp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id

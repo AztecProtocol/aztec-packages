@@ -41,6 +41,9 @@ env:
   TF_VAR_SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 0 # disable auto block building
   TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
   TF_VAR_SEQ_MAX_TX_PER_BLOCK: 64
+  TF_VAR_NODE_P2P_TCP_PORT: 40000
+  TF_VAR_NODE_P2P_UDP_PORT: 45000
+  TF_VAR_NODE_LB_RULE_PRIORITY: 500
 
   # Anvil
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
@@ -64,6 +67,9 @@ env:
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 180
   TF_VAR_BOT_COUNT: 1
 
+  # PXE
+  TF_VAR_PXE_LB_RULE_PRIORITY: 4000
+
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
@@ -84,6 +90,10 @@ jobs:
       network_api_key: ${{ steps.set_network_vars.outputs.network_api_key }}
       agents_per_prover: ${{ steps.set_network_vars.outputs.agents_per_prover }}
       bot_interval: ${{ steps.set_network_vars.outputs.bot_interval }}
+      node_tcp_range_start: ${{ steps.set_network_vars.outputs.node_tcp_range_start }}
+      node_udp_range_start: ${{ steps.set_network_vars.outputs.node_udp_range_start }}
+      node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.node_lb_priority_range_start }}
+      pxe_lb_priority_range_start: ${{ steps.set_network_vars.outputs.pxe_lb_priority_range_start }}
     steps:
       - name: Set network vars
         shell: bash
@@ -97,6 +107,10 @@ jobs:
               echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=2" >> $GITHUB_OUTPUT
               echo "bot_interval=180" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40100" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4100" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5100" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
@@ -104,6 +118,10 @@ jobs:
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=2" >> $GITHUB_OUTPUT
               echo "bot_interval=180" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4200" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5200" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
@@ -111,6 +129,10 @@ jobs:
               echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=1" >> $GITHUB_OUTPUT
               echo "bot_interval=300" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40000" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45000" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4000" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5000" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -347,6 +369,10 @@ jobs:
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
       TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
+      TF_VAR_NODE_P2P_TCP_PORT: ${{ needs.set-network.outputs.node_tcp_range_start }}
+      TF_VAR_NODE_P2P_UDP_PORT: ${{ needs.set-network.outputs.node_udp_range_start }}
+      TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
+      TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -541,6 +567,10 @@ jobs:
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
       TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
+      TF_VAR_NODE_P2P_TCP_PORT: ${{ needs.set-network.outputs.node_tcp_range_start }}
+      TF_VAR_NODE_P2P_UDP_PORT: ${{ needs.set-network.outputs.node_udp_range_start }}
+      TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
+      TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
       TF_VAR_PROVING_ENABLED: true
       TF_VAR_BOT_NO_START: false
     steps:

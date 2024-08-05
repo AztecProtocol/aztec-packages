@@ -19,3 +19,8 @@ variable "PROVING_ENABLED" {
   type    = bool
   default = false
 }
+
+variable "PXE_LB_RULE_PRIORITY" {
+  type    = number
+  default = 5000
+}
