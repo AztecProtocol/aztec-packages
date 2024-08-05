@@ -126,64 +126,100 @@ resource "aws_launch_template" "proving-agent-launch-template" {
   }
 }
 
-# Sets up the autoscaling groups
-resource "aws_autoscaling_group" "proving-agent-auto-scaling-group" {
-  count               = local.node_count
-  min_size            = 1
-  max_size            = local.agents_per_prover
-  desired_capacity    = 1
-  vpc_zone_identifier = [data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id, data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id]
-
-  mixed_instances_policy {
-    instances_distribution {
-      on_demand_base_capacity                  = 1
-      on_demand_percentage_above_base_capacity = 100
-      spot_allocation_strategy                 = "lowest-price"
-      spot_max_price                           = "0.7" # Current spot instance price for the m5.8xlarge instance type
-    }
-
-    launch_template {
-      launch_template_specification {
-        launch_template_id = aws_launch_template.proving-agent-launch-template[count.index].id
-        version            = "$Latest"
-      }
-    }
-  }
-
-  tag {
-    key                 = "AmazonECSManaged"
-    value               = true
-    propagate_at_launch = true
-  }
-}
-
-
-# Capacity provider to manage the scaling of the EC2 instances
-resource "aws_ecs_capacity_provider" "proving-agent-capacity-provider" {
+resource "aws_ec2_fleet" "aztec_proving_agent_fleet" {
   count = local.node_count
-  name  = "${var.DEPLOY_TAG}-proving-agent-capacity-provider-${count.index + 1}"
+  launch_template_config {
+    launch_template_specification {
+      launch_template_id = aws_launch_template.proving-agent-launch-template[count.index].id
+      version            = aws_launch_template.proving-agent-launch-template[count.index].latest_version
+    }
 
+    override {
+      subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
+      availability_zone = "eu-west-2a"
+      max_price         = "0.7"
+    }
 
-  auto_scaling_group_provider {
-    auto_scaling_group_arn         = aws_autoscaling_group.proving-agent-auto-scaling-group[count.index].arn
-    managed_termination_protection = "DISABLED"
-
-    managed_scaling {
-      maximum_scaling_step_size = local.agents_per_prover
-      minimum_scaling_step_size = 1
-      status                    = "ENABLED"
-      target_capacity           = 100
+    override {
+      subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
+      availability_zone = "eu-west-2b"
+      max_price         = "0.7"
     }
   }
+
+  target_capacity_specification {
+    default_target_capacity_type = "on-demand"
+    total_target_capacity        = local.agents_per_prover
+    spot_target_capacity         = 0
+    on_demand_target_capacity    = local.agents_per_prover
+  }
+
+  terminate_instances                 = true
+  terminate_instances_with_expiration = true
 }
 
-# Update the capacity providers on the cluster
-resource "aws_ecs_cluster_capacity_providers" "proving-agent-capacity-providers" {
-  count        = local.node_count
-  cluster_name = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name
+# Sets up the autoscaling groups
+# resource "aws_autoscaling_group" "proving-agent-auto-scaling-group" {
+#   count               = local.node_count
+#   min_size            = 1
+#   max_size            = local.agents_per_prover
+#   desired_capacity    = 1
+#   vpc_zone_identifier = [data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id, data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id]
 
-  capacity_providers = [aws_ecs_capacity_provider.proving-agent-capacity-provider[count.index].name]
-}
+#   mixed_instances_policy {
+#     instances_distribution {
+#       on_demand_base_capacity                  = 1
+#       on_demand_percentage_above_base_capacity = 100
+#       spot_allocation_strategy                 = "lowest-price"
+#       spot_max_price                           = "0.7" # Current spot instance price for the m5.8xlarge instance type
+#     }
+
+#     launch_template {
+#       launch_template_specification {
+#         launch_template_id = aws_launch_template.proving-agent-launch-template[count.index].id
+#         version            = "$Latest"
+#       }
+#     }
+#   }
+
+#   tag {
+#     key                 = "AmazonECSManaged"
+#     value               = true
+#     propagate_at_launch = true
+#   }
+# }
+
+
+# # Capacity provider to manage the scaling of the EC2 instances
+# resource "aws_ecs_capacity_provider" "proving-agent-capacity-provider" {
+#   count = local.node_count
+#   name  = "${var.DEPLOY_TAG}-proving-agent-capacity-provider-${count.index + 1}"
+
+
+#   auto_scaling_group_provider {
+#     auto_scaling_group_arn         = aws_autoscaling_group.proving-agent-auto-scaling-group[count.index].arn
+#     managed_termination_protection = "DISABLED"
+
+#     managed_scaling {
+#       maximum_scaling_step_size = local.agents_per_prover
+#       minimum_scaling_step_size = 1
+#       status                    = "ENABLED"
+#       target_capacity           = 100
+#     }
+#   }
+# }
+
+# # Update the capacity providers on the cluster
+# resource "aws_ecs_cluster_capacity_providers" "proving-agent-capacity-providers" {
+#   count        = local.node_count
+#   cluster_name = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name
+
+#   #capacity_providers = [aws_ecs_capacity_provider.proving-agent-capacity-provider[count.index].name]
+
+#   capacity_providers = local.enable_ecs_cluster_auto_scaling == true ? aws_ecs_capacity_provider.asg[*].name : []
+
+#   capacity_providers = (contains(capacity_providers, aws_ecs_capacity_provider.proving-agent-capacity-provider[count.index].name) == false ? concat(capacity_providers, [aws_ecs_capacity_provider.proving-agent-capacity-provider[count.index].name]) : capacity_providers)
+# }
 
 
 # Define task definitions for each node.
@@ -259,15 +295,6 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
 DEFINITIONS
 }
 
-# The ECS service
-# Scaling works as follows:
-# 1. We always run 1 proving agent
-# 2. We create cloud watch metrics/alarms that detect when that agent gets busy
-# 3. When that alarm triggers, it tells ECS to create more tasks
-# 4. ECS does this and requests more capacity from the capacity provider (EC2)
-# 5. EC2 responds by starting additional instances to get up to local.agents_per_prover instances
-# 6. ECS places the new tasks on these instances
-# 7. Scaliing back down happens in reverese
 resource "aws_ecs_service" "aztec-proving-agent" {
   count   = local.node_count
   name    = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
@@ -279,11 +306,11 @@ resource "aws_ecs_service" "aztec-proving-agent" {
   #platform_version                   = "1.4.0"
 
   # Associate the EC2 capacity provider
-  capacity_provider_strategy {
-    capacity_provider = "${var.DEPLOY_TAG}-proving-agent-capacity-provider-${count.index + 1}"
-    weight            = 100
-    base              = 1
-  }
+  # capacity_provider_strategy {
+  #   capacity_provider = "${var.DEPLOY_TAG}-proving-agent-capacity-provider-${count.index + 1}"
+  #   weight            = 100
+  #   base              = 1
+  # }
   network_configuration {
     subnets = [
       data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id,
