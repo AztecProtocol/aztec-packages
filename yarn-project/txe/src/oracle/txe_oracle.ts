@@ -182,9 +182,7 @@ export class TXE implements TypedOracle {
     isStaticCall = false,
     isDelegateCall = false,
   ) {
-    let lastArchiveRoot;
     const db = await this.#getTreesAt(blockNumber);
-
     const previousBlockState = await this.#getTreesAt(blockNumber - 1);
 
     const stateReference = await db.getStateReference();

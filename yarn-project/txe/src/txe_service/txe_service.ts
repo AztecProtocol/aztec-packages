@@ -746,7 +746,6 @@ export class TXEService {
     const parsedBlockNumber = fromSingle(blockNumber).toNumber();
     const parsedTreeId = fromSingle(treeId).toNumber();
     const parsedLeafValue = fromSingle(leafValue);
-    console.log(`getMembershipWitness ${parsedBlockNumber} ${parsedTreeId} ${parsedLeafValue}`);
     const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeafValue);
     if (!witness) {
       throw new Error(
