@@ -1,4 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -98,7 +99,27 @@ export class ScopedL2ToL1Message {
     return new ScopedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readObject(AztecAddress));
   }
 
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new ScopedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readObject(AztecAddress));
+  }
+
   isEmpty(): boolean {
     return this.message.isEmpty() && this.contractAddress.isZero();
+  }
+
+  /**
+   * Calculates a siloed hash of a scoped l2 to l1 message.
+   * @returns Buffer containing 248 bits of information of sha256 hash.
+   */
+  public silo(version: Fr, chainId: Fr): Buffer {
+    const preimage = Buffer.concat([
+      this.contractAddress.toBuffer(),
+      version.toBuffer(),
+      this.message.recipient.toBuffer(),
+      chainId.toBuffer(),
+      this.message.content.toBuffer(),
+    ]);
+    return sha256Trunc(preimage);
   }
 }

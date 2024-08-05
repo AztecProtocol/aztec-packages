@@ -266,7 +266,13 @@ export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
     tx.data.getTransactionFee(gasFees),
     tx.data.end.noteHashes.filter(h => !h.isZero()),
     tx.data.end.nullifiers.filter(h => !h.isZero()),
-    tx.data.end.l2ToL1Msgs.filter(h => !h.isZero()),
+    tx.data.end.l2ToL1Msgs
+      .filter(h => !h.isEmpty())
+      .map(message =>
+        Fr.fromBuffer(
+          message.silo(tx.data.constants.globalVariables.version, tx.data.constants.globalVariables.chainId),
+        ),
+      ),
     tx.finalPublicDataUpdateRequests.map(t => new PublicDataWrite(t.leafSlot, t.newValue)).filter(h => !h.isEmpty()),
     tx.data.end.noteEncryptedLogPreimagesLength,
     tx.data.end.encryptedLogPreimagesLength,
