@@ -60,7 +60,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   // @note  This should not exists, but we have it now to ensure we will not be killing the devnet with our
   //        timeliness requirements.
-  bool public isDevNet = false;
+  bool public isDevNet = Constants.IS_DEV_NET == 1;
 
   constructor(
     IRegistry _registry,
@@ -386,6 +386,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32 _archive
   ) internal {
     if (isDevNet) {
+      // @note  If we are running in a devnet, we don't want to perform all the consensus
+      //        checks, we instead simply require that either there are NO validators or
+      //        that the proposer is a validator.
+      //
+      //        This means that we relaxes the condition that the block must land in the
+      //        correct slot and epoch to make it more fluid for the devnet launch
+      //        or for testing.
+      if (getValidatorCount() == 0) {
+        return;
+      }
+
       if (!isValidator(msg.sender)) {
         revert Errors.Leonidas__InvalidProposer(address(0), msg.sender);
       }

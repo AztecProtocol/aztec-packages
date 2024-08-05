@@ -151,6 +151,10 @@ export class L1Publisher implements L2BlockReceiver {
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
   }
 
+  public async senderAddress(): Promise<EthAddress> {
+    return await this.txSender.getSenderAddress();
+  }
+
   public async isItMyTurnToSubmit(): Promise<boolean> {
     const submitter = await this.txSender.getProposerAtNextEthBlock();
     const sender = await this.txSender.getSenderAddress();

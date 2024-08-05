@@ -140,6 +140,15 @@ contract Leonidas is Ownable, ILeonidas {
   }
 
   /**
+   * @notice  Get the number of validators in the validator set
+   *
+   * @return The number of validators in the validator set
+   */
+  function getValidatorCount() public view override(ILeonidas) returns (uint256) {
+    return validatorSet.length();
+  }
+
+  /**
    * @notice  Checks if an address is in the validator set
    *
    * @param _validator - The address to check
