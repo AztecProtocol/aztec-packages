@@ -14,8 +14,9 @@ use dep::types::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
     log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     hash::{
-    compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
+    compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
     silo_note_hash, silo_nullifier
 },
     traits::is_empty,
@@ -99,16 +100,9 @@ impl TailOutputValidator {
         );
 
         // l2_to_l1_msgs
-        let tx_context = self.previous_kernel.constants.tx_context;
-        validate_transformed_values(
-            self.previous_kernel.end.l2_to_l1_msgs,
-            self.hints.siloed_l2_to_l1_msgs,
-            |msg| silo_l2_to_l1_message(msg, tx_context.version, tx_context.chain_id)
-        );
-
         assert_sorted_transformed_value_array(
             self.previous_kernel.end.l2_to_l1_msgs,
-            self.hints.siloed_l2_to_l1_msgs,
+            self.previous_kernel.end.l2_to_l1_msgs.map(|log: ScopedL2ToL1Message| log.expose_to_public()),
             self.output.end.l2_to_l1_msgs,
             self.hints.sorted_l2_to_l1_msg_hints
         );
