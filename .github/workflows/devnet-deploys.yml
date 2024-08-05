@@ -1,7 +1,7 @@
 name: Deploy to network
 on:
   push:
-    branches: [devnet, provernet]
+    branches: [devnet, provernet, alphanet]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -98,6 +98,11 @@ jobs:
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH_NAME" = "alphanet" ]
+          then
+              echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
+              echo "branch_name=alphanet" >> $GITHUB_OUTPUT
+              echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
