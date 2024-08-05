@@ -13,19 +13,7 @@ use dep::protocol_types::{
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 pub fn compute_slotted_note_hash<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    let storage_slot = note.get_header().storage_slot;
-    let note_hiding_point = note.compute_note_hiding_point();
-
-    // 1. We derive the storage slot point by multiplying the storage slot with the generator G_slot.
-    // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
-    let storage_slot_scalar = from_field_unsafe(storage_slot);
-    let storage_slot_point = multi_scalar_mul([G_slot], [storage_slot_scalar]);
-
-    // 2. Then we compute the slotted note hiding point by adding the storage slot point to the note hiding point.
-    let slotted_note_hiding_point = storage_slot_point + note_hiding_point;
-
-    // 3. Finally, we return the slotted note hash which is the x-coordinate of the slotted note hiding point.
-    slotted_note_hiding_point.x
+    note.compute_note_hiding_point().x
 }
 
 pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
