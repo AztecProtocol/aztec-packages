@@ -270,15 +270,15 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "${var.PROVING_ENABLED}"
       },
       {
-        "name": "TEL_COLLECTOR_BASE_URL",
+        "name": "OTEL_EXPORTER_OTLP_ENDPOINT",
         "value": "http://aztec-otel.local:4318"
       },
       {
-        "name": "TEL_SERVICE_NAME",
+        "name": "OTEL_SERVICE_NAME",
         "value": "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
       },
       {
-        "name": "TEL_NETWORK_ID",
+        "name": "NETWORK_NAME",
         "value": "${var.DEPLOY_TAG}"
       }
     ],
