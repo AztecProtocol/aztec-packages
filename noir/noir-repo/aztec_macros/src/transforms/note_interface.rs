@@ -522,7 +522,7 @@ fn generate_compute_note_hiding_point(
     impl_span: Option<Span>,
     empty_spans: bool,
 ) -> Result<NoirFunction, AztecMacroError> {
-    // TODO(benesjan): update this to do only 1 MSM call
+    // TODO(#7771): update this to do only 1 MSM call
     let function_source = format!(
         r#"
         fn compute_note_hiding_point(self: {}) -> aztec::protocol_types::point::Point {{

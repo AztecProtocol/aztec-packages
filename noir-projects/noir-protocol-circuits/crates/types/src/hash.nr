@@ -44,8 +44,8 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, slotted_note_hash: Field) -> Field {
-    let inputs = [nonce, slotted_note_hash];
+pub fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
+    let inputs = [nonce, note_hash];
     poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
