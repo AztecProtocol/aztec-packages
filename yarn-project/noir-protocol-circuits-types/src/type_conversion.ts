@@ -1421,7 +1421,7 @@ export function mapCombinedAccumulatedDataToNoir(
   return {
     note_hashes: mapTuple(combinedAccumulatedData.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(combinedAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogsHash),
     encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.encryptedLogsHash),
     unencrypted_logs_hashes: mapTuple(combinedAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
