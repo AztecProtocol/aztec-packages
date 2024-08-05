@@ -232,14 +232,15 @@ describe('e2e_crowdfunding_and_claim', () => {
       );
       expect(notes!.length).toEqual(1);
 
-      donorWallets[0].setScopes([donorWallets[0].getAddress(), crowdfundingContract.address]);
-
       // Set the value note in a format which can be passed to claim function
       valueNote = await processExtendedNote(notes![0]);
     }
 
     // 3) We claim the reward token via the Claim contract
     {
+      // We allow the donor wallet to use the crowdfunding contract's notes
+      donorWallets[0].setScopes([donorWallets[0].getAddress(), crowdfundingContract.address]);
+
       await claimContract
         .withWallet(donorWallets[0])
         .methods.claim(valueNote, donorWallets[0].getAddress())
@@ -256,6 +257,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       .simulate();
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
+    // We allow the operator wallet to use the crowdfunding contract's notes
     operatorWallet.setScopes([operatorWallet.getAddress(), crowdfundingContract.address]);
     // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods.withdraw(donationAmount).send().wait();
@@ -403,6 +405,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // This does not protect fully against impersonation as the contract could just call context.end_setup() and the below would pass.
     // => the private_init msg_sender assertion is required (#7190, #7404)
 
+    // We allow the donor wallet to use the crowdfunding contract's notes
     donorWallets[1].setScopes([donorWallets[1].getAddress(), crowdfundingContract.address]);
 
     await expect(donorWallets[1].simulateTx(request, true, operatorWallet.getAddress())).rejects.toThrow(

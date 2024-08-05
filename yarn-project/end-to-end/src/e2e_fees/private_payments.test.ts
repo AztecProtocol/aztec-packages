@@ -74,6 +74,7 @@ describe('e2e_fees private_payment', () => {
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
 
+    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
     aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 

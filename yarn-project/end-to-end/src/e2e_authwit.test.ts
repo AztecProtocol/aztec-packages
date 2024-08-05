@@ -60,6 +60,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: false,
         });
 
+        // We give wallets[0] access to wallets[1]'s notes.
         wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
 
         // Check that the authwit is NOT valid in private for wallets[1]
@@ -68,6 +69,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: false,
         });
 
+        // We give wallets[1] access to wallets[0]'s notes.
         wallets[1].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
 
         // Consume the inner hash using the wallets[0] as the "on behalf of".

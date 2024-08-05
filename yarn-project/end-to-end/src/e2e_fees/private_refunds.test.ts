@@ -39,6 +39,7 @@ describe('e2e_fees/private_refunds', () => {
     ({ aliceWallet, aliceAddress, bobAddress, privateFPC, tokenWithRefunds } = await t.setup());
     t.logger.debug(`Alice address: ${aliceAddress}`);
 
+    // We give Alice access to Bob's notes because Alice is used to check if balances are correct.
     aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 

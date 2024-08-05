@@ -31,6 +31,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     await asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
+    // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
     wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
@@ -64,6 +65,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     // docs:end:add_authwit
     // docs:end:authwit_transfer_example
 
+    // We give wallets[1] access to wallets[0]'s notes to be able to transfer the notes.
     wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
 
     // Perform the transfer
@@ -77,6 +79,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       .send();
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
 
+    // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
     wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
@@ -167,6 +170,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[2].addAuthWitness(witness);
 
+      // We give wallets[2] access to wallets[0]'s notes to test the authwit.
       wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
 
       await expect(action.prove()).rejects.toThrow(

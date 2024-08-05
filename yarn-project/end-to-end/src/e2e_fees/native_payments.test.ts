@@ -26,6 +26,8 @@ describe('e2e_fees native_payments', () => {
     ({ gasTokenContract, aliceAddress, aliceWallet, bobAddress, bananaCoin, gasSettings } = await t.setup());
 
     paymentMethod = new NativeFeePaymentMethod(aliceAddress);
+
+    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
     aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
