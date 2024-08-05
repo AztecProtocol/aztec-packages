@@ -18,13 +18,7 @@ unconstrained pub fn notify_created_note<let N: u32>(
     note_hash: Field,
     counter: u32
 ) -> Field {
-    notify_created_note_oracle(
-        storage_slot,
-        note_type_id,
-        serialized_note,
-        note_hash,
-        counter
-    )
+    notify_created_note_oracle(storage_slot, note_type_id, serialized_note, note_hash, counter)
 }
 
 #[oracle(notifyNullifiedNote)]
