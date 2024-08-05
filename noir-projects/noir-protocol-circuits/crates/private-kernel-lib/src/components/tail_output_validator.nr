@@ -15,10 +15,7 @@ use dep::types::{
     log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    hash::{
-    compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash,
-    silo_note_hash, silo_nullifier
-},
+    hash::{compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_note_hash, silo_nullifier},
     traits::is_empty,
     utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_array_with_order_hints}
 };
