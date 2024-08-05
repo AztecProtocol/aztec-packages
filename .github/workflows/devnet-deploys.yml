@@ -314,11 +314,10 @@ jobs:
 
   build-end:
     runs-on: ubuntu-latest
-    needs:
-      [
+    needs: [
         build-aztec,
         build-faucet,
-        build-cli-wallet,
+        #build-cli-wallet,
         build-mainnet-fork,
         set-network,
       ]
