@@ -46,7 +46,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(pxeOption)
     .addOption(createSecretKeyOption('Private key for account. Uses random by default.', false).conflicts('public-key'))
     .addOption(createAliasOption(false, 'Alias for the account. Used for easy reference in the PXE.', !db))
-    .addOption(createTypeOption());
+    .addOption(createTypeOption().makeOptionMandatory(true));
 
   addOptions(createAccountCommand, FeeOpts.getOptions())
     .option(
@@ -188,6 +188,26 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       log,
     );
   });
+
+  program
+    .command('simulate')
+    .description('Simulates the execution of a function on an Aztec contract.')
+    .argument('<functionName>', 'Name of function to simulate')
+    .addOption(pxeOption)
+    .option('--args [functionArgs...]', 'Function arguments', [])
+    .requiredOption('-c, --contract-artifact <fileLocation>', "A compiled Aztec.nr contract's ABI in JSON format")
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
+    .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
+    .addOption(createTypeOption())
+    .action(async (functionName, _options, command) => {
+      const { simulate } = await import('../cmds/simulate.js');
+      const options = command.optsWithGlobals();
+      const { args, contractArtifact, contractAddress, aliasOrAddress, rpcUrl, type, secretKey, publicKey } = options;
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
+      await simulate(wallet, functionName, args, contractArtifact, contractAddress, log);
+    });
 
   return program;
 }
