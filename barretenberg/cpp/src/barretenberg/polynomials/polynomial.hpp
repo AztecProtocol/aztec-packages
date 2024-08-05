@@ -49,7 +49,6 @@ template <typename Fr> class Polynomial {
 
     // move assignment
     Polynomial& operator=(Polynomial&& other) noexcept;
-    Polynomial& operator=(std::span<const Fr> coefficients) noexcept;
     Polynomial& operator=(const Polynomial& other);
     ~Polynomial() = default;
 
