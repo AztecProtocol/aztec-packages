@@ -18,6 +18,7 @@ import { PublicDataWitness } from '../../public_data_witness.js';
 import { SiblingPath } from '../../sibling_path/index.js';
 import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
+import { BaseHashType } from '@aztec/foundation/hash';
 
 /**
  * Creates a JSON-RPC client to remotely talk to an Aztec Node.
@@ -40,6 +41,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       TxEffect,
       LogId,
       TxHash,
+      BaseHashType,
       PublicDataWitness,
       SiblingPath,
     },
