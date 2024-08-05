@@ -190,6 +190,7 @@ async function initPortal(
   });
 
   const hash = await contract.write.initialize([registryAddress.toString(), erc20.toString(), bridge.toString()]);
+
   await publicClient.waitForTransactionReceipt({ hash });
 }
 
