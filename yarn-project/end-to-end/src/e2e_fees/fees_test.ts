@@ -176,7 +176,7 @@ export class FeesTest {
         await this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
 
-        const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);
         this.gasBridgeTestHarness = await GasPortalTestingHarnessFactory.create({
           aztecNode: aztecNode,
           pxeService: pxe,
@@ -212,7 +212,7 @@ export class FeesTest {
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.gasTokenContract.methods.balance_of_public, this.logger);
 
-        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.rpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
         this.gasBridgeTestHarness = await GasPortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
           pxeService: context.pxe,
@@ -334,7 +334,7 @@ export class FeesTest {
         );
 
         this.getCoinbaseBalance = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.rpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1GasTokenAddress.toString(),
             abi: PortalERC20Abi,
