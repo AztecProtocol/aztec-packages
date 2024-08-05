@@ -1,4 +1,4 @@
-import { TopicType, TopicTypeMap, Tx } from '@aztec/circuit-types';
+import {  TopicType, TopicTypeMap, Tx  } from '@aztec/circuit-types';
 import { Gossipable, RawGossipMessage } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -88,8 +88,7 @@ export class LibP2PService implements P2PService {
 
     // Subscribe to standard GossipSub topics by default
     for (const topic in TopicType) {
-      // @ts-ignore
-      this.subscribeToTopic(TopicTypeMap[topic].getTopic);
+      this.subscribeToTopic(TopicTypeMap[topic].p2pTopic);
     }
 
     // add GossipSub listener

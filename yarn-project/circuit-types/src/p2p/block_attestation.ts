@@ -3,7 +3,7 @@ import { BaseHashType } from '@aztec/foundation/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { Gossipable } from './gossipable.js';
-import { GOSSIP_PREFIX, TOPIC_VERSION, TopicType } from './interface.js';
+import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockAttestationHash extends BaseHashType {
   constructor(hash: Buffer) {
@@ -18,6 +18,8 @@ export class BlockAttestationHash extends BaseHashType {
  * will produce a block attestation over the header of the block
  */
 export class BlockAttestation extends Gossipable {
+  static override p2pTopic: string; 
+
   constructor(
     /** The block header the attestation is made over */
     public readonly header: Header,
@@ -27,7 +29,9 @@ export class BlockAttestation extends Gossipable {
     super();
   }
 
-  static override p2pTopic = GOSSIP_PREFIX + TopicType.block_attestation + TOPIC_VERSION;
+  static {
+    this.p2pTopic = createTopicString(TopicType.block_attestation);
+  }
 
   override p2pMessageIdentifier(): BaseHashType {
     return BlockAttestationHash.fromField(this.header.hash());

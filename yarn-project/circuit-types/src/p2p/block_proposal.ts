@@ -4,8 +4,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { TxHash } from '../index.js';
 import { Gossipable } from './gossipable.js';
-import { GOSSIP_PREFIX, TOPIC_VERSION } from './interface.js';
-import { TopicType } from './interface.js';
+import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockProposalHash extends BaseHashType {
   constructor(hash: Buffer) {
@@ -20,6 +19,8 @@ export class BlockProposalHash extends BaseHashType {
  * be included in the head of the chain
  */
 export class BlockProposal extends Gossipable {
+  static override p2pTopic: string;
+
   constructor(
     /** The block header, after execution of the below sequence of transactions */
     public readonly header: Header,
@@ -31,7 +32,9 @@ export class BlockProposal extends Gossipable {
     super();
   }
 
-  static override p2pTopic = GOSSIP_PREFIX + TopicType.block_proposal + TOPIC_VERSION;
+  static {
+    this.p2pTopic = createTopicString(TopicType.block_proposal);
+  }
 
   override p2pMessageIdentifier(): BaseHashType {
     return BlockProposalHash.fromField(this.header.hash());

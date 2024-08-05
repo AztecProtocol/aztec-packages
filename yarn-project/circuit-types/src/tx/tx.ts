@@ -12,16 +12,17 @@ import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_re
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import { Gossipable } from '../p2p/gossipable.js';
-import { GOSSIP_PREFIX, TOPIC_VERSION } from '../p2p/interface.js';
-import { TopicType } from '../p2p/interface.js';
 import { PublicExecutionRequest } from '../public_execution_request.js';
 import { type TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
+import { TopicType, createTopicString } from '../p2p/topic_type.js';
 
 /**
  * The interface of an L2 transaction.
  */
 export class Tx extends Gossipable {
+  static override p2pTopic: string;
+
   constructor(
     /**
      * Output of the private kernel circuit for this tx.
@@ -58,7 +59,9 @@ export class Tx extends Gossipable {
   }
 
   // Gossipable method
-  static override p2pTopic = GOSSIP_PREFIX + TopicType.tx + TOPIC_VERSION;
+  static {
+    this.p2pTopic =  createTopicString(TopicType.tx);
+  }
 
   // Gossipable method
   override p2pMessageIdentifier(): BaseHashType {
