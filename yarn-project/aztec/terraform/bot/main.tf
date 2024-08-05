@@ -122,10 +122,10 @@ resource "aws_ec2_fleet" "bot_fleet" {
   }
 
   target_capacity_specification {
-    default_target_capacity_type = "spot"
+    default_target_capacity_type = "on-demand"
     total_target_capacity        = var.BOT_COUNT
-    spot_target_capacity         = var.BOT_COUNT
-    on_demand_target_capacity    = 0
+    spot_target_capacity         = 0
+    on_demand_target_capacity    = var.BOT_COUNT
   }
 
   terminate_instances                 = true
