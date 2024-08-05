@@ -1,5 +1,5 @@
 use crate::{
-    constants::ETH_ADDRESS_LENGTH, hash::pedersen_hash,
+    constants::ETH_ADDRESS_LENGTH,
     traits::{Empty, ToField, Serialize, Deserialize}, utils
 };
 
