@@ -570,6 +570,10 @@ impl FixtureBuilder {
         );
     }
 
+    pub fn add_exposed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(self.storage_contract_address));
+    }
+
     pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
         let siloed_content = compute_l2_to_l1_hash(
             self.storage_contract_address,
@@ -591,12 +595,12 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_l2_to_l1_msgs(&mut self, num: u32) {
+    pub fn append_exposed_l2_to_l1_msgs(&mut self, num: u32) {
         let index_offset = self.l2_to_l1_msgs.len();
         for i in 0..self.l2_to_l1_msgs.max_len() {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
-                self.add_siloed_l2_to_l1_message(content, recipient);
+                self.add_exposed_l2_to_l1_message(content, recipient);
             }
         }
     }
