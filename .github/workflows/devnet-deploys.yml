@@ -50,7 +50,7 @@ env:
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
 
   # Prover
-  TF_VAR_AGENTS_PER_PROVER: 4
+  TF_VAR_AGENTS_PER_PROVER: 1
   TF_VAR_PROVING_ENABLED: false
 
   # Transaction Bot
@@ -59,7 +59,7 @@ env:
   TF_VAR_BOT_NO_START: true
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 0 # no private transfers
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
-  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 1200
+  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 2400
   TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: true
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 180
   TF_VAR_BOT_COUNT: 1
@@ -82,6 +82,8 @@ jobs:
       deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
       branch_name: ${{ steps.set_network_vars.outputs.branch_name }}
       network_api_key: ${{ steps.set_network_vars.outputs.network_api_key }}
+      agents_per_prover: ${{ steps.set_network_vars.outputs.agents_per_prover }}
+      bot_interval: ${{ steps.set_network_vars.outputs.bot_interval }}
     steps:
       - name: Set network vars
         shell: bash
@@ -93,16 +95,22 @@ jobs:
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
               echo "branch_name=devnet" >> $GITHUB_OUTPUT
               echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
+              echo "bot_interval=180" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
+              echo "bot_interval=180" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
               echo "branch_name=alphanet" >> $GITHUB_OUTPUT
               echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=1" >> $GITHUB_OUTPUT
+              echo "bot_interval=300" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -338,6 +346,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
+      TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -530,6 +540,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
+      TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
       TF_VAR_PROVING_ENABLED: true
       TF_VAR_BOT_NO_START: false
     steps:
