@@ -117,6 +117,7 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network-outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network-outputs.network_api_key }}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -156,6 +157,7 @@ jobs:
       - name: "Re-tag Aztec image"
         if: steps.check_only_workflow_changes.outputs.result == 'true'
         run: |
+          env
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker pull aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }}
 
