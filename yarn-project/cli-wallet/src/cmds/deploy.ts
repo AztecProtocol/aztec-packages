@@ -110,4 +110,5 @@ export async function deploy(
       log(`Deployer: ${instance.deployer.toString()}`);
     }
   }
+  return deploy.address;
 }

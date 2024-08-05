@@ -12,6 +12,7 @@ import {
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
+import { parse } from 'path';
 
 import { type WalletDB } from '../storage/wallet_db.js';
 import { AccountTypes, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
@@ -121,7 +122,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     const {
       json,
       publicKey,
-      args: rawArgs,
+      args,
       salt,
       wait,
       secretKey,
@@ -136,13 +137,13 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
 
-    await deploy(
+    const address = await deploy(
       client,
       wallet,
       artifactPath,
       json,
       publicKey ? PublicKeys.fromString(publicKey) : undefined,
-      rawArgs,
+      args.map((arg: string) => (db ? db?.retrieveAlias(arg) : arg)),
       salt,
       typeof init === 'string' ? init : undefined,
       !publicDeployment,
@@ -155,6 +156,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       log,
       logJson(log),
     );
+    if (db && address) {
+      await db.storeContract(address);
+      log('Contract stored in database with alias last');
+    }
   });
 
   const sendCommand = program
@@ -162,9 +167,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to execute')
     .addOption(pxeOption)
-    .option('--args [functionArgs...]', 'Function arguments', [])
+    .option(
+      '--args [functionArgs...]',
+      'Function arguments',
+      (arg, prev: string[]) => {
+        const next = db ? db.retrieveAlias(arg) : arg;
+        prev.push(next);
+        return prev;
+      },
+      [],
+    )
     .requiredOption('-c, --contract-artifact <fileLocation>', "A compiled Aztec.nr contract's ABI in JSON format")
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', address => {
+      const rawAddress = db ? db.retrieveAlias(address) : address;
+      return parseAztecAddress(rawAddress);
+    })
     .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
     .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
     .addOption(createTypeOption())
@@ -194,9 +211,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description('Simulates the execution of a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to simulate')
     .addOption(pxeOption)
-    .option('--args [functionArgs...]', 'Function arguments', [])
+    .option(
+      '--args [functionArgs...]',
+      'Function arguments',
+      (arg, prev: string[]) => {
+        const next = db ? db.retrieveAlias(arg) : arg;
+        prev.push(next);
+        return prev;
+      },
+      [],
+    )
     .requiredOption('-c, --contract-artifact <fileLocation>', "A compiled Aztec.nr contract's ABI in JSON format")
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', address => {
+      const rawAddress = db ? db.retrieveAlias(address) : address;
+      return parseAztecAddress(rawAddress);
+    })
     .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
     .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
     .addOption(createTypeOption())
