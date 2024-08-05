@@ -12,11 +12,6 @@ use dep::protocol_types::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-// TODO(benesjan): nuke altogether
-pub fn compute_slotted_note_hash<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    note.compute_note_hiding_point().x
-}
-
 pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     note_with_header: Note,
     context: &mut PrivateContext
@@ -28,14 +23,15 @@ pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
 }
 
 pub fn compute_note_hash_for_read_request<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    let slotted_note_hash = compute_slotted_note_hash(note);
+    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+    let note_hash = note.compute_note_hiding_point().x;
     let nonce = note.get_header().nonce;
     let counter = note.get_header().note_hash_counter;
 
     if counter != 0 {
-        slotted_note_hash
+        note_hash
     } else {
-        compute_unique_note_hash(nonce, slotted_note_hash)
+        compute_unique_note_hash(nonce, note_hash)
     }
 }
 
@@ -48,12 +44,13 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
     //    the same transaction: (note_hash_counter != 0) & (nonce != 0)
     // 3. The note was inserted in a previous transaction: (note_hash_counter == 0) & (nonce != 0)
 
-    let slotted_note_hash = compute_slotted_note_hash(note);
+    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+    let note_hash = note.compute_note_hiding_point().x;
 
     if header.nonce == 0 {
         // Case 1.
-        // If a note is transient, we just read the slotted_note_hash (kernel will silo by contract address).
-        slotted_note_hash
+        // If a note is transient, we just read the note_hash (kernel will hash with nonce and silo by contract address).
+        note_hash
     } else {
         // Case 2: If a note is non-revertible, and is nullified by a revertible nullifier, we cannot squash them in the 
         // private reset circuit. Because if the tx reverts, we will have to keep the note hash and throw away the 
@@ -67,7 +64,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // tree) created in a previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_unique_note_hash(header.nonce, slotted_note_hash);
+        let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash);
         compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
@@ -89,8 +86,9 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, l
     let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     note.set_header(note_header);
 
-    let slotted_note_hash = compute_slotted_note_hash(note);
-    let unique_note_hash = compute_unique_note_hash(note_header.nonce, slotted_note_hash);
+    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+    let note_hash = note.compute_note_hiding_point().x;
+    let unique_note_hash = compute_unique_note_hash(note_header.nonce, note_hash);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
@@ -100,6 +98,6 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, l
         0
     };
     // docs:start:compute_note_hash_and_optionally_a_nullifier_returns
-    [slotted_note_hash, unique_note_hash, siloed_note_hash, inner_nullifier]
+    [note_hash, unique_note_hash, siloed_note_hash, inner_nullifier]
     // docs:end:compute_note_hash_and_optionally_a_nullifier_returns
 }
