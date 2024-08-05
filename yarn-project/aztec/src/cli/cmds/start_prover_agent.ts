@@ -1,11 +1,10 @@
 import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
-import { type ServerCircuitProver, proverConfigMappings } from '@aztec/circuit-types';
-import { ProverClientConfig, getProverEnvVars, proverClientConfigMappings } from '@aztec/prover-client';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { ProverAgent, createProvingJobSourceClient } from '@aztec/prover-client/prover-agent';
 import {
   TelemetryClientConfig,
   createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client/start';
 
@@ -20,18 +19,6 @@ export const startProverAgent: ServiceStarter = async (options, signalHandlers, 
 
   logger(`Connecting to prover at ${proverConfig.nodeUrl}`);
   const source = createProvingJobSourceClient(proverConfig.nodeUrl, 'provingJobSource');
-
-  const agentConcurrency =
-    // string if it was set as a CLI option, ie start --prover proverAgentConcurrency=10
-    typeof proverConfig.proverAgentConcurrency === 'string'
-      ? parseInt(proverConfig.proverAgentConcurrency, 10)
-      : proverConfig.proverAgentConcurrency;
-
-  const pollInterval =
-    // string if it was set as a CLI option, ie start --prover proverAgentPollInterval=10
-    typeof proverConfig.proverAgentPollInterval === 'string'
-      ? parseInt(proverConfig.proverAgentPollInterval, 10)
-      : proverConfig.proverAgentPollInterval;
 
   // NOTE: Shouldn't telemetry be optional?
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
@@ -62,7 +49,7 @@ export const startProverAgent: ServiceStarter = async (options, signalHandlers, 
     proverConfig.proverAgentPollInterval,
   );
   agent.start(source);
-  logger(`Started prover agent with concurrency limit of ${agentConcurrency}`);
+  logger(`Started prover agent with concurrency limit of ${proverConfig.proverAgentConcurrency}`);
 
   signalHandlers.push(() => agent.stop());
 
