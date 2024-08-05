@@ -38,3 +38,8 @@ variable "GAS_TOKEN_CONTRACT_ADDRESS" {
 variable "DEV_COIN_CONTRACT_ADDRESS" {
   type = string
 }
+
+variable "FAUCET_LB_RULE_PRIORITY" {
+  type    = number
+  default = 600
+}

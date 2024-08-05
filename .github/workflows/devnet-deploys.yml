@@ -51,6 +51,7 @@ env:
 
   # Faucet
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
+  TF_VAR_FAUCET_LB_RULE_PRIORITY: 600
 
   # Prover
   TF_VAR_AGENTS_PER_PROVER: 1
@@ -94,6 +95,7 @@ jobs:
       node_udp_range_start: ${{ steps.set_network_vars.outputs.node_udp_range_start }}
       node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.node_lb_priority_range_start }}
       pxe_lb_priority_range_start: ${{ steps.set_network_vars.outputs.pxe_lb_priority_range_start }}
+      faucet_lb_priority: ${{ steps.set_network_vars.outputs.faucet_lb_priority }}
     steps:
       - name: Set network vars
         shell: bash
@@ -106,33 +108,36 @@ jobs:
               echo "branch_name=devnet" >> $GITHUB_OUTPUT
               echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=2" >> $GITHUB_OUTPUT
-              echo "bot_interval=180" >> $GITHUB_OUTPUT
+              echo "bot_interval=600" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40100" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
               echo "node_lb_priority_range_start=4100" >> $GITHUB_OUTPUT
               echo "pxe_lb_priority_range_start=5100" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=601" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=2" >> $GITHUB_OUTPUT
-              echo "bot_interval=180" >> $GITHUB_OUTPUT
+              echo "bot_interval=300" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
               echo "node_lb_priority_range_start=4200" >> $GITHUB_OUTPUT
               echo "pxe_lb_priority_range_start=5200" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=602" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
               echo "branch_name=alphanet" >> $GITHUB_OUTPUT
               echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=1" >> $GITHUB_OUTPUT
-              echo "bot_interval=300" >> $GITHUB_OUTPUT
+              echo "bot_interval=600" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40000" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45000" >> $GITHUB_OUTPUT
               echo "node_lb_priority_range_start=4000" >> $GITHUB_OUTPUT
               echo "pxe_lb_priority_range_start=5000" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=600" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -525,6 +530,7 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_FAUCET_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.faucet_lb_priority }}
     steps:
       - uses: actions/checkout@v4
         with:
