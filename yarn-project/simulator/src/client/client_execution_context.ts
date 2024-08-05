@@ -291,7 +291,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
-   * @param noteHash - The hash of the new note.
+   * @param noteHash - A hash of the new note.
    * @returns
    */
   public override notifyCreatedNote(

@@ -27,7 +27,7 @@ export interface NoteData {
   storageSlot: Fr;
   /** The nonce of the note. */
   nonce: Fr;
-  /** The note hash of the note. */
+  /** A hash of the note. */
   noteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;

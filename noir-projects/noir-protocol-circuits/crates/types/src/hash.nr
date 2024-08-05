@@ -59,6 +59,8 @@ pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> F
     )
 }
 
+/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
+/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
 pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_tx: u32) -> Field {
     if note_hash.contract_address.is_zero() {
         0

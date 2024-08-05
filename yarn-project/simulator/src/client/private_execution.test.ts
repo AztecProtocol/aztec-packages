@@ -973,7 +973,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedLog.noteHashCounter).toEqual(result.noteEncryptedLogs[0].noteHashCounter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.noteEncryptedLogs[0].log.hash()));
 
-      // read request should match note hash for pending notes (there is no nonce, so can't compute "unique" hash)
+      // read request should match a note hash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests)[0];
       expect(readRequest.value).toEqual(derivedNoteHash);
 
@@ -1056,7 +1056,7 @@ describe('Private Execution test suite', () => {
       expect(encryptedLog.noteHashCounter).toEqual(execInsert.noteEncryptedLogs[0].noteHashCounter);
       expect(encryptedLog.value).toEqual(Fr.fromBuffer(execInsert.noteEncryptedLogs[0].log.hash()));
 
-      // read request should match note hash for pending notes (there is no nonce, so can't compute "unique" hash)
+      // read request should match a note hash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];
       expect(readRequest.value).toEqual(derivedNoteHash);
 
