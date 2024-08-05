@@ -1,5 +1,13 @@
 import { type L2Block, MerkleTreeId, PublicDataWrite, type SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
+  type BatchInsertionResult,
+  type HandleL2BlockAndMessagesResult,
+  type IndexedTreeId,
+  type MerkleTreeLeafType,
+  type MerkleTreeOperations,
+  type TreeInfo,
+} from '@aztec/circuit-types/interfaces';
+import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   Fr,
@@ -28,7 +36,6 @@ import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import {
   type AppendOnlyTree,
-  type BatchInsertionResult,
   type IndexedTree,
   Poseidon,
   StandardIndexedTree,
@@ -46,14 +53,7 @@ import {
   type MerkleTreeDb,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
-import {
-  type HandleL2BlockAndMessagesResult,
-  type IndexedTreeId,
-  type MerkleTreeLeafType,
-  type MerkleTreeMap,
-  type MerkleTreeOperations,
-  type TreeInfo,
-} from './merkle_tree_operations.js';
+import { MerkleTreeMap } from './merkle_tree_map.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
 /**

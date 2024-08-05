@@ -36,6 +36,7 @@ import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
+// TODO(palla/prover-node): Delete this class?
 class DummyProverClient implements BlockProver {
   constructor(private orchestrator: ProvingOrchestrator) {}
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
@@ -54,7 +55,7 @@ class DummyProverClient implements BlockProver {
     return this.orchestrator.setBlockCompleted();
   }
   getProverId(): Fr {
-    return this.orchestrator.proverId;
+    return this.orchestrator.getProverId();
   }
 }
 

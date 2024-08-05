@@ -1,4 +1,10 @@
-import { type L1ToL2MessageSource, type L2Block, L2BlockDownloader, type L2BlockSource } from '@aztec/circuit-types';
+import {
+  type HandleL2BlockAndMessagesResult,
+  type L1ToL2MessageSource,
+  type L2Block,
+  L2BlockDownloader,
+  type L2BlockSource,
+} from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,11 +15,7 @@ import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
-import {
-  type HandleL2BlockAndMessagesResult,
-  type MerkleTreeOperations,
-  type MerkleTrees,
-} from '../world-state-db/index.js';
+import { type MerkleTreeOperations, type MerkleTrees } from '../world-state-db/index.js';
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
 import { type WorldStateConfig } from './config.js';

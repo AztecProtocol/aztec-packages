@@ -169,7 +169,7 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const prover = await createProverClient(config, worldStateSynchronizer, archiver, telemetry);
+    const prover = await createProverClient(config, telemetry);
 
     if (!prover && !config.disableSequencer) {
       throw new Error("Can't start a sequencer without a prover");

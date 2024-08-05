@@ -15,6 +15,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   BlockProofError,
+  type BlockProver,
   type BlockResult,
   PROVING_STATUS,
   type ProvingResult,
@@ -93,7 +94,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
  */
-export class ProvingOrchestrator {
+export class ProvingOrchestrator implements BlockProver {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: PaddingProcessedTx | undefined = undefined;
@@ -104,13 +105,17 @@ export class ProvingOrchestrator {
     private db: MerkleTreeOperations,
     private prover: ServerCircuitProver,
     telemetryClient: TelemetryClient,
-    public readonly proverId: Fr = Fr.ZERO,
+    private readonly proverId: Fr = Fr.ZERO,
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }
 
   get tracer(): Tracer {
     return this.metrics.tracer;
+  }
+
+  public getProverId(): Fr {
+    return this.proverId;
   }
 
   /**

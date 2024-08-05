@@ -40,7 +40,7 @@ export async function createProverNode(
 
   const simulationProvider = await createSimulationProvider(config, log);
 
-  const prover = await createProverClient(config, worldStateSynchronizer, archiver);
+  const prover = await createProverClient(config, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
   const publisher = getL1Publisher(config, telemetry);

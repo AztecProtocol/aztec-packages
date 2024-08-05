@@ -55,6 +55,7 @@ export class ProverNode {
     await this.l2BlockSource.stop();
     this.publisher.interrupt();
     this.log.info('Stopped ProverNode');
+    // TODO(palla/prover-node): Keep a reference to all ongoing ProvingJobs and stop them.
   }
 
   /**
@@ -110,13 +111,13 @@ export class ProverNode {
   }
 
   private async createProvingJob(fromBlock: number) {
-    if ((await this.worldState.status()).syncedToL2Block > fromBlock) {
+    if ((await this.worldState.status()).syncedToL2Block >= fromBlock) {
       throw new Error(`Cannot create proving job for block ${fromBlock} as it is behind the current world state`);
     }
 
-    // Fast forward world state to the target block and get a fork
+    // Fast forward world state to right before the target block and get a fork
     // TODO(palla/prover-node): We need to pause world state while we procure the fork
-    await this.worldState.syncImmediate(fromBlock);
+    await this.worldState.syncImmediate(fromBlock - 1);
     const db = await this.worldState.getFork(true);
 
     // Create a processor using the forked world state
@@ -128,7 +129,7 @@ export class ProverNode {
     );
 
     return new BlockProvingJob(
-      this.prover,
+      this.prover.createBlockProver(db),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
