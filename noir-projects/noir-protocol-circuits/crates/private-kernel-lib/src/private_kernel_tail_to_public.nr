@@ -91,15 +91,15 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [NoteHash; N] {
+        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [ScopedNoteHash; N] {
             // First nullifier is tx hash.
             let tx_hash = self.previous_kernel.nullifiers.get_unchecked(0).value();
-            let mut output = [NoteHash::empty(); N];
+            let mut output = [ScopedNoteHash::empty(); N];
             for i in 0..N {
                 output[i] = NoteHash {
                     value: silo_note_hash(note_hashes[i], tx_hash, i),
                     counter: 0, // Counter is cleared so it's not exposed to the public.
-                };
+                }.scope(AztecAddress::zero());
             }
             output
         }
@@ -343,7 +343,7 @@ mod tests {
         let _void = builder.previous_kernel.add_request_for_key_validation(
             Point { x: 1, y: 2, is_infinite: false },
             27,
-            GENERATOR_INDEX__TSK_M
+            GENERATOR_INDEX__TSK_M as Field
         );
         builder.failed();
     }
