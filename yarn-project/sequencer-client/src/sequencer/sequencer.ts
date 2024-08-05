@@ -13,7 +13,7 @@ import {
   type ProverClient,
 } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, type GlobalVariables, type Header, IS_DEV_NET } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -24,7 +24,7 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type Attestation, type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -369,7 +369,8 @@ export class Sequencer {
     } satisfies L2BlockBuiltStats);
 
     try {
-      await this.publishL2Block(block);
+      const attestations = IS_DEV_NET ? undefined : await this.collectAttestations(block);
+      await this.publishL2Block(block, attestations);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
@@ -396,6 +397,24 @@ export class Sequencer {
     }
   }
 
+  protected async collectAttestations(block: L2Block): Promise<Attestation[]> {
+    // @todo  This should collect attestations properly and fix the ordering of them to make sense
+    //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
+    //        It is assuming that there will only be ONE (1) validator, so only one attestation
+    //        is needed.
+    // @note  This is quite a sin, but I'm committing war crimes in this code already.
+    //            _ ._  _ , _ ._
+    //          (_ ' ( `  )_  .__)
+    //       ( (  (    )   `)  ) _)
+    //      (__ (_   (_ . _) _) ,__)
+    //           `~~`\ ' . /`~~`
+    //                ;   ;
+    //                /   \
+    //  _____________/_ __ \_____________
+    const myAttestation = await this.publisher.attest(block.archive.root.toString());
+    return [myAttestation];
+  }
+
   /**
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.
@@ -403,10 +422,10 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block) {
+  protected async publishL2Block(block: L2Block, attestations?: Attestation[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
-    const publishedL2Block = await this.publisher.processL2Block(block);
+    const publishedL2Block = await this.publisher.processL2Block(block, attestations);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

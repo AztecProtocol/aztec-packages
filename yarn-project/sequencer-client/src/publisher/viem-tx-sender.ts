@@ -16,12 +16,14 @@ import {
   getContract,
   hexToBytes,
   http,
+  parseSignature,
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import * as chains from 'viem/chains';
 
 import { type TxSenderConfig } from './config.js';
 import {
+  type Attestation,
   type L1PublisherTxSender,
   type L1SubmitProofArgs,
   type MinimalTransactionReceipt,
@@ -71,6 +73,20 @@ export class ViemTxSender implements L1PublisherTxSender {
       abi: RollupAbi,
       client: walletClient,
     });
+  }
+
+  async attest(archive: `0x{string}`): Promise<Attestation> {
+    // @note  Something seems slightly off in viem, think it should be Hex instead of Hash
+    //        but as they both are just `0x${string}` it should be fine anyways.
+    const signature = await this.account.signMessage({ message: { raw: archive } });
+    const { r, s, v } = parseSignature(signature as `0x${string}`);
+
+    return {
+      isEmpty: false,
+      v: v ? Number(v) : 0,
+      r: r,
+      s: s,
+    };
   }
 
   getSenderAddress(): Promise<EthAddress> {
@@ -162,39 +178,70 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [`0x${encodedData.header.toString('hex')}`, `0x${encodedData.archive.toString('hex')}`] as const;
+    if (encodedData.attestations) {
+      const args = [
+        `0x${encodedData.header.toString('hex')}`,
+        `0x${encodedData.archive.toString('hex')}`,
+        encodedData.attestations,
+      ] as const;
 
-    const gas = await this.rollupContract.estimateGas.process(args, {
-      account: this.account,
-    });
-    const hash = await this.rollupContract.write.process(args, {
-      gas,
-      account: this.account,
-    });
-    return hash;
+      const gas = await this.rollupContract.estimateGas.process(args, {
+        account: this.account,
+      });
+      return await this.rollupContract.write.process(args, {
+        gas,
+        account: this.account,
+      });
+    } else {
+      const args = [`0x${encodedData.header.toString('hex')}`, `0x${encodedData.archive.toString('hex')}`] as const;
+
+      const gas = await this.rollupContract.estimateGas.process(args, {
+        account: this.account,
+      });
+      return await this.rollupContract.write.process(args, {
+        gas,
+        account: this.account,
+      });
+    }
   }
 
   /**
    * @notice  Publishes the body AND process the block in one transaction
    * @param encodedData - Serialized data for processing the new L2 block.
-   * @param encodedBody - Encoded block body.
    * @returns The hash of the transaction
    */
   async sendPublishAndProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [
-      `0x${encodedData.header.toString('hex')}`,
-      `0x${encodedData.archive.toString('hex')}`,
-      `0x${encodedData.body.toString('hex')}`,
-    ] as const;
+    // @note  This is quite a sin, but I'm committing war crimes in this code already.
+    if (encodedData.attestations) {
+      const args = [
+        `0x${encodedData.header.toString('hex')}`,
+        `0x${encodedData.archive.toString('hex')}`,
+        encodedData.attestations,
+        `0x${encodedData.body.toString('hex')}`,
+      ] as const;
 
-    const gas = await this.rollupContract.estimateGas.publishAndProcess(args, {
-      account: this.account,
-    });
-    const hash = await this.rollupContract.write.publishAndProcess(args, {
-      gas,
-      account: this.account,
-    });
-    return hash;
+      const gas = await this.rollupContract.estimateGas.publishAndProcess(args, {
+        account: this.account,
+      });
+      return await this.rollupContract.write.publishAndProcess(args, {
+        gas,
+        account: this.account,
+      });
+    } else {
+      const args = [
+        `0x${encodedData.header.toString('hex')}`,
+        `0x${encodedData.archive.toString('hex')}`,
+        `0x${encodedData.body.toString('hex')}`,
+      ] as const;
+
+      const gas = await this.rollupContract.estimateGas.publishAndProcess(args, {
+        account: this.account,
+      });
+      return await this.rollupContract.write.publishAndProcess(args, {
+        gas,
+        account: this.account,
+      });
+    }
   }
 
   /**

@@ -230,15 +230,4 @@ contract DevNetTest is DecoderBase {
   function max(uint256 a, uint256 b) internal pure returns (uint256) {
     return a > b ? a : b;
   }
-
-  function createSignature(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (SignatureLib.Signature memory)
-  {
-    uint256 privateKey = privateKeys[_signer];
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
-
-    return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
-  }
 }

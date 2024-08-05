@@ -43,9 +43,19 @@ export type MinimalTransactionReceipt = {
 };
 
 /**
+ * @notice An attestation for the sequencing model.
+ * @todo    This is not where it belongs. But I think we should do a bigger rewrite of some of
+ *          this spaghetti.
+ */
+export type Attestation = { isEmpty: boolean; v: number; r: `0x${string}`; s: `0x${string}` };
+
+/**
  * Pushes txs to the L1 chain and waits for their completion.
  */
 export interface L1PublisherTxSender {
+  /** Attests to the given archive root. */
+  attest(archive: `0x${string}`): Promise<Attestation>;
+
   /** Returns the EOA used for sending txs to L1.  */
   getSenderAddress(): Promise<EthAddress>;
 
@@ -115,6 +125,8 @@ export type L1ProcessArgs = {
   archive: Buffer;
   /** L2 block body. */
   body: Buffer;
+  /** Attestations */
+  attestations?: Attestation[];
 };
 
 /** Arguments to the submitProof method of the rollup contract */
@@ -151,6 +163,10 @@ export class L1Publisher implements L2BlockReceiver {
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
   }
 
+  public async attest(archive: `0x${string}`): Promise<Attestation> {
+    return await this.txSender.attest(archive);
+  }
+
   public async senderAddress(): Promise<EthAddress> {
     return await this.txSender.getSenderAddress();
   }
@@ -166,7 +182,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block): Promise<boolean> {
+  public async processL2Block(block: L2Block, attestations: Attestation[] | undefined = undefined): Promise<boolean> {
     const ctx = { blockNumber: block.number, blockHash: block.hash().toString() };
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
@@ -176,14 +192,15 @@ export class L1Publisher implements L2BlockReceiver {
     }
     const encodedBody = block.body.toBuffer();
 
+    const processTxArgs = {
+      header: block.header.toBuffer(),
+      archive: block.archive.root.toBuffer(),
+      body: encodedBody,
+      attestations,
+    };
+
     // Process block and publish the body if needed (if not already published)
     while (!this.interrupted) {
-      const processTxArgs = {
-        header: block.header.toBuffer(),
-        archive: block.archive.root.toBuffer(),
-        body: encodedBody,
-      };
-
       let txHash;
       const timer = new Timer();
 

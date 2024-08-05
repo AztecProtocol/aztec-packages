@@ -74,8 +74,12 @@ describe('e2e_p2p_network', () => {
       await rollup.write.addValidator([account.address]);
       logger.info(`Adding sequencer ${account.address}`);
     } else {
-      // We add all 4 to the set and then jump ahead to the next epoch.
-      for (let i = 0; i < NUM_NODES; i++) {
+      // @todo  Should be updated when we have attestations to add all the sequencers
+      //        Since it is currently a mess because sequencer selection needs attestations for
+      //        validity, but we currently have no way to collect them.
+      //        When attestations works, add all 4, and lets ROLL!
+
+      for (let i = 0; i < 1; i++) {
         const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
         const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
         const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
