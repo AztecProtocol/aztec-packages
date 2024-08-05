@@ -5,6 +5,7 @@ struct RootRollupPublicInputs {
     // Snapshot of archive tree before/after this rollup has been processed
     previous_archive: AppendOnlyTreeSnapshot,
     end_archive: AppendOnlyTreeSnapshot,
+    previous_block_hash: Field,
     end_block_hash: Field,
     end_timestamp: u64,
     end_block_number: Field,

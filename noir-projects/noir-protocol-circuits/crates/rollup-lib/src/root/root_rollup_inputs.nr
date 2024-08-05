@@ -44,10 +44,11 @@ impl RootRollupInputs {
         let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
 
         let fees = components::accumulate_blocks_fees(left, right);
-        // TODO(Miranda): add left.previous_block_hash to public inputs?
+
         RootRollupPublicInputs {
             previous_archive: left.previous_archive,
             end_archive: right.new_archive,
+            previous_block_hash: left.previous_block_hash,
             end_block_hash: right.end_block_hash,
             end_timestamp: right.end_global_variables.timestamp,
             end_block_number: right.end_global_variables.block_number,

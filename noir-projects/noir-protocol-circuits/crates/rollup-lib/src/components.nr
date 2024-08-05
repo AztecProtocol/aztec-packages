@@ -96,11 +96,18 @@ pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRo
     left.accumulated_fees + right.accumulated_fees
 }
 
-// TODO(Miranda): combine fees for same recipient, throw cleanly if > 32
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs
 ) -> [FeeRecipient; 32] {
+    let left_len = array_length(left.fees);
+    let right_len = array_length(right.fees);
+    assert(left_len + right_len <= 32, "too many fee payment structs accumulated in rollup");
+    // TODO(Miranda): combine fees with same recipient depending on rollup structure
+    // Assuming that the final rollup tree (block root -> block merge -> root) is balanced with 32 leaves, then
+    // in the worst case, we would be checking the first 16 values (left_len = 16) against the last 16 (right_len = 16).
+    // This means 'only' needing to compare 256 times vs 1024 times but requires constraining rollup tree height in block merge & final root (TODO).
+    // Either way, we could make use of hints to point to the new fee index and indicate whether it has been merged.
     array_merge(left.fees, right.fees)
 }
 

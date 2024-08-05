@@ -2179,6 +2179,7 @@ export function mapRootRollupPublicInputsFromNoir(
   return new RootRollupPublicInputs(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.previous_archive),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_archive),
+    mapFieldFromNoir(rootRollupPublicInputs.previous_block_hash),
     mapFieldFromNoir(rootRollupPublicInputs.end_block_hash),
     mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
     mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
