@@ -235,6 +235,7 @@ async function fundFPC(
   const {
     protocolContractAddresses: { gasToken },
   } = await wallet.getPXEInfo();
+
   const gasTokenContract = await GasTokenContract.at(gasToken, wallet);
 
   const feeJuicePortal = await FeeJuicePortalManager.create(
