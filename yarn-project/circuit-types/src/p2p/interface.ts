@@ -9,10 +9,9 @@ export interface RawGossipMessage {
   data: Uint8Array;
 }
 
-
 // Force casts as we know that each field here extends Gossipable, and we just want types from Gossipable
 export const TopicTypeMap: Record<string, typeof Gossipable> = {
   [TopicType.tx]: Tx as unknown as typeof Gossipable,
   [TopicType.block_proposal]: BlockProposal as unknown as typeof Gossipable,
-  [TopicType.block_attestation]: BlockAttestation as unknown as typeof Gossipable
+  [TopicType.block_attestation]: BlockAttestation as unknown as typeof Gossipable,
 };

@@ -1,16 +1,15 @@
-
 /** Create Topic String
- *  
- * The topic channel identifier 
- * @param topicType 
- * @returns 
+ *
+ * The topic channel identifier
+ * @param topicType
+ * @returns
  */
 export function createTopicString(topicType: TopicType) {
-  return "/aztec/" + topicType + "/0.1.0";
+  return '/aztec/' + topicType + '/0.1.0';
 }
 
 /**
- * 
+ *
  */
 export enum TopicType {
   tx = 'tx',

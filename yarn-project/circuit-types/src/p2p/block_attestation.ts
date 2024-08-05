@@ -18,7 +18,7 @@ export class BlockAttestationHash extends BaseHashType {
  * will produce a block attestation over the header of the block
  */
 export class BlockAttestation extends Gossipable {
-  static override p2pTopic: string; 
+  static override p2pTopic: string;
 
   constructor(
     /** The block header the attestation is made over */

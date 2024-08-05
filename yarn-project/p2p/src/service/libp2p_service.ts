@@ -1,4 +1,4 @@
-import {  TopicType, TopicTypeMap, Tx  } from '@aztec/circuit-types';
+import { TopicType, TopicTypeMap, Tx } from '@aztec/circuit-types';
 import { Gossipable, RawGossipMessage } from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
