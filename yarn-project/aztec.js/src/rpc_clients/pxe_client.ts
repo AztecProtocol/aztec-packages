@@ -55,7 +55,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       Point,
       TxExecutionRequest,
       TxHash,
-      BaseHashType
+      BaseHashType,
     },
     {
       EncryptedNoteL2BlockL2Logs,

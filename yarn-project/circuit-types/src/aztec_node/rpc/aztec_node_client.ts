@@ -3,6 +3,7 @@ import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { BaseHashType } from '@aztec/foundation/hash';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { type AztecNode } from '../../interfaces/aztec-node.js';
@@ -18,7 +19,6 @@ import { PublicDataWitness } from '../../public_data_witness.js';
 import { SiblingPath } from '../../sibling_path/index.js';
 import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
-import { BaseHashType } from '@aztec/foundation/hash';
 
 /**
  * Creates a JSON-RPC client to remotely talk to an Aztec Node.
