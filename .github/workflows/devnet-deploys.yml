@@ -126,7 +126,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
+          concurrency_key: build-mainnet-fork-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
 
       - name: Check if mainnet fork needs deployment
@@ -162,7 +162,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
+          concurrency_key: build-aztec-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Check if only workflow flows have changed
         id: check_only_workflow_changes
@@ -215,7 +215,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
+          concurrency_key: build-faucet-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Check if only workflow flows have changed
         id: check_only_workflow_changes
@@ -268,7 +268,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
+          concurrency_key: build-cli-wallet-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Check if only workflow flows have changed
         id: check_only_workflow_changes
