@@ -2225,7 +2225,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     if ((maximum_quotient_bits & 1ULL) == 1ULL) {
         ++maximum_quotient_bits;
     }
-    // TODO: implicit assumption here - NUM_LIMB_BITS large enough for all the quotient
+
+    ASSERT(maximum_quotient_bits <= NUM_LIMB_BITS);
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
     if constexpr (HasPlookup<Builder>) {
