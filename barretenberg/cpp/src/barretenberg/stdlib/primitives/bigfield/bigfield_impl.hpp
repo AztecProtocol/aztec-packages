@@ -2092,6 +2092,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         if (is_constant() && other.is_constant()) {
             std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
                       << std::endl;
+            ASSERT(get_value() == other.get_value()); // We expect constants to be less than the target modulus
             return;
         } else if (other.is_constant()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
