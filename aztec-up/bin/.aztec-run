@@ -11,6 +11,10 @@ DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
 
+if [[ -n "$NETWORK" ]]; then
+  IMAGE=$NETWORK
+fi
+
 # preserve arguments to pass to docker run
 declare -a preserved_args
 
@@ -91,6 +95,11 @@ while [[ "$#" -gt 0 ]]; do
     preserved_args+=("$1" "$2") # Store both argument and value
     shift 2                     # Move past argument and value
     ;;
+  --pxe.network)
+    VERSION="$2"                # Set version to user-specified network (e.g. 'devnet')
+    preserved_args+=("$1" "$2") # Store both argument and value
+    shift 2
+    ;; # Move past argument and value
   *)
     preserved_args+=("$1") # Store unrecognized/other arguments
     shift                  # Move to next argument
