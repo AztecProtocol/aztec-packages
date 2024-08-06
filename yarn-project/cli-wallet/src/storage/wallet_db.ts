@@ -1,7 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
-import { AccountType } from '../utils/accounts.js';
+import { type AccountType } from '../utils/accounts.js';
 
 export const Aliases = ['accounts', 'contracts'] as const;
 export type AliasType = (typeof Aliases)[number];

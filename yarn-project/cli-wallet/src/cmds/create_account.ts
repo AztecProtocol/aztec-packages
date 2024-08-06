@@ -1,8 +1,8 @@
-import { type DeployAccountOptions, type PXE, createCompatibleClient } from '@aztec/aztec.js';
+import { type DeployAccountOptions, type PXE } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { AccountType, createAndStoreAccount } from '../utils/accounts.js';
+import { type AccountType, createAndStoreAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
 export async function createAccount(

@@ -6,6 +6,9 @@ const SSH_AGENT_IDENTITIES_RESPONSE = 12;
 const SSH_AGENT_SIGN_REQUEST = 13;
 const SSH_AGENT_SIGN_RESPONSE = 14;
 
+/**
+ * Connect to the SSH agent via a TCP socket using the standard env variable
+ */
 export function connectToAgent() {
   const socketPath = process.env.SSH_AUTH_SOCK;
   if (!socketPath) {
@@ -14,13 +17,28 @@ export function connectToAgent() {
   return net.connect(socketPath);
 }
 
+/**
+ * Type representing a stored key in the SSH agent.
+ */
 type StoredKey = {
+  /**
+   * Type of the key.
+   */
   type: string;
+  /**
+   * Public key in base64 encoding.
+   */
   publicKey: string;
+  /**
+   * Comment associated with the key.
+   */
   comment: string;
 };
 
-export async function getIdentities(): Promise<StoredKey[]> {
+/**
+ * Retrieve the identities stored in the SSH agent.
+ */
+export function getIdentities(): Promise<StoredKey[]> {
   return new Promise((resolve, reject) => {
     const stream = connectToAgent();
     stream.on('connect', () => {
@@ -39,7 +57,7 @@ export async function getIdentities(): Promise<StoredKey[]> {
         let offset = 5;
         const numKeys = data.readUInt32BE(offset);
 
-        var keys = [];
+        const keys = [];
         for (let i = 0; i < numKeys; i++) {
           offset += 4;
           const keyLength = data.readUInt32BE(offset);
@@ -48,7 +66,7 @@ export async function getIdentities(): Promise<StoredKey[]> {
           offset += keyLength;
           const commentLength = data.readUInt32BE(offset);
           offset += 4;
-          var comment = data.slice(offset, offset + commentLength);
+          const comment = data.slice(offset, offset + commentLength);
           offset += commentLength;
 
           let keyOffset = 0;
@@ -72,7 +90,10 @@ export async function getIdentities(): Promise<StoredKey[]> {
   });
 }
 
-export async function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buffer, data: Buffer) {
+/**
+ * Sign data using a key stored in the SSH agent. The private signing key is identified by its corresponding public key.
+ */
+export function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buffer, data: Buffer) {
   return new Promise<Buffer>((resolve, reject) => {
     const stream = connectToAgent();
     stream.on('connect', () => {

@@ -1,7 +1,7 @@
 import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
-import { AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
 import { type WalletDB } from '../storage/wallet_db.js';

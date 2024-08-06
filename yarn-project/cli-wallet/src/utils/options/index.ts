@@ -3,7 +3,7 @@ import { parseAztecAddress } from '@aztec/cli/utils';
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
 
-import { WalletDB } from '../../storage/wallet_db.js';
+import { type WalletDB } from '../../storage/wallet_db.js';
 import { AccountTypes } from '../accounts.js';
 
 const TARGET_DIR = 'target';
@@ -41,7 +41,7 @@ export function createContractAddressOption(db?: WalletDB) {
     .makeOptionMandatory(true);
 }
 
-export async function artifactPathParser(filePath: string) {
+export function artifactPathParser(filePath: string) {
   const isArtifactPath = new RegExp(/^(\.|\/|[A-Z]:).*\.json$/).test(filePath);
   if (!isArtifactPath) {
     const [pkg, contractName] = filePath.split('@');
