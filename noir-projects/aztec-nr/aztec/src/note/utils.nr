@@ -74,10 +74,10 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // siloed by the kernel circuit. That being said, the siloed note hash computed above CAN be
         // used for nullifier computation, and this achieves the (arguably unnecessary) property that
         // nullifiers are computed from a note hash's fully-computed note hash tree leaf.
-        // --> This property is important when trying to detect wheter a note has been nullified just
+        // --> This property is important when trying to detect whether a note has been nullified just
         // by watching for new note hashes and them hashing them all with nsk_app to derive future nullifiers.
         // (See 'nsk_app and contract address are enough to detect note nullification' test case in e2e_keys.test.ts).
-        // Note: If we would drop the siloing here we would save ~1.2k gates per still a very unoptimized token
+        // Note: If we would drop the siloing here we would save ~1.2k gates per still-a-very-unoptimized token
         // transfer so the savings would not be that great here.
     }
 }
