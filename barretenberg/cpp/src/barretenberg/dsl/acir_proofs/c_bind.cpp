@@ -21,7 +21,8 @@ WASM_EXPORT void acir_get_circuit_sizes(
     auto builder = acir_format::create_circuit(constraint_system, 1 << 19, {}, *honk_recursion);
     *exact = htonl((uint32_t)builder.get_num_gates());
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
-    *total = htonl((uint32_t)builder.get_total_circuit_size() + num_extra_gates);
+    auto total_with_extra_gates = builder.get_total_circuit_size() + num_extra_gates;
+    *total = htonl((uint32_t)total_with_extra_gates);
     *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
 }
 
