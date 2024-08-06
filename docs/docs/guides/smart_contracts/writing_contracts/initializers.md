@@ -42,4 +42,8 @@ Here, the initializer is writing to storage. It can also call another function. 
 
 You can set multiple functions as an initializer function simply by annotating each of them with `#[aztec(initializer)]`. You can then decide which one to call when you are deploying the contract.
 
+Calling any one of the functions annotated with `#[aztec(initializer)]` will mark the contract as initialized.
+
+See [this page of the protocol specs](../../../protocol-specs/contract-deployment/instances.md#initialization) for more info about what marking a function as initialized means.
+
 To see an initializer in action, check out the [Counter Contract Tutorial](../../../tutorials/contract_tutorials/counter_contract.md).

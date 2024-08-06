@@ -3,7 +3,11 @@ title: Running Multiple PXEs in the Sandbox
 sidebar_position: 2
 ---
 
+:::warning
+
 Unfortunately, this is currently not working due to a bug when attempting to run an `aztec` command with the sandbox running. This will be fixed in a future version.
+
+:::
 
 --
 

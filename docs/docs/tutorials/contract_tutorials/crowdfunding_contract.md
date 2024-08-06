@@ -131,7 +131,7 @@ You can compile the code so far with `aztec-nargo compile`.
 
 #### Checking campaign duration against the timestamp
 
-To check that the donation occurs before the campaign deadline, we must access the public `timestamp`. It is one of several Public Global Variables.
+To check that the donation occurs before the campaign deadline, we must access the public `timestamp`. It is one of several public global variables.
 
 Declare an Aztec function that is public and internal
 
@@ -212,7 +212,7 @@ See [claim_contract](https://github.com/AztecProtocol/aztec-packages/blob/#inclu
 
 ## Next steps
 
-### Build an accountscontract 
+### Build an accounts contract 
 
 Follow the account contract tutorial on the [next page](./write_accounts_contract.md) and learn more about account abstraction.
 
