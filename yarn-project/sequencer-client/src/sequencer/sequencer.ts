@@ -369,7 +369,7 @@ export class Sequencer {
     } satisfies L2BlockBuiltStats);
 
     try {
-      const attestations = IS_DEV_NET ? undefined : await this.collectAttestations(block);
+      const attestations = await this.collectAttestations(block);
       await this.publishL2Block(block, attestations);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
@@ -397,7 +397,7 @@ export class Sequencer {
     }
   }
 
-  protected async collectAttestations(block: L2Block): Promise<Attestation[]> {
+  protected async collectAttestations(block: L2Block): Promise<Attestation[] | undefined> {
     // @todo  This should collect attestations properly and fix the ordering of them to make sense
     //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
     //        It is assuming that there will only be ONE (1) validator, so only one attestation
@@ -411,6 +411,10 @@ export class Sequencer {
     //                ;   ;
     //                /   \
     //  _____________/_ __ \_____________
+    if (IS_DEV_NET) {
+      return undefined;
+    }
+
     const myAttestation = await this.publisher.attest(block.archive.root.toString());
     return [myAttestation];
   }

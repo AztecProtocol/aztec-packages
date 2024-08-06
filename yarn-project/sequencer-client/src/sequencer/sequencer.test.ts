@@ -20,6 +20,7 @@ import {
   Fr,
   GasFees,
   GlobalVariables,
+  IS_DEV_NET,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -61,10 +62,25 @@ describe('sequencer', () => {
   const feeRecipient = AztecAddress.random();
   const gasFees = GasFees.empty();
 
+  // We mock an attestation
+  const mockedAttestation = {
+    isEmpty: false,
+    v: 27,
+    r: Fr.random().toString(),
+    s: Fr.random().toString(),
+  };
+
+  const getAttestations = () => (IS_DEV_NET ? undefined : [mockedAttestation]);
+
   beforeEach(() => {
     lastBlockNumber = 0;
 
     publisher = mock<L1Publisher>();
+
+    publisher.attest.mockImplementation(_archive => {
+      return Promise.resolve(mockedAttestation);
+    });
+
     publisher.isItMyTurnToSubmit.mockResolvedValue(true);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
@@ -164,7 +180,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockProver.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -212,7 +228,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockProver.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -265,7 +281,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(blockProver.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -314,7 +330,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(blockProver.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -363,7 +379,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockProver.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
