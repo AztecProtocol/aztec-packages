@@ -154,7 +154,6 @@ pub fn compute_l2_to_l1_hash(
             bytes.push(item_bytes[j]);
         }
     }
-    dep::std::println(bytes);
 
     sha256_to_field(bytes.storage)
 }
