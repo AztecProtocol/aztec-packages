@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722965737583,
+  "lastUpdate": 1722969390560,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -110292,6 +110292,78 @@ window.BENCHMARK_DATA = {
             "value": 196976584,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 196976584 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c596eda3f09bea03467662fd98c6c222c97f182",
+          "message": "feat: Linking circuits with the databus (#7707)\n\nThe databus mechanism allows us to establish the transfer of data\r\nbetween circuits. Its more efficient for this purpose than the\r\ntraditional public inputs mechanism because it replaces the passing of\r\nraw input/output data with the passing of commitments to that data. (If\r\nwe pass the raw data as public input, we have to hash it in the\r\nrecursive verifier. Say we pass 1000 field elements worth of raw data.\r\nSince 3 field elements can be hashed in 73 gates with poseidon, that\r\nwould add 73*1000/3 = 25k gates to the recursive verifier. That's a 100%\r\nincrease from its current size! A commitment on the other hand can be\r\nrepresented as 8 field elements, regardless of the size of the raw\r\ndata).\r\n\r\nRoughly speaking, the idea of the databus is this: To establish that the\r\noutput (return_data) of circuit A was the input (calldata) of circuit B,\r\nwe take a commitment to output A and a commitment to input B then pass\r\nthem to a third circuit, circuit C, which asserts that the two\r\ncommitments are equal. This PR introduces the class `DataBusDepot` (a\r\nbit of a joke initially but it stuck..) which manages these databus\r\ncommitment consistency checks. It is integrated only in the recently\r\nadded `AztecIvc`, which will eventually replace ClientIvc.",
+          "timestamp": "2024-08-06T11:22:42-07:00",
+          "tree_id": "99c9505f001b0cec34bf2b2e150897c4a6538505",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c596eda3f09bea03467662fd98c6c222c97f182"
+        },
+        "date": 1722969380167,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13322.915419999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9942.371400999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4822.275495,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4429.610624 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39622.19115,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39622191000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14521.656904999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14521657000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3643757032,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3643757032 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208994225,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208994225 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2995531769,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2995531769 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 174282537,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 174282537 ns\nthreads: 1"
           }
         ]
       }
