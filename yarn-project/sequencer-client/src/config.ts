@@ -1,7 +1,7 @@
 import { type AllowedElement } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -32,34 +32,29 @@ export type SequencerClientConfig = PublisherConfig & TxSenderConfig & Sequencer
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
     env: 'SEQ_TX_POLLING_INTERVAL_MS',
-    parseEnv: (val: string) => +val,
-    default: 1000,
     description: 'The number of ms to wait between polling for pending txs.',
+    ...numberConfigHelper(1_000),
   },
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
-    parseEnv: (val: string) => +val,
-    default: 32,
     description: 'The maximum number of txs to include in a block.',
+    ...numberConfigHelper(32),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
-    parseEnv: (val: string) => +val,
-    default: 1,
     description: 'The minimum number of txs to include in a block.',
+    ...numberConfigHelper(1),
   },
   minSecondsBetweenBlocks: {
     env: 'SEQ_MIN_SECONDS_BETWEEN_BLOCKS',
-    parseEnv: (val: string) => +val,
-    default: 0,
     description: 'The minimum number of seconds in-between consecutive blocks.',
+    ...numberConfigHelper(0),
   },
   maxSecondsBetweenBlocks: {
     env: 'SEQ_MAX_SECONDS_BETWEEN_BLOCKS',
-    parseEnv: (val: string) => +val,
-    default: 0,
     description:
       'The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached.',
+    ...numberConfigHelper(0),
   },
   coinbase: {
     env: 'COINBASE',
@@ -96,8 +91,8 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
-    parseEnv: (val: string) => +val,
     description: 'Max block size',
+    ...numberConfigHelper(1024 * 1024),
   },
   enforceFees: {
     env: 'ENFORCE_FEES',
@@ -115,9 +110,8 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
   l1ChainId: l1ReaderConfigMappings.l1ChainId,
   version: {
     env: 'VERSION',
-    parseEnv: (val: string) => +val,
-    default: 1,
     description: 'The version of the rollup.',
+    ...numberConfigHelper(1),
   },
 };
 
