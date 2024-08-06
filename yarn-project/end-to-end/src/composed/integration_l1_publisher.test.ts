@@ -1,15 +1,6 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  Body,
-  Fr,
-  GlobalVariables,
-  L2Actor,
-  type L2Block,
-  createDebugLogger,
-  mockTx,
-} from '@aztec/aztec.js';
+import { AztecAddress, Body, Fr, GlobalVariables, type L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   PROVING_STATUS,
@@ -22,22 +13,20 @@ import {
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  type Proof,
   PublicDataUpdateRequest,
-  getMockVerificationKeys,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
-import { fr, makeProof } from '@aztec/circuits.js/testing';
+import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -62,6 +51,7 @@ import {
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
+import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
@@ -89,7 +79,6 @@ describe('L1Publisher integration', () => {
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
-  let l2Proof: Proof;
 
   let builder: TxProver;
   let builderDb: MerkleTrees;
@@ -99,12 +88,14 @@ describe('L1Publisher integration', () => {
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.apiKey).chainInfo.id;
+  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
+  // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
+  // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   beforeEach(async () => {
@@ -143,37 +134,36 @@ describe('L1Publisher integration', () => {
     const worldStateConfig: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 10000,
       l2QueueSize: 10,
+      worldStateProvenBlocksOnly: false,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, getMockVerificationKeys(), worldStateSynchronizer, new NoopTelemetryClient());
-    l2Proof = makeEmptyProof();
+    builder = await TxProver.new(config, worldStateSynchronizer, blockSource, new NoopTelemetryClient());
 
     publisher = getL1Publisher({
       rpcUrl: config.rpcUrl,
-      apiKey: '',
       requiredConfirmations: 1,
       l1Contracts: l1ContractAddresses,
       publisherPrivateKey: sequencerPK,
-      l1BlockPublishRetryIntervalMS: 100,
+      l1PublishRetryIntervalMS: 100,
+      l1ChainId: 31337,
     });
 
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
-    prevHeader = await builderDb.buildInitialHeader(false);
+    prevHeader = builderDb.getInitialHeader();
   });
 
-  const makeEmptyProcessedTx = () => {
-    const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
-    return tx;
-  };
+  const makeEmptyProcessedTx = () =>
+    makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version), getVKTreeRoot());
 
   const makeBloatedProcessedTx = (seed = 0x1): ProcessedTx => {
     const tx = mockTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
+    kernelOutput.constants.vkTreeRoot = getVKTreeRoot();
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -181,47 +171,22 @@ describe('L1Publisher integration', () => {
       seed + 0x500,
     );
 
-    const processedTx = makeProcessedTx(tx, kernelOutput, makeProof(), []);
+    const processedTx = makeProcessedTx(tx, kernelOutput, []);
 
-    processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100);
-    processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
-    processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-    processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+    processedTx.data.end.noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x100);
+    processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
+    processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
+    processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
-    processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
     return processedTx;
   };
 
-  const sendToL2 = async (content: Fr, recipientAddress: AztecAddress): Promise<Fr> => {
-    // @todo @LHerskind version hardcoded here (update to bigint or field)
-    const recipient = new L2Actor(recipientAddress, 1);
-    // getting the 32 byte hex string representation of the content
-    const contentString = content.toString();
-    // Using the 0 value for the secretHash.
-    const emptySecretHash = Fr.ZERO.toString();
-
-    const txHash = await inbox.write.sendL2Message(
-      [{ actor: recipient.recipient.toString(), version: BigInt(recipient.version) }, contentString, emptySecretHash],
-      {} as any,
+  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
+    return sendL1ToL2Message(
+      { content, secretHash: Fr.ZERO, recipient },
+      { publicClient, walletClient, l1ContractAddresses },
     );
-
-    const txReceipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
-    });
-
-    // Exactly 1 event should be emitted in the transaction
-    expect(txReceipt.logs.length).toBe(1);
-
-    // We decode the event log before checking it
-    const txLog = txReceipt.logs[0];
-    const topics = decodeEventLog({
-      abi: InboxAbi,
-      data: txLog.data,
-      topics: txLog.topics,
-    });
-
-    return Fr.fromString(topics.args.hash);
   };
 
   /**
@@ -267,6 +232,7 @@ describe('L1Publisher integration', () => {
           },
           globalVariables: {
             blockNumber: block.number,
+            slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
             version: Number(block.header.globalVariables.version.toBigInt()),
@@ -370,18 +336,19 @@ describe('L1Publisher integration', () => {
       }
 
       // Ensure that each transaction has unique (non-intersecting nullifier values)
-      const totalNullifiersPerBlock = 4 * MAX_NEW_NULLIFIERS_PER_TX;
+      const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
       const txs = [
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NEW_NULLIFIERS_PER_TX),
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NEW_NULLIFIERS_PER_TX),
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NEW_NULLIFIERS_PER_TX),
-        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 1 * MAX_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 2 * MAX_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 3 * MAX_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
       ];
 
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
+        new Fr(1 + i) /** slot number */,
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
@@ -396,16 +363,16 @@ describe('L1Publisher integration', () => {
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-      const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+      const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
       const [emptyRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
 
       // Check that we have not yet written a root to this blocknumber
       expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-      writeJson(`mixed_block_${i}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
+      writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], l2Proof);
+      await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -425,12 +392,7 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x`, // empty aggregation object
-          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
-        ],
+        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
       });
       expect(ethTx.input).toEqual(expectedData);
 
@@ -439,7 +401,7 @@ describe('L1Publisher integration', () => {
       expect(newToConsume).toEqual(toConsume + 1n);
       toConsume = newToConsume;
 
-      const treeHeight = Math.ceil(Math.log2(newL2ToL1MsgsArray.length));
+      const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
 
       const tree = new StandardTree(
         openTmpStore(true),
@@ -449,7 +411,7 @@ describe('L1Publisher integration', () => {
         0n,
         Fr,
       );
-      await tree.appendLeaves(newL2ToL1MsgsArray);
+      await tree.appendLeaves(l2ToL1MsgsArray);
 
       const expectedRoot = tree.getRoot(true);
       const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
@@ -478,6 +440,7 @@ describe('L1Publisher integration', () => {
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
+        new Fr(1 + i) /** slot number */,
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
@@ -493,9 +456,9 @@ describe('L1Publisher integration', () => {
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
 
-      writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+      writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block, [], l2Proof);
+      await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -515,12 +478,7 @@ describe('L1Publisher integration', () => {
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
         functionName: 'process',
-        args: [
-          `0x${block.header.toBuffer().toString('hex')}`,
-          `0x${block.archive.root.toBuffer().toString('hex')}`,
-          `0x`, // empty aggregation object
-          `0x${l2Proof.withoutPublicInputs().toString('hex')}`,
-        ],
+        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
       });
       expect(ethTx.input).toEqual(expectedData);
     }

@@ -1,6 +1,6 @@
 use dep::aztec::{
     note::{note_header::NoteHeader, note_interface::NoteInterface}, hash::pedersen_hash,
-    context::PrivateContext, protocol_types::grumpkin_point::GrumpkinPoint
+    context::PrivateContext
 };
 
 global TEST_NOTE_LEN: Field = 1;
@@ -32,5 +32,11 @@ impl NoteInterface<TEST_NOTE_LEN, TEST_NOTE_BYTES_LENGTH> for TestNote {
 impl TestNote {
     pub fn new(value: Field) -> Self {
         TestNote { value, header: NoteHeader::empty() }
+    }
+}
+
+impl Eq for TestNote {
+    fn eq(self, other: Self) -> bool {
+        self.value == other.value
     }
 }

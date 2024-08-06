@@ -1,5 +1,5 @@
 use crate::{
-    context::{PublicContext, PrivateContext},
+    context::{PublicContext, PrivateContext, UnconstrainedContext},
     state_vars::shared_mutable::{
     shared_mutable::SharedMutable, scheduled_value_change::ScheduledValueChange,
     scheduled_delay_change::ScheduledDelayChange
@@ -31,6 +31,10 @@ fn in_private(
     historical_block_number: u32
 ) -> SharedMutable<Field, TEST_INITIAL_DELAY, &mut PrivateContext> {
     SharedMutable::new(&mut env.private_at(historical_block_number), storage_slot)
+}
+
+fn in_unconstrained(env: TestEnvironment) -> SharedMutable<Field, TEST_INITIAL_DELAY, UnconstrainedContext> {
+    SharedMutable::new(env.unkonstrained(), storage_slot)
 }
 
 #[test]
@@ -336,4 +340,64 @@ fn test_get_current_value_in_private_bad_zero_hash_delay_hints() {
     ).returns(mocked.serialize()).times(1);
 
     let _ = state_var.get_current_value_in_private();
+}
+
+#[test]
+fn test_get_current_value_in_unconstrained_initial() {
+    let env = setup();
+    let state_var = in_unconstrained(env);
+
+    assert_eq(state_var.get_current_value_in_unconstrained(), zeroed());
+}
+
+#[test]
+fn test_get_current_value_in_unconstrained_before_scheduled_change() {
+    let mut env = setup();
+    let state_var_public = in_public(env);
+
+    state_var_public.schedule_value_change(new_value);
+
+    let (_, block_of_change) = state_var_public.get_scheduled_value_in_public();
+
+    let original_value = zeroed();
+
+    let mut state_var_unconstrained = in_unconstrained(env);
+
+    // The current value has not changed
+    assert_eq(state_var_unconstrained.get_current_value_in_unconstrained(), original_value);
+
+    // The current value still does not change right before the block of change
+    env.advance_block_to(block_of_change - 1);
+
+    state_var_unconstrained = in_unconstrained(env);
+    assert_eq(state_var_unconstrained.get_current_value_in_unconstrained(), original_value);
+}
+
+#[test]
+fn test_get_current_value_in_unconstrained_at_scheduled_change() {
+    let mut env = setup();
+    let state_var_public = in_public(env);
+
+    state_var_public.schedule_value_change(new_value);
+
+    let (_, block_of_change) = state_var_public.get_scheduled_value_in_public();
+
+    env.advance_block_to(block_of_change);
+
+    let state_var_unconstrained = in_unconstrained(env);
+    assert_eq(state_var_unconstrained.get_current_value_in_unconstrained(), new_value);
+}
+
+#[test]
+fn test_get_current_value_in_unconstrained_after_scheduled_change() {
+    let mut env = setup();
+    let state_var_public = in_public(env);
+
+    state_var_public.schedule_value_change(new_value);
+
+    let (_, block_of_change) = state_var_public.get_scheduled_value_in_public();
+
+    env.advance_block_to(block_of_change + 10);
+    let state_var_unconstrained = in_unconstrained(env);
+    assert_eq(state_var_unconstrained.get_current_value_in_unconstrained(), new_value);
 }

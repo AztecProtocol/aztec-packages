@@ -5,6 +5,7 @@
 mod arguments;
 mod call_private_function;
 mod encryption;
+mod execution;
 mod get_contract_instance;
 mod get_l1_to_l2_membership_witness;
 mod get_nullifier_membership_witness;
@@ -16,7 +17,6 @@ mod get_sibling_path;
 mod unsafe_rand;
 mod enqueue_public_function_call;
 mod header;
-mod public_call;
 mod notes;
 mod storage;
 mod logs;

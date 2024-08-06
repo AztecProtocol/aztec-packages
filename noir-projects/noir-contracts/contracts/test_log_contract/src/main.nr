@@ -1,9 +1,6 @@
 contract TestLog {
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{
-        traits::Serialize, grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
-        address::AztecAddress
-    };
+    use dep::aztec::protocol_types::{traits::Serialize, point::Point, scalar::Scalar, address::AztecAddress};
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::aztec::event::event_interface::EventInterface;
@@ -18,8 +15,8 @@ contract TestLog {
 
     #[aztec(event)]
     struct ExampleEvent1 {
-        value2: Field,
-        value3: Field,
+        value2: AztecAddress,
+        value3: u8,
     }
 
     #[aztec(storage)]
@@ -32,8 +29,8 @@ contract TestLog {
 
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
-        secret: GrumpkinPrivateKey,
-        point: GrumpkinPoint,
+        secret: Scalar,
+        point: Point,
         randomness: Field,
         event_type_id: Field,
         preimage: [Field; 2]
@@ -69,7 +66,7 @@ contract TestLog {
             )
         );
 
-        let event1 = ExampleEvent1 { value2: preimages[2], value3: preimages[3] };
+        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
         event1.emit(
             encode_and_encrypt_event_with_randomness(
@@ -88,7 +85,7 @@ contract TestLog {
 
         event0.emit(encode_event(&mut context));
 
-        let event1 = ExampleEvent1 { value2: preimages[2], value3: preimages[3] };
+        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
         event1.emit(encode_event(&mut context));
     }

@@ -48,6 +48,8 @@ export class RootRollupInputs {
      * Sibling path of the new block tree root.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    /** Identifier of the prover for this root rollup. */
+    public proverId: Fr,
   ) {}
 
   /**
@@ -89,6 +91,7 @@ export class RootRollupInputs {
       fields.startL1ToL2MessageTreeSnapshot,
       fields.startArchiveSnapshot,
       fields.newArchiveSiblingPath,
+      fields.proverId,
     ] as const;
   }
 
@@ -107,6 +110,7 @@ export class RootRollupInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
+      reader.readObject(Fr),
     );
   }
 
@@ -129,12 +133,16 @@ export class RootRollupPublicInputs {
   constructor(
     /** Snapshot of archive tree after this block/rollup been processed */
     public archive: AppendOnlyTreeSnapshot,
+    /** The root for the protocol circuits vk tree */
+    public vkTreeRoot: Fr,
     /** A header of an L2 block. */
     public header: Header,
+    /** Identifier of the prover who generated this proof. */
+    public proverId: Fr,
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
-    return [fields.archive, fields.header] as const;
+    return [fields.archive, fields.vkTreeRoot, fields.header, fields.proverId] as const;
   }
 
   toBuffer() {
@@ -156,7 +164,12 @@ export class RootRollupPublicInputs {
    */
   public static fromBuffer(buffer: Buffer | BufferReader): RootRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new RootRollupPublicInputs(reader.readObject(AppendOnlyTreeSnapshot), reader.readObject(Header));
+    return new RootRollupPublicInputs(
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(Fr),
+      reader.readObject(Header),
+      reader.readObject(Fr),
+    );
   }
 
   toString() {

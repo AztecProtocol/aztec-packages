@@ -20,7 +20,6 @@ contract DocsExample {
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
     use dep::aztec::note::note_getter_options::Comparator;
-    use dep::aztec::protocol_types::grumpkin_point::GrumpkinPoint;
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 
@@ -197,7 +196,14 @@ contract DocsExample {
 
         for i in 0..amounts.len() {
             let mut note = CardNote::new(amounts[i], 1, msg_sender_npk_m_hash);
-            storage.set.insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, msg_sender_ovpk_m, msg_sender_ivpk_m));
+            storage.set.insert(&mut note).emit(
+                encode_and_encrypt_note_with_keys(
+                    &mut context,
+                    msg_sender_ovpk_m,
+                    msg_sender_ivpk_m,
+                    context.msg_sender()
+                )
+            );
         }
     }
 

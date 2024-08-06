@@ -7,8 +7,10 @@ import {
   type Wallet,
 } from '@aztec/aztec.js';
 import { Fr, type GasSettings } from '@aztec/circuits.js';
+import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { type PrivateFPCContract, PrivateTokenContract } from '@aztec/noir-contracts.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { type PrivateFPCContract, TokenWithRefundsContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -16,12 +18,13 @@ import { FeesTest } from './fees_test.js';
 describe('e2e_fees/private_refunds', () => {
   let aliceWallet: Wallet;
   let aliceAddress: AztecAddress;
-  let privateToken: PrivateTokenContract;
+  let tokenWithRefunds: TokenWithRefundsContract;
   let privateFPC: PrivateFPCContract;
 
-  let InitialAlicePrivateTokens: bigint;
-  let InitialBobPrivateTokens: bigint;
-  let InitialPrivateFPCGas: bigint;
+  let initialAliceBalance: bigint;
+  // Bob is the admin of the fee paying contract
+  let initialBobBalance: bigint;
+  let initialFPCGasBalance: bigint;
 
   const t = new FeesTest('private_refunds');
 
@@ -29,9 +32,9 @@ describe('e2e_fees/private_refunds', () => {
     await t.applyInitialAccountsSnapshot();
     await t.applyPublicDeployAccountsSnapshot();
     await t.applyDeployGasTokenSnapshot();
-    await t.applyPrivateTokenAndFPC();
-    await t.applyFundAliceWithPrivateTokens();
-    ({ aliceWallet, aliceAddress, privateFPC, privateToken } = await t.setup());
+    await t.applyTokenWithRefundsAndFPC();
+    await t.applyFundAliceWithTokens();
+    ({ aliceWallet, aliceAddress, privateFPC, tokenWithRefunds } = await t.setup());
     t.logger.debug(`Alice address: ${aliceAddress}`);
   });
 
@@ -40,26 +43,30 @@ describe('e2e_fees/private_refunds', () => {
   });
 
   beforeEach(async () => {
-    [[InitialAlicePrivateTokens, InitialBobPrivateTokens], [InitialPrivateFPCGas]] = await Promise.all([
-      t.privateTokenBalances(aliceAddress, t.bobAddress),
-      t.gasBalances(privateFPC.address),
+    [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
+      t.getTokenWithRefundsBalanceFn(aliceAddress, t.bobAddress),
+      t.getGasBalanceFn(privateFPC.address),
     ]);
   });
 
   it('can do private payments and refunds', async () => {
-    const bobKeyHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const rebateNonce = new Fr(42);
-    const tx = await privateToken.methods
+    // 1. We generate randomness for Alice and derive randomness for Bob.
+    const aliceRandomness = Fr.random(); // Called user_randomness in contracts
+    const bobRandomness = poseidon2Hash([aliceRandomness]); // Called fee_payer_randomness in contracts
+
+    // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
+    const tx = await tokenWithRefunds.methods
       .private_get_name()
       .send({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateRefundPaymentMethod(
-            privateToken.address,
+            tokenWithRefunds.address,
             privateFPC.address,
             aliceWallet,
-            rebateNonce,
-            bobKeyHash,
+            aliceRandomness,
+            bobRandomness,
+            t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
           ),
         },
       })
@@ -67,38 +74,85 @@ describe('e2e_fees/private_refunds', () => {
 
     expect(tx.transactionFee).toBeGreaterThan(0);
 
-    const refundedNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(tx.transactionFee!));
-    const aliceKeyHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
-    const aliceRefundNote = new Note([refundedNoteValue, aliceKeyHash, rebateNonce]);
+    // 3. We check that randomness for Bob was correctly emitted as an unencrypted log (Bobs needs it to reconstruct his note).
+    const resp = await aliceWallet.getUnencryptedLogs({ txHash: tx.txHash });
+    const bobRandomnessFromLog = Fr.fromBuffer(resp.logs[0].log.data);
+    expect(bobRandomnessFromLog).toEqual(bobRandomness);
+
+    // 4. Now we compute the contents of the note containing the refund for Alice. The refund note value is simply
+    // the fee limit minus the final transaction fee. The other 2 fields in the note are Alice's npk_m_hash and
+    // the randomness.
+    const refundNoteValue = t.gasSettings.getFeeLimit().sub(new Fr(tx.transactionFee!));
+    const aliceNpkMHash = t.aliceWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
+    const aliceRefundNote = new Note([refundNoteValue, aliceNpkMHash, aliceRandomness]);
+
+    // 5. If the refund flow worked it should have added emitted a note hash of the note we constructed above and we
+    // should be able to add the note to our PXE. Just calling `pxe.addNote(...)` is enough of a check that the note
+    // hash was emitted because the endpoint will compute the hash and then it will try to find it in the note hash
+    // tree. If the note hash is not found in the tree, an error is thrown.
     await t.aliceWallet.addNote(
       new ExtendedNote(
         aliceRefundNote,
         t.aliceAddress,
-        privateToken.address,
-        PrivateTokenContract.storage.balances.slot,
-        PrivateTokenContract.notes.TokenNote.id,
+        tokenWithRefunds.address,
+        deriveStorageSlotInMap(TokenWithRefundsContract.storage.balances.slot, t.aliceAddress),
+        TokenWithRefundsContract.notes.TokenNote.id,
         tx.txHash,
       ),
     );
 
-    const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobKeyHash, rebateNonce]);
+    // 6. Now we reconstruct the note for the final fee payment. It should contain the transaction fee, Bob's
+    // npk_m_hash and the randomness.
+    // Note that FPC emits randomness as unencrypted log and the tx fee is publicly know so Bob is able to reconstruct
+    // his note just from on-chain data.
+    const bobNpkMHash = t.bobWallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash();
+    const bobFeeNote = new Note([new Fr(tx.transactionFee!), bobNpkMHash, bobRandomness]);
+
+    // 7. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
     await t.bobWallet.addNote(
       new ExtendedNote(
         bobFeeNote,
         t.bobAddress,
-        privateToken.address,
-        PrivateTokenContract.storage.balances.slot,
-        PrivateTokenContract.notes.TokenNote.id,
+        tokenWithRefunds.address,
+        deriveStorageSlotInMap(TokenWithRefundsContract.storage.balances.slot, t.bobAddress),
+        TokenWithRefundsContract.notes.TokenNote.id,
         tx.txHash,
       ),
     );
 
-    await expectMapping(t.gasBalances, [privateFPC.address], [InitialPrivateFPCGas - tx.transactionFee!]);
+    // 8. At last we check that the gas balance of FPC has decreased exactly by the transaction fee ...
+    await expectMapping(t.getGasBalanceFn, [privateFPC.address], [initialFPCGasBalance - tx.transactionFee!]);
+    // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
-      t.privateTokenBalances,
+      t.getTokenWithRefundsBalanceFn,
       [aliceAddress, t.bobAddress],
-      [InitialAlicePrivateTokens - tx.transactionFee!, InitialBobPrivateTokens + tx.transactionFee!],
+      [initialAliceBalance - tx.transactionFee!, initialBobBalance + tx.transactionFee!],
     );
+  });
+
+  // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
+  it('insufficient funded amount is correctly handled', async () => {
+    // 1. We generate randomness for Alice and derive randomness for Bob.
+    const aliceRandomness = Fr.random(); // Called user_randomness in contracts
+    const bobRandomness = poseidon2Hash([aliceRandomness]); // Called fee_payer_randomness in contracts
+
+    // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
+    await expect(
+      tokenWithRefunds.methods.private_get_name().prove({
+        fee: {
+          gasSettings: t.gasSettings,
+          paymentMethod: new PrivateRefundPaymentMethod(
+            tokenWithRefunds.address,
+            privateFPC.address,
+            aliceWallet,
+            aliceRandomness,
+            bobRandomness,
+            t.bobWallet.getAddress(), // Bob is the recipient of the fee notes.
+            true, // We set max fee/funded amount to zero to trigger the error.
+          ),
+        },
+      }),
+    ).rejects.toThrow('funded amount not enough to cover tx fee');
   });
 });
 
@@ -119,15 +173,27 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
     private wallet: Wallet,
 
     /**
-     * A nonce to mix in with the generated notes.
+     * A randomness to mix in with the generated refund note for the sponsored user.
      * Use this to reconstruct note preimages for the PXE.
      */
-    private rebateNonce: Fr,
+    private userRandomness: Fr,
 
     /**
-     * The hash of the nullifier private key that the FPC sends notes it receives to.
+     * A randomness to mix in with the generated fee note for the fee payer.
+     * Use this to reconstruct note preimages for the PXE.
      */
-    private feeRecipientNPKMHash: Fr,
+    private feePayerRandomness: Fr,
+
+    /**
+     * Address that the FPC sends notes it receives to.
+     */
+    private feeRecipient: AztecAddress,
+
+    /**
+     * If true, the max fee will be set to 0.
+     * TODO(#7694): Remove this param once the lacking feature in TXE is implemented.
+     */
+    private setMaxFeeToZero = false,
   ) {}
 
   /**
@@ -148,14 +214,22 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
    * @returns The function call to pay the fee.
    */
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
-    const maxFee = gasSettings.getFeeLimit();
+    // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
+    // (maxFee) to be in token denomination.
+    const maxFee = this.setMaxFeeToZero ? Fr.ZERO : gasSettings.getFeeLimit();
 
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [this.feeRecipientNPKMHash, this.wallet.getCompleteAddress().address, maxFee, this.rebateNonce],
-        selector: FunctionSelector.fromSignature('setup_refund(Field,(Field),Field,Field)'),
+        args: [
+          this.feeRecipient,
+          this.wallet.getCompleteAddress().address,
+          maxFee,
+          this.userRandomness,
+          this.feePayerRandomness,
+        ],
+        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field),Field,Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: this.asset,
@@ -170,7 +244,7 @@ class PrivateRefundPaymentMethod implements FeePaymentMethod {
         selector: FunctionSelector.fromSignature('fund_transaction_privately(Field,(Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, this.asset, this.rebateNonce],
+        args: [maxFee, this.asset, this.userRandomness],
         returnTypes: [],
       },
     ];

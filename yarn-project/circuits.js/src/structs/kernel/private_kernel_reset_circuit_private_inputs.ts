@@ -1,14 +1,7 @@
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import {
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-} from '../../constants.gen.js';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems } from '../../utils/index.js';
-import { NoteLogHash } from '../log_hash.js';
-import { ScopedNoteHash } from '../note_hash.js';
-import { ScopedNullifier } from '../nullifier.js';
 import {
   KeyValidationHint,
   type NoteHashReadRequestHints,
@@ -17,27 +10,6 @@ import {
   nullifierReadRequestHintsFromBuffer,
 } from '../read_request_hints/index.js';
 import { PrivateKernelData } from './private_kernel_data.js';
-
-export class PrivateKernelResetOutputs {
-  constructor(
-    public noteHashes: Tuple<ScopedNoteHash, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-    public nullifiers: Tuple<ScopedNullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    public noteEncryptedLogHashes: Tuple<NoteLogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-  ) {}
-
-  toBuffer() {
-    return serializeToBuffer(this.noteHashes, this.nullifiers, this.noteEncryptedLogHashes);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new PrivateKernelResetOutputs(
-      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, ScopedNoteHash),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, ScopedNullifier),
-      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NoteLogHash),
-    );
-  }
-}
 
 export class PrivateKernelResetHints<
   NH_RR_PENDING extends number,
@@ -50,15 +22,11 @@ export class PrivateKernelResetHints<
     /**
      * Contains hints for the transient note hashes to locate corresponding nullifiers.
      */
-    public transientNullifierIndexesForNoteHashes: Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
+    public transientNullifierIndexesForNoteHashes: Tuple<number, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * Contains hints for the transient nullifiers to locate corresponding note hashes.
      */
-    public transientNoteHashIndexesForNullifiers: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    /**
-     * Contains hints for the transient logs to locate corresponding note hashes.
-     */
-    public transientNoteHashIndexesForLogs: Tuple<number, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
+    public transientNoteHashIndexesForNullifiers: Tuple<number, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
@@ -71,16 +39,21 @@ export class PrivateKernelResetHints<
      * Contains hints for key validation request.
      */
     public keyValidationHints: Tuple<KeyValidationHint, KEY_VALIDATION_REQUESTS>,
+    /**
+     * The "final" minRevertibleSideEffectCounter of a tx, to split the data for squashing.
+     * Not the minRevertibleSideEffectCounter at the point the reset circuit is run.
+     */
+    public validationRequestsSplitCounter: number,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
       this.transientNullifierIndexesForNoteHashes,
       this.transientNoteHashIndexesForNullifiers,
-      this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
       this.keyValidationHints,
+      this.validationRequestsSplitCounter,
     );
   }
 
@@ -106,13 +79,13 @@ export class PrivateKernelResetHints<
     return new PrivateKernelResetHints(
       this.transientNullifierIndexesForNoteHashes,
       this.transientNoteHashIndexesForNullifiers,
-      this.transientNoteHashIndexesForLogs,
       this.noteHashReadRequestHints.trimToSizes(numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
       this.nullifierReadRequestHints.trimToSizes(numNullifierReadRequestPending, numNullifierReadRequestSettled),
       this.keyValidationHints.slice(0, numKeyValidationRequests) as Tuple<
         KeyValidationHint,
         NEW_KEY_VALIDATION_REQUESTS
       >,
+      this.validationRequestsSplitCounter,
     );
   }
   /**
@@ -136,9 +109,8 @@ export class PrivateKernelResetHints<
   ): PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelResetHints(
-      reader.readNumbers(MAX_NEW_NOTE_HASHES_PER_TX),
-      reader.readNumbers(MAX_NEW_NULLIFIERS_PER_TX),
-      reader.readNumbers(MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
+      reader.readNumbers(MAX_NOTE_HASHES_PER_TX),
+      reader.readNumbers(MAX_NULLIFIERS_PER_TX),
       reader.readObject({
         fromBuffer: buf =>
           noteHashReadRequestHintsFromBuffer(buf, numNoteHashReadRequestPending, numNoteHashReadRequestSettled),
@@ -148,6 +120,7 @@ export class PrivateKernelResetHints<
           nullifierReadRequestHintsFromBuffer(buf, numNullifierReadRequestPending, numNullifierReadRequestSettled),
       }),
       reader.readArray(numNullifierKeys, KeyValidationHint),
+      reader.readNumber(),
     );
   }
 }
@@ -168,7 +141,6 @@ export class PrivateKernelResetCircuitPrivateInputs<
      * The previous kernel data
      */
     public previousKernel: PrivateKernelData,
-    public outputs: PrivateKernelResetOutputs,
     public hints: PrivateKernelResetHints<
       NH_RR_PENDING,
       NH_RR_SETTLED,
@@ -180,7 +152,7 @@ export class PrivateKernelResetCircuitPrivateInputs<
   ) {}
 
   isForPublic() {
-    return countAccumulatedItems(this.previousKernel.publicInputs.end.publicCallStack) > 0;
+    return countAccumulatedItems(this.previousKernel.publicInputs.end.publicCallRequests) > 0;
   }
 
   /**
@@ -188,7 +160,7 @@ export class PrivateKernelResetCircuitPrivateInputs<
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.outputs, this.hints);
+    return serializeToBuffer(this.previousKernel, this.hints);
   }
 
   /**
@@ -222,7 +194,6 @@ export class PrivateKernelResetCircuitPrivateInputs<
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelResetCircuitPrivateInputs(
       reader.readObject(PrivateKernelData),
-      reader.readObject(PrivateKernelResetOutputs),
       reader.readObject({
         fromBuffer: buf =>
           PrivateKernelResetHints.fromBuffer(

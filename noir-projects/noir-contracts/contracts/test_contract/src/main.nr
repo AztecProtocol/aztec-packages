@@ -13,8 +13,8 @@ contract Test {
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
-        traits::{Serialize, ToField, FromField}, grumpkin_point::GrumpkinPoint,
-        grumpkin_private_key::GrumpkinPrivateKey, storage::map::derive_storage_slot_in_map
+        traits::{Serialize, ToField, FromField}, point::Point, scalar::Scalar,
+        storage::map::derive_storage_slot_in_map
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
@@ -37,6 +37,7 @@ contract Test {
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
+    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     use crate::test_note::TestNote;
 
@@ -247,13 +248,13 @@ contract Test {
     // Purely exists for testing
     #[aztec(public)]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // For testing non-note encrypted logs
@@ -276,7 +277,8 @@ contract Test {
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
                 outgoing_viewer_ovpk_m,
-                owner_ivpk_m
+                owner_ivpk_m,
+                owner
             )
         );
 
@@ -293,7 +295,8 @@ contract Test {
                     // testing only - a randomness of 0 signals the kerels to not mask the address
                     0,
                     outgoing_viewer_ovpk_m,
-                    owner_ivpk_m
+                    owner_ivpk_m,
+                    owner
                 )
             );
         }
@@ -404,15 +407,15 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn compute_note_header_ciphertext(secret: GrumpkinPrivateKey, point: GrumpkinPoint) -> [u8; 48] {
+    fn compute_note_header_ciphertext(secret: Scalar, point: Point) -> [u8; 48] {
         EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
     }
 
     // 64 bytes + 32 * #fields + 16 = 112 bytes
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
-        secret: GrumpkinPrivateKey,
-        point: GrumpkinPoint,
+        secret: Scalar,
+        point: Point,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
@@ -422,13 +425,13 @@ contract Test {
 
     #[aztec(private)]
     fn compute_outgoing_log_body_ciphertext(
-        eph_sk: GrumpkinPrivateKey,
+        eph_sk: Scalar,
         recipient: AztecAddress,
-        recipient_ivpk_app: GrumpkinPoint,
-        ovsk_app: GrumpkinPrivateKey
-    ) -> [u8; 176] {
-        let eph_pk = eph_sk.derive_public_key();
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk_app).compute_ciphertext(ovsk_app, eph_pk)
+        recipient_ivpk: Point,
+        ovsk_app: Scalar
+    ) -> [u8; 144] {
+        let eph_pk = derive_public_key(eph_sk);
+        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
     }
 
     #[aztec(public)]
@@ -472,7 +475,7 @@ contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
-        let note = notes.get_unchecked(0);
+        let note = notes.get(0);
         notes_set.remove(note);
     }
 
@@ -519,7 +522,7 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: GrumpkinPoint) {
+    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(context.get_header().get_npk_m(&mut context, address), public_nullifying_key);
     }
 

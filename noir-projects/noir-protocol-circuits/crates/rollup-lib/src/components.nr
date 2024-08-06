@@ -1,16 +1,17 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
-    hash::accumulate_sha256, merkle_tree::VariableMerkleTree,
+    hash::{accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash},
+    merkle_tree::VariableMerkleTree,
     constants::{
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+    MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
     utils::{uint256::U256, arrays::array_length},
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
-    public_data_update_request::PublicDataUpdateRequest
+    public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
 }
 };
 
@@ -91,8 +92,8 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
 }
 
 pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> Field {
-    let non_empty_items = array_length(combined.new_l2_to_l1_msgs);
-    let merkle_tree = VariableMerkleTree::new_sha(combined.new_l2_to_l1_msgs, non_empty_items);
+    let non_empty_items = array_length(combined.l2_to_l1_msgs);
+    let merkle_tree = VariableMerkleTree::new_sha(combined.l2_to_l1_msgs, non_empty_items);
     merkle_tree.get_root()
 }
 
@@ -111,12 +112,25 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
+fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+    let scoped_logs = unencrypted_logs_hashes.map(
+        |log: ScopedLogHash| {
+        LogHash {
+            value: silo_unencrypted_log_hash(log),
+            counter: log.log_hash.counter,
+            length: log.log_hash.length
+        }
+    }
+    );
+    compute_tx_logs_hash(scoped_logs)
+}
+
 // Tx effects hash consists of
 // 1 field for revert code
 // 1 field for transaction fee
-// MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
-// MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
-// MAX_NEW_L2_TO_L1_MSGS_PER_TX fields for L2 to L1 messages
+// MAX_NOTE_HASHES_PER_TX fields for note hashes
+// MAX_NULLIFIERS_PER_TX fields for nullifiers
+// MAX_L2_TO_L1_MSGS_PER_TX fields for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
 //                                          __
 // 1 note encrypted logs length --> 1 field   |
@@ -126,10 +140,9 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
 // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + MAX_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
-// TODO(Alvaro): This is too slow for brillig without the array optimization
 pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
@@ -138,9 +151,9 @@ pub fn compute_tx_effects_hash(
 ) -> Field {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
-    let new_note_hashes = combined.new_note_hashes;
-    let new_nullifiers = combined.new_nullifiers;
-    let new_l2_to_l1_msgs = combined.new_l2_to_l1_msgs;
+    let note_hashes = combined.note_hashes;
+    let nullifiers = combined.nullifiers;
+    let l2_to_l1_msgs = combined.l2_to_l1_msgs;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
@@ -150,7 +163,7 @@ pub fn compute_tx_effects_hash(
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
     let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
     let encrypted_logs_hash = combined.encrypted_logs_hash;
-    let unencrypted_logs_hash = combined.unencrypted_logs_hash;
+    let unencrypted_logs_hash = scope_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
 
     let mut offset = 0;
 
@@ -164,22 +177,22 @@ pub fn compute_tx_effects_hash(
     offset += 1;
 
     // NOTE HASHES
-    for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-        tx_effects_hash_input[offset + j] = new_note_hashes[j];
+    for j in 0..MAX_NOTE_HASHES_PER_TX {
+        tx_effects_hash_input[offset + j] = note_hashes[j];
     }
-    offset += MAX_NEW_NOTE_HASHES_PER_TX ;
+    offset += MAX_NOTE_HASHES_PER_TX ;
 
     // NULLIFIERS
-    for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-        tx_effects_hash_input[offset + j] = new_nullifiers[j];
+    for j in 0..MAX_NULLIFIERS_PER_TX {
+        tx_effects_hash_input[offset + j] = nullifiers[j];
     }
-    offset += MAX_NEW_NULLIFIERS_PER_TX ;
+    offset += MAX_NULLIFIERS_PER_TX ;
 
     // L2 TO L1 MESSAGES
-    for j in 0..MAX_NEW_L2_TO_L1_MSGS_PER_TX {
-        tx_effects_hash_input[offset + j] = new_l2_to_l1_msgs[j];
+    for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
+        tx_effects_hash_input[offset + j] = l2_to_l1_msgs[j];
     }
-    offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX;
+    offset += MAX_L2_TO_L1_MSGS_PER_TX;
 
     // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
@@ -242,10 +255,10 @@ fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [Publ
 fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
     let expected_size = 1 // revert code
         + 1 // transaction fee
-        + MAX_NEW_NOTE_HASHES_PER_TX
-        + MAX_NEW_NULLIFIERS_PER_TX
+        + MAX_NOTE_HASHES_PER_TX
+        + MAX_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-        + MAX_NEW_L2_TO_L1_MSGS_PER_TX
+        + MAX_L2_TO_L1_MSGS_PER_TX
         + 3 // logs lengths
         + 3; // logs hashes
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");

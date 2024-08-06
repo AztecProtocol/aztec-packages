@@ -1,13 +1,12 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { pedersenHashBuffer, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
-import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex } from '../constants.gen.js';
+import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
 import { VerificationKey } from '../structs/index.js';
 
 /**
@@ -38,48 +37,29 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A note hash nonce.
  */
 export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Fr {
-  return pedersenHash([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
+  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
  * Computes a siloed note hash, given the contract address and the note hash itself.
  * A siloed note hash effectively namespaces a note hash to a specific contract.
  * @param contract - The contract address
- * @param innerNoteHash - The note hash to silo.
+ * @param uniqueNoteHash - The unique note hash to silo.
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
-  return pedersenHash([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
-}
-
-/**
- * Computes a note content hash.
- * @param noteContent - The note content (e.g. note.items).
- * @returns A note content hash.
- */
-export function computeNoteContentHash(noteContent: Fr[]): Fr {
-  return pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
-}
-
-/**
- * Computes an inner note hash, given a storage slot and a note hash.
- * @param storageSlot - The storage slot.
- * @param noteHash - The note hash.
- * @returns An inner note hash.
- */
-export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
-  return pedersenHash([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
+  return poseidon2HashWithSeparator([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
- * @param nonce - The contract address.
- * @param innerNoteHash - An inner note hash.
+ * @param nonce - A nonce (typically derived from tx hash and note hash index in the tx).
+ * @param slottedNoteHash - A slotted note hash.
  * @returns A unique note hash.
  */
-export function computeUniqueNoteHash(nonce: Fr, innerNoteHash: Fr): Fr {
-  return pedersenHash([nonce, innerNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeUniqueNoteHash(nonce: Fr, slottedNoteHash: Fr): Fr {
+  return poseidon2HashWithSeparator([nonce, slottedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -90,7 +70,7 @@ export function computeUniqueNoteHash(nonce: Fr, innerNoteHash: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return pedersenHash([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
 /**
@@ -111,7 +91,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return pedersenHash([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
 /**
@@ -123,26 +103,22 @@ export function computeVarArgsHash(args: Fr[]) {
   if (args.length === 0) {
     return Fr.ZERO;
   }
-  const maxLen = ARGS_HASH_CHUNK_LENGTH * ARGS_HASH_CHUNK_COUNT;
-  if (args.length > maxLen) {
-    // TODO(@spalladino): This should throw instead of warning. And we should implement
-    // the same check on the Noir side, which is currently missing.
-    args = args.slice(0, maxLen);
-    createDebugLogger('aztec:circuits:abis').warn(`Hashing ${args.length} args exceeds max of ${maxLen}`);
+  if (args.length > MAX_ARGS_LENGTH) {
+    throw new Error(`Hashing ${args.length} args exceeds max of ${MAX_ARGS_LENGTH}`);
   }
 
-  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map(c => {
+  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map((c: Fr[]) => {
     if (c.length < ARGS_HASH_CHUNK_LENGTH) {
       c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_LENGTH);
     }
-    return pedersenHash(c, GeneratorIndex.FUNCTION_ARGS);
+    return poseidon2HashWithSeparator(c, GeneratorIndex.FUNCTION_ARGS);
   });
 
   if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
     chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
-  return pedersenHash(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
+  return poseidon2HashWithSeparator(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
 }
 
 /**
@@ -152,7 +128,7 @@ export function computeVarArgsHash(args: Fr[]) {
  * @returns The hash
  */
 export function computeSecretHash(secret: Fr) {
-  return pedersenHash([secret], GeneratorIndex.SECRET_HASH);
+  return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
 export function computeL1ToL2MessageNullifier(
@@ -161,6 +137,9 @@ export function computeL1ToL2MessageNullifier(
   secret: Fr,
   messageIndex: bigint,
 ) {
-  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.MESSAGE_NULLIFIER);
+  const innerMessageNullifier = poseidon2HashWithSeparator(
+    [messageHash, secret, messageIndex],
+    GeneratorIndex.MESSAGE_NULLIFIER,
+  );
   return siloNullifier(contract, innerMessageNullifier);
 }

@@ -1,4 +1,4 @@
-import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
+import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmContractInstanceHint,
   AvmExecutionHints,
@@ -14,9 +14,9 @@ import {
   LogHash,
   NoteHash,
   Nullifier,
+  type PublicCallRequest,
   ReadRequest,
 } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -24,7 +24,7 @@ import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecutionRequest, type PublicExecutionResult } from './execution.js';
+import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
 export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
@@ -39,11 +39,11 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
 
   private noteHashReadRequests: ReadRequest[] = [];
-  private newNoteHashes: NoteHash[] = [];
+  private noteHashes: NoteHash[] = [];
 
   private nullifierReadRequests: ReadRequest[] = [];
   private nullifierNonExistentReadRequests: ReadRequest[] = [];
-  private newNullifiers: Nullifier[] = [];
+  private nullifiers: Nullifier[] = [];
 
   private l1ToL2MsgReadRequests: ReadRequest[] = [];
   private newL2ToL1Messages: L2ToL1Message[] = [];
@@ -51,6 +51,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private unencryptedLogs: UnencryptedL2Log[] = [];
   private allUnencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: LogHash[] = [];
+
+  private publicCallRequests: PublicCallRequest[] = [];
 
   private gotContractInstances: ContractInstanceWithAddress[] = [];
 
@@ -122,7 +124,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // IS there, and the AVM circuit should accept THAT noteHash as a hint. The circuit will then compare
     // the noteHash against the one provided by the user code to determine what to return to the user (exists or not),
     // and will then propagate the actually-present noteHash to its public inputs.
-    this.newNoteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
+    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
     this.logger.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
@@ -147,7 +149,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   public traceNewNullifier(_storageAddress: Fr, nullifier: Fr) {
     // TODO(4805): check if some threshold is reached for max new nullifier
     // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
-    this.newNullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+    this.nullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
     this.logger.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
@@ -177,14 +179,15 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // TODO(4805): check if some threshold is reached for max logs
     const ulog = new UnencryptedL2Log(
       AztecAddress.fromField(contractAddress),
-      // TODO(#7198): Remove event selector from UnencryptedL2Log
-      EventSelector.fromField(new Fr(0)),
       Buffer.concat(log.map(f => f.toBuffer())),
     );
     const basicLogHash = Fr.fromBuffer(ulog.hash());
     this.unencryptedLogs.push(ulog);
     this.allUnencryptedLogs.push(ulog);
-    // TODO(6578): explain magic number 4 here
+    // We want the length of the buffer output from function_l2_logs -> toBuffer to equal the stored log length in the kernels.
+    // The kernels store the length of the processed log as 4 bytes; thus for this length value to match the log length stored in the kernels,
+    // we need to add four to the length here.
+    // https://github.com/AztecProtocol/aztec-packages/issues/6578#issuecomment-2125003435
     this.unencryptedLogsHashes.push(new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)));
     this.logger.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
@@ -247,6 +250,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       result.startGasLeft.daGas - result.endGasLeft.daGas,
       result.startGasLeft.l2Gas - result.endGasLeft.l2Gas,
     );
+
+    this.publicCallRequests.push(resultToPublicCallRequest(result));
+
     this.avmCircuitHints.externalCalls.items.push(
       new AvmExternalCallHint(
         /*success=*/ new Fr(result.reverted ? 0 : 1),
@@ -273,11 +279,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     avmCallResults: AvmContractCallResult,
     /** Function name for logging */
     functionName: string = 'unknown',
-    /** The side effect counter of the execution request itself */
-    requestSideEffectCounter: number = this.startSideEffectCounter,
   ): PublicExecutionResult {
     return {
-      executionRequest: createPublicExecutionRequest(requestSideEffectCounter, avmEnvironment),
+      executionRequest: createPublicExecutionRequest(avmEnvironment),
 
       startSideEffectCounter: new Fr(this.startSideEffectCounter),
       endSideEffectCounter: new Fr(this.sideEffectCounter),
@@ -294,12 +298,12 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       contractStorageReads: this.contractStorageReads,
       contractStorageUpdateRequests: this.contractStorageUpdateRequests,
       noteHashReadRequests: this.noteHashReadRequests,
-      newNoteHashes: this.newNoteHashes,
+      noteHashes: this.noteHashes,
       nullifierReadRequests: this.nullifierReadRequests,
       nullifierNonExistentReadRequests: this.nullifierNonExistentReadRequests,
-      newNullifiers: this.newNullifiers,
+      nullifiers: this.nullifiers,
       l1ToL2MsgReadRequests: this.l1ToL2MsgReadRequests,
-      newL2ToL1Messages: this.newL2ToL1Messages,
+      l2ToL1Messages: this.newL2ToL1Messages,
       // correct the type on these now that they are finalized (lists won't grow)
       unencryptedLogs: new UnencryptedFunctionL2Logs(this.unencryptedLogs),
       allUnencryptedLogs: new UnencryptedFunctionL2Logs(this.allUnencryptedLogs),
@@ -307,6 +311,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       // TODO(dbanks12): process contract instance read requests in public kernel
       //gotContractInstances: this.gotContractInstances,
 
+      publicCallRequests: this.publicCallRequests,
       nestedExecutions: this.nestedExecutions,
 
       avmCircuitHints: this.avmCircuitHints,
@@ -319,23 +324,18 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 /**
  * Helper function to create a public execution request from an AVM execution environment
  */
-function createPublicExecutionRequest(
-  requestSideEffectCounter: number,
-  avmEnvironment: AvmExecutionEnvironment,
-): PublicExecutionRequest {
+function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): PublicExecutionRequest {
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
     storageContractAddress: avmEnvironment.storageAddress,
     functionSelector: avmEnvironment.functionSelector,
     isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
-    sideEffectCounter: requestSideEffectCounter,
   });
-  return {
-    contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
+  return new PublicExecutionRequest(
+    avmEnvironment.address,
     callContext,
     // execution request does not contain AvmContextInputs prefix
-    args: avmEnvironment.getCalldataWithoutPrefix(),
-  };
+    avmEnvironment.getCalldataWithoutPrefix(),
+  );
 }

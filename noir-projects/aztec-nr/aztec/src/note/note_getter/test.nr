@@ -5,11 +5,12 @@ use crate::{
     note_header::NoteHeader,
     note_getter_options::{NoteGetterOptions, Sort, SortOrder, Comparator, PropertySelector},
     note_getter::constrain_get_notes_internal
-}
+},
+    oracle::execution::get_contract_address
 };
 use dep::protocol_types::address::AztecAddress;
 
-use crate::test::{helpers::{test_environment::TestEnvironment, cheatcodes}, mocks::mock_note::MockNote};
+use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 
 global storage_slot: Field = 42;
 
@@ -18,10 +19,13 @@ fn setup() -> TestEnvironment {
 }
 
 fn build_valid_note(value: Field) -> MockNote {
-    MockNote::new(value).contract_address(cheatcodes::get_contract_address()).storage_slot(storage_slot).build()
+    MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build()
 }
 
-fn assert_equivalent_vec_and_array<T, N>(vec: BoundedVec<T, N>, arr: [Option<T>; N]) where T: Eq {
+fn assert_equivalent_vec_and_array<T, let N: u32>(
+    vec: BoundedVec<T, N>,
+    arr: [Option<T>; N]
+) where T: Eq {
     let mut count = 0;
 
     for i in 0..N {
@@ -77,7 +81,6 @@ fn collapses_notes_at_the_beginning_of_the_array() {
     opt_notes[5] = Option::some(build_valid_note(3));
     opt_notes[8] = Option::some(build_valid_note(4));
     opt_notes[13] = Option::some(build_valid_note(5));
-    opt_notes[21] = Option::some(build_valid_note(6));
 
     let options = NoteGetterOptions::new();
     let returned = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
@@ -89,20 +92,19 @@ fn collapses_notes_at_the_beginning_of_the_array() {
     expected[3] = Option::some(build_valid_note(3));
     expected[4] = Option::some(build_valid_note(4));
     expected[5] = Option::some(build_valid_note(5));
-    expected[6] = Option::some(build_valid_note(6));
 
     assert_equivalent_vec_and_array(returned, expected);
 }
 
-#[test(should_fail_with="Cannot return zero notes")]
-fn rejects_zero_notes() {
+fn can_return_zero_notes() {
     let mut env = setup();
     let mut context = env.private();
 
     let opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let options = NoteGetterOptions::new();
-    let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
+    let returned = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
+    assert_eq(returned.len(), 0);
 }
 
 #[test(should_fail_with="Got more notes than limit.")]
@@ -173,7 +175,7 @@ fn rejects_mismatched_storage_slot() {
     let mut env = setup();
     let mut context = env.private();
 
-    let note = MockNote::new(1).contract_address(cheatcodes::get_contract_address()).build(); // We're not setting the right storage slot
+    let note = MockNote::new(1).contract_address(get_contract_address()).build(); // We're not setting the right storage slot
 
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);

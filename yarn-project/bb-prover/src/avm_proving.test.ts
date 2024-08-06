@@ -10,10 +10,10 @@ import {
   L2ToL1Message,
   LogHash,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NOTE_HASHES_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -22,6 +22,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
+  PublicCallRequest,
   PublicCircuitPublicInputs,
   ReadRequest,
   RevertCode,
@@ -148,11 +149,15 @@ describe('AVM WitGen, proof generation and verification', () => {
    * Avm Embedded Curve functions
    ************************************************************************/
   describe('AVM Embedded Curve functions', () => {
-    const avmEmbeddedCurveFunctions: string[] = ['elliptic_curve_add_and_double', 'variable_base_msm'];
+    const avmEmbeddedCurveFunctions: [string, Fr[]][] = [
+      ['elliptic_curve_add_and_double', []],
+      ['variable_base_msm', []],
+      ['pedersen_commit', [new Fr(1), new Fr(100)]],
+    ];
     it.each(avmEmbeddedCurveFunctions)(
       'Should prove %s',
-      async name => {
-        await proveAndVerifyAvmTestContract(name);
+      async (name, calldata) => {
+        await proveAndVerifyAvmTestContract(name, calldata);
       },
       TIMEOUT,
     );
@@ -291,9 +296,9 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,
     argsHash: computeVarArgsHash(result.executionRequest.args),
-    newNoteHashes: padArrayEnd(result.newNoteHashes, NoteHash.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-    newNullifiers: padArrayEnd(result.newNullifiers, Nullifier.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
-    newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+    noteHashes: padArrayEnd(result.noteHashes, NoteHash.empty(), MAX_NOTE_HASHES_PER_CALL),
+    nullifiers: padArrayEnd(result.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_CALL),
+    l2ToL1Msgs: padArrayEnd(result.l2ToL1Messages, L2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_CALL),
     startSideEffectCounter: result.startSideEffectCounter,
     endSideEffectCounter: result.endSideEffectCounter,
     returnsHash: computeVarArgsHash(result.returnValues),
@@ -327,7 +332,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
       ContractStorageUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     ),
-    publicCallStackHashes: padArrayEnd([], Fr.zero(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+    publicCallRequests: padArrayEnd([], PublicCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
     unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
     historicalHeader: Header.empty(),
     globalVariables: GlobalVariables.empty(),

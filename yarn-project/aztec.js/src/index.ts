@@ -27,6 +27,7 @@ export {
   type ContractMethod,
   type ContractNotes,
   type ContractStorageLayout,
+  DefaultWaitOpts,
   DeployMethod,
   DeploySentTx,
   type SendMethodOptions,
@@ -54,7 +55,7 @@ export {
 } from './utils/index.js';
 export { NoteSelector } from '@aztec/foundation/abi';
 
-export { createPXEClient } from './rpc_clients/index.js';
+export { createPXEClient, createCompatibleClient } from './rpc_clients/index.js';
 
 export { AuthWitnessProvider } from './account/index.js';
 
@@ -102,7 +103,6 @@ export {
   EventType,
   ExtendedNote,
   FunctionCall,
-  GrumpkinPrivateKey,
   L1Actor,
   L1ToL2Message,
   L2Actor,

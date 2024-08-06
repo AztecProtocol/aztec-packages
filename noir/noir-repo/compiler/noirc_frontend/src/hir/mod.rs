@@ -290,4 +290,9 @@ impl Context<'_, '_> {
             ResolvedGeneric { name, type_var, kind, span }
         })
     }
+
+    /// Activates LSP mode, which will track references for all definitions.
+    pub fn activate_lsp_mode(&mut self) {
+        self.def_interner.lsp_mode = true;
+    }
 }

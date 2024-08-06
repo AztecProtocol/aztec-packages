@@ -84,6 +84,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private lastL1BlockNewBlocks: bigint = 0n;
   private lastL1BlockNewMessages: bigint = 0n;
+  private lastProvenL2BlockNumber: number = 0;
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -388,7 +389,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     }
 
     const contractAddress = filter.contractAddress;
-    const selector = filter.selector;
 
     const logs: ExtendedUnencryptedL2Log[] = [];
 
@@ -401,8 +401,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
           const log = txLogs[logIndexInTx];
           if (
             (!txHash || block.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
-            (!selector || log.selector.equals(selector))
+            (!contractAddress || log.contractAddress.equals(contractAddress))
           ) {
             logs.push(new ExtendedUnencryptedL2Log(new LogId(block.number, txIndexInBlock, logIndexInTx), log));
             if (logs.length === this.maxLogs) {
@@ -433,6 +432,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve(INITIAL_L2_BLOCK_NUM - 1);
     }
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
+  }
+
+  public getProvenL2BlockNumber(): Promise<number> {
+    return Promise.resolve(this.lastProvenL2BlockNumber);
+  }
+
+  public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+    this.lastProvenL2BlockNumber = l2BlockNumber;
+    return Promise.resolve();
   }
 
   public getSynchPoint(): Promise<ArchiverL1SynchPoint> {

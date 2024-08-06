@@ -1,5 +1,6 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
@@ -16,7 +17,7 @@ import {
   getContract,
   http,
 } from 'viem';
-import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount } from 'viem/accounts';
+import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
@@ -87,20 +88,29 @@ export interface L1ContractArtifactsForDeployment {
   gasPortal: ContractArtifacts;
 }
 
+export type L1Clients = {
+  publicClient: PublicClient<HttpTransport, Chain>;
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
+};
+
 /**
  * Creates a wallet and a public viem client for interacting with L1.
  * @param rpcUrl - RPC URL to connect to L1.
- * @param mnemonicOrHdAccount - Mnemonic or account for the wallet client.
+ * @param mnemonicOrPrivateKeyOrHdAccount - Mnemonic or account for the wallet client.
  * @param chain - Optional chain spec (defaults to local foundry).
  * @returns - A wallet and a public client.
  */
 export function createL1Clients(
   rpcUrl: string,
-  mnemonicOrHdAccount: string | HDAccount | PrivateKeyAccount,
+  mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
-): { publicClient: PublicClient<HttpTransport, Chain>; walletClient: WalletClient<HttpTransport, Chain, Account> } {
+): L1Clients {
   const hdAccount =
-    typeof mnemonicOrHdAccount === 'string' ? mnemonicToAccount(mnemonicOrHdAccount) : mnemonicOrHdAccount;
+    typeof mnemonicOrPrivateKeyOrHdAccount === 'string'
+      ? mnemonicOrPrivateKeyOrHdAccount.startsWith('0x')
+        ? privateKeyToAccount(mnemonicOrPrivateKeyOrHdAccount as `0x${string}`)
+        : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount)
+      : mnemonicOrPrivateKeyOrHdAccount;
 
   const walletClient = createWalletClient({
     account: hdAccount,
@@ -116,7 +126,7 @@ export function createL1Clients(
 }
 
 /**
- * Deploys the aztec L1 contracts; Rollup, Contract Deployment Emitter & (optionally) Decoder Helper.
+ * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
  * @param rpcUrl - URL of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
@@ -131,7 +141,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2GasTokenAddress: AztecAddress },
+  args: { l2GasTokenAddress: AztecAddress; vkTreeRoot: Fr },
 ): Promise<DeployL1Contracts> => {
   logger.debug('Deploying contracts...');
 
@@ -179,6 +189,7 @@ export const deployL1Contracts = async (
       getAddress(registryAddress.toString()),
       getAddress(availabilityOracleAddress.toString()),
       getAddress(gasTokenAddress.toString()),
+      args.vkTreeRoot.toString(),
     ],
   );
   logger.info(`Deployed Rollup at ${rollupAddress}`);

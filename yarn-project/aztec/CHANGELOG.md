@@ -1,5 +1,115 @@
 # Changelog
 
+## [0.47.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.47.0...aztec-package-v0.47.1) (2024-07-30)
+
+
+### Features
+
+* Do not evict tx objects from p2p tx pool immediately ([#7652](https://github.com/AztecProtocol/aztec-packages/issues/7652)) ([96492dc](https://github.com/AztecProtocol/aztec-packages/commit/96492dccbf501eb9d05b57827c79c5977b393df7))
+* Min and max block times for sequencer ([#7630](https://github.com/AztecProtocol/aztec-packages/issues/7630)) ([2a013b8](https://github.com/AztecProtocol/aztec-packages/commit/2a013b86e554f0516dd1d086a30a4e1e4e4ec684))
+* Transaction sender bot ([#7586](https://github.com/AztecProtocol/aztec-packages/issues/7586)) ([176fd08](https://github.com/AztecProtocol/aztec-packages/commit/176fd08c7b72bce2beb405080b7992ebf4ba0a31)), closes [#7562](https://github.com/AztecProtocol/aztec-packages/issues/7562)
+
+
+### Bug Fixes
+
+* Aztec start --prover ([#7617](https://github.com/AztecProtocol/aztec-packages/issues/7617)) ([ac206a6](https://github.com/AztecProtocol/aztec-packages/commit/ac206a609b3fa6bcad5d8981de8e42967b41050b))
+
+
+### Miscellaneous
+
+* Add tx bot to terraform ([#7609](https://github.com/AztecProtocol/aztec-packages/issues/7609)) ([6caa914](https://github.com/AztecProtocol/aztec-packages/commit/6caa914d96a13d0e50f0403c561aa72e6b455782))
+* Merge Devnet back to Master ([#7611](https://github.com/AztecProtocol/aztec-packages/issues/7611)) ([112961c](https://github.com/AztecProtocol/aztec-packages/commit/112961cd9c9276e2cd95b41b6de31d27bb43bb41))
+
+## [0.47.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.7...aztec-package-v0.47.0) (2024-07-24)
+
+
+### Features
+
+* Bootstrap devnet ([#7578](https://github.com/AztecProtocol/aztec-packages/issues/7578)) ([ade373b](https://github.com/AztecProtocol/aztec-packages/commit/ade373bebcf9425b88c7e5bad70fbd9676cdac85))
+* Bootstrap devnet on CI ([#7534](https://github.com/AztecProtocol/aztec-packages/issues/7534)) ([77ce1c3](https://github.com/AztecProtocol/aztec-packages/commit/77ce1c3337853b34ac937877e6c7588f446df3ec))
+* Prover node ([#7452](https://github.com/AztecProtocol/aztec-packages/issues/7452)) ([609a68f](https://github.com/AztecProtocol/aztec-packages/commit/609a68faf9ad40694b33e1a403a8d8863cfc1de9)), closes [#7346](https://github.com/AztecProtocol/aztec-packages/issues/7346)
+* TXE nr deployments, dependency cleanup for CLI ([#7548](https://github.com/AztecProtocol/aztec-packages/issues/7548)) ([92ff2fa](https://github.com/AztecProtocol/aztec-packages/commit/92ff2fa2e944722e5c3fa43fb3363f093b8f1d12))
+
+## [0.46.7](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.6...aztec-package-v0.46.7) (2024-07-16)
+
+
+### Features
+
+* Devnet updates ([#7421](https://github.com/AztecProtocol/aztec-packages/issues/7421)) ([103f099](https://github.com/AztecProtocol/aztec-packages/commit/103f099bff964fbc7274f1fa0376ded7047bffe6))
+
+
+### Bug Fixes
+
+* Cli l1-chain-id option ([#7490](https://github.com/AztecProtocol/aztec-packages/issues/7490)) ([307bc57](https://github.com/AztecProtocol/aztec-packages/commit/307bc578d53cd447e96c05590113b9e3953b2709))
+
+
+### Miscellaneous
+
+* Turn on elaborator ([#7451](https://github.com/AztecProtocol/aztec-packages/issues/7451)) ([0599500](https://github.com/AztecProtocol/aztec-packages/commit/059950082f5628174656acf935f5ccd10e27c786))
+
+## [0.46.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.5...aztec-package-v0.46.6) (2024-07-15)
+
+
+### Features
+
+* Modular CLI + `aztec test` ([#7426](https://github.com/AztecProtocol/aztec-packages/issues/7426)) ([cca2a9b](https://github.com/AztecProtocol/aztec-packages/commit/cca2a9b393f781a2518e7fb6cbb376e4ae6fbd4e))
+
+## [0.46.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.4...aztec-package-v0.46.5) (2024-07-14)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.3...aztec-package-v0.46.4) (2024-07-11)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.2...aztec-package-v0.46.3) (2024-07-11)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.1...aztec-package-v0.46.2) (2024-07-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.46.0...aztec-package-v0.46.1) (2024-07-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.46.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.1...aztec-package-v0.46.0) (2024-07-09)
+
+
+### Features
+
+* VK tree ([#6914](https://github.com/AztecProtocol/aztec-packages/issues/6914)) ([8631237](https://github.com/AztecProtocol/aztec-packages/commit/863123729fed0f4a150e634f52da06ac6b581162))
+
+## [0.45.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.45.0...aztec-package-v0.45.1) (2024-07-04)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.45.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.44.0...aztec-package-v0.45.0) (2024-07-02)
+
+
+### Bug Fixes
+
+* Devnet deployment issues ([#7197](https://github.com/AztecProtocol/aztec-packages/issues/7197)) ([9cf4904](https://github.com/AztecProtocol/aztec-packages/commit/9cf49048eefd1f02d22c6b4a8db100b863f39f84))
+
 ## [0.44.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.43.0...aztec-package-v0.44.0) (2024-06-26)
 
 

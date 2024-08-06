@@ -37,11 +37,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Builds the initial header.
+   * Returns the initial header for the chain before the first block.
    * @returns The initial header.
    */
-  buildInitialHeader(): Promise<Header> {
-    return this.trees.buildInitialHeader(this.includeUncommitted);
+  getInitialHeader(): Header {
+    return this.trees.getInitialHeader(this.includeUncommitted);
   }
 
   /**

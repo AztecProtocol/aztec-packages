@@ -6,12 +6,12 @@ import { computeAddress } from './derivation.js';
 
 describe('🔑', () => {
   it('computing public keys hash matches Noir', () => {
-    const masterNullifierPublicKey = new Point(new Fr(1), new Fr(2));
-    const masterIncomingViewingPublicKey = new Point(new Fr(3), new Fr(4));
-    const masterOutgoingViewingPublicKey = new Point(new Fr(5), new Fr(6));
-    const masterTaggingPublicKey = new Point(new Fr(7), new Fr(8));
+    const masterNullifierPublicKey = new Point(new Fr(1), new Fr(2), false);
+    const masterIncomingViewingPublicKey = new Point(new Fr(3), new Fr(4), false);
+    const masterOutgoingViewingPublicKey = new Point(new Fr(5), new Fr(6), false);
+    const masterTaggingPublicKey = new Point(new Fr(7), new Fr(8), false);
 
-    const expected = Fr.fromString('0x2406c1c88b7afc13052335bb9af43fd35034b5ba0a9caab76eda2833cf8ec717');
+    const expected = Fr.fromString('0x0fecd9a32db731fec1fded1b9ff957a1625c069245a3613a2538bd527068b0ad');
     expect(
       new PublicKeys(
         masterNullifierPublicKey,

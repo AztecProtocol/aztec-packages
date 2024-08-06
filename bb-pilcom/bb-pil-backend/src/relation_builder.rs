@@ -14,8 +14,11 @@ use std::path::Path;
 
 use powdr_number::{BigUint, DegreeType, FieldElement};
 
+use handlebars::Handlebars;
+use serde_json::json;
+
 use crate::file_writer::BBFiles;
-use crate::utils::{capitalize, map_with_newline, snake_case};
+use crate::utils::snake_case;
 
 /// Returned back to the vm builder from the create_relations call
 pub struct RelationOutput {
@@ -27,7 +30,12 @@ pub struct RelationOutput {
 
 /// Each created bb Identity is passed around with its degree so as needs to be manually
 /// provided for sumcheck
-type BBIdentity = (DegreeType, String);
+#[derive(Debug)]
+pub struct BBIdentity {
+    pub degree: DegreeType,
+    pub identity: String,
+    pub label: Option<String>,
+}
 
 pub trait RelationBuilder {
     /// Create Relations
@@ -57,18 +65,10 @@ pub trait RelationBuilder {
         &self,
         root_name: &str,
         name: &str,
-        sub_relations: &[String],
         identities: &[BBIdentity],
-        row_type: &str,
-        labels_lookup: String,
+        skippable_if: &Option<BBIdentity>,
+        all_cols: &[String],
     );
-
-    /// Declare views
-    ///
-    /// Declare views is a macro that generates a reference for each of the columns
-    /// This reference will be a span into a sumcheck related object, it must be declared for EACH sub-relation
-    /// as the sumcheck object is sensitive to the degree of the relation.
-    fn create_declare_views(&self, name: &str, all_cols_and_shifts: &[String]);
 }
 
 impl RelationBuilder for BBFiles {
@@ -84,35 +84,26 @@ impl RelationBuilder for BBFiles {
         relations.sort();
 
         // Contains all of the rows in each relation, will be useful for creating composite builder types
-        let mut all_rows: HashMap<String, String> = HashMap::new();
         let mut shifted_polys: Vec<String> = Vec::new();
 
         // ----------------------- Create the relation files -----------------------
         for (relation_name, analyzed_idents) in grouped_relations.iter() {
             let IdentitiesOutput {
-                subrelations,
                 identities,
+                skippable_if,
                 collected_cols,
                 collected_shifts,
-                expression_labels,
             } = create_identities(file_name, analyzed_idents);
-
-            // TODO: This can probably be moved into the create_identities function
-            let row_type = create_row_type(&capitalize(relation_name), &collected_cols);
 
             // Aggregate all shifted polys
             shifted_polys.extend(collected_shifts);
-            // Aggregate all rows
-            all_rows.insert(relation_name.to_owned(), row_type.clone());
 
-            let labels_lookup = create_relation_labels(relation_name, expression_labels);
             self.create_relation(
                 file_name,
                 relation_name,
-                &subrelations,
                 &identities,
-                &row_type,
-                labels_lookup,
+                &skippable_if,
+                &collected_cols,
             );
         }
 
@@ -129,57 +120,47 @@ impl RelationBuilder for BBFiles {
         &self,
         root_name: &str,
         name: &str,
-        sub_relations: &[String],
         identities: &[BBIdentity],
-        row_type: &str,
-        labels_lookup: String,
+        skippable_if: &Option<BBIdentity>,
+        all_cols: &[String],
     ) {
-        let includes = relation_includes();
-        let class_boilerplate = relation_class_boilerplate(name, sub_relations, identities);
-        let export = get_export(name);
+        let mut handlebars = Handlebars::new();
+        let degrees: Vec<_> = identities.iter().map(|id| id.degree + 1).collect();
+        let sorted_labels = identities
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| id.label.is_some())
+            .map(|(idx, id)| (idx, id.label.clone().unwrap()))
+            .collect_vec();
 
-        let relations = format!(
-            "{includes}
-namespace bb::{root_name}_vm {{
+        let data = &json!({
+            "root_name": root_name,
+            "name": name,
+            "identities": identities.iter().map(|id| {
+                json!({
+                    "degree": id.degree,
+                    "identity": id.identity,
+                })
+            }).collect_vec(),
+            "skippable_if": skippable_if.as_ref().map(|id| id.identity.clone()),
+            "degrees": degrees,
+            "all_cols": all_cols,
+            "labels": sorted_labels,
+        });
 
-{row_type};
+        handlebars
+            .register_template_string(
+                "relation.hpp",
+                std::str::from_utf8(include_bytes!("../templates/relation.hpp.hbs")).unwrap(),
+            )
+            .unwrap();
 
-{labels_lookup}
-
-{class_boilerplate}
-
-{export}
-
-        }}"
-        );
+        let relation_hpp = handlebars.render("relation.hpp", data).unwrap();
 
         self.write_file(
-            &format!("{}/{}", &self.rel, snake_case(root_name)),
+            Some(&self.relations),
             &format!("{}.hpp", snake_case(name)),
-            &relations,
-        );
-    }
-
-    fn create_declare_views(&self, name: &str, all_cols_and_shifts: &[String]) {
-        let view_transformation =
-            |name: &String| format!("[[maybe_unused]] auto {name} = View(new_term.{name});  \\");
-        let make_view_per_row = map_with_newline(all_cols_and_shifts, view_transformation);
-
-        let declare_views = format!(
-            "
-    #define {name}_DECLARE_VIEWS(index) \\
-        using Accumulator = typename std::tuple_element<index, ContainerOverSubrelations>::type; \\
-        using View = typename Accumulator::View; \\
-        {make_view_per_row}
-
-
-    "
-        );
-
-        self.write_file(
-            &format!("{}/{}", &self.rel, snake_case(name)),
-            "declare_views.hpp",
-            &declare_views,
+            &relation_hpp,
         );
     }
 }
@@ -219,122 +200,24 @@ fn group_relations_per_file<F: FieldElement>(
     })
 }
 
-fn relation_class_boilerplate(
-    name: &str,
-    sub_relations: &[String],
-    identities: &[BBIdentity],
-) -> String {
-    // We add one to all degrees because we have an extra scaling factor
-    let degrees = identities.iter().map(|(d, _)| d + 1).collect();
-    let degree_boilerplate = get_degree_boilerplate(degrees);
-    let relation_code = get_relation_code(sub_relations);
-    format!(
-        "template <typename FF_> class {name}Impl {{
-    public:
-        using FF = FF_;
-        
-        {degree_boilerplate}
-        
-        {relation_code}
-}};",
-    )
-}
-
-fn get_export(name: &str) -> String {
-    format!(
-        "template <typename FF> using {name} = Relation<{name}Impl<FF>>;",
-        name = name
-    )
-}
-
-fn get_relation_code(ids: &[String]) -> String {
-    let mut relation_code = r#"
-    template <typename ContainerOverSubrelations, typename AllEntities>
-    void static accumulate(
-        ContainerOverSubrelations& evals,
-        const AllEntities& new_term,
-        [[maybe_unused]] const RelationParameters<FF>&,
-        [[maybe_unused]] const FF& scaling_factor
-    ){
-
-    "#
-    .to_owned();
-    for id in ids {
-        relation_code.push_str(&format!("{}\n", id));
-    }
-    relation_code.push_str("}\n");
-    relation_code
-}
-
-fn get_degree_boilerplate(degrees: Vec<DegreeType>) -> String {
-    let num_degrees = degrees.len();
-
-    let mut degree_boilerplate = format!(
-        "static constexpr std::array<size_t, {num_degrees}> SUBRELATION_PARTIAL_LENGTHS{{\n"
-    );
-    for degree in &degrees {
-        degree_boilerplate.push_str(&format!("   {},\n", degree));
-    }
-    degree_boilerplate.push_str("};");
-
-    degree_boilerplate
-}
-
-// The include statements required for a new relation file
-fn relation_includes() -> &'static str {
-    r#"
-#pragma once
-#include "../../relation_parameters.hpp"
-#include "../../relation_types.hpp"
-#include "./declare_views.hpp"
-"#
-}
-
-// Each vm will need to have a row which is a combination of all of the witness columns
-pub(crate) fn create_row_type(name: &str, all_rows: &[String]) -> String {
-    let row_transformation = |row: &_| format!("    FF {row} {{}};");
-    let all_annotated = map_with_newline(all_rows, row_transformation);
-
-    format!(
-        "template <typename FF> struct {name}Row {{
-        {}
-
-        [[maybe_unused]] static std::vector<std::string> names();
-        }}",
-        all_annotated,
-    )
-}
-
 fn create_identity<T: FieldElement>(
     expression: &SelectedExpressions<Expression<T>>,
     collected_cols: &mut HashSet<String>,
     collected_public_identities: &mut HashSet<String>,
+    label: &Option<String>,
 ) -> Option<BBIdentity> {
     // We want to read the types of operators and then create the appropiate code
-
     if let Some(expr) = &expression.selector {
-        let x = craft_expression(expr, collected_cols, collected_public_identities);
-        log::trace!("expression {:?}", x);
-        Some(x)
+        let (degree, id) = craft_expression(expr, collected_cols, collected_public_identities);
+        log::trace!("expression {:?}, {:?}", degree, id);
+        Some(BBIdentity {
+            degree: degree,
+            identity: id,
+            label: label.clone(),
+        })
     } else {
         None
     }
-}
-
-// TODO: replace the preamble with a macro so the code looks nicer
-fn create_subrelation(index: usize, preamble: String, identity: &mut BBIdentity) -> String {
-    // \\\
-    let id = &identity.1;
-
-    format!(
-        "//Contribution {index}
-    {{\n{preamble}
-    
-    auto tmp = {id};
-    tmp *= scaling_factor;
-    std::get<{index}>(evals) += tmp;
-}}",
-    )
 }
 
 fn craft_expression<T: FieldElement>(
@@ -342,7 +225,7 @@ fn craft_expression<T: FieldElement>(
     // TODO: maybe make state?
     collected_cols: &mut HashSet<String>,
     collected_public_identities: &mut HashSet<String>,
-) -> BBIdentity {
+) -> (u64, String) {
     let var_name = match expr {
         Expression::Number(n) => {
             let number: BigUint = n.to_arbitrary_integer();
@@ -382,7 +265,7 @@ fn craft_expression<T: FieldElement>(
                 poly_name = format!("{}_shift", poly_name);
             }
             collected_cols.insert(poly_name.clone());
-            (1, poly_name)
+            (1, format!("new_term.{}", poly_name))
         }
         Expression::BinaryOperation(AlgebraicBinaryOperation {
             left: lhe,
@@ -447,11 +330,10 @@ fn craft_expression<T: FieldElement>(
 }
 
 pub struct IdentitiesOutput {
-    subrelations: Vec<String>,
     identities: Vec<BBIdentity>,
+    skippable_if: Option<BBIdentity>,
     collected_cols: Vec<String>,
     collected_shifts: Vec<String>,
-    expression_labels: HashMap<usize, String>,
 }
 
 pub(crate) fn create_identities<F: FieldElement>(
@@ -466,38 +348,25 @@ pub(crate) fn create_identities<F: FieldElement>(
         .collect::<Vec<_>>();
 
     let mut identities = Vec::new();
-    let mut subrelations = Vec::new();
-    let mut expression_labels: HashMap<usize, String> = HashMap::new(); // Each relation can be given a label, this label can be assigned here
+    let mut skippable_if_identity = None;
     let mut collected_cols: HashSet<String> = HashSet::new();
     let mut collected_public_identities: HashSet<String> = HashSet::new();
 
-    // Collect labels for each identity
-    // TODO: shite
-    for (i, id) in ids.iter().enumerate() {
-        if let Some(label) = &id.attribute {
-            expression_labels.insert(i, label.clone());
-        }
-    }
-
-    let expressions = ids.iter().map(|id| id.left.clone()).collect::<Vec<_>>();
-    for (i, expression) in expressions.iter().enumerate() {
-        let relation_boilerplate = format!(
-            "{file_name}_DECLARE_VIEWS({i});
-        ",
-        );
-
-        // TODO: collected pattern is shit
-        let mut identity = create_identity(
-            expression,
+    for (i, expression) in ids.iter().enumerate() {
+        let identity = create_identity(
+            &expression.left,
             &mut collected_cols,
             &mut collected_public_identities,
+            &expression.attribute,
         )
         .unwrap();
-        let subrelation = create_subrelation(i, relation_boilerplate, &mut identity);
 
-        identities.push(identity);
-
-        subrelations.push(subrelation);
+        if identity.label.clone().is_some_and(|l| l == "skippable_if") {
+            assert!(skippable_if_identity.is_none());
+            skippable_if_identity = Some(identity);
+        } else {
+            identities.push(identity);
+        }
     }
 
     // Print a warning to the user about usage of public identities
@@ -525,49 +394,9 @@ pub(crate) fn create_identities<F: FieldElement>(
     collected_shifts.sort();
 
     IdentitiesOutput {
-        subrelations,
         identities,
+        skippable_if: skippable_if_identity,
         collected_cols,
         collected_shifts,
-        expression_labels,
     }
-}
-
-/// Relation labels
-///
-/// To view relation labels we create a sparse switch that contains all of the collected labels
-/// Whenever there is a failure, we can lookup into this mapping
-///
-/// Note: this mapping will never be that big, so we are quite naive in implementation
-/// It should be able to be called from else where with relation_name::get_relation_label
-fn create_relation_labels(relation_name: &str, labels: HashMap<usize, String>) -> String {
-    // Sort labels by the index
-    let label_transformation = |(index, label)| {
-        format!(
-            "case {index}:
-            return \"{label}\";
-        "
-        )
-    };
-
-    // Sort the labels by their index
-    let mut sorted_labels: Vec<(usize, String)> = labels.into_iter().collect();
-    sorted_labels.sort_by(|a, b| a.0.cmp(&b.0));
-
-    let switch_statement: String = sorted_labels
-        .into_iter()
-        .map(label_transformation)
-        .collect::<Vec<String>>()
-        .join("\n");
-
-    format!(
-        "
-    inline std::string get_relation_label_{relation_name}(int index) {{
-        switch (index) {{
-            {switch_statement}
-        }}
-        return std::to_string(index);
-    }}
-    "
-    )
 }

@@ -74,8 +74,12 @@ pub enum AvmOpcode {
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
     ECADD,
     MSM,
+    PEDERSENCOMMITMENT, // temp
     // Conversions
     TORADIXLE,
+    // Other
+    SHA256COMPRESSION,
+    KECCAKF1600,
 }
 
 impl AvmOpcode {
@@ -167,8 +171,12 @@ impl AvmOpcode {
             AvmOpcode::PEDERSEN => "PEDERSEN",
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
+            AvmOpcode::PEDERSENCOMMITMENT => "PEDERSENCOMMITMENT",
             // Conversions
             AvmOpcode::TORADIXLE => "TORADIXLE",
+            // Other
+            AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
         }
     }
 }

@@ -1,6 +1,5 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Gas, L2ToL1Message } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
@@ -115,7 +114,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    expect(pxResult.newNoteHashes).toEqual([
+    expect(pxResult.noteHashes).toEqual([
       {
         //storageAddress: contractAddress,
         value: utxo,
@@ -163,7 +162,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    expect(pxResult.newNullifiers).toEqual([
+    expect(pxResult.nullifiers).toEqual([
       {
         value: utxo,
         counter: startCounter,
@@ -197,7 +196,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    expect(pxResult.newL2ToL1Messages).toEqual([
+    expect(pxResult.l2ToL1Messages).toEqual([
       new L2ToL1Message(EthAddress.fromField(recipient), content, startCounter),
     ]);
   });
@@ -207,11 +206,7 @@ describe('Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
-    const expectLog = new UnencryptedL2Log(
-      AztecAddress.fromField(address),
-      EventSelector.fromField(new Fr(0)),
-      Buffer.concat(log.map(f => f.toBuffer())),
-    );
+    const expectLog = new UnencryptedL2Log(AztecAddress.fromField(address), Buffer.concat(log.map(f => f.toBuffer())));
     expect(pxResult.unencryptedLogs.logs).toEqual([expectLog]);
     expect(pxResult.allUnencryptedLogs.logs).toEqual([expectLog]);
     expect(pxResult.unencryptedLogsHashes).toEqual([

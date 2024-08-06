@@ -4,24 +4,17 @@ import {
   type BlockResult,
   type ProcessedTx,
   type ProvingTicket,
+  type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import {
-  type Gas,
-  GlobalVariables,
-  Header,
-  type Nullifier,
-  type TxContext,
-  getMockVerificationKeys,
-} from '@aztec/circuits.js';
+import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type ContractsDataSourcePublicDB,
-  type PublicExecutionRequest,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -44,9 +37,9 @@ import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 class DummyProverClient implements BlockProver {
-  constructor(private orchestrator: ProvingOrchestrator, private verificationKeys = getMockVerificationKeys()) {}
+  constructor(private orchestrator: ProvingOrchestrator) {}
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages, this.verificationKeys);
+    return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
   }
   addNewTx(tx: ProcessedTx): Promise<void> {
     return this.orchestrator.addNewTx(tx);
@@ -59,6 +52,9 @@ class DummyProverClient implements BlockProver {
   }
   setBlockCompleted(): Promise<void> {
     return this.orchestrator.setBlockCompleted();
+  }
+  getProverId(): Fr {
+    return this.orchestrator.proverId;
   }
 }
 
@@ -178,7 +174,7 @@ export class TestContext {
           : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
         for (const request of allCalls) {
           if (execution.contractAddress.equals(request.contractAddress)) {
-            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build({
+            const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build({
               startGasLeft: availableGas,
               endGasLeft: availableGas,
               transactionFee,

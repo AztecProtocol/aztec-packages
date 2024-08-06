@@ -8,9 +8,6 @@
   },
   "references": [
     {
-      "path": "../builder"
-    },
-    {
       "path": "../circuits.js"
     },
     {
@@ -20,14 +17,11 @@
       "path": "../types"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../kv-store"
     },
     {
       "path": "../merkle-tree"
     }
   ],
-  "include": ["src", "artifacts/*.d.json.ts"]
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]
 }

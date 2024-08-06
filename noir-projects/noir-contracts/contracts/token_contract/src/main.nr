@@ -36,8 +36,8 @@ contract Token {
 
     #[aztec(event)]
     struct Transfer {
-        from: Field,
-        to: Field,
+        from: AztecAddress,
+        to: AztecAddress,
         amount: Field,
     }
 
@@ -295,7 +295,7 @@ contract Token {
             Option::none()
         ).set_limit(1);
         let notes = pending_shields.get_notes(options);
-        let note = notes.get_unchecked(0);
+        let note = notes.get(0);
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
@@ -335,10 +335,10 @@ contract Token {
         let to_ivpk = header.get_ivpk_m(&mut context, to);
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk, from));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
 
-        Transfer { from: from.to_field(), to: to.to_field(), amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk));
+        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
     }
     // docs:end:transfer
 
@@ -346,13 +346,16 @@ contract Token {
      * Cancel a private authentication witness.
      * @param inner_hash The inner hash of the authwit to cancel.
      */
+    // docs:start:cancel_authwit
     #[aztec(private)]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        context.push_new_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
+    // docs:end:cancel_authwit
 
+    // docs:start:transfer_from
     #[aztec(private)]
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit
@@ -373,11 +376,12 @@ contract Token {
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk, from));
         // docs:end:encrypted
         // docs:end:increase_private_balance
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk, to));
     }
+    // docs:end:transfer_from
 
     // docs:start:burn
     #[aztec(private)]

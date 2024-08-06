@@ -1,6 +1,7 @@
 use dep::types::abis::{
     accumulated_data::{
     private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
+    public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 }
 };
@@ -8,47 +9,44 @@ use dep::types::abis::{
 pub fn split_to_public(
     data: PrivateAccumulatedDataBuilder,
     min_revertible_side_effect_counter: u32
-) -> (PublicAccumulatedDataBuilder, PublicAccumulatedDataBuilder) {
+) -> (PublicAccumulatedData, PublicAccumulatedData) {
     let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
     let mut revertible_builder = PublicAccumulatedDataBuilder::empty();
 
-    let note_hashes = data.new_note_hashes;
+    let note_hashes = data.note_hashes;
     for i in 0..note_hashes.max_len() {
         if i < note_hashes.len() {
             let note_hash = note_hashes.get_unchecked(i);
             let public_note_hash = note_hash.expose_to_public();
             if note_hash.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.new_note_hashes.push(public_note_hash);
+                non_revertible_builder.note_hashes.push(public_note_hash);
             } else {
-                revertible_builder.new_note_hashes.push(public_note_hash);
+                revertible_builder.note_hashes.push(public_note_hash);
             }
         }
     }
 
-    let nullifiers = data.new_nullifiers;
-    // First nullifier is always non-revertible.
-    let first_nullifier = nullifiers.get_unchecked(0).expose_to_public();
-    non_revertible_builder.new_nullifiers.push(first_nullifier);
-    for i in 1..nullifiers.max_len() {
+    let nullifiers = data.nullifiers;
+    for i in 0..nullifiers.max_len() {
         if i < nullifiers.len() {
             let nullifier = nullifiers.get_unchecked(i);
             let public_nullifier = nullifier.expose_to_public();
             if nullifier.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.new_nullifiers.push(public_nullifier);
+                non_revertible_builder.nullifiers.push(public_nullifier);
             } else {
-                revertible_builder.new_nullifiers.push(public_nullifier);
+                revertible_builder.nullifiers.push(public_nullifier);
             }
         }
     }
 
-    let l2_to_l1_msgs = data.new_l2_to_l1_msgs;
+    let l2_to_l1_msgs = data.l2_to_l1_msgs;
     for i in 0..l2_to_l1_msgs.max_len() {
         if i < l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs.get_unchecked(i);
             if msg.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.new_l2_to_l1_msgs.push(msg.message.content);
+                non_revertible_builder.l2_to_l1_msgs.push(msg.message.content);
             } else {
-                revertible_builder.new_l2_to_l1_msgs.push(msg.message.content);
+                revertible_builder.l2_to_l1_msgs.push(msg.message.content);
             }
         }
     }
@@ -92,20 +90,18 @@ pub fn split_to_public(
         }
     }
 
-    let public_call_stack = data.public_call_stack;
-    for i in 0..public_call_stack.max_len() {
-        if i < public_call_stack.len() {
-            let call_stack_item = public_call_stack.get_unchecked(i);
-            // TODO: Hide the counter of a public call request.
-            // let public_call_request = call_stack_item.expose_to_public();
-            let public_call_request = call_stack_item;
-            if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
-                non_revertible_builder.public_call_stack.push(public_call_request);
+    let public_call_requests = data.public_call_requests;
+    for i in 0..public_call_requests.max_len() {
+        if i < public_call_requests.len() {
+            let call_request = public_call_requests.get_unchecked(i);
+            let exposed_call_request = call_request.expose_to_public();
+            if call_request.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.public_call_stack.push(exposed_call_request);
             } else {
-                revertible_builder.public_call_stack.push(public_call_request);
+                revertible_builder.public_call_stack.push(exposed_call_request);
             }
         }
     }
 
-    (non_revertible_builder, revertible_builder)
+    (non_revertible_builder.finish(), revertible_builder.finish())
 }

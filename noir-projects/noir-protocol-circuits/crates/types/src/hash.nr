@@ -11,13 +11,12 @@ use crate::{
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     merkle_tree::root::root_from_sibling_path, messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    recursion::verification_key::VerificationKey, traits::is_empty,
-    utils::field::field_from_bytes_32_trunc
+    recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
+    utils::field::field_from_bytes_32_trunc, point::Point
 };
-use std::hash::{pedersen_hash_with_separator, sha256};
 
-pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = sha256(bytes_to_hash);
+pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
+    let sha256_hashed = std::hash::sha256(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
@@ -36,7 +35,7 @@ pub fn private_functions_root_from_siblings(
 
 fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     // Hashing tx hash with note index in tx is guaranteed to be unique
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         tx_hash,
         note_index_in_tx as Field
@@ -45,13 +44,13 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, inner_note_hash: Field) -> Field {
-    let inputs = [nonce, inner_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+pub fn compute_unique_note_hash(nonce: Field, slotted_note_hash: Field) -> Field {
+    let inputs = [nonce, slotted_note_hash];
+    poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         app.to_field(),
         unique_note_hash
@@ -71,7 +70,7 @@ pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_t
 }
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         app.to_field(),
         nullifier
@@ -91,7 +90,7 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
 pub fn compute_siloed_encrypted_log_hash(address: AztecAddress, randomness: Field, log_hash: Field) -> Field {
     // TODO: Using 0 GENERATOR_INDEX here as interim before we move to posiedon
     // NB: A unique separator will be needed for masked_contract_address
-    let mut masked_contract_address = pedersen_hash([address.to_field(), randomness], 0);
+    let mut masked_contract_address = poseidon2_hash_with_separator([address.to_field(), randomness], 0);
     if randomness == 0 {
         // In some cases, we actually want to reveal the contract address we are siloing with:
         // e.g. 'handshaking' contract w/ known address
@@ -113,7 +112,7 @@ pub fn silo_encrypted_log_hash(log_hash: ScopedEncryptedLogHash) -> Field {
     }
 }
 
-pub fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
+fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }
 
@@ -126,7 +125,7 @@ pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
-    pedersen_hash([left, right], 0)
+    poseidon2_hash([left, right])
 }
 
 pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey) -> Field {
@@ -183,9 +182,9 @@ pub fn silo_l2_to_l1_message(msg: ScopedL2ToL1Message, rollup_version_id: Field,
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
-    // 4 Field elements when converted to bytes will usually 
+    // 4 Field elements when converted to bytes will usually
     // occupy 4 * 32 = 128 bytes.
-    // However, this function is making the assumption that each Field 
+    // However, this function is making the assumption that each Field
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
@@ -205,7 +204,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 
 // Computes the final logs hash for a tx.
 // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
-// to avoid doubling code, since we can't define the byte len to be 32*N directly. 
+// to avoid doubling code, since we can't define the byte len to be 32*N directly.
 pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
@@ -248,12 +247,35 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     hash
 }
 
-pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
+pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)
 }
 
-pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
+pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
+}
+
+#[no_predicates]
+pub fn poseidon2_hash_with_separator<let N: u32, T>(
+    inputs: [Field; N],
+    separator: T
+) -> Field where T: ToField {
+    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
+    let in_len = N + 1;
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs[i]);
+    }
+
+    sponge.squeeze()
+}
+
+pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
+    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
 }
 
 #[test]
@@ -273,7 +295,7 @@ fn smoke_sha256_to_field() {
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
-    let result_bytes = sha256(full_buffer);
+    let result_bytes = std::hash::sha256(full_buffer);
     let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
     assert(truncated_field == result);
     let mod_res = result + (result_bytes[31] as Field);

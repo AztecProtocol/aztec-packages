@@ -1,7 +1,7 @@
 import { times } from '@aztec/foundation/collection';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
-import { AztecAddress, Fr } from '../index.js';
+import { AztecAddress, Fr, MAX_ARGS_LENGTH } from '../index.js';
 import { makeAztecAddress } from '../tests/factories.js';
 import {
   computeNoteHashNonce,
@@ -26,8 +26,8 @@ describe('hash', () => {
 
   it('computes unique note hash', () => {
     const nonce = new Fr(123n);
-    const innerNoteHash = new Fr(456);
-    const res = computeUniqueNoteHash(nonce, innerNoteHash);
+    const slottedNoteHash = new Fr(456);
+    const res = computeUniqueNoteHash(nonce, slottedNoteHash);
     expect(res).toMatchSnapshot();
   });
 
@@ -82,7 +82,7 @@ describe('hash', () => {
   });
 
   it('Var args hash matches noir', () => {
-    const args = times(800, i => new Fr(i));
+    const args = times(MAX_ARGS_LENGTH, i => new Fr(i));
     const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
 

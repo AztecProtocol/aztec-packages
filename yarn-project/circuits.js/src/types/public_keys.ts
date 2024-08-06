@@ -1,4 +1,4 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -21,13 +21,15 @@ export class PublicKeys {
   hash() {
     return this.isEmpty()
       ? Fr.ZERO
-      : poseidon2Hash([
-          this.masterNullifierPublicKey,
-          this.masterIncomingViewingPublicKey,
-          this.masterOutgoingViewingPublicKey,
-          this.masterTaggingPublicKey,
+      : poseidon2HashWithSeparator(
+          [
+            this.masterNullifierPublicKey,
+            this.masterIncomingViewingPublicKey,
+            this.masterOutgoingViewingPublicKey,
+            this.masterTaggingPublicKey,
+          ],
           GeneratorIndex.PUBLIC_KEYS_HASH,
-        ]);
+        );
   }
 
   isEmpty() {
@@ -102,10 +104,10 @@ export class PublicKeys {
     return {
       // TODO(#6337): Directly dump account.publicKeys here
       /* eslint-disable camelcase */
-      npk_m: { x: this.masterNullifierPublicKey.x, y: this.masterNullifierPublicKey.y },
-      ivpk_m: { x: this.masterIncomingViewingPublicKey.x, y: this.masterIncomingViewingPublicKey.y },
-      ovpk_m: { x: this.masterOutgoingViewingPublicKey.x, y: this.masterOutgoingViewingPublicKey.y },
-      tpk_m: { x: this.masterTaggingPublicKey.x, y: this.masterTaggingPublicKey.y },
+      npk_m: this.masterNullifierPublicKey.toNoirStruct(),
+      ivpk_m: this.masterIncomingViewingPublicKey.toNoirStruct(),
+      ovpk_m: this.masterOutgoingViewingPublicKey.toNoirStruct(),
+      tpk_m: this.masterTaggingPublicKey.toNoirStruct(),
       /* eslint-enable camelcase */
     };
   }

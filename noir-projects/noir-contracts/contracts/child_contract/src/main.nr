@@ -3,8 +3,7 @@ contract Child {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize, Map};
 
     use dep::aztec::{
-        context::gas::GasOpts,
-        protocol_types::{abis::call_context::CallContext, grumpkin_point::GrumpkinPoint},
+        context::gas::GasOpts, protocol_types::{abis::call_context::CallContext},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
     };
@@ -65,7 +64,7 @@ contract Child {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
         let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
-        notes.get_unchecked(0).value
+        notes.get(0).value
     }
 
     // Increments `current_value` by `new_value`
