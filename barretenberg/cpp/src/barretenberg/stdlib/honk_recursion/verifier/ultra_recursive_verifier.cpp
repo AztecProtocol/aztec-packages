@@ -191,6 +191,8 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge
     // properly.
+    pairing_points[0] = pairing_points[0].normalize();
+    pairing_points[1] = pairing_points[1].normalize();
     agg_obj.aggregate(pairing_points, recursion_separator);
     return agg_obj;
 }

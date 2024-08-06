@@ -39,8 +39,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
     // Loop over all points and scalars
     size_t num_points = points.size();
     for (size_t i = 0; i < num_points; ++i) {
-        auto tmp_point = points[i].normalize();
-        auto& point = tmp_point;
+        auto& point = points[i];
+        // auto tmp_point = points[i].normalize();
+        // auto& point = tmp_point;
         auto& scalar = scalars[i];
 
         // Populate the goblin-style ecc op gates for the given mul inputs
