@@ -184,7 +184,6 @@ pub fn export_fn_abi(
         "".to_string()
     };
 
-    // docs:start:export_struct_source
     let export_struct_source = format!(
         "
         #[abi(functions)]
@@ -195,7 +194,6 @@ pub fn export_fn_abi(
         parameters,
         return_type
     );
-    // docs:end:export_struct_source
 
     program.push_str(&export_struct_source);
 
@@ -244,7 +242,6 @@ pub fn transform_unconstrained(func: &mut NoirFunction, storage_struct_name: Str
     func.def.body.statements.insert(0, let_context);
 }
 
-// docs:start:create_inputs
 /// Helper function that returns what the private context would look like in the ast
 /// This should make it available to be consumed within aztec private annotated functions.
 ///
@@ -272,7 +269,6 @@ fn create_inputs(ty: &str) -> Param {
 
     Param { pattern: context_pattern, typ: context_type, visibility, span: Span::default() }
 }
-// docs:end:create_inputs
 
 /// Creates an initialization check to ensure that the contract has been initialized, meant to
 /// be injected as the first statement of any function after the context has been created.

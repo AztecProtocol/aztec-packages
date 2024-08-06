@@ -91,7 +91,20 @@ The injected input is always the first parameter of the transformed function and
 
 The `inputs` parameter is created using this code:
 
-#include_code create_inputs noir/noir-repo/aztec_macros/src/transforms/functions.rs rust
+```rust
+fn create_inputs(ty: &str) -> Param {
+    let context_ident = ident("inputs");
+    let context_pattern = Pattern::Identifier(context_ident);
+
+    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context_inputs
+    let type_path = chained_dep!("aztec", "context", "inputs", &path_snippet, ty);
+
+    let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![], true));
+    let visibility = Visibility::Private;
+
+    Param { pattern: context_pattern, typ: context_type, visibility, span: Span::default() }
+}
+```
 
 This makes these inputs such as `msg_sender()` available to be consumed within private annotated functions.
 
@@ -171,7 +184,23 @@ Unique function signatures are generated for each contract function.
 
 The function signature is computed like this:
 
-#include_code compute_signature noir/noir-repo/aztec_macros/src/transforms/contract_interface.rs rust
+```rust
+fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
+    let signature = format!(
+        "{}({})",
+        fn_name,
+        parameters.iter().map(signature_of_type).collect::<Vec<_>>().join(",")
+    );
+    let mut keccak = Keccak::v256();
+    let mut result = [0u8; 32];
+    keccak.update(signature.as_bytes());
+    keccak.finalize(&mut result);
+    // Take the first 4 bytes of the hash and convert them to an integer
+    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
+    let num_bytes_per_note_type_id = 4;
+    u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
+}
+```
 
 - A string representation of the function is created, including the function name and parameter types
 - This signature string is then hashed using Keccak-256
@@ -212,7 +241,18 @@ For each function in the contract, an artifact is generated as follows:
 
 - An ABI struct is generated for the function:
 
-#include_code export_struct_source noir/noir-repo/aztec_macros/src/transforms/functions.rs rust
+```rust
+ let export_struct_source = format!(
+        "
+        #[abi(functions)]
+        struct {}_abi {{
+            {}{}
+        }}",
+        func.name(),
+        parameters,
+        return_type
+    );
+```
 
 - These structs are added to the contract's types.
 

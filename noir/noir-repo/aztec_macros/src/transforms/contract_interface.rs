@@ -288,7 +288,6 @@ pub fn generate_contract_interface(
     Ok(())
 }
 
-// docs:start:compute_signature
 fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
     let signature = format!(
         "{}({})",
@@ -304,7 +303,6 @@ fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
     let num_bytes_per_note_type_id = 4;
     u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
 }
-// docs:end:compute_signature
 
 // Updates the function signatures in the contract interface with the actual ones, replacing the placeholder.
 // This is done by locating the contract interface struct, its functions (stubs) and assuming the second to last statement of each
