@@ -1,20 +1,15 @@
-import { type ArchiverConfig } from '@aztec/archiver';
-import { type AztecNodeConfig } from '@aztec/aztec-node';
 import { type AccountManager, type Fr } from '@aztec/aztec.js';
-import { type BotConfig } from '@aztec/bot';
 import { type L1ContractAddresses, l1ContractsNames } from '@aztec/ethereum';
-import { ConfigMapping, ConfigMappingsType, isBooleanConfigValue } from '@aztec/foundation/config';
+import { type ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
-import { type LogFn, createConsoleLogger } from '@aztec/foundation/log';
-import { type P2PConfig } from '@aztec/p2p';
-import { type ProverNodeConfig } from '@aztec/prover-node';
-import { type CliPXEOptions, type PXEService } from '@aztec/pxe';
+import { type LogFn } from '@aztec/foundation/log';
+import { type PXEService } from '@aztec/pxe';
 
 import chalk from 'chalk';
-import { Command } from 'commander';
+import { type Command } from 'commander';
 
-import { aztecStartOptions, universalOptions } from './aztec_start_options.js';
+import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
 export interface ServiceStarter<T = any> {
   (options: T, signalHandlers: (() => Promise<void>)[], logger: LogFn): Promise<ServerList>;
@@ -109,35 +104,6 @@ export function formatHelpLine(
 
   return `${chalk.cyan(paddedOption)}${chalk.yellow(paddedDefault)}${chalk.green(envVar)}`;
 }
-
-// Define an interface for options
-export interface AztecStartOption {
-  flag: string;
-  description: string;
-  defaultValue: string | undefined;
-  printDefault?: (val: any) => string;
-  envVar: string | undefined;
-  parseVal?: (val: string) => any;
-}
-
-export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
-  const options: AztecStartOption[] = [];
-  for (const [key, { env, default: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
-    if (universalOptions.includes(key)) {
-      continue;
-    }
-    const isBoolean = isBooleanConfigValue(configMappings, key as keyof typeof configMappings);
-    options.push({
-      flag: `--${namespace}.${key}${isBoolean ? '' : ' <value>'}`,
-      description,
-      defaultValue: def,
-      printDefault,
-      envVar: env,
-      parseVal: parseEnv,
-    });
-  }
-  return options;
-};
 
 // Function to add options dynamically
 export const addOptions = (cmd: Command, options: AztecStartOption[]) => {

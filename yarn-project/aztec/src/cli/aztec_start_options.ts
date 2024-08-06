@@ -1,13 +1,40 @@
-import { ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node';
-import { filterConfigMappings } from '@aztec/foundation/config';
+import { type ConfigMapping, filterConfigMappings, isBooleanConfigValue } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
 import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
 import { pxeCliConfigMappings } from '@aztec/pxe';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 
-import { AztecStartOption, getOptions } from './util.js';
+// Define an interface for options
+export interface AztecStartOption {
+  flag: string;
+  description: string;
+  defaultValue: string | undefined;
+  printDefault?: (val: any) => string;
+  envVar: string | undefined;
+  parseVal?: (val: string) => any;
+}
+
+export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
+  const options: AztecStartOption[] = [];
+  for (const [key, { env, default: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
+    if (universalOptions.includes(key)) {
+      continue;
+    }
+    const isBoolean = isBooleanConfigValue(configMappings, key as keyof typeof configMappings);
+    options.push({
+      flag: `--${namespace}.${key}${isBoolean ? '' : ' <value>'}`,
+      description,
+      defaultValue: def,
+      printDefault,
+      envVar: env,
+      parseVal: parseEnv,
+    });
+  }
+  return options;
+};
 
 // These are options used by multiple modules so should be inputted once
 export const universalOptions = ['l1RpcUrl', 'l1ChainId', 'l1Contracts', 'p2pEnabled'];
@@ -122,13 +149,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: 'ARCHIVER_URL',
     },
-    // We don't need one for node right? It's only used for the node's archiver (if used)
-    // {
-    //   flag: '--node.dataDirectory <value>',
-    //   description: 'Where to store node data. If not set, will store temporarily',
-    //   defaultValue: undefined,
-    //   envVar: 'NODE_DATA_DIRECTORY',
-    // }
+    {
+      flag: '--node.dataDirectory <value>',
+      description: 'Where to store node data. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'NODE_DATA_DIRECTORY',
+    },
     {
       flag: '--node.deployAztecContracts',
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
