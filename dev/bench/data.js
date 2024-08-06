@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722978127677,
+  "lastUpdate": 1722980237596,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -110568,6 +110568,74 @@ window.BENCHMARK_DATA = {
             "value": 174330418,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 174330418 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "c498282cf0e53626f66c2eac5fd40432aa1bb2b1",
+          "message": "fix(bb.js): Account for extra gates in the c bind circuit size estimate",
+          "timestamp": "2024-08-06T20:50:29Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7800/commits/c498282cf0e53626f66c2eac5fd40432aa1bb2b1"
+        },
+        "date": 1722980226183,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13269.776111000027,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10026.067006000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4728.660299999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4332.825244000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39817.18978600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39817190000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14346.425581000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14346425000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3582337262,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3582337262 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208328056,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208328056 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2937766475,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2937766475 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 174374820,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 174374820 ns\nthreads: 1"
           }
         ]
       }
