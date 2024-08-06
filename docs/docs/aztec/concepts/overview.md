@@ -1,10 +1,9 @@
 ---
-title: Concepts
-sidebar_position: 2
+title: Overview
+sidebar_position: 0
 ---
 
 import Image from "@theme/IdealImage";
-import DocCardList from "@theme/DocCardList";
 
 This page outlines Aztec's fundamental technical concepts.
 
@@ -67,8 +66,6 @@ Aztec operates on three types of circuits:
 ### Dive deeper into how Aztec works
 
 Explore the Concepts for a deeper understanding into the components that make up Aztec:
-
-<DocCardList />
 
 ### Start coding
 

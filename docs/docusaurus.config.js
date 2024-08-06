@@ -278,10 +278,26 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
+                to: "/migration_notes",
+                label: "Migration Notes",
+                className: "no-external-icon",
+              },
+              {
+                to: "/aztec_connect_sunset",
+                label: "Aztec Connect Subset",
+                className: "no-external-icon",
+              },
+              {
                 type: "docSidebar",
                 sidebarId: "protocolSpecSidebar",
+                target: "_blank",
                 label: "Protocol Specification",
-                className: "no-external-icon",
+              },
+              {
+                type: "docSidebar",
+                sidebarId: "roadmapSidebar",
+                target: "_blank",
+                label: "Roadmap",
               },
               {
                 to: "https://noir-lang.org/docs",

@@ -1,6 +1,6 @@
 ---
 id: index
-position: 0
+sidebar_position: 0
 title: Guides
 ---
 
