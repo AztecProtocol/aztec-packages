@@ -484,25 +484,28 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     const auto& return_data = builder.get_return_data();
 
     ASSERT(calldata.size() == 4);
-    ASSERT(secondary_calldata.size() == 2);
-    ASSERT(return_data.size() == 1);
+    ASSERT(secondary_calldata.size() == 3);
+    ASSERT(return_data.size() == 4);
 
-    uint32_t calldata_read_total = 0;
+    // Check that return data was computed from the two calldata inputs as expected
+    ASSERT_EQ(builder.get_variable(calldata[0]) + builder.get_variable(secondary_calldata[0]),
+              builder.get_variable(return_data[0]));
+    ASSERT_EQ(builder.get_variable(calldata[1]) + builder.get_variable(secondary_calldata[1]),
+              builder.get_variable(return_data[1]));
+    ASSERT_EQ(builder.get_variable(calldata[2]) + builder.get_variable(secondary_calldata[2]),
+              builder.get_variable(return_data[2]));
+    ASSERT_EQ(builder.get_variable(calldata[3]), builder.get_variable(return_data[3]));
+
+    // Ensure that every index of each bus column was read once as expected
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        calldata_read_total += calldata.get_read_count(idx);
+        ASSERT_EQ(calldata.get_read_count(idx), 1);
     }
-    uint32_t secondary_calldata_read_total = 0;
     for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        secondary_calldata_read_total += secondary_calldata.get_read_count(idx);
+        ASSERT_EQ(secondary_calldata.get_read_count(idx), 1);
     }
-    uint32_t return_data_read_total = 0;
-    for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        return_data_read_total += calldata.get_read_count(idx);
+    for (size_t idx = 0; idx < return_data.size(); ++idx) {
+        ASSERT_EQ(return_data.get_read_count(idx), 1);
     }
-
-    ASSERT(calldata_read_total == 1);
-    ASSERT(secondary_calldata_read_total == 1);
-    ASSERT(return_data_read_total == 1);
 
     // This prints a summary of the types of gates in the circuit
     builder.blocks.summarize();
