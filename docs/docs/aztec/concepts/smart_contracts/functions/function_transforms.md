@@ -212,7 +212,7 @@ For each function in the contract, an artifact is generated as follows:
 
 - An ABI struct is generated for the function:
 
-  #include_code export_struct_source noir/noir-repo/aztec_macros/src/transforms/functions.rs rust
+#include_code export_struct_source noir/noir-repo/aztec_macros/src/transforms/functions.rs rust
 
 - These structs are added to the contract's types.
 
