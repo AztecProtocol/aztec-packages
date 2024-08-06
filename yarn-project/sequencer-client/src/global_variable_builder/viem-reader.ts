@@ -1,4 +1,4 @@
-import { L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import { type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {

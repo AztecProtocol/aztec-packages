@@ -1,6 +1,6 @@
 import { type ConfigMappingsType } from '@aztec/foundation/config';
 
-import { L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
+import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
 /**
  * Configuration of the L1GlobalReader.

@@ -1,4 +1,4 @@
-import { EnvVar } from './env_var.js';
+import { type EnvVar } from './env_var.js';
 
 export { EnvVar } from './env_var.js';
 

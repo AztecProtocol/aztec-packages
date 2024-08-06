@@ -1,4 +1,4 @@
-import { L1ReaderConfig } from '@aztec/ethereum';
+import { type L1ReaderConfig } from '@aztec/ethereum';
 
 import { type GlobalVariableBuilder, SimpleTestGlobalVariableBuilder } from './global_builder.js';
 import { ViemReader } from './viem-reader.js';
