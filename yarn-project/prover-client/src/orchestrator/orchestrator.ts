@@ -146,10 +146,12 @@ export class ProvingOrchestrator implements BlockProver {
       throw new Error(`Length of txs for the block should be at least two (got ${numTxs})`);
     }
 
+    // TODO(palla/prover-node): Store block number in the db itself to make this check more reliable,
+    // and turn this warning into an exception that we throw.
     const { blockNumber } = globalVariables;
     const dbBlockNumber = (await this.db.getTreeInfo(MerkleTreeId.ARCHIVE)).size - 1n;
     if (dbBlockNumber !== blockNumber.toBigInt() - 1n) {
-      throw new Error(
+      logger.warn(
         `Database is at wrong block number (starting block ${blockNumber.toBigInt()} with db at ${dbBlockNumber})`,
       );
     }

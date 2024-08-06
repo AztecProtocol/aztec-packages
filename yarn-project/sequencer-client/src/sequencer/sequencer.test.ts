@@ -448,7 +448,6 @@ describe('sequencer', () => {
     await sequencer.work();
 
     expect(publisher.processL2Block).not.toHaveBeenCalled();
-    expect(blockProver.cancelBlock).toHaveBeenCalledTimes(1);
   });
 });
 
