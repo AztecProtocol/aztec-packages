@@ -48,6 +48,12 @@ void process_call_data_operations(Builder& builder,
 template <typename Builder>
 void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init);
 
+/**
+ * @brief Assign a unique ID to each calldata block constraint based on the order in which it was recieved
+ *
+ * @tparam Builder
+ * @param constraints
+ */
 template <typename Builder> void assign_calldata_ids(std::vector<BlockConstraint>& constraints);
 
 template <typename B> inline void read(B& buf, MemOp& mem_op)

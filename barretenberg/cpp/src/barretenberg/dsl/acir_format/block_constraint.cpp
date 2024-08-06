@@ -164,10 +164,9 @@ void process_call_data_operations(Builder& builder,
 
     databus_ct databus;
 
-    // Process operations on a generic databus calldata array
+    // Method for processing operations on a generic databus calldata array
     auto process_calldata = [&](auto& calldata_array) {
-        // Populate the calldata in the databus
-        calldata_array.set_values(init);
+        calldata_array.set_values(init); // Initialize the data in the bus array
 
         for (const auto& op : constraint.trace) {
             ASSERT(op.access_type == 0);
@@ -214,13 +213,12 @@ void process_return_data_operations(const BlockConstraint& constraint, std::vect
     ASSERT(constraint.trace.size() == 0);
 }
 
-template <> void assign_calldata_ids<UltraCircuitBuilder>([[maybe_unused]] std::vector<BlockConstraint>& constraints)
-{
-    // do nothing
-}
+// Do nothing for Ultra since it does not support Databus
+template <> void assign_calldata_ids<UltraCircuitBuilder>([[maybe_unused]] std::vector<BlockConstraint>& constraints) {}
 
 template <> void assign_calldata_ids<MegaCircuitBuilder>(std::vector<BlockConstraint>& constraints)
 {
+    // Assign unique ID to each calldata block constraint
     uint32_t calldata_id = 0;
     for (auto& constraint : constraints) {
         if (constraint.type == BlockType::CallData) {

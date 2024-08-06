@@ -70,15 +70,6 @@ class AcirIntegrationTest : public ::testing::Test {
 #endif
         auto proof = prover.construct_proof();
 
-        for (size_t i = 0; i < 8; ++i) {
-            info("return data: ", prover.instance->proving_key.polynomials.return_data[i]);
-        }
-        for (size_t i = 0; i < 8; ++i) {
-            info("calldata: ", prover.instance->proving_key.polynomials.calldata[i]);
-        }
-        for (size_t i = 0; i < 8; ++i) {
-            info("scondary calldata: ", prover.instance->proving_key.polynomials.secondary_calldata[i]);
-        }
         // Verify Honk proof
         auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
         Verifier verifier{ verification_key };
@@ -440,7 +431,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                          testing::Values("fold_basic", "fold_basic_nested_call"));
 
 /**
- *@brief A basic test of a circuit generated in noir that makes use of the databus
+ * @brief A basic test of a circuit generated in noir that makes use of the databus
  *
  */
 TEST_F(AcirIntegrationTest, DISABLED_Databus)
@@ -463,8 +454,9 @@ TEST_F(AcirIntegrationTest, DISABLED_Databus)
 }
 
 /**
- *@brief Test a program that uses two databus calldata columns
- *
+ * @brief Test a program that uses two databus calldata columns
+ * @details In addition to checking that a proof of the resulting circuit verfies, check that the specific structure of
+ * the calldata/return data interaction in the noir program is reflected in the bberg circuit
  */
 TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
 {
