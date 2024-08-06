@@ -207,7 +207,7 @@ export class PublicProcessor {
     const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
     const txFee = tx.data.getTransactionFee(this.globalVariables.gasFees);
 
-    this.log.debug(`Deducting ${txFee} balance in gas tokens for ${feePayer}`);
+    this.log.debug(`Deducting ${txFee} balance in Fee Juice for ${feePayer}`);
 
     const existingBalanceWriteIndex = finalPublicDataUpdateRequests.findIndex(request =>
       request.leafSlot.equals(leafSlot),

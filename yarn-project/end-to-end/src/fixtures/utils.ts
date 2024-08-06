@@ -398,7 +398,7 @@ export async function setup(
   );
 
   if (enableGas) {
-    logger.verbose('Deploying gas token...');
+    logger.verbose('Deploying Fee Juice...');
     await deployCanonicalFeeJuice(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
@@ -626,12 +626,12 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * Deploy the protocol contracts to a running instance.
  */
 export async function deployCanonicalFeeJuice(pxe: PXE) {
-  // "deploy" the Gas token as it contains public functions
+  // "deploy" the Fee Juice as it contains public functions
   const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
   const canonicalFeeJuice = getCanonicalFeeJuice();
 
   if (await pxe.isContractClassPubliclyRegistered(canonicalFeeJuice.contractClass.id)) {
-    getLogger().debug('Gas token already deployed');
+    getLogger().debug('Fee Juice already deployed');
     await expect(pxe.isContractPubliclyDeployed(canonicalFeeJuice.address)).resolves.toBe(true);
     return;
   }
@@ -655,7 +655,7 @@ export async function deployCanonicalFeeJuice(pxe: PXE) {
     .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
     .wait();
 
-  getLogger().info(`Gas token publicly deployed at ${feeJuice.address}`);
+  getLogger().info(`Fee Juice publicly deployed at ${feeJuice.address}`);
 
   await expect(pxe.isContractClassPubliclyRegistered(feeJuice.instance.contractClassId)).resolves.toBe(true);
   await expect(pxe.getContractInstance(feeJuice.address)).resolves.toBeDefined();

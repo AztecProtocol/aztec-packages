@@ -128,7 +128,7 @@ class MockGasBridgingTestHarness implements IGasBridgingTestHarness {
     await this.l2Token.methods.mint_public(owner, bridgeAmount).send().wait();
   }
   getL1FeeJuiceBalance(_address: EthAddress): Promise<bigint> {
-    throw new Error('Cannot get gas token balance on mocked L1.');
+    throw new Error('Cannot get Fee Juice balance on mocked L1.');
   }
 }
 

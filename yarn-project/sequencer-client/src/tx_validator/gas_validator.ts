@@ -54,7 +54,7 @@ export class GasTxValidator implements TxValidator<Tx> {
       computeFeePayerBalanceStorageSlot(feePayer),
     );
 
-    // If there is a claim in this tx that increases the fee payer balance in gas token, add it to balance
+    // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
     const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
     const claimFunctionCall = setupFns.find(
       fn =>

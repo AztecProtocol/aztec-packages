@@ -150,7 +150,7 @@ contract Rollup is Leonidas, IRollup {
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
     );
 
-    // pay the coinbase 1 gas token if it is not empty and header.totalFees is not zero
+    // pay the coinbase 1 Fee Juice if it is not empty and header.totalFees is not zero
     if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
       FEE_JUICE.transfer(address(header.globalVariables.coinbase), header.totalFees);
     }

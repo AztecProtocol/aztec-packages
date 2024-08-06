@@ -42,7 +42,7 @@ contract FeeJuice {
             public_bytecode_commitment
         );
         assert(
-            instance.contract_class_id == contract_class_id, "Invalid contract class id computed for gas token"
+            instance.contract_class_id == contract_class_id, "Invalid contract class id computed for Fee Juice"
         );
 
         // Increase self balance and set as fee payer, and end setup
@@ -70,7 +70,7 @@ contract FeeJuice {
     }
 
     // We purposefully not set this function as an initializer so we do not bind
-    // the contract to a specific L1 portal address, since the gas token address
+    // the contract to a specific L1 portal address, since the Fee Juice address
     // is a hardcoded constant in the rollup circuits.
     #[aztec(public)]
     fn set_portal(portal_address: EthAddress) {
@@ -116,7 +116,7 @@ contract FeeJuice {
 
     // TODO(@just-mitch): remove this function before mainnet deployment
     // convenience function for testing
-    // the true canonical gas token contract will not have this function
+    // the true canonical Fee Juice contract will not have this function
     #[aztec(public)]
     fn mint_public(to: AztecAddress, amount: Field) {
         let amount = U128::from_integer(amount);

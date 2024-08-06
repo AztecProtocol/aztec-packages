@@ -556,14 +556,14 @@ It is now possible to import contracts on another contracts and use their automa
 -            nonce
 -           ]
 -  );
-+ use dep::fee_juice::GasToken;
++ use dep::fee_juice::FeeJuice;
 + use dep::token::Token;
 +
 + ...
 + // Public call from public land
-+ GasToken::at(storage.fee_juice_address.read_private()).pay_fee(42).call(&mut context);
++ FeeJuice::at(storage.fee_juice_address.read_private()).pay_fee(42).call(&mut context);
 + // Public call from private land
-+ GasToken::at(storage.fee_juice_address.read_private()).pay_fee(42).enqueue(&mut context);
++ FeeJuice::at(storage.fee_juice_address.read_private()).pay_fee(42).enqueue(&mut context);
 + // Private call from private land
 + Token::at(asset).transfer(context.msg_sender(), storage.subscription_recipient_address.read_private(), amount, nonce).call(&mut context);
 ```

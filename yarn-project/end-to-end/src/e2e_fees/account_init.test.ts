@@ -84,7 +84,7 @@ describe('e2e_fees account_init', () => {
   });
 
   describe('account pays its own fee', () => {
-    it('pays natively in the gas token after Alice bridges funds', async () => {
+    it('pays natively in the Fee Juice after Alice bridges funds', async () => {
       await t.feeJuiceContract.methods.mint_public(bobsAddress, t.INITIAL_GAS_BALANCE).send().wait();
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(t.INITIAL_GAS_BALANCE);
@@ -96,7 +96,7 @@ describe('e2e_fees account_init', () => {
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
     });
 
-    it('pays natively in the gas token by bridging funds themselves', async () => {
+    it('pays natively in the Fee Juice by bridging funds themselves', async () => {
       const { secret } = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(
         t.INITIAL_GAS_BALANCE,
         t.INITIAL_GAS_BALANCE,
@@ -177,8 +177,8 @@ describe('e2e_fees account_init', () => {
   });
 
   describe('another account pays the fee', () => {
-    it('pays natively in the gas token', async () => {
-      // mint gas tokens to alice
+    it('pays natively in the Fee Juice', async () => {
+      // mint Fee Juice to alice
       await t.feeJuiceContract.methods.mint_public(aliceAddress, t.INITIAL_GAS_BALANCE).send().wait();
       const [alicesInitialGas] = await t.getGasBalanceFn(aliceAddress);
 
@@ -208,7 +208,7 @@ describe('e2e_fees account_init', () => {
         })
         .wait();
 
-      // alice paid in gas tokens
+      // alice paid in Fee Juice
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(aliceAddress)).resolves.toEqual([alicesInitialGas - tx.transactionFee!]);
 

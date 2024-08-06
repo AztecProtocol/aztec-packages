@@ -283,7 +283,7 @@ impl BaseRollupInputs {
                 let existing_update_index = self.find_fee_payer_fee_juice_update_index(leaf_slot);
                 let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
                 assert(
-                    existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for gas token balance update request"
+                    existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance update request"
                 );
                 assert(
                     !existing_update.new_value.lt(tx_fee), "Not enough balance for fee payer after claim to pay for transaction"
@@ -297,7 +297,7 @@ impl BaseRollupInputs {
                 read_hint.validate(self.start.public_data_tree.root);
 
                 let balance = read_hint.value;
-                assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for gas token balance read hint");
+                assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
                 assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
                 let new_value = compute_public_data_tree_value(balance - tx_fee);
@@ -340,7 +340,7 @@ impl BaseRollupInputs {
             }
         }
         assert(
-            update_index < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, "Could not find fee payer gas token update request"
+            update_index < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, "Could not find fee payer Fee Juice update request"
         );
         update_index
     }
@@ -605,7 +605,7 @@ mod tests {
         final_public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         nullifiers: BoundedVec<NullifierInsertion, MAX_nullifiers_PER_TEST>,
         constants: ConstantRollupData,
-        // Index of the item in the pre_existing_public_data array that contains the fee payer's gas token balance.
+        // Index of the item in the pre_existing_public_data array that contains the fee payer's Fee Juice balance.
         // Used for building the public data hint read for the payment update request. If set to none, no hint is built.
         fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>
     }
@@ -1397,7 +1397,7 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with="Wrong leaf slot for gas token balance read hint")]
+    #[test(should_fail_with="Wrong leaf slot for Fee Juice balance read hint")]
     unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
         let fee_payer = AztecAddress::from_field(0x1234);
         let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);

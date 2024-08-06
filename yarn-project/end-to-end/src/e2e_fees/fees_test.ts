@@ -44,10 +44,10 @@ const { E2E_DATA_PATH: dataPath } = process.env;
  * Test fixture for testing fees. Provides the following snapshots:
  * InitialAccounts: Initializes 3 Schnorr account contracts.
  * PublicDeployAccounts: Deploys the accounts publicly.
- * DeployFeeJuice: Deploys the gas token contract.
+ * DeployFeeJuice: Deploys the Fee Juice contract.
  * FPCSetup: Deploys BananaCoin and FPC contracts, and bridges gas from L1.
  * FundAlice: Mints private and public bananas to Alice.
- * SetupSubscription: Deploys a counter contract and a subscription contract, and mints gas token to the subscription contract.
+ * SetupSubscription: Deploys a counter contract and a subscription contract, and mints Fee Juice to the subscription contract.
  */
 export class FeesTest {
   private snapshotManager: ISnapshotManager;
@@ -400,7 +400,7 @@ export class FeesTest {
           .send()
           .deployed();
 
-        // Mint some gas tokens to the subscription contract
+        // Mint some Fee Juice to the subscription contract
         // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
         await this.feeJuiceContract.methods
           .mint_public(subscriptionContract.address, this.INITIAL_GAS_BALANCE)

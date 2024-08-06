@@ -84,7 +84,7 @@ export async function buildBaseRollupInput(
     i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
 
-  // Create data hint for reading fee payer initial balance in gas tokens
+  // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
   // If there is already a public data write for this slot, also skip the read hint
   const hintsBuilder = new HintsBuilder(db);
