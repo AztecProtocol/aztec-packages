@@ -35,7 +35,7 @@ import { fr, makeSelector } from '@aztec/circuits.js/testing';
 import { arrayNonEmptyLength, times } from '@aztec/foundation/collection';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   type PublicExecutionResult,
   type PublicExecutor,
@@ -151,7 +151,7 @@ describe('public_processor', () => {
       publicDataTree = await newTree(
         StandardTree,
         openTmpStore(),
-        new Pedersen(),
+        new Poseidon(),
         'PublicData',
         Fr,
         PUBLIC_DATA_TREE_HEIGHT,
@@ -389,8 +389,8 @@ describe('public_processor', () => {
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
       const numPublicDataWrites = 5;
-      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
-      expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
+      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
+      const expectedWrites = [
         new PublicDataWrite(
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
@@ -399,7 +399,10 @@ describe('public_processor', () => {
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotD), fr(0x251)),
-      ]);
+      ];
+      // sort increasing by leafIndex
+      expectedWrites.sort((a, b) => (a.leafIndex.lt(b.leafIndex) ? -1 : 1));
+      expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual(expectedWrites);
 
       // we keep the non-revertible logs
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(3);
@@ -887,9 +890,9 @@ describe('public_processor', () => {
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x103)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x152)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x103)),
       ]);
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);

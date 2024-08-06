@@ -68,6 +68,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
@@ -102,6 +103,14 @@ export class TXE implements TypedOracle {
   }
 
   // Utils
+
+  async #getTreesAt(blockNumber: number) {
+    const db =
+      blockNumber === (await this.getBlockNumber())
+        ? this.trees.asLatest()
+        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+    return db;
+  }
 
   getChainId() {
     return Promise.resolve(this.chainId);
@@ -174,11 +183,16 @@ export class TXE implements TypedOracle {
     isStaticCall = false,
     isDelegateCall = false,
   ) {
-    const trees = this.getTrees();
-    const stateReference = await trees.getStateReference(false);
+    const db = await this.#getTreesAt(blockNumber);
+    const previousBlockState = await this.#getTreesAt(blockNumber - 1);
+
+    const stateReference = await db.getStateReference();
     const inputs = PrivateContextInputs.empty();
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
+    inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
+      (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
+    );
     inputs.callContext.msgSender = this.msgSender;
     inputs.callContext.storageContractAddress = this.contractAddress;
     inputs.callContext.isStaticCall = isStaticCall;
@@ -213,10 +227,10 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  async avmOpcodeEmitNoteHash(slottedNoteHash: Fr) {
+  async avmOpcodeEmitNoteHash(noteHash: Fr) {
     const db = this.trees.asLatest();
-    const noteHash = siloNoteHash(this.contractAddress, slottedNoteHash);
-    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+    const siloedNoteHash = siloNoteHash(this.contractAddress, noteHash);
+    await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash]);
     return Promise.resolve();
   }
 
@@ -240,9 +254,9 @@ export class TXE implements TypedOracle {
     await db.batchInsert(MerkleTreeId.NULLIFIER_TREE, siloedNullifiers, NULLIFIER_SUBTREE_HEIGHT);
   }
 
-  async addNoteHashes(contractAddress: AztecAddress, slottedNoteHashes: Fr[]) {
+  async addNoteHashes(contractAddress: AztecAddress, noteHashes: Fr[]) {
     const db = this.trees.asLatest();
-    const siloedNoteHashes = slottedNoteHashes.map(slottedNoteHash => siloNoteHash(contractAddress, slottedNoteHash));
+    const siloedNoteHashes = noteHashes.map(noteHash => siloNoteHash(contractAddress, noteHash));
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, siloedNoteHashes);
   }
 
@@ -284,8 +298,14 @@ export class TXE implements TypedOracle {
     return contractInstance;
   }
 
-  getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
-    throw new Error('Method not implemented.');
+  async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
+    const db = await this.#getTreesAt(blockNumber);
+    const index = await db.findLeafIndex(treeId, leafValue.toBuffer());
+    if (!index) {
+      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]} at block ${blockNumber}`);
+    }
+    const siblingPath = await db.getSiblingPath(treeId, index);
+    return [new Fr(index), ...siblingPath.toFields()];
   }
 
   async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
@@ -298,14 +318,14 @@ export class TXE implements TypedOracle {
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
-    const index = await committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const db = await this.#getTreesAt(blockNumber);
+    const index = await db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     if (!index) {
       return undefined;
     }
 
-    const leafPreimagePromise = committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
+    const leafPreimagePromise = db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
+    const siblingPathPromise = db.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
       MerkleTreeId.NULLIFIER_TREE,
       BigInt(index),
     );
@@ -344,8 +364,12 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new Error('Method not implemented.');
+  async getHeader(blockNumber: number): Promise<Header | undefined> {
+    const header = Header.empty();
+    const db = await this.#getTreesAt(blockNumber);
+    header.state = await db.getStateReference();
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+    return header;
   }
 
   getCompleteAddress(account: AztecAddress) {
@@ -402,7 +426,7 @@ export class TXE implements TypedOracle {
     return Promise.resolve(notes);
   }
 
-  notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], slottedNoteHash: Fr, counter: number) {
+  notifyCreatedNote(storageSlot: Fr, noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -411,7 +435,7 @@ export class TXE implements TypedOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        slottedNoteHash,
+        noteHash,
       },
       counter,
     );
@@ -419,8 +443,8 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  notifyNullifiedNote(innerNullifier: Fr, slottedNoteHash: Fr, counter: number) {
-    this.noteCache.nullifyNote(this.contractAddress, innerNullifier, slottedNoteHash);
+  notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+    this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectsCounter = counter + 1;
     return Promise.resolve();
   }
@@ -470,11 +494,7 @@ export class TXE implements TypedOracle {
     blockNumber: number,
     numberOfElements: number,
   ): Promise<Fr[]> {
-    const db =
-      blockNumber === (await this.getBlockNumber())
-        ? this.trees.asLatest()
-        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
-
+    const db = await this.#getTreesAt(blockNumber);
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = startStorageSlot.add(new Fr(i));
@@ -690,23 +710,12 @@ export class TXE implements TypedOracle {
     const header = Header.empty();
     header.state = await this.trees.getStateReference(true);
     header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
-    header.state.partial.nullifierTree.root = Fr.fromBuffer(
-      (await this.trees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE, true)).root,
-    );
-    header.state.partial.noteHashTree.root = Fr.fromBuffer(
-      (await this.trees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE, true)).root,
-    );
-    header.state.partial.publicDataTree.root = Fr.fromBuffer(
-      (await this.trees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE, true)).root,
-    );
-    header.state.l1ToL2MessageTree.root = Fr.fromBuffer(
-      (await this.trees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true)).root,
-    );
     const executor = new PublicExecutor(
       new TXEPublicStateDB(this),
       new ContractsDataSourcePublicDB(new TXEPublicContractDataSource(this)),
       new WorldStateDB(this.trees.asLatest()),
       header,
+      new NoopTelemetryClient(),
     );
     const execution = new PublicExecutionRequest(targetContractAddress, callContext, args);
 

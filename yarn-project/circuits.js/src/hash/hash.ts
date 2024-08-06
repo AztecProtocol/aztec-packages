@@ -1,13 +1,13 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { pedersenHashBuffer, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
-import { VerificationKey } from '../structs/index.js';
+import { type ScopedL2ToL1Message, VerificationKey } from '../structs/index.js';
 
 /**
  * Computes a hash of a given verification key.
@@ -37,7 +37,7 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A note hash nonce.
  */
 export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Fr {
-  return pedersenHash([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
+  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
@@ -48,18 +48,18 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * @returns A siloed note hash.
  */
 export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
-  return pedersenHash([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
+  return poseidon2HashWithSeparator([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
  * @param nonce - A nonce (typically derived from tx hash and note hash index in the tx).
- * @param slottedNoteHash - A slotted note hash.
+ * @param noteHash - A note hash.
  * @returns A unique note hash.
  */
-export function computeUniqueNoteHash(nonce: Fr, slottedNoteHash: Fr): Fr {
-  return pedersenHash([nonce, slottedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeUniqueNoteHash(nonce: Fr, noteHash: Fr): Fr {
+  return poseidon2HashWithSeparator([nonce, noteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -70,7 +70,7 @@ export function computeUniqueNoteHash(nonce: Fr, slottedNoteHash: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return pedersenHash([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+  return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
 /**
@@ -91,7 +91,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return pedersenHash([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
 /**
@@ -107,18 +107,18 @@ export function computeVarArgsHash(args: Fr[]) {
     throw new Error(`Hashing ${args.length} args exceeds max of ${MAX_ARGS_LENGTH}`);
   }
 
-  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map(c => {
+  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map((c: Fr[]) => {
     if (c.length < ARGS_HASH_CHUNK_LENGTH) {
       c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_LENGTH);
     }
-    return pedersenHash(c, GeneratorIndex.FUNCTION_ARGS);
+    return poseidon2HashWithSeparator(c, GeneratorIndex.FUNCTION_ARGS);
   });
 
   if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
     chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
-  return pedersenHash(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
+  return poseidon2HashWithSeparator(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
 }
 
 /**
@@ -128,7 +128,7 @@ export function computeVarArgsHash(args: Fr[]) {
  * @returns The hash
  */
 export function computeSecretHash(secret: Fr) {
-  return pedersenHash([secret], GeneratorIndex.SECRET_HASH);
+  return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
 export function computeL1ToL2MessageNullifier(
@@ -137,6 +137,32 @@ export function computeL1ToL2MessageNullifier(
   secret: Fr,
   messageIndex: bigint,
 ) {
-  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.MESSAGE_NULLIFIER);
+  const innerMessageNullifier = poseidon2HashWithSeparator(
+    [messageHash, secret, messageIndex],
+    GeneratorIndex.MESSAGE_NULLIFIER,
+  );
   return siloNullifier(contract, innerMessageNullifier);
+}
+
+/**
+ * Calculates a siloed hash of a scoped l2 to l1 message.
+ * @returns Fr containing 248 bits of information of sha256 hash.
+ */
+export function siloL2ToL1Message(l2ToL1Message: ScopedL2ToL1Message, version: Fr, chainId: Fr): Fr {
+  if (l2ToL1Message.contractAddress.isZero()) {
+    return Fr.ZERO;
+  }
+  // Left-pad recipient to 32 bytes to match what the circuit is doing
+  // TODO: Only hash 20 bytes for l2l1 recipient everywhere.
+  const paddedRecipient = Buffer.alloc(32);
+  l2ToL1Message.message.recipient.toBuffer().copy(paddedRecipient, 12);
+
+  const preimage = Buffer.concat([
+    l2ToL1Message.contractAddress.toBuffer(),
+    version.toBuffer(),
+    paddedRecipient,
+    chainId.toBuffer(),
+    l2ToL1Message.message.content.toBuffer(),
+  ]);
+  return Fr.fromBuffer(sha256Trunc(preimage));
 }

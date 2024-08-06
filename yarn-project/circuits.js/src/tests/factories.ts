@@ -146,7 +146,7 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
-import { PublicValidationRequests } from '../structs/index.js';
+import { PublicValidationRequests, ScopedL2ToL1Message, ScopedNoteHash } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
@@ -174,6 +174,10 @@ function makeScopedLogHash(seed: number) {
 
 function makeNoteHash(seed: number) {
   return new NoteHash(fr(seed), seed + 1);
+}
+
+function makeScopedNoteHash(seed: number) {
+  return new NoteHash(fr(seed), seed + 1).scope(makeAztecAddress(seed + 3));
 }
 
 function makeNullifier(seed: number) {
@@ -331,7 +335,7 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   return new CombinedAccumulatedData(
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
-    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     fr(seed + 0x700), // note encrypted logs hash
     fr(seed + 0x800), // encrypted logs hash
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
@@ -357,13 +361,13 @@ export function makeGas(seed = 1) {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedData {
+function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PublicAccumulatedData(
-    tupleGenerator(MAX_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x120, NoteHash.empty),
+    tupleGenerator(MAX_NOTE_HASHES_PER_TX, makeScopedNoteHash, seed + 0x120, ScopedNoteHash.empty),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
-    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty), // note encrypted logs hashes
     tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs hashes
@@ -665,7 +669,7 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
 
 export function makeCombineHints(seed = 1): CombineHints {
   return CombineHints.from({
-    sortedNoteHashes: makeTuple(MAX_NOTE_HASHES_PER_TX, makeNoteHash, seed + 0x100),
+    sortedNoteHashes: makeTuple(MAX_NOTE_HASHES_PER_TX, makeScopedNoteHash, seed + 0x100),
     sortedNoteHashesIndexes: makeTuple(MAX_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
     sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
     sortedUnencryptedLogsHashesIndexes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, i => i, seed + 0x400),
@@ -764,33 +768,20 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
   });
 }
 
-/**
- * Makes global variables.
- * @param seed - The seed to use for generating the global variables.
- * @param blockNumber - The block number to use for generating the global variables.
- * If blockNumber is undefined, it will be set to seed + 2.
- * @returns Global variables.
- */
-export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = undefined): GlobalVariables {
-  if (blockNumber !== undefined) {
-    return new GlobalVariables(
-      fr(seed),
-      fr(seed + 1),
-      fr(blockNumber),
-      fr(seed + 3),
-      EthAddress.fromField(fr(seed + 4)),
-      AztecAddress.fromField(fr(seed + 5)),
-      makeGasFees(seed + 6),
-    );
-  }
+export function makeGlobalVariables(
+  seed = 1,
+  blockNumber: number | undefined = undefined,
+  slotNumber: number | undefined = undefined,
+): GlobalVariables {
   return new GlobalVariables(
-    fr(seed),
-    fr(seed + 1),
-    fr(seed + 2),
-    fr(seed + 3),
-    EthAddress.fromField(fr(seed + 4)),
-    AztecAddress.fromField(fr(seed + 5)),
-    makeGasFees(seed + 6),
+    new Fr(seed),
+    new Fr(seed + 1),
+    new Fr(blockNumber ?? seed + 2),
+    new Fr(slotNumber ?? seed + 3),
+    new Fr(seed + 4),
+    EthAddress.fromField(new Fr(seed + 5)),
+    AztecAddress.fromField(new Fr(seed + 6)),
+    new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
   );
 }
 
@@ -813,6 +804,10 @@ export function makeConstantBaseRollupData(
     vkTreeRoot: fr(seed + 0x401),
     globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x402),
   });
+}
+
+export function makeScopedL2ToL1Message(seed = 1): ScopedL2ToL1Message {
+  return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -963,10 +958,11 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
 export function makeRootRollupPublicInputs(
   seed = 0,
   blockNumber: number | undefined = undefined,
+  slotNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, blockNumber),
+    header: makeHeader(seed + 0x200, blockNumber, slotNumber),
     vkTreeRoot: fr(seed + 0x300),
     proverId: fr(seed + 0x400),
   });
@@ -990,13 +986,14 @@ export function makeContentCommitment(seed = 0, txsEffectsHash: Buffer | undefin
 export function makeHeader(
   seed = 0,
   blockNumber: number | undefined = undefined,
+  slotNumber: number | undefined = undefined,
   txsEffectsHash: Buffer | undefined = undefined,
 ): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), blockNumber),
+    makeGlobalVariables((seed += 0x700), blockNumber, slotNumber),
     fr(seed + 0x800),
   );
 }

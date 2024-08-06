@@ -91,14 +91,14 @@ jobs:
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        if: ${{ needs.changes.outputs.build-images }}
+        if: ${{ needs.changes.outputs.build-images == 'true' }}
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: ${{ needs.changes.outputs.build-images }}
+        if: ${{ needs.changes.outputs.build-images == 'true' }}
         with:
           concurrency_key: build-images-x86
       - name: "Push Build Images If Changed"
-        if: ${{ needs.changes.outputs.build-images }}
+        if: ${{ needs.changes.outputs.build-images == 'true' }}
         timeout-minutes: 40
         run: |
           earthly-ci --push ./build-images/+build
@@ -125,7 +125,7 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
@@ -190,7 +190,7 @@ jobs:
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
+            ../../scripts/earthly-ci --exec-stats -P --no-output +${{ matrix.test }}
 
   acir-bench:
     runs-on: ubuntu-20.04
