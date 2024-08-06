@@ -40,6 +40,7 @@ class GoblinProver {
     using TranslatorProver = bb::TranslatorProver;
     using TranslatorProvingKey = bb::TranslatorFlavor::ProvingKey;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
+    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
     using MergeProver = bb::MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     /**
@@ -118,10 +119,35 @@ class GoblinProver {
         BB_OP_COUNT_TIME_NAME("Goblin::merge");
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
-            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
+            [[maybe_unused]] auto pairing_points = verify_merge(circuit_builder);
         }
 
+        // Construct a merge proof for the circuit
+        prove_merge(circuit_builder);
+    };
+
+    /**
+     * @brief Append recursive verification of a previous merge proof to a provided circuit
+     *
+     * @param circuit_builder
+     * @return PairingPoints
+     */
+    PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder) const
+    {
+        BB_OP_COUNT_TIME_NAME("Goblin::merge");
+        // Recursively verify the previous merge proof
+        RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+        return merge_verifier.verify_proof(merge_proof);
+    };
+
+    /**
+     * @brief Construct a merge proof for the provided circuit
+     *
+     * @param circuit_builder
+     */
+    void prove_merge(MegaCircuitBuilder& circuit_builder)
+    {
+        BB_OP_COUNT_TIME_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
         // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
         // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added

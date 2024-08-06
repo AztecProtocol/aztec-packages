@@ -42,6 +42,35 @@ TEST_F(GoblinTests, MultipleCircuits)
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = construct_mock_circuit(goblin.op_queue);
         goblin.merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+        info("op count = ", goblin.op_queue->get_current_size());
+    }
+
+    // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
+    GoblinProof proof = goblin.prove();
+
+    // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
+    // respective proving keys)
+    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
+    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
+    bool verified = goblin_verifier.verify(proof);
+
+    EXPECT_TRUE(verified);
+}
+
+TEST_F(GoblinTests, MultipleCircuitsNew)
+{
+    GoblinProver goblin;
+
+    // Construct and accumulate multiple circuits
+    size_t NUM_CIRCUITS = 3;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = construct_mock_circuit(goblin.op_queue);
+        if (goblin.merge_proof_exists) {
+            goblin.verify_merge(circuit);
+        }
+        goblin.prove_merge(circuit);
+        info("op count = ", goblin.op_queue->get_current_size());
     }
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
