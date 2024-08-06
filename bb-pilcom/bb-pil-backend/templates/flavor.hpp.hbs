@@ -13,16 +13,16 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 
-#include "barretenberg/vm/generated/{{snakeCase name}}_flavor_settings.hpp"
+#include "barretenberg/vm/{{snakeCase name}}/generated/flavor_settings.hpp"
 
 // Relations
 {{#each relation_file_names as |r|}}
-#include "barretenberg/relations/generated/{{snakeCase ../name}}/{{r}}.hpp"
+#include "barretenberg/vm/{{snakeCase ../name}}/generated/relations/{{r}}.hpp"
 {{/each}}
 
 // Lookup and permutation relations
 {{#each lookups as |r|}}
-#include "barretenberg/relations/generated/{{snakeCase ../name}}/{{r}}.hpp"
+#include "barretenberg/vm/{{snakeCase ../name}}/generated/relations/{{r}}.hpp"
 {{/each}}
 
 // Metaprogramming to concatenate tuple types.
@@ -35,7 +35,7 @@ template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::
 #define DERIVED_WITNESS_ENTITIES {{#each lookups as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
 #define SHIFTED_ENTITIES {{#each shifted as |item|}}{{#if @index}}, {{/if}}{{item}}{{/each}}
 #define TO_BE_SHIFTED(e) {{#each to_be_shifted as |item|}}{{#if @index}}, {{/if}}e.{{item}}{{/each}}
-#define ALL_ENTITIES PRECOMPUTED_ENTITIES, WIRE_ENTITIES, DERIVED_WITNESS_ENTITIES, SHIFTED_ENTITIES
+#define ALL_ENTITIES {{#if (len fixed)}}PRECOMPUTED_ENTITIES{{/if}}{{#if (len witness_without_inverses)}}, WIRE_ENTITIES{{/if}}{{#if (len lookups)}}, DERIVED_WITNESS_ENTITIES{{/if}}{{#if (len shifted)}}, SHIFTED_ENTITIES{{/if}}
 // clang-format on
 
 namespace bb {
@@ -82,9 +82,6 @@ class {{name}}Flavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    template <size_t NUM_INSTANCES>
-    using ProtogalaxyTupleOfTuplesOfUnivariates =
-      decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
@@ -123,8 +120,8 @@ class {{name}}Flavor {
       };
 
       template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
-      static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities) {
-          return RefArray{ TO_BE_SHIFTED(entities) };
+      static auto get_to_be_shifted([[maybe_unused]] PrecomputedAndWitnessEntitiesSuperset& entities) {
+          return RefArray<DataType, std::tuple_size<decltype(std::make_tuple(TO_BE_SHIFTED(entities)))>::value>{ TO_BE_SHIFTED(entities) };
       }
 
       template <typename DataType>
@@ -154,7 +151,7 @@ class {{name}}Flavor {
       class ProvingKey : public ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
         public:
           // Expose constructors on the base class
-          using Base = ProvingKey{{name}}_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
+          using Base = ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
           using Base::Base;
 
           auto get_to_be_shifted() { 
@@ -174,7 +171,8 @@ class {{name}}Flavor {
       {{!-- Used by get_row, logderivs, etc --}}
       class AllConstRefValues {
         public:
-          using DataType = const FF&;
+          using BaseDataType = const FF;
+          using DataType = BaseDataType&;
 
           {{!-- 
           We define the flavor members here again to avoid having to make this class inherit from AllEntities.
@@ -183,7 +181,7 @@ class {{name}}Flavor {
           --}}
           DEFINE_FLAVOR_MEMBERS(DataType, ALL_ENTITIES)
 
-          AllConstRefValues(const RefArray<FF const, NUM_ALL_ENTITIES>& il);
+          AllConstRefValues(const RefArray<BaseDataType, NUM_ALL_ENTITIES>& il);
       };
 
       /**

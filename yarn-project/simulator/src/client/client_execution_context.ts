@@ -30,7 +30,7 @@ import {
   countArgumentsSize,
 } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -94,8 +94,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
     log = createDebugLogger('aztec:simulator:client_execution_context'),
+    scopes?: AztecAddress[],
   ) {
-    super(contractAddress, authWitnesses, db, node, log);
+    super(contractAddress, authWitnesses, db, node, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -251,7 +252,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const pendingNotes = this.noteCache.getNotes(this.callContext.storageContractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.storageContractAddress);
-    const dbNotes = await this.db.getNotes(this.callContext.storageContractAddress, storageSlot, status);
+    const dbNotes = await this.db.getNotes(this.callContext.storageContractAddress, storageSlot, status, this.scopes);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -276,12 +277,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     notes.forEach(n => {
       if (n.index !== undefined) {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-        // Should always call computeUniqueNoteHash when publicly created notes include nonces.
-        const uniqueNoteHash = n.nonce.isZero() ? n.slottedNoteHash : computeUniqueNoteHash(n.nonce, n.slottedNoteHash);
+        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, n.slottedNoteHash);
         const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
-        const noteHashForReadRequest = siloedNoteHash;
-        this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
+        this.noteHashLeafIndexMap.set(siloedNoteHash.toBigInt(), n.index);
       }
     });
 
@@ -360,7 +358,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // An app providing randomness = 0 signals to not mask the address.
     const maskedContractAddress = randomness.isZero()
       ? contractAddress.toField()
-      : pedersenHash([contractAddress, randomness], 0);
+      : poseidon2HashWithSeparator([contractAddress, randomness], 0);
     const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);
   }
@@ -519,6 +517,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.db,
       this.node,
       sideEffectCounter,
+      this.log,
+      this.scopes,
     );
 
     const childExecutionResult = await executePrivateFunction(
