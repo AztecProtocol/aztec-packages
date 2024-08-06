@@ -87,6 +87,9 @@ class AztecIVC {
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
 
+    // Management of linking databus commitments between circuits in the IVC
+    DataBusDepot bus_depot;
+
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
     TraceStructure trace_structure = TraceStructure::NONE;
 
