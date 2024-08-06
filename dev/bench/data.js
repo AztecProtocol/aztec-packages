@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722985366252,
+  "lastUpdate": 1722985414989,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -110704,6 +110704,78 @@ window.BENCHMARK_DATA = {
             "value": 173410499,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173410499 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mvezenov@gmail.com",
+            "name": "Maxim Vezenov",
+            "username": "vezenovm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7b90699fdbebcb00a06f396e8263a9ffe156fbc2",
+          "message": "fix(bb.js): Account for extra gates in the c bind circuit size estimate (#7800)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.\r\n\r\nWe account for extra gates in `compute_valid_prover` for the normal cpp\r\nbinary, but we do not account for them in the c binds which are used by\r\nbb.js\r\n\r\ne.g. this command will fail on master:\r\n```\r\nBIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh assert_statement\r\n```\r\nThis now passes on this PR.",
+          "timestamp": "2024-08-06T18:46:53-04:00",
+          "tree_id": "89648f60f9084829833d0ea98ffe4d8e76c6c561",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7b90699fdbebcb00a06f396e8263a9ffe156fbc2"
+        },
+        "date": 1722985404731,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13332.586558000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10034.031317 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4818.258648999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4434.034137000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39971.735004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39971736000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14390.889366000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14390889000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3593691773,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3593691773 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208469914,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208469914 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2955062947,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2955062947 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 174036884,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 174036884 ns\nthreads: 1"
           }
         ]
       }
