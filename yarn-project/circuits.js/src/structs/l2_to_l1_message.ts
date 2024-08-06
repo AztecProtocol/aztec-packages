@@ -113,10 +113,14 @@ export class ScopedL2ToL1Message {
    * @returns Buffer containing 248 bits of information of sha256 hash.
    */
   public silo(version: Fr, chainId: Fr): Buffer {
+    // Left-pad recipient to 32 bytes to match what the circuit is doing
+    // TODO: Only hash 20 bytes for l2l1 recipient everywhere.
+    const paddedRecipient = Buffer.alloc(32);
+    this.message.recipient.toBuffer().copy(paddedRecipient, 12);
     const preimage = Buffer.concat([
       this.contractAddress.toBuffer(),
       version.toBuffer(),
-      this.message.recipient.toBuffer(),
+      paddedRecipient,
       chainId.toBuffer(),
       this.message.content.toBuffer(),
     ]);
