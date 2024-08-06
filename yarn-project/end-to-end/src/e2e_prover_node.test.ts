@@ -136,7 +136,6 @@ describe('e2e_prover_node', () => {
     // Prove the first two blocks simultaneously
     logger.info(`Starting proof for first block #${firstBlock}`);
     await proverNode.startProof(firstBlock, firstBlock);
-    await sleep(3000); // Well, _almost_ simultaneously!
     logger.info(`Starting proof for second block #${secondBlock}`);
     await proverNode.startProof(secondBlock, secondBlock);
 

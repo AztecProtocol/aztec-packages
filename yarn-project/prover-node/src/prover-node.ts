@@ -116,9 +116,7 @@ export class ProverNode {
     }
 
     // Fast forward world state to right before the target block and get a fork
-    // TODO(palla/prover-node): We need to pause world state while we procure the fork
-    await this.worldState.syncImmediate(fromBlock - 1);
-    const db = await this.worldState.getFork(true);
+    const db = await this.worldState.syncImmediateAndFork(fromBlock - 1, true);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(

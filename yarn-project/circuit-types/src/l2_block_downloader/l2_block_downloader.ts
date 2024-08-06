@@ -73,11 +73,10 @@ export class L2BlockDownloader {
    */
   private async collectBlocks(targetBlockNumber?: number) {
     let totalBlocks = 0;
-    log.debug(`Starting block collection for target ${targetBlockNumber} from ${this.from}`);
     while (true) {
       // If we have a target and have reached it, return
       if (targetBlockNumber !== undefined && this.from > targetBlockNumber) {
-        log.debug(`Reached target block number ${targetBlockNumber}`);
+        log.verbose(`Reached target block number ${targetBlockNumber}`);
         return totalBlocks;
       }
 
@@ -87,14 +86,15 @@ export class L2BlockDownloader {
 
       // Hit the archiver for blocks
       const blocks = await this.l2BlockSource.getBlocks(this.from, limit, proven);
-      log.debug(
-        `Received ${blocks.length} blocks from archiver after querying from ${this.from} limit ${limit} (proven ${proven})`,
-      );
 
       // If there are no more blocks, return
       if (!blocks.length) {
         return totalBlocks;
       }
+
+      log.verbose(
+        `Received ${blocks.length} blocks from archiver after querying from ${this.from} limit ${limit} (proven ${proven})`,
+      );
 
       // Push new blocks into the queue and loop
       await this.semaphore.acquire();

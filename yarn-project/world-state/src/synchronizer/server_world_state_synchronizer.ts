@@ -4,12 +4,14 @@ import {
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
+  MerkleTreeId,
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -33,12 +35,16 @@ import {
 export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private latestBlockNumberAtStart = 0;
 
+  // TODO(palla/prover-node): JobQueue, stopping, runningPromise, pausedPromise, pausedResolve
+  // should all be hidden under a single abstraction. Also, check if we actually need the jobqueue.
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;
   private jobQueue = new SerialQueue();
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
+  private pausedPromise?: Promise<void> = undefined;
+  private pausedResolve?: () => void = undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
   private blockNumber: AztecSingleton<number>;
 
@@ -70,6 +76,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   }
 
   public async getFork(includeUncommitted: boolean): Promise<MerkleTreeOperationsFacade> {
+    this.log.verbose(`Forking world state at ${this.blockNumber.get()}`);
     return new MerkleTreeOperationsFacade(await this.merkleTreeDb.fork(), includeUncommitted);
   }
 
@@ -108,6 +115,9 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     const blockProcess = async () => {
       while (!this.stopping) {
         await this.jobQueue.put(() => this.collectAndProcessBlocks());
+        if (this.pausedPromise) {
+          await this.pausedPromise;
+        }
       }
     };
     this.jobQueue.start();
@@ -135,6 +145,23 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     return this.blockNumber.get() ?? 0;
   }
 
+  private async pause() {
+    this.log.debug('Pausing world state synchronizer');
+    ({ promise: this.pausedPromise, resolve: this.pausedResolve } = promiseWithResolvers());
+    await this.jobQueue.syncPoint();
+    this.log.debug('Paused world state synchronizer');
+  }
+
+  private resume() {
+    if (this.pausedResolve) {
+      this.log.debug('Resuming world state synchronizer');
+      this.pausedResolve();
+      this.pausedResolve = undefined;
+      this.pausedPromise = undefined;
+      this.log.debug('Resumed world state synchronizer');
+    }
+  }
+
   public status(): Promise<WorldStateStatus> {
     const status = {
       syncedToL2Block: this.currentL2BlockNum,
@@ -156,13 +183,10 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
       return this.currentL2BlockNum;
     }
-    const blockToSyncTo = targetBlockNumber === undefined ? 'latest' : `${targetBlockNumber}`;
-    this.log.debug(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
-    // ensure any outstanding block updates are completed first.
+    this.log.debug(`World State at ${this.currentL2BlockNum} told to sync to ${targetBlockNumber ?? 'latest'}`);
+    // ensure any outstanding block updates are completed first
     await this.jobQueue.syncPoint();
 
-    // TODO(palla/prover-node): We need to somehow pause the jobQueue and block downloader while we run this, otherwise
-    // we may end up with more blocks past the target than we wanted, which is a problem for prover-node (see ProverNode#createProvingJob).
     while (true) {
       // Check the block number again
       if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
@@ -184,6 +208,17 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       }
       return this.currentL2BlockNum;
     }
+  }
+
+  public async syncImmediateAndFork(
+    targetBlockNumber: number,
+    forkIncludeUncommitted: boolean,
+  ): Promise<MerkleTreeOperationsFacade> {
+    await this.pause();
+    await this.syncImmediate(targetBlockNumber);
+    const fork = await this.getFork(forkIncludeUncommitted);
+    this.resume();
+    return fork;
   }
 
   /**
