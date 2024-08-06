@@ -43,7 +43,7 @@ class GoblinProver {
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
     using MergeProver = bb::MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
-    using MergeProof = HonkProof;
+    using MergeProof = std::vector<FF>;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
