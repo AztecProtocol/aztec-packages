@@ -16,8 +16,7 @@ pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     recipient: AztecAddress,
-    outgoing_viewer: AztecAddress
-     // docs:end:increment_args
+    outgoing_viewer: AztecAddress // docs:end:increment_args
 ) {
     let header = balance.context.get_header();
     let recipient_npk_m_hash = header.get_npk_m_hash(balance.context, recipient);
