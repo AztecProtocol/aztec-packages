@@ -4,7 +4,6 @@ import {
   KVArchiverDataStore,
   archiverConfigMappings,
   createArchiverRpcServer,
-  getArchiverConfigFromEnv as getArchiverConfigEnvVars,
 } from '@aztec/archiver';
 import { createDebugLogger } from '@aztec/aztec.js';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';

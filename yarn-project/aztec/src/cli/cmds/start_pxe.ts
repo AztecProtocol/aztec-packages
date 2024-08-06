@@ -11,7 +11,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import {
   AztecAddress,
   type CliPXEOptions,
-  PXEServiceConfig,
+  type PXEServiceConfig,
   createPXERpcServer,
   createPXEService,
   pxeCliConfigMappings,

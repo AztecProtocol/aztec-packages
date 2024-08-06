@@ -1,6 +1,6 @@
 import { type DebugLogger } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
-import { BootnodeConfig, bootnodeConfigMappings } from '@aztec/p2p';
+import { type BootnodeConfig, bootnodeConfigMappings } from '@aztec/p2p';
 import runBootstrapNode from '@aztec/p2p-bootstrap';
 
 import { extractRelevantOptions } from '../util.js';

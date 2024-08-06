@@ -4,7 +4,7 @@ import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
 import {
-  TelemetryClientConfig,
+  type TelemetryClientConfig,
   createAndStartTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client/start';
@@ -22,7 +22,6 @@ export const startNode = async (
 ) => {
   // Services that will be started in a single multi-rpc server
   const services: ServerList = [];
-  console.log('options in start_node:', options);
 
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
