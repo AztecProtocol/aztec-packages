@@ -43,6 +43,7 @@ export const getTxSenderConfigMappings: (
     env: `${scope}_PUBLISHER_PRIVATE_KEY`,
     description: 'The private key to be used by the publisher.',
     parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
+    default: NULL_KEY,
   },
   requiredConfirmations: {
     env: `${scope}_REQUIRED_CONFIRMATIONS`,

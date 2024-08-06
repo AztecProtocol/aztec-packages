@@ -65,9 +65,7 @@ export const startNode = async (
 
   if (!options.sequencer) {
     nodeConfig.disableSequencer = true;
-    // } else if (nodeConfig.publisherPrivateKey === NULL_KEY) {
   } else {
-    // If we have a sequencer, ensure there's a publisher private key set.
     const sequencerConfig = extractRelevantOptions(options, sequencerClientConfigMappings);
     let account;
     if (!sequencerConfig.publisherPrivateKey) {
