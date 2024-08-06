@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/validator",
+  "name": "@aztec/validator-client",
   "version": "0.1.0",
   "main": "dest/index.js",
   "type": "module",

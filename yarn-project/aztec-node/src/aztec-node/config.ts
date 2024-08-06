@@ -3,6 +3,7 @@ import { type P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
 import { type ProverClientConfig, getProverEnvVars } from '@aztec/prover-client';
 import { type SequencerClientConfig, getConfigEnvVars as getSequencerVars } from '@aztec/sequencer-client';
 import { type WorldStateConfig, getWorldStateConfigFromEnv as getWorldStateVars } from '@aztec/world-state';
+import { type ValidatorClientConfig, getValidatorConfigFromEnv as getValidatorEnvVars } from '@aztec/validator-client';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -13,6 +14,7 @@ import { fileURLToPath } from 'url';
  */
 export type AztecNodeConfig = ArchiverConfig &
   SequencerClientConfig &
+  ValidatorClientConfig &
   ProverClientConfig &
   WorldStateConfig &
   P2PConfig & {
@@ -21,6 +23,10 @@ export type AztecNodeConfig = ArchiverConfig &
 
     /** Whether the prover is disabled for this node. */
     disableProver: boolean;
+  
+    // TODO(md): needed?
+    /** Whether the validator is disabled for this node */
+    disableValidator: boolean
   };
 
 /**
@@ -28,7 +34,7 @@ export type AztecNodeConfig = ArchiverConfig &
  * @returns A valid aztec node config.
  */
 export function getConfigEnvVars(): AztecNodeConfig {
-  const { SEQ_DISABLED, PROVER_DISABLED = '' } = process.env;
+  const { SEQ_DISABLED, VALIDATOR_DISABLED, PROVER_DISABLED = '' } = process.env;
 
   const allEnvVars: AztecNodeConfig = {
     ...getSequencerVars(),
@@ -36,7 +42,9 @@ export function getConfigEnvVars(): AztecNodeConfig {
     ...getP2PConfigEnvVars(),
     ...getWorldStateVars(),
     ...getProverEnvVars(),
+    ...getValidatorEnvVars (),
     disableSequencer: !!SEQ_DISABLED,
+    disableValidator: !!VALIDATOR_DISABLED,
     disableProver: ['1', 'true'].includes(PROVER_DISABLED),
   };
 

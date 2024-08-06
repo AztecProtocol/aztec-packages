@@ -24,7 +24,7 @@
     "archiver",
     "aztec-faucet",
     "aztec-node",
-    "aztec-validator",
+    "validator-client",
     "bb-prover",
     "bot",
     "builder",
