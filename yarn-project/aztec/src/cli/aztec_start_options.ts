@@ -1,5 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node';
+import { botConfigMappings } from '@aztec/bot';
 import { type ConfigMapping, filterConfigMappings, isBooleanConfigValue } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
 import { proverClientConfigMappings } from '@aztec/prover-client';
@@ -262,6 +263,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('p2pBootstrap', bootnodeConfigMappings),
+  ],
+  BOT: [
+    {
+      flag: '--bot',
+      description: 'Starts Aztec Bot with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('bot', botConfigMappings),
   ],
   TXE: [
     {

@@ -1,5 +1,9 @@
+import { EnvVar } from './env_var.js';
+
+export { EnvVar } from './env_var.js';
+
 export interface ConfigMapping {
-  env?: string;
+  env?: EnvVar;
   parseEnv?: (val: string) => any;
   default?: any;
   printDefault?: (val: any) => string;

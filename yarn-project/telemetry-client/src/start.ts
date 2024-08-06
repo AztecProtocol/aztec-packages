@@ -1,4 +1,4 @@
-import { getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { NoopTelemetryClient } from './noop.js';
@@ -12,7 +12,7 @@ export interface TelemetryClientConfig {
   networkId: string;
 }
 
-export const telemetryClientConfigMappings = {
+export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
   collectorBaseUrl: {
     env: 'TEL_COLLECTOR_BASE_URL',
     description: 'The URL of the telemetry collector',
