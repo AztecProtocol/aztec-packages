@@ -234,7 +234,6 @@ export class LibP2PService implements P2PService {
    */
   private async handleNewGossipMessage(message: RawGossipMessage) {
     if (message.topic === Tx.p2pTopic) {
-      // Invalid TX Topic, ignore
       const tx = Tx.fromBuffer(Buffer.from(message.data));
       await this.processTxFromPeer(tx);
     }
