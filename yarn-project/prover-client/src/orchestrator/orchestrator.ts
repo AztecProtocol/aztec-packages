@@ -145,8 +145,18 @@ export class ProvingOrchestrator implements BlockProver {
     if (!Number.isInteger(numTxs) || numTxs < 2) {
       throw new Error(`Length of txs for the block should be at least two (got ${numTxs})`);
     }
+
+    const { blockNumber } = globalVariables;
+    const dbBlockNumber = (await this.db.getTreeInfo(MerkleTreeId.ARCHIVE)).size - 1n;
+    if (dbBlockNumber !== blockNumber.toBigInt() - 1n) {
+      throw new Error(
+        `Database is at wrong block number (starting block ${blockNumber.toBigInt()} with db at ${dbBlockNumber})`,
+      );
+    }
+
     // Cancel any currently proving block before starting a new one
     this.cancelBlock();
+
     logger.info(`Starting new block with ${numTxs} transactions`);
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
