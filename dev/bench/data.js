@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722949813385,
+  "lastUpdate": 1722954079003,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -109336,6 +109336,74 @@ window.BENCHMARK_DATA = {
             "value": 175721415,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 175721415 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "877b4e46031aab15c6c3c6d3108d82f43cfaef5a",
+          "message": "feat: Hook up secondary calldata column in dsl",
+          "timestamp": "2024-08-06T13:52:13Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7759/commits/877b4e46031aab15c6c3c6d3108d82f43cfaef5a"
+        },
+        "date": 1722954067826,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13197.044715000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9887.239763000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4780.370738999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4270.052129000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40438.300095000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40438300000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14565.897819000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14565899000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3670225695,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3670225695 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216310784,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216310784 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2963994914,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2963994914 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 174918730,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 174918730 ns\nthreads: 1"
           }
         ]
       }
