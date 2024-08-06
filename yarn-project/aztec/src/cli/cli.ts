@@ -36,7 +36,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
   startCmd.helpInformation = printAztecStartHelpText;
 
   startCmd.action(async options => {
-    console.log(options);
     // list of 'stop' functions to call when process ends
     const signalHandlers: Array<() => Promise<void>> = [];
     let services: ServerList = [];
@@ -47,6 +46,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       userLog(`Setting up Aztec Sandbox, please stand by...`);
       const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
         enableGas: sandboxOptions.enableGas,
+        l1Mnemonic: options.l1Mnemonic,
       });
 
       // Deploy test accounts by default
