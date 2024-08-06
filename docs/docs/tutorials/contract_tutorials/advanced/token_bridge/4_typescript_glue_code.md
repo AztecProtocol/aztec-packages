@@ -162,7 +162,7 @@ DEBUG='aztec:e2e_uniswap' yarn test
 
 Note - you might have a jest error at the end of each test saying "expected 1-2 arguments but got 3". In case case simply remove the "120_000" at the end of each test. We have already set the timeout at the top so this shouldn't be a problem.
 
-**Congratulations!** You have just written a 
+**Congratulations!** You have just written a set of contracts for Ethereum and Aztec that have private and public interactions with each other, and tested them with TypeScript.
 
 ## Next Steps
 
