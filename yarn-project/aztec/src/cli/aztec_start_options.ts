@@ -66,6 +66,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   API: [
     {
+      flag: '--port',
+      description: 'Port to run the Aztec Services on on',
+      defaultValue: '8080',
+      envVar: 'AZTEC_PORT',
+      parseVal: val => parseInt(val, 10),
+    },
+    {
       flag: '--api-prefix',
       description: 'Prefix for API routes on any service that is started',
       defaultValue: '',
