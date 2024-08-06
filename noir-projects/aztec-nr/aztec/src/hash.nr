@@ -6,8 +6,8 @@ use dep::protocol_types::{
 },
     traits::Hash,
     hash::{
-    pedersen_hash, compute_siloed_nullifier, sha256_to_field, pedersen_commitment,
-    poseidon2_hash_with_separator
+    pedersen_hash, compute_siloed_nullifier, sha256_to_field, poseidon2_hash_with_separator,
+    pedersen_commitment
 }
 };
 // Note: pedersen_commitment is used only as a re-export here
