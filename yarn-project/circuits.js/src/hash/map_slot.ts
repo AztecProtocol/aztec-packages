@@ -1,6 +1,8 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
+import { MAP_STORAGE_SLOT_SEPARATOR } from '../constants.gen.js';
+
 /**
  * Computes the resulting storage slot for an entry in a map.
  * @param mapSlot - The slot of the map within state.
@@ -14,5 +16,5 @@ export function deriveStorageSlotInMap(
     toField: () => Fr;
   },
 ): Fr {
-  return poseidon2HashWithSeparator([mapSlot, key.toField()], 0);
+  return poseidon2HashWithSeparator([mapSlot, key.toField()], MAP_STORAGE_SLOT_SEPARATOR);
 }
