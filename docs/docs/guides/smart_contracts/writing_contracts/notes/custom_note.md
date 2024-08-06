@@ -42,4 +42,4 @@ If you are also planning to be able to access the data with a note in public sta
 
 ## Further reading
 
-- [Macros reference](../../../../aztec/concepts/smart_contracts/functions/function_types_macros.md#all-aztec-macros)
+- [Macros reference](../../../../reference/smart_contract_reference/macros.md)
