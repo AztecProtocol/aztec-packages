@@ -75,7 +75,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
   }
 
-  public async getFork(includeUncommitted: boolean): Promise<MerkleTreeOperationsFacade> {
+  private async getFork(includeUncommitted: boolean): Promise<MerkleTreeOperationsFacade> {
     this.log.verbose(`Forking world state at ${this.blockNumber.get()}`);
     return new MerkleTreeOperationsFacade(await this.merkleTreeDb.fork(), includeUncommitted);
   }
