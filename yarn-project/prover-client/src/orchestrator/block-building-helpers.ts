@@ -90,7 +90,7 @@ export async function buildBaseRollupInput(
   const hintsBuilder = new HintsBuilder(db);
   const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
   const existingBalanceWrite = tx.data.end.publicDataUpdateRequests.find(write => write.leafSlot.equals(leafSlot));
-  const feePayerGasTokenBalanceReadHint =
+  const feePayerFeeJuiceBalanceReadHint =
     leafSlot.isZero() || existingBalanceWrite
       ? PublicDataHint.empty()
       : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
@@ -163,7 +163,7 @@ export async function buildBaseRollupInput(
     kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
     stateDiffHints,
-    feePayerGasTokenBalanceReadHint,
+    feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
     sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,

@@ -38,19 +38,23 @@ Sandbox commands have been cleaned up and simplified. Doing `aztec-up` now gets 
 
 **REMOVED/RENAMED**:
 
-* `aztec-sandbox` and `aztec sandbox`: now `aztec start --sandbox`
-* `aztec-builder`: now `aztec codegen` and `aztec update`
+- `aztec-sandbox` and `aztec sandbox`: now `aztec start --sandbox`
+- `aztec-builder`: now `aztec codegen` and `aztec update`
 
 **ADDED**:
 
-* `aztec test [options]`: runs `aztec start --txe && aztec-nargo test --oracle-resolver http://aztec:8081 --silence-warnings [options]` via docker-compose allowing users to easily run contract tests using TXE
+- `aztec test [options]`: runs `aztec start --txe && aztec-nargo test --oracle-resolver http://aztec:8081 --silence-warnings [options]` via docker-compose allowing users to easily run contract tests using TXE
 
 ## 0.45.0
+
 ### [Aztec.nr] Remove unencrypted logs from private
+
 They leak privacy so is a footgun!
 
 ## 0.44.0
+
 ### [Aztec.nr] Autogenerate Serialize methods for events
+
 ```diff
 #[aztec(event)]
 struct WithdrawalProcessed {
@@ -66,10 +70,11 @@ struct WithdrawalProcessed {
 ```
 
 ### [Aztec.nr] rename `encode_and_encrypt_with_keys` to `encode_and_encrypt_note_with_keys`
-```diff
+
+````diff
 contract XYZ {
 -   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys;
-+   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;    
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
 ....
 
 -    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
@@ -129,7 +134,7 @@ These changes were done because having the note hash exposed allowed us to not h
 +        (note_hash_for_nullify, nullifier)
 +    }
 + }
-```
+````
 
 ### [Aztec.nr] `note_getter` returns `BoundedVec`
 
@@ -530,13 +535,13 @@ It is now possible to import contracts on another contracts and use their automa
 
 ```diff
 - context.call_public_function(
--   storage.gas_token_address.read_private(),
+-   storage.fee_juice_address.read_private(),
 -   FunctionSelector::from_signature("pay_fee(Field)"),
 -   [42]
 - );
 -
 - context.call_public_function(
--   storage.gas_token_address.read_private(),
+-   storage.fee_juice_address.read_private(),
 -   FunctionSelector::from_signature("pay_fee(Field)"),
 -   [42]
 - );
@@ -551,14 +556,14 @@ It is now possible to import contracts on another contracts and use their automa
 -            nonce
 -           ]
 -  );
-+ use dep::gas_token::GasToken;
++ use dep::fee_juice::GasToken;
 + use dep::token::Token;
 +
 + ...
 + // Public call from public land
-+ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).call(&mut context);
++ GasToken::at(storage.fee_juice_address.read_private()).pay_fee(42).call(&mut context);
 + // Public call from private land
-+ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
++ GasToken::at(storage.fee_juice_address.read_private()).pay_fee(42).enqueue(&mut context);
 + // Private call from private land
 + Token::at(asset).transfer(context.msg_sender(), storage.subscription_recipient_address.read_private(), amount, nonce).call(&mut context);
 ```

@@ -3,9 +3,9 @@ import {
   type AccountManager,
   type AccountWallet,
   type DebugLogger,
+  FeeJuicePaymentMethod,
+  FeeJuicePaymentMethodWithClaim,
   Fr,
-  NativeFeePaymentMethod,
-  NativeFeePaymentMethodWithClaim,
   type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
@@ -85,11 +85,11 @@ describe('e2e_fees account_init', () => {
 
   describe('account pays its own fee', () => {
     it('pays natively in the gas token after Alice bridges funds', async () => {
-      await t.gasTokenContract.methods.mint_public(bobsAddress, t.INITIAL_GAS_BALANCE).send().wait();
+      await t.feeJuiceContract.methods.mint_public(bobsAddress, t.INITIAL_GAS_BALANCE).send().wait();
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(t.INITIAL_GAS_BALANCE);
 
-      const paymentMethod = new NativeFeePaymentMethod(bobsAddress);
+      const paymentMethod = new FeeJuicePaymentMethod(bobsAddress);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
@@ -97,13 +97,13 @@ describe('e2e_fees account_init', () => {
     });
 
     it('pays natively in the gas token by bridging funds themselves', async () => {
-      const { secret } = await t.gasBridgeTestHarness.prepareTokensOnL1(
+      const { secret } = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(
         t.INITIAL_GAS_BALANCE,
         t.INITIAL_GAS_BALANCE,
         bobsAddress,
       );
 
-      const paymentMethod = new NativeFeePaymentMethodWithClaim(bobsAddress, t.INITIAL_GAS_BALANCE, secret);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, t.INITIAL_GAS_BALANCE, secret);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([t.INITIAL_GAS_BALANCE - tx.transactionFee!]);
@@ -179,7 +179,7 @@ describe('e2e_fees account_init', () => {
   describe('another account pays the fee', () => {
     it('pays natively in the gas token', async () => {
       // mint gas tokens to alice
-      await t.gasTokenContract.methods.mint_public(aliceAddress, t.INITIAL_GAS_BALANCE).send().wait();
+      await t.feeJuiceContract.methods.mint_public(aliceAddress, t.INITIAL_GAS_BALANCE).send().wait();
       const [alicesInitialGas] = await t.getGasBalanceFn(aliceAddress);
 
       // bob generates the private keys for his account on his own
@@ -191,7 +191,7 @@ describe('e2e_fees account_init', () => {
       await pxe.registerRecipient(bobsCompleteAddress);
 
       // and deploys bob's account, paying the fee from her balance
-      const paymentMethod = new NativeFeePaymentMethod(aliceAddress);
+      const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const tx = await SchnorrAccountContract.deployWithPublicKeysHash(
         bobsPublicKeysHash,
         aliceWallet,

@@ -1,6 +1,6 @@
 mod lib;
 
-contract GasToken {
+contract FeeJuice {
     use dep::aztec::{
         protocol_types::{
         contract_class_id::ContractClassId, abis::function_selector::FunctionSelector,
@@ -47,7 +47,7 @@ contract GasToken {
 
         // Increase self balance and set as fee payer, and end setup
         let deploy_fees = 20000000000;
-        GasToken::at(self)._increase_public_balance(self, deploy_fees).enqueue(&mut context);
+        FeeJuice::at(self)._increase_public_balance(self, deploy_fees).enqueue(&mut context);
         context.set_as_fee_payer();
         context.end_setup();
 
@@ -66,7 +66,7 @@ contract GasToken {
         ).call(&mut context);
 
         // Enqueue call to set the portal address
-        GasToken::at(self).set_portal(portal_address).enqueue(&mut context);
+        FeeJuice::at(self).set_portal(portal_address).enqueue(&mut context);
     }
 
     // We purposefully not set this function as an initializer so we do not bind
@@ -90,7 +90,7 @@ contract GasToken {
         // TODO(palla/gas) Emit an unencrypted log to announce which L1 to L2 message has been claimed
         // Otherwise, we cannot trace L1 deposits to their corresponding claims on L2
 
-        GasToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+        FeeJuice::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
 
     #[aztec(public)]
