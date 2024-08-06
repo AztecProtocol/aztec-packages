@@ -1,4 +1,4 @@
-import { BaseHashType } from '@aztec/foundation/hash';
+import { type BaseHashType } from '@aztec/foundation/hash';
 
 /**
  * Gossipable

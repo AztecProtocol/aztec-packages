@@ -1,7 +1,7 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
 
-import { Fr } from '../fields/fields.js';
+import { type Fr } from '../fields/fields.js';
 
 /**
  * A class representing a hash.

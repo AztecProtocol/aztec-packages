@@ -5,7 +5,7 @@ import {
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
-import { BaseHashType } from '@aztec/foundation/hash';
+import { type BaseHashType } from '@aztec/foundation/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
