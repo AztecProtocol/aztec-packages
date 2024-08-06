@@ -50,6 +50,8 @@ void process_return_data_operations(const BlockConstraint& constraint, std::vect
 
 /**
  * @brief Assign a unique ID to each calldata block constraint based on the order in which it was recieved
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1070): this is a workaround to allow calldata inputs to be
+ * distinguished by the backend since no identifiers are received from noir.
  *
  * @tparam Builder
  * @param constraints
