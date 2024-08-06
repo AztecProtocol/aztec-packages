@@ -199,7 +199,7 @@ impl FunctionBuilder {
         ssa_params: &[ValueId],
         flattened_params_databus_visibility: Vec<DatabusVisibility>,
     ) -> Vec<DatabusVisibility> {
-        // To do so, create a vec the size the flattened arguments where the items are ssa param index they correspond to
+        // To do so, create a vec the size of the flattened arguments where the items are the ssa param index they correspond to
         let ssa_param_indices: Vec<_> = ssa_params
             .iter()
             .enumerate()
