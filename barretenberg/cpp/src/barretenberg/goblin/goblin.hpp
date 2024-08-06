@@ -198,9 +198,9 @@ class GoblinProver {
      *
      * @return Proof
      */
-    GoblinProof prove()
+    GoblinProof prove(MergeProof merge_proof_in = {})
     {
-        goblin_proof.merge_proof = std::move(merge_proof);
+        goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         prove_eccvm();
         prove_translator();
         return goblin_proof;

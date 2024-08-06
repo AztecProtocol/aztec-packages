@@ -15,11 +15,12 @@ namespace bb {
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
     circuit_count++; // increment the count of circuits processed into the IVC
+    bool is_kernel = (circuit_count % 2 == 0);
 
     // When there are two fold proofs present, append two recursive verifiers to the kernel
     if (verification_queue.size() == 2) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
-        ASSERT(circuit_count % 2 == 0); // ensure this is a kernel
+        ASSERT(is_kernel); // ensure this is a kernel
 
         for (auto& [proof, vkey] : verification_queue) {
             // Perform folding recursive verification
@@ -33,13 +34,17 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
         verification_queue.clear();
     }
 
-    // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1063): update recursive merge verification to only
-    // occur in kernels, similar to folding recursive verification.
-    if (goblin.merge_proof_exists) {
-        goblin.verify_merge(circuit, goblin.merge_proof);
+    if (is_kernel) {
+        BB_OP_COUNT_TIME_NAME("construct_circuits");
+        for (auto& proof : merge_verification_queue) {
+            goblin.verify_merge(circuit, proof);
+        }
+        merge_verification_queue.clear();
     }
-    goblin.merge_proof = goblin.prove_merge(circuit);
+
+    // Construct merge proof for the present circuit and add to merge verification queue
+    MergeProof merge_proof = goblin.prove_merge(circuit);
+    merge_verification_queue.emplace_back(merge_proof);
 
     // Construct the prover instance for circuit
     auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
@@ -54,7 +59,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     // Store whether the present circuit is a kernel (Note: the aztec architecture dictates that every second circuit
     // is a kernel. This check can triggered/replaced by the presence of the recursive folding verify opcode once it is
     // introduced into noir).
-    instance_vk->databus_propagation_data.is_kernel = (circuit_count % 2 == 0);
+    instance_vk->databus_propagation_data.is_kernel = is_kernel;
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (circuit_count == 1) {
@@ -79,10 +84,12 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
  */
 AztecIVC::Proof AztecIVC::prove()
 {
-    max_block_size_tracker.print();         // print minimum structured sizes for each block
-    ASSERT(verification_queue.size() == 1); // ensure only a single fold proof remains in the queue
-    auto& fold_proof = verification_queue[0].proof;
-    return { fold_proof, decider_prove(), goblin.prove() };
+    max_block_size_tracker.print();               // print minimum structured sizes for each block
+    ASSERT(verification_queue.size() == 1);       // ensure only a single fold proof remains in the queue
+    ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+    FoldProof& fold_proof = verification_queue[0].proof;
+    MergeProof& merge_proof = merge_verification_queue[0];
+    return { fold_proof, decider_prove(), goblin.prove(merge_proof) };
 };
 
 bool AztecIVC::verify(const Proof& proof,
