@@ -1,5 +1,3 @@
-import { createDebugLogger } from '@aztec/foundation/log';
-
 import { type Database, type Key, type RootDatabase, open } from 'lmdb';
 
 import { type AztecArray } from '../interfaces/array.js';
@@ -51,12 +49,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param log - A logger to use. Optional
    * @returns The store
    */
-  static open(
-    path?: string,
-    ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:lmdb'),
-  ): AztecLmdbStore {
-    log.info(`Opening LMDB database at ${path || 'temporary location'}`);
+  static open(path?: string, ephemeral: boolean = false): AztecLmdbStore {
     const rootDb = open({
       path,
       noSync: ephemeral,

@@ -9,7 +9,13 @@ export function createStore(
   rollupAddress: EthAddress,
   log: Logger = createDebugLogger('aztec:kv-store'),
 ) {
-  return initStoreForRollup(AztecLmdbStore.open(config.dataDirectory, false, log), rollupAddress, log);
+  if (config.dataDirectory) {
+    log.info(`Using data directory: ${config.dataDirectory}`);
+  } else {
+    log.info('Using ephemeral data directory');
+  }
+
+  return initStoreForRollup(AztecLmdbStore.open(config.dataDirectory, false), rollupAddress, log);
 }
 
 /**
