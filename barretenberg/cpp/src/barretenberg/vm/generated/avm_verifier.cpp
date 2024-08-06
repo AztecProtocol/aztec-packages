@@ -604,7 +604,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
 
-    // Get commitments to inverses
+    info("native beta / gamma ", beta, " | ", gamm);
+
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_conv = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_conv);
@@ -697,10 +698,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    info("native: sumcheck alpha: ", alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        info("native gate challenges ", gate_challenges[idx]);
     }
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =

@@ -50,6 +50,7 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        info("eccvm native verifier gate chall: ", gate_challenges[idx]);
     }
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
