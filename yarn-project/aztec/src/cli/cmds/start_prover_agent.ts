@@ -1,9 +1,9 @@
 import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
+import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { ProverAgent, createProvingJobSourceClient } from '@aztec/prover-client/prover-agent';
 import {
-  TelemetryClientConfig,
+  type TelemetryClientConfig,
   createAndStartTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client/start';
@@ -20,7 +20,6 @@ export const startProverAgent: ServiceStarter = async (options, signalHandlers, 
   logger(`Connecting to prover at ${proverConfig.nodeUrl}`);
   const source = createProvingJobSourceClient(proverConfig.nodeUrl, 'provingJobSource');
 
-  // NOTE: Shouldn't telemetry be optional?
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
   const telemetry = createAndStartTelemetryClient(telemetryConfig);
 
