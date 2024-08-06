@@ -5,7 +5,10 @@ use dep::protocol_types::{
     GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH
 },
     traits::Hash,
-    hash::{pedersen_hash, compute_siloed_nullifier, sha256_to_field, poseidon2_hash_with_separator, pedersen_commitment}
+    hash::{
+    pedersen_hash, compute_siloed_nullifier, sha256_to_field, poseidon2_hash_with_separator,
+    pedersen_commitment
+}
 };
 // Note: pedersen_commitment is used only as a re-export here
 use crate::oracle::logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog};

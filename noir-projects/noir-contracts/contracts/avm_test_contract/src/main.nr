@@ -30,10 +30,7 @@ contract AvmTest {
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH, point::Point, scalar::Scalar};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        storage::map::derive_storage_slot_in_map,
-    };
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
     use dep::aztec::context::gas::GasOpts;
     use dep::compressed_string::CompressedString;
 
