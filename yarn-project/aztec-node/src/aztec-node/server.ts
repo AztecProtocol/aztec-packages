@@ -43,7 +43,7 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type L1ContractAddresses, createEthereumChain, getL1ContractAddressesFromUrl } from '@aztec/ethereum';
+import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -135,7 +135,7 @@ export class AztecNodeService implements AztecNode {
     storeLog = createDebugLogger('aztec:node:lmdb'),
   ): Promise<AztecNodeService> {
     telemetry ??= new NoopTelemetryClient();
-    const ethereumChain = createEthereumChain(config.rpcUrl, config.l1ChainId);
+    const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(

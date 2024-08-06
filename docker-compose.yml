@@ -14,6 +14,7 @@ services:
       PXE_DATA_DIRECTORY: /var/lib/aztec/pxe
       NODE_NO_WARNINGS: 1
       AZTEC_PORT: 8080
+      MNEMONIC: "test test test test test test test test test test test junk"
     entrypoint: >
       sh -c '
         export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url);

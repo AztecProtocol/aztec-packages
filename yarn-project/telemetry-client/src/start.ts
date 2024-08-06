@@ -1,3 +1,4 @@
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { NoopTelemetryClient } from './noop.js';
@@ -10,6 +11,29 @@ export interface TelemetryClientConfig {
   serviceVersion: string;
   networkId: string;
 }
+
+export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
+  collectorBaseUrl: {
+    env: 'TEL_COLLECTOR_BASE_URL',
+    description: 'The URL of the telemetry collector',
+    parseEnv: (val: string) => new URL(val),
+  },
+  serviceName: {
+    env: 'TEL_SERVICE_NAME',
+    description: 'The name of the telemetry service',
+    default: 'aztec',
+  },
+  serviceVersion: {
+    env: 'TEL_SERVICE_VERSION',
+    description: 'The version of the telemetry service',
+    default: '0.0.0',
+  },
+  networkId: {
+    env: 'TEL_NETWORK_ID',
+    description: 'The network ID of the telemetry service',
+    default: 'local',
+  },
+};
 
 export function createAndStartTelemetryClient(config: TelemetryClientConfig): TelemetryClient {
   const log = createDebugLogger('aztec:telemetry-client');
@@ -29,17 +53,5 @@ export function createAndStartTelemetryClient(config: TelemetryClientConfig): Te
 }
 
 export function getConfigEnvVars(): TelemetryClientConfig {
-  const {
-    TEL_COLLECTOR_BASE_URL,
-    TEL_SERVICE_NAME = 'aztec',
-    TEL_SERVICE_VERSION = '0.0.0',
-    TEL_NETWORK_ID = 'local',
-  } = process.env;
-
-  return {
-    collectorBaseUrl: TEL_COLLECTOR_BASE_URL ? new URL(TEL_COLLECTOR_BASE_URL) : undefined,
-    serviceName: TEL_SERVICE_NAME,
-    serviceVersion: TEL_SERVICE_VERSION,
-    networkId: TEL_NETWORK_ID,
-  };
+  return getConfigFromMappings<TelemetryClientConfig>(telemetryClientConfigMappings);
 }
