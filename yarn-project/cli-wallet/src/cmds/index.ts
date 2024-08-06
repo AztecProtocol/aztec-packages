@@ -4,70 +4,26 @@ import {
   addOptions,
   createSecretKeyOption,
   logJson,
-  parseAztecAddress,
   parseFieldFromHexString,
   parsePublicKey,
   pxeOption,
 } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type Command, Option } from 'commander';
+import { type Command } from 'commander';
 
 import { type WalletDB } from '../storage/wallet_db.js';
-import { AccountTypes, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
-import { contractArtifactFromWorkspace } from '../utils/contract.js';
-import { FeeOpts } from '../utils/fees.js';
-
-const ARTIFACT_DESCRIPTION =
-  "Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract";
-
-function createAliasOption(allowAddress: boolean, description: string, hide: boolean) {
-  return new Option(`-a, --alias${allowAddress ? '-or-address' : ''} <string>`, description).hideHelp(hide);
-}
-
-function createTypeOption(mandatory: boolean) {
-  return new Option('-t, --type <string>', 'Type of account to create')
-    .choices(AccountTypes)
-    .conflicts('alias-or-address')
-    .makeOptionMandatory(mandatory);
-}
-
-function createArgsOption(isConstructor: boolean, db?: WalletDB) {
-  return new Option('--args [args...]', `${isConstructor ? 'Constructor' : 'Function'}  arguments`)
-    .argParser((arg, prev: string[]) => {
-      const next = db?.retrieveAlias(arg) || arg;
-      prev.push(next);
-      return prev;
-    })
-    .default([]);
-}
-
-function createContractAddressOption(db?: WalletDB) {
-  return new Option('-ca, --contract-address <address>', 'Aztec address of the contract.')
-    .argParser(address => {
-      const rawAddress = db ? db.retrieveAlias(address) : address;
-      return parseAztecAddress(rawAddress);
-    })
-    .makeOptionMandatory(true);
-}
-
-function artifactPathParser(filePath: string) {
-  const isArtifactPath = new RegExp(/^(\.|\/|[A-Z]:).*\.json$/).test(filePath);
-  if (!isArtifactPath) {
-    const [pkg, contractName] = filePath.split('@');
-    return contractArtifactFromWorkspace(pkg, contractName);
-  }
-  if (!filePath) {
-    throw new Error(
-      'This command has to be called from a nargo workspace or contract artifact path should be provided',
-    );
-  }
-  return filePath;
-}
-
-function createArtifactOption(db?: WalletDB) {
-  return new Option('-c, --contract-artifact <fileLocation>', ARTIFACT_DESCRIPTION).argParser(artifactPathParser);
-}
+import { createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
+import { FeeOpts } from '../utils/options/fees.js';
+import {
+  ARTIFACT_DESCRIPTION,
+  artifactPathParser,
+  createAliasOption,
+  createArgsOption,
+  createArtifactOption,
+  createContractAddressOption,
+  createTypeOption,
+} from '../utils/options/index.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger, db?: WalletDB) {
   const createAccountCommand = program
@@ -152,7 +108,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--no-class-registration', "Don't register this contract class")
     .option('--no-public-deployment', "Don't emit this contract's public bytecode");
 
-  addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPath, _options, command) => {
+  addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPathPromise, _options, command) => {
     const { deploy } = await import('../cmds/deploy.js');
     const options = command.optsWithGlobals();
     const {
@@ -172,6 +128,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
+
+    const artifactPath = await artifactPathPromise;
 
     const address = await deploy(
       client,
@@ -204,7 +162,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .argument('<functionName>', 'Name of function to execute')
     .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
-    .addOption(createArtifactOption(db))
+    .addOption(createArtifactOption())
     .addOption(createContractAddressOption(db))
     .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
     .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
@@ -214,20 +172,22 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
     const { send } = await import('../cmds/send.js');
     const options = command.optsWithGlobals();
-    const { args, contractArtifact, contractAddress, aliasOrAddress, noWait, rpcUrl, type, secretKey, publicKey } =
-      options;
+    const {
+      args,
+      contractArtifact: artifactPathPromise,
+      contractAddress,
+      aliasOrAddress,
+      noWait,
+      rpcUrl,
+      type,
+      secretKey,
+      publicKey,
+    } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
-    await send(
-      wallet,
-      functionName,
-      args,
-      contractArtifact,
-      contractAddress,
-      !noWait,
-      FeeOpts.fromCli(options, log),
-      log,
-    );
+    const artifactPath = await artifactPathPromise;
+
+    await send(wallet, functionName, args, artifactPath, contractAddress, !noWait, FeeOpts.fromCli(options, log), log);
   });
 
   program
@@ -236,7 +196,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .argument('<functionName>', 'Name of function to simulate')
     .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
-    .addOption(createArtifactOption(db))
+    .addOption(createArtifactOption())
     .addOption(createContractAddressOption(db))
     .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
     .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
@@ -244,10 +204,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (functionName, _options, command) => {
       const { simulate } = await import('../cmds/simulate.js');
       const options = command.optsWithGlobals();
-      const { args, contractArtifact, contractAddress, aliasOrAddress, rpcUrl, type, secretKey, publicKey } = options;
+      const {
+        args,
+        contractArtifact: artifactPathPromise,
+        contractAddress,
+        aliasOrAddress,
+        rpcUrl,
+        type,
+        secretKey,
+        publicKey,
+      } = options;
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
-      await simulate(wallet, functionName, args, contractArtifact, contractAddress, log);
+      const artifactPath = await artifactPathPromise;
+
+      await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
     });
 
   return program;

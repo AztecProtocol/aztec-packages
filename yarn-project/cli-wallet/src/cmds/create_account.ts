@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { AccountType, createAndStoreAccount } from '../utils/accounts.js';
-import { type IFeeOpts, printGasEstimates } from '../utils/fees.js';
+import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
 export async function createAccount(
   client: PXE,
