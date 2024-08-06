@@ -20,4 +20,4 @@ export-aztec-nargo:
   FROM +run
   ARG DIST_TAG="latest"
   ARG ARCH
-  SAVE IMAGE --push aztecprotocol/aztec:${DIST_TAG}${ARCH:+-$ARCH}
+  SAVE IMAGE --push aztecprotocol/aztec-nargo:${DIST_TAG}${ARCH:+-$ARCH}
