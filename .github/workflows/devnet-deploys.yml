@@ -41,6 +41,9 @@ env:
   TF_VAR_SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 0 # disable auto block building
   TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
   TF_VAR_SEQ_MAX_TX_PER_BLOCK: 64
+  TF_VAR_NODE_P2P_TCP_PORT: 40000
+  TF_VAR_NODE_P2P_UDP_PORT: 45000
+  TF_VAR_NODE_LB_RULE_PRIORITY: 500
 
   # Anvil
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
@@ -48,9 +51,10 @@ env:
 
   # Faucet
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
+  TF_VAR_FAUCET_LB_RULE_PRIORITY: 600
 
   # Prover
-  TF_VAR_AGENTS_PER_PROVER: 4
+  TF_VAR_AGENTS_PER_PROVER: 1
   TF_VAR_PROVING_ENABLED: false
 
   # Transaction Bot
@@ -59,10 +63,13 @@ env:
   TF_VAR_BOT_NO_START: true
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 0 # no private transfers
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
-  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 1200
+  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 2400
   TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: true
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 180
   TF_VAR_BOT_COUNT: 1
+
+  # PXE
+  TF_VAR_PXE_LB_RULE_PRIORITY: 4000
 
 jobs:
   setup:
@@ -82,6 +89,13 @@ jobs:
       deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
       branch_name: ${{ steps.set_network_vars.outputs.branch_name }}
       network_api_key: ${{ steps.set_network_vars.outputs.network_api_key }}
+      agents_per_prover: ${{ steps.set_network_vars.outputs.agents_per_prover }}
+      bot_interval: ${{ steps.set_network_vars.outputs.bot_interval }}
+      node_tcp_range_start: ${{ steps.set_network_vars.outputs.node_tcp_range_start }}
+      node_udp_range_start: ${{ steps.set_network_vars.outputs.node_udp_range_start }}
+      node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.node_lb_priority_range_start }}
+      pxe_lb_priority_range_start: ${{ steps.set_network_vars.outputs.pxe_lb_priority_range_start }}
+      faucet_lb_priority: ${{ steps.set_network_vars.outputs.faucet_lb_priority }}
     steps:
       - name: Set network vars
         shell: bash
@@ -93,23 +107,44 @@ jobs:
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
               echo "branch_name=devnet" >> $GITHUB_OUTPUT
               echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
+              echo "bot_interval=600" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40100" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4100" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5100" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=601" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
+              echo "bot_interval=300" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4200" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5200" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=602" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
               echo "branch_name=alphanet" >> $GITHUB_OUTPUT
               echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=1" >> $GITHUB_OUTPUT
+              echo "bot_interval=600" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40000" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45000" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4000" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5000" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=600" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
           fi
         id: set_network_vars
 
-  build:
+  build-mainnet-fork:
     needs: set-network
     env:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
@@ -126,7 +161,43 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
+          concurrency_key: build-mainnet-fork-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+
+      - name: Check if mainnet fork needs deployment
+        id: check_fork_changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
+            const fileChanged = changedFiles.some(file => file.startsWith('iac/mainnet-fork'));
+            return fileChanged
+
+      - name: Build & push mainnet fork image
+        if: steps.check_fork_changes.outputs.result == 'true'
+        run: |
+          earthly-ci \
+          --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
+
+  build-aztec:
+    needs: set-network
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Check if only workflow flows have changed
         id: check_only_workflow_changes
@@ -151,6 +222,57 @@ jobs:
           env
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
+
+      - name: "Re-tag Aztec image"
+        if: steps.check_only_workflow_changes.outputs.result == 'true'
+        run: |
+          env
+          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
+
+          docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }} aztecprotocol/aztec:${{ github.sha }}
+
+          docker push aztecprotocol/aztec:${{ github.sha }}
+
+  build-faucet:
+    needs: set-network
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-faucet-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: Check if only workflow flows have changed
+        id: check_only_workflow_changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
+              .toString()
+              .split('\n')
+              .filter(line => line);
+            const prefixesToIgnore = ['.github', 'iac'];
+            const suffixesToIgnore = ['.tf'];
+            return changedFiles.every(file => (
+              prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
+              suffixesToIgnore.some(suffix => file.endsWith(suffix))
+            ));
+      - name: "Build & Push aztec images"
+        timeout-minutes: 40
+        if: steps.check_only_workflow_changes.outputs.result == 'false'
+        run: |
+          env
           earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ github.sha }}
 
@@ -158,40 +280,104 @@ jobs:
         if: steps.check_only_workflow_changes.outputs.result == 'true'
         run: |
           env
-          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker pull aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }}
 
-          docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }} aztecprotocol/aztec:${{ github.sha }}
           docker tag aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }} aztecprotocol/aztec-faucet:${{ github.sha }}
 
-          docker push aztecprotocol/aztec:${{ github.sha }}
           docker push aztecprotocol/aztec-faucet:${{ github.sha }}
 
-      - name: Check if mainnet fork needs deployment
-        id: check_fork_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
-            const fileChanged = changedFiles.some(file => file.startsWith('iac/mainnet-fork'));
-            return fileChanged
+  # build-cli-wallet:
+  #   needs: set-network
+  #   env:
+  #     BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+  #     DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+  #     TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+  #     API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+  #     TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+  #     API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+  #   runs-on: ${{ github.actor }}-x86
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         ref: "${{ env.GIT_COMMIT }}"
+  #         fetch-depth: 0
+  #     - uses: ./.github/ci-setup-action
+  #       with:
+  #         concurrency_key: build-cli-wallet-${{ github.actor }}
+  #         dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+  #     - name: Check if only workflow flows have changed
+  #       id: check_only_workflow_changes
+  #       uses: actions/github-script@v7
+  #       with:
+  #         script: |
+  #           const { execSync } = require('child_process');
+  #           const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
+  #             .toString()
+  #             .split('\n')
+  #             .filter(line => line);
+  #           const prefixesToIgnore = ['.github', 'iac'];
+  #           const suffixesToIgnore = ['.tf'];
+  #           return changedFiles.every(file => (
+  #             prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
+  #             suffixesToIgnore.some(suffix => file.endsWith(suffix))
+  #           ));
+  #     - name: "Build & Push aztec images"
+  #       timeout-minutes: 40
+  #       if: steps.check_only_workflow_changes.outputs.result == 'false'
+  #       run: |
+  #         env
+  #         earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }}
+  #         earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }}
 
-      - name: Build & push mainnet fork image
-        if: steps.check_fork_changes.outputs.result == 'true'
-        run: |
-          earthly-ci \
-          --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
+  #     - name: "Re-tag Aztec image"
+  #       if: steps.check_only_workflow_changes.outputs.result == 'true'
+  #       run: |
+  #         env
+  #         docker pull aztecprotocol/cli-wallet:${{ env.DEPLOY_TAG }}
 
-  terraform-deploy:
+  #         docker tag aztecprotocol/cli-wallet:${{ env.DEPLOY_TAG }} aztecprotocol/cli-wallet:${{ github.sha }}
+
+  #         docker push aztecprotocol/cli-wallet:${{ github.sha }}
+
+  build-end:
     runs-on: ubuntu-latest
-    needs: [build, set-network]
+    needs: [
+        build-aztec,
+        build-faucet,
+        #build-cli-wallet,
+        build-mainnet-fork,
+        set-network,
+      ]
     env:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+  terraform-deploy:
+    runs-on: ubuntu-latest
+    needs: [build-end, set-network]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
+      TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
+      TF_VAR_NODE_P2P_TCP_PORT: ${{ needs.set-network.outputs.node_tcp_range_start }}
+      TF_VAR_NODE_P2P_UDP_PORT: ${{ needs.set-network.outputs.node_udp_range_start }}
+      TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
+      TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -344,6 +530,7 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_FAUCET_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.faucet_lb_priority }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -384,6 +571,12 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
+      TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
+      TF_VAR_NODE_P2P_TCP_PORT: ${{ needs.set-network.outputs.node_tcp_range_start }}
+      TF_VAR_NODE_P2P_UDP_PORT: ${{ needs.set-network.outputs.node_udp_range_start }}
+      TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
+      TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
       TF_VAR_PROVING_ENABLED: true
       TF_VAR_BOT_NO_START: false
     steps:

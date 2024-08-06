@@ -69,7 +69,7 @@ resource "aws_service_discovery_service" "aztec-bot" {
   }
 }
 
-# Create a fleet. Entirely from spot capacity.
+# Create a fleet.
 data "template_file" "user_data" {
   template = <<EOF
 #!/bin/bash

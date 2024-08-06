@@ -57,4 +57,8 @@ export class ViemReader implements L1GlobalReader {
   public async getLastWarpedBlockTs(): Promise<bigint> {
     return BigInt(await this.rollupContract.read.lastWarpedBlockTs());
   }
+
+  public async getCurrentSlot(): Promise<bigint> {
+    return BigInt(await this.rollupContract.read.getCurrentSlot());
+  }
 }

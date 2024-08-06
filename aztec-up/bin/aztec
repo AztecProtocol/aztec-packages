@@ -24,7 +24,7 @@ elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
   # Compose file to use
   FILE_ARG="-f $HOME/.aztec/docker-compose.sandbox.yml"
 
-   # Function to be executed when SIGINT is received.
+  # Function to be executed when SIGINT is received.
   cleanup() {
     get_compose $FILE_ARG down
   }
@@ -32,8 +32,8 @@ elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
   # Set trap to catch SIGINT and call the cleanup function.
   trap cleanup SIGINT
 
- get_compose -p sandbox $FILE_ARG up --force-recreate --remove-orphans
-elif [ "$1" == "start" ]; then
+  get_compose -p sandbox $FILE_ARG up --force-recreate --remove-orphans
+elif [ "${1:-}" == "start" ]; then
   export ENV_VARS_TO_INJECT=$(<.aztec_cli_vars)
   $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
 else
