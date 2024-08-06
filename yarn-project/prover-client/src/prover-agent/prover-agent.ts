@@ -12,11 +12,20 @@ import { elapsed } from '@aztec/foundation/timer';
 
 import { ProvingError } from './proving-error.js';
 
+const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
+
 /**
  * A helper class that encapsulates a circuit prover and connects it to a job source.
  */
 export class ProverAgent {
-  private inFlightPromises = new Map<string, Promise<any>>();
+  private inFlightPromises = new Map<
+    string,
+    {
+      id: string;
+      type: ProvingRequestType;
+      promise: Promise<any>;
+    }
+  >();
   private runningPromise?: RunningPromise;
 
   constructor(
@@ -49,9 +58,21 @@ export class ProverAgent {
       throw new Error('Agent is already running');
     }
 
+    let lastPrint = process.hrtime.bigint();
+
     this.runningPromise = new RunningPromise(async () => {
       for (const jobId of this.inFlightPromises.keys()) {
         await jobSource.heartbeat(jobId);
+      }
+
+      const now = process.hrtime.bigint();
+
+      if (now - lastPrint >= PRINT_THRESHOLD_NS) {
+        const jobs = Array.from(this.inFlightPromises.values())
+          .map(job => `id=${job.id},type=${ProvingRequestType[job.type]}`)
+          .join(' ');
+        this.log.info(`Agent is running with ${this.inFlightPromises.size} in-flight jobs: ${jobs}`);
+        lastPrint = now;
       }
 
       while (this.inFlightPromises.size < this.maxConcurrency) {
@@ -64,7 +85,11 @@ export class ProverAgent {
 
           try {
             const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
-            this.inFlightPromises.set(job.id, promise);
+            this.inFlightPromises.set(job.id, {
+              id: job.id,
+              type: job.request.type,
+              promise,
+            });
           } catch (err) {
             this.log.warn(
               `Error processing job! type=${ProvingRequestType[job.request.type]}: ${err}. ${(err as Error).stack}`,
@@ -93,7 +118,7 @@ export class ProverAgent {
 
   private async work(jobSource: ProvingJobSource, job: ProvingJob<ProvingRequest>): Promise<void> {
     try {
-      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
+      this.log.info(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
       const [time, result] = await elapsed(this.getProof(job.request));
       if (this.isRunning()) {
         this.log.debug(
@@ -113,10 +138,11 @@ export class ProverAgent {
           `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${
             (err as any).stack || err
           }`,
+          err,
         );
         await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       } else {
-        this.log.debug(
+        this.log.info(
           `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${
             (err as any).stack || err
           }`,
