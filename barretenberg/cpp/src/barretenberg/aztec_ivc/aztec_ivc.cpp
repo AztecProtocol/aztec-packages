@@ -15,12 +15,17 @@ namespace bb {
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
     circuit_count++; // increment the count of circuits processed into the IVC
+
+    // The aztec architecture dictates that every second circuit is a kernel. This check can triggered/replaced by the
+    // presence of the recursive folding verify opcode once it is introduced into noir).
     bool is_kernel = (circuit_count % 2 == 0);
 
-    // When there are two fold proofs present, append two recursive verifiers to the kernel
-    if (verification_queue.size() == 2) {
+    // If present circuit is a kernel, perform recursive verifications and databus consistency checks
+    if (is_kernel) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
-        ASSERT(is_kernel); // ensure this is a kernel
+
+        // The folding verification queue should be either empty or contain two fold proofs
+        ASSERT(verification_queue.empty() || verification_queue.size() == 2);
 
         for (auto& [proof, vkey] : verification_queue) {
             // Perform folding recursive verification
@@ -28,14 +33,12 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
             auto verifier_accum = verifier.verify_folding_proof(proof);
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
 
-            // Perform databus commitment consistency checks and propagate return data commitments via the public inputs
+            // Perform databus commitment consistency checks and propagate return data commitments via public inputs
             bus_depot.execute(verifier.instances);
         }
         verification_queue.clear();
-    }
 
-    if (is_kernel) {
-        BB_OP_COUNT_TIME_NAME("construct_circuits");
+        // Recusively verify all merge proofs in queue
         for (auto& proof : merge_verification_queue) {
             goblin.verify_merge(circuit, proof);
         }
@@ -50,16 +53,8 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
     // Set the instance verification key from precomputed if available, else compute it
-    if (precomputed_vk) {
-        instance_vk = precomputed_vk;
-    } else {
-        instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
-    }
-
-    // Store whether the present circuit is a kernel (Note: the aztec architecture dictates that every second circuit
-    // is a kernel. This check can triggered/replaced by the presence of the recursive folding verify opcode once it is
-    // introduced into noir).
-    instance_vk->databus_propagation_data.is_kernel = is_kernel;
+    instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
+    instance_vk->databus_propagation_data.is_kernel = is_kernel; // Store whether the present circuit is a kernel
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (circuit_count == 1) {
