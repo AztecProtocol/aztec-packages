@@ -1834,7 +1834,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     if (!ctx) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/660): null context _should_ mean that both are
         // constant, but we check with an assertion to be sure.
-        ASSERT(is_constant() == other.is_constant());
+        ASSERT(is_constant() && other.is_constant());
         return is_equal_raw;
     }
     bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
