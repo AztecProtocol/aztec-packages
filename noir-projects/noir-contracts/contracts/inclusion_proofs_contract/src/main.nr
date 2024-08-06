@@ -62,7 +62,7 @@ contract InclusionProofs {
         } else {
             context.get_header()
         };
-       
+
         header.prove_note_inclusion(note);
         // docs:end:prove_note_inclusion
     }
