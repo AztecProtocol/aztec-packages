@@ -1,5 +1,3 @@
-import { EcdsaSignature } from '@aztec/circuits.js/barretenberg';
-
 import { Buffer } from 'buffer';
 import net from 'net';
 
@@ -32,7 +30,6 @@ export async function getIdentities(): Promise<StoredKey[]> {
         Buffer.from([0, 0, 0, 0]), // flags
       ]);
 
-      // console.log(request.toString('hex'));
       stream.write(request);
     });
 
@@ -76,11 +73,7 @@ export async function getIdentities(): Promise<StoredKey[]> {
 }
 
 export async function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buffer, data: Buffer) {
-  return new Promise<EcdsaSignature>((resolve, reject) => {
-    if (publicKey.length !== 64) {
-      reject('Public key must be 64 bytes');
-      return;
-    }
+  return new Promise<Buffer>((resolve, reject) => {
     const stream = connectToAgent();
     stream.on('connect', () => {
       // Construct the key blob
@@ -102,7 +95,6 @@ export async function signWithAgent(keyType: Buffer, curveName: Buffer, publicKe
         Buffer.from([0, 0, 0, 0]), // flags
       ]);
 
-      // console.log(request.toString('hex'));
       stream.write(request);
     });
 
@@ -113,38 +105,8 @@ export async function signWithAgent(keyType: Buffer, curveName: Buffer, publicKe
         const signatureLength = data.readUInt32BE(5);
         const signature = data.slice(9, 9 + signatureLength);
 
-        // Extract ECDSA signature components
-        let offset = 0;
-        const sigTypeLen = signature.readUInt32BE(offset);
-        offset += 4;
-        const sigType = signature.slice(offset, offset + sigTypeLen).toString();
-        offset += sigTypeLen;
-
-        if (sigType !== 'ecdsa-sha2-nistp256') {
-          stream.end();
-          reject(`Unexpected signature type: ${sigType}`);
-        }
-
-        offset += 4;
-        const rLen = signature.readUInt32BE(offset);
-        offset += 4;
-        let r = signature.slice(offset, offset + rLen);
-        offset += rLen;
-
-        const sLen = signature.readUInt32BE(offset);
-        offset += 4;
-        let s = signature.slice(offset, offset + sLen);
-
-        if (r.length > 32) {
-          r = r.slice(1);
-        }
-
-        if (s.length > 32) {
-          s = s.slice(1);
-        }
-
         stream.end();
-        resolve(new EcdsaSignature(r, s, Buffer.from([0])));
+        resolve(signature);
       } else {
         stream.end();
         reject(`Unexpected response type: ${type}`);

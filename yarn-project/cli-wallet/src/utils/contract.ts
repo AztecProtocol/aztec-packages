@@ -1,11 +1,8 @@
-import { getContractArtifact } from '@aztec/cli/utils';
-import { LogFn } from '@aztec/foundation/log';
-
 import { readdir, stat } from 'fs/promises';
 
 const TARGET_DIR = 'target';
 
-export async function contractArtifactFromWorkspace(log: LogFn, pkg?: string, contractName?: string) {
+export async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {
   const cwd = process.cwd();
   await stat(`${cwd}/Nargo.toml`);
   const filesInTarget = await readdir(`${cwd}/${TARGET_DIR}`);
@@ -19,5 +16,5 @@ export async function contractArtifactFromWorkspace(log: LogFn, pkg?: string, co
       `Multiple contract artifacts found in target directory with the specified criteria ${bestMatch.join(', ')}`,
     );
   }
-  return getContractArtifact(`${cwd}/${TARGET_DIR}/${bestMatch[0]}`, log);
+  return `${cwd}/${TARGET_DIR}/${bestMatch[0]}`;
 }
