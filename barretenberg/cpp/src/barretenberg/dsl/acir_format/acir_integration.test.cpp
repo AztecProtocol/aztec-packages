@@ -69,6 +69,16 @@ class AcirIntegrationTest : public ::testing::Test {
         info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
 #endif
         auto proof = prover.construct_proof();
+
+        for (size_t i = 0; i < 8; ++i) {
+            info("return data: ", prover.instance->proving_key.polynomials.return_data[i]);
+        }
+        for (size_t i = 0; i < 8; ++i) {
+            info("calldata: ", prover.instance->proving_key.polynomials.calldata[i]);
+        }
+        for (size_t i = 0; i < 8; ++i) {
+            info("scondary calldata: ", prover.instance->proving_key.polynomials.secondary_calldata[i]);
+        }
         // Verify Honk proof
         auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
         Verifier verifier{ verification_key };
@@ -467,6 +477,32 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+
+    // Check that the databus columns in the builder have been populated as expected
+    const auto& calldata = builder.get_calldata();
+    const auto& secondary_calldata = builder.get_secondary_calldata();
+    const auto& return_data = builder.get_return_data();
+
+    ASSERT(calldata.size() == 4);
+    ASSERT(secondary_calldata.size() == 2);
+    ASSERT(return_data.size() == 1);
+
+    uint32_t calldata_read_total = 0;
+    for (size_t idx = 0; idx < calldata.size(); ++idx) {
+        calldata_read_total += calldata.get_read_count(idx);
+    }
+    uint32_t secondary_calldata_read_total = 0;
+    for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
+        secondary_calldata_read_total += secondary_calldata.get_read_count(idx);
+    }
+    uint32_t return_data_read_total = 0;
+    for (size_t idx = 0; idx < calldata.size(); ++idx) {
+        return_data_read_total += calldata.get_read_count(idx);
+    }
+
+    ASSERT(calldata_read_total == 1);
+    ASSERT(secondary_calldata_read_total == 1);
+    ASSERT(return_data_read_total == 1);
 
     // This prints a summary of the types of gates in the circuit
     builder.blocks.summarize();
