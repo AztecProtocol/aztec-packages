@@ -368,7 +368,8 @@ bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Build
                                                              uint256_t other_maximum_value) const
 {
     reduction_check();
-    ASSERT((other_maximum_value + binary_basis_limbs[0].maximum_value) <= get_maximum_unreduced_limb_value());
+    ASSERT((uint512_t(other_maximum_value) + uint512_t(binary_basis_limbs[0].maximum_value)) <=
+           uint512_t(get_maximum_unreduced_limb_value()));
     // needed cause a constant doesn't have a valid context
     Builder* ctx = context ? context : other.context;
 
