@@ -116,9 +116,9 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     return *this;
 }
 
+// full copy "expensive" assignment
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const Fr> coefficients) noexcept
 {
-    // move assign a Polynomial constructed with the span
     *this = Polynomial<Fr>{ coefficients };
     return *this;
 }
