@@ -4,7 +4,6 @@ import {
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
-  MerkleTreeId,
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';

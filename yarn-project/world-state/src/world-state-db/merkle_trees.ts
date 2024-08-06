@@ -53,7 +53,7 @@ import {
   type MerkleTreeDb,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
-import { MerkleTreeMap } from './merkle_tree_map.js';
+import { type MerkleTreeMap } from './merkle_tree_map.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
 /**
