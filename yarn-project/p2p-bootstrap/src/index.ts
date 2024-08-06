@@ -1,5 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
-import { BootnodeConfig, BootstrapNode } from '@aztec/p2p';
+import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 
 import Koa from 'koa';
 import Router from 'koa-router';

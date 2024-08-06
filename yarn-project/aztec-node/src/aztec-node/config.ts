@@ -1,5 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
-import { ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';

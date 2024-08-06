@@ -1,4 +1,4 @@
-import { type L1ContractAddresses, L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { type L1ContractAddresses, type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
 /**

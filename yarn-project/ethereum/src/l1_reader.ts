@@ -1,4 +1,4 @@
-import { ConfigMappingsType } from '@aztec/foundation/config';
+import { type ConfigMappingsType } from '@aztec/foundation/config';
 
 import { L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
