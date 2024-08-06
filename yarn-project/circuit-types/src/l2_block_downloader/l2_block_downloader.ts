@@ -83,7 +83,7 @@ export class L2BlockDownloader {
 
       // If we have a target, then request at most the number of blocks to get to it, bypassing 'proven' restriction
       const [proven, limit] =
-        targetBlockNumber !== undefined ? [false, Math.max(targetBlockNumber - this.from, 10)] : [this.proven, 10];
+        targetBlockNumber !== undefined ? [false, Math.min(targetBlockNumber - this.from + 1, 10)] : [this.proven, 10];
 
       // Hit the archiver for blocks
       const blocks = await this.l2BlockSource.getBlocks(this.from, limit, proven);
