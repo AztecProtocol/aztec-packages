@@ -36,7 +36,10 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1063): update recursive merge verification to only
     // occur in kernels, similar to folding recursive verification.
-    goblin.merge(circuit);
+    if (goblin.merge_proof_exists) {
+        goblin.verify_merge(circuit, goblin.merge_proof);
+    }
+    goblin.merge_proof = goblin.prove_merge(circuit);
 
     // Construct the prover instance for circuit
     auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);

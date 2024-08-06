@@ -29,6 +29,7 @@ class AztecIVC {
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
+    using MergeProof = std::vector<FF>;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
@@ -80,6 +81,8 @@ class AztecIVC {
 
     // Set of pairs of {fold_proof, verification_key} to be recursively verified
     std::vector<FoldingVerifierInputs> verification_queue;
+    // Set of merge proofs to be recursively verified
+    std::vector<MergeProof> merge_verification_queue;
 
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
