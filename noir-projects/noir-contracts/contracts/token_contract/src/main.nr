@@ -41,7 +41,7 @@ contract Token {
     // All the recursive call does is nullify notes, meaning the gate count is low, but it is all constant overhead. We
     // therefore read more notes than in the base case to increase the efficiency of the overhead, since this results in
     // an overall small circuit regardless.
-    global RECURISVE_TRANSFER_CALL_MAX_NOTES = 8;
+    global RECURSIVE_TRANSFER_CALL_MAX_NOTES = 8;
 
     #[aztec(event)]
     struct Transfer {
@@ -364,8 +364,8 @@ contract Token {
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
-        // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to 
-        // another person where the payment is considered to be successful when the other party successfully decrypts a 
+        // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
+        // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
     }
@@ -382,7 +382,7 @@ contract Token {
         let subtracted = storage.balances.try_sub(account, amount, max_notes);
 
         // Failing to subtract any amount means that the owner was unable to produce more notes that could be nullified.
-        // We could in some cases fail early inside try_sub if we detected that fewer notes than the maximum were 
+        // We could in some cases fail early inside try_sub if we detected that fewer notes than the maximum were
         // returned and we were still unable to reach the target amount, but that'd make the code more complicated, and
         // optimizing for the failure scenario is not as important.
         assert(subtracted > U128::from_integer(0), "Balance too low");
@@ -398,7 +398,7 @@ contract Token {
         }
     }
 
-    // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to 
+    // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to
     // serialization issues.
     #[aztec(internal)]
     #[aztec(private)]
@@ -408,7 +408,7 @@ contract Token {
             storage,
             account,
             U128::from_integer(amount),
-            RECURISVE_TRANSFER_CALL_MAX_NOTES
+            RECURSIVE_TRANSFER_CALL_MAX_NOTES
         )
     }
 
