@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Directory of env_var file
-TS_ENV_VAR_FILE=/usr/src/yarn-project/foundation/src/config/env_vars.ts
-LOCAL_TS_FILE=./env_vars.ts
+TS_ENV_VAR_FILE=/usr/src/yarn-project/foundation/src/config/env_var.ts
+LOCAL_TS_FILE=./env_var.ts
 LOCAL_ENV_VAR_FILE=./.aztec_cli_vars
 
 function get_compose {
@@ -15,7 +15,7 @@ function get_compose {
 
 # Function to parse the TypeScript file
 function parse_ts_file {
-  grep -oE "\| '[^']+'" "$ts_file" | sed "s/| '//; s/'//g" >"$cache_file"
+  grep -oE "\| '[^']+'" "$LOCAL_TS_FILE" | sed "s/| '//; s/'//g" >"$LOCAL_ENV_VAR_FILE"
 }
 
 CALLED_FROM=$PWD
@@ -48,10 +48,11 @@ elif [ "${1:-}" == "start" ]; then
 
   # Grab env vars from aztec project
   if [[ ! -f "$LOCAL_ENV_VAR_FILE" ]]; then
+    echo "No env vars file found, creating one..."
     # Create temp container
     temp_container_id=$(docker create aztecprotocol/aztec)
     # Copy env vars file from container
-    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE ./env_vars.ts
+    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE $LOCAL_TS_FILE
     # Remove temp container
     docker rm $temp_container_id
 
@@ -60,10 +61,10 @@ elif [ "${1:-}" == "start" ]; then
   fi
 
   # Read env vars from file
-  export ENV_VARS_TO_INJECT=$(<"$LOCAL_ENV_VAR_FILE")
-  echo "ENV_VARS_TO_INJECT: $ENV_VARS_TO_INJECT"
+  readarray -t ENV_VARS_TO_INJECT <"$LOCAL_ENV_VAR_FILE"
+  export ENV_VARS_TO_INJECT
 
-  # $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
+  $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
 else
   SKIP_PORT_ASSIGNMENT=1 $(dirname $0)/.aztec-run aztecprotocol/aztec "$@"
 fi
