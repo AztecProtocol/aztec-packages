@@ -92,6 +92,66 @@ Update the `Noir: Nargo Path` field to point to your desired `aztec-nargo` execu
 
 Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
 
-If you want to start coding, it is recommended to go through the tutorials in order. Find more information [here](../../../tutorials/index.md).
+If you want to start coding, it is recommended to go through the tutorials in order. Click on the link below to dive in!
 
-If you want to just keep learning, you can read about the high level architecture on the [Overview page](../../../aztec/overview.md).
+<div className="card-container full-width">
+  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/counter_contract'>
+    <CardHeader>
+      <h3>Write your first contract</h3>
+    </CardHeader>
+    <CardBody>
+     Write and deploy a simple private counter smart contract on your local sandbox
+    </CardBody>
+  </Card>
+</div>
+
+<style>
+{`
+  .card-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.card-container.full-width {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 769px) {
+  .card-container:not(.full-width) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.card-link-wrapper {
+  display: contents;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: scale(1.02);
+}
+
+.card__body {
+  flex: 1;
+}
+
+.view-all-link {
+  text-align: right;
+  margin-bottom: 2rem;
+}
+
+.view-all-link a {
+  font-size: 0.9rem;
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+`}
+</style>
