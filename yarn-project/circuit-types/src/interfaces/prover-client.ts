@@ -1,6 +1,8 @@
 import { type TxHash } from '@aztec/circuit-types';
+import { type Fr } from '@aztec/circuits.js';
 
 import { type BlockProver } from './block-prover.js';
+import { type MerkleTreeOperations } from './merkle_tree_operations.js';
 import { type ProvingJobSource } from './proving-job.js';
 
 /**
@@ -21,13 +23,18 @@ export type ProverConfig = {
   proverJobTimeoutMs: number;
   /** The interval to check job health status */
   proverJobPollIntervalMs: number;
+  /** Identifier of the prover */
+  proverId?: Fr;
 };
 
 /**
  * The interface to the prover client.
  * Provides the ability to generate proofs and build rollups.
+ * TODO(palla/prover-node): Rename this interface
  */
-export interface ProverClient extends BlockProver {
+export interface ProverClient {
+  createBlockProver(db: MerkleTreeOperations): BlockProver;
+
   start(): Promise<void>;
 
   stop(): Promise<void>;

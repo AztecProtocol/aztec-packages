@@ -25,9 +25,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(self.tx_request, private_call_public_inputs, self.vk_tree_root).with_private_call(
             private_call_public_inputs,
-            self.private_call.call_stack_item.contract_address,
-            self.private_call.public_call_stack,
-            self.private_call.public_teardown_call_request
+            self.private_call.call_stack_item.contract_address
         ).finish()
     }
 
@@ -42,14 +40,11 @@ impl PrivateKernelInitCircuitPrivateInputs {
         private_call_data_validator.validate(output.end.note_hashes);
 
         // Validate output.
-        if !std::runtime::is_unconstrained() {
+        if dep::types::validate::should_validate_output() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
                 self.private_call.call_stack_item.public_inputs,
                 private_call_data_validator.array_lengths,
-                self.private_call.call_stack_item.contract_address,
-                self.private_call.public_call_stack,
-                self.private_call.public_teardown_call_request,
                 self.vk_tree_root
             );
         }

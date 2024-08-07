@@ -200,8 +200,8 @@ pub struct NodeInterner {
     /// the actual type since types do not implement Send or Sync.
     quoted_types: noirc_arena::Arena<Type>,
 
-    /// Whether to track references. In regular compilations this is false, but tools set it to true.
-    pub(crate) track_references: bool,
+    /// Determins whether to run in LSP mode. In LSP mode references are tracked.
+    pub(crate) lsp_mode: bool,
 
     /// Store the location of the references in the graph.
     /// Edges are directed from reference nodes to referenced nodes.
@@ -386,11 +386,6 @@ impl StmtId {
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone, PartialOrd, Ord)]
 pub struct ExprId(Index);
 
-impl ExprId {
-    pub fn empty_block_id() -> ExprId {
-        ExprId(Index::unsafe_zeroed())
-    }
-}
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct FuncId(Index);
 
@@ -548,6 +543,7 @@ pub struct GlobalInfo {
     pub definition_id: DefinitionId,
     pub ident: Ident,
     pub local_id: LocalModuleId,
+    pub crate_id: CrateId,
     pub location: Location,
     pub let_statement: StmtId,
     pub value: Option<comptime::Value>,
@@ -558,7 +554,7 @@ pub struct QuotedTypeId(noirc_arena::Index);
 
 impl Default for NodeInterner {
     fn default() -> Self {
-        let mut interner = NodeInterner {
+        NodeInterner {
             nodes: Arena::default(),
             func_meta: HashMap::new(),
             function_definition_ids: HashMap::new(),
@@ -593,17 +589,12 @@ impl Default for NodeInterner {
             type_alias_ref: Vec::new(),
             type_ref_locations: Vec::new(),
             quoted_types: Default::default(),
-            track_references: false,
+            lsp_mode: false,
             location_indices: LocationIndices::default(),
             reference_graph: petgraph::graph::DiGraph::new(),
             reference_graph_indices: HashMap::new(),
             reference_modules: HashMap::new(),
-        };
-
-        // An empty block expression is used often, we add this into the `node` on startup
-        let expr_id = interner.push_expr(HirExpression::empty_block());
-        assert_eq!(expr_id, ExprId::empty_block_id());
-        interner
+        }
     }
 }
 
@@ -766,6 +757,7 @@ impl NodeInterner {
         &mut self,
         ident: Ident,
         local_id: LocalModuleId,
+        crate_id: CrateId,
         let_statement: StmtId,
         file: FileId,
         attributes: Vec<SecondaryAttribute>,
@@ -783,6 +775,7 @@ impl NodeInterner {
             definition_id,
             ident,
             local_id,
+            crate_id,
             let_statement,
             location,
             value: None,
@@ -796,10 +789,12 @@ impl NodeInterner {
     }
 
     /// Intern an empty global. Used for collecting globals before they're defined
+    #[allow(clippy::too_many_arguments)]
     pub fn push_empty_global(
         &mut self,
         name: Ident,
         local_id: LocalModuleId,
+        crate_id: CrateId,
         file: FileId,
         attributes: Vec<SecondaryAttribute>,
         mutable: bool,
@@ -807,7 +802,8 @@ impl NodeInterner {
     ) -> GlobalId {
         let statement = self.push_stmt(HirStatement::Error);
         let span = name.span();
-        let id = self.push_global(name, local_id, statement, file, attributes, mutable, comptime);
+        let id = self
+            .push_global(name, local_id, crate_id, statement, file, attributes, mutable, comptime);
         self.push_stmt_location(statement, span, file);
         id
     }
@@ -1415,8 +1411,14 @@ impl NodeInterner {
         type_bindings: &mut TypeBindings,
         recursion_limit: u32,
     ) -> Result<TraitImplKind, Vec<TraitConstraint>> {
-        let make_constraint =
-            || TraitConstraint::new(object_type.clone(), trait_id, trait_generics.to_vec());
+        let make_constraint = || {
+            TraitConstraint::new(
+                object_type.clone(),
+                trait_id,
+                trait_generics.to_vec(),
+                Span::default(),
+            )
+        };
 
         // Prevent infinite recursion when looking for impls
         if recursion_limit == 0 {
@@ -1966,6 +1968,10 @@ impl NodeInterner {
         let ret = self.id_type(operator_expr);
         let env = Box::new(Type::Unit);
         (Type::Function(args, Box::new(ret.clone()), env), ret)
+    }
+
+    pub fn is_in_lsp_mode(&self) -> bool {
+        self.lsp_mode
     }
 }
 

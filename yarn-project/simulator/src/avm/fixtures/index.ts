@@ -14,7 +14,7 @@ import { type PublicSideEffectTraceInterface } from '../../public/side_effect_tr
 import { AvmContext } from '../avm_context.js';
 import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
-import { Field, Uint8 } from '../avm_memory_types.js';
+import { Field, Uint8, Uint64 } from '../avm_memory_types.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
@@ -91,6 +91,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.chainId ?? Fr.zero(),
     overrides?.version ?? Fr.zero(),
     overrides?.blockNumber ?? Fr.zero(),
+    overrides?.slotNumber ?? Fr.zero(),
     overrides?.timestamp ?? Fr.zero(),
     overrides?.coinbase ?? EthAddress.ZERO,
     overrides?.feeRecipient ?? AztecAddress.zero(),
@@ -133,6 +134,10 @@ export function anyAvmContextInputs() {
 
 export function randomMemoryBytes(length: number): Uint8[] {
   return [...Array(length)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+}
+
+export function randomMemoryUint64s(length: number): Uint64[] {
+  return [...Array(length)].map(_ => new Uint64(Math.floor(Math.random() * 255)));
 }
 
 export function randomMemoryFields(length: number): Field[] {

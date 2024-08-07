@@ -12,8 +12,8 @@ import { getPublicIp, splitAddressPort } from '../util.js';
 export * from './p2p_client.js';
 
 export const createP2PClient = async (
-  store: AztecKVStore,
   config: P2PConfig,
+  store: AztecKVStore,
   txPool: TxPool,
   l2BlockSource: L2BlockSource,
 ) => {
@@ -63,5 +63,5 @@ export const createP2PClient = async (
   } else {
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(store, l2BlockSource, txPool, p2pService);
+  return new P2PClient(store, l2BlockSource, txPool, p2pService, config.keepProvenTxsInPoolFor);
 };
