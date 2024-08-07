@@ -60,9 +60,10 @@ export async function addPXE(
         nodeUrl = `https://api.aztec.network/${pxeConfig.network}/aztec-node-1/${pxeConfig.apiKey}`;
       } else if (pxeConfig.nodeUrl) {
         nodeUrl = pxeConfig.nodeUrl;
-    } else {
-      userLog(`Network ${pxeConfig.network} is not supported`);
-      process.exit(1);
+      } else {
+        userLog(`Network ${pxeConfig.network} is not supported`);
+        process.exit(1);
+      }
     }
   } else {
     nodeUrl = pxeConfig.nodeUrl;
