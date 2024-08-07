@@ -2262,7 +2262,19 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     uint512_t max_r0 = left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[0].maximum_value;
     max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
 
-    const uint512_t max_r1 = max_b0 + max_b1;
+    uint512_t max_r1 = max_b0 + max_b1;
+
+    uint256_t borrow_lo_value = 0;
+    for (const auto& remainder : input_remainders) {
+        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
+        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
+
+        borrow_lo_value += (remainder.binary_basis_limbs[0].maximum_value +
+                            (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS));
+    }
+    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
+    field_t borrow_lo(ctx, bb::fr(borrow_lo_value));
+
     const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
     const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
 
@@ -2392,7 +2404,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                                                        quotient.prime_basis_limb * neg_prime,
                                                        -remainder_prime_limb);
 
-        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_idx);
+        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_idx) + borrow_lo;
         field_t hi = field_t<Builder>::from_witness_index(ctx, hi_idx);
         const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
         const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
@@ -2456,6 +2468,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         }
         field_t t1 = carry_lo.add_two(-remainders[0].binary_basis_limbs[2].element,
                                       -(remainders[0].binary_basis_limbs[3].element * shift_1));
+        carry_lo += borrow_lo;
         field_t carry_hi_0 = r2 * shift_right_2;
         field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
         field_t carry_hi_2 = t1 * shift_right_2;
@@ -2623,7 +2636,19 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // max_r3 = terms from 2^3t - 2^5t
     uint512_t max_r0 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
     max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
-    const uint512_t max_r1 = max_b0 + max_b1;
+    uint512_t max_r1 = max_b0 + max_b1;
+
+    uint256_t borrow_lo_value(0);
+    for (const auto& remainder : input_remainders) {
+        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
+        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
+
+        borrow_lo_value += remainder.binary_basis_limbs[0].maximum_value +
+                           (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
+    }
+    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
+    field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
+
     const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
     const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
 
@@ -2842,7 +2867,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                                                        quotient.prime_basis_limb * neg_prime,
                                                        -remainder_prime_limb);
 
-        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx);
+        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
         field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
 
         const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
@@ -3003,6 +3028,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         field_t carry_lo = carry_lo_0.add_two(carry_lo_1, carry_lo_2);
 
         field_t t1 = carry_lo.add_two(-remainder_limbs[2], -(remainder_limbs[3] * shift_1));
+        carry_lo += borrow_lo;
         field_t carry_hi_0 = r2 * shift_right_2;
         field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
         field_t carry_hi_2 = t1 * shift_right_2;
