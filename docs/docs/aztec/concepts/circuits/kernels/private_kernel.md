@@ -4,7 +4,7 @@ title: Private Kernel Circuit
 
 This circuit is executed by the user, on their own device. This is to ensure private inputs to the circuit remain private!
 
-Read the latest information about the Aztec Private Kernel Circuit in the [protocol specs section](../../../../protocol-specs/circuits/private-kernel-initial).
+Read the latest information about the Aztec Private Kernel Circuit in the [protocol specs section](../../../../protocol-specs/circuits/private-kernel-tail.md).
 
 :::note
 
