@@ -180,6 +180,7 @@ export interface PXE {
    * @param txRequest - An authenticated tx request ready for simulation
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @param offline - (Optional) Whether to simulate without validating tx against current state.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction object that includes a transaction that is potentially ready
    * to be sent to the network for execution, along with public and private return values.
@@ -190,6 +191,7 @@ export interface PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender?: AztecAddress,
+    offline?: boolean,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx>;
 
