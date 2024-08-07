@@ -253,7 +253,7 @@ const config = {
               },
               {
                 to: "https://github.com/AztecProtocol/aztec-packages",
-                label: "Aztec Packages",
+                label: "Aztec Monorepo",
                 target: "_blank",
                 rel: "noopener noreferrer",
                 className: "github-item",
