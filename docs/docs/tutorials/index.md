@@ -85,7 +85,7 @@ It is recommended to follow these in order.
      Learn to build a token bridge that can interact privately and publicly with L1 Ethereum
     </CardBody>
   </Card>
-</div>
+</div> -->
 
 ## Examples
 
