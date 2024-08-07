@@ -871,10 +871,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
         inverse = create_from_u512_as_witness(ctx, inverse_value);
     }
 
-    bigfield accumulated_numerator = bigfield::sum(numerators);
-    accumulated_numerator.propagation_check();
-
-    unsafe_evaluate_multiply_add(denominator, inverse, { unreduced_zero() }, quotient, { accumulated_numerator });
+    unsafe_evaluate_multiply_add(denominator, inverse, { unreduced_zero() }, quotient, numerators);
     return inverse;
 }
 
@@ -2100,13 +2097,13 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
 
 template <typename Builder, typename T> void bigfield<Builder, T>::propagation_check()
 {
-    uint64_t limb0_max_bits = std::max(this->binary_basis_limbs[0].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint64_t limb1_max_bits = std::max(this->binary_basis_limbs[1].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint64_t limb2_max_bits = std::max(this->binary_basis_limbs[2].maximum_value.get_msb() + 1, NUM_LIMB_BITS);
+    uint64_t limb0_max_bits = this->binary_basis_limbs[0].maximum_value.get_msb() + 1;
+    uint64_t limb1_max_bits = this->binary_basis_limbs[1].maximum_value.get_msb() + 1;
+    uint64_t limb2_max_bits = this->binary_basis_limbs[2].maximum_value.get_msb() + 1;
 
-    bool prop_flag_0 = (limb0_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
-    bool prop_flag_1 = (limb1_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
-    bool prop_flag_2 = (limb2_max_bits - NUM_LIMB_BITS) > 8; // Add constant in header?
+    bool prop_flag_0 = limb0_max_bits > NUM_LIMB_BITS + 8;
+    bool prop_flag_1 = limb1_max_bits > NUM_LIMB_BITS;
+    bool prop_flag_2 = limb2_max_bits > NUM_LIMB_BITS + 8;
 
     if (prop_flag_0 || prop_flag_1 || prop_flag_2) {
         this->propagate_limbs();
@@ -2209,7 +2206,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::propagate_lim
     this->binary_basis_limbs[1] = Limb(r1, r1_max);
     this->binary_basis_limbs[2] = Limb(r2, r2_max);
     this->binary_basis_limbs[3] = Limb(r3, r3_max);
-    this->reduction_check();
 }
 
 /**
@@ -2261,7 +2257,20 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     uint512_t max_r0 = left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[0].maximum_value;
     max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
 
-    const uint512_t max_r1 = max_b0 + max_b1;
+    uint512_t max_r1 = max_b0 + max_b1;
+
+    // max_r1 += uint256_t(1) << NUM_LIMB_BITS; // this won't trigger range constr two libms
+    uint256_t borrow_lo_value = (0);
+    for (const auto& remainder : input_remainders) {
+        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
+        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
+
+        borrow_lo_value += (remainder.binary_basis_limbs[0].maximum_value +
+                            (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS));
+    }
+    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
+    field_t borrow_lo(ctx, bb::fr(borrow_lo_value));
+
     const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
     const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
 
@@ -2394,8 +2403,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                                                        to_mul.prime_basis_limb,
                                                        quotient.prime_basis_limb * neg_prime,
                                                        -remainder_prime_limb);
-
-        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_idx);
+        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_idx) + borrow_lo;
         field_t hi = field_t<Builder>::from_witness_index(ctx, hi_idx);
         const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
         const uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
@@ -2404,7 +2412,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
         if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
             ctx->range_constrain_two_limbs(
-                hi.witness_index, lo.witness_index, size_t(carry_lo_msb), size_t(carry_hi_msb));
+                hi.witness_index, lo.normalize().witness_index, size_t(carry_lo_msb), size_t(carry_hi_msb));
         } else {
             ctx->decompose_into_default_range(hi.normalize().witness_index, carry_hi_msb);
             ctx->decompose_into_default_range(lo.normalize().witness_index, carry_lo_msb);
@@ -2457,6 +2465,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         }
         field_t t1 = carry_lo.add_two(-remainders[0].binary_basis_limbs[2].element,
                                       -(remainders[0].binary_basis_limbs[3].element * shift_1));
+        carry_lo += borrow_lo;
         field_t carry_hi_0 = r2 * shift_right_2;
         field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
         field_t carry_hi_2 = t1 * shift_right_2;
@@ -2605,7 +2614,19 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // max_r3 = terms from 2^3t - 2^5t
     uint512_t max_r0 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
     max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
-    const uint512_t max_r1 = max_b0 + max_b1;
+    uint512_t max_r1 = max_b0 + max_b1;
+
+    uint256_t borrow_lo_value(0);
+    for (const auto& remainder : input_remainders) {
+        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
+        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
+
+        borrow_lo_value += remainder.binary_basis_limbs[0].maximum_value +
+                           (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
+    }
+    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
+    field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
+
     const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
     const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
 
@@ -2832,7 +2853,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                                                        quotient.prime_basis_limb * neg_prime,
                                                        -remainder_prime_limb);
 
-        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx);
+        field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
         field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
 
         const uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
@@ -2842,7 +2863,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
         if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
             ctx->range_constrain_two_limbs(
-                hi.witness_index, lo.witness_index, (size_t)carry_lo_msb, (size_t)carry_hi_msb);
+                hi.witness_index, lo.normalize().witness_index, (size_t)carry_lo_msb, (size_t)carry_hi_msb);
         } else {
             ctx->decompose_into_default_range(hi.normalize().witness_index, carry_hi_msb);
             ctx->decompose_into_default_range(lo.normalize().witness_index, carry_lo_msb);
@@ -2991,6 +3012,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         field_t carry_lo = carry_lo_0.add_two(carry_lo_1, carry_lo_2);
 
         field_t t1 = carry_lo.add_two(-remainder_limbs[2], -(remainder_limbs[3] * shift_1));
+        carry_lo += borrow_lo;
         field_t carry_hi_0 = r2 * shift_right_2;
         field_t carry_hi_1 = r3 * (shift_1 * shift_right_2);
         field_t carry_hi_2 = t1 * shift_right_2;

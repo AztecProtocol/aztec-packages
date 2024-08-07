@@ -834,6 +834,57 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
+    static void test_internal_div_completeness3()
+    {
+        Builder builder;
+
+        uint256_t dlimb0_value = uint256_t("0x00000000000000000000000000000000000000000000000bef7fa109038857fc");
+        uint256_t dlimb0_max = uint256_t("0x00000000000000000000000000000000000000000000000fffffffffffffffff");
+        uint256_t dlimb1_value = uint256_t("0x0000000000000000000000000000000000000000000000056f10535779f56339");
+        uint256_t dlimb1_max = uint256_t("0x00000000000000000000000000000000000000000000000fffffffffffffffff");
+        uint256_t dlimb2_value = uint256_t("0x00000000000000000000000000000000000000000000000c741f60a1ec4e114e");
+        uint256_t dlimb2_max = uint256_t("0x00000000000000000000000000000000000000000000000fffffffffffffffff");
+        uint256_t dlimb3_value = uint256_t("0x000000000000000000000000000000000000000000000000000286b3cd344d8b");
+        uint256_t dlimb3_max = uint256_t("0x0000000000000000000000000000000000000000000000000003ffffffffffff");
+        uint256_t dlimb_prime = uint256_t("0x286b3cd344d8bc741f60a1ec4e114e56f10535779f56339bef7fa109038857fc");
+
+        uint256_t nlimb0_value = uint256_t("0x00000000000000000000000000000000000000000000080a84d9bea2b012417c");
+        uint256_t nlimb0_max = uint256_t("0x000000000000000000000000000000000000000000000ff7c7469df4081b61fc");
+        uint256_t nlimb1_value = uint256_t("0x00000000000000000000000000000000000000000000080f50ee84526e8e5ba7");
+        uint256_t nlimb1_max = uint256_t("0x000000000000000000000000000000000000000000000ffef965c67ba5d5893c");
+        uint256_t nlimb2_value = uint256_t("0x00000000000000000000000000000000000000000000080aba136ca8eaf6dc1b");
+        uint256_t nlimb2_max = uint256_t("0x000000000000000000000000000000000000000000000ff8171d22fd607249ea");
+        uint256_t nlimb3_value = uint256_t("0x00000000000000000000000000000000000000000000000001f0042419843c29");
+        uint256_t nlimb3_max = uint256_t("0x00000000000000000000000000000000000000000000000003e00636264659ff");
+        uint256_t nlimb_prime = uint256_t("0x000000000000000000000000000000474da776b8ee19a56b08186bdcf01240d8");
+
+        fq_ct w0 = fq_ct::from_witness(&builder, bb::fq(0));
+        w0.binary_basis_limbs[0].element = witness_ct(&builder, dlimb0_value);
+        w0.binary_basis_limbs[1].element = witness_ct(&builder, dlimb1_value);
+        w0.binary_basis_limbs[2].element = witness_ct(&builder, dlimb2_value);
+        w0.binary_basis_limbs[3].element = witness_ct(&builder, dlimb3_value);
+        w0.binary_basis_limbs[0].maximum_value = dlimb0_max;
+        w0.binary_basis_limbs[1].maximum_value = dlimb1_max;
+        w0.binary_basis_limbs[2].maximum_value = dlimb2_max;
+        w0.binary_basis_limbs[3].maximum_value = dlimb3_max;
+        w0.prime_basis_limb = witness_ct(&builder, dlimb_prime);
+
+        fq_ct w1 = fq_ct::from_witness(&builder, bb::fq(0));
+        w1.binary_basis_limbs[0].element = witness_ct(&builder, nlimb0_value);
+        w1.binary_basis_limbs[1].element = witness_ct(&builder, nlimb1_value);
+        w1.binary_basis_limbs[2].element = witness_ct(&builder, nlimb2_value);
+        w1.binary_basis_limbs[3].element = witness_ct(&builder, nlimb3_value);
+        w1.binary_basis_limbs[0].maximum_value = nlimb0_max;
+        w1.binary_basis_limbs[1].maximum_value = nlimb1_max;
+        w1.binary_basis_limbs[2].maximum_value = nlimb2_max;
+        w1.binary_basis_limbs[3].maximum_value = nlimb3_max;
+        w1.prime_basis_limb = witness_ct(&builder, nlimb_prime);
+
+        fq_ct w2 = w1 / w0;
+        (void)w2;
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
     // This check tests if elements are reduced to fit quotient into range proof
     static void test_quotient_completeness()
     {
@@ -1050,6 +1101,7 @@ TYPED_TEST(stdlib_bigfield, internal_div_completeness)
 {
     TestFixture::test_internal_div_completeness();
     TestFixture::test_internal_div_completeness2();
+    TestFixture::test_internal_div_completeness3();
 }
 TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
 {

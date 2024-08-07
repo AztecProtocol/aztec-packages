@@ -304,9 +304,6 @@ template <typename Builder, typename T> class bigfield {
 
     void self_reduce() const;
 
-    void propagation_check();
-    void propagate_limbs();
-
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
 
     /**
@@ -548,7 +545,8 @@ template <typename Builder, typename T> class bigfield {
                                  const bigfield& quotient,
                                  const bigfield& remainder);
     void reduction_check(const size_t num_products = 1) const;
-
+    void propagation_check();
+    void propagate_limbs();
 }; // namespace stdlib
 
 template <typename C, typename T> inline std::ostream& operator<<(std::ostream& os, bigfield<T, C> const& v)
