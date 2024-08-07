@@ -191,8 +191,8 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
         return this.currentL2BlockNum;
       }
-      // Poll for more blocks
-      const numBlocks = await this.l2BlockDownloader.pollImmediate(targetBlockNumber);
+      // Poll for more blocks, requesting even unproven blocks.
+      const numBlocks = await this.l2BlockDownloader.pollImmediate(targetBlockNumber, false);
       this.log.debug(`Block download immediate poll yielded ${numBlocks} blocks`);
       if (numBlocks) {
         // More blocks were received, process them and go round again
@@ -213,11 +213,13 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     targetBlockNumber: number,
     forkIncludeUncommitted: boolean,
   ): Promise<MerkleTreeOperationsFacade> {
-    await this.pause();
-    await this.syncImmediate(targetBlockNumber);
-    const fork = await this.getFork(forkIncludeUncommitted);
-    this.resume();
-    return fork;
+    try {
+      await this.pause();
+      await this.syncImmediate(targetBlockNumber);
+      return await this.getFork(forkIncludeUncommitted);
+    } finally {
+      this.resume();
+    }
   }
 
   /**

@@ -68,10 +68,11 @@ export class L2BlockDownloader {
   /**
    * Repeatedly queries the block source and adds the received blocks to the block queue.
    * Stops when no further blocks are received.
-   * @param targetBlockNumber - Optional block number to stop at. If given, will download even unproven blocks to get to it.
+   * @param targetBlockNumber - Optional block number to stop at.
+   * @param proven - Optional override of the default "proven" setting.
    * @returns The total number of blocks added to the block queue.
    */
-  private async collectBlocks(targetBlockNumber?: number) {
+  private async collectBlocks(targetBlockNumber?: number, onlyProven?: boolean) {
     let totalBlocks = 0;
     while (true) {
       // If we have a target and have reached it, return
@@ -80,9 +81,9 @@ export class L2BlockDownloader {
         return totalBlocks;
       }
 
-      // If we have a target, then request at most the number of blocks to get to it, bypassing 'proven' restriction
-      const [proven, limit] =
-        targetBlockNumber !== undefined ? [false, Math.min(targetBlockNumber - this.from + 1, 10)] : [this.proven, 10];
+      // If we have a target, then request at most the number of blocks to get to it
+      const limit = targetBlockNumber !== undefined ? Math.min(targetBlockNumber - this.from + 1, 10) : 10;
+      const proven = onlyProven === undefined ? this.proven : onlyProven;
 
       // Hit the archiver for blocks
       const blocks = await this.l2BlockSource.getBlocks(this.from, limit, proven);
@@ -136,9 +137,13 @@ export class L2BlockDownloader {
 
   /**
    * Forces an immediate request for blocks.
+   * Repeatedly queries the block source and adds the received blocks to the block queue.
+   * Stops when no further blocks are received.
+   * @param targetBlockNumber - Optional block number to stop at.
+   * @param proven - Optional override of the default "proven" setting.
    * @returns A promise that fulfills once the poll is complete
    */
-  public pollImmediate(targetBlockNumber?: number): Promise<number> {
-    return this.jobQueue.put(() => this.collectBlocks(targetBlockNumber));
+  public pollImmediate(targetBlockNumber?: number, onlyProven?: boolean): Promise<number> {
+    return this.jobQueue.put(() => this.collectBlocks(targetBlockNumber, onlyProven));
   }
 }
