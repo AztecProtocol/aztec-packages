@@ -1,4 +1,4 @@
-import { BlockProposal, mockTx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';

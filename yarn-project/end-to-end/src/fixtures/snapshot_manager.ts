@@ -255,11 +255,18 @@ async function setupFromFresh(
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, logger);
+  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 1});
+  const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+
+  const validatorAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 2 });
+  const validatorPrivKeyRaw = validatorAccount.getHdKey().privateKey;
+  const validatorPrivKey = validatorPrivKeyRaw === null ? null : Buffer.from(validatorPrivKeyRaw);
+
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, logger);
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 

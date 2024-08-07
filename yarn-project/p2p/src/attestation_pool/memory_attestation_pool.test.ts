@@ -1,28 +1,9 @@
-import { BlockAttestation } from '@aztec/circuit-types';
-import { makeHeader } from '@aztec/circuits.js/testing';
-
 import { type PrivateKeyAccount } from 'viem';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
+import { mockAttestation, generateAccount } from './mocks.js';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
-
-const generateAccount = () => {
-  const privateKey = generatePrivateKey();
-  return privateKeyToAccount(privateKey);
-};
-
-const makeAttestation = async (signer: PrivateKeyAccount, slot: number = 0) => {
-  // Use arbitrary numbers for all other than slot
-  const header = makeHeader(1, 2, slot);
-  const hash = header.hash();
-  const message = hash.toString();
-  const sigString = await signer.signMessage({ message });
-  const signature = Buffer.from(sigString.slice(2), 'hex');
-
-  return new BlockAttestation(header, signature);
-};
 
 describe('MemoryAttestationPool', () => {
   let ap: InMemoryAttestationPool;
@@ -35,7 +16,7 @@ describe('MemoryAttestationPool', () => {
 
   it('should add attestation to pool', async () => {
     const slotNumber = 420;
-    const attestations = await Promise.all(signers.map(signer => makeAttestation(signer, slotNumber)));
+    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber)));
 
     await ap.addAttestations(attestations);
 
@@ -53,7 +34,7 @@ describe('MemoryAttestationPool', () => {
 
   it('Should store attestations by differing slot', async () => {
     const slotNumbers = [1, 2, 3, 4];
-    const attestations = await Promise.all(signers.map((signer, i) => makeAttestation(signer, slotNumbers[i])));
+    const attestations = await Promise.all(signers.map((signer, i) => mockAttestation(signer, slotNumbers[i])));
 
     await ap.addAttestations(attestations);
 
@@ -69,7 +50,7 @@ describe('MemoryAttestationPool', () => {
 
   it('Should delete attestations', async () => {
     const slotNumber = 420;
-    const attestations = await Promise.all(signers.map(signer => makeAttestation(signer, slotNumber)));
+    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber)));
 
     await ap.addAttestations(attestations);
 

@@ -320,6 +320,7 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
+  enableValidators = false,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
@@ -350,20 +351,34 @@ export async function setup(
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+  const publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+  const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+
+  // TODO(md): turn this into a fuction?
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, hdAccount, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, publisherHdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  // Run the test with validators enabled
+  if (enableValidators) {
+    const validatorHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 1 });
+    const validatorPrivKeyRaw = validatorHdAccount.getHdKey().privateKey;
+    const validatorPrivKey = validatorPrivKeyRaw === null ? null : Buffer.from(validatorPrivKeyRaw);
+
+    config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+    config.disableValidator = false;
+  } else {
+    config.disableValidator = true;
+  }
 
   logger.verbose('Creating and synching an aztec node...');
 

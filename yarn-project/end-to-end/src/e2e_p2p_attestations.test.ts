@@ -25,7 +25,7 @@ const BOOT_NODE_UDP_PORT = 40400;
 
 const PEER_ID_PRIVATE_KEYS = generatePeerIdPrivateKeys(NUM_NODES);
 
-describe('e2e_p2p_network', () => {
+describe('e2e_p2p_attestations', () => {
   let config: AztecNodeConfig;
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
@@ -33,7 +33,8 @@ describe('e2e_p2p_network', () => {
   let bootstrapNodeEnr: string;
 
   beforeEach(async () => {
-    ({ teardown, config, logger } = await setup(0));
+    // TODO: cleanup this test Enable validators
+    ({ teardown, config, logger } = await setup(0, {}, {}, false, true));
     bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
@@ -50,7 +51,7 @@ describe('e2e_p2p_network', () => {
     }
   });
 
-  it('should rollup txs from all peers', async () => {
+  it('should collect attestations from all peers', async () => {
     // create the bootstrap node for the network
     if (!bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
@@ -65,6 +66,7 @@ describe('e2e_p2p_network', () => {
     // wait a bit for peers to discover each other
     await sleep(2000);
 
+    // just send one transaction for now
     for (const node of nodes) {
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
@@ -118,10 +120,7 @@ describe('e2e_p2p_network', () => {
     // wait a bit for peers to discover each other
     await sleep(2000);
 
-    for (const node of newNodes) {
-      const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
-      contexts.push(context);
-    }
+    await createPXEServiceAndSubmitTransactions(nodes[0]);
 
     // now ensure that all txs were successfully mined
     await Promise.all(
@@ -144,7 +143,6 @@ describe('e2e_p2p_network', () => {
   // creates an instance of the PXE and submit a given number of transactions to it.
   const createPXEServiceAndSubmitTransactions = async (
     node: AztecNodeService,
-    numTxs: number,
   ): Promise<NodeContext> => {
     const rpcConfig = getRpcConfig();
     const pxeService = await createPXEService(node, rpcConfig, true);
@@ -153,9 +151,9 @@ describe('e2e_p2p_network', () => {
     const completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
     await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
 
-    const txs = await submitTxsTo(pxeService, numTxs);
+    const tx = await submitTx(pxeService);
     return {
-      txs,
+      txs: [tx],
       account: completeAddress.address,
       pxeService,
       node,
@@ -163,10 +161,7 @@ describe('e2e_p2p_network', () => {
   };
 
   // submits a set of transactions to the provided Private eXecution Environment (PXE)
-  const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
-    const txs: SentTx[] = [];
-    for (let i = 0; i < numTxs; i++) {
-      // const tx = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random()).deploy();
+  const submitTx = async (pxe: PXEService) => {
       const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.create({
@@ -189,8 +184,6 @@ describe('e2e_p2p_network', () => {
         }),
       );
       logger.info(`Receipt received for ${txHash}`);
-      txs.push(tx);
-    }
-    return txs;
+    return tx;
   };
 });

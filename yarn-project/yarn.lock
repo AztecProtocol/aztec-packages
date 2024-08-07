@@ -959,6 +959,7 @@ __metadata:
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"

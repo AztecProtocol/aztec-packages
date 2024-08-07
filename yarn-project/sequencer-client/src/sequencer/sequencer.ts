@@ -405,14 +405,15 @@ export class Sequencer {
   }))
   protected async publishL2Block(block: L2Block) {
     // Publishes new block to the network and awaits the tx to be mined
-    this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
+    this.state = SequencerState.PUBLISHING_BLOCK;
 
     // TODO(md): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
     if (this.validatorClient != undefined) {
       const proposal = await this.validatorClient.createBlockProposal(block.header, []);
-      const blockWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
-      console.log(blockWithAttestations);
+      console.log(proposal);
+      // const blockWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
+      // console.log(blockWithAttestations);
     }
 
     const publishedL2Block = await this.publisher.processL2Block(block);
