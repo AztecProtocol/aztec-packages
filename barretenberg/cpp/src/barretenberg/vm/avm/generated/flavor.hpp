@@ -147,7 +147,9 @@ class AvmFlavor {
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
-    using MainRelations = std::tuple<
+    // Need to be templated for recursive verifier
+    template <typename FF>
+    using MainRelations_ = std::tuple<
         // Relations
         Avm_vm::alu<FF>,
         Avm_vm::binary<FF>,
@@ -163,7 +165,11 @@ class AvmFlavor {
         Avm_vm::range_check<FF>,
         Avm_vm::sha256<FF>>;
 
-    using LookupRelations = std::tuple<
+    using MainRelations = MainRelations_<FF>;
+
+    // Need to be templated for recursive verifier
+    template <typename FF>
+    using LookupRelations_ = std::tuple<
         // Lookups
         incl_main_tag_err_relation<FF>,
         incl_mem_tag_err_relation<FF>,
@@ -238,7 +244,11 @@ class AvmFlavor {
         perm_rng_mem_relation<FF>,
         perm_slice_mem_relation<FF>>;
 
-    using Relations = tuple_cat_t<MainRelations, LookupRelations>;
+    using LookupRelations = LookupRelations_<FF>;
+
+    // Need to be templated for recursive verifier
+    template <typename FF> using Relations_ = tuple_cat_t<MainRelations_<FF>, LookupRelations_<FF>>;
+    using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -253,7 +263,6 @@ class AvmFlavor {
 
     static constexpr bool has_zero_row = true;
 
-  private:
     template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
         using DataType = DataType_;
@@ -311,41 +320,16 @@ class AvmFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
     };
 
-  public:
     class ProvingKey
         : public ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
       public:
         // Expose constructors on the base class
         using Base = ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
-
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
     };
 
-    // Note(md): required for instantiation from the proving key - im sure there are other ways to construct this
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
-      public:
-        VerificationKey() = default;
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : VerificationKey_(proving_key->circuit_size, proving_key->num_public_inputs)
-        {
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
-            }
-        }
-
-        VerificationKey(const size_t circuit_size,
-                        const size_t num_public_inputs,
-                        std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> const& precomputed_cmts)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {
-            for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
-                vk_cmt = cmt;
-            }
-        }
-    };
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
     class AllValues : public AllEntities<FF> {
       public:
@@ -425,13 +409,34 @@ class AvmFlavor {
         CommitmentLabels();
     };
 
-    class VerifierCommitments : public AllEntities<Commitment> {
+    // Templated for use in recursive verifier
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment> {
       private:
         using Base = AllEntities<Commitment>;
 
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key);
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
+        {
+            this->byte_lookup_sel_bin = verification_key->byte_lookup_sel_bin;
+            this->byte_lookup_table_byte_lengths = verification_key->byte_lookup_table_byte_lengths;
+            this->byte_lookup_table_in_tags = verification_key->byte_lookup_table_in_tags;
+            this->byte_lookup_table_input_a = verification_key->byte_lookup_table_input_a;
+            this->byte_lookup_table_input_b = verification_key->byte_lookup_table_input_b;
+            this->byte_lookup_table_op_id = verification_key->byte_lookup_table_op_id;
+            this->byte_lookup_table_output = verification_key->byte_lookup_table_output;
+            this->gas_da_gas_fixed_table = verification_key->gas_da_gas_fixed_table;
+            this->gas_l2_gas_fixed_table = verification_key->gas_l2_gas_fixed_table;
+            this->gas_sel_gas_cost = verification_key->gas_sel_gas_cost;
+            this->main_clk = verification_key->main_clk;
+            this->main_sel_first = verification_key->main_sel_first;
+            this->main_zeroes = verification_key->main_zeroes;
+            this->powers_power_of_2 = verification_key->powers_power_of_2;
+        }
     };
+
+    // Native version of the verifier commitments
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     class Transcript : public NativeTranscript {
       public:

@@ -2436,10 +2436,8 @@ AvmFlavor::VerifierCommitments::VerifierCommitments(const std::shared_ptr<Verifi
     byte_lookup_table_input_b = verification_key->byte_lookup_table_input_b;
     byte_lookup_table_op_id = verification_key->byte_lookup_table_op_id;
     byte_lookup_table_output = verification_key->byte_lookup_table_output;
-    gas_base_da_gas_fixed_table = verification_key->gas_base_da_gas_fixed_table;
-    gas_base_l2_gas_fixed_table = verification_key->gas_base_l2_gas_fixed_table;
-    gas_dyn_da_gas_fixed_table = verification_key->gas_dyn_da_gas_fixed_table;
-    gas_dyn_l2_gas_fixed_table = verification_key->gas_dyn_l2_gas_fixed_table;
+    gas_da_gas_fixed_table = verification_key->gas_da_gas_fixed_table;
+    gas_l2_gas_fixed_table = verification_key->gas_l2_gas_fixed_table;
     gas_sel_gas_cost = verification_key->gas_sel_gas_cost;
     main_clk = verification_key->main_clk;
     main_sel_first = verification_key->main_sel_first;

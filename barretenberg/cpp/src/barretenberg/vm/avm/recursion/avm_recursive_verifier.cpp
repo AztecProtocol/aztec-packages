@@ -1,9 +1,8 @@
-#include "./avm_recursive_verifier.hpp"
+#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
 
 namespace bb {
 
@@ -494,10 +493,6 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     commitments.pedersen_sel_pedersen =
         transcript->template receive_from_prover<Commitment>(commitment_labels.pedersen_sel_pedersen);
     commitments.poseidon2_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.poseidon2_clk);
-    commitments.poseidon2_input =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.poseidon2_input);
-    commitments.poseidon2_output =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.poseidon2_output);
     commitments.poseidon2_sel_poseidon_perm =
         transcript->template receive_from_prover<Commitment>(commitment_labels.poseidon2_sel_poseidon_perm);
     commitments.powers_power_of_2 =
