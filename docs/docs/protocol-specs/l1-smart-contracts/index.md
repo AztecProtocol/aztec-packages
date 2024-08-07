@@ -99,7 +99,7 @@ The contract keeps track of the current state of the L2 and progresses this stat
 It also facilitates cross-chain communication (communication between the L1 inbox and outbox contracts).
 
 :::info
-The following is simplified by showcasing a case where proof and block is provided at the same time.
+The following example shows a simplified case where proof and block are provided in the same transaction.
 :::
 
 ```python

@@ -52,11 +52,11 @@ contract SpartaTest is DecoderBase {
   modifier setup(uint256 _validatorCount) {
     string memory _name = "mixed_block_1";
     {
-      Leonidas leo = new Leonidas(address(1));
+      Leonidas leonidas = new Leonidas(address(1));
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime =
-        full.block.decodedHeader.globalVariables.timestamp - slotNumber * leo.SLOT_DURATION();
+        full.block.decodedHeader.globalVariables.timestamp - slotNumber * leonidas.SLOT_DURATION();
       vm.warp(initialTime);
     }
 

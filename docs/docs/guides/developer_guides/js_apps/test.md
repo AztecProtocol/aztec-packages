@@ -133,7 +133,8 @@ The [`CheatCodes`](../../../reference/developer_references/sandbox_reference/che
 
 ### Set next block timestamp
 
-Since the rollup time is dependent on what "slot" the block is included in, the way to progress time is to just progress the time of the underlying chain by a number of slots. The duration of a slot can be looked up using `SLOT_DURATION()` in the Rollup (code in Leonidas.sol).
+Since the rollup time is dependent on what "slot" the block is included in, time can be progressed by progressing slots.
+The duration of a slot is available by calling `SLOT_DURATION()` on the Rollup (code in Leonidas.sol).
 
 You can then use the `warp` function on the EthCheatCodes to progress the underlying chain.
 
