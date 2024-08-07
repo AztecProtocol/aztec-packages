@@ -66,7 +66,7 @@ mod tests {
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas,
-        log_hash::{ScopedLogHash, ScopedEncryptedLogHash, LogHash}
+        log_hash::{ScopedLogHash, ScopedEncryptedLogHash, LogHash, NoteLogHash}
     },
         address::{AztecAddress, EthAddress}, scalar::Scalar,
         hash::{sha256_to_field, silo_note_hash, silo_nullifier, mask_encrypted_log_hash},
@@ -169,12 +169,8 @@ mod tests {
     #[test]
     fn ordering_of_encrypted_logs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        // Logs for the previous call stack.
-        let prev_log_hashes = [80, 90];
-        let prev_log_lengths = [13, 14];
-        for i in 0..prev_log_hashes.len() {
-            builder.previous_kernel.add_encrypted_log_hash(prev_log_hashes[i], prev_log_lengths[i]);
-        }
+
+        builder.previous_kernel.append_encrypted_log_hashes(2);
 
         // Set the randomness in the first log to 0 to signal not masking the address to silo with
         builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness = 0;
@@ -193,15 +189,70 @@ mod tests {
         assert_eq(
             resulting_encrypted_logs[0], ScopedLogHash {
             contract_address: builder.previous_kernel.storage_contract_address, // Not masked, randomness = 0
-            log_hash: LogHash { value: prev_log_hashes[0], counter: 0, length: prev_log_lengths[0] }
+            log_hash: LogHash { value: reversed_logs[1].log_hash.value, counter: 0, length: reversed_logs[1].log_hash.length }
         }
         );
 
         assert_eq(
             resulting_encrypted_logs[1], ScopedLogHash {
             contract_address: mask_encrypted_log_hash(reversed_logs[0]),
-            log_hash: LogHash { value: prev_log_hashes[1], counter: 0, length: prev_log_lengths[1] }
+            log_hash: LogHash { value: reversed_logs[0].log_hash.value, counter: 0, length: reversed_logs[0].log_hash.length }
         }
+        );
+    }
+
+    #[test]
+    fn ordering_of_note_encrypted_logs() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.previous_kernel.append_note_encrypted_log_hashes(2);
+
+        // Reorder the logs
+        let original_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
+        let mut reversed_logs = [NoteLogHash::empty(); 2];
+        for i in 0..reversed_logs.len() {
+            reversed_logs[i] = builder.previous_kernel.note_encrypted_logs_hashes.pop();
+        }
+        builder.previous_kernel.note_encrypted_logs_hashes.extend_from_array(reversed_logs);
+
+        let public_inputs = builder.execute();
+
+        let resulting_encrypted_logs = public_inputs.end.note_encrypted_logs_hashes;
+
+        assert_eq(
+            resulting_encrypted_logs, original_logs.map(
+                |log: NoteLogHash| {
+               LogHash { value: log.value, counter: 0, length: log.length }
+            }
+            )
+        );
+    }
+
+    #[test]
+    fn ordering_of_unencrypted_logs() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+
+        builder.previous_kernel.append_unencrypted_log_hashes(2);
+
+        // Reorder the logs
+        let original_logs = builder.previous_kernel.unencrypted_logs_hashes.storage;
+        let mut reversed_logs = [ScopedLogHash::empty(); 2];
+        for i in 0..reversed_logs.len() {
+            reversed_logs[i] = builder.previous_kernel.unencrypted_logs_hashes.pop();
+        }
+        builder.previous_kernel.unencrypted_logs_hashes.extend_from_array(reversed_logs);
+
+        let public_inputs = builder.execute();
+
+        let resulting_encrypted_logs = public_inputs.end.unencrypted_logs_hashes;
+
+        assert_eq(
+            resulting_encrypted_logs, original_logs.map(
+                |mut log: ScopedLogHash| {
+               log.log_hash.counter = 0;
+               log
+            }
+            )
         );
     }
 
