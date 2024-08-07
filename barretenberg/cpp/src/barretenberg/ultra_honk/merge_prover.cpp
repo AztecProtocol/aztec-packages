@@ -92,7 +92,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     }
     // Compute evaluation T_i(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto polynomial = Polynomial(T_current[idx]);
+        auto polynomial = Polynomial(T_current[idx], T_current[idx].size());
         auto evaluation = polynomial.evaluate(kappa);
         transcript->send_to_verifier("T_current_eval_" + std::to_string(idx + 1), evaluation);
         opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });

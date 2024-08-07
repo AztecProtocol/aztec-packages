@@ -78,11 +78,10 @@ template <typename settings> void ProverBase<settings>::compute_wire_commitments
         std::string wire_tag = "w_" + std::to_string(i + 1);
         std::string commit_tag = "W_" + std::to_string(i + 1);
         auto poly = key->polynomial_store.get(wire_tag);
-        auto coefficients = poly.data();
 
         // This automatically saves the computed point to the transcript
         fr domain_size_flag = i > 2 ? key->circuit_size : (key->circuit_size + 1);
-        commitment_scheme->commit(coefficients.as_span(), commit_tag, domain_size_flag, queue);
+        commitment_scheme->commit(poly.dense_view().data(), commit_tag, domain_size_flag, queue);
     }
 
     // add public inputs
@@ -135,7 +134,7 @@ template <typename settings> void ProverBase<settings>::compute_quotient_commitm
     // computing the commitments to these polynomials.
     //
     for (size_t i = 0; i < settings::program_width; ++i) {
-        auto coefficients = key->quotient_polynomial_parts[i].data();
+        auto coefficients = key->quotient_polynomial_parts[i].dense_view().data();
         std::string quotient_tag = "T_" + std::to_string(i + 1);
         // Set flag that determines domain size (currently n or n+1) in pippenger (see process_queue()).
         // Note: After blinding, all t_i have size n+1 representation (degree n) except t_4 in Ultra.
@@ -204,7 +203,7 @@ template <typename settings> void ProverBase<settings>::execute_preamble_round()
         const size_t w_randomness = 3;
         ASSERT(w_randomness < settings::num_roots_cut_out_of_vanishing_polynomial);
         for (size_t k = 0; k < w_randomness; ++k) {
-            wire_lagrange.at(circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k) =
+            wire_lagrange[circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k] =
                 fr::random_element();
         }
 

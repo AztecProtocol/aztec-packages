@@ -97,7 +97,8 @@ void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanish
         // If idpolys = true, it implies that we do NOT use the identity permutation
         // S_ID1(X) = X, S_ID2(X) = k_1X, S_ID3(X) = k_2X.
         if constexpr (idpolys) {
-            lagrange_base_ids_ptr[i] = key->polynomial_store.get("id_" + std::to_string(i + 1) + "_lagrange").data();
+            lagrange_base_ids_ptr[i] =
+                key->polynomial_store.get("id_" + std::to_string(i + 1) + "_lagrange").dense_view().data();
             lagrange_base_ids[i] = lagrange_base_ids_ptr[i].get();
         }
     }
@@ -383,8 +384,8 @@ bb::fr ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vani
 
         // wire_fft[0] contains the fft of the wire polynomial w_1
         // sigma_fft[0] contains the fft of the permutation selector polynomial \sigma_1
-        wire_ffts_ptr[i] = key->polynomial_store.get("w_" + std::to_string(i + 1) + "_fft").data();
-        sigma_ffts_ptr[i] = key->polynomial_store.get("sigma_" + std::to_string(i + 1) + "_fft").data();
+        wire_ffts_ptr[i] = key->polynomial_store.get("w_" + std::to_string(i + 1) + "_fft").dense_view().data();
+        sigma_ffts_ptr[i] = key->polynomial_store.get("sigma_" + std::to_string(i + 1) + "_fft").dense_view().data();
         wire_ffts[i] = wire_ffts_ptr[i].get();
         sigma_ffts[i] = sigma_ffts_ptr[i].get();
 
@@ -392,7 +393,7 @@ bb::fr ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vani
         // as a part of the permutation polynomial
         // <=> idpolys = FALSE
         if constexpr (idpolys) {
-            id_ffts_ptr[i] = key->polynomial_store.get("id_" + std::to_string(i + 1) + "_fft").data();
+            id_ffts_ptr[i] = key->polynomial_store.get("id_" + std::to_string(i + 1) + "_fft").dense_view().data();
             id_ffts[i] = id_ffts_ptr[i].get();
         }
     }

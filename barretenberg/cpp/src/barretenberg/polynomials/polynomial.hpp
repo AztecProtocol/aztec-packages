@@ -41,6 +41,10 @@ template <typename Fr> class Polynomial {
 
     Polynomial(std::span<const Fr> coefficients, size_t virtual_size);
 
+    Polynomial(std::span<const Fr> coefficients)
+        : Polynomial(coefficients, coefficients.size())
+    {}
+
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
@@ -134,6 +138,48 @@ template <typename Fr> class Polynomial {
      */
     Polynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
 
+    Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    Fr evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
+                         const Fr& z,
+                         const EvaluationDomain<Fr>& small_domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void fft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void partial_fft(const EvaluationDomain<Fr>& domain, Fr constant = 1, bool is_coset = false)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft(const EvaluationDomain<Fr>& domain,
+                   const EvaluationDomain<Fr>& large_domain,
+                   size_t domain_extension)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void ifft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    void coset_ifft(const EvaluationDomain<Fr>& domain)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+    Fr compute_kate_opening_coefficients(const Fr& z)
+        requires polynomial_arithmetic::SupportsFFT<Fr>;
+
+    /**
+     * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
+     * Assumes that p(rⱼ)=0 for all j
+     *
+     * @details we specialize the method when only a single root is given.
+     * if one of the roots is 0, then we first factor all other roots.
+     * dividing by X requires only a left shift of all coefficient.
+     *
+     * @param roots list of roots (r₁,…,rₘ)
+     */
+    void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
+    void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(std::span{ *this }, root); };
+
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
@@ -189,8 +235,16 @@ template <typename Fr> class Polynomial {
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
-    Fr& operator[](size_t i) { return coefficients_.data()[i]; }
-    const Fr& operator[](size_t i) const { return coefficients_.data()[i]; }
+    Fr& operator[](size_t i)
+    {
+        ASSERT(i < size());
+        return coefficients_.data()[i];
+    }
+    const Fr& operator[](size_t i) const
+    {
+        ASSERT(i < size());
+        return coefficients_.data()[i];
+    }
 
     static Polynomial random(size_t size, size_t virtual_size)
     {

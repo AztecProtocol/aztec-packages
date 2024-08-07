@@ -216,7 +216,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     size_t n_l = 1 << (n - 1);
 
     // Temporary buffer of half the size of the Polynomial
-    Polynomial<Fr> intermediate(n_l, DontZeroMemory::FLAG);
+    Polynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
@@ -235,12 +235,134 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     }
 
     // Construct resulting Polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    Polynomial<Fr> result(n_l, DenseDontZeroMemory::FLAG);
+    Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = intermediate[idx];
     }
 
     return result;
+}
+
+/**
+ * FFTs
+ **/
+
+template <typename Fr>
+void Polynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::fft(coefficients_, domain);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::partial_fft(coefficients_, domain, constant, is_coset);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::coset_fft(coefficients_, domain);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
+                               const EvaluationDomain<Fr>& large_domain,
+                               const size_t domain_extension)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    size_t extended_size = domain.size * domain_extension;
+
+    ASSERT(in_place_operation_viable(extended_size));
+    zero_memory_beyond(extended_size);
+
+    polynomial_arithmetic::coset_fft(coefficients_, domain, large_domain, domain_extension);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::coset_fft_with_constant(coefficients_, domain, constant);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::coset_fft_with_generator_shift(coefficients_, domain, constant);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::ifft(coefficients_, domain);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::ifft_with_constant(coefficients_, domain, constant);
+}
+
+template <typename Fr>
+void Polynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    ASSERT(in_place_operation_viable(domain.size));
+    zero_memory_beyond(domain.size);
+
+    polynomial_arithmetic::coset_ifft(data(), domain);
+}
+
+template <typename Fr>
+Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    return polynomial_arithmetic::compute_kate_opening_coefficients(data(), data(), z, size());
+}
+
+template <typename Fr>
+Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+{
+    return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
+}
+
+template <typename Fr>
+Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
+                                     const Fr& z,
+                                     const EvaluationDomain<Fr>& small_domain)
+    requires polynomial_arithmetic::SupportsFFT<Fr>
+
+{
+    return polynomial_arithmetic::evaluate_from_fft(coefficients_, large_domain, z, small_domain);
 }
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<const Fr> other)
