@@ -1726,7 +1726,7 @@ export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsN
       combineHints.sortedNoteEncryptedLogsHashesIndexes,
       mapNumberToNoir,
     ),
-    sorted_encrypted_logs_hashes: mapTuple(combineHints.sortedEncryptedLogsHashes, mapScopedEncryptedLogHashToNoir),
+    sorted_encrypted_logs_hashes: mapTuple(combineHints.sortedEncryptedLogsHashes, mapScopedLogHashToNoir),
     sorted_encrypted_logs_hashes_indexes: mapTuple(combineHints.sortedEncryptedLogsHashesIndexes, mapNumberToNoir),
     sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapScopedLogHashToNoir),
     sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
