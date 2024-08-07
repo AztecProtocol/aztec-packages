@@ -89,6 +89,13 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
 }
 
+template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
+{
+    allocate_backing_memory(coefficients.size(), virtual_size);
+
+    memcpy(static_cast<void*>(data()), static_cast<const void*>(coefficients.data()), sizeof(Fr) * coefficients.size());
+}
+
 // Assignments
 
 // full copy "expensive" assignment
@@ -414,7 +421,7 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            coefficients_[i] += scaling_factor * other[i];
+            data()[i] += scaling_factor * other[i];
         }
     });
 }
