@@ -8,8 +8,7 @@ import { DefaultAccountContract } from '../../defaults/account_contract.js';
 import { signWithAgent } from '../../utils/ssh_agent.js';
 import { EcdsaRAccountContractArtifact } from './artifact.js';
 
-// eslint-disable-next-line camelcase
-const secp256r1_N = 115792089210356248762697446949407573529996955224135760342422259061068512044369n;
+const secp256r1N = 115792089210356248762697446949407573529996955224135760342422259061068512044369n;
 /**
  * Account contract that authenticates transactions using ECDSA signatures
  * verified against a secp256r1 public key stored in an immutable encrypted note.
@@ -70,8 +69,8 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
 
     // ECDSA signatures must have a low S value so they can be used as a nullifier. BB forces a value of 27 for v, so
     // only one PublicKey can verify the signature (and not its negated counterpart) https://ethereum.stackexchange.com/a/55728
-    if (maybeHighS > secp256r1_N / 2n + 1n) {
-      s = Buffer.from((secp256r1_N - maybeHighS).toString(16), 'hex');
+    if (maybeHighS > secp256r1N / 2n + 1n) {
+      s = Buffer.from((secp256r1N - maybeHighS).toString(16), 'hex');
     }
 
     return new EcdsaSignature(r, s, Buffer.from([0]));
