@@ -15,11 +15,12 @@ import { type Command } from 'commander';
 import inquirer from 'inquirer';
 
 import { type WalletDB } from '../storage/wallet_db.js';
-import { AccountType, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
+import { type AccountType, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
   artifactPathParser,
+  createAccountOption,
   createAliasOption,
   createArgsOption,
   createArtifactOption,
@@ -45,7 +46,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(pxeOption)
     .addOption(createSecretKeyOption('Private key for account. Uses random by default.', false).conflicts('public-key'))
-    .addOption(createAliasOption(false, 'Alias for the account. Used for easy reference in the PXE.', !db))
+    .addOption(createAliasOption('Alias for the account. Used for easy reference in subsequent commands.', !db))
     .addOption(createTypeOption(true))
     .option(
       '--register-only',
@@ -117,7 +118,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(pxeOption)
     .addOption(createArgsOption(true, db))
     .addOption(createSecretKeyOption("The sender's private key", !db).conflicts('alias'))
-    .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
+    .addOption(createAccountOption('Alias or address of the account to deploy from', !db, db))
+    .addOption(createAliasOption('Alias for the contract. Used for easy reference subsequent commands.', !db))
     .addOption(createTypeOption(false))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -141,11 +143,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicDeployment,
       universal,
       rpcUrl,
-      aliasOrAddress,
+      account,
+      alias,
       type,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
+    const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
 
     const artifactPath = await artifactPathPromise;
 
@@ -171,8 +174,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       logJson(log),
     );
     if (db && address) {
-      await db.storeContract(address);
-      log('Contract stored in database with alias last');
+      await db.storeContract(address, artifactPath, alias);
+      log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
     }
   });
 
@@ -182,10 +185,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .argument('<functionName>', 'Name of function to execute')
     .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
-    .addOption(createArtifactOption())
+    .addOption(createArtifactOption(db))
     .addOption(createContractAddressOption(db))
     .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
-    .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
+    .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .addOption(createTypeOption(false))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
 
@@ -196,7 +199,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       args,
       contractArtifact: artifactPathPromise,
       contractAddress,
-      aliasOrAddress,
+      account,
       noWait,
       rpcUrl,
       type,
@@ -204,8 +207,17 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicKey,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
-    const artifactPath = await artifactPathPromise;
+    const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
+    let artifactPath = await artifactPathPromise;
+
+    if (db && !artifactPath) {
+      artifactPath = db.tryRetrieveAlias(`artifacts:${contractAddress}`);
+      if (!artifactPath) {
+        throw new Error(
+          `No artifact found for contract address ${contractAddress}, please provide it via the -c option`,
+        );
+      }
+    }
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
@@ -218,10 +230,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .argument('<functionName>', 'Name of function to simulate')
     .addOption(pxeOption)
     .addOption(createArgsOption(false, db))
-    .addOption(createArtifactOption())
     .addOption(createContractAddressOption(db))
+    .addOption(createArtifactOption(db))
     .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
-    .addOption(createAliasOption(true, 'Alias or address of the account to deploy from', !db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createTypeOption(false))
     .action(async (functionName, _options, command) => {
       const { simulate } = await import('../cmds/simulate.js');
@@ -230,15 +242,24 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         args,
         contractArtifact: artifactPathPromise,
         contractAddress,
-        aliasOrAddress,
+        account,
         rpcUrl,
         type,
         secretKey,
         publicKey,
       } = options;
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
-      const artifactPath = await artifactPathPromise;
+      const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
+      let artifactPath = await artifactPathPromise;
+
+      if (db && !artifactPath) {
+        artifactPath = db.tryRetrieveAlias(`artifacts:${contractAddress.toString()}`);
+        if (!artifactPath) {
+          throw new Error(
+            `No artifact found for contract address ${contractAddress}, please provide it via the -c option`,
+          );
+        }
+      }
 
       debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 

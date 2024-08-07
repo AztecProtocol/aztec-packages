@@ -60,7 +60,7 @@ export async function createAndStoreAccount(
 
 export async function createOrRetrieveWallet(
   pxe: PXE,
-  aliasOrAddress?: string | AztecAddress,
+  address?: AztecAddress,
   type?: AccountType,
   secretKey?: Fr,
   publicKey?: string | undefined,
@@ -68,8 +68,8 @@ export async function createOrRetrieveWallet(
 ) {
   let wallet, salt;
 
-  if (db && aliasOrAddress) {
-    ({ type, secretKey, salt } = db.retrieveAccount(aliasOrAddress));
+  if (db && address) {
+    ({ type, secretKey, salt } = db.retrieveAccount(address));
   } else {
     type = 'schnorr';
     salt = Fr.ZERO;
@@ -86,8 +86,8 @@ export async function createOrRetrieveWallet(
     }
     case 'ecdsasecp256r1ssh': {
       let publicSigningKey;
-      if (db && aliasOrAddress) {
-        publicSigningKey = db.retrieveAccountMetadata(aliasOrAddress, 'publicSigningKey');
+      if (db && address) {
+        publicSigningKey = db.retrieveAccountMetadata(address, 'publicSigningKey');
       } else if (publicKey) {
         publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
       } else {

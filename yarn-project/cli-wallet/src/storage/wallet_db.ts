@@ -1,9 +1,9 @@
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type AccountType } from '../utils/accounts.js';
 
-export const Aliases = ['accounts', 'contracts'] as const;
+export const Aliases = ['accounts', 'contracts', 'artifacts'] as const;
 export type AliasType = (typeof Aliases)[number];
 
 export class WalletDB {
@@ -38,14 +38,17 @@ export class WalletDB {
     await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
   }
 
-  async storeContract(address: AztecAddress, alias?: string) {
+  async storeContract(address: AztecAddress, artifactPath: string, alias?: string) {
     if (alias) {
       await this.#aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
+      await this.#aliases.set(`artifacts:${alias}`, Buffer.from(artifactPath));
     }
     await this.#aliases.set(`contracts:last`, Buffer.from(address.toString()));
+    await this.#aliases.set(`artifacts:last`, Buffer.from(artifactPath));
+    await this.#aliases.set(`artifacts:${address.toString()}`, Buffer.from(artifactPath));
   }
 
-  retrieveAlias(arg: string) {
+  tryRetrieveAlias(arg: string) {
     if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
       const [type, alias] = arg.split(':');
       const data = this.#aliases.get(`${type}:${alias ?? 'last'}`);
@@ -69,16 +72,10 @@ export class WalletDB {
     return result;
   }
 
-  retrieveAccount(aliasOrAddress: AztecAddress | string) {
-    const address =
-      typeof aliasOrAddress === 'object'
-        ? aliasOrAddress
-        : AztecAddress.fromString(this.#aliases.get(`accounts:${aliasOrAddress}`)!.toString());
+  retrieveAccount(address: AztecAddress | string) {
     const secretKeyBuffer = this.#accounts.get(`${address.toString()}-sk`);
     if (!secretKeyBuffer) {
-      throw new Error(
-        `Could not find ${address}-sk. Account "${aliasOrAddress.toString}" does not exist on this wallet.`,
-      );
+      throw new Error(`Could not find ${address}-sk. Account "${address.toString}" does not exist on this wallet.`);
     }
     const secretKey = Fr.fromBuffer(secretKeyBuffer);
     const salt = Fr.fromBuffer(this.#accounts.get(`${address.toString()}-salt`)!);

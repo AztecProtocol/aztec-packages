@@ -55,13 +55,12 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
     offset += 4;
     let s = data.subarray(offset, offset + sLen);
 
+    // R and S are encoded using ASN.1 DER format, which may include a leading zero byte to avoid interpreting the value as negative
     if (r.length > 32) {
-      // Remove the leading zero byte if present, it is not needed since r cannot be negative (so it's there to avoid interpreting it as two's complement)
       r = Buffer.from(Uint8Array.prototype.slice.call(r, 1));
     }
 
     if (s.length > 32) {
-      // Remove the leading zero byte if present, it is not needed since s cannot be negative (so it's there to avoid interpreting it as two's complement)
       s = Buffer.from(Uint8Array.prototype.slice.call(s, 1));
     }
 
@@ -75,6 +74,6 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
     const data = await signWithAgent(keyType, curveName, this.signingPublicKey, messageHash.toBuffer());
     const signature = this.#parseECDSASignature(data);
 
-    return Promise.resolve(new AuthWitness(messageHash, [...signature.r, ...signature.s]));
+    return new AuthWitness(messageHash, [...signature.r, ...signature.s]);
   }
 }

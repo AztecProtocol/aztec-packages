@@ -1,15 +1,15 @@
-export function extractECDSAPublicKeyFromBase64String(publicKey: string): Buffer {
-  const publicKeyBuffer = Buffer.from(publicKey, 'base64');
+export function extractECDSAPublicKeyFromBase64String(base64PublicKey: string): Buffer {
+  const buffer = Buffer.from(base64PublicKey, 'base64');
   let keyOffset = 0;
-  const typeLen = publicKeyBuffer.readUInt32BE(keyOffset);
+  const typeLen = buffer.readUInt32BE(keyOffset);
   keyOffset += 4;
   keyOffset += typeLen;
 
-  const curveLen = publicKeyBuffer.readUInt32BE(keyOffset);
+  const curveLen = buffer.readUInt32BE(keyOffset);
   keyOffset += 4;
   keyOffset += curveLen;
 
-  const keyLen = publicKeyBuffer.readUInt32BE(keyOffset);
+  const keyLen = buffer.readUInt32BE(keyOffset);
   keyOffset += 5; // 4+1 to remove the prefix
-  return publicKeyBuffer.subarray(keyOffset, keyOffset + keyLen - 1);
+  return buffer.subarray(keyOffset, keyOffset + keyLen - 1);
 }

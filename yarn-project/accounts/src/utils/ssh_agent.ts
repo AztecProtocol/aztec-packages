@@ -125,7 +125,6 @@ export function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buf
       if (type === SSH_AGENT_SIGN_RESPONSE) {
         const signatureLength = data.readUInt32BE(5);
         const signature = data.subarray(9, 9 + signatureLength);
-
         stream.end();
         resolve(signature);
       } else {
