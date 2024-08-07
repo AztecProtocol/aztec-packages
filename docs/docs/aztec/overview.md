@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: What is Aztec?
 sidebar_position: 0
 id: overview
 tags: [protocol]
