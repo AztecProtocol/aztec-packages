@@ -70,33 +70,23 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     }
     // Parse out the aggregation object using the key->recursive_proof_public_inputs_indices
     aggregation_state<typename Flavor::Curve> nested_agg_obj;
-    if constexpr (!IsSimulator<Builder>) {
-        AggregationObjectIndices nested_agg_obj_indices;
-        for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-            nested_agg_obj_indices[i] = public_inputs[key->recursive_proof_public_input_indices[i]].witness_index;
-        }
-        nested_agg_obj =
-            convert_witness_indices_to_agg_obj<Builder, typename Flavor::Curve>(*builder, nested_agg_obj_indices);
-    } else { // Simulator cannot deal with witness indices
-        size_t idx = 0;
-        std::array<typename Curve::Group, 2> nested_pairing_points;
-        for (size_t i = 0; i < 2; i++) {
-            std::array<typename Curve::BaseField, 2> base_field_vals;
-            for (size_t j = 0; j < 2; j++) {
-                std::array<FF, 4> bigfield_limbs;
-                for (size_t k = 0; k < 4; k++) {
-                    bigfield_limbs[k] = public_inputs[key->recursive_proof_public_input_indices[idx]];
-                    idx++;
-                }
-                base_field_vals[j] = typename Curve::BaseField(
-                    bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
+    size_t idx = 0;
+    std::array<typename Curve::Group, 2> nested_pairing_points;
+    for (size_t i = 0; i < 2; i++) {
+        std::array<typename Curve::BaseField, 2> base_field_vals;
+        for (size_t j = 0; j < 2; j++) {
+            std::array<FF, 4> bigfield_limbs;
+            for (size_t k = 0; k < 4; k++) {
+                bigfield_limbs[k] = public_inputs[key->recursive_proof_public_input_indices[idx]];
+                idx++;
             }
-            nested_pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
+            base_field_vals[j] =
+                typename Curve::BaseField(bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
         }
-        nested_agg_obj.P0 = nested_pairing_points[0];
-        nested_agg_obj.P1 = nested_pairing_points[1];
+        nested_pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
     }
-
+    nested_agg_obj.P0 = nested_pairing_points[0];
+    nested_agg_obj.P1 = nested_pairing_points[1];
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
@@ -189,10 +179,10 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
                                            transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge
-    // properly.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge
+    // properly.
     agg_obj.aggregate(pairing_points, recursion_separator);
     return agg_obj;
 }
