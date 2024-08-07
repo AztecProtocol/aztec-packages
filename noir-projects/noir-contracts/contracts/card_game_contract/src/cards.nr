@@ -123,7 +123,7 @@ impl Deck<&mut PrivateContext> {
 
     pub fn get_cards_and_note_hashes<N>(&mut self, cards: [Card; N]) -> ([CardNote; N], [Field; N]) {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
-        let notes_and_hashes = self.set.get_notes_and_hashes(options);
+        let notes_and_hashes = self.set.get_notes(options);
 
         // This array will hold the notes that correspond to each of the requested cards. It begins empty (with all the
         // options being none) and we gradually fill it up as we find the matching notes.

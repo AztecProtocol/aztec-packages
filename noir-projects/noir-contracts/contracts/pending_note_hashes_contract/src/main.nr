@@ -39,7 +39,7 @@ contract PendingNoteHashes {
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
-        let notes_and_hashes = owner_balance.get_notes_and_hashes(options);
+        let notes_and_hashes = owner_balance.get_notes(options);
 
         let note_and_hash0 = notes_and_hashes.get(0);
         assert(note.value == note_and_hash0.note.value);
@@ -137,7 +137,7 @@ contract PendingNoteHashes {
 
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let note_and_hash = owner_balance.get_notes_and_hashes(options).get(0);
+        let note_and_hash = owner_balance.get_notes(options).get(0);
 
         assert(expected_value == note_and_hash.note.value);
 
@@ -378,7 +378,7 @@ contract PendingNoteHashes {
     #[contract_library_method]
     fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
         let owner_balance = storage.balances.at(owner);
-        let notes_and_hashes = owner_balance.get_notes_and_hashes(NoteGetterOptions::new());
+        let notes_and_hashes = owner_balance.get_notes(NoteGetterOptions::new());
 
         for i in 0..max_notes_per_call() {
             let note_and_hash = notes_and_hashes.get(i);

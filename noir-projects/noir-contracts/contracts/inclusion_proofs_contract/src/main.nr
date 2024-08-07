@@ -52,7 +52,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get(0);
+        let note = private_values.get_notes(options).get(0).note;
         // docs:end:get_note_from_pxe
 
         // docs:start:prove_note_inclusion
@@ -104,7 +104,7 @@ contract InclusionProofs {
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get(0);
+        let note = private_values.get_notes(options).get(0).note;
 
         let header = if (use_block_number) {
             context.get_header_at(block_number)
@@ -130,7 +130,7 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get(0);
+        let note = private_values.get_notes(options).get(0).note;
 
         // 2) Prove the note validity
         let header = if (use_block_number) {
@@ -149,7 +149,7 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let notes_and_hashes = private_values.get_notes_and_hashes(options);
+        let notes_and_hashes = private_values.get_notes(options);
         let note_and_hash = notes_and_hashes.get(0);
 
         private_values.remove(note_and_hash);

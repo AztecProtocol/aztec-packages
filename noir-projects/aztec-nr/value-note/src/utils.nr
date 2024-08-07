@@ -55,14 +55,15 @@ pub fn decrement_by_at_most(
     outgoing_viewer: AztecAddress
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
-    let notes_and_hashes = balance.get_notes_and_hashes(options);
+    let notes_and_hashes = balance.get_notes(options);
 
     let mut decremented = 0;
     for i in 0..options.limit {
         if i < notes_and_hashes.len() {
             let note_and_hash = notes_and_hashes.get_unchecked(i);
 
-            decremented += destroy_note(balance, note_and_hash);
+            balance.remove(note_and_hash);
+            decremented += note_and_hash.note.value;
         }
     }
 
@@ -75,15 +76,4 @@ pub fn decrement_by_at_most(
     increment(balance, change_value, owner, outgoing_viewer);
 
     decremented
-}
-
-// Removes the note from the owner's set of notes.
-// Returns the value of the destroyed note.
-pub fn destroy_note(
-    balance: PrivateSet<ValueNote, &mut PrivateContext>,
-    note_and_hash: NoteAndHash<ValueNote>
-) -> Field {
-    balance.remove(note_and_hash);
-
-    note_and_hash.note.value
 }

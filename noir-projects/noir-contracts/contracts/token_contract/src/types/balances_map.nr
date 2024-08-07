@@ -109,7 +109,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
-        let notes_and_hashes = self.map.at(owner).get_notes_and_hashes(options);
+        let notes_and_hashes = self.map.at(owner).get_notes(options);
         // docs:end:get_notes
 
         let mut subtracted = U128::from_integer(0);

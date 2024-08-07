@@ -41,7 +41,7 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
-        let notes_and_hashes = self.set.get_notes_and_hashes(options);
+        let notes_and_hashes = self.set.get_notes(options);
         // docs:end:get_notes
 
         let mut minuend: u64 = 0;

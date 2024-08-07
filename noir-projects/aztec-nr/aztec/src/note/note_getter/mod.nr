@@ -107,14 +107,6 @@ pub fn get_notes<Note, let N: u32, let M: u32, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
-) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
-    get_notes_and_hashes(context, storage_slot, options).map(|note_and_hash: NoteAndHash<Note>| note_and_hash.note)
-}
-
-pub fn get_notes_and_hashes<Note, let N: u32, let M: u32, FILTER_ARGS>(
-    context: &mut PrivateContext,
-    storage_slot: Field,
-    options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
 ) -> BoundedVec<NoteAndHash<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     let opt_notes = get_notes_internal(storage_slot, options);
 

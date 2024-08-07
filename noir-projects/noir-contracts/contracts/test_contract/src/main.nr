@@ -30,7 +30,7 @@ contract Test {
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
-        note_getter_options::NoteStatus
+        note_getter_options::NoteStatus, note_and_hash::NoteAndHash
     },
         deploy::deploy_contract as aztec_deploy_contract,
         oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}
@@ -117,9 +117,9 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let notes: BoundedVec<NoteAndHash<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
 
-        notes.get(0).value
+        notes.get(0).note.value
     }
 
     #[aztec(private)]
@@ -133,9 +133,9 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let notes: BoundedVec<NoteAndHash<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
 
-        [notes.get(0).value, notes.get(1).value]
+        [notes.get(0).note.value, notes.get(1).note.value]
     }
 
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
@@ -175,9 +175,9 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let notes: BoundedVec<NoteAndHash<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
 
-        let note = notes.get(0);
+        let note = notes.get(0).note;
 
         destroy_note(&mut context, note);
     }
@@ -474,7 +474,7 @@ contract Test {
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
-        let notes_and_hashes = notes_set.get_notes_and_hashes(options);
+        let notes_and_hashes = notes_set.get_notes(options);
         let note_and_hash = notes_and_hashes.get(0);
         notes_set.remove(note_and_hash);
     }
