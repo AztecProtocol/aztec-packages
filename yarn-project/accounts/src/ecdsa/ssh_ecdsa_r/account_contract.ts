@@ -8,6 +8,7 @@ import { DefaultAccountContract } from '../../defaults/account_contract.js';
 import { signWithAgent } from '../../utils/ssh_agent.js';
 import { EcdsaRAccountContractArtifact } from './artifact.js';
 
+const secp256r1_N = 115792089210356248762697446949407573529996955224135760342422259061068512044369n;
 /**
  * Account contract that authenticates transactions using ECDSA signatures
  * verified against a secp256r1 public key stored in an immutable encrypted note.
@@ -62,6 +63,13 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
 
     if (s.length > 32) {
       s = Buffer.from(Uint8Array.prototype.slice.call(s, 1));
+    }
+
+    const maybeHighS = BigInt(`0x${s.toString('hex')}`);
+
+    // ECDSA signatures must have a low S value so it can be used as a nullifier
+    if (maybeHighS > secp256r1_N / 2n + 1n) {
+      s = Buffer.from((secp256r1_N - maybeHighS).toString(16), 'hex');
     }
 
     return new EcdsaSignature(r, s, Buffer.from([0]));
