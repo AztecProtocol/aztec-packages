@@ -10,11 +10,12 @@ shift
 DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
+INHERIT_USER=${INHERIT_USER:-1}
 
 if [[ -n "${NETWORK:-}" ]]; then
   VERSION=$NETWORK
   # enable proving if connecting to a network by default
-  PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
+  export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
 fi
 
 # preserve arguments to pass to docker run
@@ -45,7 +46,7 @@ fi
 
 # If running in rootless docker, don't set uid/gid in container, as it breaks the write perms to the home mount.
 # Otherwise we set the uid/gid to be that of user running the container to ensure write perms to the home mount.
-if [ -z "${ROOTLESS:-}" ]; then
+if [[ -z "${ROOTLESS:-}" && "${INHERIT_USER:-}" == "1" ]]; then
   DOCKER_USER="--user $(id -u):$(id -g)"
 fi
 
@@ -92,7 +93,7 @@ while [[ "$#" -gt 0 ]]; do
     echo "Using aztecprotocol/aztec: $VERSION"
     preserved_args+=("$1" "$2") # Store both argument and value
     # turn on proving if connecting to a network by default
-    PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
+    export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
     shift 2
     ;; # Move past argument and value
   *)
