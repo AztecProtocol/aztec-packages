@@ -30,6 +30,9 @@ export async function initStoreForRollup<T extends AztecKVStore>(
   rollupAddress: EthAddress,
   log?: Logger,
 ): Promise<T> {
+  if (!rollupAddress) {
+    throw new Error('Rollup address is required');
+  }
   const rollupAddressValue = store.openSingleton<ReturnType<EthAddress['toString']>>('rollupAddress');
   const rollupAddressString = rollupAddress.toString();
   const storedRollupAddressString = rollupAddressValue.get();
