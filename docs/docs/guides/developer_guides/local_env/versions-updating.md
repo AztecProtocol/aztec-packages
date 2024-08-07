@@ -1,6 +1,7 @@
 ---
 title: Updating the Sandbox
 sidebar_position: 0
+tags: [sandbox]
 ---
 
 - Current version: `#include_aztec_version`

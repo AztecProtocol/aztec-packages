@@ -1,6 +1,7 @@
 ---
 title: Emitting Events
 sidebar_position: 3
+tags: [contracts]
 ---
 
 Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.

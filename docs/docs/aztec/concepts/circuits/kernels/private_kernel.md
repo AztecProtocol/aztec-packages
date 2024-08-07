@@ -1,5 +1,6 @@
 ---
 title: Private Kernel Circuit
+tags: [protocol, circuits]
 ---
 
 This circuit is executed by the user, on their own device. This is to ensure private inputs to the circuit remain private!

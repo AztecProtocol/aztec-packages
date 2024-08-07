@@ -1,5 +1,6 @@
 ---
 title: Aztec Sandbox Errors
+tags: [sandbox]
 ---
 
 import Disclaimer from '@site/src/components/Disclaimers/\_wip_disclaimer.mdx';

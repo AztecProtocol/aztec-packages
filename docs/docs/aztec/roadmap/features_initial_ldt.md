@@ -1,6 +1,7 @@
 ---
 title: Sandbox Features Roadmap
 sidebar_position: 0
+tags: [sandbox]
 ---
 
 The Aztec Sandbox is intended to provide developers with a lightweight and fast local node, running alongside a PXE.

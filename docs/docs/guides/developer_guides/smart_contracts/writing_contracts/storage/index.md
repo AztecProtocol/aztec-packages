@@ -1,5 +1,6 @@
 ---
 title: Declaring Storage
+tags: [contracts, storage]
 ---
 
 On this page, you will learn how to define storage in your smart contract.

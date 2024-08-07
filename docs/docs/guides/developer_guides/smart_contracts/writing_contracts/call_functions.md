@@ -1,6 +1,7 @@
 ---
 title: Calling Other Functions
 sidebar_position: 2
+tags: [functions, contracts]
 ---
 
 

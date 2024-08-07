@@ -1,6 +1,7 @@
 ---
 title: Aztec macros
 sidebar_position: 6
+tags: [contracts, functions]
 ---
 
 ## All Aztec macros

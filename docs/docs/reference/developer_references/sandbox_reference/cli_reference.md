@@ -1,5 +1,6 @@
 ---
 title: CLI Reference
+tags: [sandbox]
 ---
 
 :::warning

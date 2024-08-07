@@ -1,5 +1,6 @@
 ---
 title: Rollup Circuits
+tags: [protocol, circuits]
 ---
 
 The primary purpose of the Rollup Circuits is to 'squish' all of the many thousands of transactions in a rollup into a single SNARK, which can then be efficiently and verified on Ethereum.

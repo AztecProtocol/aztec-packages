@@ -1,5 +1,6 @@
 ---
 title: Storage slots
+tags: [contracts, storage]
 ---
 
 From the description of storage slots [in the Concepts](../../../../../aztec/concepts/storage/index.md#private-state-slots---slots-arent-real) you will get an idea around the logic of storage slots. In this section we will go into more detail and walk through an entire example of how storage slots are computed for private state to improve our storage slot intuition. Recall, that storage slots in the private domain is just a logical construct, and are not "actually" used for lookups, but rather just as a value to constrain against.

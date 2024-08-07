@@ -1,5 +1,6 @@
 ---
 title: "Contract Artifact Reference"
+tags: [contracts]
 ---
 
 After compiling a contract you'll get a Contract Artifact file, that contains the data needed to interact with a specific contract, including its name, functions that can be executed, and the interface and code of those functions. Since private functions are not published in the Aztec network, you'll need this artifact file to be able to call private functions of contracts.

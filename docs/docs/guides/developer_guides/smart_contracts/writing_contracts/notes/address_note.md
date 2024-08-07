@@ -1,5 +1,6 @@
 ---
 title: Using Address Note in Aztec.nr
+tags: [contracts, notes]
 ---
 
 Address notes hold one main property of the type `AztecAddress`. It also holds `npk_m_hash` and `randomness`, similar to other note types.

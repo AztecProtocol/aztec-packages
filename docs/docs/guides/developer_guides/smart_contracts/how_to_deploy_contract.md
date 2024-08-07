@@ -1,6 +1,7 @@
 ---
 title: How to Deploy a Contract
 sidebar_position: 4
+tags: [contracts, sandbox]
 ---
 
 # Deploying contracts

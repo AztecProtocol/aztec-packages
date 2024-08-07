@@ -3,6 +3,7 @@ id: index
 sidebar_position: 0
 title: Guides
 ---
+
 # Popular Guides
 
 Guides are step-by-step how-tos to achieve a specific goal. On this page you can find the most popular ones. You can also explore them all by checking out the sidebar.

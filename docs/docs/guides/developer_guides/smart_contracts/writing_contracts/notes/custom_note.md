@@ -1,5 +1,6 @@
 ---
 title: Using custom note types in Aztec.nr
+tags: [contracts, notes]
 ---
 
 It may be useful to write a custom note type if you want to use a specific type of private data or struct that does not have a default implementation in Aztec.nr. If you create a note that uses a custom note type, you are able to nullify that note with one nullifier. This is more secure and less expensive than using multiple separate notes.

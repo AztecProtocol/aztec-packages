@@ -1,6 +1,7 @@
 ---
 title: Defining Initializer Functions
 sidebar_position: 1
+tags: [functions, contracts]
 ---
 
 This page explains how to write an initializer function, also known as a constructor.

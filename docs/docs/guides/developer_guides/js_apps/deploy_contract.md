@@ -1,5 +1,6 @@
 ---
 title: How to Deploy a Contract
+tags: [contracts]
 ---
 
 This guide explains how to deploy a smart contract using Aztec.js.

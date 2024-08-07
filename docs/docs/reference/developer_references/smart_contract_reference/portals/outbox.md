@@ -1,5 +1,6 @@
 ---
 title: Outbox
+tags: [portals, contracts]
 ---
 
 The `Outbox` is a contract deployed on L1 that handles message passing from the rollup and to L1.

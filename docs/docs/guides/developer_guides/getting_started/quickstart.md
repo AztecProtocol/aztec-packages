@@ -1,6 +1,7 @@
 ---
 title: Quickstart
 sidebar_position: 0
+tags: [sandbox]
 ---
 
 You can get started with an Aztec development environment (A.K.A. Sandbox) in less than 5 minutes.

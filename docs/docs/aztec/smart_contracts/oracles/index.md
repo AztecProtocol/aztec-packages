@@ -1,5 +1,6 @@
 ---
 title: Oracle Functions
+tags: [functions, oracles]
 ---
 
 This page goes over what oracles are in Aztec and how they work.

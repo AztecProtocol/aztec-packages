@@ -1,4 +1,8 @@
-# Keys
+---
+title: Keys
+tags: [accounts, keys]
+---
+
 The goal of this section is to give app developer a good idea what keys there are used in the system.
 For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/index.md).
 

@@ -1,5 +1,6 @@
 ---
 title: Importing Aztec.nr
+tags: [contracts]
 sidebar_position: 5
 ---
 

@@ -1,6 +1,7 @@
 ---
 title: Using the popCapsule Oracle
 sidebar_position: 5
+tags: [functions, oracles]
 ---
 
 `popCapsule` is used for passing artbitrary data. We have not yet included this in Aztec.nr, so it is a bit more complex than the other oracles. You can follow this how-to:

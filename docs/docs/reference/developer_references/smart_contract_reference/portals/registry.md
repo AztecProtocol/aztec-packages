@@ -1,5 +1,6 @@
 ---
 title: Registry
+tags: [portals, contracts]
 ---
 
 The registry is a contract deployed on L1, that contains addresses for the `Rollup`, `Inbox` and `Outbox`. It also keeps track of the different versions that have been deployed and let you query prior deployments easily.

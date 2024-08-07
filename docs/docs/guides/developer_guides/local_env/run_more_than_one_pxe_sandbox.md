@@ -1,6 +1,7 @@
 ---
 title: Running Multiple PXEs in the Sandbox
 sidebar_position: 2
+tags: [PXE]
 ---
 
 :::warning

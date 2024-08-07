@@ -1,6 +1,7 @@
 ---
 title: Privacy Considerations
 sidebar_position: 5
+tags: [protocol, PXE]
 ---
 
 Privacy is important.

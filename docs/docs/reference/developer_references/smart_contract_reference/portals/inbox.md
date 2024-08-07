@@ -1,5 +1,6 @@
 ---
 title: Inbox
+tags: [portals, contracts]
 ---
 
 The `Inbox` is a contract deployed on L1 that handles message passing from L1 to the rollup (L2)

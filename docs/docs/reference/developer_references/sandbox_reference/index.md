@@ -1,5 +1,6 @@
 ---
 title: Sandbox Reference
+tags: [sandbox]
 sidebar_position: 0
 ---
 

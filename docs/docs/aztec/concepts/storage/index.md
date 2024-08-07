@@ -2,6 +2,7 @@
 title: Storage
 description: How are storage slots derived for public and private state
 sidebar_position: 2
+tags: [protocol, storage]
 ---
 
 In Aztec, private data and public data are stored in two trees; a public data tree and a note hashes tree.

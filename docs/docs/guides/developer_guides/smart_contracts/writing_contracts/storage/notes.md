@@ -2,6 +2,7 @@
 title: Writing Notes
 description: Core knowledge of Notes and how they work
 useful-for: dev
+tags: [contracts, storage, notes]
 ---
 
 Most prominent blockchain networks don't have privacy at the protocol level. Aztec contracts can define public and private functions, that can read/write public and private state.

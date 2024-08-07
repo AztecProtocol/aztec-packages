@@ -1,6 +1,7 @@
 ---
 title: How to Compile a Contract
 sidebar_position: 3
+tags: [contracts]
 ---
 
 Once you have written a contract in Aztec.nr, you will need to compile it into an artifact in order to use it.

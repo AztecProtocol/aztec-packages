@@ -1,5 +1,6 @@
 ---
 title: Aztec.nr Errors
+tags: [contracts]
 ---
 
 This section contains some errors that you may encounter when writing and compiling contracts in Aztec.nr. If you run into an error that is not listed here, please [create an issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/new).

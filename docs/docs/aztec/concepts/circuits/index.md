@@ -1,6 +1,7 @@
 ---
 title: Circuits
 sidebar_position: 7
+tags: [protocol, circuits]
 ---
 
 Central to Aztec's operations are 'circuits' derived both from the core protocol and the developer-written Aztec.nr contracts.

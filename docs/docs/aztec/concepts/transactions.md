@@ -1,6 +1,7 @@
 ---
 title: Transactions
 sidebar_position: 3
+tags: [protocol]
 ---
 
 import Image from '@theme/IdealImage';

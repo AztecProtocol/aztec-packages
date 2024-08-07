@@ -1,5 +1,6 @@
 ---
 title: Key Rotation
+tags: [accounts, keys]
 ---
 
 ## Prerequisite reading

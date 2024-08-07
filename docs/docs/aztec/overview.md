@@ -2,6 +2,7 @@
 title: Overview
 sidebar_position: 0
 id: overview
+tags: [protocol]
 ---
 
 import Image from "@theme/IdealImage";

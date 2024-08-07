@@ -2,6 +2,7 @@
 title: Creating Schnorr Accounts
 sidebar_position: 1
 draft: true
+tags: [accounts]
 ---
 
 <!-- Taking this out of the docs for now because "Create account" guide is more concise -->

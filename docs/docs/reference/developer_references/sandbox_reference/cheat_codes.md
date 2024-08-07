@@ -1,5 +1,6 @@
 ---
 title: Cheat Codes
+tags: [sandbox]
 ---
 import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";
 
