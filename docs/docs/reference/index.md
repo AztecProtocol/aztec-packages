@@ -15,14 +15,6 @@ This page lists popular references. Please see the sidebar for them all.
 ### Smart contracts
 
 <div className="card-container">
-  <Card shadow='tl' link='/reference/developer_references/smart_contract_reference/aztec_nr/address-note/address_note'>
-    <CardHeader>
-      <h3>Aztec.nr</h3>
-    </CardHeader>
-    <CardBody>
-      Reference docs for Aztec.nr libraries
-    </CardBody>
-  </Card>
 
   <Card shadow='tl' link='/reference/developer_references/smart_contract_reference/storage/shared_state'>
     <CardHeader>
@@ -42,19 +34,12 @@ This page lists popular references. Please see the sidebar for them all.
     </CardBody>
   </Card>
 
-   <Card shadow='tl' link='/reference/developer_references/smart_contract_reference/dependencies/'>
-    <CardHeader>
-      <h3>Dependencies</h3>
-    </CardHeader>
-    <CardBody>
-      Quick list of Aztec.nr dependencies for importing into your Aztec smart contract
-    </CardBody>
-  </Card>
 </div>
 
 ### Others
 
 <div className="card-container">
+
   <Card shadow='tl' link='/reference/developer_references/common_errors/sandbox-errors'>
     <CardHeader>
       <h3>Common Sandbox Errors</h3>
