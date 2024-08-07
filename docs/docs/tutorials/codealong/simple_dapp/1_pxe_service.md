@@ -2,7 +2,7 @@
 
 PXE is a component of the Aztec Protocol that provides a private execution environment for your application.
 
-As an app developer, the [PXE](../../aztec/concepts/pxe/index.md) interface provides you with access to the user's accounts and their private state, as well as a connection to the network for accessing public global state.
+As an app developer, the PXE interface provides you with access to the user's accounts and their private state, as well as a connection to the network for accessing public global state.
 
 During the Sandbox phase, this role is fulfilled by the [Aztec Sandbox](../../../reference/developer_references/sandbox_reference/index.md), which runs a local PXE and an Aztec Node, both connected to a local Ethereum development node like Anvil.
 The Sandbox also includes a set of pre-initialized accounts that you can use from your app.
