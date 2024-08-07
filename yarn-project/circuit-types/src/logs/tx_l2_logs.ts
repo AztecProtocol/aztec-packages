@@ -301,21 +301,29 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
    *       for more details.
    */
   public override hash(): Buffer {
-    const unrolledLogs = this.unrollLogs();
-    if (unrolledLogs.length == 0) {
+    return EncryptedNoteTxL2Logs.hashNoteLogs(this.unrollLogs().map(log => log.hash()));
+  }
+
+  /**
+   * Hashes encrypted note logs hashes as in the same way as the base rollup would.
+   * @param siloedLogHashes - The note log hashes
+   * @returns The hash of the log hashes.
+   */
+  public static hashNoteLogs(logHashes: Buffer[]): Buffer {
+    if (logHashes.length == 0) {
       return Buffer.alloc(32);
     }
 
-    let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of unrolledLogs) {
-      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.hash()]);
+    let allSiloedLogHashes = Buffer.alloc(0);
+    for (const siloedLogHash of logHashes) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
-      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - logHashes.length; i++) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
     }
 
-    return sha256Trunc(flattenedLogs);
+    return sha256Trunc(allSiloedLogHashes);
   }
 }
 
@@ -381,19 +389,28 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    */
   public override hash(): Buffer {
     const unrolledLogs = this.unrollLogs();
-    if (unrolledLogs.length == 0) {
+    return EncryptedTxL2Logs.hashSiloedLogs(unrolledLogs.map(log => log.getSiloedHash()));
+  }
+
+  /**
+   * Hashes siloed unencrypted logs as in the same way as the base rollup would.
+   * @param siloedLogHashes - The siloed log hashes
+   * @returns The hash of the logs.
+   */
+  public static hashSiloedLogs(siloedLogHashes: Buffer[]): Buffer {
+    if (siloedLogHashes.length == 0) {
       return Buffer.alloc(32);
     }
 
-    let flattenedLogs = Buffer.alloc(0);
-    for (const logsFromSingleFunctionCall of unrolledLogs) {
-      flattenedLogs = Buffer.concat([flattenedLogs, logsFromSingleFunctionCall.getSiloedHash()]);
+    let allSiloedLogHashes = Buffer.alloc(0);
+    for (const siloedLogHash of siloedLogHashes) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_ENCRYPTED_LOGS_PER_TX - unrolledLogs.length; i++) {
-      flattenedLogs = Buffer.concat([flattenedLogs, Buffer.alloc(32)]);
+    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - siloedLogHashes.length; i++) {
+      allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
     }
 
-    return sha256Trunc(flattenedLogs);
+    return sha256Trunc(allSiloedLogHashes);
   }
 }

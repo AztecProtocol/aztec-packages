@@ -322,7 +322,9 @@ impl FixtureBuilder {
             len: self.note_encrypted_logs_hashes.len()
         };
         let encrypted_logs_hashes = BoundedVec {
-            storage: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.log_hash).map(|l: EncryptedLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
+            storage: self.encrypted_logs_hashes.storage.map(
+                |l: ScopedEncryptedLogHash| ScopedLogHash { log_hash: LogHash { value: l.log_hash.value, counter: l.log_hash.counter, length: l.log_hash.length}, contract_address: l.contract_address }
+            ),
             len: self.encrypted_logs_hashes.len()
         };
 
@@ -362,8 +364,8 @@ impl FixtureBuilder {
             note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.expose_to_public()),
-            note_encrypted_logs_hash: self.note_encrypted_logs_hash,
-            encrypted_logs_hash: self.encrypted_logs_hash,
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -728,12 +730,12 @@ impl FixtureBuilder {
         self.encrypted_log_preimages_length += length;
     }
 
-    pub fn add_siloed_encrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let mut log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 }.scope(self.storage_contract_address);
-        log_hash.log_hash.value = silo_encrypted_log_hash(log_hash);
-        self.encrypted_logs_hashes.push(log_hash);
-        self.encrypted_log_preimages_length += length;
-    }
+    // pub fn add_siloed_encrypted_log_hash(&mut self, hash: Field, length: Field) {
+    //     let mut log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 }.scope(self.storage_contract_address);
+    //     log_hash.log_hash.value = silo_encrypted_log_hash(log_hash);
+    //     self.encrypted_logs_hashes.push(log_hash);
+    //     self.encrypted_log_preimages_length += length;
+    // }
 
     pub fn append_encrypted_log_hashes(&mut self, num: u32) {
         let index_offset = self.encrypted_logs_hashes.len();
@@ -745,16 +747,16 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn hash_encrypted_log_hashes(&mut self) {
-        let mut log_hashes = self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public());
-        for i in 0..self.encrypted_logs_hashes.max_len() {
-            let log_hash = self.encrypted_logs_hashes.storage[i];
-            if !log_hash.contract_address.is_zero() {
-                log_hashes[i].value = silo_encrypted_log_hash(log_hash);
-            }
-        }
-        self.encrypted_logs_hash = compute_tx_logs_hash(log_hashes);
-    }
+    // pub fn hash_encrypted_log_hashes(&mut self) {
+    //     let mut log_hashes = self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public());
+    //     for i in 0..self.encrypted_logs_hashes.max_len() {
+    //         let log_hash = self.encrypted_logs_hashes.storage[i];
+    //         if !log_hash.contract_address.is_zero() {
+    //             log_hashes[i].value = silo_encrypted_log_hash(log_hash);
+    //         }
+    //     }
+    //     self.encrypted_logs_hash = compute_tx_logs_hash(log_hashes);
+    // }
 
     pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
