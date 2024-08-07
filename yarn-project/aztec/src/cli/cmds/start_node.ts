@@ -1,4 +1,4 @@
-import { aztecNodeConfigMappings, createAztecNodeRpcServer, sequencerClientConfigMappings } from '@aztec/aztec-node';
+import { aztecNodeConfigMappings, createAztecNodeRpcServer } from '@aztec/aztec-node';
 import { type PXE } from '@aztec/circuit-types';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';

@@ -53,11 +53,13 @@ export async function addPXE(
   let nodeUrl;
   if (pxeConfig.network) {
     if (isValidNetwork(pxeConfig.network)) {
-      if (!pxeConfig.apiKey) {
-        userLog(`API Key is required to connect to ${pxeConfig.network}`);
+      if (!pxeConfig.apiKey && !pxeConfig.nodeUrl) {
+        userLog(`API Key or Aztec Node URL is required to connect to ${pxeConfig.network}`);
         process.exit(1);
-      }
-      nodeUrl = `https://api.aztec.network/${pxeConfig.network}/aztec-node-1/${pxeConfig.apiKey}`;
+      } else if (pxeConfig.apiKey) {
+        nodeUrl = `https://api.aztec.network/${pxeConfig.network}/aztec-node-1/${pxeConfig.apiKey}`;
+      } else if (pxeConfig.nodeUrl) {
+        nodeUrl = pxeConfig.nodeUrl;
     } else {
       userLog(`Network ${pxeConfig.network} is not supported`);
       process.exit(1);
