@@ -25,6 +25,12 @@ contract NewKeyRegistry {
         }
     }
 
+    unconstrained fn get_current_keys(account: AztecAddress) -> pub PublicKeys {
+        // If #7524 were to be implemented, this function could be called by an oracle from an unconstrained function
+        // in order to produce the preimage of the stored hash, and hence prove the correctness of the keys.
+        storage.current_keys.at(account).read().public_keys
+    }
+
     #[aztec(public)]
     fn register_initial_keys(account: AztecAddress, partial_address: PartialAddress, keys: PublicKeys) {
         let computed_address = AztecAddress::compute(keys.hash(), partial_address);
@@ -50,11 +56,5 @@ contract NewKeyRegistry {
         current_keys.npk_m = new_npk_m;
 
         account_key_storage.write(StoredKeys::new(current_keys));
-    }
-
-    unconstrained fn get_current_keys(account: AztecAddress) -> pub PublicKeys {
-        // If #7524 were to be implemented, this function could be called by an oracle from an unconstrained function
-        // in order to produce the preimage of the stored hash, and hence prove the correctness of the keys.
-        storage.current_keys.at(account).read().public_keys
     }
 }
