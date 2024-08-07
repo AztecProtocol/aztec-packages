@@ -68,10 +68,13 @@ export class ProverAgent {
       const now = process.hrtime.bigint();
 
       if (now - lastPrint >= PRINT_THRESHOLD_NS) {
-        const jobs = Array.from(this.inFlightPromises.values())
-          .map(job => `id=${job.id},type=${ProvingRequestType[job.type]}`)
-          .join(' ');
-        this.log.info(`Agent is running with ${this.inFlightPromises.size} in-flight jobs: ${jobs}`);
+        // only log if we're actually doing work
+        if (this.inFlightPromises.size > 0) {
+          const jobs = Array.from(this.inFlightPromises.values())
+            .map(job => `id=${job.id},type=${ProvingRequestType[job.type]}`)
+            .join(' ');
+          this.log.info(`Agent is running with ${this.inFlightPromises.size} in-flight jobs: ${jobs}`);
+        }
         lastPrint = now;
       }
 

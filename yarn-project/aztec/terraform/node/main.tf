@@ -329,7 +329,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
         },
         {
-          name  = "PROVER_AGENTS"
+          name  = "PROVER_AGENT_ENABLED"
+          value = "false"
+        },
+        {
+          name  = "PROVER_AGENT_CONCURRENCY",
           value = "0"
         },
         {
