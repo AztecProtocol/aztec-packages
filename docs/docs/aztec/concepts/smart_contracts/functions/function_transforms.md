@@ -4,7 +4,7 @@ sidebar_position: 3
 tags: [functions]
 ---
 
-Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract. The [next page](./inner_workings.md) will give you more information about what the attributes are really doing.
+Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract. The [next page](./attributes.md) will give you more information about what the attributes are really doing.
 
 
 ## Function transformation
@@ -16,7 +16,6 @@ When you define a function in an Aztec contract, it undergoes several transforma
 - [Processing return values](#return-value-handling)
 - [Computing note hashes and nullifiers](#computing-note-hash-and-nullifier)
 - [Generating function signatures](#function-signature-generation)
-- [Implementing function checks](#static-and-internal-function-checks)
 - [Generating contract artifacts](#contract-artifacts)
 
 Let's explore each of these transformations in detail.
@@ -49,11 +48,11 @@ For public functions, context creation is simpler:
 let mut context = PublicContext::new(inputs);
 ```
 
-## Using the context in functions
+### Using the context in functions
 
 Once created, the context object provides various useful methods. Here are some common use cases:
 
-### Accessing storage
+#### Accessing storage
 
 The context allows you to interact with contract storage. eg if you have a function that calls storage like this:
 
@@ -63,7 +62,7 @@ let sender_balance = storage.balances.at(owner);
 
 This calls the context to read from the appropriate storage slot.
 
-### Interacting with other contracts
+#### Interacting with other contracts
 
 The context provides methods to call other contracts:
 
@@ -137,8 +136,6 @@ This process allows the return values to be included in the function's computati
 
 In public functions, the return value is directly used, and the function's return type remains as specified by the developer.
 
-This approach to handling return values, especially for private functions, enables Aztec to maintain privacy while still allowing for efficient verification of function execution.
-
 ## Computing note hash and nullifier
 
 A function called `compute_note_hash_and_optionally_a_nullifier` is automatically generated and injected into all contracts that use notes. This function tells Aztec how to compute hashes and nullifiers for notes used in the contract. You can optionally write this function yourself if you want notes to be handled a specific way.
@@ -179,8 +176,6 @@ The function is automatically generated based on the note types defined in the c
 ## Function signature generation
 
 Unique function signatures are generated for each contract function.
-
-### Signature computation
 
 The function signature is computed like this:
 
@@ -227,7 +222,7 @@ Contract artifacts in Aztec are automatically generated structures that describe
 
 ### Contract artifact generation process
 
-For each function in the contract, an artifact is generated as follows:
+For each function in the contract, an artifact is generated like this"
 
 - A struct is created to represent the function's parameters:
 
@@ -286,4 +281,4 @@ Contract artifacts are important because:
 - They help decode function return values in the simulator
 
 ## Further reading
-- [How do macros work](./inner_workings.md)
+- [How do macros work](./attributes.md)

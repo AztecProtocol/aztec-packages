@@ -2,7 +2,7 @@
 title: Defining Functions
 ---
 
-Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../pxe/index.md). Read more about how private functions work [here](./inner_workings.md#private-functions).
+Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions).
 
 For a more practical guide of using multiple types of functions, follow the [token tutorial](../../../../tutorials/contract_tutorials/token_contract.md).
 
@@ -24,6 +24,6 @@ There are also special oracle functions, which can get data from outside of the 
 - How to write an [initializer function](../../../../guides/smart_contracts/writing_contracts/initializers.md)
 - [Calling functions from within the same smart contract and from different contracts](../../../../guides/smart_contracts/writing_contracts/call_functions.md), including calling private functions from private functions, public from public, and even private from public
 - [Oracles](../oracles/index.md) and how Aztec smart contracts might use them
-- [How functions work under the hood](./inner_workings.md)
+- [How functions work under the hood](./attributes.md)
 
 Find a function macros reference [here](../../../../reference/smart_contract_reference/macros.md).
