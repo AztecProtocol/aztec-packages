@@ -77,6 +77,23 @@ template <typename FF_> class MegaArith {
         }
     };
 
+    // A minimal structuring specifically tailored to the medium complexity transaction for the AztecIvc benchmark
+    struct AztecIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        AztecIvcBenchStructuredBlockSizes()
+        {
+            this->ecc_op = 1 << 10;
+            this->pub_inputs = 1 << 7;
+            this->arithmetic = 1 << 17;
+            this->delta_range = 1 << 15;
+            this->elliptic = 1 << 7;
+            this->aux = 1 << 15;
+            this->lookup = 1 << 7;
+            this->busread = 1 << 7;
+            this->poseidon_external = 1 << 13;
+            this->poseidon_internal = 1 << 15;
+        }
+    };
+
     // Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
     struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         E2eStructuredBlockSizes()
@@ -177,6 +194,9 @@ template <typename FF_> class MegaArith {
                 break;
             case TraceStructure::CLIENT_IVC_BENCH:
                 fixed_block_sizes = ClientIvcBenchStructuredBlockSizes();
+                break;
+            case TraceStructure::AZTEC_IVC_BENCH:
+                fixed_block_sizes = AztecIvcBenchStructuredBlockSizes();
                 break;
             case TraceStructure::E2E_FULL_TEST:
                 fixed_block_sizes = E2eStructuredBlockSizes();
