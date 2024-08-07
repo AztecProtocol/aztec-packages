@@ -1,16 +1,16 @@
 # Keys
 The goal of this section is to give app developer a good idea what keys there are used in the system.
-For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
+For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/index.md).
 
 Each account in Aztec is backed by 4 key pairs:
 
 - A **nullifier key pair** used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
 - A **incoming viewing key pair** used to encrypt a note for the recipient, consisting of the master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
 - A **outgoing viewing key pair** used to encrypt a note for the sender, includes the master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
-- A **tagging key pair** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging), comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
+- A **tagging key pair** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery.md#note-tagging), comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
 
 :::info
-All key pairs above are derived from a secret using a ZCash inspired scheme defined in [protocol specification](../../../protocol-specs/addresses-and-keys/keys#cheat-sheet).
+All key pairs above are derived from a secret using a ZCash inspired scheme defined in [protocol specification](../../../protocol-specs/addresses-and-keys/keys.md#cheat-sheet).
 :::
 
 :::note
@@ -40,7 +40,7 @@ Below are some ways how we could instantiate it after getting the information in
 
 #include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
 
-Then to register the recipient's [complete address](#complete-address) in PXE we would call `registerRecipient` PXE endpoint using [Aztec.js](../../overview.md#aztecjs):
+Then to register the recipient's [complete address](#complete-address) in PXE we would call `registerRecipient` PXE endpoint using Aztec.js.
 
 #include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
 
@@ -133,7 +133,7 @@ Similar to using a private note, but using an immutable private note removes the
 
 #### Using shared state
 
-A compromise between the two solutions above is to use [shared state](../../../reference/developer_references/smart_contract_reference/storage/shared_state.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
+A compromise between the two solutions above is to use shared state. This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
 #### Reusing some of the in-protocol keys
 

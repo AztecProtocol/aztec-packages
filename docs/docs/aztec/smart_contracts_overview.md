@@ -24,4 +24,4 @@ There are no plans for EVM compatibility or to support Solidity in Aztec. The pr
 
 ## Further reading
 
-Read more about writing Aztec contracts [here](../../../guides/developer_guides/smart_contracts/writing_contracts/initializers).
+Jump in and write your first smart contract [here](../tutorials/codealong/contract_tutorials/counter_contract.md)

@@ -6,4 +6,4 @@ The latest information about contract deployment has moved to the protocol speci
 
 ## Further reading
 
-To see how to deploy a contract in practice, check out the [dapp development tutorial](../../../tutorials/simple_dapp).
+To see how to deploy a contract in practice, check out the [dapp development tutorial](../../tutorials/codealong/simple_dapp/index.md).

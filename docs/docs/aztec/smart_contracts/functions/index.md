@@ -21,9 +21,8 @@ There are also special oracle functions, which can get data from outside of the 
 ## Learn more about functions
 
 - [How function visibility works in Aztec](./visibility.md)
-- How to write an [initializer function](../../../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md)
-- [Calling functions from within the same smart contract and from different contracts](../../../../guides/developer_guides/smart_contracts/writing_contracts/call_functions.md), including calling private functions from private functions, public from public, and even private from public
+- How to write an [initializer function](../../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md)
 - [Oracles](../oracles/index.md) and how Aztec smart contracts might use them
 - [How functions work under the hood](./inner_workings.md)
 
-Find a function macros reference [here](../../../../reference/developer_references/smart_contract_reference/macros.md).
+Find a function macros reference [here](../../../reference/developer_references/smart_contract_reference/macros.md)

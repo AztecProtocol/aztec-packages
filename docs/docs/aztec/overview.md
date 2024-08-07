@@ -26,7 +26,7 @@ The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. Th
 
 ### Private and public state
 
-Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](./concepts/storage/trees/index), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](./concepts/storage/trees/index).
+Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](./concepts/storage/trees/index.md), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](./concepts/storage/trees/index).
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a [public data tree](./concepts/storage/trees/index.md#public-state-tree).
 
@@ -38,11 +38,11 @@ Every account in Aztec is a smart contract (account abstraction). This allows im
 
 Developers can write their own account contract to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed.
 
-Learn more about account contracts [here](index.md).
+Learn more about account contracts [here](./concepts/accounts/index.md).
 
 ## Smart contracts
 
-Developers can write [smart contracts](smart_contracts/index.md) that manipulate both public and private state. They are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. Outside of Aztec, Noir is used for writing circuits that can be verified on EVM chains.
+Developers can write [smart contracts](./smart_contracts_overview.md) that manipulate both public and private state. They are written in a framework on top of Noir, the zero-knowledge domain-specific language developed specifically for Aztec. Outside of Aztec, Noir is used for writing circuits that can be verified on EVM chains.
 
 Noir has its own doc site that you can find [here](https://noir-lang.org).
 
@@ -52,15 +52,15 @@ Aztec allows private communications with Ethereum - ie no-one knows where the tr
 
 This is achieved through portals - these are smart contracts deployed on an EVM that are related to the Ethereum smart contract you want to interact with.
 
-Learn more about portals [here](../../protocol-specs/l1-smart-contracts/index.md).
+Learn more about portals [here](../protocol-specs/l1-smart-contracts/index.md).
 
 ## Circuits
 
 Aztec operates on three types of circuits:
 
-- [Private kernel circuits](circuits/kernels/private_kernel.md), which are executed by the user on their own device and prove correct execution of a function
-- [Public kernel circuits](./circuits/kernels/public_kernel.md), which are executed by the [sequencer](nodes_clients/sequencer/index.md) and ensure the stack trace of transactions adheres to function execution rules
-- [Rollup circuits](circuits/index.md), which bundle all of the Aztec transactions into a proof that can be efficiently verified on Ethereum
+- [Private kernel circuits](../aztec/concepts/circuits/kernels/private_kernel.md), which are executed by the user on their own device and prove correct execution of a function
+- [Public kernel circuits](../aztec/concepts/circuits/kernels/public_kernel.md), which are executed by the [sequencer](./network/sequencer/index.md) and ensure the stack trace of transactions adheres to function execution rules
+- [Rollup circuits](../aztec/concepts/circuits/index.md), which bundle all of the Aztec transactions into a proof that can be efficiently verified on Ethereum
 
 ## What's next?
 
@@ -70,4 +70,4 @@ Explore the Concepts for a deeper understanding into the components that make up
 
 ### Start coding
 
-Follow the [developer getting started guide](../guides/developer_guides/getting_started/).
+Follow the [developer getting started guide](../guides/developer_guides/getting_started/quickstart.md).

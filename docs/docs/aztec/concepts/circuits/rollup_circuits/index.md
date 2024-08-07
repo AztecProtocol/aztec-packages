@@ -15,4 +15,4 @@ The way we 'squish' all this data is in a 'binary tree of proofs' topology.
 
 Some of the Rollup Circuits also do some protocol checks and computations, for efficiency reasons. We might rearrange which circuit does what computation, as we discover opportunities for efficiency.
 
-Read more about the rollup circuits in the protocol spec [here](../../../../protocol-specs/rollup-circuits).
+Read more about the rollup circuits in the protocol spec [here](../../../../protocol-specs/rollup-circuits/index.md).

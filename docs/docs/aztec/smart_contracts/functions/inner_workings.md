@@ -12,7 +12,7 @@ If you are looking for a reference of function macros, go [here](../../../refere
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[aztec(private)]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#aztec(private)` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../circuits/kernels/private_kernel.md).
+`#aztec(private)` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -26,12 +26,12 @@ To help illustrate how this interacts with the internals of Aztec and its kernel
 
 #### The expansion broken down
 
-Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts interact with the [kernel](../../circuits/kernels/private_kernel.md). To aid with developing intuition, we will break down each inserted line.
+Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts interact with the kernel. To aid with developing intuition, we will break down each inserted line.
 
 **Receiving context from the kernel.**
 #include_code context-example-inputs /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-Private function calls are able to interact with each other through orchestration from within the [kernel circuit](../../circuits/kernels/private_kernel.md). The kernel circuit forwards information to each contract function (recall each contract function is a circuit). This information then becomes part of the private context.
+Private function calls are able to interact with each other through orchestration from within the kernel circuits. The kernel circuit forwards information to each contract function (recall each contract function is a circuit). This information then becomes part of the private context.
 For example, within each private function we can access some global variables. To access them we can call on the `context`, e.g. `context.chain_id()`. The value of the chain ID comes from the values passed into the circuit from the kernel.
 
 The kernel checks that all of the values passed to each circuit in a function call are the same.
@@ -66,7 +66,7 @@ We achieve this by pushing return values to the execution context, which we then
 **Making the contract's storage available**
 #include_code storage-example-context /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-When a [`Storage` struct](../../../../guides/developer_guides/smart_contracts/writing_contracts/storage) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
+When a `Storage` struct is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
@@ -79,14 +79,14 @@ This function takes the application context, and converts it into the `PrivateCi
 
 Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as un-trusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
 
-Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../pxe/acir_simulator.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles).
+Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../aztec/concepts/pxe/index.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/index.md).
 
 When an unconstrained function is called, it prompts the ACIR simulator to
 
 1. generate the execution environment
 2. execute the function within this environment
 
-To generate the environment, the simulator gets the blockheader from the [PXE database](../../pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
+To generate the environment, the simulator gets the blockheader from the [PXE database](../../../aztec/concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
@@ -97,7 +97,7 @@ This:
 1. Prepares the ACIR for execution
 2. Converts `args` into a format suitable for the ACVM (Abstract Circuit Virtual Machine), creating an initial witness (witness = set of inputs required to compute the function). `args` might be an oracle to request a user's balance
 3. Executes the function in the ACVM, which involves running the ACIR with the initial witness and the context. If requesting a user's balance, this would query the balance from the PXE database
-4. Extracts the return values from the `partialWitness` and decodes them based on the artifact to get the final function output. The [artifact](../../../../reference/developer_references/smart_contract_reference/contract_artifact.md) is the compiled output of the contract, and has information like the function signature, parameter types, and return types
+4. Extracts the return values from the `partialWitness` and decodes them based on the artifact to get the final function output. The artifact is the compiled output of the contract, and has information like the function signature, parameter types, and return types
 
 Beyond using them inside your other functions, they are convenient for providing an interface that reads storage, applies logic and returns values to a UI or test. Below is a snippet from exposing the `balance_of_private` function from a token implementation, which allows a user to easily read their balance, similar to the `balanceOf` function in the ERC20 standard.
 
@@ -115,7 +115,7 @@ A public function is executed by the sequencer and has access to a state model t
 All data inserted into private storage from a public function will be publicly viewable (not private).
 :::
 
-To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the [public context](./context.md) available within the function's execution scope.
+To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the public context available within the function's execution scope.
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -183,7 +183,7 @@ assert(context.msg_sender() == context.this_address(), "Function can only be cal
 
 ## Custom notes #[aztec(note)]
 
-The `#[aztec(note)]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../../concepts/storage/index.md).
+The `#[aztec(note)]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
 When a struct is annotated with `#[aztec(note)]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
