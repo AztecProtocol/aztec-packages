@@ -318,7 +318,7 @@ const config = {
               },
               {
                 to: "https://twitter.com/aztecprotocol",
-                label: "Twitter",
+                label: "X/Twitter",
                 target: "_blank",
                 rel: "noopener noreferrer",
                 className: "twitter-item",
@@ -359,7 +359,7 @@ const config = {
                 href: "https://discord.gg/DgWG2DBMyB",
               },
               {
-                label: "Twitter",
+                label: "X/Twitter",
                 href: "https://twitter.com/aztecnetwork",
               },
               {
