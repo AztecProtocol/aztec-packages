@@ -281,7 +281,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         const auto betas = accumulator->gate_challenges;
         assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
-        return Polynomial<FF>(coeffs, accumulator->circuit_size);
+        return Polynomial<FF>(coeffs, coeffs.size());
     }
 
     OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;

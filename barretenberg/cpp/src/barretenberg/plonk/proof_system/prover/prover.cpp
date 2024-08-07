@@ -82,7 +82,7 @@ template <typename settings> void ProverBase<settings>::compute_wire_commitments
 
         // This automatically saves the computed point to the transcript
         fr domain_size_flag = i > 2 ? key->circuit_size : (key->circuit_size + 1);
-        commitment_scheme->commit(coefficients, commit_tag, domain_size_flag, queue);
+        commitment_scheme->commit(coefficients.as_span(), commit_tag, domain_size_flag, queue);
     }
 
     // add public inputs

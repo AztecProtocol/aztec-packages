@@ -87,9 +87,11 @@ void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanish
     [[maybe_unused]] std::array<fr*, program_width> lagrange_base_ids;
 
     for (size_t i = 0; i < program_width; ++i) {
-        lagrange_base_wires_ptr[i] = key->polynomial_store.get("w_" + std::to_string(i + 1) + "_lagrange").data();
+        lagrange_base_wires_ptr[i] =
+            key->polynomial_store.get("w_" + std::to_string(i + 1) + "_lagrange").dense_view().data();
         lagrange_base_wires[i] = lagrange_base_wires_ptr[i].get();
-        lagrange_base_sigmas_ptr[i] = key->polynomial_store.get("sigma_" + std::to_string(i + 1) + "_lagrange").data();
+        lagrange_base_sigmas_ptr[i] =
+            key->polynomial_store.get("sigma_" + std::to_string(i + 1) + "_lagrange").dense_view().data();
         lagrange_base_sigmas[i] = lagrange_base_sigmas_ptr[i].get();
 
         // If idpolys = true, it implies that we do NOT use the identity permutation

@@ -36,9 +36,7 @@ template <typename Fr> void DensePolynomial<Fr>::allocate_backing_memory(size_t 
 template <typename Fr>
 DensePolynomial<Fr> DensePolynomial<Fr>::from_sparse_underlying_array(const SharedShiftedVirtualZeroesArray<Fr>& array)
 {
-    if (array.size() != array.virtual_size()) {
-        throw_or_abort("attempt to alias a sparse polynomial as a dense polynomial");
-    }
+    ASSERT(array.size() == array.virtual_size());
     DensePolynomial poly;
     poly.backing_memory_ = array.backing_memory_;
     poly.coefficients_ = poly.backing_memory_.get() + array.shift_;

@@ -90,6 +90,11 @@ template <typename Fr> class Polynomial {
 
     bool is_empty() const { return coefficients_.size() == 0; }
 
+    Fr* begin() { return data(); }
+    Fr* end() { return data() + size(); }
+    const Fr* begin() const { return data(); }
+    const Fr* end() const { return data() + size(); }
+
     /**
      * @brief Returns an std::span of the left-shift of self.
      *
@@ -97,6 +102,40 @@ template <typename Fr> class Polynomial {
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
     Polynomial shifted() const;
+
+    /**
+     * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)
+     * at u = (u₀,…,uₘ₋₁)
+     *
+     * @details this function allocates a temporary buffer of size n/2
+     *
+     * @param evaluation_points an MLE evaluation point u = (u₀,…,uₘ₋₁)
+     * @param shift evaluates p'(X₀,…,Xₘ₋₁) = 1⋅L₀(X₀,…,Xₘ₋₁) + ∑ᵢ˲₁ aᵢ₋₁⋅Lᵢ(X₀,…,Xₘ₋₁) if true
+     * @return Fr p(u₀,…,uₘ₋₁)
+     */
+    Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
+
+    /**
+     * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
+     *
+     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension p(X_0,…,X_{n-1}) =
+     * \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables X_n-m,…,X_{n-1}. The result
+     * is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
+     *
+     * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
+     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable (as
+     * is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
+     * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
+     * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
+     * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
+     *
+     * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
+     * @return DensePolynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
+     */
+    Polynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
+
+    Fr evaluate(const Fr& z, size_t target_size) const;
+    Fr evaluate(const Fr& z) const;
 
     /**
      * @brief Set self to the right shift of input coefficients

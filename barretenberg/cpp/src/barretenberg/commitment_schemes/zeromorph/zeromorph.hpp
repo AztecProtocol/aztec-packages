@@ -353,14 +353,14 @@ template <typename Curve> class ZeroMorphProver_ {
         Polynomial f_batched(N); // batched unshifted polynomials
         FF batching_scalar{ 1 };
         for (auto [f_poly, f_eval] : zip_view(f_polynomials, f_evaluations)) {
-            f_batched.add_scaled(f_poly, batching_scalar);
+            f_batched.add_scaled(f_poly.as_span(), batching_scalar);
             batched_evaluation += batching_scalar * f_eval;
             batching_scalar *= rho;
         }
 
         Polynomial g_batched{ N }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
-            g_batched.add_scaled(g_poly, batching_scalar);
+            g_batched.add_scaled(g_poly.as_span(), batching_scalar);
             batched_evaluation += batching_scalar * g_shift_eval;
             batching_scalar *= rho;
         };
@@ -377,10 +377,10 @@ template <typename Curve> class ZeroMorphProver_ {
         }
         // for each group
         for (size_t i = 0; i < num_groups; ++i) {
-            concatenated_batched.add_scaled(concatenated_polynomials[i], batching_scalar);
+            concatenated_batched.add_scaled(concatenated_polynomials[i].as_span(), batching_scalar);
             // for each element in a group
             for (size_t j = 0; j < num_chunks_per_group; ++j) {
-                concatenation_groups_batched[j].add_scaled(concatenation_groups[i][j], batching_scalar);
+                concatenation_groups_batched[j].add_scaled(concatenation_groups[i][j].as_span(), batching_scalar);
             }
             batched_evaluation += batching_scalar * concatenated_evaluations[i];
             batching_scalar *= rho;
@@ -389,8 +389,8 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute the full batched polynomial f = f_batched + g_batched.shifted() = f_batched + h_batched. This is the
         // polynomial for which we compute the quotients q_k and prove f(u) = v_batched.
         Polynomial f_polynomial = f_batched;
-        f_polynomial += g_batched.shifted();
-        f_polynomial += concatenated_batched;
+        f_polynomial += g_batched.shifted().as_span();
+        f_polynomial += concatenated_batched.as_span();
 
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
         std::vector<Polynomial> quotients = compute_multilinear_quotients(f_polynomial, u_challenge);

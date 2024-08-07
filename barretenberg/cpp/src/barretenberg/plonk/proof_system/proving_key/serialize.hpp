@@ -127,7 +127,7 @@ template <typename B> inline void write_to_file(B& os, std::string const& path, 
         auto value = key.polynomial_store.get(poly_id);
         auto size = value.size();
         std::ofstream ofs(filename);
-        ofs.write((char*)value.data().get(), (std::streamsize)(size * sizeof(bb::fr)));
+        ofs.write((char*)value.data(), (std::streamsize)(size * sizeof(bb::fr)));
         if (!ofs.good()) {
             throw_or_abort(format("Failed to write: ", filename));
         }

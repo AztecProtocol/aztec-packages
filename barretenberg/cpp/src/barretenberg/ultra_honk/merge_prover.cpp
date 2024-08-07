@@ -48,7 +48,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     // Construct t_i^{shift} as T_i - T_{i-1}
     std::array<Polynomial, NUM_WIRES> t_shift;
     for (size_t i = 0; i < NUM_WIRES; ++i) {
-        t_shift[i] = Polynomial(T_current[i]);
+        t_shift[i] = Polynomial(T_current[i], T_current[i].size());
         t_shift[i] -= T_prev[i];
     }
 
@@ -58,7 +58,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
         // Get previous transcript commitment [T_{i-1}] from op queue
         const auto& C_T_prev = op_queue->get_ultra_ops_commitments()[idx];
         // Compute commitment [t_i^{shift}] directly
-        auto C_t_shift = pcs_commitment_key->commit(t_shift[idx]);
+        auto C_t_shift = pcs_commitment_key->commit(t_shift[idx].as_span());
         // Compute updated aggregate transcript commitment as [T_i] = [T_{i-1}] + [t_i^{shift}]
         C_T_current[idx] = C_T_prev + C_t_shift;
 
@@ -79,7 +79,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     std::vector<OpeningClaim> opening_claims;
     // Compute evaluation T_{i-1}(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto polynomial = Polynomial(T_prev[idx]);
+        auto polynomial = Polynomial(T_prev[idx], T_prev[idx].size());
         auto evaluation = polynomial.evaluate(kappa);
         transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx + 1), evaluation);
         opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });

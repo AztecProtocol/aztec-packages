@@ -258,7 +258,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
             }
         }
         // Compute inverse polynomial I in place by inverting the product at each row
-        FF::batch_invert(inverse_polynomial);
+        FF::batch_invert(inverse_polynomial.as_span());
     };
 
     /**
