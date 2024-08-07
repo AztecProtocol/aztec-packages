@@ -96,3 +96,32 @@ export async function getL1ContractAddressesFromUrl(url: string, log: DebugLogge
     throw error;
   }
 }
+
+function convertToL1ContractAddresses(obj: any): L1ContractAddresses {
+  if (typeof obj !== 'object' || obj === null) {
+    throw new Error('Object is not valid');
+  }
+
+  const result: Partial<L1ContractAddresses> = {};
+
+  for (const key of l1ContractsNames) {
+    const value = obj[key];
+    result[key] = EthAddress.fromString(value);
+  }
+
+  return result as L1ContractAddresses;
+}
+
+export async function getL1ContractAddressesFromUrl(url: string, log: DebugLogger): Promise<L1ContractAddresses> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error when fetching L1 contracts from ${url}. Status: ${response.status}`);
+    }
+    const data = await response.json();
+    return convertToL1ContractAddresses(data);
+  } catch (error) {
+    log.error(`Error fetching JSON from ${url}:`, error);
+    throw error;
+  }
+}

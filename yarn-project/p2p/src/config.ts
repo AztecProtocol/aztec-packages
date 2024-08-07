@@ -5,8 +5,6 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 
-import { SemVer } from 'semver';
-
 /**
  * P2P client configuration values.
  */
@@ -80,11 +78,6 @@ export interface P2PConfig {
    * Data directory for peer & tx databases.
    */
   dataDirectory?: string;
-
-  /**
-   * The transaction gossiping message version.
-   */
-  txGossipVersion: SemVer;
 
   /**
    * If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
@@ -163,13 +156,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   dataDirectory: {
     env: 'DATA_DIRECTORY',
     description: 'Data directory for peer & tx databases. Will use temporary location if not set.',
-  },
-  txGossipVersion: {
-    env: 'TX_GOSSIP_VERSION',
-    description: 'The transaction gossiping message version.',
-    parseEnv: (val: string) => new SemVer(val),
-    default: new SemVer('0.1.0'),
-    printDefault: (val: SemVer) => val.toString(),
   },
   queryForIp: {
     env: 'P2P_QUERY_FOR_IP',
