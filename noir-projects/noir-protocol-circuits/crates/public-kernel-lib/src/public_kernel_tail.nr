@@ -415,39 +415,35 @@ mod tests {
         // TODO: Check the values in public inputs.
     }
 
-    // #[test]
-    // fn logs_are_handled_as_expected() {
-    //     let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-    //     // Logs for the previous call stack.
-    //     let prev_encrypted_logs_hash = 80;
-    //     let prev_encrypted_log_preimages_length = 13;
-    //     let prev_unencrypted_logs_hash = 956;
-    //     let prev_unencrypted_log_preimages_length = 24;
-    //     builder.previous_revertible.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-    //     builder.previous_revertible.add_unencrypted_log_hash(
-    //         prev_unencrypted_logs_hash,
-    //         prev_unencrypted_log_preimages_length
-    //     );
-    //     // Logs for the current call stack.
-    //     let unencrypted_logs_hash = 26;
-    //     let unencrypted_log_preimages_length = 50;
-    //     builder.previous_revertible.add_unencrypted_log_hash(unencrypted_logs_hash, unencrypted_log_preimages_length);
+    #[test]
+    fn measuring_of_log_lengths() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        // Logs for the previous call stack.
+        let prev_encrypted_logs_hash = 80;
+        let prev_encrypted_log_preimages_length = 13;
+        let prev_unencrypted_logs_hash = 956;
+        let prev_unencrypted_log_preimages_length = 24;
+        builder.previous_revertible.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_revertible.add_unencrypted_log_hash(
+            prev_unencrypted_logs_hash,
+            prev_unencrypted_log_preimages_length
+        );
+        // Logs for the current call stack.
+        let unencrypted_logs_hash = 26;
+        let unencrypted_log_preimages_length = 50;
+        builder.previous_revertible.add_unencrypted_log_hash(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
-    //     let public_inputs = builder.execute();
+        let public_inputs = builder.execute();
 
-    //     assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
-    //     assert_eq(
-    //         public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
-    //     );
+        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
 
-    //     let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash.to_be_bytes(32).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32]).as_array();
-    //     let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
-    //     assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
-
-    //     assert_eq(
-    //         public_inputs.end.unencrypted_logs_hashes, builder.previous_revertible.unencrypted_logs_hashes.storage
-    //     );
-    // }
+        assert_eq(
+            public_inputs.end.unencrypted_logs_hashes, builder.previous_revertible.unencrypted_logs_hashes.storage
+        );
+    }
 
     #[test]
     unconstrained fn one_pending_nullifier_read_request() {
