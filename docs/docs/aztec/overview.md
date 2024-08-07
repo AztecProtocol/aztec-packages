@@ -69,6 +69,73 @@ Aztec operates on three types of circuits:
 
 Explore the Concepts for a deeper understanding into the components that make up Aztec:
 
+<div className="card-container">
+
+  <Card shadow='tl' link='/aztec/concepts/accounts'>
+    <CardHeader>
+      <h3>Accounts</h3>
+    </CardHeader>
+    <CardBody>
+      Learn about Aztec's native account abstraction - every account in Aztec is a smart contract which defines the rules for whether a transaction is or is not valid
+    </CardBody>
+  </Card>
+
+  <Card shadow='tl' link='/aztec/concepts/circuits'>
+    <CardHeader>
+      <h3>Circuits</h3>
+    </CardHeader>
+    <CardBody>
+      Central to Aztec's operations are circuits in the core protocol and the developer-written Aztec.nr contracts
+    </CardBody>
+  </Card>
+
+  <Card shadow='tl' link='/aztec/concepts/pxe'>
+    <CardHeader>
+      <h3>PXE (pronounced 'pixie')</h3>
+    </CardHeader>
+    <CardBody>
+      The Private Execution Environment (or PXE) is a client-side library for the execution of private operations
+    </CardBody>
+  </Card>
+
+   <Card shadow='tl' link='/aztec/concepts/state_model'>
+    <CardHeader>
+      <h3>State model</h3>
+    </CardHeader>
+    <CardBody>
+      Aztec has a hybrid public/private state model
+    </CardBody>
+  </Card>
+
+  <Card shadow='tl' link='/aztec/concepts/storage'>
+    <CardHeader>
+      <h3>Storage</h3>
+    </CardHeader>
+    <CardBody>
+     In Aztec, private data and public data are stored in two trees: a public data tree and a note hashes tree
+    </CardBody>
+  </Card>
+
+  <Card shadow='tl' link='/aztec/concepts/wallets'>
+    <CardHeader>
+      <h3>Wallets</h3>
+    </CardHeader>
+    <CardBody>
+     Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions
+    </CardBody>
+  </Card>
+
+</div>
+
 ### Start coding
 
-Follow the [developer getting started guide](../guides/developer_guides/getting_started/quickstart.md).
+<div>
+ <Card shadow='tl' link='/guides/developer_guides/getting_started/quickstart'>
+    <CardHeader>
+      <h3>Developer quickstart</h3>
+    </CardHeader>
+    <CardBody>
+      Follow the getting started guide to start developing with the Aztec Sandbox
+    </CardBody>
+  </Card>
+</div>

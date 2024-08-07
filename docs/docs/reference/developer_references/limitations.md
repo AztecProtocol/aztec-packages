@@ -173,11 +173,11 @@ This will be patched in the near future, but unfortunately, app developers might
 
 ### New Privacy Standards are required
 
-There are many [patterns](./privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
+There are many [patterns](../../guides/privacy_considerations.md) which can leak privacy, even on Aztec. Standards haven't been developed yet, to encourage best practices when designing private smart contracts.
 
 #### What are the consequences?
 
-For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](./privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
+For example, until community standards are developed to reduce the uniqueness of ['Tx Fingerprints'](../../guides/privacy_considerations.md#function-fingerprints-and-tx-fingerprints) app developers might accidentally forfeit some function privacy.
 
 ## Circuit limitations
 
