@@ -1,11 +1,11 @@
 ---
-title: "Private voting contract"
+title: "Private Voting Contract"
 sidebar_position: 1
 ---
 
 import Image from '@theme/IdealImage';
 
-# Writing a private voting smart contract in Aztec.nr
+# Writing a Private Voting Smart Contract in Aztec.nr
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
