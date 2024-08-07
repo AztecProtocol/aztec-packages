@@ -51,6 +51,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '--register-only',
       'Just register the account on the PXE. Do not deploy or initialize the account contract.',
     )
+    .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
@@ -58,7 +59,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   addOptions(createAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
     const { createAccount } = await import('../cmds/create_account.js');
     const options = command.optsWithGlobals();
-    const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias } = options;
+    const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, json } = options;
     let { publicKey } = options;
     if ((type as AccountType) === 'ecdsasecp256r1ssh' && !publicKey) {
       const identities = await getIdentities();
@@ -85,6 +86,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicDeploy,
       wait,
       FeeOpts.fromCli(options, log),
+      json,
       debugLogger,
       log,
     );
