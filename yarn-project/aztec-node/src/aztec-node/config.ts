@@ -42,7 +42,7 @@ export function getConfigEnvVars(): AztecNodeConfig {
     ...getP2PConfigEnvVars(),
     ...getWorldStateVars(),
     ...getProverEnvVars(),
-    ...getValidatorEnvVars (),
+    ...getValidatorEnvVars(),
     disableSequencer: !!SEQ_DISABLED,
     disableValidator: !!VALIDATOR_DISABLED,
     disableProver: ['1', 'true'].includes(PROVER_DISABLED),
