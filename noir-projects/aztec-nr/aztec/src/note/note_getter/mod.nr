@@ -136,7 +136,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, FILTER_ARGS>(
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
     let notes = crate::utils::collapse(filtered_notes);
-    let mut note_and_hashes = BoundedVec::new();
+    let mut notes_and_hashes = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
     // results in reduced gate counts when setting a limit value, since we guarantee that the limit is an upper bound
@@ -159,11 +159,11 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, FILTER_ARGS>(
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
             // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
             context.push_note_hash_read_request(note_hash_for_read_request);
-            note_and_hashes.push(NoteAndHash { note, hash: note_hash_for_read_request });
+            notes_and_hashes.push(NoteAndHash { note, hash: note_hash_for_read_request });
         };
     }
 
-    note_and_hashes
+    notes_and_hashes
 }
 
 unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: Field) -> Note where Note: NoteInterface<N, M> {
