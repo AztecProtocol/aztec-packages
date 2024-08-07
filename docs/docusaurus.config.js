@@ -389,8 +389,9 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} Aztec, built with Docusaurus, powered by <a target="_blank" href="https://netlify.com">Netlify.</a>`,
       },
       prism: {
-        theme: lightTheme,
-        darkTheme: darkTheme,
+        theme: themes.nightOwlLight,
+        darkTheme: themes.shadesOfPurple,
+        // darkTheme: themes.dracula,
         // https://prismjs.com/#supported-languages
         // Commented-out languages exists in `node_modules/prismjs/components/` so I'm not sure why they don't work.
         additionalLanguages: [
@@ -402,7 +403,6 @@ const config = {
           // "typescript",
           "json",
           // "bash",
-          // "solidity",
           "toml",
           "markdown",
           "docker",
