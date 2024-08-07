@@ -6,7 +6,7 @@ tags: [functions]
 
 Below, we go more into depth of what is happening under the hood when you create a function in an Aztec contract and what the attributes are really doing.
 
-If you are looking for a reference of function macros, go [here](../../../../reference/smart_contract_reference/macros.md).
+If you are looking for a reference of function macros, go [here](../../../reference/developer_references/smart_contract_reference/macros.md).
 
 ## Private functions #[aztec(private)]
 
@@ -66,7 +66,7 @@ We achieve this by pushing return values to the execution context, which we then
 **Making the contract's storage available**
 #include_code storage-example-context /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-When a [`Storage` struct](../../../../guides/smart_contracts/writing_contracts/storage) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
+When a [`Storage` struct](../../../../guides/developer_guides/smart_contracts/writing_contracts/storage) is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
@@ -97,7 +97,7 @@ This:
 1. Prepares the ACIR for execution
 2. Converts `args` into a format suitable for the ACVM (Abstract Circuit Virtual Machine), creating an initial witness (witness = set of inputs required to compute the function). `args` might be an oracle to request a user's balance
 3. Executes the function in the ACVM, which involves running the ACIR with the initial witness and the context. If requesting a user's balance, this would query the balance from the PXE database
-4. Extracts the return values from the `partialWitness` and decodes them based on the artifact to get the final function output. The [artifact](../../../../reference/smart_contract_reference/contract_artifact.md) is the compiled output of the contract, and has information like the function signature, parameter types, and return types
+4. Extracts the return values from the `partialWitness` and decodes them based on the artifact to get the final function output. The [artifact](../../../../reference/developer_references/smart_contract_reference/contract_artifact.md) is the compiled output of the contract, and has information like the function signature, parameter types, and return types
 
 Beyond using them inside your other functions, they are convenient for providing an interface that reads storage, applies logic and returns values to a UI or test. Below is a snippet from exposing the `balance_of_private` function from a token implementation, which allows a user to easily read their balance, similar to the `balanceOf` function in the ERC20 standard.
 
@@ -361,6 +361,6 @@ Key things to keep in mind:
 
 ## Further reading
 - [How do macros work](./inner_workings.md)
-- [Macros reference](../../../../reference/smart_contract_reference/macros.md)
+- [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
 
 

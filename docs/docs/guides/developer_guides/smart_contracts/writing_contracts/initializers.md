@@ -46,4 +46,4 @@ Calling any one of the functions annotated with `#[aztec(initializer)]` will mar
 
 See [this page of the protocol specs](../../../protocol-specs/contract-deployment/instances.md#initialization) for more info about what marking a function as initialized means.
 
-To see an initializer in action, check out the [Counter Contract Tutorial](../../../tutorials/contract_tutorials/counter_contract.md).
+To see an initializer in action, check out the [Counter Contract Tutorial](../../../tutorials/codealong/contract_tutorials/counter_contract.md).

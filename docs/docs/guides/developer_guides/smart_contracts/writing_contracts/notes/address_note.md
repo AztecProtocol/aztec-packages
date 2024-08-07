@@ -39,4 +39,4 @@ In this example, `owner` is the `address` and the `npk_m_hash` of the donor was 
 
 - [Keys, including nullifier keys and outgoing viewer](../../../../aztec/concepts/accounts/keys.md)
 - [How to write a custom note](./custom_note.md)
-- [AddressNote reference](https://docs.aztec.network/reference/smart_contract_reference/aztec-nr/address-note/address_note)
+- [AddressNote reference](https://docs.aztec.network/reference/developer_references/smart_contract_reference/aztec-nr/address-note/address_note)

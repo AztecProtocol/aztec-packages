@@ -3,7 +3,7 @@ title: How to Compile a Contract
 sidebar_position: 3
 ---
 
-Once you have written a contract in Aztec.nr, you will need to compile it into an [artifact](../../aztec/concepts/smart_contracts/contract_structure.md) in order to use it.
+Once you have written a contract in Aztec.nr, you will need to compile it into an artifact in order to use it.
 
 In this guide we will cover how to do so, both using the `aztec-nargo` command and programmatically.
 
@@ -19,7 +19,7 @@ Run the `aztec-nargo compile` command within your contract project folder (the o
 aztec-nargo compile
 ```
 
-This will output a JSON [artifact](../../aztec/concepts/smart_contracts/contract_structure.md) for each contract in the project to a `target` folder containing the Noir ABI artifacts.
+This will output a JSON artifact for each contract in the project to a `target` folder containing the Noir ABI artifacts.
 
 :::note
 This command looks for `Nargo.toml` files by ascending up the parent directories, and will compile the top-most Nargo.toml file it finds.
@@ -260,7 +260,7 @@ contract FPC {
 }
 ```
 
-Read more about how to use the Aztec.nr interfaces [here](../../aztec/concepts/smart_contracts/functions/index.md).
+Read more about how to use the Aztec.nr interfaces [here](../../aztec/smart_contracts/functions/index.md).
 
 :::info
 At the moment, the compiler generates these interfaces from already compiled ABIs, and not from source code. This means that you should not import a generated interface from within the same project as its source contract, or you risk circular references.

@@ -9,9 +9,9 @@ Once you have [compiled](how_to_compile_contract.md) your contracts you can proc
 
 ## Prerequisites
 
-- `aztec-nargo` installed (go to [Sandbox section](../../reference/sandbox_reference/index.md) for installation instructions)
+- `aztec-nargo` installed (go to [Sandbox section](../../../reference/developer_references/sandbox_reference/index.md) for installation instructions)
 - contract artifacts ready (go to [How to Compile Contract](how_to_compile_contract.md) for instructions on how to compile contracts)
-- Aztec Sandbox running (go to [Sandbox section](../../getting_started.md) for instructions on how to install and run the sandbox)
+- Aztec Sandbox running (go to [Sandbox section](../getting_started/quickstart.md) for instructions on how to install and run the sandbox)
 
 ## Deploy
 

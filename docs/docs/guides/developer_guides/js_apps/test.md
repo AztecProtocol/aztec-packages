@@ -7,7 +7,7 @@ In this guide we will cover how to interact with your Aztec.nr smart contracts i
 ## Prerequisites
 
 - A compiled contract with TS interface (read [how to compile](../smart_contracts/how_to_compile_contract.md))
-- Your sandbox running (read [getting started](../../getting_started.md))
+- Your sandbox running (read [getting started](../getting_started/quickstart.md))
 
 ## Create TS file and install libraries
 
@@ -100,7 +100,7 @@ WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5f
 
 We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`.
 
-To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../../reference/smart_contract_reference/storage/index.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../../reference/sandbox_reference/cheat_codes.md) utility class:
+To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../../reference/developer_references/smart_contract_reference/storage/index.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../../reference/developer_references/sandbox_reference/cheat_codes.md) utility class:
 
 #include_code calc-slot /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -128,7 +128,7 @@ We can query the PXE for the unencrypted logs emitted in the block where our tra
 
 ## Cheats
 
-The [`CheatCodes`](../../reference/sandbox_reference/cheat_codes.md) class, which we used for [calculating the storage slot above](#querying-state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
+The [`CheatCodes`](../../reference/developer_references/sandbox_reference/cheat_codes.md) class, which we used for [calculating the storage slot above](#querying-state), also includes a set of cheat methods for modifying the chain state that can be handy for testing.
 
 ### Set next block timestamp
 
@@ -146,5 +146,5 @@ We can then call `warp` and rely on the `isTimeEqual` function to check that the
 - [How to send a transactions in Aztec.js](./send_transaction.md)
 - [How to deploy a contract in Aztec.js](./deploy_contract.md)
 - [How to create an account in Aztec.js](./create_account.md)
-- [Cheat codes](../../reference/sandbox_reference/cheat_codes.md)
+- [Cheat codes](../../reference/developer_references/sandbox_reference/cheat_codes.md)
 - [How to compile a contract](../smart_contracts/how_to_compile_contract.md).

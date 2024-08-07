@@ -4,7 +4,7 @@ title: Sandbox Reference
 
 :::tip
 
-For a quick start, follow the [guide](../../getting_started.md) to install the sandbox.
+For a quick start, follow the [guide](../../../guides/developer_guides/getting_started/quickstart.md) to install the sandbox.
 
 :::
 

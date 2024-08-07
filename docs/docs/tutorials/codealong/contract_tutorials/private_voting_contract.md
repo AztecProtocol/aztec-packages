@@ -21,7 +21,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../getting_started.md) to install `aztec-nargo` and `aztec`.
+- You have followed the [quickstart](../../../guides/developer_guides/getting_started/quickstart.md) to install `aztec-nargo` and `aztec`.
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -129,7 +129,7 @@ The first thing we do here is assert that the vote has not ended.
 The code after the assertion will only run if the assertion is true. In this snippet, we read the current vote tally at the `candidate`, add 1 to it, and write this new number to the `candidate`. The `Field` element allows us to use `+` to add to an integer.
 
 :::warning
-Refer to [common patterns](../../guides/smart_contracts/writing_contracts/common_patterns/key_rotation.md) for more information about key rotation and considerations.
+Refer to [common patterns](../../guides/developer_guides/smart_contracts/writing_contracts/common_patterns/key_rotation.md) for more information about key rotation and considerations.
 :::
 
 ## Getting the number of votes
@@ -177,6 +177,6 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 ### Optional: Learn more about concepts mentioned here
 
  - [Unconstrained functions](../../aztec/concepts/pxe/acir_simulator.md#unconstrained-functions).
- - [Oracles](../../aztec/concepts/smart_contracts/oracles/index.md)
+ - [Oracles](../../../aztec/smart_contracts/oracles/index.md)
  - [Nullifier secrets](../../aztec/concepts/accounts/keys.md#nullifier-secrets).
- - [How to deploy a contract to the sandbox](../../guides/smart_contracts/how_to_deploy_contract.md)
+ - [How to deploy a contract to the sandbox](../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md)

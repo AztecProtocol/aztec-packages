@@ -61,4 +61,4 @@ The `decrement` function works similarly except the `amount` is the number that 
 
 - [Keys, including nullifier keys and outgoing viewer](../../../../aztec/concepts/accounts/keys.md)
 - [How to write a custom note](./custom_note.md)
-- [ValueNote reference](https://docs.aztec.network/reference/smart_contract_reference/aztec-nr/value-note/value_note)
+- [ValueNote reference](https://docs.aztec.network/reference/developer_references/smart_contract_reference/aztec-nr/value-note/value_note)

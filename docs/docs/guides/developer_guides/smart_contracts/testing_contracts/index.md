@@ -37,7 +37,7 @@ So to summarize:
 In order to use the TXE, it must be running on a known address. 
 
 :::tip
-If you have [the sandbox](../../../getting_started.md) installed, you can run TXE tests using:
+If you have [the sandbox](../../getting_started/quickstart.md) installed, you can run TXE tests using:
 
 `aztec test`
 

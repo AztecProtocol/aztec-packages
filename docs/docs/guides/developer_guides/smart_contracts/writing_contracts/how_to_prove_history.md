@@ -7,7 +7,7 @@ The Aztec Protocol uses an append-only Merkle tree to store hashes of the header
 
 This page is a quick introductory guide to creating historical proofs proofs from the archive tree.
 
-For a reference, go [here](https://docs.aztec.network/reference/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion).
+For a reference, go [here](https://docs.aztec.network/reference/developer_references/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion).
 
 ## Inclusion and non-inclusion proofs
 
@@ -80,4 +80,4 @@ You can also prove that a note was not nullified in a specified block by using `
 
 ## Prove contract inclusion, public value inclusion, and use current state in lookups
 
-To see what else you can do with historical proofs, check out the [reference](https://docs.aztec.network/reference/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion)
+To see what else you can do with historical proofs, check out the [reference](https://docs.aztec.network/reference/developer_references/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion)

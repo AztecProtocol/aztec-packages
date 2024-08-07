@@ -26,11 +26,11 @@ The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. Th
 
 ### Private and public state
 
-Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](storage/trees/index.md#note-hash-tree), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](storage/trees/indexed_merkle_tree.mdx#primer-on-nullifier-trees).
+Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](./concepts/storage/trees/index), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](./concepts/storage/trees/index).
 
-Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a [public data tree](storage/trees/index.md#public-state-tree).
+Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a [public data tree](./concepts/storage/trees/index.md#public-state-tree).
 
-Aztec [smart contract](smart_contracts/index.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
+Aztec [smart contract](./smart_contracts_overview.md) developers should keep in mind that different types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
 
 ## Accounts
 
@@ -70,4 +70,4 @@ Explore the Concepts for a deeper understanding into the components that make up
 
 ### Start coding
 
-Follow the [developer getting started guide](../../getting_started.md).
+Follow the [developer getting started guide](../guides/developer_guides/getting_started/).

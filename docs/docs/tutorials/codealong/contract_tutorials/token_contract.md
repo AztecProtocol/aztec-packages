@@ -21,7 +21,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../../reference/sandbox_reference/index.md) for installation instructions.
+You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../../../reference/developer_references/sandbox_reference/index.md) for installation instructions.
 
 You should also install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for VS Code.
 
@@ -361,7 +361,7 @@ A getter function for checking the private balance of the provided Aztec account
 
 ## Compiling
 
-Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../reference/sandbox_reference/index.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../../reference/developer_references/sandbox_reference/index.md) for instructions on setting it up.
 
 Run the following command in the directory where your `Nargo.toml` file is located:
 
@@ -388,6 +388,6 @@ It builds on the Token contract described here and goes into more detail about A
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 -  [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
 -  [Nullifiers](../../aztec/concepts/storage/trees/index.md#nullifier-tree)
--  [Contract Communication](../../aztec/concepts/smart_contracts/communication/index.md).
+-  [Contract Communication](../../aztec/smart_contracts/communication/index.md).
 -  [Contract Storage](../../aztec/concepts/storage/index.md)
 -  [Authwit](../../aztec/concepts/accounts/authwit.md)

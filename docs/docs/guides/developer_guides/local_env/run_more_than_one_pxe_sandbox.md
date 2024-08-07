@@ -49,4 +49,4 @@ You should see something like this:
 Aztec Server listening on port 8080
 ```
 
-You can learn more about custom commands in the [sandbox reference](../../reference/sandbox_reference/sandbox-reference.md).
+You can learn more about custom commands in the [sandbox reference](../../../reference/developer_references/sandbox_reference/sandbox-reference.md).

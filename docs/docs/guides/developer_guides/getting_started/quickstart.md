@@ -62,7 +62,7 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](./aztec/concepts/pxe/index.md).
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../local_env/run_more_than_one_pxe_sandbox.md).
 
 ## Update the sandbox
 
@@ -92,7 +92,7 @@ Update the `Noir: Nargo Path` field to point to your desired `aztec-nargo` execu
 
 Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
 
-To follow the series of tutorials, start with the private voting contract [here](./tutorials/contract_tutorials/private_voting_contract.md).
+To follow the series of tutorials, start with the private voting contract [here](./tutorials/codealong/contract_tutorials/private_voting_contract.md).
 
 If you want to just keep learning, you can read about the high level architecture on the [Core Components page](./aztec/concepts/state_model/index.md) and [the lifecycle of a transaction](./aztec/concepts/transactions.md).
 

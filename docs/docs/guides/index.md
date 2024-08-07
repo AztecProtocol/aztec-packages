@@ -87,7 +87,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 </div>
 
 <div className="view-all-link">
-  <a href="/guides/js_apps/authwit">View all JavaScript guides</a>
+  <a href="/guides/developer_guides/js_apps/authwit">View all JavaScript guides</a>
 </div>
 
 ## Local environment

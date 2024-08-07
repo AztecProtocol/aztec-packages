@@ -26,9 +26,9 @@ Along the way you will:
 
 ### Install tools
 
-Please ensure that the you already have [Installed the Sandbox](../../getting_started.md).
+Please ensure that the you already have [Installed the Sandbox](../../../guides/developer_guides/getting_started/quickstart.md).
 
-And if using VSCode, see [here](../../getting_started.md#install-noir-lsp-recommended) to install Noir LSP, where you'll benefit from syntax highlighting, profiling, and more.
+And if using VSCode, see [here](../../../guides/developer_guides/getting_started/quickstart.md) to install Noir LSP, where you'll benefit from syntax highlighting, profiling, and more.
 
 ### Create an Aztec project
 
@@ -218,7 +218,7 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Initializer functions](../../guides/smart_contracts/writing_contracts/initializers.md)
+ - [Initializer functions](../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md)
  - [Versions](https://docs.aztec.network/developers/versions-updating).
  - [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables)
  - [Authorizing actions](../../aztec/concepts/accounts/index.md#authorizing-actions)
