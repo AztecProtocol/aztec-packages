@@ -68,7 +68,6 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       services = [{ node: nodeServer }, { pxe: pxeServer }];
     } else {
       if (options.node) {
-        console.log(options);
         const { startNode } = await import('./cmds/start_node.js');
         services = await startNode(options, signalHandlers, userLog);
       } else if (options.bot) {
