@@ -293,8 +293,9 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--txe.port <value>',
       description: 'Port to run TXE on',
-      defaultValue: '10',
+      defaultValue: '8081',
       envVar: 'TXE_PORT',
+      parseVal: val => parseInt(val, 10),
     },
   ],
 };
