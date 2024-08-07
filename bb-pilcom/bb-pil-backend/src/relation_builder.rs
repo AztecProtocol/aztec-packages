@@ -61,6 +61,8 @@ pub trait RelationBuilder {
         skippable_if: &Option<BBIdentity>,
         alias_polys_in_order: &Vec<(String, u64, String)>,
     );
+
+    fn create_recursive_relation(&self, root_name: &str, name: &str);
 }
 
 impl RelationBuilder for BBFiles {
@@ -108,6 +110,7 @@ impl RelationBuilder for BBFiles {
                 &skippable_if,
                 &used_alias_defs_in_order,
             );
+            self.create_recursive_relation(file_name, relation_name);
         }
 
         relations.sort();
@@ -170,6 +173,31 @@ impl RelationBuilder for BBFiles {
             Some(&self.relations),
             &format!("{}.hpp", snake_case(name)),
             &relation_hpp,
+        );
+    }
+
+    fn create_recursive_relation(&self, root_name: &str, name: &str) {
+        let name = &format!("{name}_recursive");
+        let data = &json!({
+            "root_name": root_name,
+            "name": name,
+        });
+
+        let mut handlebars = Handlebars::new();
+        handlebars
+            .register_template_string(
+                "relation_recursive.hpp",
+                std::str::from_utf8(include_bytes!("../templates/relation_recursive.hpp.hbs"))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let relation_recursive_hpp = handlebars.render("relation_recursive.hpp", data).unwrap();
+
+        self.write_file(
+            Some(&self.relations),
+            &format!("{}.hpp", snake_case(name)),
+            &relation_recursive_hpp,
         );
     }
 }

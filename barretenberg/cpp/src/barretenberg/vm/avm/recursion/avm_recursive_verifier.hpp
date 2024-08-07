@@ -3,7 +3,7 @@
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/vm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
 
 namespace bb {
 template <typename Flavor> class AvmRecursiveVerifier_ {

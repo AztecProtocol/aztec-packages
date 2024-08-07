@@ -77,12 +77,35 @@ impl PermutationBuilder for BBFiles {
             )
             .unwrap();
 
+        handlebars
+            .register_template_string(
+                "permutation_recursive.hpp",
+                std::str::from_utf8(include_bytes!("../templates/permutation_recursive.hpp.hbs"))
+                    .unwrap(),
+            )
+            .unwrap();
+
         for permutation in permutations.iter() {
             let data = create_permutation_settings_data(permutation);
             let perm_settings = handlebars.render("permutation.hpp", &data).unwrap();
 
             let file_name = format!("{}.hpp", permutation.name);
             self.write_file(Some(&self.relations), &file_name, &perm_settings);
+
+            // Recursive related file
+            let recursive_data = create_perm_recursive_settings_data(permutation);
+            let recursive_settings = handlebars
+                .render("permutation_recursive.hpp", &recursive_data)
+                .unwrap();
+
+            let recursive_file_name =
+                format!("{}_recursive{}", permutation.name, ".hpp".to_owned());
+
+            self.write_file(
+                Some(&self.relations),
+                &recursive_file_name,
+                &recursive_settings,
+            );
         }
 
         permutations
@@ -140,6 +163,10 @@ fn create_permutation_settings_data(permutation: &Permutation) -> Json {
         "rhs_selector": rhs_selector,
         "perm_entities": perm_entities,
     })
+}
+
+fn create_perm_recursive_settings_data(permutation: &Permutation) -> Json {
+    json!({"perm_name": permutation.name})
 }
 
 fn get_perm_side<F: FieldElement>(
