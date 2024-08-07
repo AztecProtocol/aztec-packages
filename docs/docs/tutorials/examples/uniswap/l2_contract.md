@@ -3,7 +3,7 @@ title: L2 Contracts (Aztec)
 sidebar_position: 1
 ---
 
-This page goes over the code in the L2 contract for Uniswap, which works alongside a [token bridge](../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/0_setup.md). 
+This page goes over the code in the L2 contract for Uniswap, which works alongside a [token bridge (codealong tutorial)](../../codealong/contract_tutorials/advanced/token_bridge/index.md). 
 
 ## Main.nr
 
@@ -17,11 +17,11 @@ We just need to store the portal address for the token that we want to swap.
 
 #include_code swap_public noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
-1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../../aztec/concepts/accounts/authwit.md)).
+1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../aztec/concepts/accounts/authwit.md)).
 2. We fetch the underlying aztec token that needs to be swapped.
 3. We transfer the user’s funds to the Uniswap contract. Like with Ethereum, the user must have provided approval to the Uniswap contract to do so. The user must provide the nonce they used in the approval for transfer, so that Uniswap can send it to the token contract, to prove it has appropriate approval.
 4. Funds are added to the Uniswap contract.
-5. Uniswap must exit the input tokens to L1. For this it has to approve the bridge to burn its tokens on its behalf and then actually exit the funds. We call the [`exit_to_l1_public()` method on the token bridge](../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md). We use the public flow for exiting since we are operating on public state.
+5. Uniswap must exit the input tokens to L1. For this it has to approve the bridge to burn its tokens on its behalf and then actually exit the funds. We call the [`exit_to_l1_public()` method on the token bridge](../../codealong/contract_tutorials/advanced/token_bridge/index.md). We use the public flow for exiting since we are operating on public state.
 6. It is not enough for us to simply emit a message to withdraw the funds. We also need to emit a message to display our swap intention. If we do not do this, there is nothing stopping a third party from calling the Uniswap portal with their own parameters and consuming our message.
 
 So the Uniswap portal (on L1) needs to know:
@@ -36,7 +36,7 @@ The Uniswap portal must first withdraw the input tokens, then check that the swa
 - The address on L2 which must receive the output tokens (remember this is public flow)
 - The secret hash for consume the L1 to L2 message. Since this is the public flow the preimage doesn’t need to be a secret.
 
-You can find the corresponding function on the [L1 contracts page](l1_contract.md).
+You can find the corresponding function on the [L1 contracts page](./l1_contract.md).
 
 ### Private swap
 
@@ -84,6 +84,6 @@ So you emitted a message to withdraw input tokens to L1 and a message to swap. T
 
 You still need to "claim" these swapped funds on L2.
 
-In the public flow, you can call [`claim_public()`](../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/2_minting_on_aztec.md) on the output token bridge which consumes the deposit message and mints your assets.
+In the public flow, you can call [`claim_public()`](../../codealong/contract_tutorials/advanced/token_bridge/2_minting_on_aztec.md) on the output token bridge which consumes the deposit message and mints your assets.
 
-In the private flow, you can choose to leak your secret for L1 → L2 message consumption to let someone mint the notes on L2 (by calling [`claim_private()`](../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/2_minting_on_aztec.md) on the output token bridge) and then you can later redeem these notes to yourself by presenting the preimage to `secret_hash_for_redeeming_minted_notes` and calling the `redeem_shield()` method on the token contract.
+In the private flow, you can choose to leak your secret for L1 → L2 message consumption to let someone mint the notes on L2 (by calling [`claim_private()`](../../codealong/contract_tutorials/advanced/token_bridge/2_minting_on_aztec.md) on the output token bridge) and then you can later redeem these notes to yourself by presenting the preimage to `secret_hash_for_redeeming_minted_notes` and calling the `redeem_shield()` method on the token contract.

@@ -21,11 +21,7 @@ We are going to start with a blank project and fill in the token contract source
 
 ## Requirements
 
-You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts. See the [sandbox reference](../../../reference/developer_references/sandbox_reference/index.md) for installation instructions.
-
-You should also install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for VS Code.
-
-Check the [Dev Tools section](https://github.com/noir-lang/awesome-noir#dev-tools) of the awesome-noir repo for language support for additional editors (Vim, emacs, tree-sitter, etc).
+You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts.
 
 ## Project setup
 
@@ -142,13 +138,13 @@ We are importing:
 
 ### Types files
 
-We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src).
+We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src).
 
 The main thing to note from this types folder is the `TransparentNote` definition. This defines how the contract moves value from the public domain into the private domain. It is similar to the `value_note` that we imported, but with some modifications namely, instead of a defined nullifier key, it allows anyone that can produce the pre-image to the stored `secret_hash` to spend the note.
 
 ### Note on private state
 
-Private state in Aztec is all [UTXOs](../../aztec/concepts/storage/index.md).
+Private state in Aztec is all [UTXOs](../../../aztec/concepts/storage/index.md).
 
 ## Contract Storage
 
@@ -212,7 +208,7 @@ The function returns 1 to indicate successful execution.
 
 This public function allows an account approved in the public `minters` mapping to create new private tokens that can be claimed by anyone that has the pre-image to the `secret_hash`.
 
-First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. It returns `1` to indicate successful execution.
+First, public storage is initialized. Then it checks that the `msg_sender` is an approved minter. Then a new `TransparentNote` is created with the specified `amount` and `secret_hash`. You can read the details of the `TransparentNote` in the `types.nr` file [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/types.nr#L61). The `amount` is added to the existing public `total_supply` and the storage value is updated. Then the new `TransparentNote` is added to the `pending_shields` using the `insert_from_public` function, which is accessible on the `PrivateSet` type. Then it's ready to be claimed by anyone with the `secret_hash` pre-image using the `redeem_shield` function. It returns `1` to indicate successful execution.
 
 #include_code mint_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -265,7 +261,7 @@ Storage is referenced as `storage.variable`.
 
 This private function enables an account to move tokens from a `TransparentNote` in the `pending_shields` mapping to a `TokenNote` in private `balances`. The `TokenNote` will be associated with a nullifier key, so any account that knows this key can spend this note.
 
-Going through the function logic, first the `secret_hash` is generated from the given secret. This ensures that only the entity possessing the secret can use it to redeem the note. Following this, a `TransparentNote` is retrieved from the set, using the provided amount and secret. The note is subsequently removed from the set, allowing it to be redeemed only once. The recipient's private balance is then increased using the `increment` helper function from the `value_note` [library](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/utils.nr).
+Going through the function logic, first the `secret_hash` is generated from the given secret. This ensures that only the entity possessing the secret can use it to redeem the note. Following this, a `TransparentNote` is retrieved from the set, using the provided amount and secret. The note is subsequently removed from the set, allowing it to be redeemed only once. The recipient's private balance is then increased using the `increment` helper function from the `value_note` [library (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/utils.nr).
 
 The function returns `1` to indicate successful execution.
 
@@ -355,7 +351,7 @@ Unconstrained functions are similar to `view` functions in Solidity in that they
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../aztec/concepts/accounts/keys.md##incoming-viewing-keys)) in order to decrypt the notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
@@ -379,7 +375,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](advanced/token_bridge/index.md) is a great follow up to this one.
+The [token bridge tutorial](./advanced/token_bridge/index.md) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 
@@ -387,7 +383,7 @@ It builds on the Token contract described here and goes into more detail about A
 
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 -  [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
--  [Nullifiers](../../aztec/concepts/storage/trees/index.md#nullifier-tree)
--  [Contract Communication](../../aztec/smart_contracts/communication/index.md).
--  [Contract Storage](../../aztec/concepts/storage/index.md)
--  [Authwit](../../aztec/concepts/accounts/authwit.md)
+-  [Nullifiers](../../../aztec/concepts/storage/trees/index.md#nullifier-tree)
+-  [Contract Communication](../../../aztec/smart_contracts/communication/index.md).
+-  [Contract Storage](../../../aztec/concepts/storage/index.md)
+-  [Authwit](../../../aztec/concepts/accounts/authwit.md)

@@ -168,9 +168,9 @@ Note - you might have a jest error at the end of each test saying "expected 1-2 
 
 ### Follow a more detailed Aztec.js tutorial 
 
-Follow the tutorial on the [next page](../../../aztecjs-getting-started.md).
+Follow the tutorial [here](../../../aztecjs-getting-started.md).
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Portals (protocol specs)](../../../../protocol-specs/l1-smart-contracts/index.md)
-- [Functions under the hood (concepts)](../../../../aztec/smart_contracts/functions/inner_workings.md)
+- [Portals (protocol specs)](../../../../../protocol-specs/l1-smart-contracts/index.md)
+- [Functions under the hood (concepts)](../../../../../aztec/smart_contracts/functions/inner_workings.md)

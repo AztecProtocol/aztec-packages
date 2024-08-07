@@ -5,8 +5,6 @@ sidebar_position: 0
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase the awesome stuff Aztec is capable of.
 
-If you already have some experience with Noir and want to build a cooler contract that utilizes both private and public state, you might want to check out the [token contract tutorial instead](../../tutorials/codealong/contract_tutorials/token_contract.md).
-
 ## Prerequisites
 
 - You have followed the [quickstart](../../../guides/developer_guides/getting_started/quickstart.md)
@@ -160,4 +158,4 @@ Follow the private voting contract tutorial on the [next page](./private_voting_
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Functions and annotations like `#[aztec(private)]`](../../aztec/smart_contracts/functions/index.md)
+ - [Functions and annotations like `#[aztec(private)]`](../../../aztec/smart_contracts/functions/inner_workings.md)

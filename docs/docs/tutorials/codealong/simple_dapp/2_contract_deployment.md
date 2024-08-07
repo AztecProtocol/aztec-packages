@@ -30,7 +30,7 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 
 ### Helper files
 
-The `Token` contract also requires some helper files. You can view the files [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
+The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
 ## Compile your contract
 
@@ -69,7 +69,7 @@ We import the contract artifacts we have generated plus the dependencies we'll n
 Note that the token's `_initialize()` method expects an `owner` address to mint an initial set of tokens to. We are using the first account from the Sandbox for this.
 
 :::info
-If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. SEe the [How to deploy a contract](../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md) page for more info.
+If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. SEe the [How to deploy a contract](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md) page for more info.
 :::
 
 Run the snippet above as `node src/deploy.mjs`, and you should see the following output, along with a new `addresses.json` file in your project root:

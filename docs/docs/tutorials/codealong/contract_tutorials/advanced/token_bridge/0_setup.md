@@ -15,7 +15,7 @@ We recommend going through this setup to fully understand where things live.
 
 ## Prerequisites
 
-- [node v18+](https://github.com/tj/n)
+- [node v18+ (GitHub link)](https://github.com/tj/n)
 - [docker](https://docs.docker.com/)
 - [Aztec sandbox](../../../../../guides/developer_guides/getting_started/quickstart.md) - you should have this running before starting the tutorial
 

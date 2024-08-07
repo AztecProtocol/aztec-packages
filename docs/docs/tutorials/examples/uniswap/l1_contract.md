@@ -3,7 +3,7 @@ title: L1 contracts (EVM)
 sidebar_position: 2
 ---
 
-This page goes over the code in the L1 contract for Uniswap, which works alongside a [token portal](../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md). 
+This page goes over the code in the L1 contract for Uniswap, which works alongside a [token portal (codealong tutorial)](../../codealong/contract_tutorials/advanced/token_bridge/index.md). 
 
 ## Setup
 
@@ -26,7 +26,7 @@ This page goes over the code in the L1 contract for Uniswap, which works alongsi
 
 To incentivize the sequencer to pick up this message, we pass a fee to the deposit message.
 
-You can find the corresponding function on the [L2 contracts page](l2_contract.md#public-swap).
+You can find the corresponding function on the [L2 contracts page](./l2_contract.md#public-swap).
 
 ## Private swap
 
@@ -34,4 +34,4 @@ This works very similarly to the public flow.
 
 #include_code solidity_uniswap_swap_private l1-contracts/test/portals/UniswapPortal.sol solidity
 
-You can find the corresponding function on the [L2 contracts page](l2_contract.md#private-swap).
+You can find the corresponding function on the [L2 contracts page](./l2_contract.md#private-swap).

@@ -26,9 +26,7 @@ Along the way you will:
 
 ### Install tools
 
-Please ensure that the you already have [Installed the Sandbox](../../../guides/developer_guides/getting_started/quickstart.md).
-
-And if using VSCode, see [here](../../../guides/developer_guides/getting_started/quickstart.md) to install Noir LSP, where you'll benefit from syntax highlighting, profiling, and more.
+Please ensure that the you already have [Installed the Sandbox](../../../guides/developer_guides/getting_started/quickstart.md)
 
 ### Create an Aztec project
 
@@ -103,7 +101,7 @@ Inside the Crowdfunding contract definition, use the dependency that defines the
 use dep::aztec::protocol_types::address::AztecAddress;
 ```
 
-The `aztec::protocol_types` can be browsed [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
+The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
 
 #### Storage
 
@@ -111,7 +109,7 @@ To retain the initializer parameters in the contract's Storage, we'll need to de
 
 #include_code storage /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
+The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
 
 ---
 
@@ -175,10 +173,6 @@ token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract.
 
-:::note
-The user must have authorised this action, example use of `createAuthWit` in 'full donor flow' test [here](../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
-:::
-
 #### Creating and storing a private receipt note
 
 The last thing to do is create a new value note and add it to the `donation_receipts`. So the full donation function is now
@@ -208,7 +202,7 @@ You should be able to compile successfully with `aztec-nargo compile`.
 For comparison, the full Crowdfunding contract can be found [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/crowdfunding_contract).
 
 If a new token wishes to honour donors with free tokens based on donation amounts, this is possible via the donation_receipts (a `PrivateSet`).
-See [claim_contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/claim_contract).
+See [claim_contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/claim_contract).
 
 ## Next steps
 
@@ -218,9 +212,7 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Initializer functions](../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md)
- - [Versions](https://docs.aztec.network/developers/versions-updating).
- - [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables)
- - [Authorizing actions](../../aztec/concepts/accounts/index.md#authorizing-actions)
- - [Unencrypted logs](https://docs.aztec.network/developers/contracts/writing_contracts/events/emit_event#unencrypted-events)
- - [Common dependencies](https://docs.aztec.network/developers/contracts/resources/dependencies)
+ - [Initializer functions](../../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md)
+ - [Versions](../../../guides/developer_guides/local_env/versions-updating.md).
+ - [Authorizing actions](../../../aztec/concepts/accounts/index.md#authorizing-actions)
+ - [Unencrypted logs](../../../guides/developer_guides/smart_contracts/writing_contracts/how_to_emit_event.md#call-emit_unencrypted_log)
