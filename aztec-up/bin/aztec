@@ -4,7 +4,9 @@ set -euo pipefail
 # Directory of env_var file
 TS_ENV_VAR_FILE=/usr/src/yarn-project/foundation/src/config/env_var.ts
 LOCAL_TS_FILE=./env_var.ts
-LOCAL_ENV_VAR_FILE=./.aztec_cli_vars
+NETWORK=${NETWORK:-}
+VERSION=${VERSION:-${NETWORK:-"latest"}}
+LOCAL_ENV_VAR_FILE="./.${VERSION}_aztec_cli_vars"
 
 function get_compose {
   # Favour 'docker compose', falling back on docker-compose.
@@ -50,14 +52,15 @@ elif [ "${1:-}" == "start" ]; then
   if [[ ! -f "$LOCAL_ENV_VAR_FILE" ]]; then
     echo "No env vars file found, creating one..."
     # Create temp container
-    temp_container_id=$(docker create aztecprotocol/aztec)
+    temp_container_id=$(docker create aztecprotocol/aztec:$VERSION)
     # Copy env vars file from container
-    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE $LOCAL_TS_FILE
+    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE $LOCAL_TS_FILE &> /dev/null
     # Remove temp container
-    docker rm $temp_container_id
+    docker rm $temp_container_id &> /dev/null
 
     # Parse the TypeScript file
     parse_ts_file
+    rm $LOCAL_TS_FILE
   fi
 
   # Read env vars from file

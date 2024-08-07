@@ -11,9 +11,10 @@ DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
 
-if [[ -n "$NETWORK" ]]; then
+if [[ -n "${NETWORK:-}" ]]; then
   VERSION=$NETWORK
-  echo "Using aztecprotocol/aztec:$VERSION"
+  # enable proving if connecting to a network by default
+  PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
 fi
 
 # preserve arguments to pass to docker run
@@ -78,16 +79,6 @@ for i in "${!args[@]}"; do
   fi
 done
 
-DOCKER_ENV="-e HOME=$HOME"
-for env in ${ENV_VARS_TO_INJECT:-}; do
-  if [ -n "${!env:-}" ]; then
-    # First substitute any reference to localhost with our host gateway.
-    env=${env//localhost/host.docker.internal}
-    # Inject into container.
-    DOCKER_ENV+=" -e $env=${!env:-}"
-  fi
-done
-
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -100,6 +91,8 @@ while [[ "$#" -gt 0 ]]; do
     VERSION="$2" # Set version to user-specified network (e.g. 'devnet')
     echo "Using aztecprotocol/aztec: $VERSION"
     preserved_args+=("$1" "$2") # Store both argument and value
+    # turn on proving if connecting to a network by default
+    PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
     shift 2
     ;; # Move past argument and value
   *)
@@ -107,6 +100,16 @@ while [[ "$#" -gt 0 ]]; do
     shift                  # Move to next argument
     ;;
   esac
+done
+
+DOCKER_ENV="-e HOME=$HOME"
+for env in ${ENV_VARS_TO_INJECT:-}; do
+  if [ -n "${!env:-}" ]; then
+    # First substitute any reference to localhost with our host gateway.
+    env=${env//localhost/host.docker.internal}
+    # Inject into container.
+    DOCKER_ENV+=" -e $env=${!env:-}"
+  fi
 done
 
 # Dynamic port assignment
