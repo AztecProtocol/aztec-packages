@@ -442,6 +442,22 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     ASSERT(result.coefficients_.shift_ == 1);
     return result;
 }
+
+/**
+ * @brief sets a block of memory to all zeroes
+ * Used, for example, when one Polynomioal is instantiated from another one with size_>= other.size_.
+ */
+template <typename Fr> void Polynomial<Fr>::zero_memory_beyond(const size_t start_position)
+{
+    size_t end = size();
+    ASSERT(end >= start_position);
+
+    size_t delta = end - start_position;
+    if (delta > 0) {
+        memset(static_cast<void*>(&data()[start_position]), 0, sizeof(Fr) * delta);
+    }
+}
+
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
 
