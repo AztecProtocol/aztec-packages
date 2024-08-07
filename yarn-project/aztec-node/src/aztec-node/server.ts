@@ -53,7 +53,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { createStore, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { AztecKVTxPool, type P2P, createP2PClient, InMemoryAttestationPool } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
@@ -82,6 +82,7 @@ import { type AztecNodeConfig, getPackageInfo } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 import { MetadataTxValidator } from './tx_validator/tx_metadata_validator.js';
 import { TxProofValidator } from './tx_validator/tx_proof_validator.js';
+import { createValidatorClient } from '@aztec/validator-client';
 
 /**
  * The aztec node.
@@ -152,7 +153,7 @@ export class AztecNodeService implements AztecNode {
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), archiver);
+    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), new InMemoryAttestationPool(), archiver);
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
@@ -175,11 +176,16 @@ export class AztecNodeService implements AztecNode {
       throw new Error("Can't start a sequencer without a prover");
     }
 
+    // TODO: likely that the sequencer will consume a validator client and use it 
+    // to broadcast the blocks
+    const validatorClient = await createValidatorClient(config, p2pClient);
+
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
       : await SequencerClient.new(
           config,
+          validatorClient,
           p2pClient,
           worldStateSynchronizer,
           archiver,
@@ -189,6 +195,7 @@ export class AztecNodeService implements AztecNode {
           simulationProvider,
           telemetry,
         );
+
 
     return new AztecNodeService(
       config,

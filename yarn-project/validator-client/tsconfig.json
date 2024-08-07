@@ -9,6 +9,12 @@
       {
         "path": "../foundation"
       },
+      {
+        "path": "../circuit-types"
+      },
+      {
+        "path": "../circuits.js"
+      },
     ],
     "include": ["src"]
   }

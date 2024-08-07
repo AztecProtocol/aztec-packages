@@ -11,6 +11,7 @@ import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { getL1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
+import { ValidatorClient } from '@aztec/validator-client';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -22,6 +23,7 @@ export class SequencerClient {
    * Initializes and starts a new instance.
    * @param config - Configuration for the sequencer, publisher, and L1 tx sender.
    * @param p2pClient - P2P client that provides the txs to be sequenced.
+   * @param validatorClient - Validator client performs attestation duties when rotating proposers.
    * @param worldStateSynchronizer - Provides access to world state.
    * @param contractDataSource - Provides access to contract bytecode for public executions.
    * @param l2BlockSource - Provides information about the previously published blocks.
@@ -32,6 +34,7 @@ export class SequencerClient {
    */
   public static async new(
     config: SequencerClientConfig,
+    validatorClient: ValidatorClient | undefined, // allowed to be undefined while we migrate
     p2pClient: P2P,
     worldStateSynchronizer: WorldStateSynchronizer,
     contractDataSource: ContractDataSource,
@@ -54,6 +57,7 @@ export class SequencerClient {
 
     const sequencer = new Sequencer(
       publisher,
+      validatorClient,
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,

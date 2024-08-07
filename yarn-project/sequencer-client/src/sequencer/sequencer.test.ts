@@ -36,9 +36,11 @@ import { type GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
+import { ValidatorClient } from '@aztec/validator-client';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
+  let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -107,6 +109,8 @@ describe('sequencer', () => {
 
     sequencer = new TestSubject(
       publisher,
+      // TDOO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
+      validatorClient,
       globalVariableBuilder,
       p2p,
       worldState,
