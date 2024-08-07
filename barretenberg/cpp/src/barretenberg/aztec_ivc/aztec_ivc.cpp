@@ -32,7 +32,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 /**
  * @brief Append logic to complete a kernel circuit
  * @details A kernel circuit may contain some combination of PG recursive verification, merge recursive verification,
- * and databus commitment consistency checks. This method appends this logic to a provided kernel circuit builder.
+ * and databus commitment consistency checks. This method appends this logic to a provided kernel circuit.
  *
  * @param circuit
  */

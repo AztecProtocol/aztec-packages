@@ -190,12 +190,8 @@ TEST_F(AztecIVCTests, BasicLarge)
 
     // Accumulate each circuit
     for (auto& circuit : circuits) {
-        info("num gates before = ", circuit.get_num_gates());
         ivc.accumulate(circuit);
-        info("num gates after = ", circuit.get_num_gates());
     }
-
-    info(ivc.goblin.op_queue->get_current_size());
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };

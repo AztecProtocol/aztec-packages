@@ -117,17 +117,17 @@ class GoblinProver {
      */
     void merge(MegaCircuitBuilder& circuit_builder)
     {
-        // Complete the circuit logic by recursively verifying previous merge proof if it exists
+        // Append a recursive merge verification of the merge proof
         if (merge_proof_exists) {
             [[maybe_unused]] auto pairing_points = verify_merge(circuit_builder, merge_proof);
         }
 
-        // Construct a merge proof for the circuit
+        // Construct a merge proof for the present circuit
         merge_proof = prove_merge(circuit_builder);
     };
 
     /**
-     * @brief Append recursive verification of a previous merge proof to a provided circuit
+     * @brief Append recursive verification of a merge proof to a provided circuit
      *
      * @param circuit_builder
      * @return PairingPoints
@@ -135,13 +135,12 @@ class GoblinProver {
     PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder, MergeProof& proof) const
     {
         BB_OP_COUNT_TIME_NAME("Goblin::merge");
-        // Recursively verify the previous merge proof
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
         return merge_verifier.verify_proof(proof);
     };
 
     /**
-     * @brief Construct a merge proof for the provided circuit
+     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
      *
      * @param circuit_builder
      */
@@ -161,9 +160,7 @@ class GoblinProver {
             merge_proof_exists = true;
         }
 
-        // Construct and store the merge proof to be recursively verified on the next call to accumulate
         MergeProver merge_prover{ circuit_builder.op_queue };
-
         return merge_prover.construct_proof();
     };
 
