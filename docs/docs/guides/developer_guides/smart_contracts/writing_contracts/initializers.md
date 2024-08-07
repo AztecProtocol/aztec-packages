@@ -19,7 +19,7 @@ fn constructor(){
 }
 ```
 
-## Choose whether your initializer is public or private
+## Public or private
 
 Aztec supports both public and private initializers. Use the appropriate macro, for example for a private initializer:
 
