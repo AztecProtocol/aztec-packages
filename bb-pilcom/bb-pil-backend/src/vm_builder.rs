@@ -1,6 +1,5 @@
 use dialoguer::Confirm;
 
-use itertools::Itertools;
 use powdr_ast::analyzed::Analyzed;
 use powdr_number::FieldElement;
 
@@ -70,8 +69,18 @@ pub fn analyzed_to_cpp<F: FieldElement>(
     public_inputs.sort_by(|a, b| a.1.cmp(&b.1));
 
     // Sort fixed and witness to ensure consistent ordering
-    let fixed = &sort_cols(fixed);
-    let witness = &sort_cols(witness);
+    // TODO: we need to dedup to avoid double counting columns when the same column is used in
+    // different files. E.g., gas.
+    let fixed = {
+        let mut cs = sort_cols(fixed);
+        cs.dedup();
+        cs
+    };
+    let witness = {
+        let mut cs = sort_cols(witness);
+        cs.dedup();
+        cs
+    };
 
     let mut bb_files = BBFiles::default(&snake_case(&vm_name));
     // Pass `-y` as parameter if you want to skip the confirmation prompt.
@@ -102,11 +111,15 @@ pub fn analyzed_to_cpp<F: FieldElement>(
     let lookups = bb_files.create_lookup_files(vm_name, analyzed);
 
     // TODO: hack - this can be removed with some restructuring
-    let shifted_polys: Vec<String> = shifted_polys
+    let mut shifted_polys: Vec<String> = shifted_polys
         .clone()
         .iter()
         .map(|s| s.replace("_shift", ""))
         .collect();
+    // TODO: we need this to avoid double counting columns when the same column is used in
+    // different files. E.g., gas.
+    shifted_polys.sort();
+    shifted_polys.dedup();
 
     // Collect all column names and determine if they need a shift or not
     let ColumnGroups {
@@ -121,8 +134,8 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         all_cols_with_shifts,
         inverses,
     } = get_all_col_names(
-        fixed,
-        witness,
+        &fixed,
+        &witness,
         public,
         &shifted_polys,
         &permutations,

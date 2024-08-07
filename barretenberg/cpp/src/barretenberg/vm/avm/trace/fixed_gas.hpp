@@ -12,9 +12,11 @@ namespace bb::avm_trace {
 class FixedGasTable {
   public:
     struct GasRow {
-        FF gas_sel_gas_cost;
-        FF gas_l2_gas_fixed_table;
-        FF gas_da_gas_fixed_table;
+        FF sel_gas_cost;
+        FF base_l2_gas_fixed_table;
+        FF base_da_gas_fixed_table;
+        FF dyn_l2_gas_fixed_table;
+        FF dyn_da_gas_fixed_table;
     };
 
     static const FixedGasTable& get();
@@ -31,9 +33,11 @@ class FixedGasTable {
 
 template <typename DestRow> void merge_into(DestRow& dest, FixedGasTable::GasRow const& src)
 {
-    dest.gas_sel_gas_cost = src.gas_sel_gas_cost;
-    dest.gas_l2_gas_fixed_table = src.gas_l2_gas_fixed_table;
-    dest.gas_da_gas_fixed_table = src.gas_da_gas_fixed_table;
+    dest.gas_sel_gas_cost = src.sel_gas_cost;
+    dest.gas_base_l2_gas_fixed_table = src.base_l2_gas_fixed_table;
+    dest.gas_base_da_gas_fixed_table = src.base_da_gas_fixed_table;
+    dest.gas_dyn_l2_gas_fixed_table = src.dyn_l2_gas_fixed_table;
+    dest.gas_dyn_da_gas_fixed_table = src.dyn_da_gas_fixed_table;
 }
 
 } // namespace bb::avm_trace

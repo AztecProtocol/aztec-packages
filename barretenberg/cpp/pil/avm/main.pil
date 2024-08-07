@@ -3,8 +3,8 @@ include "alu.pil";
 include "binary.pil";
 include "constants_gen.pil";
 include "constants_misc.pil";
+include "gas.pil";
 include "kernel.pil";
-include "fixed/gas.pil";
 include "fixed/powers.pil";
 include "gadgets/conversion.pil";
 include "gadgets/sha256.pil";
@@ -68,75 +68,6 @@ namespace main(256);
 
     // TODO: Opcode value (byte) will be constrained by the bytecode validation circuit
     pol commit opcode_val;
-
-    //===== GAS ACCOUNTING ========================================================
-    // 1. The gas lookup table (in gas.pil) is constant and maps the opcode value to L2/DA gas (fixed) cost.
-    // 2. Read gas_op from gas table based on the opcode value
-    // 3. TODO(#6588): constrain gas start and gas end
-
-    // "gas_remaining" values correspond to the gas quantity which remains BEFORE the execution of the opcode
-    // of the pertaining line. This means that the last value will be written on the row following the last
-    // opcode execution.
-    pol commit l2_gas_remaining;
-    pol commit da_gas_remaining;
-
-    // These are the gas costs of the opcode execution.
-    // TODO: allow lookups to evaluate expressions
-    pol commit l2_gas_op_cost;
-    pol commit da_gas_op_cost;
-
-    // Boolean indicating whether the current opcode gas consumption is higher than remaining gas
-    pol commit l2_out_of_gas;
-    pol commit da_out_of_gas;
-
-    // Absolute gas remaining value after the operation in 16-bit high and low limbs
-    pol commit abs_l2_rem_gas_hi;
-    pol commit abs_l2_rem_gas_lo;
-    pol commit abs_da_rem_gas_hi;
-    pol commit abs_da_rem_gas_lo;
-
-    // Boolean constraints
-    l2_out_of_gas * (1 - l2_out_of_gas) = 0;
-    da_out_of_gas * (1 - da_out_of_gas) = 0;
-
-    // Constrain that the gas decrements correctly per instruction
-    // TODO: Special-case for external call.
-    #[L2_GAS_REMAINING_DECREMENT]
-    sel_gas_accounting_active * (1 - sel_op_external_call) * (l2_gas_remaining' - l2_gas_remaining + l2_gas_op_cost) = 0;
-    #[DA_GAS_REMAINING_DECREMENT]
-    sel_gas_accounting_active * (1 - sel_op_external_call) * (da_gas_remaining' - da_gas_remaining + da_gas_op_cost) = 0;
-
-    // Constrain that the remaining gas is unchanged otherwise (multi-line operations)
-    #[L2_GAS_INACTIVE]
-    (1 - sel_gas_accounting_active) * l2_gas_op_cost = 0;
-    #[DA_GAS_INACTIVE]
-    (1 - sel_gas_accounting_active) * da_gas_op_cost = 0;
-
-    // TODO: constrain that it stays the same if an opcode selector is not active -> TODO: will this break when the opcode takes multiple rows
-    // So we also need to constrain that it is the first line of the opcodes execution
-
-    // Prove that l2_out_of_gas == 0 <==> l2_gas_remaining' >= 0
-    // Same for da gas
-    // TODO: Ensure that remaining gas values are initialized as u32 and that gas l2_gas_op_cost/da_gas_op_cost are u32.
-    sel_gas_accounting_active * ((1 - 2 * l2_out_of_gas) * l2_gas_remaining' - 2**16 * abs_l2_rem_gas_hi - abs_l2_rem_gas_lo) = 0;
-    sel_gas_accounting_active * ((1 - 2 * da_out_of_gas) * da_gas_remaining' - 2**16 * abs_da_rem_gas_hi - abs_da_rem_gas_lo) = 0;
-
-    #[LOOKUP_OPCODE_GAS]
-    sel_gas_accounting_active {opcode_val, l2_gas_op_cost, da_gas_op_cost}
-    in
-    gas.sel_gas_cost {clk, gas.l2_gas_fixed_table, gas.da_gas_fixed_table};
-
-    #[RANGE_CHECK_L2_GAS_HI]
-    sel_gas_accounting_active {abs_l2_rem_gas_hi} in sel_rng_16 {clk};
-
-    #[RANGE_CHECK_L2_GAS_LO]
-    sel_gas_accounting_active {abs_l2_rem_gas_lo} in sel_rng_16 {clk};
-
-    #[RANGE_CHECK_DA_GAS_HI]
-    sel_gas_accounting_active {abs_da_rem_gas_hi} in sel_rng_16 {clk};
-
-    #[RANGE_CHECK_DA_GAS_LO]
-    sel_gas_accounting_active {abs_da_rem_gas_lo} in sel_rng_16 {clk};
 
     //===== Gadget Selectors ======================================================
     pol commit sel_op_radix_le;
@@ -479,7 +410,7 @@ namespace main(256);
     sel_op_internal_return * (sel_mem_op_a - 1) = 0;
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
-    pol INTERNAL_CALL_STACK_SELECTORS = (sel_first + sel_op_internal_call + sel_op_internal_return + sel_op_halt);
+    pol INTERNAL_CALL_STACK_SELECTORS = sel_first + sel_op_internal_call + sel_op_internal_return + sel_op_halt;
     pol SEL_ALL_CTRL_FLOW = sel_op_jump + sel_op_jumpi + sel_op_internal_call + sel_op_internal_return;
 
     pol SEL_ALL_LEFTGAS = sel_op_dagasleft + sel_op_l2gasleft;
@@ -489,20 +420,6 @@ namespace main(256);
     pol SEL_ALL_MEM_SLICE = sel_op_calldata_copy + sel_op_external_return;
     pol OPCODE_SELECTORS = sel_op_fdiv + SEL_ALU_ALL + SEL_ALL_BINARY + SEL_ALL_MEMORY + SEL_ALL_GADGET
                          + KERNEL_INPUT_SELECTORS + KERNEL_OUTPUT_SELECTORS + SEL_ALL_LEFTGAS + SEL_ALL_MEM_SLICE;
-
-    // TODO: sel_gas_accounting_active is activating gas accounting on a given row. All opcode with selectors
-    //       are activated through the relation below. The other opcodes which are implemented purely
-    //       through memory sub-operations such as RETURN, SET are activated by
-    //       setting a newly introduced boolean sel_mem_op_activate_gas which is set in witness generation.
-    //       We should remove this shortcut and constrain this activation through bytecode decomposition.
-    //       Alternatively, we introduce a boolean selector for the three opcodes mentioned above.
-    //       Note: External call gas cost is not constrained
-    pol commit sel_gas_accounting_active;
-    // TODO: remove sload and sstore from here
-    // This temporarily disables gas tracking for sload and sstore because our gas
-    // tracking doesn't work properly for instructions that span multiple rows
-    // TODO: disabling this until PR in stack.
-    // sel_gas_accounting_active - OPCODE_SELECTORS - SEL_ALL_CTRL_FLOW - sel_op_sload - sel_op_sstore - sel_mem_op_activate_gas = 0;
 
     // Program counter must increment if not jumping or returning
     // TODO: support for muli-rows opcode in execution trace such as

@@ -14,7 +14,7 @@ class lookup_opcode_gas_lookup_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -40,11 +40,15 @@ class lookup_opcode_gas_lookup_settings {
                                      in.main_sel_gas_accounting_active,
                                      in.gas_sel_gas_cost,
                                      in.main_opcode_val,
-                                     in.main_l2_gas_op_cost,
-                                     in.main_da_gas_op_cost,
+                                     in.main_base_l2_gas_op_cost,
+                                     in.main_base_da_gas_op_cost,
+                                     in.main_dyn_l2_gas_op_cost,
+                                     in.main_dyn_da_gas_op_cost,
                                      in.main_clk,
-                                     in.gas_l2_gas_fixed_table,
-                                     in.gas_da_gas_fixed_table);
+                                     in.gas_base_l2_gas_fixed_table,
+                                     in.gas_base_da_gas_fixed_table,
+                                     in.gas_dyn_l2_gas_fixed_table,
+                                     in.gas_dyn_da_gas_fixed_table);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
@@ -54,11 +58,15 @@ class lookup_opcode_gas_lookup_settings {
                                      in.main_sel_gas_accounting_active,
                                      in.gas_sel_gas_cost,
                                      in.main_opcode_val,
-                                     in.main_l2_gas_op_cost,
-                                     in.main_da_gas_op_cost,
+                                     in.main_base_l2_gas_op_cost,
+                                     in.main_base_da_gas_op_cost,
+                                     in.main_dyn_l2_gas_op_cost,
+                                     in.main_dyn_da_gas_op_cost,
                                      in.main_clk,
-                                     in.gas_l2_gas_fixed_table,
-                                     in.gas_da_gas_fixed_table);
+                                     in.gas_base_l2_gas_fixed_table,
+                                     in.gas_base_da_gas_fixed_table,
+                                     in.gas_dyn_l2_gas_fixed_table,
+                                     in.gas_dyn_da_gas_fixed_table);
     }
 };
 

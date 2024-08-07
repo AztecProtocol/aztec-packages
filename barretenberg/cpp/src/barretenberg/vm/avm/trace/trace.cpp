@@ -2583,8 +2583,10 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
 
-    gas_trace_builder.constrain_gas_for_external_call(
-        clk, static_cast<uint32_t>(hint.l2_gas_used), static_cast<uint32_t>(hint.da_gas_used));
+    gas_trace_builder.constrain_gas_for_external_call(clk,
+                                                      /*dyn_gas_multiplier=*/0,
+                                                      static_cast<uint32_t>(hint.l2_gas_used),
+                                                      static_cast<uint32_t>(hint.da_gas_used));
 
     auto [resolved_gas_offset,
           resolved_addr_offset,
@@ -3954,15 +3956,17 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     for (auto const& gas_entry : gas_trace) {
         // There should be no gaps in the gas_trace.
         ASSERT(gas_entry.clk == current_clk);
-        // << "No gas entry for opcode" << next.main_opcode_val << "at clk" << current_clk;
 
         auto& dest = main_trace.at(gas_entry.clk - 1);
         auto& next = main_trace.at(gas_entry.clk);
 
         // Write each of the relevant gas accounting values
         dest.main_opcode_val = static_cast<uint8_t>(gas_entry.opcode);
-        dest.main_l2_gas_op_cost = gas_entry.l2_gas_cost;
-        dest.main_da_gas_op_cost = gas_entry.da_gas_cost;
+        dest.main_base_l2_gas_op_cost = gas_entry.base_l2_gas_cost;
+        dest.main_base_da_gas_op_cost = gas_entry.base_da_gas_cost;
+        dest.main_dyn_l2_gas_op_cost = gas_entry.dyn_l2_gas_cost;
+        dest.main_dyn_da_gas_op_cost = gas_entry.dyn_da_gas_cost;
+        dest.main_dyn_gas_multiplier = gas_entry.dyn_gas_multiplier;
 
         // If gas remaining is increasing, it means we underflowed in uint32_t
         bool l2_out_of_gas = current_l2_gas_remaining < gas_entry.remaining_l2_gas;
