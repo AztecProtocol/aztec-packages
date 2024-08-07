@@ -219,7 +219,7 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "index",
+            docId: "aztec/overview",
             position: "left",
             label: "Concepts",
           },
