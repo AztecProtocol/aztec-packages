@@ -127,7 +127,7 @@ void KateCommitmentScheme<settings>::generic_batch_open(const fr* src,
 
         // commit to the i-th opened polynomial
         polynomial offset_poly(std::span(&dest[dest_offset], (uint32_t)item_constants[i]));
-        KateCommitmentScheme::commit(offset_poly.data(), tags[i], item_constants[i], queue);
+        KateCommitmentScheme::commit(offset_poly.dense_view().data(), tags[i], item_constants[i], queue);
     }
 }
 
@@ -225,9 +225,11 @@ void KateCommitmentScheme<settings>::batch_open(const transcript::StandardTransc
 
     // Commit to the opening and shifted opening polynomials
     KateCommitmentScheme::commit(
-        input_key->polynomial_store.get("opening_poly").data(), "PI_Z", input_key->circuit_size, queue);
-    KateCommitmentScheme::commit(
-        input_key->polynomial_store.get("shifted_opening_poly").data(), "PI_Z_OMEGA", input_key->circuit_size, queue);
+        input_key->polynomial_store.get("opening_poly").dense_view().data(), "PI_Z", input_key->circuit_size, queue);
+    KateCommitmentScheme::commit(input_key->polynomial_store.get("shifted_opening_poly").dense_view().data(),
+                                 "PI_Z_OMEGA",
+                                 input_key->circuit_size,
+                                 queue);
 }
 
 template <typename settings>

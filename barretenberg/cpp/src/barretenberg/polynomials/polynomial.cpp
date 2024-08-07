@@ -254,7 +254,7 @@ void Polynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::fft(coefficients_, domain);
+    polynomial_arithmetic::fft(data(), domain);
 }
 
 template <typename Fr>
@@ -264,7 +264,7 @@ void Polynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::partial_fft(coefficients_, domain, constant, is_coset);
+    polynomial_arithmetic::partial_fft(data(), domain, constant, is_coset);
 }
 
 template <typename Fr>
@@ -274,7 +274,7 @@ void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::coset_fft(coefficients_, domain);
+    polynomial_arithmetic::coset_fft(data(), domain);
 }
 
 template <typename Fr>
@@ -288,7 +288,7 @@ void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
     ASSERT(in_place_operation_viable(extended_size));
     zero_memory_beyond(extended_size);
 
-    polynomial_arithmetic::coset_fft(coefficients_, domain, large_domain, domain_extension);
+    polynomial_arithmetic::coset_fft(data(), domain, large_domain, domain_extension);
 }
 
 template <typename Fr>
@@ -298,7 +298,7 @@ void Polynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain,
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::coset_fft_with_constant(coefficients_, domain, constant);
+    polynomial_arithmetic::coset_fft_with_constant(data(), domain, constant);
 }
 
 template <typename Fr>
@@ -308,7 +308,7 @@ void Polynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& 
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::coset_fft_with_generator_shift(coefficients_, domain, constant);
+    polynomial_arithmetic::coset_fft_with_generator_shift(data(), domain, constant);
 }
 
 template <typename Fr>
@@ -318,7 +318,7 @@ void Polynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::ifft(coefficients_, domain);
+    polynomial_arithmetic::ifft(data(), domain);
 }
 
 template <typename Fr>
@@ -328,7 +328,7 @@ void Polynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, cons
     ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
-    polynomial_arithmetic::ifft_with_constant(coefficients_, domain, constant);
+    polynomial_arithmetic::ifft_with_constant(data(), domain, constant);
 }
 
 template <typename Fr>
@@ -402,6 +402,22 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
+/**
+ * @brief Returns a Polynomial the left-shift of self.
+ *
+ * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
+ * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
+ */
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
+{
+    Polynomial result;
+    result.coefficients_ = coefficients_;
+    result.coefficients_.shift_ += 1;
+    // We only expect to shift by 1
+    ASSERT(data()[0].is_zero());
+    ASSERT(result.coefficients_.shift_ == 1);
+    return result;
+}
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
 

@@ -297,8 +297,7 @@ template <typename settings> void ProverBase<settings>::execute_second_round()
         ASSERT(w_randomness < settings::num_roots_cut_out_of_vanishing_polynomial);
         for (size_t k = 0; k < w_randomness; ++k) {
             // Blinding
-            w_4_lagrange.at(circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k) =
-                fr::random_element();
+            w_4_lagrange[circuit_size - settings::num_roots_cut_out_of_vanishing_polynomial + k] = fr::random_element();
         }
 
         // compute poly w_4 from w_4_lagrange and add it to the cache
@@ -311,7 +310,7 @@ template <typename settings> void ProverBase<settings>::execute_second_round()
         // commit to w_4 using the monomial srs.
         queue.add_to_queue({
             .work_type = work_queue::WorkType::SCALAR_MULTIPLICATION,
-            .mul_scalars = key->polynomial_store.get(wire_tag).data(),
+            .mul_scalars = key->polynomial_store.get(wire_tag).dense_view().data(),
             .tag = "W_4",
             .constant = key->circuit_size + 1,
             .index = 0,
@@ -477,8 +476,7 @@ template <typename settings> void ProverBase<settings>::add_blinding_to_quotient
 template <typename settings> void ProverBase<settings>::compute_lagrange_1_fft()
 {
     polynomial lagrange_1_fft(4 * circuit_size + 8);
-    polynomial_arithmetic::compute_lagrange_polynomial_fft(
-        lagrange_1_fft.data().get(), key->small_domain, key->large_domain);
+    polynomial_arithmetic::compute_lagrange_polynomial_fft(lagrange_1_fft.data(), key->small_domain, key->large_domain);
     for (size_t i = 0; i < 8; i++) {
         lagrange_1_fft[4 * circuit_size + i] = lagrange_1_fft[i];
     }

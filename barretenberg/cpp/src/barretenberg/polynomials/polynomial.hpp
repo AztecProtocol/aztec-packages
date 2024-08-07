@@ -100,7 +100,7 @@ template <typename Fr> class Polynomial {
     const Fr* end() const { return data() + size(); }
 
     /**
-     * @brief Returns an std::span of the left-shift of self.
+     * @brief Returns a Polynomial the left-shift of self.
      *
      * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
