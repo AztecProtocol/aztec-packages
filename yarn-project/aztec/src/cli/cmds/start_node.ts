@@ -66,7 +66,7 @@ export const startNode = async (
   if (!options.sequencer) {
     nodeConfig.disableSequencer = true;
   } else {
-    const sequencerConfig = extractRelevantOptions(options, sequencerClientConfigMappings);
+    const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
     let account;
     if (!sequencerConfig.publisherPrivateKey) {
       if (!options.l1Mnemonic) {
