@@ -67,7 +67,8 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
 
     const maybeHighS = BigInt(`0x${s.toString('hex')}`);
 
-    // ECDSA signatures must have a low S value so it can be used as a nullifier
+    // ECDSA signatures must have a low S value so they can be used as a nullifier. BB forces a value of 27 for v, so
+    // only one PublicKey can verify the signature (and not its negated counterpart) https://ethereum.stackexchange.com/a/55728
     if (maybeHighS > secp256r1_N / 2n + 1n) {
       s = Buffer.from((secp256r1_N - maybeHighS).toString(16), 'hex');
     }
