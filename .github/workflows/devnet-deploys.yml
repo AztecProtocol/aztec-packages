@@ -75,7 +75,7 @@ jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: master
+      username: ${{ github.actor }}
       runner_type: builder-x86
     secrets: inherit
 
@@ -184,31 +184,6 @@ jobs:
           earthly-ci \
           --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
 
-  build-aztec-nargo:
-    needs: set-network
-    env:
-      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
-      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
-    runs-on: ${{ github.actor }}-x86
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: build-aztec-nargo-${{ github.actor }}
-          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
-      - name: Build & push aztec nargo image
-        run: |
-          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }}
-          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }}
-
   build-aztec:
     needs: set-network
     env:
@@ -262,8 +237,33 @@ jobs:
 
           docker push aztecprotocol/aztec:${{ github.sha }}
 
+  build-aztec-nargo:
+    needs: [set-network, build-aztec]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-nargo-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+
+      - name: Build & push aztec nargo image
+        run: |
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }}
+
   build-faucet:
-    needs: set-network
+    needs: [set-network, build-aztec]
     env:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
