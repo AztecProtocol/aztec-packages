@@ -122,7 +122,7 @@ export const mockTx = (
           if (data.forPublic) {
             const hash = new ScopedLogHash(
               new LogHash(
-                Fr.fromBuffer(log.getSiloedHash()),
+                Fr.fromBuffer(log.hash()),
                 i++,
                 // +4 for encoding the length of the buffer
                 new Fr(log.length + 4),
