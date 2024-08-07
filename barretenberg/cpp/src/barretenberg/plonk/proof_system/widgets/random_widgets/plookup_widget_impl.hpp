@@ -98,7 +98,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_sor
     key->polynomial_store.put("s_lagrange", std::move(s_lagrange));
 
     // Compute the monomial coefficient representation of s
-    s_accum.ifft(key->small_domain);
+    s_accum.dense_view().ifft(key->small_domain);
     key->polynomial_store.put("s", std::move(s_accum));
 }
 
@@ -157,10 +157,10 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
 
     // Grab coefficient refs.
     std::array<std::shared_ptr<fr[]>, 4> lagrange_base_tables_ptr{
-        key->polynomial_store.get("table_value_1_lagrange").data(),
-        key->polynomial_store.get("table_value_2_lagrange").data(),
-        key->polynomial_store.get("table_value_3_lagrange").data(),
-        key->polynomial_store.get("table_value_4_lagrange").data(),
+        key->polynomial_store.get("table_value_1_lagrange").dense_view().data(),
+        key->polynomial_store.get("table_value_2_lagrange").dense_view().data(),
+        key->polynomial_store.get("table_value_3_lagrange").dense_view().data(),
+        key->polynomial_store.get("table_value_4_lagrange").dense_view().data(),
     };
     auto lagrange_base_tables = map(lagrange_base_tables_ptr, [](auto& e) { return e.get(); });
 
@@ -168,9 +168,9 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
     auto lookup_index_selector = key->polynomial_store.get("q_3_lagrange");
 
     std::array<std::shared_ptr<fr[]>, 3> lagrange_base_wires_ptr{
-        key->polynomial_store.get("w_1_lagrange").data(),
-        key->polynomial_store.get("w_2_lagrange").data(),
-        key->polynomial_store.get("w_3_lagrange").data(),
+        key->polynomial_store.get("w_1_lagrange").dense_view().data(),
+        key->polynomial_store.get("w_2_lagrange").dense_view().data(),
+        key->polynomial_store.get("w_3_lagrange").dense_view().data(),
     };
     auto lagrange_base_wires = map(lagrange_base_wires_ptr, [](auto& e) { return e.get(); });
 
@@ -328,7 +328,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
     }
 
     // Compute and add monomial form of z_lookup to the polynomial store
-    z_lookup.ifft(key->small_domain);
+    z_lookup.dense_view().ifft(key->small_domain);
     key->polynomial_store.put("z_lookup", std::move(z_lookup));
 }
 
@@ -351,7 +351,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_rou
         // Commit to s:
         queue.add_to_queue({
             .work_type = work_queue::WorkType::SCALAR_MULTIPLICATION,
-            .mul_scalars = s.data(),
+            .mul_scalars = s.dense_view().data(),
             .tag = "S",
             .constant = key->circuit_size,
             .index = 0,
@@ -375,7 +375,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_rou
         // Commit to z_lookup:
         queue.add_to_queue({
             .work_type = work_queue::WorkType::SCALAR_MULTIPLICATION,
-            .mul_scalars = z.data(),
+            .mul_scalars = z.dense_view().data(),
             .tag = "Z_LOOKUP",
             .constant = key->circuit_size,
             .index = 0,
@@ -428,19 +428,19 @@ bb::fr ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_q
     fr gamma = fr::serialize_from_buffer(transcript.get_challenge("beta", 1).begin());
 
     std::array<std::shared_ptr<fr[]>, 3> wire_ffts_ptr{
-        key->polynomial_store.get("w_1_fft").data(),
-        key->polynomial_store.get("w_2_fft").data(),
-        key->polynomial_store.get("w_3_fft").data(),
+        key->polynomial_store.get("w_1_fft").dense_view().data(),
+        key->polynomial_store.get("w_2_fft").dense_view().data(),
+        key->polynomial_store.get("w_3_fft").dense_view().data(),
     };
     auto wire_ffts = map(wire_ffts_ptr, [](auto& e) { return e.get(); });
 
     auto s_fft = key->polynomial_store.get("s_fft");
 
     std::array<std::shared_ptr<fr[]>, 4> table_ffts_ptr{
-        key->polynomial_store.get("table_value_1_fft").data(),
-        key->polynomial_store.get("table_value_2_fft").data(),
-        key->polynomial_store.get("table_value_3_fft").data(),
-        key->polynomial_store.get("table_value_4_fft").data(),
+        key->polynomial_store.get("table_value_1_fft").dense_view().data(),
+        key->polynomial_store.get("table_value_2_fft").dense_view().data(),
+        key->polynomial_store.get("table_value_3_fft").dense_view().data(),
+        key->polynomial_store.get("table_value_4_fft").dense_view().data(),
     };
     auto table_ffts = map(table_ffts_ptr, [](auto& e) { return e.get(); });
 

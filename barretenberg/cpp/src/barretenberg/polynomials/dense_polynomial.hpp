@@ -11,8 +11,20 @@
 namespace bb {
 enum class DenseDontZeroMemory { FLAG };
 
-// A dense polynomial used in plonk that does not implement the zero memory
-// optimization. This is considered legacy now.
+/*
+ * A dense polynomial used in plonk that does not implement the zero memory
+ * optimization. This is considered legacy now.
+ * @brief Polynomial class that represents the coefficients 'a' of a_0 + a_1 x + a_n x^n of
+ * a finite field polynomial equation of degree that is at most the size of some zk circuit.
+ * The polynomial is used to represent the gates of our arithmetized zk programs.
+ * This uses the majority of the memory in proving, so caution should be used in making sure
+ * unnecessary copies are avoided, both for avoiding unnecessary memory usage and performance
+ * due to unnecessary allocations.
+ * The polynomial has a maximum degree in the underlying VirtualZerosArray, dictated by the circuit size, this is just
+ * used for debugging as we represent.
+ *
+ * @tparam Fr the finite field type.
+ */
 template <typename Fr> class DensePolynomial {
   public:
     /**
@@ -44,7 +56,7 @@ template <typename Fr> class DensePolynomial {
 
     // Helper method used to alias a sparse polynomial as a dense one.
     // Note this only works of the sparse polynomial is actually dense (size == virtual_size).
-    static DensePolynomial from_sparse_underlying_array(SharedShiftedVirtualZeroesArray<Fr>& array);
+    static DensePolynomial from_sparse_underlying_array(const SharedShiftedVirtualZeroesArray<Fr>& array);
 
     /**
      * @brief Create the degree-(m-1) polynomial T(X) that interpolates the given evaluations.
@@ -242,7 +254,12 @@ template <typename Fr> class DensePolynomial {
 
     iterator begin() { return coefficients_; }
     iterator end() { return coefficients_ + size_; }
-    pointer data() { return backing_memory_; }
+    pointer data()
+    {
+        // This is not useful if we have shifted the underlying data!
+        ASSERT(backing_memory_.get() == coefficients_);
+        return backing_memory_;
+    }
 
     std::span<uint8_t> byte_span() const
     {

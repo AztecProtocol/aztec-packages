@@ -866,7 +866,7 @@ class TranslatorFlavor {
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key->commit(polynomial.as_span());
             }
         }
 

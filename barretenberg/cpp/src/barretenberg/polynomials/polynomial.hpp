@@ -118,20 +118,20 @@ template <typename Fr> class Polynomial {
      */
     void add_scaled(std::span<const Fr> other, Fr scaling_factor);
 
-    DensePolynomial<Fr> dense_view() { return DensePolynomial<Fr>::from_sparse_underlying_array(coefficients_); }
-    // /**
-    //  * @brief adds the polynomial q(X) 'other'.
-    //  *
-    //  * @param other q(X)
-    //  */
-    // Polynomial& operator+=(std::span<const Fr> other);
+    DensePolynomial<Fr> dense_view() const { return DensePolynomial<Fr>::from_sparse_underlying_array(coefficients_); }
+    /**
+     * @brief adds the polynomial q(X) 'other'.
+     *
+     * @param other q(X)
+     */
+    Polynomial& operator+=(std::span<const Fr> other);
 
-    // /**
-    //  * @brief subtracts the polynomial q(X) 'other'.
-    //  *
-    //  * @param other q(X)
-    //  */
-    // Polynomial& operator-=(std::span<const Fr> other);
+    /**
+     * @brief subtracts the polynomial q(X) 'other'.
+     *
+     * @param other q(X)
+     */
+    Polynomial& operator-=(std::span<const Fr> other);
 
     /**
      * @brief sets this = p(X) to s⋅p(X)
@@ -144,12 +144,12 @@ template <typename Fr> class Polynomial {
     {
         return { coefficients_.data(), coefficients_.data() + coefficients_.size() };
     }
-    std::span<Fr> as_span() {}
+    std::span<Fr> as_span() { return { coefficients_.data(), coefficients_.data() + coefficients_.size() }; }
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
 
     Fr* data() { return coefficients_.data(); }
-    Fr* data() const { return coefficients_.data(); }
+    const Fr* data() const { return coefficients_.data(); }
     Fr& operator[](size_t i) { return coefficients_.data()[i]; }
     const Fr& operator[](size_t i) const { return coefficients_.data()[i]; }
 

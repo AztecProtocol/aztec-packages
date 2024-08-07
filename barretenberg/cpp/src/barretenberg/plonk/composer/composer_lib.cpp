@@ -28,7 +28,7 @@ void compute_monomial_and_coset_selector_forms(plonk::proving_key* circuit_provi
 
         // Compute coset FFT of selector polynomial
         bb::polynomial selector_poly_fft(selector_poly, circuit_proving_key->circuit_size * 4 + 4);
-        selector_poly_fft.coset_fft(circuit_proving_key->large_domain);
+        selector_poly_fft.dense_view().coset_fft(circuit_proving_key->large_domain);
 
         // Note: For Standard, the lagrange polynomials could be removed from the store at this point but this
         // is not the case for Ultra.
@@ -65,7 +65,7 @@ std::shared_ptr<plonk::verification_key> compute_verification_key_common(
 
             // Commit to the constraint selector polynomial and insert the commitment in the verification key.
 
-            auto poly_commitment = commitment_key.commit(proving_key->polynomial_store.get(poly_label));
+            auto poly_commitment = commitment_key.commit(proving_key->polynomial_store.get(poly_label).as_span());
             circuit_verification_key->commitments.insert({ selector_commitment_label, poly_commitment });
         }
     }

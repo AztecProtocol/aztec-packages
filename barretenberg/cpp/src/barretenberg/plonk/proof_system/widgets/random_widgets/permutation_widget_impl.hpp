@@ -318,7 +318,7 @@ void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanish
     // Commit to z:
     queue.add_to_queue({
         work_queue::WorkType::SCALAR_MULTIPLICATION,
-        z_perm.data(),
+        z_perm.dense_view().data(), // NOTE: this assumes data is NOT shifted
         "Z_PERM",
         key->circuit_size,
         0,

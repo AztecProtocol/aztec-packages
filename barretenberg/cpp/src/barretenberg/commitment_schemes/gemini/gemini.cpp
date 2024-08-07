@@ -76,7 +76,7 @@ std::vector<typename bb::Polynomial<typename Curve::ScalarField>> GeminiProver_<
     constexpr size_t offset_to_folded = 2; // Offset because of F an G
     // A₀(X) = F(X) + G↺(X) = F(X) + G(X)/X.
     Polynomial A_0 = batched_F;
-    A_0 += batched_G.shifted();
+    A_0 += batched_G.shifted().as_span();
 
     // Allocate everything before parallel computation
     for (size_t l = 0; l < num_variables - 1; ++l) {

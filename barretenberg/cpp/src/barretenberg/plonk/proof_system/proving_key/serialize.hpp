@@ -92,7 +92,7 @@ template <typename B> inline void read_from_file(B& is, std::string const& path,
         // Open the file and read the data directly into the polynomial memory.
         std::ifstream file(filepath, std::ios::binary);
         if (file) {
-            file.read(reinterpret_cast<char*>(value.data().get()), (std::streamsize)file_size);
+            file.read(reinterpret_cast<char*>(value.data()), (std::streamsize)file_size);
             file.close();
         } else {
             throw_or_abort("Failed to open file: " + filepath);

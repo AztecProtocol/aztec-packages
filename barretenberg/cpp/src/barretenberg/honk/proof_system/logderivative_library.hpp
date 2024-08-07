@@ -53,7 +53,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     };
 
     // todo might be inverting zero in field bleh bleh
-    FF::batch_invert(inverse_polynomial);
+    FF::batch_invert(inverse_polynomial.as_span());
 }
 
 /**

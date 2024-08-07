@@ -34,7 +34,7 @@ template <typename Fr> void DensePolynomial<Fr>::allocate_backing_memory(size_t 
 // Helper method used to alias a sparse polynomial as a dense one.
 // Note this only works of the sparse polynomial is actually dense (size == virtual_size).
 template <typename Fr>
-DensePolynomial<Fr> DensePolynomial<Fr>::from_sparse_underlying_array(SharedShiftedVirtualZeroesArray<Fr>& array)
+DensePolynomial<Fr> DensePolynomial<Fr>::from_sparse_underlying_array(const SharedShiftedVirtualZeroesArray<Fr>& array)
 {
     if (array.size() != array.virtual_size()) {
         throw_or_abort("attempt to alias a sparse polynomial as a dense polynomial");
@@ -529,7 +529,7 @@ DensePolynomial<Fr> DensePolynomial<Fr>::partial_evaluate_mle(std::span<const Fr
     }
 
     // Construct resulting DensePolynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    DensePolynomial<Fr> result(n_l, DontZeroMemory::FLAG);
+    DensePolynomial<Fr> result(n_l, DenseDontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = intermediate[idx];
     }
