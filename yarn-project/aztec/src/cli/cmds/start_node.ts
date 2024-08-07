@@ -102,11 +102,9 @@ export const startNode = async (
     throw new Error('Cannot run a sequencer without a prover');
   }
 
-  let telemetryClient;
-  if (options.tel) {
-    const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
-    telemetryClient = createAndStartTelemetryClient(telemetryConfig);
-  }
+  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
+  const telemetryClient = createAndStartTelemetryClient(telemetryConfig);
+
   // Create and start Aztec Node.
   const node = await createAztecNode(nodeConfig, telemetryClient);
   const nodeServer = createAztecNodeRpcServer(node);

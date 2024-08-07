@@ -5,7 +5,7 @@ import { type ConfigMapping, filterConfigMappings, isBooleanConfigValue } from '
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
 import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
-import { pxeCliConfigMappings } from '@aztec/pxe';
+import { allPxeConfigMappings } from '@aztec/pxe';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 
 // Define an interface for options
@@ -201,15 +201,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('p2p', p2pConfigMappings),
   ],
-  TELEMETRY: [
-    {
-      flag: '--telemetry',
-      description: 'Enable telemetry',
-      defaultValue: false,
-      envVar: 'TELEMETRY',
-    },
-    ...getOptions('tel', telemetryClientConfigMappings),
-  ],
+  TELEMETRY: [...getOptions('tel', telemetryClientConfigMappings)],
   PXE: [
     {
       flag: '--pxe',
@@ -217,7 +209,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
-    ...getOptions('pxe', pxeCliConfigMappings),
+    ...getOptions('pxe', allPxeConfigMappings),
   ],
   ARCHIVER: [
     {

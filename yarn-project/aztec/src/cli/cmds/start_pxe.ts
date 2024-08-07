@@ -12,9 +12,9 @@ import {
   AztecAddress,
   type CliPXEOptions,
   type PXEServiceConfig,
+  allPxeConfigMappings,
   createPXERpcServer,
   createPXEService,
-  pxeCliConfigMappings,
 } from '@aztec/pxe';
 import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
@@ -47,9 +47,8 @@ export async function addPXE(
   userLog: LogFn,
   deps: { node?: AztecNode } = {},
 ) {
-  // const pxeCliOptions = parseModuleOptions(options.pxe);
-  // const pxeConfig = mergeEnvVarsAndCliOptions<CliPXEOptions>(getCliPXEOptions(), pxeCliOptions);
-  const pxeConfig = extractRelevantOptions<CliPXEOptions>(options, pxeCliConfigMappings);
+  const pxeConfig = extractRelevantOptions<PXEServiceConfig & CliPXEOptions>(options, allPxeConfigMappings);
+
   let nodeUrl;
   if (pxeConfig.network) {
     if (isValidNetwork(pxeConfig.network)) {
