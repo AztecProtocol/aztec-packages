@@ -25,7 +25,6 @@ struct TailOutputHints {
     sorted_note_encrypted_log_hash_hints: [OrderHint; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     // Encrypted log hashes.
     masked_encrypted_log_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
-    sorted_masked_encrypted_log_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_masked_encrypted_log_hash_hints: [OrderHint; MAX_ENCRYPTED_LOGS_PER_TX],
     // Unencrypted log hashes.
     sorted_unencrypted_log_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
@@ -52,7 +51,6 @@ unconstrained pub fn generate_tail_output_hints(previous_kernel: PrivateKernelCi
     for i in 0..masked_log_hashes.len() {
         masked_log_hashes[i].contract_address = mask_encrypted_log_hash(previous_kernel.end.encrypted_logs_hashes[i]);
     }
-    let sorted_masked_encrypted_log_hashes = sort_by_counters_asc(masked_log_hashes).map(|h: ScopedEncryptedLogHash| h.expose_to_public());
     let masked_encrypted_log_hashes = masked_log_hashes.map(|h: ScopedEncryptedLogHash| h.expose_to_public());
     let sorted_masked_encrypted_log_hash_hints = sort_get_order_hints_asc(previous_kernel.end.encrypted_logs_hashes);
 
@@ -68,7 +66,6 @@ unconstrained pub fn generate_tail_output_hints(previous_kernel: PrivateKernelCi
         sorted_note_encrypted_log_hashes,
         sorted_note_encrypted_log_hash_hints,
         masked_encrypted_log_hashes,
-        sorted_masked_encrypted_log_hashes,
         sorted_masked_encrypted_log_hash_hints,
         sorted_unencrypted_log_hashes,
         sorted_unencrypted_log_hash_hints

@@ -131,12 +131,8 @@ impl TailOutputValidator {
         assert_sorted_transformed_value_array(
             self.previous_kernel.end.encrypted_logs_hashes,
             self.hints.masked_encrypted_log_hashes,
-            self.hints.sorted_masked_encrypted_log_hashes,
+            self.output.end.encrypted_logs_hashes,
             self.hints.sorted_masked_encrypted_log_hash_hints
-        );
-
-        assert_eq(
-            self.hints.sorted_masked_encrypted_log_hashes, self.output.end.encrypted_logs_hashes, "mismatch encrypted_logs_hashes"
         );
 
         // unencrypted_log_hashes
