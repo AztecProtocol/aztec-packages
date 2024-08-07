@@ -199,6 +199,7 @@ export class Fr extends BaseField {
   static ZERO = new Fr(0n);
   static ONE = new Fr(1n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
+  static MAX_FIELD_VALUE = new Fr(this.MODULUS - 1n);
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
     super(value);
@@ -432,7 +433,7 @@ export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) =
 }
 
 /** If we are in test mode, we register a special equality for fields. */
-if (process.env.NODE_ENV === 'test') {
+if (process.env.NODE_ENV === 'test' && typeof expect !== 'undefined') {
   const areFieldsEqual = (a: unknown, b: unknown): boolean | undefined => {
     const isAField = a instanceof BaseField;
     const isBField = b instanceof BaseField;

@@ -13,6 +13,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  ContractClassRegisteredEvent,
   GAS_TOKEN_ADDRESS,
   type GlobalVariables,
   type Header,
@@ -23,7 +24,9 @@ import {
 } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
+import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import {
   PublicExecutor,
   type PublicStateDB,
@@ -40,6 +43,7 @@ import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -59,16 +63,19 @@ export class PublicProcessorFactory {
    * @param newContracts - Provides access to contract bytecode for public executions.
    * @returns A new instance of a PublicProcessor.
    */
-  public async create(
-    historicalHeader: Header | undefined,
-    globalVariables: GlobalVariables,
-  ): Promise<PublicProcessor> {
-    historicalHeader = historicalHeader ?? (await this.merkleTree.buildInitialHeader());
+  public create(historicalHeader: Header | undefined, globalVariables: GlobalVariables): PublicProcessor {
+    historicalHeader = historicalHeader ?? this.merkleTree.getInitialHeader();
 
     const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const worldStatePublicDB = new WorldStatePublicDB(this.merkleTree);
     const worldStateDB = new WorldStateDB(this.merkleTree);
-    const publicExecutor = new PublicExecutor(worldStatePublicDB, publicContractsDB, worldStateDB, historicalHeader);
+    const publicExecutor = new PublicExecutor(
+      worldStatePublicDB,
+      publicContractsDB,
+      worldStateDB,
+      historicalHeader,
+      this.telemetryClient,
+    );
     return new PublicProcessor(
       this.merkleTree,
       publicExecutor,
@@ -87,7 +94,7 @@ export class PublicProcessorFactory {
  * any public function calls in them. Txs with private calls only are unaffected.
  */
 export class PublicProcessor {
-  public readonly tracer: Tracer;
+  private metrics: PublicProcessorMetrics;
   constructor(
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
@@ -99,7 +106,11 @@ export class PublicProcessor {
     telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {
-    this.tracer = telemetryClient.getTracer('PublicProcessor');
+    this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
+  }
+
+  get tracer(): Tracer {
+    return this.metrics.tracer;
   }
 
   /**
@@ -128,6 +139,12 @@ export class PublicProcessor {
         const [processedTx, returnValues] = !tx.hasPublicCalls()
           ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), [])]
           : await this.processTxWithPublicCalls(tx);
+        this.log.debug(`Processed tx`, {
+          txHash: processedTx.hash,
+          historicalHeaderHash: processedTx.data.constants.historicalHeader.hash(),
+          blockNumber: processedTx.data.constants.globalVariables.blockNumber,
+          lastArchiveRoot: processedTx.data.constants.historicalHeader.lastArchive.root,
+        });
 
         // Set fee payment update request into the processed tx
         processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
@@ -219,6 +236,7 @@ export class PublicProcessor {
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+    const timer = new Timer();
     let returnValues: NestedProcessReturnValues[] = [];
     const publicProvingRequests: PublicProvingRequest[] = [];
     let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
@@ -237,8 +255,18 @@ export class PublicProcessor {
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const gasUsed: ProcessedTx['gasUsed'] = {};
+    let phaseCount = 0;
     while (phase) {
+      phaseCount++;
+      const phaseTimer = new Timer();
       const output = await phase.handle(tx, publicKernelPublicInput, lastKernelArtifact);
+
+      if (output.revertReason) {
+        this.metrics.recordRevertedPhase(phase.phase);
+      } else {
+        this.metrics.recordPhaseDuration(phase.phase, phaseTimer.ms());
+      }
+
       gasUsed[phase.phase] = output.gasUsed;
       if (phase.phase === PublicKernelType.APP_LOGIC) {
         returnValues = output.returnValues;
@@ -262,9 +290,15 @@ export class PublicProcessor {
     }
 
     if (!finalKernelOutput) {
+      this.metrics.recordFailedTx();
       throw new Error('Final public kernel was not executed.');
     }
 
+    this.metrics.recordClassRegistration(
+      ...ContractClassRegisteredEvent.fromLogs(tx.unencryptedLogs.unrollLogs(), ClassRegistererAddress),
+    );
+
+    this.metrics.recordTx(phaseCount, timer.ms());
     const processedTx = makeProcessedTx(tx, finalKernelOutput, publicProvingRequests, revertReason, gasUsed);
     return [processedTx, returnValues];
   }

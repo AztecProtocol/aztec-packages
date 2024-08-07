@@ -1,6 +1,7 @@
+import { PedersenCommitment } from '../opcodes/commitment.js';
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { EcAdd } from '../opcodes/ec_add.js';
-import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
+import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import type { Instruction } from '../opcodes/index.js';
 import {
   Add,
@@ -146,8 +147,12 @@ const INSTRUCTION_SET = () =>
     [Sha256.opcode, Sha256],
     [Pedersen.opcode, Pedersen],
     [MultiScalarMul.opcode, MultiScalarMul],
+    [PedersenCommitment.opcode, PedersenCommitment],
     // Conversions
     [ToRadixLE.opcode, ToRadixLE],
+    // Future Gadgets -- pending changes in noir
+    // SHA256COMPRESSION,
+    [KeccakF1600.opcode, KeccakF1600],
   ]);
 
 interface Serializable {

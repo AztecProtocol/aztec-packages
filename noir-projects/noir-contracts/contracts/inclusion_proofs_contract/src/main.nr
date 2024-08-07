@@ -8,9 +8,6 @@ contract InclusionProofs {
 
     use dep::aztec::protocol_types::{contract_class_id::ContractClassId, header::Header};
     use dep::aztec::{note::note_getter_options::NoteStatus};
-    // docs:start:imports
-    // Imports are not needed as inclusion / non_inclusion proofs are accessible on the header.
-    // docs:end:imports
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
@@ -55,16 +52,17 @@ contract InclusionProofs {
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get_unchecked(0);
+        let note = private_values.get_notes(options).get(0);
         // docs:end:get_note_from_pxe
 
+        // docs:start:prove_note_inclusion
         // 2) Prove the note inclusion
         let header = if (use_block_number) {
             context.get_header_at(block_number)
         } else {
             context.get_header()
         };
-        // docs:start:prove_note_inclusion
+
         header.prove_note_inclusion(note);
         // docs:end:prove_note_inclusion
     }
@@ -106,7 +104,7 @@ contract InclusionProofs {
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
-        let note = private_values.get_notes(options).get_unchecked(0);
+        let note = private_values.get_notes(options).get(0);
 
         let header = if (use_block_number) {
             context.get_header_at(block_number)
@@ -179,7 +177,7 @@ contract InclusionProofs {
 
     #[aztec(public)]
     fn push_nullifier_public(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // Proves nullifier existed at latest block
@@ -192,15 +190,14 @@ contract InclusionProofs {
     fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
         let header = context.get_header_at(block_number);
-
+        // docs:start:public_storage_historical_read
         assert_eq(
-            // docs:start:public_storage_historical_read
             header.public_storage_historical_read(
                 storage.public_unused_value.storage_slot,
                 context.this_address()
-            // docs:end:public_storage_historical_read
             ), 0
         );
+        // docs:end:public_storage_historical_read
     }
 
     #[aztec(private)]

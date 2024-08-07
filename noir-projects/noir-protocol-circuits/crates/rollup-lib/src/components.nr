@@ -91,9 +91,9 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
     )
 }
 
-pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> Field {
-    let non_empty_items = array_length(combined.l2_to_l1_msgs);
-    let merkle_tree = VariableMerkleTree::new_sha(combined.l2_to_l1_msgs, non_empty_items);
+pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
+    let non_empty_items = array_length(l2_to_l1_msgs);
+    let merkle_tree = VariableMerkleTree::new_sha(l2_to_l1_msgs, non_empty_items);
     merkle_tree.get_root()
 }
 

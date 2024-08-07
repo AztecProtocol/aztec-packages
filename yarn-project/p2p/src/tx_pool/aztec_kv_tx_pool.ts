@@ -1,7 +1,7 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecSet } from '@aztec/kv-store';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { TxPoolInstrumentation } from './instrumentation.js';
@@ -13,10 +13,13 @@ import { type TxPool } from './tx_pool.js';
 export class AztecKVTxPool implements TxPool {
   #store: AztecKVStore;
 
-  /**
-   * Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction.
-   */
+  /** Our tx pool, stored as a Map, with K: tx hash and V: the transaction. */
   #txs: AztecMap<string, Buffer>;
+
+  /** Index for pending txs. */
+  #pendingTxs: AztecSet<string>;
+  /** Index for mined txs. */
+  #minedTxs: AztecSet<string>;
 
   #log: Logger;
 
@@ -29,9 +32,43 @@ export class AztecKVTxPool implements TxPool {
    */
   constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createDebugLogger('aztec:tx_pool')) {
     this.#txs = store.openMap('txs');
+    this.#minedTxs = store.openSet('minedTxs');
+    this.#pendingTxs = store.openSet('pendingTxs');
+
     this.#store = store;
     this.#log = log;
     this.#metrics = new TxPoolInstrumentation(telemetry, 'AztecKVTxPool');
+  }
+
+  public markAsMined(txHashes: TxHash[]): Promise<void> {
+    return this.#store.transaction(() => {
+      for (const hash of txHashes) {
+        const key = hash.toString();
+        void this.#minedTxs.add(key);
+        void this.#pendingTxs.delete(key);
+      }
+      this.#metrics.recordRemovedTxs('pending', txHashes.length);
+      this.#metrics.recordAddedTxs('mined', txHashes.length);
+    });
+  }
+
+  public getPendingTxHashes(): TxHash[] {
+    return Array.from(this.#pendingTxs.entries()).map(x => TxHash.fromString(x));
+  }
+
+  public getMinedTxHashes(): TxHash[] {
+    return Array.from(this.#minedTxs.entries()).map(x => TxHash.fromString(x));
+  }
+
+  public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
+    const key = txHash.toString();
+    if (this.#pendingTxs.has(key)) {
+      return 'pending';
+    } else if (this.#minedTxs.has(key)) {
+      return 'mined';
+    } else {
+      return undefined;
+    }
   }
 
   /**
@@ -52,6 +89,7 @@ export class AztecKVTxPool implements TxPool {
   public addTxs(txs: Tx[]): Promise<void> {
     const txHashes = txs.map(tx => tx.getTxHash());
     return this.#store.transaction(() => {
+      let pendingCount = 0;
       for (const [i, tx] of txs.entries()) {
         const txHash = txHashes[i];
         this.#log.info(`Adding tx with id ${txHash.toString()}`, {
@@ -59,10 +97,17 @@ export class AztecKVTxPool implements TxPool {
           ...tx.getStats(),
         } satisfies TxAddedToPoolStats);
 
-        void this.#txs.set(txHash.toString(), tx.toBuffer());
+        const key = txHash.toString();
+        void this.#txs.set(key, tx.toBuffer());
+        if (!this.#minedTxs.has(key)) {
+          pendingCount++;
+          // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
+          void this.#pendingTxs.add(key);
+          this.#metrics.recordTxSize(tx);
+        }
       }
 
-      this.#metrics.recordTxs(txs);
+      this.#metrics.recordAddedTxs('pending', pendingCount);
     });
   }
 
@@ -73,11 +118,24 @@ export class AztecKVTxPool implements TxPool {
    */
   public deleteTxs(txHashes: TxHash[]): Promise<void> {
     return this.#store.transaction(() => {
+      let pendingDeleted = 0;
+      let minedDeleted = 0;
       for (const hash of txHashes) {
-        void this.#txs.delete(hash.toString());
+        const key = hash.toString();
+        void this.#txs.delete(key);
+        if (this.#pendingTxs.has(key)) {
+          pendingDeleted++;
+          void this.#pendingTxs.delete(key);
+        }
+
+        if (this.#minedTxs.has(key)) {
+          minedDeleted++;
+          void this.#minedTxs.delete(key);
+        }
       }
 
-      this.#metrics.removeTxs(txHashes.length);
+      this.#metrics.recordRemovedTxs('pending', pendingDeleted);
+      this.#metrics.recordRemovedTxs('mined', minedDeleted);
     });
   }
 
@@ -95,14 +153,5 @@ export class AztecKVTxPool implements TxPool {
    */
   public getAllTxHashes(): TxHash[] {
     return Array.from(this.#txs.keys()).map(x => TxHash.fromString(x));
-  }
-
-  /**
-   * Returns a boolean indicating if the transaction is present in the pool.
-   * @param txHash - The hash of the transaction to be queried.
-   * @returns True if the transaction present, false otherwise.
-   */
-  public hasTx(txHash: TxHash): boolean {
-    return this.#txs.has(txHash.toString());
   }
 }

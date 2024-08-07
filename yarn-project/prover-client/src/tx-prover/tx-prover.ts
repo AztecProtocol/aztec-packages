@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
-import { type ProcessedTx } from '@aztec/circuit-types';
+import { type L2BlockSource, type ProcessedTx } from '@aztec/circuit-types';
 import {
   type BlockResult,
   type ProverClient,
@@ -7,7 +7,7 @@ import {
   type ProvingTicket,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces';
-import { type Fr, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
@@ -30,15 +30,18 @@ export class TxProver implements ProverClient {
     private worldStateSynchronizer: WorldStateSynchronizer,
     private telemetry: TelemetryClient,
     private agent?: ProverAgent,
-    initialHeader?: Header,
   ) {
-    this.queue = new MemoryProvingQueue(config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
+    this.queue = new MemoryProvingQueue(telemetry, config.proverJobTimeoutMs, config.proverJobPollIntervalMs);
     this.orchestrator = new ProvingOrchestrator(
       worldStateSynchronizer.getLatest(),
       this.queue,
       telemetry,
-      initialHeader,
+      config.proverId,
     );
+  }
+
+  public getProverId(): Fr {
+    return this.config.proverId ?? Fr.ZERO;
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig>): Promise<void> {
@@ -96,8 +99,8 @@ export class TxProver implements ProverClient {
   public static async new(
     config: ProverClientConfig,
     worldStateSynchronizer: WorldStateSynchronizer,
+    blockSource: L2BlockSource,
     telemetry: TelemetryClient,
-    initialHeader?: Header,
   ) {
     const agent = config.proverAgentEnabled
       ? new ProverAgent(
@@ -107,7 +110,7 @@ export class TxProver implements ProverClient {
         )
       : undefined;
 
-    const prover = new TxProver(config, worldStateSynchronizer, telemetry, agent, initialHeader);
+    const prover = new TxProver(config, worldStateSynchronizer, telemetry, agent);
     await prover.start();
     return prover;
   }

@@ -87,7 +87,7 @@ describe('sequencer', () => {
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: (_a, _b_) => Promise.resolve(publicProcessor),
+      create: (_a, _b_) => publicProcessor,
     });
 
     l2BlockSource = mock<L2BlockSource>({
@@ -131,12 +131,21 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce([tx]);
+    p2p.getTxs.mockReturnValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        block.header.globalVariables.blockNumber,
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
     );
 
     await sequencer.initialSync();
@@ -144,7 +153,16 @@ describe('sequencer', () => {
 
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       2,
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
@@ -163,12 +181,21 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce([tx]);
+    p2p.getTxs.mockReturnValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
     );
 
     // Not your turn!
@@ -182,7 +209,16 @@ describe('sequencer', () => {
     await sequencer.work();
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       2,
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
@@ -204,12 +240,21 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce(txs);
+    p2p.getTxs.mockReturnValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
     );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
@@ -225,7 +270,16 @@ describe('sequencer', () => {
 
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       2,
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
@@ -248,12 +302,21 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce(txs);
+    p2p.getTxs.mockReturnValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
     );
 
     // We make the chain id on the invalid tx not equal to the configured chain id
@@ -264,7 +327,16 @@ describe('sequencer', () => {
 
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       2,
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
@@ -286,12 +358,21 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce(txs);
+    p2p.getTxs.mockReturnValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
     );
 
     // We make txs[1] too big to fit
@@ -303,7 +384,16 @@ describe('sequencer', () => {
 
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
       2,
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
@@ -322,12 +412,21 @@ describe('sequencer', () => {
       provingPromise: Promise.resolve(result),
     };
 
-    p2p.getTxs.mockResolvedValueOnce([tx]);
+    p2p.getTxs.mockReturnValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
     proverClient.finaliseBlock.mockResolvedValue({ block, aggregationObject: [], proof });
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
-      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient, gasFees),
+      new GlobalVariables(
+        chainId,
+        version,
+        new Fr(lastBlockNumber + 1),
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      ),
     );
 
     await sequencer.initialSync();

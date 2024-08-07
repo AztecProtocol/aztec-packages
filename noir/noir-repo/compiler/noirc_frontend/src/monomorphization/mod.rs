@@ -21,7 +21,7 @@ use crate::{
         types,
     },
     node_interner::{self, DefinitionKind, NodeInterner, StmtId, TraitImplKind, TraitMethodId},
-    Type, TypeBinding, TypeBindings, TypeVariable, TypeVariableKind,
+    Type, TypeBinding, TypeBindings,
 };
 use acvm::{acir::AcirField, FieldElement};
 use iter_extended::{btree_map, try_vecmap, vecmap};
@@ -383,8 +383,8 @@ impl<'interner> Monomorphizer<'interner> {
                     self.parameter(field, &typ, new_params)?;
                 }
             }
-            HirPattern::Struct(_, fields, _) => {
-                let struct_field_types = unwrap_struct_type(typ);
+            HirPattern::Struct(_, fields, location) => {
+                let struct_field_types = unwrap_struct_type(typ, *location)?;
                 assert_eq!(struct_field_types.len(), fields.len());
 
                 let mut fields =
@@ -663,8 +663,10 @@ impl<'interner> Monomorphizer<'interner> {
         constructor: HirConstructorExpression,
         id: node_interner::ExprId,
     ) -> Result<ast::Expression, MonomorphizationError> {
+        let location = self.interner.expr_location(&id);
+
         let typ = self.interner.id_type(id);
-        let field_types = unwrap_struct_type(&typ);
+        let field_types = unwrap_struct_type(&typ, location)?;
 
         let field_type_map = btree_map(&field_types, |x| x.clone());
 
@@ -740,8 +742,8 @@ impl<'interner> Monomorphizer<'interner> {
                 let fields = unwrap_tuple_type(typ);
                 self.unpack_tuple_pattern(value, patterns.into_iter().zip(fields))
             }
-            HirPattern::Struct(_, patterns, _) => {
-                let fields = unwrap_struct_type(typ);
+            HirPattern::Struct(_, patterns, location) => {
+                let fields = unwrap_struct_type(typ, location)?;
                 assert_eq!(patterns.len(), fields.len());
 
                 let mut patterns =
@@ -975,12 +977,24 @@ impl<'interner> Monomorphizer<'interner> {
             }
 
             HirType::Struct(def, args) => {
+                // Not all generic arguments may be used in a struct's fields so we have to check
+                // the arguments as well as the fields in case any need to be defaulted or are unbound.
+                for arg in args {
+                    Self::check_type(arg, location)?;
+                }
+
                 let fields = def.borrow().get_fields(args);
                 let fields = try_vecmap(fields, |(_, field)| Self::convert_type(&field, location))?;
                 ast::Type::Tuple(fields)
             }
 
             HirType::Alias(def, args) => {
+                // Similar to the struct case above: generics of an alias might not end up being
+                // used in the type that is aliased.
+                for arg in args {
+                    Self::check_type(arg, location)?;
+                }
+
                 Self::convert_type(&def.borrow().get_type(args), location)?
             }
 
@@ -1017,6 +1031,83 @@ impl<'interner> Monomorphizer<'interner> {
             }
             HirType::Quoted(_) => unreachable!("Tried to translate Code type into runtime code"),
         })
+    }
+
+    // Similar to `convert_type` but returns an error if any type variable can't be defaulted.
+    fn check_type(typ: &HirType, location: Location) -> Result<(), MonomorphizationError> {
+        match typ {
+            HirType::FieldElement
+            | HirType::Integer(..)
+            | HirType::Bool
+            | HirType::String(..)
+            | HirType::Unit
+            | HirType::TraitAsType(..)
+            | HirType::Forall(_, _)
+            | HirType::Constant(_)
+            | HirType::Error
+            | HirType::Quoted(_) => Ok(()),
+            HirType::FmtString(_size, fields) => Self::check_type(fields.as_ref(), location),
+            HirType::Array(_length, element) => Self::check_type(element.as_ref(), location),
+            HirType::Slice(element) => Self::check_type(element.as_ref(), location),
+            HirType::NamedGeneric(binding, _, _) => {
+                if let TypeBinding::Bound(binding) = &*binding.borrow() {
+                    return Self::check_type(binding, location);
+                }
+
+                Ok(())
+            }
+
+            HirType::TypeVariable(binding, kind) => {
+                if let TypeBinding::Bound(binding) = &*binding.borrow() {
+                    return Self::check_type(binding, location);
+                }
+
+                // Default any remaining unbound type variables.
+                // This should only happen if the variable in question is unused
+                // and within a larger generic type.
+                let default = match kind.default_type() {
+                    Some(typ) => typ,
+                    None => return Err(MonomorphizationError::TypeAnnotationsNeeded { location }),
+                };
+
+                Self::check_type(&default, location)
+            }
+
+            HirType::Struct(_def, args) => {
+                for arg in args {
+                    Self::check_type(arg, location)?;
+                }
+
+                Ok(())
+            }
+
+            HirType::Alias(_def, args) => {
+                for arg in args {
+                    Self::check_type(arg, location)?;
+                }
+
+                Ok(())
+            }
+
+            HirType::Tuple(fields) => {
+                for field in fields {
+                    Self::check_type(field, location)?;
+                }
+
+                Ok(())
+            }
+
+            HirType::Function(args, ret, env) => {
+                for arg in args {
+                    Self::check_type(arg, location)?;
+                }
+
+                Self::check_type(ret, location)?;
+                Self::check_type(env, location)
+            }
+
+            HirType::MutableReference(element) => Self::check_type(element, location),
+        }
     }
 
     fn is_function_closure(&self, t: ast::Type) -> bool {
@@ -1595,7 +1686,7 @@ impl<'interner> Monomorphizer<'interner> {
                 self.create_zeroed_function(parameter_types, ret_type, env, location)
             }
             ast::Type::Slice(element_type) => {
-                ast::Expression::Literal(ast::Literal::Array(ast::ArrayLiteral {
+                ast::Expression::Literal(ast::Literal::Slice(ast::ArrayLiteral {
                     contents: vec![],
                     typ: ast::Type::Slice(element_type.clone()),
                 }))
@@ -1753,9 +1844,19 @@ fn unwrap_tuple_type(typ: &HirType) -> Vec<HirType> {
     }
 }
 
-fn unwrap_struct_type(typ: &HirType) -> Vec<(String, HirType)> {
+fn unwrap_struct_type(
+    typ: &HirType,
+    location: Location,
+) -> Result<Vec<(String, HirType)>, MonomorphizationError> {
     match typ.follow_bindings() {
-        HirType::Struct(def, args) => def.borrow().get_fields(&args),
+        HirType::Struct(def, args) => {
+            // Some of args might not be mentioned in fields, so we need to check that they aren't unbound.
+            for arg in &args {
+                Monomorphizer::check_type(arg, location)?;
+            }
+
+            Ok(def.borrow().get_fields(&args))
+        }
         other => unreachable!("unwrap_struct_type: expected struct, found {:?}", other),
     }
 }
@@ -1788,24 +1889,21 @@ pub fn perform_impl_bindings(
     if let Some(trait_method) = trait_method {
         let the_trait = interner.get_trait(trait_method.trait_id);
 
-        let trait_method_type = the_trait.methods[trait_method.method_index].typ.as_monotype();
+        let mut trait_method_type =
+            the_trait.methods[trait_method.method_index].typ.as_monotype().clone();
+
+        let mut impl_method_type =
+            interner.function_meta(&impl_method).typ.unwrap_forall().1.clone();
 
         // Make each NamedGeneric in this type bindable by replacing it with a TypeVariable
         // with the same internal id and binding.
-        let (generics, impl_method_type) = interner.function_meta(&impl_method).typ.unwrap_forall();
-
-        let replace_type_variable = |var: &TypeVariable| {
-            (var.id(), (var.clone(), Type::TypeVariable(var.clone(), TypeVariableKind::Normal)))
-        };
-
-        // Replace each NamedGeneric with a TypeVariable containing the same internal type variable
-        let type_bindings = generics.iter().map(replace_type_variable).collect();
-        let impl_method_type = impl_method_type.force_substitute(&type_bindings);
+        trait_method_type.replace_named_generics_with_type_variables();
+        impl_method_type.replace_named_generics_with_type_variables();
 
         trait_method_type.try_unify(&impl_method_type, &mut bindings).map_err(|_| {
             InterpreterError::ImplMethodTypeMismatch {
-                expected: trait_method_type.clone(),
-                actual: impl_method_type,
+                expected: trait_method_type.follow_bindings(),
+                actual: impl_method_type.follow_bindings(),
                 location,
             }
         })?;

@@ -2,9 +2,9 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
-import { SemVer } from 'semver';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
+import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 import { PeerDiscoveryState } from './service.js';
@@ -122,7 +122,7 @@ describe('Discv5Service', () => {
   const createNode = async (port: number) => {
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createLibP2PPeerId();
-    const config = {
+    const config: P2PConfig = {
       ...baseConfig,
       tcpListenAddress: `0.0.0.0:${port}`,
       udpListenAddress: `0.0.0.0:${port}`,
@@ -134,7 +134,7 @@ describe('Discv5Service', () => {
       transactionProtocol: 'aztec/1.0.0',
       p2pEnabled: true,
       p2pL2QueueSize: 100,
-      txGossipVersion: new SemVer('0.1.0'),
+      keepProvenTxsInPoolFor: 0,
     };
     return new DiscV5Service(peerId, config);
   };

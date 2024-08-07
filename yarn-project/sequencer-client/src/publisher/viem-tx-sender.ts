@@ -77,12 +77,12 @@ export class ViemTxSender implements L1PublisherTxSender {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  async getSubmitterAddressForBlock(blockNumber: number): Promise<EthAddress> {
+  async getSubmitterAddressForBlock(): Promise<EthAddress> {
     try {
-      const submitter = await this.rollupContract.read.whoseTurnIsIt([BigInt(blockNumber)]);
+      const submitter = await this.rollupContract.read.getCurrentProposer();
       return EthAddress.fromString(submitter);
     } catch (err) {
-      this.log.warn(`Failed to get submitter for block ${blockNumber}: ${err}`);
+      this.log.warn(`Failed to get submitter: ${err}`);
       return EthAddress.ZERO;
     }
   }
@@ -176,10 +176,11 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
-    const { header, archive, aggregationObject, proof } = submitProofArgs;
+    const { header, archive, proverId, aggregationObject, proof } = submitProofArgs;
     const args = [
       `0x${header.toString('hex')}`,
       `0x${archive.toString('hex')}`,
+      `0x${proverId.toString('hex')}`,
       `0x${aggregationObject.toString('hex')}`,
       `0x${proof.toString('hex')}`,
     ] as const;
