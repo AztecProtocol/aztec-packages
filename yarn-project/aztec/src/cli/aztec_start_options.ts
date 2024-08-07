@@ -201,15 +201,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('p2p', p2pConfigMappings),
   ],
-  TELEMETRY: [
-    {
-      flag: '--telemetry',
-      description: 'Enable telemetry',
-      defaultValue: false,
-      envVar: 'TELEMETRY',
-    },
-    ...getOptions('tel', telemetryClientConfigMappings),
-  ],
+  TELEMETRY: [...getOptions('tel', telemetryClientConfigMappings)],
   PXE: [
     {
       flag: '--pxe',
