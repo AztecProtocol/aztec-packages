@@ -197,6 +197,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Enable P2P subsystem',
       defaultValue: false,
       envVar: 'P2P_ENABLED',
+      parseVal: val => ['1', true].includes(val),
     },
     ...getOptions('p2p', p2pConfigMappings),
   ],

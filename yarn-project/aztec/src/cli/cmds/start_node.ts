@@ -66,7 +66,7 @@ export const startNode = async (
   if (!options.sequencer) {
     nodeConfig.disableSequencer = true;
   } else {
-    const sequencerConfig = extractRelevantOptions(options, sequencerClientConfigMappings);
+    const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
     let account;
     if (!sequencerConfig.publisherPrivateKey) {
       if (!options.l1Mnemonic) {
@@ -89,7 +89,7 @@ export const startNode = async (
     nodeConfig.disableProver = true;
   }
 
-  if (options.p2pEnabled) {
+  if (nodeConfig.p2pEnabled) {
     // ensure bootstrapNodes is an array
     if (nodeConfig.bootstrapNodes && typeof nodeConfig.bootstrapNodes === 'string') {
       nodeConfig.bootstrapNodes = (nodeConfig.bootstrapNodes as string).split(',');
