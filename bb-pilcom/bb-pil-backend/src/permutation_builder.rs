@@ -71,6 +71,14 @@ impl PermutationBuilder for BBFiles {
             )
             .unwrap();
 
+        handlebars
+            .register_template_string(
+                "permutation_recursive.hpp",
+                std::str::from_utf8(include_bytes!("../templates/permutation_recursive.hpp.hbs"))
+                    .unwrap(),
+            )
+            .unwrap();
+
         for permutation in permutations.iter() {
             let data = create_permutation_settings_data(permutation);
             let perm_settings = handlebars.render("permutation.hpp", &data).unwrap();
@@ -81,6 +89,24 @@ impl PermutationBuilder for BBFiles {
                 ".hpp".to_owned()
             );
             self.write_file(Some(&self.relations), &file_name, &perm_settings);
+
+            // Recursive related file
+            let recursive_data = create_perm_recursive_settings_data(permutation);
+            let recursive_settings = handlebars
+                .render("permutation_recursive.hpp", &recursive_data)
+                .unwrap();
+
+            let recursive_file_name = format!(
+                "{}_recursive{}",
+                permutation.attribute.clone().unwrap_or("NONAME".to_owned()),
+                ".hpp".to_owned()
+            );
+
+            self.write_file(
+                Some(&self.relations),
+                &recursive_file_name,
+                &recursive_settings,
+            );
         }
 
         permutations
@@ -95,13 +121,17 @@ pub fn get_inverses_from_permutations(permutations: &[Permutation]) -> Vec<Strin
         .collect()
 }
 
-fn create_permutation_settings_data(permutation: &Permutation) -> Json {
-    let columns_per_set = permutation.left.cols.len();
-    // TODO(md): In the future we will need to condense off the back of this - combining those with the same inverse column
-    let permutation_name = permutation
+fn get_perm_name(permutation: &Permutation) -> String {
+    return permutation
         .attribute
         .clone()
         .expect("Inverse column name must be provided using attribute syntax");
+}
+
+fn create_permutation_settings_data(permutation: &Permutation) -> Json {
+    let columns_per_set = permutation.left.cols.len();
+    // TODO(md): In the future we will need to condense off the back of this - combining those with the same inverse column
+    let permutation_name = get_perm_name(permutation);
 
     // This also will need to work for both sides of this !
     let lhs_selector = permutation
@@ -143,6 +173,11 @@ fn create_permutation_settings_data(permutation: &Permutation) -> Json {
         "rhs_selector": rhs_selector,
         "perm_entities": perm_entities,
     })
+}
+
+fn create_perm_recursive_settings_data(permutation: &Permutation) -> Json {
+    let perm_name = get_perm_name(permutation);
+    json!({"perm_name": perm_name})
 }
 
 fn get_perm_side<F: FieldElement>(
