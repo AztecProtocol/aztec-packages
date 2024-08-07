@@ -46,7 +46,8 @@ export class BlockRootRollupInputs {
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     /**
-     * The hash of the block preceding this one. TODO(Miranda): ensure this is passed to final root and checked on L1
+     * The hash of the block preceding this one.
+     * TODO(#7346): Integrate batch rollup circuits and inject below
      */
     public previousBlockHash: Fr,
   ) {}

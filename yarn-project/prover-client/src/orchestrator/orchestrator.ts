@@ -365,6 +365,55 @@ export class ProvingOrchestrator {
   }
 
   /**
+   * Extract the block header from public inputs.
+   * TODO(#7346): Refactor this once new batch rollup circuits are integrated
+   * @returns The header of this proving state's block.
+   */
+  private async extractBlockHeader() {
+    if (
+      !this.provingState ||
+      !this.provingState.blockRootRollupPublicInputs ||
+      !this.provingState.finalRootParityInput?.publicInputs.shaRoot
+    ) {
+      throw new Error(`Invalid proving state, a block must be proven before its header can be extracted.`);
+    }
+
+    const rootRollupOutputs = this.provingState.blockRootRollupPublicInputs;
+    const previousMergeData = this.provingState.getMergeInputs(0).inputs;
+
+    if (!previousMergeData[0] || !previousMergeData[1]) {
+      throw new Error(`Invalid proving state, final merge inputs before block root circuit missing.`);
+    }
+
+    const contentCommitment = new ContentCommitment(
+      new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
+      sha256Trunc(
+        Buffer.concat([
+          previousMergeData[0]?.txsEffectsHash.toBuffer(),
+          previousMergeData[1]?.txsEffectsHash.toBuffer(),
+        ]),
+      ),
+      this.provingState.finalRootParityInput?.publicInputs.shaRoot.toBuffer(),
+      sha256Trunc(Buffer.concat([previousMergeData[0]?.outHash.toBuffer(), previousMergeData[1]?.outHash.toBuffer()])),
+    );
+    const state = new StateReference(
+      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db),
+      previousMergeData[1].end,
+    );
+    const header = new Header(
+      rootRollupOutputs.previousArchive,
+      contentCommitment,
+      state,
+      previousMergeData[0].constants.globalVariables,
+      previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
+    );
+    if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
+      throw new Error(`Block header mismatch in finalise.`);
+    }
+    return header;
+  }
+
+  /**
    * Performs the final tree update for the block and returns the fully proven block.
    * @returns The fully proven block and proof.
    */
@@ -390,52 +439,12 @@ export class ProvingOrchestrator {
       }
 
       const rootRollupOutputs = this.provingState.blockRootRollupPublicInputs;
-      const previousMergeData = this.provingState.getMergeInputs(0).inputs;
-
-      if (
-        !previousMergeData[0] ||
-        !previousMergeData[1] ||
-        !this.provingState.finalRootParityInput?.publicInputs.shaRoot
-      ) {
-        throw new Error(
-          `This can't happen as we cannot create the block root without its input, the merges at index 0. ts complains without this.`,
-        );
-      }
-      // <--------
-      // TODO(Miranda): extract below to some recreateHeader() fn
-      const contentCommitment = new ContentCommitment(
-        new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-        sha256Trunc(
-          Buffer.concat([
-            previousMergeData[0]?.txsEffectsHash.toBuffer(),
-            previousMergeData[1]?.txsEffectsHash.toBuffer(),
-          ]),
-        ),
-        this.provingState.finalRootParityInput?.publicInputs.shaRoot.toBuffer(),
-        sha256Trunc(
-          Buffer.concat([previousMergeData[0]?.outHash.toBuffer(), previousMergeData[1]?.outHash.toBuffer()]),
-        ),
-      );
-      const state = new StateReference(
-        await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db),
-        previousMergeData[1].end,
-      );
-      const header = new Header(
-        rootRollupOutputs.previousArchive,
-        contentCommitment,
-        state,
-        previousMergeData[0].constants.globalVariables,
-        previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
-      );
-      if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
-        throw new Error(`Block header mismatch in finalise.`);
-      }
-      // -------->
+      const header = await this.extractBlockHeader();
 
       logger?.debug(`Updating and validating root trees`);
       await this.db.updateArchive(header);
 
-      await validateBlockRootOutput(rootRollupOutputs, previousMergeData[1].end, this.db);
+      await validateBlockRootOutput(rootRollupOutputs, header, this.db);
 
       // Collect all new nullifiers, commitments, and contracts from all txs in this block
       const gasFees = this.provingState.globalVariables.gasFees;
@@ -450,12 +459,12 @@ export class ProvingOrchestrator {
         body: blockBody,
       });
 
-      if (!l2Block.body.getTxsEffectsHash().equals(contentCommitment.txsEffectsHash)) {
+      if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
         logger.debug(inspect(blockBody));
         throw new Error(
           `Txs effects hash mismatch, ${l2Block.body
             .getTxsEffectsHash()
-            .toString('hex')} == ${contentCommitment.txsEffectsHash.toString('hex')} `,
+            .toString('hex')} == ${header.contentCommitment.txsEffectsHash.toString('hex')} `,
         );
       }
 
@@ -734,7 +743,7 @@ export class ProvingOrchestrator {
     );
   }
 
-  // Executes the merge rollup circuit and stored the output as intermediate state for the parent merge/root circuit
+  // Executes the merge rollup circuit and stored the output as intermediate state for the parent merge/block root circuit
   // Enqueues the next level of merge if all inputs are available
   private enqueueMergeRollup(
     provingState: ProvingState,
@@ -768,7 +777,7 @@ export class ProvingOrchestrator {
     );
   }
 
-  // Executes the root rollup circuit
+  // Executes the block root rollup circuit
   private async enqueueBlockRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.verifyState()) {
       logger.debug('Not running root rollup, state no longer valid');
@@ -869,7 +878,7 @@ export class ProvingOrchestrator {
   }
 
   private async checkAndEnqueueBlockRootRollup(provingState: ProvingState | undefined) {
-    if (!provingState?.isReadyForRootRollup()) {
+    if (!provingState?.isReadyForBlockRootRollup()) {
       logger.debug('Not ready for root rollup');
       return;
     }

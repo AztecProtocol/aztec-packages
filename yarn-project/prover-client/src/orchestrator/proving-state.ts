@@ -11,7 +11,7 @@ import {
   type Proof,
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
-  type RootParityInput, // type RootRollupPublicInputs,
+  type RootParityInput,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -188,8 +188,8 @@ export class ProvingState {
     return this.mergeRollupInputs[indexOfMerge];
   }
 
-  // Returns true if we have sufficient inputs to execute the root rollup
-  public isReadyForRootRollup() {
+  // Returns true if we have sufficient inputs to execute the block root rollup
+  public isReadyForBlockRootRollup() {
     return !(
       this.mergeRollupInputs[0] === undefined ||
       this.finalRootParityInput === undefined ||

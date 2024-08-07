@@ -10,6 +10,7 @@ import {
   ConstantRollupData,
   Fr,
   type GlobalVariables,
+  type Header,
   KernelData,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NULLIFIERS_PER_TX,
@@ -37,8 +38,9 @@ import {
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
+  RootRollupInputs,
   StateDiffHints,
-  StateReference,
+  type StateReference,
   type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
@@ -188,6 +190,7 @@ export function createMergeRollupInputs(
   return mergeInputs;
 }
 
+// TODO(#7346): Integrate batch rollup circuits and test below
 export function createBlockMergeRollupInputs(
   left: [
     BlockRootOrBlockMergePublicInputs,
@@ -210,15 +213,11 @@ export function createBlockMergeRollupInputs(
 // Validate that the roots of all local trees match the output of the root circuit simulation
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
-  blockRootInputState: PartialStateReference,
+  blockHeader: Header,
   db: MerkleTreeOperations,
 ) {
-  // TODO(Miranda): Check the below
   await Promise.all([
-    validateState(
-      new StateReference(await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db), blockRootInputState),
-      db,
-    ),
+    validateState(blockHeader.state, db),
     validateSimulatedTree(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db), blockRootOutput.newArchive, 'Archive'),
   ]);
 }
@@ -240,7 +239,7 @@ export async function validateState(state: StateReference, db: MerkleTreeOperati
   );
 }
 
-// Builds the inputs for the root rollup circuit, without making any changes to trees
+// Builds the inputs for the block root rollup circuit, without making any changes to trees
 export async function getBlockRootRollupInput(
   rollupOutputLeft: BaseOrMergeRollupPublicInputs,
   rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
@@ -283,7 +282,31 @@ export async function getBlockRootRollupInput(
     startL1ToL2MessageTreeSnapshot: messageTreeSnapshot,
     startArchiveSnapshot,
     newArchiveSiblingPath,
-    previousBlockHash: Fr.ZERO, // TODO(Miranda): init orchestrator with previous block hash, pass here?
+    // TODO(#7346): Inject previous block hash (required when integrating batch rollup circuits)
+    previousBlockHash: Fr.ZERO,
+  });
+}
+
+// Builds the inputs for the final root rollup circuit, without making any changes to trees
+// TODO(#7346): Integrate batch rollup circuits and test below
+export function getRootRollupInput(
+  rollupOutputLeft: BlockRootOrBlockMergePublicInputs,
+  rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  verificationKeyLeft: VerificationKeyAsFields,
+  rollupOutputRight: BlockRootOrBlockMergePublicInputs,
+  rollupProofRight: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  verificationKeyRight: VerificationKeyAsFields,
+  proverId: Fr,
+) {
+  const previousRollupData: RootRollupInputs['previousRollupData'] = [
+    getPreviousRollupBlockDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
+    getPreviousRollupBlockDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
+  ];
+
+  return RootRollupInputs.from({
+    previousRollupData,
+    // TODO(#7346): Inject proverId OR add to block root and carry up to root
+    proverId,
   });
 }
 
