@@ -31,10 +31,10 @@ contract Benchmarking {
     fn recreate_note(owner: AztecAddress, outgoing_viewer: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
         let mut getter_options = NoteGetterOptions::new();
-        let notes = owner_notes.get_notes(getter_options.set_limit(1).set_offset(index));
-        let note = notes.get(0);
-        owner_notes.remove(note);
-        increment(owner_notes, note.value, owner, outgoing_viewer);
+        let notes_and_hashes = owner_notes.get_notes_and_hashes(getter_options.set_limit(1).set_offset(index));
+        let note_and_hash = notes_and_hashes.get(0);
+        owner_notes.remove(note_and_hash);
+        increment(owner_notes, note_and_hash.note.value, owner, outgoing_viewer);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.

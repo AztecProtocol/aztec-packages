@@ -4,7 +4,8 @@ use dep::aztec::{
     context::UnconstrainedContext,
     protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-    note::note_getter::view_notes, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
+    note::{note_getter::view_notes, note_and_hash::NoteAndHash}, state_vars::PrivateSet,
+    note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::value_note::{value_note::{ValueNote, VALUE_NOTE_LEN}};
 
@@ -120,17 +121,19 @@ impl Deck<&mut PrivateContext> {
         inserted_cards
     }
 
-    pub fn get_cards<N>(&mut self, cards: [Card; N]) -> [CardNote; N] {
+    pub fn get_cards_and_note_hashes<N>(&mut self, cards: [Card; N]) -> ([CardNote; N], [Field; N]) {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
-        let notes = self.set.get_notes(options);
+        let notes_and_hashes = self.set.get_notes_and_hashes(options);
 
         // This array will hold the notes that correspond to each of the requested cards. It begins empty (with all the
         // options being none) and we gradually fill it up as we find the matching notes.
         let mut found_cards = [Option::none(); N];
+        let mut found_cards_note_hashes = [0; N];
 
         for i in 0..options.limit {
-            if i < notes.len() {
-                let card_note = CardNote::from_note(notes.get_unchecked(i));
+            if i < notes_and_hashes.len() {
+                let note_and_hash = notes_and_hashes.get_unchecked(i);
+                let card_note = CardNote::from_note(note_and_hash.note);
 
                 // For each note that we read, we search for a matching card that we have not already marked as found.
                 for j in 0..cards.len() {
@@ -138,24 +141,26 @@ impl Deck<&mut PrivateContext> {
                         & (cards[j].strength == card_note.card.strength)
                         & (cards[j].points == card_note.card.points) {
                         found_cards[j] = Option::some(card_note);
+                        found_cards_note_hashes[j] = note_and_hash.hash;
                     }
                 }
             }
         }
 
         // And then we assert that we did indeed find all cards, since found_cards and cards have the same length.
-        found_cards.map(
-            |card_note: Option<CardNote>| {
+        (found_cards.map(
+                |card_note: Option<CardNote>| {
             assert(card_note.is_some(), "Card not found");
             card_note.unwrap_unchecked()
         }
-        )
+            ), found_cards_note_hashes)
     }
 
     pub fn remove_cards<N>(&mut self, cards: [Card; N]) {
-        let card_notes = self.get_cards(cards);
-        for card_note in card_notes {
-            self.set.remove(card_note.note);
+        let (card_notes, note_hashes) = self.get_cards_and_note_hashes(cards);
+        for i in 0..N {
+            let note_and_hash = NoteAndHash { note: card_notes[i].note, hash: note_hashes[i] };
+            self.set.remove(note_and_hash);
         }
     }
 }

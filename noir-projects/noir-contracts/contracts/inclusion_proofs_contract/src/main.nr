@@ -149,10 +149,10 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let notes = private_values.get_notes(options);
-        let note = notes.get(0);
+        let notes_and_hashes = private_values.get_notes_and_hashes(options);
+        let note_and_hash = notes_and_hashes.get(0);
 
-        private_values.remove(note);
+        private_values.remove(note_and_hash);
     }
     // docs:end:nullify_note
 
