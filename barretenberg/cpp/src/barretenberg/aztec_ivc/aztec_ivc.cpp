@@ -7,7 +7,7 @@ namespace bb {
  * @details If this is the first circuit being accumulated, initialize the prover and verifier accumulators. Otherwise,
  * fold the instance for the provided circuit into the accumulator. When two fold proofs have been enqueued, two
  * recursive folding verifications are appended to the next circuit that is accumulated, which must be a kernel.
- * Similarly, if a merge proof exists, a recursive merge verifier is appended.
+ * Similarly, merge proofs are stored in a queue and recursively verified in kernels.
  *
  * @param circuit Circuit to be accumulated/folded
  * @param precomputed_vk Optional precomputed VK (otherwise will be computed herein)
@@ -16,35 +16,63 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 {
     circuit_count++; // increment the count of circuits processed into the IVC
 
-    // The aztec architecture dictates that every second circuit is a kernel. This check can triggered/replaced by the
-    // presence of the recursive folding verify opcode once it is introduced into noir).
-    bool is_kernel = (circuit_count % 2 == 0);
+    // The aztec architecture dictates that every second circuit is a kernel. This check can be triggered/replaced by
+    // the presence of the recursive folding verify opcode once it is introduced into noir.
+    is_kernel = (circuit_count % 2 == 0);
 
-    // If present circuit is a kernel, perform recursive verifications and databus consistency checks
+    // If present circuit is a kernel, perform required recursive PG and/or merge verifications and databus checks
     if (is_kernel) {
-        BB_OP_COUNT_TIME_NAME("construct_circuits");
-
-        // The folding verification queue should be either empty or contain two fold proofs
-        ASSERT(verification_queue.empty() || verification_queue.size() == 2);
-
-        for (auto& [proof, vkey] : verification_queue) {
-            // Perform folding recursive verification
-            FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
-            auto verifier_accum = verifier.verify_folding_proof(proof);
-            verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
-
-            // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-            bus_depot.execute(verifier.instances);
-        }
-        verification_queue.clear();
-
-        // Recusively verify all merge proofs in queue
-        for (auto& proof : merge_verification_queue) {
-            goblin.verify_merge(circuit, proof);
-        }
-        merge_verification_queue.clear();
+        complete_kernel_circuit_logic(circuit);
     }
 
+    // Perform PG and/or merge proving
+    execute_accumulation_prover(circuit, precomputed_vk);
+}
+
+/**
+ * @brief Append logic to complete a kernel circuit
+ * @details A kernel circuit may contain some combination of PG recursive verification, merge recursive verification,
+ * and databus commitment consistency checks. This method appends this logic to a provided kernel circuit builder.
+ *
+ * @param circuit
+ */
+void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
+{
+    BB_OP_COUNT_TIME_NAME("construct_circuits");
+
+    // The folding verification queue should be either empty or contain two fold proofs
+    ASSERT(verification_queue.empty() || verification_queue.size() == 2);
+
+    for (auto& [proof, vkey] : verification_queue) {
+        // Perform folding recursive verification
+        FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
+        auto verifier_accum = verifier.verify_folding_proof(proof);
+        verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+
+        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
+        bus_depot.execute(verifier.instances);
+    }
+    verification_queue.clear();
+
+    // Recusively verify all merge proofs in queue
+    for (auto& proof : merge_verification_queue) {
+        goblin.verify_merge(circuit, proof);
+    }
+    merge_verification_queue.clear();
+}
+
+/**
+ * @brief Execute prover work for instance accumulation
+ * @details Construct an instance for the provided circuit. If this is the first instance in the IVC, simply initialize
+ * the folding accumulator. Otherwise, execute the PG prover to fold the instance into the accumulator and produce a
+ * folding proof. Also execute the merge protocol to produce a merge proof.
+ *
+ * @param circuit
+ * @param precomputed_vk
+ */
+void AztecIVC::execute_accumulation_prover(ClientCircuit& circuit,
+                                           const std::shared_ptr<VerificationKey>& precomputed_vk)
+{
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
@@ -55,11 +83,6 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     // Set the instance verification key from precomputed if available, else compute it
     instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
     instance_vk->databus_propagation_data.is_kernel = is_kernel; // Store whether the present circuit is a kernel
-
-    // Store whether the present circuit is a kernel (Note: the aztec architecture dictates that every second circuit
-    // is a kernel. This check can triggered/replaced by the presence of the recursive folding verify opcode once it is
-    // introduced into noir).
-    instance_vk->databus_propagation_data.is_kernel = (circuit_count % 2 == 0);
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (circuit_count == 1) {
