@@ -21,6 +21,7 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -28,7 +29,6 @@ import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
-import {ValidatorClient} from "@aztec/validator-client";
 
 /**
  * Sequencer client
@@ -283,7 +283,7 @@ export class Sequencer {
   @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, newGlobalVariables, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
   }))
-  
+
   // TODO(md): rename to build Block and send to peers
   private async buildBlockAndPublish(
     validTxs: Tx[],
@@ -412,7 +412,7 @@ export class Sequencer {
     if (this.validatorClient != undefined) {
       const proposal = await this.validatorClient.createBlockProposal(block.header, []);
       const blockWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
-      console.log(blockWithAttestations)
+      console.log(blockWithAttestations);
     }
 
     const publishedL2Block = await this.publisher.processL2Block(block);
@@ -506,11 +506,11 @@ export enum SequencerState {
    */
   PUBLISHING_CONTRACT_DATA,
   /**
-   * 
+   *
    */
   PUBLISHING_BLOCK_TO_PEERS,
   /**
-   * 
+   *
    */
   COLLECTING_ATTESTATIONS,
   /**

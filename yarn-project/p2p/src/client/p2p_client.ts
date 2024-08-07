@@ -1,12 +1,20 @@
-import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash, BlockProposal, BlockAttestation } from '@aztec/circuit-types';
+import {
+  BlockAttestation,
+  BlockProposal,
+  type L2Block,
+  L2BlockDownloader,
+  type L2BlockSource,
+  type Tx,
+  type TxHash,
+} from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
+import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -286,10 +294,6 @@ export class P2PClient implements P2P {
     await this.txPool.addTxs([tx]);
     this.p2pService.propagate(tx);
   }
-
-
-
-
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.

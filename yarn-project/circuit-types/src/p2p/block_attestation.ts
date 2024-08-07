@@ -2,9 +2,10 @@ import { EthAddress, Header } from '@aztec/circuits.js';
 import { BaseHashType } from '@aztec/foundation/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { recoverAddress } from 'viem';
+
 import { Gossipable } from './gossipable.js';
 import { TopicType, createTopicString } from './topic_type.js';
-import { recoverAddress } from "viem";
 
 export class BlockAttestationHash extends BaseHashType {
   constructor(hash: Buffer) {
@@ -45,13 +46,13 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  async getSender(){
+  async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
       const address = await recoverAddress({
-          hash: this.p2pMessageIdentifier().to0xString(),
-          signature: this.signature
-      })
+        hash: this.p2pMessageIdentifier().to0xString(),
+        signature: this.signature,
+      });
       // Cache the sender for later use
       this.sender = EthAddress.fromString(address);
     }
@@ -69,9 +70,6 @@ export class BlockAttestation extends Gossipable {
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(
-      Header.empty(),
-      Buffer.from([]),
-    );
+    return new BlockAttestation(Header.empty(), Buffer.from([]));
   }
 }

@@ -1,6 +1,7 @@
 import { BlockProposal, type L2BlockSource } from '@aztec/circuit-types';
 import { type AztecKVStore } from '@aztec/kv-store';
 
+import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { P2PClient } from '../client/p2p_client.js';
 import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from '../service/discV5_service.js';
@@ -8,7 +9,6 @@ import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { getPublicIp, splitAddressPort } from '../util.js';
-import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 
 export * from './p2p_client.js';
 

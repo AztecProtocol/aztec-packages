@@ -1,13 +1,12 @@
-
 /**
  * The Validator Configuration
  */
 export interface ValidatorClientConfig {
-    /** The private key of the validator participating in attestation duties */
-    validatorPrivateKey: string;
+  /** The private key of the validator participating in attestation duties */
+  validatorPrivateKey: string;
 
-    /** Do not run the validator */
-    disableValidator: boolean;
+  /** Do not run the validator */
+  disableValidator: boolean;
 }
 
 /**
@@ -16,13 +15,10 @@ export interface ValidatorClientConfig {
  * @returns Validator configuration
  */
 export function getValidatorConfigFromEnv(): ValidatorClientConfig {
-    const {
-        VALIDATOR_PRIVATE_KEY,
-        DISABLE_VALIDATOR
-    } = process.env;
+  const { VALIDATOR_PRIVATE_KEY, DISABLE_VALIDATOR } = process.env;
 
-    return {
-        validatorPrivateKey: VALIDATOR_PRIVATE_KEY ?? '',
-        disableValidator: DISABLE_VALIDATOR ? true : false
-    };
+  return {
+    validatorPrivateKey: VALIDATOR_PRIVATE_KEY ?? '',
+    disableValidator: DISABLE_VALIDATOR ? true : false,
+  };
 }

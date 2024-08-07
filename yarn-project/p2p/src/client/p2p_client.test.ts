@@ -5,11 +5,11 @@ import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { expect, jest } from '@jest/globals';
 
+import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PService } from '../index.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { MockBlockSource } from './mocks.js';
 import { P2PClient } from './p2p_client.js';
-import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 
 /**
  * Mockify helper for testing purposes.
@@ -51,9 +51,9 @@ describe('In-Memory P2P Client', () => {
       addAttestations: jest.fn(),
       deleteAttestations: jest.fn(),
       deleteAttestationsForSlot: jest.fn(),
-      getAttestationsForSlot: jest.fn().mockReturnValue(undefined)
-    }
-    
+      getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
+    };
+
     // TODO: come back to
     // let attestationCallback = async (block: BlockProposal) => undefined;
 

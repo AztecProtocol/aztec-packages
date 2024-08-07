@@ -2,8 +2,8 @@ import { type ArchiverConfig, getArchiverConfigFromEnv as getArchiverVars } from
 import { type P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
 import { type ProverClientConfig, getProverEnvVars } from '@aztec/prover-client';
 import { type SequencerClientConfig, getConfigEnvVars as getSequencerVars } from '@aztec/sequencer-client';
-import { type WorldStateConfig, getWorldStateConfigFromEnv as getWorldStateVars } from '@aztec/world-state';
 import { type ValidatorClientConfig, getValidatorConfigFromEnv as getValidatorEnvVars } from '@aztec/validator-client';
+import { type WorldStateConfig, getWorldStateConfigFromEnv as getWorldStateVars } from '@aztec/world-state';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -23,10 +23,10 @@ export type AztecNodeConfig = ArchiverConfig &
 
     /** Whether the prover is disabled for this node. */
     disableProver: boolean;
-  
+
     // TODO(md): needed?
     /** Whether the validator is disabled for this node */
-    disableValidator: boolean
+    disableValidator: boolean;
   };
 
 /**

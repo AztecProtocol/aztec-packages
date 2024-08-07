@@ -1,4 +1,12 @@
-import { type Gossipable, type RawGossipMessage, TopicType, TopicTypeMap, Tx, BlockAttestation, BlockProposal } from '@aztec/circuit-types';
+import {
+  BlockAttestation,
+  BlockProposal,
+  type Gossipable,
+  type RawGossipMessage,
+  TopicType,
+  TopicTypeMap,
+  Tx,
+} from '@aztec/circuit-types';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -15,13 +23,13 @@ import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { type Libp2p, createLibp2p } from 'libp2p';
 
+import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -65,7 +73,9 @@ export class LibP2PService implements P2PService {
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
-      this.logger.verbose(`[WARNING] handler not yet registered: Block received callback not set. Received block ${block.p2pMessageIdentifier()} from peer.`);
+      this.logger.verbose(
+        `[WARNING] handler not yet registered: Block received callback not set. Received block ${block.p2pMessageIdentifier()} from peer.`,
+      );
       return Promise.resolve(undefined);
     };
   }
@@ -265,10 +275,9 @@ export class LibP2PService implements P2PService {
     return;
   }
 
-
   /**Process Attestation From Peer
    * When a proposal is received from a peer, we add it to the attestation pool, so it can be accessed by other services.
-   * 
+   *
    * @param attestation - The attestation to process.
    */
   private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
@@ -278,15 +287,15 @@ export class LibP2PService implements P2PService {
 
   // TODO: I do not quite like this callback design, i think a bit of re-arch is required
   /**Process block from peer
-   * 
+   *
    * Pass the received block to the validator client
-   * 
+   *
    * @param block - The block to process.
    */
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
     this.logger.verbose(`Received block ${block.p2pMessageIdentifier()} from external peer.`);
     const attestation = await this.blockReceivedCallback(block);
-    
+
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefiend if no handler is registered / the validator deems the block invalid
     if (attestation != undefined) {

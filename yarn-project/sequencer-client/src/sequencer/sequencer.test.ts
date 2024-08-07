@@ -28,6 +28,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
+import { ValidatorClient } from '@aztec/validator-client';
 import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
@@ -36,7 +37,6 @@ import { type GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
-import { ValidatorClient } from '@aztec/validator-client';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
