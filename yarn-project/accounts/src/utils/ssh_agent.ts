@@ -56,10 +56,10 @@ export function getIdentities(): Promise<StoredKey[]> {
       if (responseType === SSH_AGENT_IDENTITIES_RESPONSE) {
         let offset = 5;
         const numKeys = data.readUInt32BE(offset);
+        offset += 4;
 
         const keys = [];
         for (let i = 0; i < numKeys; i++) {
-          offset += 4;
           const keyLength = data.readUInt32BE(offset);
           offset += 4;
           const key = data.subarray(offset, offset + keyLength);

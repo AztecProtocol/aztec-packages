@@ -69,7 +69,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
           type: 'list',
           name: 'identity',
           message: 'What public key to use?',
-          choices: identities.map(key => `${key.type} ${key.publicKey}`),
+          choices: identities.map(key => `${key.type} ${key.publicKey} ${key.comment}`),
           // Any required until https://github.com/SBoudrias/Inquirer.js/issues/1495 is fixed
         } as any,
       ]);
