@@ -13,11 +13,11 @@
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
 #include "barretenberg/vm/avm/generated/composer.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
+#include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
-#include "barretenberg/vm/recursion/avm_recursive_verifier.hpp"
-#include "barretenberg/vm/tests/helpers.test.hpp"
 #include <gtest/gtest.h>
 
 namespace tests_avm {
@@ -39,7 +39,6 @@ class AvmRecursiveTests : public ::testing::Test {
     using InnerVerifier = AvmVerifier;
     using InnerG1 = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
-    using InnerBF = InnerFlavor::BF;
 
     using Transcript = InnerFlavor::Transcript;
 
@@ -64,7 +63,7 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
         trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
-        trace_builder.return_op(0, 0, 0);
+        trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize();
 
         builder.set_trace(std::move(trace));
@@ -86,7 +85,8 @@ TEST_F(AvmRecursiveTests, recursion)
 
     // NOTE(md): got to do something about these public inputs
     auto public_inputs = generate_base_public_inputs();
-    std::vector<std::vector<InnerFF>> public_inputs_vec = bb::avm_trace::copy_public_inputs_columns(public_inputs);
+    std::vector<std::vector<InnerFF>> public_inputs_vec =
+        bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
 
     bool verified = verifier.verify_proof(proof, public_inputs_vec);
     info("proof verified: ", verified);

@@ -109,7 +109,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
-    using Relations = AvmFlavor::Relations<FF>;
+    using Relations = AvmFlavor::Relations_<FF>;
 
     static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
