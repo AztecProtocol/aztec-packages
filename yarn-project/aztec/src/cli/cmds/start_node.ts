@@ -89,7 +89,7 @@ export const startNode = async (
     nodeConfig.disableProver = true;
   }
 
-  if (options.p2pEnabled) {
+  if (nodeConfig.p2pEnabled) {
     // ensure bootstrapNodes is an array
     if (nodeConfig.bootstrapNodes && typeof nodeConfig.bootstrapNodes === 'string') {
       nodeConfig.bootstrapNodes = (nodeConfig.bootstrapNodes as string).split(',');
