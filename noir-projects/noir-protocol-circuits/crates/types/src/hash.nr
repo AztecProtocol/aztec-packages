@@ -98,8 +98,10 @@ pub fn silo_encrypted_log_hash(log_hash: ScopedLogHash) -> Field {
 }
 
 pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddress {
-    if scoped_log.contract_address.is_zero() | (scoped_log.log_hash.randomness == 0) {
+    if scoped_log.contract_address.is_zero() {
         AztecAddress::from_field(0)
+    } else if (scoped_log.log_hash.randomness == 0) {
+        scoped_log.contract_address
     } else {
         AztecAddress::from_field(
             poseidon2_hash_with_separator(
