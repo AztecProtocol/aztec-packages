@@ -74,19 +74,6 @@ It is recommended to follow these in order.
   <a href="/tutorials/codealong/contract_tutorials/counter_contract">View all smart contract tutorials</a>
 </div>
 
-### Advanced: Build a complex multi-contract app with portals and JS tests
-
-<div className="card-container full-width">
-  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/advanced/token_bridge/0_setup'>
-    <CardHeader>
-      <h3>Token Bridge</h3>
-    </CardHeader>
-    <CardBody>
-     Learn to build a token bridge that can interact privately and publicly with L1 Ethereum
-    </CardBody>
-  </Card>
-</div>
-
 ## Examples
 
 <div className="card-container">
