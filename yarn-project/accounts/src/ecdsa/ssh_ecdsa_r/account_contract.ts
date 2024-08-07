@@ -8,6 +8,7 @@ import { DefaultAccountContract } from '../../defaults/account_contract.js';
 import { signWithAgent } from '../../utils/ssh_agent.js';
 import { EcdsaRAccountContractArtifact } from './artifact.js';
 
+// eslint-disable-next-line camelcase
 const secp256r1_N = 115792089210356248762697446949407573529996955224135760342422259061068512044369n;
 /**
  * Account contract that authenticates transactions using ECDSA signatures
