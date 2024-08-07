@@ -76,7 +76,7 @@ It is recommended to follow these in order.
 
 ### Advanced: Build a complex multi-contract app with portals and JS tests
 
-<!-- <div className="card-container full-width">
+<div className="card-container full-width">
   <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/advanced/token_bridge/0_setup.md'>
     <CardHeader>
       <h3>Token Bridge</h3>
@@ -85,7 +85,7 @@ It is recommended to follow these in order.
      Learn to build a token bridge that can interact privately and publicly with L1 Ethereum
     </CardBody>
   </Card>
-</div> -->
+</div>
 
 ## Examples
 
