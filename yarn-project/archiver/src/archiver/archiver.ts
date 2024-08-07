@@ -28,6 +28,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -291,8 +292,12 @@ export class Archiver implements ArchiveSource {
     );
 
     if (retrievedBlocks.retrievedData.length > 0) {
+      const timer = new Timer();
       await this.store.addBlocks(retrievedBlocks);
-      this.instrumentation.processNewBlocks(retrievedBlocks.retrievedData);
+      this.instrumentation.processNewBlocks(
+        timer.ms() / retrievedBlocks.retrievedData.length,
+        retrievedBlocks.retrievedData,
+      );
       const lastL2BlockNumber = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
       this.log.verbose(`Processed ${retrievedBlocks.retrievedData.length} new L2 blocks up to ${lastL2BlockNumber}`);
     }

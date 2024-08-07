@@ -337,11 +337,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.PROVING_ENABLED)
         },
         {
-          name  = "TEL_COLLECTOR_BASE_URL"
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
           value = "http://aztec-otel.local:4318"
         },
         {
-          name  = "TEL_SERVICE_NAME"
+          name  = "OTEL_SERVICE_NAME"
           value = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
         },
         {
@@ -357,7 +357,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "info"
         },
         {
-          name  = "TEL_NETWORK_ID",
+          name  = "NETWORK_NAME",
           value = "${var.DEPLOY_TAG}"
         }
       ]
