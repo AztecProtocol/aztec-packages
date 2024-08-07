@@ -1,4 +1,4 @@
-import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash } from '@aztec/circuit-types';
+import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash, BlockProposal, BlockAttestation } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
@@ -6,6 +6,7 @@ import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { getP2PConfigEnvVars } from '../config.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
+import { AttestationPool } from '../attestation_pool/attestation_pool.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -35,6 +36,13 @@ export interface P2PSyncState {
  * Interface of a P2P client.
  **/
 export interface P2P {
+  // Temp interface
+  broadcastProposal(proposal: BlockProposal): Promise<void>;
+
+  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+
+  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void;
+
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
@@ -130,6 +138,7 @@ export class P2PClient implements P2P {
     store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
     private txPool: TxPool,
+    private attestationPool: AttestationPool,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
     private log = createDebugLogger('aztec:p2p'),
@@ -220,6 +229,18 @@ export class P2PClient implements P2P {
     this.log.info('P2P client stopped.');
   }
 
+  public async broadcastProposal(proposal: BlockProposal): Promise<void> {
+    this.p2pService.propagate(proposal);
+  }
+
+  public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    return this.attestationPool.getAttestationsForSlot(slot);
+  }
+
+  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void {
+    this.p2pService.registerBlockReceivedCallback(handler);
+  }
+
   /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
@@ -263,8 +284,12 @@ export class P2PClient implements P2P {
       throw new Error('P2P client not ready');
     }
     await this.txPool.addTxs([tx]);
-    this.p2pService.propagateTx(tx);
+    this.p2pService.propagate(tx);
   }
+
+
+
+
 
   /**
    * Returns whether the given tx hash is flagged as pending or mined.
@@ -425,7 +450,7 @@ export class P2PClient implements P2P {
     const txs = this.txPool.getAllTxs();
     if (txs.length > 0) {
       this.log.debug(`Publishing ${txs.length} previously stored txs`);
-      await Promise.all(txs.map(tx => this.p2pService.propagateTx(tx)));
+      await Promise.all(txs.map(tx => this.p2pService.propagate(tx)));
     }
   }
 }

@@ -1,5 +1,5 @@
 import { ValidatorKeyStore } from "./index.js";
-import {privateKeyToAccount} from "viem/accounts";
+import {PrivateKeyAccount, privateKeyToAccount} from "viem/accounts";
 
 /**
  * Local Key Store
@@ -7,7 +7,7 @@ import {privateKeyToAccount} from "viem/accounts";
  * An implementation of the Key store using an in memory private key.
  */
 export class LocalKeyStore implements ValidatorKeyStore {
-    private signer; 
+    private signer: PrivateKeyAccount; 
 
     constructor(privateKey: string){
         this.signer = privateKeyToAccount(privateKey as `0x{string}`);
