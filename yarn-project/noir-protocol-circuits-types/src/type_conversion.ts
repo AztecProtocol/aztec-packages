@@ -1332,7 +1332,7 @@ export function mapPublicAccumulatedDataToNoir(
     nullifiers: mapTuple(publicAccumulatedData.nullifiers, mapNullifierToNoir),
     l2_to_l1_msgs: mapTuple(publicAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapLogHashToNoir),
+    encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapScopedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(publicAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
     public_data_update_requests: mapTuple(
       publicAccumulatedData.publicDataUpdateRequests,

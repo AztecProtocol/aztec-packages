@@ -7,7 +7,7 @@ use dep::types::{
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
     MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    hash::{ silo_note_hash, silo_nullifier, mask_encrypted_log_hash},
+    hash::{silo_note_hash, silo_nullifier, mask_encrypted_log_hash},
     messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::{Empty, is_empty},
     utils::arrays::{OrderHint, sort_by_counters_asc, sort_get_order_hints_asc}
 };

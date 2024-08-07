@@ -319,7 +319,7 @@ export class EncryptedNoteTxL2Logs extends TxL2Logs<EncryptedL2NoteLog> {
       allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, siloedLogHash]);
     }
     // pad the end of logs with 0s
-    for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX - logHashes.length; i++) {
+    for (let i = 0; i < MAX_NOTE_ENCRYPTED_LOGS_PER_TX - logHashes.length; i++) {
       allSiloedLogHashes = Buffer.concat([allSiloedLogHashes, Buffer.alloc(32)]);
     }
 
