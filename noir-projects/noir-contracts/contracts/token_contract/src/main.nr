@@ -303,10 +303,10 @@ contract Token {
             secret_hash,
             Option::none()
         ).set_limit(1);
-        let notes = pending_shields.get_notes(options);
-        let note = notes.get(0);
+        let notes_and_hashes = pending_shields.get_notes_and_hashes(options);
+        let note_and_hash = notes_and_hashes.get(0);
         // Remove the note from the pending shields set
-        pending_shields.remove(note);
+        pending_shields.remove(note_and_hash);
 
         // Add the token note to user's balances set
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send

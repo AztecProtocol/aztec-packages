@@ -2,9 +2,9 @@ use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis:
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE, lifecycle::{create_note, create_note_hash_from_public, destroy_note},
-    note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
+    note_getter::{get_notes_and_hashes, view_notes}, note_getter_options::NoteGetterOptions,
     note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_request, note_emission::NoteEmission
+    utils::compute_note_hash_for_read_request, note_emission::NoteEmission, note_and_hash::NoteAndHash
 };
 use crate::state_vars::storage::Storage;
 
@@ -42,21 +42,20 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
     // docs:end:insert
 
     // docs:start:remove
-    pub fn remove(self, note: Note) {
-        let note_hash = compute_note_hash_for_read_request(note);
-        let has_been_read = self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
+    pub fn remove(self, note_and_hash: NoteAndHash<Note>) {
+        let has_been_read = self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_and_hash.hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
-        destroy_note(self.context, note);
+        destroy_note(self.context, note_and_hash.note);
     }
     // docs:end:remove
 
     // docs:start:get_notes
-    pub fn get_notes<FILTER_ARGS>(
+    pub fn get_notes_and_hashes<FILTER_ARGS>(
         self,
         options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
-    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
-        get_notes(self.context, self.storage_slot, options)
+    ) -> BoundedVec<NoteAndHash<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        get_notes_and_hashes(self.context, self.storage_slot, options)
     }
     // docs:end:get_notes
 }

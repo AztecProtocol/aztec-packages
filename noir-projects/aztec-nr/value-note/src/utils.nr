@@ -1,5 +1,5 @@
 use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
-use dep::aztec::note::note_getter_options::SortOrder;
+use dep::aztec::note::{note_getter_options::SortOrder, note_and_hash::NoteAndHash};
 use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN}};
 
@@ -55,14 +55,14 @@ pub fn decrement_by_at_most(
     outgoing_viewer: AztecAddress
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
-    let notes = balance.get_notes(options);
+    let notes_and_hashes = balance.get_notes_and_hashes(options);
 
     let mut decremented = 0;
     for i in 0..options.limit {
-        if i < notes.len() {
-            let note = notes.get_unchecked(i);
+        if i < notes_and_hashes.len() {
+            let note_and_hash = notes_and_hashes.get_unchecked(i);
 
-            decremented += destroy_note(balance, note);
+            decremented += destroy_note(balance, note_and_hash);
         }
     }
 
@@ -79,8 +79,11 @@ pub fn decrement_by_at_most(
 
 // Removes the note from the owner's set of notes.
 // Returns the value of the destroyed note.
-pub fn destroy_note(balance: PrivateSet<ValueNote, &mut PrivateContext>, note: ValueNote) -> Field {
-    balance.remove(note);
+pub fn destroy_note(
+    balance: PrivateSet<ValueNote, &mut PrivateContext>,
+    note_and_hash: NoteAndHash<ValueNote>
+) -> Field {
+    balance.remove(note_and_hash);
 
-    note.value
+    note_and_hash.note.value
 }
