@@ -9,7 +9,7 @@ import { type TokenContract as BananaCoin, type FeeJuiceContract } from '@aztec/
 
 import { FeesTest } from './fees_test.js';
 
-describe('e2e_fees native_payments', () => {
+describe('e2e_fees Fee Juice payments', () => {
   let aliceAddress: AztecAddress;
   let aliceWallet: AccountWallet;
   let bobAddress: AztecAddress;
@@ -18,7 +18,7 @@ describe('e2e_fees native_payments', () => {
   let feeJuiceContract: FeeJuiceContract;
   let paymentMethod: FeeJuicePaymentMethod;
 
-  const t = new FeesTest('native_payments');
+  const t = new FeesTest('fee_juice');
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();

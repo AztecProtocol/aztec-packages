@@ -6,6 +6,19 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.48.0
+
+### Fee Juice rename
+
+The name of the canonical Gas contract has changed to Fee Juice. Update noir code:
+
+```diff
+-GasToken::at(contract_address)
++FeeJuice::at(contract_address)
+```
+
+Additionally, `NativePaymentMethod` and `NativePaymentMethodWithClaim` have been renamed to `FeeJuicePaymentMethod` and `FeeJuicePaymentMethodWithClaim`.
+
 ## 0.47.0
 
 # [Aztec sandbox] TXE deployment changes
@@ -535,13 +548,13 @@ It is now possible to import contracts on another contracts and use their automa
 
 ```diff
 - context.call_public_function(
--   storage.fee_juice_address.read_private(),
+-   storage.gas_token_address.read_private(),
 -   FunctionSelector::from_signature("pay_fee(Field)"),
 -   [42]
 - );
 -
 - context.call_public_function(
--   storage.fee_juice_address.read_private(),
+-   storage.gas_token_address.read_private(),
 -   FunctionSelector::from_signature("pay_fee(Field)"),
 -   [42]
 - );
@@ -556,14 +569,14 @@ It is now possible to import contracts on another contracts and use their automa
 -            nonce
 -           ]
 -  );
-+ use dep::fee_juice::FeeJuice;
++ use dep::gas_token::GasToken;
 + use dep::token::Token;
 +
 + ...
 + // Public call from public land
-+ FeeJuice::at(storage.fee_juice_address.read_private()).pay_fee(42).call(&mut context);
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).call(&mut context);
 + // Public call from private land
-+ FeeJuice::at(storage.fee_juice_address.read_private()).pay_fee(42).enqueue(&mut context);
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
 + // Private call from private land
 + Token::at(asset).transfer(context.msg_sender(), storage.subscription_recipient_address.read_private(), amount, nonce).call(&mut context);
 ```
