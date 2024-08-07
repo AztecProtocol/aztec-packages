@@ -91,6 +91,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'The L1 chain ID',
       defaultValue: '1337',
       envVar: 'L1_CHAIN_ID',
+      parseVal: val => parseInt(val, 10),
     },
     {
       flag: '--l1-mnemonic <value>',
@@ -180,12 +181,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Size of queue of L2 blocks to store in world state',
       defaultValue: '1000',
       envVar: 'L2_QUEUE_SIZE',
+      parseVal: val => parseInt(val, 10),
     },
     {
       flag: '--node.worldStateBlockCheckIntervalMS <value>',
       description: 'Frequency in which to check for blocks in ms',
       defaultValue: '100',
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
+      parseVal: val => parseInt(val, 10),
     },
   ],
   'P2P SUBSYSTEM': [
