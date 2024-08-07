@@ -42,7 +42,7 @@ This page lists popular references. Please see the sidebar for them all.
     </CardBody>
   </Card>
 
-   <Card shadow='tl' link='/reference/developer_references/dependencies/'>
+   <Card shadow='tl' link='/reference/developer_references/smart_contract_reference/dependencies/'>
     <CardHeader>
       <h3>Dependencies</h3>
     </CardHeader>
