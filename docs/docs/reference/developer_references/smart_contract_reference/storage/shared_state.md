@@ -54,7 +54,7 @@ This prevents the network-wide privacy set from being split between transactions
 
 ## `SharedMutable`
 
-`SharedMutable` is a shared state variable for mutable state. It provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_mutable/shared_mutable.nr).
+`SharedMutable` is a shared state variable for mutable state. It provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_mutable/shared_mutable.nr).
 
 Unlike other state variables, `SharedMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of blocks.
 
@@ -110,7 +110,7 @@ Like most state variables, `SharedImmutable` is generic over the variable type `
 
 #include_code storage-shared-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-You can find the details of `SharedImmutable` in the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_immutable.nr).
+You can find the details of `SharedImmutable` in the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_immutable.nr).
 
 ### `initialize`
 

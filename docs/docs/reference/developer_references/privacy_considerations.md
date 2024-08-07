@@ -52,7 +52,7 @@ Any time a private function makes a call to a public function, information is le
 
 ### Crossing the public -> private boundary
 
-If a public function sends a message to be consumed by a private function, the act of consuming that message might be leaked if not following recommended patterns. See [here](smart_contract_reference/portals/inbox.md) for more details.
+If a public function sends a message to be consumed by a private function, the act of consuming that message might be leaked if not following recommended patterns. 
 
 ### Timing of transactions
 
@@ -90,7 +90,7 @@ A 'Function Fingerprint' is any data which is exposed by a function to the outsi
 
 > Note: many of these were mentioned in the ["Crossing the private -> public boundary"](#crossing-the-private---public-boundary) section.
 
-> Note: the transaction effects submitted to L1 is [encoded](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Decoder.sol) but not garbled with other transactions: the distinct Tx Fingerprint of each tx can is publicly visible when a tx is submitted to the L2 tx pool.
+> Note: the transaction effects submitted to L1 is [encoded (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Decoder.sol) but not garbled with other transactions: the distinct Tx Fingerprint of each tx can is publicly visible when a tx is submitted to the L2 tx pool.
 
 #### Standardizing Fingerprints
 
@@ -136,4 +136,4 @@ We're researching cryptographic ways to enable users to query any data privately
 
 Footnotes
 
-[^1]: All txs should set the kernel circuit public inputs for all roots to _valid_, _up-to-date_ nonzero values, so as to mask which trees have _actually_ been read from. The Sandbox will eventually automate this (see this [issue](https://github.com/AztecProtocol/aztec-packages/issues/1676)).
+[^1]: All txs should set the kernel circuit public inputs for all roots to _valid_, _up-to-date_ nonzero values, so as to mask which trees have _actually_ been read from. The Sandbox will eventually automate this (see this [issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/1676)).
