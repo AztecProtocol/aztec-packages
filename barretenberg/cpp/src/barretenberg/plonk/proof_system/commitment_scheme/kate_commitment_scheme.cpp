@@ -368,19 +368,19 @@ void KateCommitmentScheme<settings>::add_opening_evaluations_to_transcript(
         fr poly_evaluation(0);
 
         if (in_lagrange_form) {
-            poly_evaluation = polynomial_arithmetic::compute_barycentric_evaluation(
-                poly.dense_view().get(), n, zeta, input_key->small_domain);
+            poly_evaluation =
+                polynomial_arithmetic::compute_barycentric_evaluation(poly, n, zeta, input_key->small_domain);
         } else {
-            poly_evaluation = polynomial_arithmetic::evaluate(poly.dense_view().get(), zeta, n);
+            poly_evaluation = polynomial_arithmetic::evaluate(poly, zeta, n);
         }
         transcript.add_element(poly_label, poly_evaluation.to_buffer());
 
         if (info.requires_shifted_evaluation) {
             if (in_lagrange_form) {
                 poly_evaluation =
-                    polynomial_arithmetic::compute_barycentric_evaluation(poly.get(), n, zeta, input_key->small_domain);
+                    polynomial_arithmetic::compute_barycentric_evaluation(poly, n, zeta, input_key->small_domain);
             } else {
-                poly_evaluation = polynomial_arithmetic::evaluate(poly.get(), shifted_z, n);
+                poly_evaluation = polynomial_arithmetic::evaluate(poly, shifted_z, n);
             }
             transcript.add_element(poly_label + "_omega", poly_evaluation.to_buffer());
         }

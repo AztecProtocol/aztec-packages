@@ -362,7 +362,7 @@ Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
     requires polynomial_arithmetic::SupportsFFT<Fr>
 
 {
-    return polynomial_arithmetic::evaluate_from_fft(coefficients_, large_domain, z, small_domain);
+    return polynomial_arithmetic::evaluate_from_fft(data(), large_domain, z, small_domain);
 }
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<const Fr> other)
