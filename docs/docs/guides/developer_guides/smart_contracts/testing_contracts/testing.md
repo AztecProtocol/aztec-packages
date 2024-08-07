@@ -1,5 +1,5 @@
 ---
-title: Testing Contracts
+title: Testing Contracts in the TXE
 ---
 
 Aztec contracts can be tested in a variety of ways depending on the needs of a particular application and the complexity of the interactions they must support.

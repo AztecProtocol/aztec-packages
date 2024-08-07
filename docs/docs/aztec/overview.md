@@ -26,7 +26,7 @@ The PXE is unaware of the Public VM. And the Public VM is unaware of the PXE. Th
 
 ### Private and public state
 
-Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](./concepts/storage/trees/index.md), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](./concepts/storage/trees/index).
+Private state works with UTXOs, or what we call notes. To keep things private, everything is stored in an [append-only UTXO tree](./concepts/storage/trees/index.md), and a nullifier is created when notes are invalidated. Nullifiers are then stored in their own [nullifier tree](./concepts/storage/trees/index.md).
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a [public data tree](./concepts/storage/trees/index.md#public-state-tree).
 

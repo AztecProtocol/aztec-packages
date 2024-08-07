@@ -41,7 +41,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/guides/developer_guides/smart_contracts/testing_contracts/index'>
+  <Card shadow='tl' link='/guides/developer_guides/smart_contracts/testing_contracts/testing'>
     <CardHeader>
       <h3>Testing Contracts</h3>
     </CardHeader>
