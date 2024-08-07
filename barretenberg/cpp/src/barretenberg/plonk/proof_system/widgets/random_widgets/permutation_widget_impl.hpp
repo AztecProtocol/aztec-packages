@@ -313,7 +313,7 @@ void ProverPermutationWidget<program_width, idpolys, num_roots_cut_out_of_vanish
         z_perm[(key->circuit_size - num_roots_cut_out_of_vanishing_polynomial) + 1 + k] = fr::random_element();
     }
 
-    z_perm.ifft(key->small_domain);
+    z_perm.dense_view().ifft(key->small_domain);
 
     // Commit to z:
     queue.add_to_queue({

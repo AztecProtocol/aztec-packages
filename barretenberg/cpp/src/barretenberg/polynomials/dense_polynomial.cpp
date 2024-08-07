@@ -68,7 +68,7 @@ template <typename Fr> DensePolynomial<Fr>::DensePolynomial(size_t initial_size)
  * @param initial_size The initial size of the DensePolynomial.
  * @param flag Signals that we do not zero memory.
  */
-template <typename Fr> DensePolynomial<Fr>::DensePolynomial(size_t initial_size, DontZeroMemory flag)
+template <typename Fr> DensePolynomial<Fr>::DensePolynomial(size_t initial_size, DenseDontZeroMemory flag)
 {
     // Flag is unused, but we don't memset 0 if passed.
     (void)flag;
@@ -510,7 +510,7 @@ DensePolynomial<Fr> DensePolynomial<Fr>::partial_evaluate_mle(std::span<const Fr
     size_t n_l = 1 << (n - 1);
 
     // Temporary buffer of half the size of the DensePolynomial
-    DensePolynomial<Fr> intermediate(n_l, DontZeroMemory::FLAG);
+    DensePolynomial<Fr> intermediate(n_l, DenseDontZeroMemory::FLAG);
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];

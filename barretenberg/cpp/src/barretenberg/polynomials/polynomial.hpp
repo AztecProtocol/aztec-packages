@@ -2,6 +2,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/polynomials/dense_polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
@@ -117,6 +118,7 @@ template <typename Fr> class Polynomial {
      */
     void add_scaled(std::span<const Fr> other, Fr scaling_factor);
 
+    DensePolynomial<Fr> dense_view() { return DensePolynomial<Fr>::from_sparse_underlying_array(coefficients_); }
     // /**
     //  * @brief adds the polynomial q(X) 'other'.
     //  *
@@ -138,11 +140,18 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
+    std::span<const Fr> as_span() const
+    {
+        return { coefficients_.data(), coefficients_.data() + coefficients_.size() };
+    }
+    std::span<Fr> as_span() {}
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
 
-    Fr& operator[](size_t i) { return coefficients_[i]; }
-    const Fr& operator[](size_t i) const { return coefficients_[i]; }
+    Fr* data() { return coefficients_.data(); }
+    Fr* data() const { return coefficients_.data(); }
+    Fr& operator[](size_t i) { return coefficients_.data()[i]; }
+    const Fr& operator[](size_t i) const { return coefficients_.data()[i]; }
 
     static Polynomial random(size_t size, size_t virtual_size)
     {
@@ -186,6 +195,7 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynom
               << "]";
 }
 
+// legacy alias used with plonk
 using polynomial = Polynomial<bb::fr>;
 
 } // namespace bb

@@ -336,7 +336,7 @@ void compute_monomial_and_coset_fft_polynomials_from_lagrange(std::string label,
 
         // Compute permutation polynomial coset FFT form
         bb::polynomial sigma_fft(sigma_polynomial, key->large_domain.size);
-        sigma_fft.coset_fft(key->large_domain);
+        sigma_fft.dense_view().coset_fft(key->large_domain);
 
         key->polynomial_store.put(prefix, sigma_polynomial.share());
         key->polynomial_store.put(prefix + "_fft", sigma_fft.share());

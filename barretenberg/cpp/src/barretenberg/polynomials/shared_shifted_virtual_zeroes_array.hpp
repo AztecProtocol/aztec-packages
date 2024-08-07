@@ -15,16 +15,16 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     // Method to set the value at a specific index
     void set(size_t index, const T& value)
     {
-        ASSERT(index < size_);
-        backing_memory_.get()[index] = value;
+        ASSERT(index < size());
+        data()[index] = value;
     }
 
     // Method to get the value at a specific index
     T get(size_t index) const
     {
-        ASSERT(index < virtual_size_);
-        if (index + shift_ < size_) {
-            return backing_memory_.get()[index];
+        ASSERT(index < virtual_size());
+        if (index < size()) {
+            return data()[index];
         }
         return T{}; // Return default element when index is out of the actual filled size
     }
@@ -34,8 +34,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     // Method to get virtual size such that we can get index 0..virtual_size()-1.
     size_t virtual_size() const { return virtual_size_ - shift_; };
 
-    T* data() { return backing_memory_.get(); }
-    const T* data() const { return backing_memory_.get(); }
+    T* data() { return backing_memory_.get() + shift_; }
+    const T* data() const { return backing_memory_.get() + shift_; }
 
     // MEMBERS:
     // The actual size of the array allocation

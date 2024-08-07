@@ -9,7 +9,7 @@
 #include <fstream>
 
 namespace bb {
-enum class DontZeroMemory { FLAG };
+enum class DenseDontZeroMemory { FLAG };
 
 // A dense polynomial used in plonk that does not implement the zero memory
 // optimization. This is considered legacy now.
@@ -30,7 +30,7 @@ template <typename Fr> class DensePolynomial {
 
     DensePolynomial(size_t initial_size);
     // Constructor that does not initialize values, use with caution to save time.
-    DensePolynomial(size_t initial_size, DontZeroMemory flag);
+    DensePolynomial(size_t initial_size, DenseDontZeroMemory flag);
     DensePolynomial(const DensePolynomial& other);
     DensePolynomial(const DensePolynomial& other, size_t target_size);
 
@@ -305,8 +305,6 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, DensePo
               << "  " << p[p.size() - 1] << ",\n"
               << "]";
 }
-
-using polynomial = DensePolynomial<bb::fr>;
 
 } // namespace bb
 
