@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723046829874,
+  "lastUpdate": 1723049258498,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -111596,6 +111596,78 @@ window.BENCHMARK_DATA = {
             "value": 173853283,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173853283 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f0f28fc24cfeba18f5c16c77a4505d16dc1e02df",
+          "message": "feat: Hook up secondary calldata column in dsl (#7759)\n\nPreviously we could use a single calldata and return_data from noir with\r\nsupport from the bberg backend. With\r\n[this](https://github.com/noir-lang/noir/pull/5599/files) PR, noir has\r\nan interface for multiple calldata entities. The backend has support for\r\ntwo calldata columns (`calldata` and `secondary_calldata`). This work\r\nhooks up a second calldata column in dsl.\r\n\r\nThe main limitation of this work is that there is no way to distinguish\r\nbetween the two calldata columns in dsl. This is OK for the operations\r\nwithin a single circuit because in that context there is no important\r\ndistinction between the two calldata columns (`calldata`,\r\n`secondary_calldata`). It does cause a problem however in the mechanism\r\nfor linking two circuits via the databus. This is because we need to\r\nknow which calldata corresponds to app data and which corresponds to\r\nprevious kernel data in order to prove that the connection was made\r\nfaithfully. The ideal solution is probably to treat `secondary_calldata`\r\n(possibly rename to `app_calldata`?) as a unique entity in noir (similar\r\nto how `calldata` and `return_data` are treated as different entities),\r\nrather than allowing arbitrarily many individual `calldata` entities. I\r\nmade an issue\r\n[here](https://github.com/AztecProtocol/barretenberg/issues/1070).\r\n\r\n---------\r\n\r\nCo-authored-by: sirasistant <sirasistant@gmail.com>",
+          "timestamp": "2024-08-07T16:33:31Z",
+          "tree_id": "01479ad24759bf4be4dc2f5b4f75980944365a47",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f0f28fc24cfeba18f5c16c77a4505d16dc1e02df"
+        },
+        "date": 1723049247894,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13213.262557000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9815.496024 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4774.515749000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4376.928064 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39871.92918700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39871928000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14273.670616000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14273671000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3677504022,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3677504022 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 210275076,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 210275076 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2983084260,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2983084260 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 175595929,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 175595929 ns\nthreads: 1"
           }
         ]
       }
