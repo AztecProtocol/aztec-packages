@@ -133,12 +133,17 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2NoteLo
     for (const fnLogs of this.functionLogs) {
       let include = false;
       for (const log of fnLogs.logs) {
-        if ('contractAddress' in log === false) {
-          throw new Error("Can't run filterScoped in logs without contractAddress");
+        let contractAddress;
+        if ('contractAddress' in log) {
+          contractAddress = log.contractAddress;
+        } else if ('maskedContractAddress' in log) {
+          contractAddress = log.maskedContractAddress;
+        } else {
+          throw new Error("Can't run filterScoped in logs without contractAddress or maskedContractAddress");
         }
         if (
           scopedLogHashes.findIndex(
-            slh => slh.contractAddress.equals(log.contractAddress) && slh.value.equals(Fr.fromBuffer(log.hash())),
+            slh => slh.contractAddress.equals(contractAddress) && slh.value.equals(Fr.fromBuffer(log.hash())),
           ) != -1
         ) {
           include = true;
