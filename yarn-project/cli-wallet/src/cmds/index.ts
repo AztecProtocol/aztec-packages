@@ -1,3 +1,4 @@
+import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js';
 import { PublicKeys } from '@aztec/circuits.js';
 import {
@@ -11,9 +12,10 @@ import {
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
+import inquirer from 'inquirer';
 
 import { type WalletDB } from '../storage/wallet_db.js';
-import { createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
+import { AccountType, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
@@ -56,7 +58,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   addOptions(createAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
     const { createAccount } = await import('../cmds/create_account.js');
     const options = command.optsWithGlobals();
-    const { type, secretKey, publicKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias } = options;
+    const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias } = options;
+    let { publicKey } = options;
+    if ((type as AccountType) === 'ecdsasecp256r1ssh' && !publicKey) {
+      const identities = await getIdentities();
+      const answers = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'identity',
+          message: 'What public key to use?',
+          choices: identities.map(key => `${key.type} ${key.publicKey}`),
+          // Any required until https://github.com/SBoudrias/Inquirer.js/issues/1495 is fixed
+        } as any,
+      ]);
+      publicKey = answers.identity.split(' ')[1];
+    }
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const accountCreationResult = await createAccount(
       client,
@@ -131,6 +147,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
     const artifactPath = await artifactPathPromise;
 
+    debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
+
     const address = await deploy(
       client,
       wallet,
@@ -187,6 +205,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
     const artifactPath = await artifactPathPromise;
 
+    debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
+
     await send(wallet, functionName, args, artifactPath, contractAddress, !noWait, FeeOpts.fromCli(options, log), log);
   });
 
@@ -217,6 +237,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const wallet = await createOrRetrieveWallet(client, aliasOrAddress, type, secretKey, publicKey, db);
       const artifactPath = await artifactPathPromise;
+
+      debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
       await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
     });

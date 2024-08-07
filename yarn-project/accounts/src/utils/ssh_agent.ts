@@ -62,17 +62,17 @@ export function getIdentities(): Promise<StoredKey[]> {
           offset += 4;
           const keyLength = data.readUInt32BE(offset);
           offset += 4;
-          const key = data.slice(offset, offset + keyLength);
+          const key = data.subarray(offset, offset + keyLength);
           offset += keyLength;
           const commentLength = data.readUInt32BE(offset);
           offset += 4;
-          const comment = data.slice(offset, offset + commentLength);
+          const comment = data.subarray(offset, offset + commentLength);
           offset += commentLength;
 
           let keyOffset = 0;
           const typeLen = key.readUInt32BE(keyOffset);
           keyOffset += 4;
-          const type = key.slice(keyOffset, keyOffset + typeLen);
+          const type = key.subarray(keyOffset, keyOffset + typeLen);
 
           keys.push({
             type: type.toString('ascii'),
@@ -124,7 +124,7 @@ export function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buf
 
       if (type === SSH_AGENT_SIGN_RESPONSE) {
         const signatureLength = data.readUInt32BE(5);
-        const signature = data.slice(9, 9 + signatureLength);
+        const signature = data.subarray(9, 9 + signatureLength);
 
         stream.end();
         resolve(signature);

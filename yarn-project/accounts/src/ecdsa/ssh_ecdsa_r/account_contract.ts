@@ -38,7 +38,7 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
     let offset = 0;
     const sigTypeLen = data.readUInt32BE(offset);
     offset += 4;
-    const sigType = data.slice(offset, offset + sigTypeLen).toString();
+    const sigType = data.subarray(offset, offset + sigTypeLen).toString();
     offset += sigTypeLen;
 
     if (sigType !== 'ecdsa-sha2-nistp256') {
@@ -48,20 +48,23 @@ class SSHEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
     offset += 4;
     const rLen = data.readUInt32BE(offset);
     offset += 4;
-    let r = data.slice(offset, offset + rLen);
+    let r = data.subarray(offset, offset + rLen);
     offset += rLen;
 
     const sLen = data.readUInt32BE(offset);
     offset += 4;
-    let s = data.slice(offset, offset + sLen);
+    let s = data.subarray(offset, offset + sLen);
 
     if (r.length > 32) {
-      r = r.slice(1);
+      // Remove the leading zero byte if present, it is not needed since r cannot be negative (so it's there to avoid interpreting it as two's complement)
+      r = Buffer.from(Uint8Array.prototype.slice.call(r, 1));
     }
 
     if (s.length > 32) {
-      s = s.slice(1);
+      // Remove the leading zero byte if present, it is not needed since s cannot be negative (so it's there to avoid interpreting it as two's complement)
+      s = Buffer.from(Uint8Array.prototype.slice.call(s, 1));
     }
+
     return new EcdsaSignature(r, s, Buffer.from([0]));
   }
 

@@ -11,5 +11,5 @@ export function extractECDSAPublicKeyFromBase64String(publicKey: string): Buffer
 
   const keyLen = publicKeyBuffer.readUInt32BE(keyOffset);
   keyOffset += 5; // 4+1 to remove the prefix
-  return publicKeyBuffer.slice(keyOffset, keyOffset + keyLen - 1);
+  return publicKeyBuffer.subarray(keyOffset, keyOffset + keyLen - 1);
 }
