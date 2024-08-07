@@ -1,7 +1,7 @@
 import { BlockAttestation } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 
-import { PrivateKeyAccount } from 'viem';
+import { type PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';

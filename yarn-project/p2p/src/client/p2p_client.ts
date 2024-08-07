@@ -1,6 +1,6 @@
 import {
-  BlockAttestation,
-  BlockProposal,
+  type BlockAttestation,
+  type BlockProposal,
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
@@ -11,7 +11,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
-import { AttestationPool } from '../attestation_pool/attestation_pool.js';
+import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';

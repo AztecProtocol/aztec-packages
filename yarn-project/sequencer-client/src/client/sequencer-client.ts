@@ -4,7 +4,7 @@ import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { ValidatorClient } from '@aztec/validator-client';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type SequencerClientConfig } from '../config.js';

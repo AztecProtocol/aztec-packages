@@ -1,5 +1,5 @@
-import { BlockAttestation } from './block_attestation.js';
-import { BlockProposal } from './block_proposal.js';
+import { type BlockAttestation } from './block_attestation.js';
+import { type BlockProposal } from './block_proposal.js';
 
 /**
  * BlockWithAttestations

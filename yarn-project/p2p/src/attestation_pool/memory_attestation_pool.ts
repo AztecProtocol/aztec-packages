@@ -1,7 +1,7 @@
-import { BlockAttestation } from '@aztec/circuit-types';
+import { type BlockAttestation } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { AttestationPool } from './attestation_pool.js';
+import { type AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   // TODO: change this from string to a bigint for addressing

@@ -23,7 +23,7 @@ import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { type Libp2p, createLibp2p } from 'libp2p';
 
-import { AttestationPool } from '../attestation_pool/attestation_pool.js';
+import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';

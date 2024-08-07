@@ -28,7 +28,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { ValidatorClient } from '@aztec/validator-client';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';

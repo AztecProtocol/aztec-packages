@@ -21,7 +21,7 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import { ValidatorClient } from '@aztec/validator-client';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
