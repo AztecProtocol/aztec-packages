@@ -5,8 +5,8 @@ const contractAddresses =
   'inboxAddress:INBOX_CONTRACT_ADDRESS - string - The deployed L1 inbox contract address.\n' +
   'outboxAddress:OUTBOX_CONTRACT_ADDRESS - string - The deployed L1 outbox contract address.\n' +
   'availabilityOracleAddress:AVAILABILITY_ORACLE_CONTRACT_ADDRESS - string - The deployed L1 availability oracle contract address.\n' +
-  'gasTokenAddress:GAS_TOKEN_CONTRACT_ADDRESS - string - The deployed L1 gas token contract address.\n' +
-  'gasPortalAddress:GAS_PORTAL_CONTRACT_ADDRESS - string - The deployed L1 gas portal contract address.\n';
+  'feeJuiceAddress:FEE_JUICE_TOKEN_CONTRACT_ADDRESS - string - The deployed L1 Fee Juice contract address.\n' +
+  'feeJuicePortalAddress:FEE_JUICE_PORTAL_CONTRACT_ADDRESS - string - The deployed L1 gas portal contract address.\n';
 const p2pOptions =
   'p2pBlockCheckIntervalMS:P2P_BLOCK_CHECK_INTERVAL_MS - number - The frequency in which to check for blocks. Default: 100\n' +
   'p2pPeerCheckIntervalMS:P2P_PEER_CHECK_INTERVAL_MS - number - The frequency in which to check for peers. Default: 1000\n' +
@@ -44,7 +44,9 @@ export const cliTexts = {
     'port:PXE_PORT - number - The port on which the PXE should listen for connections. Default: 79\n' +
     'l2BlockPollingIntervalMS:PXE_BLOCK_POLLING_INTERVAL_MS - number - The frequency in which to check for blocks in ms. Default: 1000\n' +
     'l2StartingBlock:PXE_L2_STARTING_BLOCK - number - The block number from which to start polling. Default: 1\n' +
-    'dataDirectory:PXE_DATA_DIRECTORY - string - Where to store PXE data. If not set, will store temporarily.\n',
+    'dataDirectory:PXE_DATA_DIRECTORY - string - Where to store PXE data. If not set, will store temporarily.\n' +
+    'network:NETWORK - string - The network to connect to, e.g. devnet\n' +
+    "apiKey:API_KEY - string - The API key to use when connecting to an Aztec network. Required when using 'network' option.\n",
   archiver:
     'Starts an Archiver with options. If started additionally to --node, the Archiver will attach to that node.' +
     'Available options are listed below as cliProperty:ENV_VARIABLE_NAME.\n' +
