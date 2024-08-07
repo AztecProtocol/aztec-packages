@@ -86,8 +86,7 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
     let key_registry_hash = key_registry_hash_public_historical_read(historical_header, account);
     if key_registry_hash != 0 {
         let hinted_registry_public_keys = key_registry_get_stored_keys_hint(account);
-        assert_eq(
-            hinted_registry_public_keys.hash().to_field(), key_registry_hash);
+        assert_eq(hinted_registry_public_keys.hash().to_field(), key_registry_hash);
 
         hinted_registry_public_keys
     } else {
@@ -109,7 +108,10 @@ fn key_registry_hash_public_historical_read(historical_header: Header, account: 
     // (prior to siloing!), we simply add the length to the base slot to get the last element.
     let hash_storage_slot = keys_storage_slot + PUBLIC_KEYS_LENGTH as Field;
 
-    historical_header.public_storage_historical_read(hash_storage_slot, AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS))
+    historical_header.public_storage_historical_read(
+        hash_storage_slot,
+        AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS)
+    )
 }
 
 unconstrained fn key_registry_get_stored_keys_hint(account: AztecAddress) -> PublicKeys {
