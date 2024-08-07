@@ -160,7 +160,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   const client = createAndStartTelemetryClient(getTelemetryClientConfig());
-  const node = await createAztecNode(client, aztecNodeConfig);
+  const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 
   await deployCanonicalKeyRegistry(
@@ -189,7 +189,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  * Create and start a new Aztec RPC HTTP Server
  * @param config - Optional Aztec node settings.
  */
-export async function createAztecNode(telemetryClient?: TelemetryClient, config: Partial<AztecNodeConfig> = {}) {
+export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
   return node;

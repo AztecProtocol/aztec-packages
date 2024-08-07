@@ -105,6 +105,22 @@ export function formatHelpLine(
   return `${chalk.cyan(paddedOption)}${chalk.yellow(paddedDefault)}${chalk.green(envVar)}`;
 }
 
+const getDefaultOrEnvValue = (opt: AztecStartOption) => {
+  let val;
+  // if the option is set in the environment, use that & parse it
+  if (opt.envVar && process.env[opt.envVar]) {
+    val = process.env[opt.envVar];
+    if (val && opt.parseVal) {
+      return opt.parseVal(val);
+    }
+    // if no env variable, use the default value
+  } else if (opt.defaultValue) {
+    val = opt.defaultValue;
+  }
+
+  return val;
+};
+
 // Function to add options dynamically
 export const addOptions = (cmd: Command, options: AztecStartOption[]) => {
   options.forEach(opt => {
@@ -112,7 +128,7 @@ export const addOptions = (cmd: Command, options: AztecStartOption[]) => {
       opt.flag,
       `${opt.description} (default: ${opt.defaultValue}) ($${opt.envVar})`,
       opt.parseVal ? opt.parseVal : val => val,
-      process.env[opt.envVar || ''] || opt.defaultValue,
+      getDefaultOrEnvValue(opt),
     );
   });
 };

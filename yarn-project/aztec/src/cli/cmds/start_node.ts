@@ -108,7 +108,7 @@ export const startNode = async (
     telemetryClient = createAndStartTelemetryClient(telemetryConfig);
   }
   // Create and start Aztec Node.
-  const node = await createAztecNode(telemetryClient, nodeConfig);
+  const node = await createAztecNode(nodeConfig, telemetryClient);
   const nodeServer = createAztecNodeRpcServer(node);
 
   // Add node to services list

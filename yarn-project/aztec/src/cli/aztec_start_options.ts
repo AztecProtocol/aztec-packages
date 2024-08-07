@@ -12,7 +12,7 @@ import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 export interface AztecStartOption {
   flag: string;
   description: string;
-  defaultValue: string | undefined;
+  defaultValue: any | undefined;
   printDefault?: (val: any) => string;
   envVar: string | undefined;
   parseVal?: (val: string) => any;
@@ -52,23 +52,23 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--sandbox.testAccounts',
       description: 'Deploy test accounts on sandbox start',
-      defaultValue: 'true',
+      defaultValue: true,
       envVar: 'TEST_ACCOUNTS',
-      parseVal: val => ['1', 'true'].includes(val),
+      parseVal: val => ['1', true].includes(val),
     },
     {
       flag: '--sandbox.enableGas',
       description: 'Enable gas on sandbox start',
-      defaultValue: 'false',
+      defaultValue: false,
       envVar: 'ENABLE_GAS',
-      parseVal: val => ['1', 'true'].includes(val),
+      parseVal: val => ['1', true].includes(val),
     },
   ],
   API: [
     {
       flag: '--port',
       description: 'Port to run the Aztec Services on on',
-      defaultValue: '8080',
+      defaultValue: 8080,
       envVar: 'AZTEC_PORT',
       parseVal: val => parseInt(val, 10),
     },
@@ -89,7 +89,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--l1-chain-id <value>',
       description: 'The L1 chain ID',
-      defaultValue: '1337',
+      defaultValue: 1337,
       envVar: 'L1_CHAIN_ID',
       parseVal: val => parseInt(val, 10),
     },
@@ -167,7 +167,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--node.deployAztecContracts',
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
-      defaultValue: 'false',
+      defaultValue: false,
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
     },
     {
@@ -179,14 +179,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--node.l2QueueSize <value>',
       description: 'Size of queue of L2 blocks to store in world state',
-      defaultValue: '1000',
+      defaultValue: 1000,
       envVar: 'L2_QUEUE_SIZE',
       parseVal: val => parseInt(val, 10),
     },
     {
       flag: '--node.worldStateBlockCheckIntervalMS <value>',
       description: 'Frequency in which to check for blocks in ms',
-      defaultValue: '100',
+      defaultValue: 100,
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
     },
@@ -195,7 +195,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--p2p-enabled',
       description: 'Enable P2P subsystem',
-      defaultValue: 'false',
+      defaultValue: false,
       envVar: 'P2P_ENABLED',
     },
     ...getOptions('p2p', p2pConfigMappings),
@@ -204,7 +204,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--telemetry',
       description: 'Enable telemetry',
-      defaultValue: 'false',
+      defaultValue: false,
       envVar: 'TELEMETRY',
     },
     ...getOptions('tel', telemetryClientConfigMappings),
@@ -293,7 +293,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--txe.port <value>',
       description: 'Port to run TXE on',
-      defaultValue: '8081',
+      defaultValue: 8081,
       envVar: 'TXE_PORT',
       parseVal: val => parseInt(val, 10),
     },
