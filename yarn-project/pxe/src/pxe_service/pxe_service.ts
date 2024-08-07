@@ -48,7 +48,7 @@ import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
@@ -350,15 +350,14 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { slottedNoteHash, siloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndOptionallyANullifier(
-          note.contractAddress,
-          nonce,
-          note.storageSlot,
-          note.noteTypeId,
-          true,
-          note.note,
-        );
+      const { noteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+        note.contractAddress,
+        nonce,
+        note.storageSlot,
+        note.noteTypeId,
+        true,
+        note.note,
+      );
 
       const index = await this.node.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, siloedNoteHash);
       if (index === undefined) {
@@ -379,7 +378,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          slottedNoteHash,
+          noteHash,
           siloedNullifier,
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
@@ -401,15 +400,14 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { slottedNoteHash, siloedNoteHash, innerNullifier } =
-        await this.simulator.computeNoteHashAndOptionallyANullifier(
-          note.contractAddress,
-          nonce,
-          note.storageSlot,
-          note.noteTypeId,
-          false,
-          note.note,
-        );
+      const { noteHash, siloedNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+        note.contractAddress,
+        nonce,
+        note.storageSlot,
+        note.noteTypeId,
+        false,
+        note.note,
+      );
 
       if (!innerNullifier.equals(Fr.ZERO)) {
         throw new Error('Unexpectedly received non-zero nullifier.');
@@ -428,7 +426,7 @@ export class PXEService implements PXE {
           note.noteTypeId,
           note.txHash,
           nonce,
-          slottedNoteHash,
+          noteHash,
           Fr.ZERO, // We are not able to derive
           index,
           owner.publicKeys.masterIncomingViewingPublicKey,
@@ -620,7 +618,7 @@ export class PXEService implements PXE {
       pxeVersion: this.packageVersion,
       protocolContractAddresses: {
         classRegisterer: ClassRegistererAddress,
-        gasToken: getCanonicalGasToken().address,
+        feeJuice: getCanonicalFeeJuice().address,
         instanceDeployer: getCanonicalInstanceDeployer().address,
         keyRegistry: getCanonicalKeyRegistryAddress(),
         multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
