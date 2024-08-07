@@ -3,7 +3,7 @@ title: Common Patterns
 sidebar_position: 7
 ---
 
-There are many common patterns have been devised by the Aztec core engineering team and the work of the external community as we build Aztec.nr contracts internally (see some of them [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts)).
+There are many common patterns have been devised by the Aztec core engineering team and the work of the external community as we build Aztec.nr contracts internally (see some of them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts)).
 
 This doc aims to summarize some of them!
 
@@ -41,7 +41,7 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways to achieve the desired effect:
 
-1. For public values that change infrequently, you can use [shared state](../../../reference/developer_references/smart_contract_reference/storage/shared_state.md).
+1. For public values that change infrequently, you can use [shared state](../../../../../reference/developer_references/smart_contract_reference/storage/shared_state.md).
 
 1. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
 
@@ -84,11 +84,11 @@ Let's say you have some storage in public and want to move them into the private
 
 So you have to create a custom note in the public domain that is not encrypted by some owner - we call such notes a "TransparentNote" since it is created in public, anyone can see the amount and the note is not encrypted by some owner.
 
-This pattern is discussed in detail in [writing a token contract section in the shield() method](../../../tutorials/codealong/contract_tutorials/token_contract.md#redeem_shield).
+This pattern is discussed in detail in [the codealong token tutorial in the shield() method](../../../../../tutorials/codealong/contract_tutorials/token_contract.md#redeem_shield).
 
 ### Discovering my notes
 
-When you send someone a note, the note hash gets added to the [note hash tree](../../../../protocol-specs/state/note-hash-tree.md). To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
+When you send someone a note, the note hash gets added to the note hash tree. To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
 1. When sending someone a note, use `encrypt_and_emit_note` (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
 2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a TransparentNote in public.
@@ -117,7 +117,7 @@ Hence, it's necessary to add a "randomness" field to your note to prevent such a
 
 ### L1 -- L2 interactions
 
-Refer to [Token Portal tutorial on bridging tokens between L1 and L2](../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../reference/developer_references/smart_contract_reference/examples/uniswap/index.md). Both examples show how to:
+Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../../tutorials/examples/uniswap/index.md). Both examples show how to:
 
 1. L1 -> L2 message flow
 2. L2 -> L1 message flow
@@ -131,7 +131,7 @@ To send a note to someone, they need to have a key which we can encrypt the note
 There are several patterns here:
 
 1. Give the contract a key and share it amongst all participants. This leaks privacy, as anyone can see all the notes in the contract.
-2. `Unshield` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../../reference/developer_references/smart_contract_reference/examples/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
+2. `Unshield` funds into the contract - this is used in the [Uniswap smart contract example where a user sends private funds into a Uniswap Portal contract which eventually withdraws to L1 to swap on L1 Uniswap](../../../../../tutorials/examples/uniswap/index.md). This works like Ethereum - to achieve contract composability, you move funds into the public domain. This way the contract doesn't even need keys.
 
 There are several other designs we are discussing through [in this discourse post](https://discourse.aztec.network/t/how-to-handle-private-escrows-between-two-parties/2440) but they need some changes in the protocol or in our demo contract. If you are interested in this discussion, please participate in the discourse post!
 
@@ -153,6 +153,6 @@ PS: when calling from private to public, `msg_sender` is the contract address wh
 
 In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
-E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../aztec/concepts/accounts/keys.md#nullifier-secrets). E.g.:
+E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../../aztec/concepts/accounts/keys.md#nullifier-keys). E.g.:
 
 #include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust

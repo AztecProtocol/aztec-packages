@@ -2,7 +2,7 @@
 title: How to Rotate Nullifier Keys
 ---
 
-This guide explains how to rotate nullifer secret and public keys using Aztec.js. To learn more about key rotation, read the [concepts section](../../../aztec/concepts/accounts/keys.md).
+This guide explains how to rotate nullifer secret and public keys using Aztec.js. To learn more about key rotation, read the [concepts section](../../../aztec/concepts/accounts/keys.md#key-rotation)
 
 ## Prerequisites
 

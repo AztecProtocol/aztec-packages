@@ -2,7 +2,7 @@
 title: Aztec.nr Errors
 ---
 
-This section contains some errors that you may encounter when writing and compiling contracts in Aztec.nr. If you run into an error that is not listed here, please [create an issue](https://github.com/AztecProtocol/aztec-packages/issues/new).
+This section contains some errors that you may encounter when writing and compiling contracts in Aztec.nr. If you run into an error that is not listed here, please [create an issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/new).
 
 #### `Aztec dependency not found. Please add aztec as a dependency in your Nargo.toml`
 
@@ -16,7 +16,7 @@ You can learn more about dependencies and their paths [here](../smart_contract_r
 
 #### `backend has encountered an error`
 
-This is likely due to a version mismatch or bad install of barretenberg. Try [reinstalling nargo](guides/local_env/versions-updating.md#updating) or uninstalling barretenberg:
+This is likely due to a version mismatch or bad install of barretenberg. Try [reinstalling nargo](../../../guides/developer_guides/local_env/versions-updating.md#updating-aztec-nargo) or uninstalling barretenberg:
 
 ```bash
 nargo backend uninstall acvm-backend-barretenberg
@@ -26,7 +26,7 @@ It will then reinstall when you compile.
 
 #### `Oracle callback {} not found` & `Oracle callback pedersenHash not found`
 
-This can occasionally happen when there are breaking releases. Make sure that your dependencies in `Nargo.toml` are [updated to the latest release](../smart_contract_reference/dependencies.md).
+This can occasionally happen when there are breaking releases. Make sure that your dependencies in `Nargo.toml` are [updated to the latest release](../../../guides/developer_guides/local_env/versions-updating.md#dependency-versions).
 
 #### `error: Failed constraint: 'Public state writes only supported in public functions`
 
@@ -47,7 +47,7 @@ This error occurs when you are trying to interact with a smart contract via an P
 
 To execute a transaction, the PXE needs to know the complete address of a contract and contract artifacts.
 
-To address the error, add the contract to the PXE by calling [`pxe.addContracts(...)`](../../aztec/concepts/pxe/index.md#addcontracts).
+To address the error, add the contract to the PXE by calling [`pxe.addContracts(...)`](../../../aztec/concepts/pxe/index.md).
 
 #### `Simulation error: No public key registered for address 0x0. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...)`
 
@@ -71,4 +71,4 @@ To address the error, register the account by calling `server.registerAccount(..
 
 You may encounter this error when trying to send a transaction that is using an invalid contract. The contract may compile without errors and you only encounter this when sending the transaction.
 
-This error may arise when function parameters are not properly formatted, when trying to "double-spend" a note, or it may indicate that there is a bug deeper in the stack (e.g. a bug in the Aztec.nr library or deeper). If you hit this error, double check your contract implementation, but also consider [opening an issue](https://github.com/AztecProtocol/aztec-packages/issues/new).
+This error may arise when function parameters are not properly formatted, when trying to "double-spend" a note, or it may indicate that there is a bug deeper in the stack (e.g. a bug in the Aztec.nr library or deeper). If you hit this error, double check your contract implementation, but also consider [opening an issue (GitHub link)](https://github.com/AztecProtocol/aztec-packages/issues/new).

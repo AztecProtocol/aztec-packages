@@ -10,14 +10,14 @@ draft: true
 
 This section shows how to create schnorr account wallets on the Aztec Sandbox.
 
-An in-depth explaining about accounts on aztec can be found [here](../../aztec/concepts/accounts/index.md). But creating an account on the Sandbox does 2 things:
+An in-depth explainer about accounts on aztec can be found [here](../../../aztec/concepts/accounts/index.md). But creating an account on the Sandbox does 2 things:
 
 1. Deploys an account contract -- representing you -- allowing you to perform actions on the network (deploy contracts, call functions etc).
 2. Adds your encryption keys to the Private eXecution Environment (PXE) allowing it to decrypt and manage your private state.
 
 ## Pre-requisites
 
-Have a running Sandbox and a repository that interacts with it as explained [here](../getting_started/quickstart.md).
+Have a running Sandbox and a repository that interacts with it as explained [in the quickstart](../getting_started/quickstart.md).
 
 Let's assume you have a file `src/index.ts` from the example used in the Sandbox page.
 
@@ -64,4 +64,4 @@ Once this has completed, the L2 block is retrieved and pulled down to the PXE so
 
 ## Next Steps
 
-Check out our section on [Writing your own Account Contract](../../tutorials/write_accounts_contract.md) leveraging our account abstraction
+Check out our section on [Writing your own Account Contract](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md) leveraging our account abstraction.

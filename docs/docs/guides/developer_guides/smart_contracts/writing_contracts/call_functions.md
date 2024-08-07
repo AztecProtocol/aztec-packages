@@ -6,7 +6,7 @@ sidebar_position: 2
 
 <!-- TODO finish this guide. i think we accidentally deleted it because this page makes no sense -->
 
-A contract is a collection of persistent state variables and [functions](../../../aztec/smart_contracts/functions/index.md) which may manipulate these variables. 
+A contract is a collection of persistent state variables and functions which may manipulate these variables. 
 
 Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state.
 
@@ -28,7 +28,7 @@ contract MyContract {
 }
 ```
 :::info A note for vanilla Noir devs
-There is no [`main()`](https://noir-lang.org/docs/getting_started/project_breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
+There is no [`main()` (GitHub link)](https://noir-lang.org/docs/getting_started/project_breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
 :::
 
-To understand how to call a function from another contract, follow the  [crowdfunding tutorial](../../../tutorials/codealong/contract_tutorials/crowdfunding_contract.md).
+To understand how to call a function from another contract, follow the  [crowdfunding tutorial](../../../../tutorials/codealong/contract_tutorials/crowdfunding_contract.md).

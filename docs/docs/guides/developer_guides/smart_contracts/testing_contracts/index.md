@@ -52,7 +52,7 @@ Since TXE tests are written in Noir and executed with `aztec-nargo`, they all ru
 `aztec-nr` provides an utility class called `TestEnvironment`, that should take care of the most common operations needed to setup contract testing. Setting up a new test environment with `TestEnvironment::new()` **will reset the current test's TXE state**.
 
 :::tip
-You can find all of the methods available in the `TestEnvironment` [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr).
+You can find all of the methods available in the `TestEnvironment` [here (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr).
 :::
 
 #include_code txe_test_increment /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr rust

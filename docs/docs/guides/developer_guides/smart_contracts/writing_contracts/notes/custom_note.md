@@ -42,4 +42,4 @@ If you are also planning to be able to access the data with a note in public sta
 
 ## Further reading
 
-- [Macros reference](../../../../reference/developer_references/smart_contract_reference/macros.md)
+- [Macros reference](../../../../../reference/developer_references/smart_contract_reference/macros.md)

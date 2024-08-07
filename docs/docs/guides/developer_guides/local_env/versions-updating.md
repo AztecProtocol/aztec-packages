@@ -93,11 +93,11 @@ cd your/aztec/project
 aztec update . --contract src/contract1 --contract src/contract2
 ```
 
-The sandbox must be running for the update command to work. Make sure it is [installed and running](../../reference/developer_references/sandbox_reference/sandbox-reference.md).
+The sandbox must be running for the update command to work. Make sure it is [installed and running](../../../reference/developer_references/sandbox_reference/sandbox-reference.md).
 
 Follow [updating Aztec.nr packages](#updating-aztecnr-packages) and [updating JavaScript packages](#updating-aztecjs-packages) guides.
 
-3. Refer to [Migration Notes](../../migration_notes.md) on any breaking changes that might affect your dapp
+3. Refer to [Migration Notes](../../../migration_notes.md) on any breaking changes that might affect your dapp
 
 ---
 
@@ -139,7 +139,7 @@ cd /your/contract/directory
 aztec-nargo compile
 ```
 
-If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository](https://github.com/AztecProtocol/aztec-packages/tags).
+If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tags).
 
 ## Updating Aztec.js packages
 
@@ -161,9 +161,9 @@ As mentioned in the tl;dr, `aztec-nargo` is updated as part of updating the whol
 aztec-up
 ```
 
-The version of aztec-nargo that comes with a particular version of the Aztec sandbox can be seen in the monorepo. Eg tag: aztec-packages-v0.35.0 contains aztec-nargo [v0.27.0](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.35.0/noir/noir-repo/Cargo.toml#L44).
+The version of aztec-nargo that comes with a particular version of the Aztec sandbox can be seen in the monorepo. Eg tag: aztec-packages-v0.35.0 contains aztec-nargo [v0.27.0 (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.35.0/noir/noir-repo/Cargo.toml#L44).
 
-Set VERSION to specify the desired Aztec sandbox version, eg monorepo tag suffix [0.35.0](https://github.com/AztecProtocol/aztec-packages/tree/aztec-packages-v0.35.0) (to have `aztec-nargo` v0.27.0).
+Set VERSION to specify the desired Aztec sandbox version, eg monorepo tag suffix [0.35.0 (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/aztec-packages-v0.35.0) (to have `aztec-nargo` v0.27.0).
 
 ```bash
 VERSION=<tag-suffix> aztec-up

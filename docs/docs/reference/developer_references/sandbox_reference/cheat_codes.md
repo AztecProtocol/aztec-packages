@@ -10,7 +10,7 @@ To help with testing, the sandbox is shipped with a set of cheatcodes.
 Cheatcodes allow you to change the time of the Aztec block, load certain state or more easily manipulate Ethereum instead of having to write dedicated RPC calls to anvil or hardhat.
 
 :::info Prerequisites
-If you aren't familiar with [Anvil](https://book.getfoundry.sh/anvil/), we recommend reading up on that since Aztec Sandbox uses Anvil as the local Ethereum instance.
+If you aren't familiar with [Anvil (Foundry)](https://book.getfoundry.sh/anvil/), we recommend reading up on that since Aztec Sandbox uses Anvil as the local Ethereum instance.
 :::
 
 ### Aims

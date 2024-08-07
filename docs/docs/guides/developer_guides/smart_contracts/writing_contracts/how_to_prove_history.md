@@ -3,11 +3,11 @@ title: Using the Archive Tree
 sidebar_position: 4
 ---
 
-The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree. You can learn more about how it works in the [concepts section](../../../aztec/concepts/storage/trees/index.md#archive-tree).
+The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree. You can learn more about how it works in the [concepts section](../../../../aztec/concepts/storage/trees/index.md).
 
 This page is a quick introductory guide to creating historical proofs proofs from the archive tree.
 
-For a reference, go [here](https://docs.aztec.network/reference/developer_references/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion).
+For a reference, go [here](../../../../reference/developer_references/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion.md).
 
 ## Inclusion and non-inclusion proofs
 
@@ -80,4 +80,4 @@ You can also prove that a note was not nullified in a specified block by using `
 
 ## Prove contract inclusion, public value inclusion, and use current state in lookups
 
-To see what else you can do with historical proofs, check out the [reference](https://docs.aztec.network/reference/developer_references/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion)
+To see what else you can do with historical proofs, check out the [reference](../../../../reference/developer_references/smart_contract_reference/aztec-nr/aztec/history/contract_inclusion.md)

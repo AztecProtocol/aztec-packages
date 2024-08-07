@@ -9,13 +9,13 @@ For a guide on using authwit in Aztec.js, [read this](../../js_apps/authwit.md).
 
 ## Prerequisite reading
 
-- [Authwit](../../../aztec/concepts/accounts/authwit.md)
+- [Authwit](../../../../aztec/concepts/accounts/authwit.md)
 
 ## Introduction
 
 Authentication Witness is a scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.
 
-How it works logically is explained in the [concepts](../../../aztec/concepts/accounts/authwit.md) but we will do a short recap here.
+How it works logically is explained in the [concepts](../../../../aztec/concepts/accounts/authwit.md) but we will do a short recap here.
 
 An authentication witness is defined for a specific action, such as allowing a Defi protocol to transfer funds on behalf of the user. An action is here something that could be explained as `A is allowed to perform X operation on behalf of B` and we define it as a hash computed as such:
 
@@ -83,19 +83,19 @@ Both return the value `0xabf64ad4` (`IS_VALID` selector) for a successful authen
 
 ## The `AuthWit` library.
 
-As part of [Aztec.nr](https://aztec.nr), we are providing a library that can be used to implement authentication witness for your contracts.
+As part of Aztec.nr, we are providing a library that can be used to implement authentication witness for your contracts.
 
-This library also provides a basis for account implementations such that these can more easily implement authentication witness. For more on the wallets, see [writing an account contract](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md).
+This library also provides a basis for account implementations such that these can more easily implement authentication witness.
 
 For our purposes here (not building a wallet), the most important part of the library is the `auth` utility which exposes a couple of helper methods for computing the action hash, retrieving witnesses, validating them and emitting the nullifier.
 
 ### General utilities
 
-The primary general utility is the `compute_authwit_message_hash_from_call` function which computes the action hash from its components. This is useful for when you need to generate a hash that is not for the current call, such as when you want to update a public approval state value that is later used for [authentication in public](#updating-approval-state-in-noir). You can view the implementation of this function [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth.nr).
+The primary general utility is the `compute_authwit_message_hash_from_call` function which computes the action hash from its components. This is useful for when you need to generate a hash that is not for the current call, such as when you want to update a public approval state value that is later used for [authentication in public](#updating-approval-state-in-noir). You can view the implementation of this function [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth.nr).
 
 #### TypeScript utilities
 
-To make it convenient to compute the message hashes in TypeScript, the `aztec.js` package includes a `computeAuthWitMessageHash` function that you can use. Implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/authwit.ts).
+To make it convenient to compute the message hashes in TypeScript, the `aztec.js` package includes a `computeAuthWitMessageHash` function that you can use. Implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/authwit.ts).
 
 ### Utilities for private calls
 
@@ -166,7 +166,7 @@ With private functions covered, how can we use this in a public function? Well, 
 
 Authenticating an action in the public domain is slightly different from the private domain, since we are executing a function on the auth registry contract to add the witness flag. As you might recall, this was to ensure that we don't need to call into the account contract from public, which is a potential DOS vector.
 
-In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](../../../aztec/concepts/accounts/authwit.md#what-about-public).
+In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](../../../../aztec/concepts/accounts/authwit.md#what-about-public).
 
 #include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_public.test.ts typescript
 

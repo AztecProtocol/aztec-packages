@@ -4,7 +4,7 @@ title: Registry
 
 The registry is a contract deployed on L1, that contains addresses for the `Rollup`, `Inbox` and `Outbox`. It also keeps track of the different versions that have been deployed and let you query prior deployments easily.
 
-**Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Registry.sol).
+**Links**: [Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IRegistry.sol), [Implementation (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Registry.sol).
 
 ## `numberOfVersions()`
 

@@ -4,7 +4,7 @@ title: Key Rotation
 
 ## Prerequisite reading
 
-- [Keys](../../../../aztec/concepts/accounts/keys.md)
+- [Keys Concept](../../../../../aztec/concepts/accounts/keys.md)
 
 ## Introduction
 
@@ -22,6 +22,6 @@ It is still possible to nullify the notes with the old nullifier key even after 
 ## Glossary
 
 - `npk_m_hash`: master nullifying public key hash
-- `nsk_app`: app nullifying secret key - the app-specific NSK (learn more about app-scoped keys [here](../../../../aztec/concepts/accounts/keys.md#scoped-keys))
+- `nsk_app`: app nullifying secret key - the app-specific NSK (learn more about app-scoped keys [here](../../../../../aztec/concepts/accounts/keys.md#scoped-keys))
 - `nsk_hash`: nullifying secret key hash
-- `ivpk_m`: incoming view public key (master) (learn more about IVPKs [here](../../../../aztec/concepts/accounts/keys.md#keys))
+- `ivpk_m`: incoming view public key (master) (learn more about IVPKs [here](../../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys))
