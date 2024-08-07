@@ -21,39 +21,74 @@
   --ifm-navbar-link-hover-color: #8C7EFF;
 }
 
-.alert--danger {
+[data-theme="light"] .alert--danger {
   --ifm-alert-background-color: #ffd1cb;
   --ifm-alert-background-color-highlight: #ffbab1;
   --ifm-alert-foreground-color: rgb(66,69,73);
   --ifm-alert-border-color: #ff7764;
 }
 
-.alert--warning {
+[data-theme="dark"] .alert--danger {
+  --ifm-alert-background-color: #962a1c;
+  --ifm-alert-background-color-highlight: #cf5545;
+  --ifm-alert-foreground-color: white;
+  --ifm-alert-border-color: #cf5545;
+}
+
+[data-theme="light"] .alert--warning {
   --ifm-alert-background-color: #ffe2b1;
   --ifm-alert-background-color-highlight: #ffd998;
   --ifm-alert-foreground-color: rgb(66,69,73);
   --ifm-alert-border-color: #ffc564;
 }
 
-.alert--info {
+[data-theme="dark"] .alert--warning {
+  --ifm-alert-background-color: #5b4b2f;
+  --ifm-alert-background-color-highlight: #8a6a32;
+  --ifm-alert-foreground-color: white;
+  --ifm-alert-border-color: #8a6a32;
+}
+
+[data-theme="light"] .alert--info {
   --ifm-alert-background-color: #d8e0fd;
   --ifm-alert-background-color-highlight: #c0cdfc;
   --ifm-alert-foreground-color: rgb(66,69,73);
   --ifm-alert-border-color: #466CF7;
 }
 
-.alert--note {
+[data-theme="dark"] .alert--info {
+  --ifm-alert-background-color: #2d2a55;
+  --ifm-alert-background-color-highlight: #514b99;
+  --ifm-alert-foreground-color: white;
+  --ifm-alert-border-color: #514b99
+}
+
+[data-theme="light"] .alert--secondary {
   --ifm-alert-background-color: #d8e0fd;
   --ifm-alert-background-color-highlight: #c0cdfc;
   --ifm-alert-foreground-color: rgb(66,69,73);
   --ifm-alert-border-color: #466CF7;
 }
 
-.alert--tip {
+[data-theme="dark"] .alert--secondary {
+  --ifm-alert-background-color: #2d2a55;
+  --ifm-alert-background-color-highlight: #514b99;
+  --ifm-alert-foreground-color: white;
+  --ifm-alert-border-color: #514b99;
+}
+
+[data-theme="light"] .alert--success {
   --ifm-alert-background-color: #ccf0e3;
   --ifm-alert-background-color-highlight: #b8ead8;
   --ifm-alert-foreground-color: rgb(66,69,73);
   --ifm-alert-border-color: #31A67B;
+}
+
+[data-theme="dark"] .alert--success {
+  --ifm-alert-background-color: #34584a;
+  --ifm-alert-background-color-highlight: #69b799;
+  --ifm-alert-foreground-color:white;
+  --ifm-alert-border-color: #69b799;
 }
 
 
