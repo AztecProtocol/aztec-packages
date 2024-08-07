@@ -1,5 +1,5 @@
 ---
-title: Programmable Privacy
+title: Building in Public
 sidebar_position: 0
 ---
 
