@@ -121,7 +121,7 @@ jobs:
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
-              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=4" >> $GITHUB_OUTPUT
               echo "bot_interval=300" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
