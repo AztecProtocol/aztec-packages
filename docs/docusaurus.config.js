@@ -284,7 +284,7 @@ const config = {
               },
               {
                 to: "/aztec_connect_sunset",
-                label: "Aztec Connect Subset",
+                label: "Aztec Connect Sunset",
                 className: "no-external-icon",
               },
               {
