@@ -94,7 +94,7 @@ describe('e2e_deploy_contract private initialization', () => {
         .constructor(...initArgs)
         .send()
         .wait(),
-    ).rejects.toThrow(/dropped/);
+    ).rejects.toThrow(/The simulated transaction is unable to be added to state and is invalid./);
   });
 
   it('refuses to call a private function that requires initialization', async () => {

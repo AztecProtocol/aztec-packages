@@ -208,7 +208,9 @@ describe('e2e_block_building', () => {
       it('private -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          'The simulated transaction is unable to be added to state and is invalid.',
+        );
       });
 
       it('public -> public', async () => {
@@ -230,7 +232,9 @@ describe('e2e_block_building', () => {
       it('public -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          'The simulated transaction is unable to be added to state and is invalid.',
+        );
       });
     });
   });

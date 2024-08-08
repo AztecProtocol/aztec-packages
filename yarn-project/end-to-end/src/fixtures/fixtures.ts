@@ -7,7 +7,8 @@ export const U128_UNDERFLOW_ERROR = "Assertion failed: attempt to subtract with 
 export const U128_OVERFLOW_ERROR = "Assertion failed: attempt to add with overflow 'hi == high'";
 export const BITSIZE_TOO_BIG_ERROR = "'self.__assert_max_bit_size(bit_size)'";
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): Make these a fixed error after transition.
-export const DUPLICATE_NULLIFIER_ERROR = /dropped|duplicate nullifier|reverted/;
+export const DUPLICATE_NULLIFIER_ERROR =
+  /dropped|duplicate nullifier|reverted|The simulated transaction is unable to be added to state and is invalid./;
 export const NO_L1_TO_L2_MSG_ERROR =
   /No non-nullified L1 to L2 message found for message hash|Tried to consume nonexistent L1-to-L2 message/;
 export const STATIC_CALL_STATE_MODIFICATION_ERROR =
