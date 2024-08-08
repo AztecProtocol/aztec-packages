@@ -57,11 +57,11 @@ export function createContractAddressOption(db?: WalletDB) {
 }
 
 export function artifactPathParser(filePath: string, db?: WalletDB) {
-  filePath = db ? db.tryRetrieveAlias(`artifacts:${filePath}`) : filePath;
-  const isArtifactPath = new RegExp(/^(\.|\/|[A-Z]:).*\.json$/).test(filePath);
-  if (!isArtifactPath) {
+  if (filePath.includes('@')) {
     const [pkg, contractName] = filePath.split('@');
     return contractArtifactFromWorkspace(pkg, contractName);
+  } else if (!new RegExp(/^(\.|\/|[A-Z]:).*\.json$/).test(filePath)) {
+    filePath = db ? db.tryRetrieveAlias(`artifacts:${filePath}`) : filePath;
   }
   if (!filePath) {
     throw new Error(
