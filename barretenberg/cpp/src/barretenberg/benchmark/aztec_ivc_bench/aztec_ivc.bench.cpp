@@ -32,20 +32,10 @@ class AztecIVCBench : public benchmark::Fixture {
         bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
-    {
-        Builder circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in AztecIVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
-
+    /**
+     * @brief Verify an IVC proof
+     *
+     */
     static bool verify_ivc(Proof& proof, AztecIVC& ivc)
     {
         auto verifier_inst = std::make_shared<VerifierInstance>(ivc.verification_queue[0].instance_vk);
@@ -56,34 +46,43 @@ class AztecIVCBench : public benchmark::Fixture {
         } else {
             info("IVC failed to verify.");
         }
-
         return verified;
     }
 
-    static auto precompute_verification_keys(AztecIVC& ivc, const size_t num_function_circuits)
+    /**
+     * @brief Precompute the verification keys for the bench given a number of
+     *
+     * @param ivc
+     * @param num_function_circuits
+     * @return auto
+     */
+    static auto precompute_verification_keys(AztecIVC& ivc, const size_t num_circuits)
     {
         MockCircuitMaker mock_circuit_maker;
 
-        size_t total_num_circuits = num_function_circuits;
-        // size_t total_num_circuits = num_function_circuits * 2;
-
         std::vector<Builder> circuits;
-        for (size_t circuit_idx = 0; circuit_idx < total_num_circuits; ++circuit_idx) {
+        for (size_t circuit_idx = 0; circuit_idx < num_circuits; ++circuit_idx) {
             circuits.emplace_back(mock_circuit_maker.create_next_circuit(ivc));
         }
 
-        // Compute and return the verfication keys corresponding to this set of circuits
+        // Compute and return th corresponding set of verfication keys
         return ivc.precompute_folding_verification_keys(circuits);
     }
 
+    /**
+     * @brief Manage the construction of mock app/kernel circuits
+     * @details Per the medium complexity benchmark spec, the first app circuit is size 2^19. Subsequent app and kernel
+     * circuits are size 2^17.
+     */
     class MockCircuitMaker {
-      public:
         size_t circuit_counter = 0;
 
+      public:
         Builder create_next_circuit(AztecIVC& ivc)
         {
             circuit_counter++;
-            bool is_kernel = (circuit_counter % 2 == 0);
+
+            bool is_kernel = (circuit_counter % 2 == 0); // Every other circuit is a kernel, starting from the second
 
             Builder circuit{ ivc.goblin.op_queue };
             if (is_kernel) { // construct mock kernel
@@ -129,22 +128,24 @@ BENCHMARK_DEFINE_F(AztecIVCBench, FullStructured)(benchmark::State& state)
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
 
-    auto num_circuits = static_cast<size_t>(state.range(0));
-    auto precomputed_vkeys = precompute_verification_keys(ivc, num_circuits);
+    auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
+
+    // Precompute the verification keys for the benchmark circuits
+    auto precomputed_vkeys = precompute_verification_keys(ivc, total_num_circuits);
 
     Proof proof;
-
     for (auto _ : state) {
-        perform_ivc_accumulation_rounds(num_circuits, ivc, precomputed_vkeys);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
         proof = ivc.prove();
     }
 
+    // For good measure, ensure the IVC verifies
     verify_ivc(proof, ivc);
 }
 
 #define ARGS Arg(AztecIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
 
-BENCHMARK_REGISTER_F(AztecIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->Repetitions(1)->ARGS;
+BENCHMARK_REGISTER_F(AztecIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->ARGS;
 
 } // namespace
 

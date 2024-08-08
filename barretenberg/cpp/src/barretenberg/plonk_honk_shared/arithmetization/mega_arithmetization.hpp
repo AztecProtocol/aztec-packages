@@ -91,16 +91,6 @@ template <typename FF_> class MegaArith {
             this->busread = 1 << 7;
             this->poseidon_external = 3000;
             this->poseidon_internal = 1 << 14;
-            // this->ecc_op = 1 << 10;
-            // this->pub_inputs = 1 << 7;
-            // this->arithmetic = 1 << 18;
-            // this->delta_range = 1 << 17;
-            // this->elliptic = 1 << 14;
-            // this->aux = 1 << 18;
-            // this->lookup = 1 << 17;
-            // this->busread = 1 << 7;
-            // this->poseidon_external = 1 << 13;
-            // this->poseidon_internal = 1 << 15;
         }
     };
 
