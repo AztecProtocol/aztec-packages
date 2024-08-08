@@ -13,8 +13,9 @@ concurrency:
 
 # Anvil Accounts. Anvil provides 10 pre-funded accounts for the mnemonic we have specified in FORK_MNEMONIC. We are using:
 # 1. The first account (index 0) is used in SEQ_1_PUBLISHER_PRIVATE_KEY
-# 2. The 9th account (index 8) is used in this workflow for deploying contracts etc
-# 3. The 10th account (index 9) is used by the deployed faucet
+# 2. The 3rd account (index 2) is used in PROVER_1_PUBLISHER_PRIVATE_KEY
+# 3. The 9th account (index 8) is used in this workflow for deploying contracts etc
+# 4. The 10th account (index 9) is used by the deployed faucet
 # TODO: Convert all this so we take the provided mnemonic and derive the keys from the above indices
 env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -46,6 +47,10 @@ env:
   TF_VAR_NODE_P2P_TCP_PORT: 40000
   TF_VAR_NODE_P2P_UDP_PORT: 45000
   TF_VAR_NODE_LB_RULE_PRIORITY: 500
+
+  # Prover Node
+  TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: 6000
+  TF_VAR_PROVER_PRIVATE_KEYS: '["${{ secrets.PROVER_1_PUBLISHER_PRIVATE_KEY }}"]'
 
   # Anvil
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
@@ -97,6 +102,7 @@ jobs:
       node_udp_range_start: ${{ steps.set_network_vars.outputs.node_udp_range_start }}
       node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.node_lb_priority_range_start }}
       pxe_lb_priority_range_start: ${{ steps.set_network_vars.outputs.pxe_lb_priority_range_start }}
+      prover_node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.prover_node_lb_priority_range_start }}
       faucet_lb_priority: ${{ steps.set_network_vars.outputs.faucet_lb_priority }}
       bot_no_wait: ${{ steps.set_network_vars.outputs.bot_no_wait }}
     steps:
@@ -116,6 +122,7 @@ jobs:
               echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
               echo "node_lb_priority_range_start=4100" >> $GITHUB_OUTPUT
               echo "pxe_lb_priority_range_start=5100" >> $GITHUB_OUTPUT
+              echo "prover_node_lb_priority_range_start=6100" >> $GITHUB_OUTPUT
               echo "faucet_lb_priority=601" >> $GITHUB_OUTPUT
               echo "bot_no_wait=false" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
@@ -129,6 +136,7 @@ jobs:
               echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
               echo "node_lb_priority_range_start=4200" >> $GITHUB_OUTPUT
               echo "pxe_lb_priority_range_start=5200" >> $GITHUB_OUTPUT
+              echo "prover_node_lb_priority_range_start=6200" >> $GITHUB_OUTPUT
               echo "faucet_lb_priority=602" >> $GITHUB_OUTPUT
               echo "bot_no_wait=true" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
@@ -142,6 +150,7 @@ jobs:
               echo "node_udp_range_start=45000" >> $GITHUB_OUTPUT
               echo "node_lb_priority_range_start=4000" >> $GITHUB_OUTPUT
               echo "pxe_lb_priority_range_start=5000" >> $GITHUB_OUTPUT
+              echo "prover_node_lb_priority_range_start=6000" >> $GITHUB_OUTPUT
               echo "faucet_lb_priority=600" >> $GITHUB_OUTPUT
               echo "bot_no_wait=false" >> $GITHUB_OUTPUT
           else
@@ -410,6 +419,7 @@ jobs:
       TF_VAR_NODE_P2P_UDP_PORT: ${{ needs.set-network.outputs.node_udp_range_start }}
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
       TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
+      TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
       TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
     steps:
       - uses: actions/checkout@v4
@@ -488,6 +498,12 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store"
+
+      - name: Deploy Aztec Prover Nodes
+        working-directory: ./yarn-project/aztec/terraform/prover-node
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
+          terraform apply -input=false -auto-approve
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
@@ -610,6 +626,7 @@ jobs:
       TF_VAR_NODE_P2P_UDP_PORT: ${{ needs.set-network.outputs.node_udp_range_start }}
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
       TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
+      TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
       TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
       TF_VAR_PROVING_ENABLED: true
       TF_VAR_BOT_NO_START: false
@@ -640,6 +657,12 @@ jobs:
         run: |
           env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy Aztec Prover Nodes
+        working-directory: ./yarn-project/aztec/terraform/prover-node
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
           terraform apply -input=false -auto-approve
 
       - name: Deploy Provers
