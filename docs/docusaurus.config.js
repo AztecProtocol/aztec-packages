@@ -290,14 +290,14 @@ const config = {
               {
                 type: "docSidebar",
                 sidebarId: "protocolSpecSidebar",
-                target: "_blank",
                 label: "Protocol Specification",
+                className: "no-external-icon",
               },
               {
                 type: "docSidebar",
                 sidebarId: "roadmapSidebar",
-                target: "_blank",
                 label: "Roadmap",
+                className: "no-external-icon",
               },
               {
                 to: "https://noir-lang.org/docs",
