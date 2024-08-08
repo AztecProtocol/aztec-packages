@@ -11,6 +11,8 @@ import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
 export class Header {
+  private blockHash: Fr | undefined;
+
   constructor(
     /** Snapshot of archive before the block is applied. */
     public lastArchive: AppendOnlyTreeSnapshot,
@@ -123,6 +125,9 @@ export class Header {
   }
 
   hash(): Fr {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+    if (!this.blockHash) {
+      this.blockHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+    }
+    return this.blockHash;
   }
 }

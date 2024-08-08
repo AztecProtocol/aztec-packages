@@ -71,6 +71,10 @@ export class BaseHashType {
     return this.buffer.toString('hex');
   }
 
+  public to0xString(): `0x{string}` {
+    return `0x${this.buffer.toString('hex')}` as `0x{string}`;
+  }
+
   /**
    * Convert this hash to a big int.
    * @returns The big int.

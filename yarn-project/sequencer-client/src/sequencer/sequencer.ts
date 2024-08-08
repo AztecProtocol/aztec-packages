@@ -21,6 +21,7 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -58,6 +59,10 @@ export class Sequencer {
 
   constructor(
     private publisher: L1Publisher,
+    // TODO(md): for the sake of this pr, the sequencer owns the sequencer client owns
+    // the validator - but think of changing this in the future
+    // It should be the other way around
+    private validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
@@ -276,6 +281,8 @@ export class Sequencer {
   @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, newGlobalVariables, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
   }))
+
+  // TODO(md): rename to build Block and send to peers
   private async buildBlockAndPublish(
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
@@ -400,6 +407,16 @@ export class Sequencer {
   protected async publishL2Block(block: L2Block) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
+
+    // TODO(md): we do not have transaction[] lists in the block for now
+    // Dont do anything with the proposals for now - just collect them
+    if (this.validatorClient != undefined) {
+      // NOTES - put here
+
+      const proposal = await this.validatorClient.createBlockProposal(block.header, []);
+      await this.validatorClient.broadcastAndCollectAttestations(proposal);
+    }
+
     const publishedL2Block = await this.publisher.processL2Block(block);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
@@ -490,6 +507,14 @@ export enum SequencerState {
    * Sending the tx to L1 with encrypted logs and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
    */
   PUBLISHING_CONTRACT_DATA,
+  /**
+   *
+   */
+  PUBLISHING_BLOCK_TO_PEERS,
+  /**
+   *
+   */
+  COLLECTING_ATTESTATIONS,
   /**
    * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to IDLE.
    */

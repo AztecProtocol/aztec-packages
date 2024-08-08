@@ -3,6 +3,7 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state';
 
 import { readFileSync } from 'fs';
@@ -16,6 +17,7 @@ export { sequencerClientConfigMappings, SequencerClientConfig } from '@aztec/seq
  */
 export type AztecNodeConfig = ArchiverConfig &
   SequencerClientConfig &
+  ValidatorClientConfig &
   ProverClientConfig &
   WorldStateConfig &
   P2PConfig & {
@@ -24,11 +26,16 @@ export type AztecNodeConfig = ArchiverConfig &
 
     /** Whether the prover is disabled for this node. */
     disableProver: boolean;
+
+    // TODO(md): needed?
+    /** Whether the validator is disabled for this node */
+    disableValidator: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...archiverConfigMappings,
   ...sequencerClientConfigMappings,
+  ...validatorClientConfigMappings,
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
@@ -43,6 +50,12 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     parseEnv: (val: string) => ['1', 'true'].includes(val),
     default: false,
     description: 'Whether the prover is disabled for this node.',
+  },
+  disableValidator: {
+    env: 'VALIDATOR_DISABLED',
+    parseEnv: (val: string) => ['1', 'true'].includes(val),
+    default: false,
+    description: 'Whether the validator is disabled for this node.',
   },
 };
 

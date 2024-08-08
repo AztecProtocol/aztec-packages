@@ -43,6 +43,9 @@
       "path": "../telemetry-client"
     },
     {
+      "path": "../validator-client"
+    },
+    {
       "path": "../types"
     },
     {
