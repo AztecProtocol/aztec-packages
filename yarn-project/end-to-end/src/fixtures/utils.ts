@@ -103,9 +103,9 @@ const getAztecUrl = () => {
 };
 
 export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
-    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
-    const privKeyRaw = hdAccount.getHdKey().privateKey;
-    return privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
+  const privKeyRaw = hdAccount.getHdKey().privateKey;
+  return privKeyRaw === null ? null : Buffer.from(privKeyRaw);
 };
 
 export const setupL1Contracts = async (

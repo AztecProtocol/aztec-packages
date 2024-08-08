@@ -3,8 +3,8 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
-import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
+import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';

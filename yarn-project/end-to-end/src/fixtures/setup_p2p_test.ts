@@ -9,6 +9,7 @@ import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { generatePrivateKey } from 'viem/accounts';
+
 import { getPrivateKeyFromIndex } from './utils.js';
 
 export interface NodeContext {
