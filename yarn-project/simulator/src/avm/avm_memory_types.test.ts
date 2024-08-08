@@ -98,8 +98,7 @@ describe('MeteredTaggedMemory', () => {
   });
 });
 
-type IntegralClass = typeof Uint8 | typeof Uint16 | typeof Uint32 | typeof Uint64 | typeof Uint128;
-describe.each([Uint8, Uint16, Uint32, Uint64, Uint128])('Integral Types', (clsValue: IntegralClass) => {
+describe.each([Uint8, Uint16, Uint32])('Small Integral Types', clsValue => {
   describe(`${clsValue.name}`, () => {
     it(`Should construct a new ${clsValue.name} from a number`, () => {
       const x = new clsValue(5);
@@ -111,10 +110,94 @@ describe.each([Uint8, Uint16, Uint32, Uint64, Uint128])('Integral Types', (clsVa
       expect(x.toBigInt()).toStrictEqual(5n);
     });
 
-    it(`Should build a new ${clsValue.name}`, () => {
+    it(`Should add two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(5);
+      const b = new clsValue(10);
+      const result = a.add(b);
+      expect(result).toStrictEqual(new clsValue(15n));
+    });
+
+    it(`Should subtract two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(10);
+      const b = new clsValue(5);
+      const result = a.sub(b);
+      expect(result).toStrictEqual(new clsValue(5n));
+    });
+
+    it(`Should multiply two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(5);
+      const b = new clsValue(10);
+      const result = a.mul(b);
+      expect(result).toStrictEqual(new clsValue(50n));
+    });
+
+    it(`Should divide two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(10);
+      const b = new clsValue(5);
+      const result = a.div(b);
+      expect(result).toStrictEqual(new clsValue(2n));
+    });
+
+    it(`Should shift right ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(10);
+      const result = uintA.shr(new clsValue(1n));
+      expect(result).toEqual(new clsValue(5n));
+    });
+
+    it(`Should shift left ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(10);
+      const result = uintA.shl(new clsValue(1n));
+      expect(result).toEqual(new clsValue(20n));
+    });
+
+    it(`Should and two ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(10);
+      const uintB = new clsValue(5);
+      const result = uintA.and(uintB);
+      expect(result).toEqual(new clsValue(0n));
+    });
+
+    it(`Should or two ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(10);
+      const uintB = new clsValue(5);
+      const result = uintA.or(uintB);
+      expect(result).toEqual(new clsValue(15n));
+    });
+
+    it(`Should xor two ${clsValue.name} correctly`, () => {
+      const uintA = new clsValue(10);
+      const uintB = new clsValue(5);
+      const result = uintA.xor(uintB);
+      expect(result).toEqual(new clsValue(15n));
+    });
+
+    it(`Should check equality of two ${clsValue.name} correctly`, () => {
+      const a = new clsValue(5);
+      const b = new clsValue(5);
+      const c = new clsValue(10);
+      expect(a.equals(b)).toBe(true);
+      expect(a.equals(c)).toBe(false);
+    });
+
+    it(`Should check if one ${clsValue.name} is less than another correctly`, () => {
+      const a = new clsValue(5);
+      const b = new clsValue(10);
+      expect(a.lt(b)).toBe(true);
+      expect(b.lt(a)).toBe(false);
+    });
+  });
+});
+
+describe.each([Uint64, Uint128])('Big Integral Types', clsValue => {
+  describe(`${clsValue.name}`, () => {
+    it(`Should construct a new ${clsValue.name} from a number`, () => {
       const x = new clsValue(5);
-      const newX = x.build(10n);
-      expect(newX).toStrictEqual(new clsValue(10n));
+      expect(x.toBigInt()).toStrictEqual(5n);
+    });
+
+    it(`Should construct a new ${clsValue.name} from a bigint`, () => {
+      const x = new clsValue(5n);
+      expect(x.toBigInt()).toStrictEqual(5n);
     });
 
     it(`Should add two ${clsValue.name} correctly`, () => {
