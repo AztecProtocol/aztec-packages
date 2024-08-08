@@ -135,7 +135,7 @@ describe('L1Publisher integration', () => {
       logger,
     ));
 
-    ethCheatCodes = new EthCheatCodes(config.rpcUrl);
+    ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());

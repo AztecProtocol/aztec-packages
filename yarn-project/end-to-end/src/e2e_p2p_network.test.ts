@@ -91,7 +91,7 @@ describe('e2e_p2p_network', () => {
     // Now we jump ahead to the next epoch, such that the next epoch begins
     const timeToJump = (await rollup.read.EPOCH_DURATION()) * (await rollup.read.SLOT_DURATION());
 
-    const cheatCodes = new EthCheatCodes(config.rpcUrl);
+    const cheatCodes = new EthCheatCodes(config.l1RpcUrl);
     const timestamp = (await cheatCodes.timestamp()) + Number(timeToJump);
     await cheatCodes.warp(timestamp);
 

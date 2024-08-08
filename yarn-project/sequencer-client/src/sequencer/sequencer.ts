@@ -174,14 +174,15 @@ export class Sequencer {
     try {
       // Update state when the previous block has been synced
       const prevBlockSynced = await this.isBlockSynced();
+      // Do not go forward with new block if the previous one has not been mined and processed
+      if (!prevBlockSynced) {
+        this.log.debug('Previous block has not been mined and processed yet');
+        return;
+      }
+
       if (prevBlockSynced && this.state === SequencerState.PUBLISHING_BLOCK) {
         this.log.debug(`Block has been synced`);
         this.state = SequencerState.IDLE;
-      }
-
-      // Do not go forward with new block if the previous one has not been mined and processed
-      if (!prevBlockSynced) {
-        return;
       }
 
       const historicalHeader = (await this.l2BlockSource.getBlock(-1))?.header;
@@ -360,13 +361,18 @@ export class Sequencer {
     await assertBlockHeight();
 
     const workDuration = workTimer.ms();
-    this.log.verbose(`Assembled block ${block.number}`, {
-      eventName: 'l2-block-built',
-      duration: workDuration,
-      publicProcessDuration: publicProcessorDuration,
-      rollupCircuitsDuration: blockBuildingTimer.ms(),
-      ...block.getStats(),
-    } satisfies L2BlockBuiltStats);
+    this.log.verbose(
+      `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
+        'hex',
+      )})`,
+      {
+        eventName: 'l2-block-built',
+        duration: workDuration,
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: blockBuildingTimer.ms(),
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats,
+    );
 
     try {
       const attestations = await this.collectAttestations(block);
