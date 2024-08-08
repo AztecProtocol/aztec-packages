@@ -44,6 +44,7 @@ using Builder = bb::UltraCircuitBuilder;
  * the previous recursion constraint in the circuit (the one that verifies A)
  *
  */
+// WORKTODO: rename to something more general
 struct RecursionConstraint {
     // An aggregation state is represented by two G1 affine elements. Each G1 point has
     // two field element coordinates (x, y). Thus, four field elements
@@ -52,6 +53,7 @@ struct RecursionConstraint {
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
     uint32_t key_hash;
+    uint32_t proof_type;
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 };
