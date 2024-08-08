@@ -273,9 +273,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       );
       const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-
-      debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
-
       await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
     });
 
