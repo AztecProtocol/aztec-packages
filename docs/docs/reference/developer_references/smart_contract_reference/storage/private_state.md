@@ -214,7 +214,7 @@ The usage is similar to using the `insert` method with the difference that this 
 
 ### `pop_notes`
 
-This function pops (gets, removes and returns) the notes the account has access to based on the providing filter.
+This function pops (gets, removes and returns) the notes the account has access to based on the provided filter.
 
 The kernel circuits are constrained to a maximum number of notes this function can return at a time. Check [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr) and look for `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` for the up-to-date number.
 
