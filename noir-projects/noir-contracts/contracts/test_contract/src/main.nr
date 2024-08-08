@@ -474,9 +474,7 @@ contract Test {
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
-        let notes = notes_set.get_notes(options);
-        let note = notes.get(0);
-        notes_set.remove(note);
+        notes_set.pop_notes(options);
     }
 
     unconstrained fn get_constant() -> pub Field {

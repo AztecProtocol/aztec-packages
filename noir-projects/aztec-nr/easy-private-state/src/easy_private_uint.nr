@@ -41,18 +41,13 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
 
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
-        let notes = self.set.get_notes(options);
+        let notes = self.set.pop_notes(options);
         // docs:end:get_notes
 
         let mut minuend: u64 = 0;
         for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
-
-                // Removes the note from the owner's set of notes.
-                // docs:start:remove
-                self.set.remove(note);
-                // docs:end:remove
 
                 minuend += note.value as u64;
             }

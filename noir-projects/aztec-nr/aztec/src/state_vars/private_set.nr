@@ -59,6 +59,26 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
         get_notes(self.context, self.storage_slot, options)
     }
     // docs:end:get_notes
+
+    pub fn pop_notes<FILTER_ARGS>(
+        self,
+        options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
+    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        let notes = get_notes(self.context, self.storage_slot, options);
+        // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
+        // time and hence will result in less constraints when set to a lower value than
+        // MAX_NOTE_HASH_READ_REQUESTS_PER_CALL.
+        for i in 0..options.limit {
+            if i < notes.len() {
+                let note = notes.get_unchecked(i);
+                // We immediately destroy the note without doing any read request checks because we know that
+                // get_notes(...) above has placed the constraints.
+                destroy_note(self.context, note);
+            }
+        }
+
+        notes
+    }
 }
 
 impl<Note, let N: u32, let M: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
