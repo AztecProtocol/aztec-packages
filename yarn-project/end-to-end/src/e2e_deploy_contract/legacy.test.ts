@@ -81,7 +81,9 @@ describe('e2e_deploy_contract legacy', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
     await deployer.deploy().send({ contractAddressSalt }).wait({ wallet });
-    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(/dropped/);
+    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(
+      /The simulated transaction is unable to be added to state and is invalid./,
+    );
   });
 
   it('should not deploy a contract which failed the public part of the execution', async () => {
