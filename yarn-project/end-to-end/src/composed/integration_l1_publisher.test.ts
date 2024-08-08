@@ -3,6 +3,7 @@ import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Body, Fr, GlobalVariables, type L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
+  type BlockProver,
   PROVING_STATUS,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -13,12 +14,14 @@ import {
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
+  LogHash,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
+  ScopedLogHash,
 } from '@aztec/circuits.js';
 import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -82,13 +85,14 @@ describe('L1Publisher integration', () => {
 
   let builder: TxProver;
   let builderDb: MerkleTrees;
+  let prover: BlockProver;
 
   // The header of the last block
   let prevHeader: Header;
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
+  const chainId = createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
@@ -101,7 +105,7 @@ describe('L1Publisher integration', () => {
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
     ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
-      config.rpcUrl,
+      config.l1RpcUrl,
       deployerAccount,
       logger,
     ));
@@ -138,11 +142,12 @@ describe('L1Publisher integration', () => {
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, worldStateSynchronizer, blockSource, new NoopTelemetryClient());
+    builder = await TxProver.new(config, new NoopTelemetryClient());
+    prover = builder.createBlockProver(builderDb.asLatest());
 
     publisher = getL1Publisher(
       {
-        rpcUrl: config.rpcUrl,
+        l1RpcUrl: config.l1RpcUrl,
         requiredConfirmations: 1,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
@@ -180,7 +185,12 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
     processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x300);
-    processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
+    processedTx.encryptedLogs.unrollLogs().forEach((log, i) => {
+      processedTx.data.end.encryptedLogsHashes[i] = new ScopedLogHash(
+        new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
+        log.maskedContractAddress,
+      );
+    });
 
     return processedTx;
   };
@@ -285,9 +295,9 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    const blockTicket = await prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
-      await builder.addNewTx(tx);
+      await prover.addNewTx(tx);
     }
     return blockTicket;
   };
@@ -360,7 +370,7 @@ describe('L1Publisher integration', () => {
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.finaliseBlock();
+      const blockResult = await prover.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
@@ -450,10 +460,10 @@ describe('L1Publisher integration', () => {
         GasFees.empty(),
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      await builder.setBlockCompleted();
+      await prover.setBlockCompleted();
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.finaliseBlock();
+      const blockResult = await prover.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);

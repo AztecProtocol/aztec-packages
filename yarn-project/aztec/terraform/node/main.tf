@@ -257,12 +257,12 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address
         },
         {
-          name  = "GAS_TOKEN_CONTRACT_ADDRESS"
-          value = data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address
+          name  = "FEE_JUICE_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address
         },
         {
-          name  = "GAS_PORTAL_CONTRACT_ADDRESS"
-          value = data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address
+          name  = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
         },
         {
           name  = "API_KEY"
@@ -329,7 +329,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
         },
         {
-          name  = "PROVER_AGENTS"
+          name  = "PROVER_AGENT_ENABLED"
+          value = "false"
+        },
+        {
+          name  = "PROVER_AGENT_CONCURRENCY",
           value = "0"
         },
         {
@@ -337,11 +341,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.PROVING_ENABLED)
         },
         {
-          name  = "TEL_COLLECTOR_BASE_URL"
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
           value = "http://aztec-otel.local:4318"
         },
         {
-          name  = "TEL_SERVICE_NAME"
+          name  = "OTEL_SERVICE_NAME"
           value = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
         },
         {
@@ -357,7 +361,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "info"
         },
         {
-          name  = "TEL_NETWORK_ID",
+          name  = "NETWORK_NAME",
           value = "${var.DEPLOY_TAG}"
         }
       ]

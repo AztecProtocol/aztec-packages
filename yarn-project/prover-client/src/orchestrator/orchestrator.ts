@@ -1,5 +1,7 @@
 import {
   Body,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
   L2Block,
   MerkleTreeId,
   type PaddingProcessedTx,
@@ -15,6 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   BlockProofError,
+  type BlockProver,
   type BlockResult,
   PROVING_STATUS,
   type ProvingResult,
@@ -93,7 +96,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
  */
-export class ProvingOrchestrator {
+export class ProvingOrchestrator implements BlockProver {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: PaddingProcessedTx | undefined = undefined;
@@ -104,13 +107,17 @@ export class ProvingOrchestrator {
     private db: MerkleTreeOperations,
     private prover: ServerCircuitProver,
     telemetryClient: TelemetryClient,
-    public readonly proverId: Fr = Fr.ZERO,
+    private readonly proverId: Fr = Fr.ZERO,
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }
 
   get tracer(): Tracer {
     return this.metrics.tracer;
+  }
+
+  public getProverId(): Fr {
+    return this.proverId;
   }
 
   /**
@@ -140,8 +147,20 @@ export class ProvingOrchestrator {
     if (!Number.isInteger(numTxs) || numTxs < 2) {
       throw new Error(`Length of txs for the block should be at least two (got ${numTxs})`);
     }
+
+    // TODO(palla/prover-node): Store block number in the db itself to make this check more reliable,
+    // and turn this warning into an exception that we throw.
+    const { blockNumber } = globalVariables;
+    const dbBlockNumber = (await this.db.getTreeInfo(MerkleTreeId.ARCHIVE)).size - 1n;
+    if (dbBlockNumber !== blockNumber.toBigInt() - 1n) {
+      logger.warn(
+        `Database is at wrong block number (starting block ${blockNumber.toBigInt()} with db at ${dbBlockNumber})`,
+      );
+    }
+
     // Cancel any currently proving block before starting a new one
     this.cancelBlock();
+
     logger.info(`Starting new block with ${numTxs} transactions`);
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
@@ -634,28 +653,30 @@ export class ProvingOrchestrator {
       logger.debug('Not running base rollup, state invalid');
       return;
     }
-    if (
-      !tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
-        .toBuffer()
-        .equals(tx.processedTx.noteEncryptedLogs.hash())
-    ) {
+    const txNoteEncryptedLogs = EncryptedNoteTxL2Logs.hashNoteLogs(
+      tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHashes
+        .filter(log => !log.isEmpty())
+        .map(log => log.value.toBuffer()),
+    );
+    if (!txNoteEncryptedLogs.equals(tx.processedTx.noteEncryptedLogs.hash())) {
       provingState.reject(
-        `Note encrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash())}`,
+        `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogs)} === ${Fr.fromBuffer(
+          tx.processedTx.noteEncryptedLogs.hash(),
+        )}`,
       );
       return;
     }
-    if (
-      !tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
-        .toBuffer()
-        .equals(tx.processedTx.encryptedLogs.hash())
-    ) {
+    const txEncryptedLogs = EncryptedTxL2Logs.hashSiloedLogs(
+      tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHashes
+        .filter(log => !log.isEmpty())
+        .map(log => log.getSiloedHash()),
+    );
+    if (!txEncryptedLogs.equals(tx.processedTx.encryptedLogs.hash())) {
       // @todo This rejection messages is never seen. Never making it out to the logs
       provingState.reject(
-        `Encrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.encryptedLogs.hash())}`,
+        `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogs)} === ${Fr.fromBuffer(
+          tx.processedTx.encryptedLogs.hash(),
+        )}`,
       );
       return;
     }

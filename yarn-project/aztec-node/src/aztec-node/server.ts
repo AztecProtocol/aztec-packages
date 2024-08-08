@@ -55,7 +55,7 @@ import { createStore, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
@@ -136,7 +136,7 @@ export class AztecNodeService implements AztecNode {
     storeLog = createDebugLogger('aztec:node:lmdb'),
   ): Promise<AztecNodeService> {
     telemetry ??= new NoopTelemetryClient();
-    const ethereumChain = createEthereumChain(config.rpcUrl, config.l1ChainId);
+    const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
@@ -176,7 +176,7 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const prover = await createProverClient(config, worldStateSynchronizer, archiver, telemetry);
+    const prover = await createProverClient(config, telemetry);
 
     if (!prover && !config.disableSequencer) {
       throw new Error("Can't start a sequencer without a prover");
@@ -754,6 +754,7 @@ export class AztecNodeService implements AztecNode {
       this.telemetry,
     );
     const processor = publicProcessorFactory.create(prevHeader, newGlobalVariables);
+
     // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     // REFACTOR: Consider returning the error/revert rather than throwing
@@ -799,7 +800,7 @@ export class AztecNodeService implements AztecNode {
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
     return Promise.resolve({
       classRegisterer: getCanonicalClassRegisterer().address,
-      gasToken: getCanonicalGasToken().address,
+      feeJuice: getCanonicalFeeJuice().address,
       instanceDeployer: getCanonicalInstanceDeployer().address,
       keyRegistry: getCanonicalKeyRegistryAddress(),
       multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),

@@ -4,13 +4,12 @@
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, createDebugLogger } from '@aztec/aztec.js';
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type BootNodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
+import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { generatePrivateKey, mnemonicToAccount } from 'viem/accounts';
-
-import { MNEMONIC } from './fixtures.js';
+import { generatePrivateKey } from 'viem/accounts';
+import { getPrivateKeyFromIndex } from './utils.js';
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -62,13 +61,11 @@ export async function createNode(
 ) {
   // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
   // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
-  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: publisherAddressIndex + 1 });
-  const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
+  const publisherPrivKey = getPrivateKeyFromIndex(publisherAddressIndex + 1);
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
 
   if (activateValidators) {
-    const validatorAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 100 + publisherAddressIndex });
-    const validatorPrivKey = Buffer.from(validatorAccount.getHdKey().privateKey!);
+    const validatorPrivKey = getPrivateKeyFromIndex(100 + publisherAddressIndex);
     config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
     config.disableValidator = false;
   }
@@ -83,8 +80,8 @@ export async function createNode(
     minTxsPerBlock: config.minTxsPerBlock,
     maxTxsPerBlock: config.maxTxsPerBlock,
     p2pEnabled: true,
-    p2pBlockCheckIntervalMS: 1000,
-    p2pL2QueueSize: 1,
+    blockCheckIntervalMS: 1000,
+    l2QueueSize: 1,
     transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNode ? [bootstrapNode] : [],
@@ -99,13 +96,12 @@ export async function createNode(
 export async function createBootstrapNode(port: number) {
   const peerId = await createLibP2PPeerId();
   const bootstrapNode = new BootstrapNode();
-  const config: BootNodeConfig = {
+  const config: BootnodeConfig = {
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
     peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
     minPeerCount: 10,
     maxPeerCount: 100,
-    p2pPeerCheckIntervalMS: 100,
   };
   await bootstrapNode.start(config);
 
