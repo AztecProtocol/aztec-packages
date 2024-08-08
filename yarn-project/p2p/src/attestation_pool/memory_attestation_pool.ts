@@ -3,22 +3,31 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type AttestationPool } from './attestation_pool.js';
 
+type AttestorMapping = Map</*address=*/string, BlockAttestation>;
+type ProposalMapping = Map</*proposal*/string, AttestorMapping>;
+type SlotMapping = Map</*slot=*/bigint, ProposalMapping>;
+
 export class InMemoryAttestationPool implements AttestationPool {
   // TODO: change this from string to a bigint for addressing
   // TODO: make private
-  public attestations: Map</*slot=*/ bigint, Map</*address=*/ string, BlockAttestation>>;
+
+  // temporarily map based on slot, then proposer then number
+  public attestations: SlotMapping;
 
   constructor(private log = createDebugLogger('aztec:attestation_pool')) {
     this.attestations = new Map();
   }
 
-  public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+  // TODO: make the string a proposal hash, could just be proposal tbh
+  public async getAttestationsForSlot(slot: bigint, proposal: string): Promise<BlockAttestation[]> {
     const slotAttestationMap = this.attestations.get(slot);
     if (slotAttestationMap) {
-      return Array.from(slotAttestationMap.values());
-    } else {
-      return [];
-    }
+      const proposalAttestationMap = slotAttestationMap.get(proposal);
+      if (proposalAttestationMap) {
+        return Array.from(proposalAttestationMap.values());
+      }
+    } 
+    return [];
   }
 
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
@@ -32,8 +41,9 @@ export class InMemoryAttestationPool implements AttestationPool {
       // is the message identifier the rifht field
       const address = await attestation.getSender();
 
-      const slotAttestationMap = getOrDefault(this.attestations, slotNumber.toBigInt());
-      slotAttestationMap.set(address.toString(), attestation);
+      const proposalAttestationMap = getProposalMappingOrDefault(this.attestations, slotNumber.toBigInt());
+      const attestationMap = getAttestationsOrDefault(proposalAttestationMap, attestation.header.hash().toString());
+      attestationMap.set(address.toString(), attestation);
 
       this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
     }
@@ -62,9 +72,16 @@ export class InMemoryAttestationPool implements AttestationPool {
 }
 
 // If the slot is not in the map, create a new map and add it to the map
-function getOrDefault(map: Map<bigint, Map<string, BlockAttestation>>, slot: bigint): Map<string, BlockAttestation> {
+function getProposalMappingOrDefault(map: SlotMapping, slot: bigint): ProposalMapping {
   if (!map.has(slot)) {
-    map.set(slot, new Map<string, BlockAttestation>());
+    map.set(slot, new Map<string, Map<string, BlockAttestation>>());
   }
   return map.get(slot)!;
+}
+
+function getAttestationsOrDefault(map: ProposalMapping, proposal: string ): Map<string, BlockAttestation> {
+  if (!map.has(proposal)) {
+    map.set(proposal, new Map<string, BlockAttestation>());
+  }
+  return map.get(proposal)!;
 }
