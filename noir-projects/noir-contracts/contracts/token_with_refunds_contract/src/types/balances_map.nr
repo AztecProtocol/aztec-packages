@@ -84,10 +84,8 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         owner: AztecAddress,
         subtrahend: U128
     ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
-        // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.at(owner).pop_notes(options);
-        // docs:end:get_notes
 
         let mut minuend: U128 = U128::from_integer(0);
         for i in 0..options.limit {

@@ -144,12 +144,9 @@ impl Deck<&mut PrivateContext> {
         }
 
         // And then we assert that we did indeed find all cards, since found_cards and cards have the same length.
-        found_cards.map(
-            |card_note: Option<CardNote>| {
-            assert(card_note.is_some(), "Card not found");
-            card_note.unwrap_unchecked()
+        for i in 0..found_cards.len() {
+            assert(found_cards[i].is_some(), "Card not found");
         }
-        );
     }
 }
 

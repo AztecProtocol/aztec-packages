@@ -39,10 +39,10 @@ impl<Context> EasyPrivateUint<&mut PrivateContext> {
         let header = self.context.get_header();
         let owner_npk_m_hash = header.get_npk_m_hash(self.context, owner);
 
-        // docs:start:get_notes
+        // docs:start:pop_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let notes = self.set.pop_notes(options);
-        // docs:end:get_notes
+        // docs:end:pop_notes
 
         let mut minuend: u64 = 0;
         for i in 0..options.limit {
