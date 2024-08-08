@@ -228,13 +228,12 @@ An example of such options is using the [filter_notes_min_sum (GitHub link)](htt
 
 This function has the same behavior as `pop_notes` above but it does not delete the notes.
 
-Note that if you later on remove the note it's much better to use `pop_notes` as `pop_notes` results in significantly less constrains due to avoiding 1 read request check.
 
 ### `remove`
 
 Will remove a note from the `PrivateSet` if it previously has been read from storage, e.g. you have fetched it through a `get_notes` call. This is useful when you want to remove a note that you have previously read from storage and do not have to read it again.
 
-Note that if you obtained the note you are about to remove via `get_notes` it's much better to use `pop_notes` as `pop_notes` results in significantly less constrains due to avoiding 1 read request check.
+Note that if you obtained the note you are about to remove via `get_notes` it's much better to use `pop_notes` as `pop_notes` results in significantly fewer constraints since it doesn't need to check that the note has been previously read, as it reads and deletes at once.
 
 ### `view_notes`
 

@@ -53,9 +53,7 @@ Token contract diff:
 +assert(minuend >= subtrahend, "Balance too low");
 ```
 
-Note that the notes are not ensured to be obtained and removed so you have the place checks on the returned notes (e.g. in the example above by checking a sum of balances or by checking the returned notes length assert(notes.len() == expected_num_notes)).
-
-
+Note that `pop_notes` may not have obtained and removed any notes! The caller must place checks on the returned notes, e.g. in the example above by checking a sum of balances, or by checking the number of returned notes (`assert_eq(notes.len(), expected_num_notes)`).
 
 ## 0.47.0
 
