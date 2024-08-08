@@ -32,6 +32,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         3, // log derivative lookup argument sub-relation
     };
 
+    // Note: the required correction for the second sub-relation is technically +1 but the two corrections must agree
+    // due to the way the relation algebra is written so both are set to +2.
     static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
         2, // inverse construction sub-relation
         2  // log derivative lookup argument sub-relation
