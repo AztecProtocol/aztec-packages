@@ -63,7 +63,7 @@ class ClientIVCTests : public ::testing::Test {
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
         // verifier.
-        circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
+        circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices(circuit));
         return circuit;
     }
 };
