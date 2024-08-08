@@ -22,7 +22,7 @@ contract Benchmarking {
         increment(storage.notes.at(owner), value, owner, outgoing_viewer);
         // docs:end:increment_valuenote
     }
-    // Pops a note at a specific index in the set and creates a new one with the same value.
+    // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
     // multiple txs that will land on the same block.
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635

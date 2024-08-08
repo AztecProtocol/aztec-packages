@@ -52,8 +52,8 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
         for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
-                // We immediately destroy the note without doing any read request checks because we know that
-                // get_notes(...) above has placed the constraints.
+                // We immediately destroy the note without doing any of the read request checks `remove` typically
+                // performs because we know that the `get_notes` call has already placed those constraints.
                 destroy_note(self.context, note);
             }
         }
@@ -62,7 +62,7 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
     }
 
     /// Note that if you obtained the note via `get_notes` it's much better to use `pop_notes` as `pop_notes` results
-    /// in significantly less constrains due to avoiding 1 read request check.
+    /// in significantly less constrains due to avoiding an extra hash and read request check.
     pub fn remove(self, note: Note) {
         let note_hash = compute_note_hash_for_read_request(note);
         let has_been_read = self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);

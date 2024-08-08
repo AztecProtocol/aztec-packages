@@ -373,7 +373,9 @@ contract PendingNoteHashes {
     #[contract_library_method]
     fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
         let owner_balance = storage.balances.at(owner);
-        owner_balance.pop_notes(NoteGetterOptions::new());
+        // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
+        // numer of notes are deleted.
+        let _ = owner_balance.pop_notes(NoteGetterOptions::new());
     }
 
     #[contract_library_method]
