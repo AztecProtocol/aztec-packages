@@ -530,6 +530,13 @@ export class PXEService implements PXE {
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
+
+    const isValidTx = await this.node.validateTx(tx);
+
+    if (!isValidTx) {
+      throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+    }
+
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
     return txHash;
