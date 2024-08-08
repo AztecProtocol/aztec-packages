@@ -83,14 +83,16 @@ class AztecIVCBench : public benchmark::Fixture {
         Builder create_next_circuit(AztecIVC& ivc)
         {
             circuit_counter++;
-
             bool is_kernel = (circuit_counter % 2 == 0);
-            if (is_kernel) {
-                // return mock kernel circuit
-                return create_mock_circuit(ivc);
+
+            Builder circuit{ ivc.goblin.op_queue };
+            if (is_kernel) { // construct mock kernel
+                GoblinMockCircuits::construct_mock_folding_kernel(circuit);
+            } else { // construct mock app
+                bool use_large_circuit = (circuit_counter == 1);
+                GoblinMockCircuits::construct_mock_function_circuit_new(circuit, use_large_circuit);
             }
-            // return mock app circuit
-            return create_mock_circuit(ivc);
+            return circuit;
         }
     };
 
@@ -142,7 +144,7 @@ BENCHMARK_DEFINE_F(AztecIVCBench, FullStructured)(benchmark::State& state)
 
 #define ARGS Arg(AztecIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
 
-BENCHMARK_REGISTER_F(AztecIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(AztecIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->Repetitions(1)->ARGS;
 
 } // namespace
 

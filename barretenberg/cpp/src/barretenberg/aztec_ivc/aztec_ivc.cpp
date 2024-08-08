@@ -41,6 +41,11 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     // Construct the prover instance for circuit
     auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
+    info("Circuit count = ", circuit_count);
+    info("Num gates = ", circuit.get_num_gates());
+    info("Circuit size = ", prover_instance->proving_key.circuit_size);
+    circuit.blocks.summarize();
+
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
         instance_vk = precomputed_vk;
@@ -90,13 +95,16 @@ bool AztecIVC::verify(const Proof& proof,
 {
     // Goblin verification (merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
+    info("Verify goblin.");
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
 
     // Decider verification
     AztecIVC::FoldingVerifier folding_verifier({ accumulator, final_verifier_instance });
+    info("Verify fold.");
     auto verifier_accumulator = folding_verifier.verify_folding_proof(proof.folding_proof);
 
     AztecIVC::DeciderVerifier decider_verifier(verifier_accumulator);
+    info("Verify decider.");
     bool decision = decider_verifier.verify_proof(proof.decider_proof);
     return goblin_verified && decision;
 }
