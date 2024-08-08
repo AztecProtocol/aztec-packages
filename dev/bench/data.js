@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723067653625,
+  "lastUpdate": 1723103229806,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -112212,6 +112212,78 @@ window.BENCHMARK_DATA = {
             "value": 173026318,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173026318 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5ff3554ace81831d0a561b6a4e186b48edb12e5e",
+          "message": "refactor(avm): no fake rows in main trace (#7823)\n\nNeeded for gas accounting.\r\n\r\nThere are some extra changes but it's the best I could split the PR.\r\n\r\nPS: We do have repeated SLOADS/SSTORES which are kind of fake, but all\r\nelse should be good (modulo the stubbed gadgets that dont have a\r\nselector).",
+          "timestamp": "2024-08-08T08:34:44+01:00",
+          "tree_id": "51c259e729ee455e936d847ddb3e7f9e91855c37",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5ff3554ace81831d0a561b6a4e186b48edb12e5e"
+        },
+        "date": 1723103219955,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13287.146959000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9937.876154 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4760.327450000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4380.290498 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39834.231312,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39834232000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14467.407955999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14467408000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3642398656,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3642398656 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 209873813,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 209873813 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2972549164,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2972549164 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173568483,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173568483 ns\nthreads: 1"
           }
         ]
       }
