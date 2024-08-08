@@ -29,6 +29,7 @@ This tight coupling of getting notes and removing them allowed us to safely remo
 
 Token contract diff:
 
+```diff
 -let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
 -let notes = self.map.at(owner).get_notes(options);
 -let mut subtracted = U128::from_integer(0);
@@ -50,6 +51,7 @@ Token contract diff:
 +    }
 +}
 +assert(minuend >= subtrahend, "Balance too low");
+```
 
 Note that the notes are not ensured to be obtained and removed so you have the place checks on the returned notes (e.g. in the example above by checking a sum of balances or by checking the returned notes length assert(notes.len() == expected_num_notes)).
 
