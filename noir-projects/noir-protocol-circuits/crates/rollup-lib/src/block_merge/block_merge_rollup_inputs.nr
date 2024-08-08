@@ -2,7 +2,7 @@ use dep::types::{traits::Empty, constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE
 use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use crate::components;
-
+// TODO(#7346): Currently unused! Will be used when batch rollup circuits are integrated.
 global ALLOWED_PREVIOUS_CIRCUITS = [
     BLOCK_ROOT_ROLLUP_INDEX,
     BLOCK_MERGE_ROLLUP_INDEX,
@@ -39,6 +39,14 @@ impl BlockMergeRollupInputs {
         let left = self.previous_rollup_data[0].block_root_or_block_merge_public_inputs;
         let right = self.previous_rollup_data[1].block_root_or_block_merge_public_inputs;
 
+        // TODO(#7346): Constrain block rollup structure
+        // For full wonkiness (no wasted proving of padding blocks for any number of blocks, but more complex hash recalculation):
+        //  components::assert_blocks_filled_from_left(left, right);
+        // For variable height but balanced tree (no wasted proving only for number of blocks = power of 2, simpler hash recalculation):
+        //  assert(left.num_blocks == right.num_blocks)
+        //  if (num_blocks == 1) { assert(vk_witness.index == BLOCK_ROOT_ROLLUP_INDEX) } else { assert(vk_witness.index == BLOCK_MERGE_ROLLUP_INDEX)}
+        // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
+
         components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
 
         let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
@@ -64,7 +72,7 @@ mod tests {
         block_merge::block_merge_rollup_inputs::BlockMergeRollupInputs,
         tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs
     };
-    use dep::types::hash::accumulate_sha256;
+    use dep::types::{hash::accumulate_sha256, address::EthAddress, traits::is_empty};
     use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX};
 
     #[test(should_fail_with="input blocks have different chain id")]
@@ -115,10 +123,19 @@ mod tests {
     }
 
     #[test]
-    fn fees() {
+    fn block_fees_are_accumulated() {
         let mut inputs = default_block_merge_rollup_inputs();
         let outputs = inputs.block_merge_rollup_circuit();
+        // Default previous rollup inputs have the same fee recipient, so they should be accumulated into one
+        let expected_fee_total = inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value
+            + inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value;
+        assert_eq(outputs.fees[0].value, expected_fee_total);
+        assert(is_empty(outputs.fees[1]));
 
+        inputs = default_block_merge_rollup_inputs();
+        // Force each previous rollup to have different fee recipients
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].recipient = EthAddress::from_field(2);
+        let outputs = inputs.block_merge_rollup_circuit();
         assert_eq(
             outputs.fees[0], inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0]
         );

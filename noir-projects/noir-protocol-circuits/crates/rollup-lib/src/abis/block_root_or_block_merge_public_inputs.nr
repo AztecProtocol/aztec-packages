@@ -11,6 +11,7 @@ struct FeeRecipient {
   value: Field,
 }
 
+// TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
 impl Empty for FeeRecipient {
   fn empty() -> Self {
     FeeRecipient {

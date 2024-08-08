@@ -39,10 +39,10 @@ pub fn get_vk_merkle_tree() -> MerkleTree<VK_TREE_WIDTH> {
     leaves[BASE_PARITY_INDEX] = 18;
     leaves[ROOT_PARITY_INDEX] = 19;
     leaves[BASE_ROLLUP_INDEX] = 20;
+    leaves[MERGE_ROLLUP_INDEX] = 21;
     leaves[BLOCK_ROOT_ROLLUP_INDEX] = 22;
     leaves[BLOCK_MERGE_ROLLUP_INDEX] = 23;
-    leaves[MERGE_ROLLUP_INDEX] = 24;
-    leaves[ROOT_ROLLUP_INDEX] = 25;
+    leaves[ROOT_ROLLUP_INDEX] = 24;
 
     MerkleTree::new(leaves)
 }
