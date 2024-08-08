@@ -16,7 +16,6 @@ import {
 } from '@aztec/aztec.js';
 import { StatefulTestContract, TestContract } from '@aztec/noir-contracts.js';
 import { createProverNode } from '@aztec/prover-node';
-import { type SequencerClientConfig } from '@aztec/sequencer-client';
 
 import { sendL1ToL2Message } from './fixtures/l1_to_l2_messaging.js';
 import {
