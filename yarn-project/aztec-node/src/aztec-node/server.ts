@@ -63,11 +63,12 @@ import { createProverClient } from '@aztec/prover-client';
 import {
   AggregateTxValidator,
   DataTxValidator,
+  DoubleSpendTxValidator,
   type GlobalVariableBuilder,
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
+import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
@@ -165,6 +166,7 @@ export class AztecNodeService implements AztecNode {
       new DataTxValidator(),
       new MetadataTxValidator(config.l1ChainId),
       new TxProofValidator(proofVerifier),
+      new DoubleSpendTxValidator(new WorldStateDB(worldStateSynchronizer.getLatest())),
     );
 
     const simulationProvider = await createSimulationProvider(config, log);
@@ -339,9 +341,7 @@ export class AztecNodeService implements AztecNode {
     const timer = new Timer();
     this.log.info(`Received tx ${tx.getTxHash()}`);
 
-    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
-    if (invalidTxs.length > 0) {
-      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+    if ((await this.validateTx(tx)) === false) {
       this.metrics.receivedTx(timer.ms(), false);
       return;
     }
@@ -766,6 +766,17 @@ export class AztecNodeService implements AztecNode {
       returns,
       processedTx.gasUsed,
     );
+  }
+
+  public async validateTx(tx: Tx): Promise<boolean> {
+    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
+    if (invalidTxs.length > 0) {
+      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+
+      return false;
+    }
+
+    return true;
   }
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {

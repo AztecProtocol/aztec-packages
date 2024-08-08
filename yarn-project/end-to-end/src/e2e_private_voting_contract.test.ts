@@ -47,9 +47,11 @@ describe('e2e_voting_contract', () => {
       await crossDelay();
 
       // We try simulating voting again, but our TX is invalid because it will emit duplicate nullifiers
-      await expect(votingContract.methods.cast_vote(candidate).simulate()).rejects.toThrow(
-        'The simulated transaction is unable to be added to state and is invalid.',
-      );
+      await expect(
+        votingContract.methods.cast_vote(candidate).simulate({
+          offline: false,
+        }),
+      ).rejects.toThrow('The simulated transaction is unable to be added to state and is invalid.');
 
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers
       await expect(votingContract.methods.cast_vote(candidate).send().wait()).rejects.toThrow(

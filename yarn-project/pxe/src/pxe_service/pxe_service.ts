@@ -497,12 +497,21 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
+    offline: boolean = true,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
       const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender, scopes);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+      }
+
+      if (!offline) {
+        const isValidTx = await this.node.validateTx(simulatedTx.tx);
+
+        if (!isValidTx) {
+          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+        }
       }
 
       // We log only if the msgSender is undefined, as simulating with a different msgSender
