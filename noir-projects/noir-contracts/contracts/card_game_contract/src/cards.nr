@@ -121,6 +121,7 @@ impl Deck<&mut PrivateContext> {
     }
 
     pub fn remove_cards<N>(&mut self, cards: [Card; N]) {
+        // TODO(benesjan): try to simplify this func
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let notes = self.set.pop_notes(options);
 

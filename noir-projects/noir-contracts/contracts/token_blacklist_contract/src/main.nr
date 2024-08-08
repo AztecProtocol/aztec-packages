@@ -173,7 +173,8 @@ contract TokenBlacklist {
             Option::none()
         ).set_limit(1);
 
-        storage.pending_shields.pop_notes(options);
+        let notes = storage.pending_shields.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
         let caller = context.msg_sender();

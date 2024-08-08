@@ -39,16 +39,20 @@ Token contract diff:
 -        subtracted = subtracted + note.get_amount();
 -    }
 -}
+-assert(minuend >= subtrahend, "Balance too low");
 +let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
 +let notes = self.map.at(owner).pop_notes(options);
 +let mut subtracted = U128::from_integer(0);
 +for i in 0..options.limit {
 +    if i < notes.len() {
 +        let note = notes.get_unchecked(i);
-+        self.map.at(owner).remove(note);
 +        subtracted = subtracted + note.get_amount();
 +    }
 +}
++assert(minuend >= subtrahend, "Balance too low");
+
+Note that the notes are not ensured to be obtained and removed so you have the place checks on the returned notes (e.g. in the example above by checking a sum of balances or by checking that returned note length assert(notes.len() == expected_num_notes)).
+
 
 
 ## 0.47.0

@@ -304,7 +304,8 @@ contract Token {
             Option::none()
         ).set_limit(1);
 
-        storage.pending_shields.pop_notes(options);
+        let notes = storage.pending_shields.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
