@@ -20,6 +20,8 @@ namespace {
 class AztecIVCBench : public benchmark::Fixture {
   public:
     using Builder = MegaCircuitBuilder;
+    using VerifierInstance = VerifierInstance_<MegaFlavor>;
+    using Proof = AztecIVC::Proof;
 
     // Number of function circuits to accumulate(based on Zacs target numbers)
     static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 6;
@@ -44,27 +46,35 @@ class AztecIVCBench : public benchmark::Fixture {
         return circuit;
     }
 
-    // static auto precompute_verification_keys(AztecIVC& ivc, const size_t num_function_circuits)
-    // {
-    //     // Populate the set of mock function and kernel circuits to be accumulated in the IVC
-    //     std::vector<Builder> circuits;
-    //     Builder function_circuit{ ivc.goblin.op_queue };
-    //     GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-    //     circuits.emplace_back(function_circuit);
+    static bool verify_ivc(Proof& proof, AztecIVC& ivc)
+    {
+        auto verifier_inst = std::make_shared<VerifierInstance>(ivc.verification_queue[0].instance_vk);
+        bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
 
-    //     for (size_t idx = 1; idx < num_function_circuits; ++idx) {
-    //         Builder function_circuit{ ivc.goblin.op_queue };
-    //         GoblinMockCircuits::construct_mock_function_circuit(function_circuit);
-    //         circuits.emplace_back(function_circuit);
+        if (verified) {
+            info("IVC successfully verified!");
+        } else {
+            info("IVC failed to verify.");
+        }
 
-    //         Builder kernel_circuit{ ivc.goblin.op_queue };
-    //         GoblinMockCircuits::construct_mock_folding_kernel(kernel_circuit);
-    //         circuits.emplace_back(kernel_circuit);
-    //     }
+        return verified;
+    }
 
-    //     // Compute and return the verfication keys corresponding to this set of circuits
-    //     return ivc.precompute_folding_verification_keys(circuits);
-    // }
+    static auto precompute_verification_keys(AztecIVC& ivc, const size_t num_function_circuits)
+    {
+        MockCircuitMaker mock_circuit_maker;
+
+        size_t total_num_circuits = num_function_circuits;
+        // size_t total_num_circuits = num_function_circuits * 2;
+
+        std::vector<Builder> circuits;
+        for (size_t circuit_idx = 0; circuit_idx < total_num_circuits; ++circuit_idx) {
+            circuits.emplace_back(mock_circuit_maker.create_next_circuit(ivc));
+        }
+
+        // Compute and return the verfication keys corresponding to this set of circuits
+        return ivc.precompute_folding_verification_keys(circuits);
+    }
 
     class MockCircuitMaker {
       public:
@@ -78,11 +88,9 @@ class AztecIVCBench : public benchmark::Fixture {
             if (is_kernel) {
                 // return mock kernel circuit
                 return create_mock_circuit(ivc);
-            } else {
-                // return mock app circuit
-                return create_mock_circuit(ivc);
             }
-            return Builder();
+            // return mock app circuit
+            return create_mock_circuit(ivc);
         }
     };
 
@@ -92,8 +100,10 @@ class AztecIVCBench : public benchmark::Fixture {
      *
      * @param NUM_CIRCUITS Number of function circuits to accumulate
      */
-    static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, AztecIVC& ivc)
+    static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, AztecIVC& ivc, auto& precomputed_vks)
     {
+        ASSERT(precomputed_vks.size() == NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
+
         MockCircuitMaker mock_circuit_maker;
 
         for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
@@ -103,31 +113,9 @@ class AztecIVCBench : public benchmark::Fixture {
                 circuit = mock_circuit_maker.create_next_circuit(ivc);
             }
 
-            ivc.accumulate(circuit);
+            ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
         }
     }
-    // /**
-    //  * @brief Perform a specified number of function circuit accumulation rounds
-    //  * @details
-    //  *
-    //  * @param NUM_CIRCUITS Number of function circuits to accumulate
-    //  */
-    // static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, AztecIVC& ivc, auto& precomputed_vks)
-    // {
-    //     ASSERT(precomputed_vks.size() == NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
-
-    //     MockCircuitMaker mock_circuit_maker;
-
-    //     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS - 1; ++circuit_idx) {
-    //         Builder circuit;
-    //         {
-    //             BB_OP_COUNT_TIME_NAME("construct_circuits");
-    //             circuit = mock_circuit_maker.create_next_circuit(ivc);
-    //         }
-
-    //         ivc.accumulate(circuit);
-    //     }
-    // }
 };
 
 /**
@@ -140,17 +128,16 @@ BENCHMARK_DEFINE_F(AztecIVCBench, FullStructured)(benchmark::State& state)
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
 
     auto num_circuits = static_cast<size_t>(state.range(0));
+    auto precomputed_vkeys = precompute_verification_keys(ivc, num_circuits);
+
+    Proof proof;
 
     for (auto _ : state) {
-        perform_ivc_accumulation_rounds(num_circuits, ivc);
+        perform_ivc_accumulation_rounds(num_circuits, ivc, precomputed_vkeys);
+        proof = ivc.prove();
     }
 
-    bool result = ivc.prove_and_verify();
-    if (result) {
-        info("VERIFIED!");
-    } else {
-        info("failure.");
-    }
+    verify_ivc(proof, ivc);
 }
 
 #define ARGS Arg(AztecIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
