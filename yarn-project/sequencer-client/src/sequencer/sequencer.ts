@@ -410,10 +410,11 @@ export class Sequencer {
     // TODO(md): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
     if (this.validatorClient != undefined) {
+      // NOTES - put here
+
       const proposal = await this.validatorClient.createBlockProposal(block.header, []);
-      console.log(proposal);
-      // const blockWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
-      // console.log(blockWithAttestations);
+      const blockWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
+      void blockWithAttestations;
     }
 
     const publishedL2Block = await this.publisher.processL2Block(block);

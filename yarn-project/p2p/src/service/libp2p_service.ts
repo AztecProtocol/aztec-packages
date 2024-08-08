@@ -322,7 +322,7 @@ export class LibP2PService implements P2PService {
     const parent = message.constructor as typeof Gossipable;
 
     const identifier = message.p2pMessageIdentifier().toString();
-    this.logger.verbose(`Sending tx ${identifier} to peers`);
+    this.logger.verbose(`Sending message ${identifier} to peers`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
     this.logger.verbose(`Sent tx ${identifier} to ${recipientsNum} peers`);

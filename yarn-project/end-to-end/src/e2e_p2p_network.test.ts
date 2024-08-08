@@ -108,7 +108,7 @@ describe('e2e_p2p_network', () => {
       logger.info(`Node ${i} stopped`);
       await sleep(1200);
       // TODO: make a restart nodes function
-      const newNode = await createNode(config, PEER_ID_PRIVATE_KEYS[i], i + 1 + BOOT_NODE_UDP_PORT, undefined, i, `./data-${i}`);
+      const newNode = await createNode(config, PEER_ID_PRIVATE_KEYS[i], i + 1 + BOOT_NODE_UDP_PORT, undefined, i, /*validators*/false, `./data-${i}`);
       logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
       // const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);

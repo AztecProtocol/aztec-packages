@@ -26,10 +26,10 @@ export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   return peer_id_private_keys;
 }
 
-export async function createNodes(config: AztecNodeConfig, peer_id_private_keys: string[], bootstrapNodeEnr: string, numNodes: number, boot_node_port: number): Promise<AztecNodeService[]> {
+export async function createNodes(config: AztecNodeConfig, peer_id_private_keys: string[], bootstrapNodeEnr: string, numNodes: number, boot_node_port: number, activateValidators: boolean = false): Promise<AztecNodeService[]> {
   const nodes = [];
   for (let i = 0; i < numNodes; i++) {
-      const node = await createNode(config, peer_id_private_keys[i], i + 1 + boot_node_port, bootstrapNodeEnr, i);
+      const node = await createNode(config, peer_id_private_keys[i], i + 1 + boot_node_port, bootstrapNodeEnr, i, activateValidators);
       nodes.push(node);
   }
   return nodes;
@@ -37,11 +37,12 @@ export async function createNodes(config: AztecNodeConfig, peer_id_private_keys:
 
   // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
-  config: AztecNodeConfig,
-  peer_id_private_key: string,
+    config: AztecNodeConfig,
+    peer_id_private_key: string,
     tcpListenPort: number,
     bootstrapNode: string | undefined,
     publisherAddressIndex: number,
+    activateValidators: boolean = false,
     dataDirectory?: string,
   ) {
     // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
@@ -49,6 +50,13 @@ export async function createNode(
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: publisherAddressIndex + 1 });
     const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
     config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+
+    if (activateValidators) {
+      const validatorAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 100 + publisherAddressIndex });
+      const validatorPrivKey = Buffer.from(validatorAccount.getHdKey().privateKey!);
+      config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+      config.disableValidator = false;
+    }
 
     const newConfig: AztecNodeConfig = {
       ...config,

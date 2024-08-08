@@ -14,13 +14,12 @@ import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig 
 
 import fs from 'fs';
 
-import { setup } from './fixtures/utils.js';
+import { expectsNumOfNoteEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 import { NodeContext, createBootstrapNode, createNode, createNodes, generatePeerIdPrivateKeys } from './fixtures/setup_p2p_test.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
-const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40400;
 
 const PEER_ID_PRIVATE_KEYS = generatePeerIdPrivateKeys(NUM_NODES);
@@ -34,7 +33,7 @@ describe('e2e_p2p_attestations', () => {
 
   beforeEach(async () => {
     // TODO: cleanup this test Enable validators
-    ({ teardown, config, logger } = await setup(0, {}, {}, false, true));
+    ({ teardown, config, logger } = await setup(0));
     bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
@@ -61,14 +60,14 @@ describe('e2e_p2p_attestations', () => {
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = await createNodes(config, PEER_ID_PRIVATE_KEYS, bootstrapNodeEnr, NUM_NODES, BOOT_NODE_UDP_PORT);
+    const nodes: AztecNodeService[] = await createNodes(config, PEER_ID_PRIVATE_KEYS, bootstrapNodeEnr, NUM_NODES, BOOT_NODE_UDP_PORT, /*activate validators*/true);
 
     // wait a bit for peers to discover each other
     await sleep(2000);
 
     // just send one transaction for now
     for (const node of nodes) {
-      const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(node);
       contexts.push(context);
     }
 
@@ -90,55 +89,6 @@ describe('e2e_p2p_attestations', () => {
     await bootstrapNode.stop();
   });
 
-  it('should re-discover stored peers without bootstrap node', async () => {
-    const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = await createNodes(config, PEER_ID_PRIVATE_KEYS, bootstrapNodeEnr, NUM_NODES, BOOT_NODE_UDP_PORT);
-
-    // wait a bit for peers to discover each other
-    await sleep(3000);
-
-    // stop bootstrap node
-    await bootstrapNode.stop();
-
-    // create new nodes from datadir
-    const newNodes: AztecNodeService[] = [];
-
-    // stop all nodes
-    for (let i = 0; i < NUM_NODES; i++) {
-      const node = nodes[i];
-      await node.stop();
-      logger.info(`Node ${i} stopped`);
-      await sleep(1200);
-      // TODO: make a restart nodes function
-      const newNode = await createNode(config, PEER_ID_PRIVATE_KEYS[i], i + 1 + BOOT_NODE_UDP_PORT, undefined, i, `./data-${i}`);
-      logger.info(`Node ${i} restarted`);
-      newNodes.push(newNode);
-      // const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
-      // contexts.push(context);
-    }
-
-    // wait a bit for peers to discover each other
-    await sleep(2000);
-
-    await createPXEServiceAndSubmitTransactions(nodes[0]);
-
-    // now ensure that all txs were successfully mined
-    await Promise.all(
-      contexts.flatMap((context, i) =>
-        context.txs.map(async (tx, j) => {
-          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait();
-        }),
-      ),
-    );
-
-    // shutdown all nodes.
-    // for (const context of contexts) {
-    for (const context of contexts) {
-      await context.node.stop();
-      await context.pxeService.stop();
-    }
-  });
 
   // creates an instance of the PXE and submit a given number of transactions to it.
   const createPXEServiceAndSubmitTransactions = async (
