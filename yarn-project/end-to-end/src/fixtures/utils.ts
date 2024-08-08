@@ -61,7 +61,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceAddress, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
