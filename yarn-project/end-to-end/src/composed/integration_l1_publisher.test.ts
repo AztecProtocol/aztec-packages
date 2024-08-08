@@ -108,6 +108,7 @@ describe('L1Publisher integration', () => {
   let feeRecipient: AztecAddress;
 
   let ethCheatCodes: EthCheatCodes;
+  let worldStateSynchronizer: ServerWorldStateSynchronizer;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
   // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
@@ -118,10 +119,6 @@ describe('L1Publisher integration', () => {
     const currentTime = (await publicClient.getBlock()).timestamp;
     const currentSlot = await rollup.read.getCurrentSlot();
     const timestamp = (await rollup.read.getTimestampForSlot([currentSlot + 1n])) - BigInt(ETHEREUM_SLOT_DURATION);
-
-    // @todo @LHerskind figure out why we have issues here if we do not entirely ENTER the next slot
-    // My guess would be that it is somewhere because of a bad calculation with global variables or such
-
     if (timestamp > currentTime) {
       await ethCheatCodes.warp(Number(timestamp));
     }
@@ -167,7 +164,7 @@ describe('L1Publisher integration', () => {
       l2QueueSize: 10,
       worldStateProvenBlocksOnly: false,
     };
-    const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
     builder = await TxProver.new(config, new NoopTelemetryClient());
     prover = builder.createBlockProver(builderDb.asLatest());
@@ -371,6 +368,9 @@ describe('L1Publisher integration', () => {
     let toConsume = await inbox.read.toConsume();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
+      // @note  Make sure that the state is up to date before we start building.
+      await worldStateSynchronizer.syncImmediate();
+
       const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
 
       for (let j = 0; j < l1ToL2Content.length; j++) {
@@ -484,6 +484,9 @@ describe('L1Publisher integration', () => {
     const blockNumber = await publicClient.getBlockNumber();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
+      // @note  Make sure that the state is up to date before we start building.
+      await worldStateSynchronizer.syncImmediate();
+
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 

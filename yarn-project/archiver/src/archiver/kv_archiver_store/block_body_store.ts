@@ -30,20 +30,21 @@ export class BlockBodyStore {
    * @param txsEffectsHashes - The txsEffectsHashes list that corresponds to the blockBodies we want to retrieve
    * @returns The requested L2 block bodies
    */
-  async getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
+  async getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
     const blockBodiesBuffer = await this.db.transaction(() =>
       txsEffectsHashes.map(txsEffectsHash => this.#blockBodies.get(txsEffectsHash.toString('hex'))),
     );
 
-    if (blockBodiesBuffer.some(bodyBuffer => bodyBuffer === undefined)) {
-      this.log.error(
-        'Block body buffer is undefined',
-        txsEffectsHashes.map(txsEffectsHash => txsEffectsHash.toString('hex')),
-      );
-      throw new Error('Block body buffer is undefined');
+    const blockBodies: (Body | undefined)[] = [];
+    for (let i = 0; i < blockBodiesBuffer.length; i++) {
+      const blockBodyBuffer = blockBodiesBuffer[i];
+      if (blockBodyBuffer === undefined) {
+        this.log.warn(`Block body buffer is undefined for txsEffectsHash: ${txsEffectsHashes[i].toString('hex')}`);
+      }
+      blockBodies.push(blockBodyBuffer ? Body.fromBuffer(blockBodyBuffer) : undefined);
     }
 
-    return blockBodiesBuffer.map(blockBodyBuffer => Body.fromBuffer(blockBodyBuffer!));
+    return blockBodies;
   }
 
   /**
