@@ -1,10 +1,14 @@
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { PublicKeys } from '@aztec/circuits.js';
+import { Fr, PublicKeys } from '@aztec/circuits.js';
 import {
+  ETHEREUM_HOST,
+  PRIVATE_KEY,
   addOptions,
   createSecretKeyOption,
+  l1ChainIdOption,
   logJson,
+  parseBigint,
   parseFieldFromHexString,
   parsePublicKey,
   pxeOption,
@@ -15,10 +19,11 @@ import { type Command } from 'commander';
 import inquirer from 'inquirer';
 
 import { type WalletDB } from '../storage/wallet_db.js';
-import { type AccountType, createAndStoreAccount, createOrRetrieveWallet } from '../utils/accounts.js';
+import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
+  aliasedAddressParser,
   artifactPathFromPromiseOrAlias,
   artifactPathParser,
   createAccountOption,
@@ -93,9 +98,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       log,
     );
     if (db) {
-      const { alias, secretKey, salt } = accountCreationResult;
-      await createAndStoreAccount(client, type, secretKey, publicKey, salt, alias, db);
-      log(`Account stored in database with alias ${alias}`);
+      const { address, alias, secretKey, salt } = accountCreationResult;
+      await db.storeAccount(address, { type, secretKey, salt, alias, publicKey }, log);
     }
   });
 
@@ -144,12 +148,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicDeployment,
       universal,
       rpcUrl,
-      account,
+      account: parsedAccountAddress,
       alias,
       type,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
+    const account = await createOrRetrieveAccount(
+      client,
+      parsedAccountAddress,
+      type,
+      secretKey,
+      Fr.ZERO,
+      publicKey,
+      db,
+    );
+    const wallet = await account.getWallet();
     const artifactPath = await artifactPathPromise;
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
@@ -174,8 +187,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       logJson(log),
     );
     if (db && address) {
-      await db.storeContract(address, artifactPath, alias);
-      log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+      await db.storeContract(address, artifactPath, log, alias);
     }
   });
 
@@ -199,7 +211,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       args,
       contractArtifact: artifactPathPromise,
       contractAddress,
-      account,
+      account: parsedAccountAddress,
       noWait,
       rpcUrl,
       type,
@@ -207,7 +219,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicKey,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
+    const account = await createOrRetrieveAccount(
+      client,
+      parsedAccountAddress,
+      type,
+      secretKey,
+      Fr.ZERO,
+      publicKey,
+      db,
+    );
+    const wallet = await account.getWallet();
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
@@ -233,7 +254,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         args,
         contractArtifact: artifactPathPromise,
         contractAddress,
-        account,
+        account: parsedAccountAddress,
         rpcUrl,
         type,
         secretKey,
@@ -241,12 +262,63 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
+      const account = await createOrRetrieveAccount(
+        client,
+        parsedAccountAddress,
+        type,
+        secretKey,
+        Fr.ZERO,
+        publicKey,
+        db,
+      );
+      const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
       debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
       await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
+    });
+
+  program
+    .command('bridge-fee-juice')
+    .description('Mints L1 Fee Juice and pushes them to L2.')
+    .argument('<amount>', 'The amount of Fee Juice to mint and bridge.', parseBigint)
+    .argument('<recipient>', 'Aztec address of the recipient.', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
+      'test test test test test test test test test test test junk',
+    )
+    .option('--mint', 'Mint the tokens on L1', false)
+    .option('--l1-private-key <string>', 'The private key to the eth account bridging', PRIVATE_KEY)
+    .addOption(pxeOption)
+    .addOption(l1ChainIdOption)
+    .option('--json', 'Output the claim in JSON format')
+    .action(async (amount, recipient, options) => {
+      const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
+      const secret = await bridgeL1FeeJuice(
+        amount,
+        recipient,
+        options.rpcUrl,
+        options.l1RpcUrl,
+        options.l1ChainId,
+        options.l1PrivateKey,
+        options.mnemonic,
+        options.mint,
+        options.json,
+        log,
+        debugLogger,
+      );
+      if (db) {
+        await db.pushBridgedFeeJuice(recipient, secret, amount, log);
+      }
     });
 
   return program;

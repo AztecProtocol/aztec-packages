@@ -12,7 +12,7 @@ const TARGET_DIR = 'target';
 export const ARTIFACT_DESCRIPTION =
   "Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract";
 
-function aliasedAddressParser(defaultPrefix: AliasType, address: string, db?: WalletDB) {
+export function aliasedAddressParser(defaultPrefix: AliasType, address: string, db?: WalletDB) {
   if (address.startsWith('0x')) {
     return parseAztecAddress(address);
   } else {

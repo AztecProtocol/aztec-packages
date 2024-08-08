@@ -159,34 +159,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('call')
-    .description(
-      'Simulates the execution of a view (read-only) function on a deployed contract, without modifying state.',
-    )
-    .argument('<functionName>', 'Name of function to call')
-    .option('-a, --args [functionArgs...]', 'Function arguments', [])
-    .requiredOption(
-      '-c, --contract-artifact <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
-    )
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .addOption(createSecretKeyOption("The sender's private key.", false))
-    .addOption(pxeOption)
-    .action(async (functionName, options) => {
-      const { call } = await import('./call.js');
-      await call(
-        functionName,
-        options.args,
-        options.contractArtifact,
-        options.contractAddress,
-        options.privateKey,
-        options.rpcUrl,
-        debugLogger,
-        log,
-      );
-    });
-
-  program
     .command('add-note')
     .description('Adds a note to the database in the PXE.')
     .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
