@@ -13,8 +13,8 @@ export const l1ContractsNames = [
   'registryAddress',
   'inboxAddress',
   'outboxAddress',
-  'gasTokenAddress',
-  'gasPortalAddress',
+  'feeJuiceAddress',
+  'feeJuicePortalAddress',
 ] as const;
 
 /**
@@ -52,13 +52,13 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
     description: 'The deployed L1 outbox contract address.',
     parseEnv,
   },
-  gasTokenAddress: {
-    env: 'GAS_TOKEN_CONTRACT_ADDRESS',
+  feeJuiceAddress: {
+    env: 'FEE_JUICE_CONTRACT_ADDRESS',
     description: 'The deployed L1 gas token contract address.',
     parseEnv,
   },
-  gasPortalAddress: {
-    env: 'GAS_PORTAL_CONTRACT_ADDRESS',
+  feeJuicePortalAddress: {
+    env: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
     description: 'The deployed L1 gas portal contract address.',
     parseEnv,
   },
