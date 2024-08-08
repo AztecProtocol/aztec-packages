@@ -99,11 +99,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => ['1', 'true'].includes(val),
     description: 'Whether to require every tx to have a fee payer',
   },
-  sequencerSkipSubmitProofs: {
-    env: 'SEQ_SKIP_SUBMIT_PROOFS',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    description: 'Temporary flag to skip submitting proofs, so a prover-node takes care of it.',
-  },
 };
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {

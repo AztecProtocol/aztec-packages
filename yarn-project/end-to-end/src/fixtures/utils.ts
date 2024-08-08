@@ -303,8 +303,6 @@ export type EndToEndContext = {
   logger: DebugLogger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** Proving jobs */
-  prover: ProverClient | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -381,7 +379,6 @@ export async function setup(
   config.l1PublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
-  const prover = aztecNode.getProver();
 
   logger.verbose('Creating a pxe...');
 
@@ -434,7 +431,6 @@ export async function setup(
     logger,
     cheatCodes,
     sequencer,
-    prover,
     teardown,
   };
 }
