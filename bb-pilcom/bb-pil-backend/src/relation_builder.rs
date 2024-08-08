@@ -5,11 +5,12 @@ use powdr_ast::analyzed::AlgebraicUnaryOperation;
 use powdr_ast::analyzed::Identity;
 use powdr_ast::analyzed::{
     AlgebraicBinaryOperator, AlgebraicExpression as Expression, AlgebraicUnaryOperator,
-    IdentityKind,
+    IdentityKind, Symbol,
 };
 use powdr_ast::parsed::SelectedExpressions;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::path::Path;
 
 use powdr_number::{BigUint, DegreeType, FieldElement};
@@ -18,6 +19,7 @@ use handlebars::Handlebars;
 use serde_json::json;
 
 use crate::file_writer::BBFiles;
+use crate::utils::sanitize_name;
 use crate::utils::snake_case;
 
 /// Returned back to the vm builder from the create_relations call
@@ -50,6 +52,7 @@ pub trait RelationBuilder {
         &self,
         root_name: &str,
         identities: &[Identity<AlgebraicExpression<F>>],
+        alias_polys_in_order: &Vec<&(Symbol, Vec<AlgebraicExpression<F>>)>,
     ) -> RelationOutput;
 
     /// Create Relation
@@ -61,13 +64,14 @@ pub trait RelationBuilder {
     ///
     /// - Identities are the identities that will be used to create the relations, they are generated within create_relations
     /// - row_type contains all of the columns that the relations namespace touches.
-    fn create_relation(
+    fn create_relation<F: FieldElement>(
         &self,
         root_name: &str,
         name: &str,
         identities: &[BBIdentity],
         skippable_if: &Option<BBIdentity>,
         all_cols: &[String],
+        alias_polys_in_order: &Vec<(String, u64, String)>,
     );
 }
 
@@ -76,6 +80,7 @@ impl RelationBuilder for BBFiles {
         &self,
         file_name: &str,
         analyzed_identities: &[Identity<AlgebraicExpression<F>>],
+        alias_polys_in_order: &Vec<&(Symbol, Vec<AlgebraicExpression<F>>)>,
     ) -> RelationOutput {
         // Group relations per file
         let grouped_relations: HashMap<String, Vec<Identity<AlgebraicExpression<F>>>> =
@@ -88,22 +93,66 @@ impl RelationBuilder for BBFiles {
 
         // ----------------------- Create the relation files -----------------------
         for (relation_name, analyzed_idents) in grouped_relations.iter() {
+            let alias_names = alias_polys_in_order
+                .iter()
+                .map(|(sym, _)| sym.absolute_name.clone())
+                .collect::<HashSet<_>>();
+
+            // FIXME: I'm losing collected shifts here.
             let IdentitiesOutput {
                 identities,
                 skippable_if,
-                collected_cols,
-                collected_shifts,
-            } = create_identities(file_name, analyzed_idents);
+                mut collected_cols,
+                // These are the aliases used in the identities in this file.
+                mut collected_aliases,
+            } = create_identities(analyzed_idents, &alias_names);
 
+            // We need to calculate the transitive closure later,
+            // to include the aliases used by aliases.
+            let aliases_hash = alias_polys_in_order
+                .iter()
+                .map(|(sym, expr)| (sym.absolute_name.clone(), (sym, expr)))
+                .collect::<HashMap<_, _>>();
+            calculate_aliases_transitive_closure(&mut collected_aliases, &aliases_hash);
+
+            let alias_defs_in_order = alias_polys_in_order
+                .iter()
+                .filter(|(sym, _)| collected_aliases.contains(&sym.absolute_name))
+                // Only support one expression?
+                .map(|(sym, exp_vec)| {
+                    let (degree, expr) = craft_expression(
+                        exp_vec.first().unwrap(),
+                        &mut collected_cols,
+                        &mut HashSet::<String>::new(),
+                        &mut HashSet::<String>::new(),
+                        &alias_names,
+                    );
+                    (sanitize_name(&sym.absolute_name), degree, expr)
+                })
+                .collect_vec();
+
+            let mut collected_cols: Vec<String> = collected_cols.iter().cloned().collect_vec();
+            collected_cols.sort();
+            let collected_shifts: Vec<String> = collected_cols
+                .iter()
+                .filter_map(|col| {
+                    if col.ends_with("shift") {
+                        Some(col.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             // Aggregate all shifted polys
             shifted_polys.extend(collected_shifts);
 
-            self.create_relation(
+            self.create_relation::<F>(
                 file_name,
                 relation_name,
                 &identities,
                 &skippable_if,
-                &collected_cols,
+                &collected_cols.iter().cloned().collect_vec(),
+                &alias_defs_in_order,
             );
         }
 
@@ -116,13 +165,14 @@ impl RelationBuilder for BBFiles {
         }
     }
 
-    fn create_relation(
+    fn create_relation<F: FieldElement>(
         &self,
         root_name: &str,
         name: &str,
         identities: &[BBIdentity],
         skippable_if: &Option<BBIdentity>,
         all_cols: &[String],
+        alias_defs_in_order: &Vec<(String, u64, String)>,
     ) {
         let mut handlebars = Handlebars::new();
         let degrees: Vec<_> = identities.iter().map(|id| id.degree + 1).collect();
@@ -142,6 +192,13 @@ impl RelationBuilder for BBFiles {
                 json!({
                     "degree": id.degree,
                     "identity": id.identity,
+                })
+            }).collect_vec(),
+            "alias_defs": alias_defs_in_order.iter().map(|(name, degree, expr)| {
+                json!({
+                    "name": name,
+                    "degree": degree,
+                    "expr": expr,
                 })
             }).collect_vec(),
             "skippable_if": skippable_if.as_ref().map(|id| id.identity.clone()),
@@ -206,11 +263,19 @@ fn create_identity<T: FieldElement>(
     expression: &SelectedExpressions<Expression<T>>,
     collected_cols: &mut HashSet<String>,
     collected_public_identities: &mut HashSet<String>,
+    collected_aliases: &mut HashSet<String>,
     label: &Option<String>,
+    alias_polys_names: &HashSet<String>,
 ) -> Option<BBIdentity> {
     // We want to read the types of operators and then create the appropiate code
     if let Some(expr) = &expression.selector {
-        let (degree, id) = craft_expression(expr, collected_cols, collected_public_identities);
+        let (degree, id) = craft_expression(
+            expr,
+            collected_cols,
+            collected_public_identities,
+            collected_aliases,
+            alias_polys_names,
+        );
         log::trace!("expression {:?}, {:?}", degree, id);
         Some(BBIdentity {
             degree: degree,
@@ -224,9 +289,10 @@ fn create_identity<T: FieldElement>(
 
 fn craft_expression<T: FieldElement>(
     expr: &Expression<T>,
-    // TODO: maybe make state?
     collected_cols: &mut HashSet<String>,
     collected_public_identities: &mut HashSet<String>,
+    collected_aliases: &mut HashSet<String>,
+    alias_polys_names: &HashSet<String>,
 ) -> (u64, String) {
     let var_name = match expr {
         Expression::Number(n) => {
@@ -261,27 +327,49 @@ fn craft_expression<T: FieldElement>(
             unimplemented!("{:?}", expr);
         }
         Expression::Reference(polyref) => {
-            let mut poly_name = polyref.name.replace('.', "_").to_string();
-            if polyref.next {
-                // NOTE: Naive algorithm to collect all shifted polys
-                poly_name = format!("{}_shift", poly_name);
+            if alias_polys_names.contains(&polyref.name) {
+                collected_aliases.insert(polyref.name.clone());
+                let poly_name = polyref.name.replace('.', "_").to_string();
+                // TODO: degree is wrong!
+                (1, format!("alias_{}", poly_name))
+            } else {
+                let mut poly_name = polyref.name.replace('.', "_").to_string();
+                if polyref.next {
+                    // NOTE: Naive algorithm to collect all shifted polys
+                    poly_name = format!("{}_shift", poly_name);
+                }
+                collected_cols.insert(poly_name.clone());
+                (1, format!("new_term.{}", poly_name))
             }
-            collected_cols.insert(poly_name.clone());
-            (1, format!("new_term.{}", poly_name))
         }
         Expression::BinaryOperation(AlgebraicBinaryOperation {
             left: lhe,
             op,
             right: rhe,
         }) => {
-            let (ld, lhs) = craft_expression(lhe, collected_cols, collected_public_identities);
-            let (rd, rhs) = craft_expression(rhe, collected_cols, collected_public_identities);
+            let (ld, lhs) = craft_expression(
+                lhe,
+                collected_cols,
+                collected_public_identities,
+                collected_aliases,
+                alias_polys_names,
+            );
+            let (rd, rhs) = craft_expression(
+                rhe,
+                collected_cols,
+                collected_public_identities,
+                collected_aliases,
+                alias_polys_names,
+            );
 
             let degree = std::cmp::max(ld, rd);
             match op {
                 AlgebraicBinaryOperator::Add => match lhe.as_ref() {
                     // BBerg hack, we do not want a field on the lhs of an expression
                     Expression::Number(_) => (degree, format!("({} + {})", rhs, lhs)),
+                    Expression::Reference(r) if r.name.starts_with("alias_") => {
+                        (degree, format!("({} + {})", rhs, lhs))
+                    }
                     _ => (degree, format!("({} + {})", lhs, rhs)),
                 },
                 AlgebraicBinaryOperator::Sub => {
@@ -293,18 +381,9 @@ fn craft_expression<T: FieldElement>(
                             return (degree, lhs);
                         }
                     }
-                    // Otherwise continue with the match
-                    match lhe.as_ref() {
-                        // BBerg hack, we do not want a field on the lhs of an expression
-                        Expression::Number(_) => (degree, format!("(-{} + {})", rhs, lhs)),
-                        _ => (degree, format!("({} - {})", lhs, rhs)),
-                    }
+                    (degree, format!("({} - {})", lhs, rhs))
                 }
-                AlgebraicBinaryOperator::Mul => match lhe.as_ref() {
-                    // BBerg hack, we do not want a field on the lhs of an expression
-                    Expression::Number(_) => (ld + rd, format!("({} * {})", rhs, lhs)),
-                    _ => (ld + rd, format!("({} * {})", lhs, rhs)),
-                },
+                AlgebraicBinaryOperator::Mul => (ld + rd, format!("({} * {})", lhs, rhs)),
                 _ => unimplemented!("{:?}", expr),
             }
         }
@@ -313,8 +392,13 @@ fn craft_expression<T: FieldElement>(
             expr: expression,
         }) => match operator {
             AlgebraicUnaryOperator::Minus => {
-                let (d, e) =
-                    craft_expression(expression, collected_cols, collected_public_identities);
+                let (d, e) = craft_expression(
+                    expression,
+                    collected_cols,
+                    collected_public_identities,
+                    collected_aliases,
+                    alias_polys_names,
+                );
                 (d, format!("-{}", e))
             }
         },
@@ -334,13 +418,13 @@ fn craft_expression<T: FieldElement>(
 pub struct IdentitiesOutput {
     identities: Vec<BBIdentity>,
     skippable_if: Option<BBIdentity>,
-    collected_cols: Vec<String>,
-    collected_shifts: Vec<String>,
+    collected_cols: HashSet<String>,
+    collected_aliases: HashSet<String>,
 }
 
 pub(crate) fn create_identities<F: FieldElement>(
-    file_name: &str,
     identities: &[Identity<Expression<F>>],
+    alias_polys_names: &HashSet<String>,
 ) -> IdentitiesOutput {
     // We only want the expressions for now
     // When we have a poly type, we only need the left side of it
@@ -353,13 +437,16 @@ pub(crate) fn create_identities<F: FieldElement>(
     let mut skippable_if_identity = None;
     let mut collected_cols: HashSet<String> = HashSet::new();
     let mut collected_public_identities: HashSet<String> = HashSet::new();
+    let mut collected_aliases: HashSet<String> = HashSet::new();
 
-    for (i, expression) in ids.iter().enumerate() {
+    for expression in ids.iter() {
         let identity = create_identity(
             &expression.left,
             &mut collected_cols,
             &mut collected_public_identities,
+            &mut collected_aliases,
             &expression.attribute,
+            alias_polys_names,
         )
         .unwrap();
 
@@ -379,26 +466,37 @@ pub(crate) fn create_identities<F: FieldElement>(
         log::warn!("Public Identities: {:?}", collected_public_identities);
     }
 
-    let mut collected_cols: Vec<String> = collected_cols.drain().collect();
-    let mut collected_shifts: Vec<String> = collected_cols
-        .clone()
-        .iter()
-        .filter_map(|col| {
-            if col.ends_with("shift") {
-                Some(col.clone())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    collected_cols.sort();
-    collected_shifts.sort();
-
     IdentitiesOutput {
         identities,
         skippable_if: skippable_if_identity,
         collected_cols,
-        collected_shifts,
+        collected_aliases,
+    }
+}
+
+fn calculate_aliases_transitive_closure<F: FieldElement>(
+    collected_aliases: &mut HashSet<String>,
+    aliases_hash: &HashMap<String, (&Symbol, &Vec<AlgebraicExpression<F>>)>,
+) {
+    let names = aliases_hash.keys().cloned().collect::<HashSet<_>>();
+    let mut aliases_added = !collected_aliases.is_empty();
+
+    // TODO: this is a naive implementation, can be optimize if needed
+    while aliases_added {
+        let aliases_before = collected_aliases.len();
+
+        for alias in collected_aliases.clone().iter() {
+            let (_, expr) = aliases_hash.get(alias).unwrap();
+            let expr = expr.first().unwrap();
+            craft_expression(
+                expr,
+                &mut HashSet::new(), // not needed
+                &mut HashSet::new(), // not needed
+                collected_aliases,
+                &names,
+            );
+        }
+
+        aliases_added = collected_aliases.len() > aliases_before;
     }
 }

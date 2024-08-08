@@ -87,15 +87,17 @@ pub fn analyzed_to_cpp<F: FieldElement>(
     }
 
     // Inlining step to remove the intermediate poly definitions
-    let mut analyzed_identities = analyzed.identities_with_inlined_intermediate_polynomials();
+    // let mut analyzed_identities = analyzed.identities_with_inlined_intermediate_polynomials();
+    let mut analyzed_identities = analyzed.identities.clone();
     analyzed_identities.sort_by(|a, b| a.id.cmp(&b.id));
+    let alias_polys_in_order = analyzed.intermediate_polys_in_source_order();
 
     // ----------------------- Handle Standard Relation Identities -----------------------
     // We collect all references to shifts as we traverse all identities and create relation files
     let RelationOutput {
         relations,
         shifted_polys,
-    } = bb_files.create_relations(vm_name, &analyzed_identities);
+    } = bb_files.create_relations(vm_name, &analyzed_identities, &alias_polys_in_order);
 
     // ----------------------- Handle Lookup / Permutation Relation Identities -----------------------
     let permutations = bb_files.create_permutation_files(vm_name, analyzed);

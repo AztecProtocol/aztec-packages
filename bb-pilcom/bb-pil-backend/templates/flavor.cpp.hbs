@@ -4,9 +4,9 @@
 namespace bb {
 
 {{name}}Flavor::AllConstRefValues::AllConstRefValues(const RefArray<{{name}}Flavor::AllConstRefValues::BaseDataType, {{name}}Flavor::NUM_ALL_ENTITIES>& il) :
-    {{#each (join fixed witness_without_inverses lookups shifted) as |item|}}
-    {{item}}(il[{{@index}}]){{#unless @last}},{{/unless}}
-    {{/each}}
+    // clang-format off
+    {{#each (join fixed witness_without_inverses lookups shifted) as |item|}}{{item}}(il[{{@index}}]){{#unless @last}},{{/unless}}{{/each}}
+    // clang-format on
   {}
 
 {{name}}Flavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)

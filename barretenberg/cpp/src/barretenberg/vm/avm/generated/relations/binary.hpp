@@ -36,9 +36,10 @@ template <typename FF_> class binaryImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.binary_sel_bin * (-new_term.binary_sel_bin + FF(1)));
+            auto tmp = (new_term.binary_sel_bin * (FF(1) - new_term.binary_sel_bin));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
@@ -58,7 +59,7 @@ template <typename FF_> class binaryImpl {
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = ((new_term.binary_mem_tag_ctr *
-                         (((-new_term.binary_sel_bin + FF(1)) * (-new_term.binary_mem_tag_ctr_inv + FF(1))) +
+                         (((FF(1) - new_term.binary_sel_bin) * (FF(1) - new_term.binary_mem_tag_ctr_inv)) +
                           new_term.binary_mem_tag_ctr_inv)) -
                         new_term.binary_sel_bin);
             tmp *= scaling_factor;
@@ -66,26 +67,26 @@ template <typename FF_> class binaryImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = ((-new_term.binary_sel_bin + FF(1)) * new_term.binary_acc_ia);
+            auto tmp = ((FF(1) - new_term.binary_sel_bin) * new_term.binary_acc_ia);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = ((-new_term.binary_sel_bin + FF(1)) * new_term.binary_acc_ib);
+            auto tmp = ((FF(1) - new_term.binary_sel_bin) * new_term.binary_acc_ib);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = ((-new_term.binary_sel_bin + FF(1)) * new_term.binary_acc_ic);
+            auto tmp = ((FF(1) - new_term.binary_sel_bin) * new_term.binary_acc_ic);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp =
-                (((new_term.binary_acc_ia - new_term.binary_ia_bytes) - (new_term.binary_acc_ia_shift * FF(256))) *
+                (((new_term.binary_acc_ia - new_term.binary_ia_bytes) - (FF(256) * new_term.binary_acc_ia_shift)) *
                  new_term.binary_mem_tag_ctr);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
@@ -93,7 +94,7 @@ template <typename FF_> class binaryImpl {
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp =
-                (((new_term.binary_acc_ib - new_term.binary_ib_bytes) - (new_term.binary_acc_ib_shift * FF(256))) *
+                (((new_term.binary_acc_ib - new_term.binary_ib_bytes) - (FF(256) * new_term.binary_acc_ib_shift)) *
                  new_term.binary_mem_tag_ctr);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
@@ -101,7 +102,7 @@ template <typename FF_> class binaryImpl {
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp =
-                (((new_term.binary_acc_ic - new_term.binary_ic_bytes) - (new_term.binary_acc_ic_shift * FF(256))) *
+                (((new_term.binary_acc_ic - new_term.binary_ic_bytes) - (FF(256) * new_term.binary_acc_ic_shift)) *
                  new_term.binary_mem_tag_ctr);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
