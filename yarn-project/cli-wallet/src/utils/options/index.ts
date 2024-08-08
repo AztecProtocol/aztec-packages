@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { parseAztecAddress } from '@aztec/cli/utils';
 
 import { Option } from 'commander';
