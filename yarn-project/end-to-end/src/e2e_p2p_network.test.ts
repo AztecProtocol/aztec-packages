@@ -1,21 +1,19 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  CompleteAddress,
-  type DebugLogger,
-  Fr,
-  GrumpkinScalar,
-  type SentTx,
-  TxStatus,
-  sleep,
-} from '@aztec/aztec.js';
-import { BootstrapNode } from '@aztec/p2p';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
+import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep } from '@aztec/aztec.js';
+import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import fs from 'fs';
 
+import {
+  type NodeContext,
+  createBootstrapNode,
+  createNode,
+  createNodes,
+  generatePeerIdPrivateKeys,
+} from './fixtures/setup_p2p_test.js';
 import { setup } from './fixtures/utils.js';
-import { NodeContext, createBootstrapNode, createNode, createNodes, generatePeerIdPrivateKeys } from './fixtures/setup_p2p_test.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -60,7 +58,13 @@ describe('e2e_p2p_network', () => {
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = await createNodes(config, PEER_ID_PRIVATE_KEYS, bootstrapNodeEnr, NUM_NODES, BOOT_NODE_UDP_PORT);
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
 
     // wait a bit for peers to discover each other
     await sleep(2000);
@@ -90,7 +94,13 @@ describe('e2e_p2p_network', () => {
 
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = await createNodes(config, PEER_ID_PRIVATE_KEYS, bootstrapNodeEnr, NUM_NODES, BOOT_NODE_UDP_PORT);
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
 
     // wait a bit for peers to discover each other
     await sleep(3000);
@@ -108,7 +118,15 @@ describe('e2e_p2p_network', () => {
       logger.info(`Node ${i} stopped`);
       await sleep(1200);
       // TODO: make a restart nodes function
-      const newNode = await createNode(config, PEER_ID_PRIVATE_KEYS[i], i + 1 + BOOT_NODE_UDP_PORT, undefined, i, /*validators*/false, `./data-${i}`);
+      const newNode = await createNode(
+        config,
+        PEER_ID_PRIVATE_KEYS[i],
+        i + 1 + BOOT_NODE_UDP_PORT,
+        undefined,
+        i,
+        /*validators*/ false,
+        `./data-${i}`,
+      );
       logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
       // const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);

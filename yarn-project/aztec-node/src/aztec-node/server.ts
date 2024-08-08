@@ -184,7 +184,7 @@ export class AztecNodeService implements AztecNode {
 
     // TODO: likely that the sequencer will consume a validator client and use it
     // to broadcast the blocks
-    const validatorClient = await createValidatorClient(config, p2pClient);
+    const validatorClient = createValidatorClient(config, p2pClient);
 
     // now create the sequencer
     const sequencer = config.disableSequencer

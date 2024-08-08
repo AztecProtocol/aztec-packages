@@ -6,18 +6,18 @@ import { type AttestationPool } from './attestation_pool.js';
 export class InMemoryAttestationPool implements AttestationPool {
   // TODO: change this from string to a bigint for addressing
   // TODO: make private
-  public attestations: Map</*slot=*/ bigint, Map</*address=*/ string, BlockAttestation>>;
+  private attestations: Map</*slot=*/ bigint, Map</*address=*/ string, BlockAttestation>>;
 
   constructor(private log = createDebugLogger('aztec:attestation_pool')) {
     this.attestations = new Map();
   }
 
-  public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
     const slotAttestationMap = this.attestations.get(slot);
     if (slotAttestationMap) {
-      return Array.from(slotAttestationMap.values());
+      return Promise.resolve(Array.from(slotAttestationMap.values()));
     } else {
-      return [];
+      return Promise.resolve([]);
     }
   }
 
@@ -42,10 +42,11 @@ export class InMemoryAttestationPool implements AttestationPool {
   /**
    * Drop all attestations collected for a given slot
    */
-  public async deleteAttestationsForSlot(slot: bigint): Promise<void> {
+  public deleteAttestationsForSlot(slot: bigint): Promise<void> {
     // TODO(md): check if this will free the memory of the inner hash map
     this.attestations.delete(slot);
     this.log.verbose(`Removed attestation for slot ${slot}`);
+    return Promise.resolve();
   }
 
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
@@ -58,6 +59,7 @@ export class InMemoryAttestationPool implements AttestationPool {
         this.log.verbose(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }
     }
+    return Promise.resolve();
   }
 }
 

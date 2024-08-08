@@ -1,4 +1,4 @@
-import type { BlockAttestation, BlockProposal, Gossipable, Tx } from '@aztec/circuit-types';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/circuit-types';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';

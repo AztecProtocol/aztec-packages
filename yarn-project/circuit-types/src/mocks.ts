@@ -19,7 +19,6 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
   makeCombinedAccumulatedData,
   makeCombinedConstantData,
-  makeHeader,
   makePublicCallRequest,
 } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
@@ -33,10 +32,8 @@ import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } f
 import { ExtendedNote } from './notes/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
-import { BlockAttestation } from './p2p/block_attestation.js';
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
-
 
 export const mockTx = (
   seed = 1,
@@ -188,7 +185,6 @@ export const mockTx = (
 
   return tx;
 };
-
 
 export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boolean } = {}) =>
   mockTx(seed, { hasLogs, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });

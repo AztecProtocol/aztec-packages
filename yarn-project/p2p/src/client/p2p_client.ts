@@ -45,7 +45,7 @@ export interface P2PSyncState {
  **/
 export interface P2P {
   // Temp interface
-  broadcastProposal(proposal: BlockProposal): Promise<void>;
+  broadcastProposal(proposal: BlockProposal): void;
 
   getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
 
@@ -237,12 +237,12 @@ export class P2PClient implements P2P {
     this.log.info('P2P client stopped.');
   }
 
-  public async broadcastProposal(proposal: BlockProposal): Promise<void> {
-    this.p2pService.propagate(proposal);
+  public broadcastProposal(proposal: BlockProposal): void {
+    return this.p2pService.propagate(proposal);
   }
 
-  public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
-    return this.attestationPool.getAttestationsForSlot(slot);
+  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot));
   }
 
   public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void {

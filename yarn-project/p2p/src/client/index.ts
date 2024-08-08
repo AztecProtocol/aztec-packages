@@ -1,4 +1,4 @@
-import { BlockProposal, type L2BlockSource } from '@aztec/circuit-types';
+import { type L2BlockSource } from '@aztec/circuit-types';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';

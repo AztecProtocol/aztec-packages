@@ -1,7 +1,7 @@
 import { type PrivateKeyAccount } from 'viem';
 
 import { InMemoryAttestationPool } from './memory_attestation_pool.js';
-import { mockAttestation, generateAccount } from './mocks.js';
+import { generateAccount, mockAttestation } from './mocks.js';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;
 

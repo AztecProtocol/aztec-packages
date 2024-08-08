@@ -413,8 +413,7 @@ export class Sequencer {
       // NOTES - put here
 
       const proposal = await this.validatorClient.createBlockProposal(block.header, []);
-      const blockWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
-      void blockWithAttestations;
+      await this.validatorClient.broadcastAndCollectAttestations(proposal);
     }
 
     const publishedL2Block = await this.publisher.processL2Block(block);

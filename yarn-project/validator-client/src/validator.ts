@@ -78,18 +78,18 @@ export class ValidatorClient {
     // Wait and poll the p2pClients attestation pool for this block
     // until we have enough attestations
 
-
     // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
     let target = COMMITTEE_SIZE - 1;
     // TODO: this will need to come from the smart contract
     // as when setting up the tests the committee has one validator in it :(
-    let collected = 0;
     let attestations: BlockAttestation[] = [];
-    while (collected <= target) {
+    while (attestations.length < target) {
       attestations = await this.p2pClient.getAttestationsForSlot(slot);
-      collected = attestations.length;
 
-      await sleep(this.attestationPoolingIntervalMs);
+      if (attestations.length < target) {
+        this.log.verbose(`Waiting ${this.attestationPoolingIntervalMs}ms for more attestations...`);
+        await sleep(this.attestationPoolingIntervalMs);
+      }
     }
 
     return attestations;

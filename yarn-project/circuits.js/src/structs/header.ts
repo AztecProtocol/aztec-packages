@@ -125,9 +125,11 @@ export class Header {
   }
 
   hash(): Fr {
+    console.log("in hash");
     if (!this.blockHash) {
       this.blockHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
     }
+    console.log(this.blockHash);
     return this.blockHash;
   }
 }

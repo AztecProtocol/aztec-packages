@@ -1,5 +1,6 @@
 import { BlockAttestation } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
+
 import { type PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -14,7 +15,7 @@ export const generateAccount = () => {
 };
 
 /** Mock Attestation
- * 
+ *
  * @param signer A viem signer to create a signature
  * @param slot The slot number the attestation is for
  * @returns A Block Attestation

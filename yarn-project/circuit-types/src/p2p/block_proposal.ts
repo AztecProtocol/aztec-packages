@@ -2,7 +2,7 @@ import { Header } from '@aztec/circuits.js';
 import { BaseHashType } from '@aztec/foundation/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { TxHash } from '../index.js';
+import { TxHash } from '../tx/tx_hash.js';
 import { Gossipable } from './gossipable.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
