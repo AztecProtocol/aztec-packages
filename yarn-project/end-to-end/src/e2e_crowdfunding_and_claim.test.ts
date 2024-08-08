@@ -6,6 +6,7 @@ import {
   type CheatCodes,
   type DebugLogger,
   ExtendedNote,
+  type ExtendedNoteWithNonce,
   Fr,
   Note,
   type PXE,
@@ -181,12 +182,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   };
 
   // Processes extended note such that it can be passed to a claim function of Claim contract
-  const processExtendedNote = async (extendedNote: ExtendedNote) => {
-    // TODO(#4956): Make fetching the nonce manually unnecessary
-    // To be able to perform the inclusion proof we need to fetch the nonce of the value note
-    const noteNonces = await pxe.getNoteNonces(extendedNote);
-    expect(noteNonces?.length).toEqual(1);
-
+  const processExtendedNote = (extendedNote: ExtendedNoteWithNonce) => {
     return {
       header: {
         // eslint-disable-next-line camelcase
@@ -195,7 +191,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         storage_slot: extendedNote.storageSlot,
         // eslint-disable-next-line camelcase
         note_hash_counter: 0, // set as 0 as note is not transient
-        nonce: noteNonces[0],
+        nonce: extendedNote.nonce,
       },
       value: extendedNote.note.items[0],
       // eslint-disable-next-line camelcase
@@ -233,7 +229,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       expect(notes!.length).toEqual(1);
 
       // Set the value note in a format which can be passed to claim function
-      valueNote = await processExtendedNote(notes![0]);
+      valueNote = processExtendedNote(notes![0]);
     }
 
     // 3) We claim the reward token via the Claim contract
@@ -304,7 +300,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(notes!.length).toEqual(1);
 
     // Set the value note in a format which can be passed to claim function
-    const anotherDonationNote = await processExtendedNote(notes![0]);
+    const anotherDonationNote = processExtendedNote(notes![0]);
 
     // We create an unrelated pxe and wallet without access to the nsk_app that correlates to the npk_m specified in the proof note.
     let unrelatedWallet: AccountWallet;
@@ -356,7 +352,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
       const { visibleIncomingNotes } = receipt.debugInfo!;
       expect(visibleIncomingNotes.length).toEqual(1);
-      note = await processExtendedNote(visibleIncomingNotes![0]);
+      note = processExtendedNote(visibleIncomingNotes![0]);
     }
 
     // 3) Test the note was included
