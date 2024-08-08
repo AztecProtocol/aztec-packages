@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { parseAztecAddress } from '@aztec/cli/utils';
 
 import { Option } from 'commander';
@@ -64,6 +65,22 @@ export function artifactPathParser(filePath: string, db?: WalletDB) {
     );
   }
   return Promise.resolve(filePath);
+}
+
+export async function artifactPathFromPromiseOrAlias(
+  artifactPathPromise: Promise<string>,
+  contractAddress: AztecAddress,
+  db?: WalletDB,
+) {
+  let artifactPath = await artifactPathPromise;
+
+  if (db && !artifactPath) {
+    artifactPath = db.tryRetrieveAlias(`artifacts:${contractAddress.toString()}`);
+    if (!artifactPath) {
+      throw new Error(`No artifact found for contract address ${contractAddress}, please provide it via the -c option`);
+    }
+  }
+  return artifactPath;
 }
 
 export function createArtifactOption(db?: WalletDB) {

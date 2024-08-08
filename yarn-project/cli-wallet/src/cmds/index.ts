@@ -19,6 +19,7 @@ import { type AccountType, createAndStoreAccount, createOrRetrieveWallet } from 
 import { FeeOpts } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
+  artifactPathFromPromiseOrAlias,
   artifactPathParser,
   createAccountOption,
   createAliasOption,
@@ -149,7 +150,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
-
     const artifactPath = await artifactPathPromise;
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
@@ -208,16 +208,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
-    let artifactPath = await artifactPathPromise;
-
-    if (db && !artifactPath) {
-      artifactPath = db.tryRetrieveAlias(`artifacts:${contractAddress}`);
-      if (!artifactPath) {
-        throw new Error(
-          `No artifact found for contract address ${contractAddress}, please provide it via the -c option`,
-        );
-      }
-    }
+    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
@@ -248,18 +239,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         secretKey,
         publicKey,
       } = options;
+
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const wallet = await createOrRetrieveWallet(client, account, type, secretKey, publicKey, db);
-      let artifactPath = await artifactPathPromise;
-
-      if (db && !artifactPath) {
-        artifactPath = db.tryRetrieveAlias(`artifacts:${contractAddress.toString()}`);
-        if (!artifactPath) {
-          throw new Error(
-            `No artifact found for contract address ${contractAddress}, please provide it via the -c option`,
-          );
-        }
-      }
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
       debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
