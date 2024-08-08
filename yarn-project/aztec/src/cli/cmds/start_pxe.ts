@@ -64,6 +64,8 @@ export async function addPXE(
       userLog(`Network ${pxeConfig.network} is not supported`);
       process.exit(1);
     }
+    // enable prover if network is set
+    pxeConfig.proverEnabled = true;
   } else {
     nodeUrl = pxeConfig.nodeUrl;
   }

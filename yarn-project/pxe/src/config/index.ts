@@ -101,12 +101,6 @@ export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = {
 export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEServiceConfig> = {
   ...pxeConfigMappings,
   ...pxeCliConfigMappings,
-  proverEnabled: {
-    env: 'PXE_PROVER_ENABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val) || !!process.env.NETWORK,
-    description: 'Enable real proofs',
-    isBoolean: true,
-  },
 };
 
 /**
