@@ -3472,7 +3472,7 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
     // Main Trace needs to be at least as big as the biggest subtrace.
     // If the bin_trace_size has entries, we need the main_trace to be as big as our byte lookup table (3 *
     // 2**16 long)
-    size_t const lookup_table_size = (bin_trace_size > 0 && range_check_required) ? 3 * (1 << 16) : 0;
+    size_t const lookup_table_size = range_check_required ? 3 * (1 << 16) : 0;
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
     size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
@@ -3875,35 +3875,32 @@ std::vector<Row> AvmTraceBuilder::finalize(uint32_t min_trace_size, bool range_c
         dest.binary_mem_tag_ctr_inv = src.mem_tag_ctr_inv;
     }
 
-    // Only generate precomputed byte tables if we are actually going to use them in this main trace.
-    if (bin_trace_size > 0) {
-        if (!range_check_required) {
-            finalize_bin_trace_lookup_for_testing(main_trace, bin_trace_builder);
-        } else {
-            // Generate Lookup Table of all combinations of 2, 8-bit numbers and op_id.
-            for (uint32_t op_id = 0; op_id < 3; op_id++) {
-                for (uint32_t input_a = 0; input_a <= UINT8_MAX; input_a++) {
-                    for (uint32_t input_b = 0; input_b <= UINT8_MAX; input_b++) {
-                        auto a = static_cast<uint8_t>(input_a);
-                        auto b = static_cast<uint8_t>(input_b);
+    if (!range_check_required) {
+        finalize_bin_trace_lookup_for_testing(main_trace, bin_trace_builder);
+    } else {
+        // Generate Lookup Table of all combinations of 2, 8-bit numbers and op_id.
+        for (uint32_t op_id = 0; op_id < 3; op_id++) {
+            for (uint32_t input_a = 0; input_a <= UINT8_MAX; input_a++) {
+                for (uint32_t input_b = 0; input_b <= UINT8_MAX; input_b++) {
+                    auto a = static_cast<uint8_t>(input_a);
+                    auto b = static_cast<uint8_t>(input_b);
 
-                        // Derive a unique row index given op_id, a, and b.
-                        auto main_trace_index = (op_id << 16) + (input_a << 8) + b;
+                    // Derive a unique row index given op_id, a, and b.
+                    auto main_trace_index = (op_id << 16) + (input_a << 8) + b;
 
-                        main_trace.at(main_trace_index).byte_lookup_sel_bin = FF(1);
-                        main_trace.at(main_trace_index).byte_lookup_table_op_id = op_id;
-                        main_trace.at(main_trace_index).byte_lookup_table_input_a = a;
-                        main_trace.at(main_trace_index).byte_lookup_table_input_b = b;
-                        // Add the counter value stored throughout the execution
-                        main_trace.at(main_trace_index).lookup_byte_operations_counts =
-                            bin_trace_builder.byte_operation_counter[main_trace_index];
-                        if (op_id == 0) {
-                            main_trace.at(main_trace_index).byte_lookup_table_output = a & b;
-                        } else if (op_id == 1) {
-                            main_trace.at(main_trace_index).byte_lookup_table_output = a | b;
-                        } else {
-                            main_trace.at(main_trace_index).byte_lookup_table_output = a ^ b;
-                        }
+                    main_trace.at(main_trace_index).byte_lookup_sel_bin = FF(1);
+                    main_trace.at(main_trace_index).byte_lookup_table_op_id = op_id;
+                    main_trace.at(main_trace_index).byte_lookup_table_input_a = a;
+                    main_trace.at(main_trace_index).byte_lookup_table_input_b = b;
+                    // Add the counter value stored throughout the execution
+                    main_trace.at(main_trace_index).lookup_byte_operations_counts =
+                        bin_trace_builder.byte_operation_counter[main_trace_index];
+                    if (op_id == 0) {
+                        main_trace.at(main_trace_index).byte_lookup_table_output = a & b;
+                    } else if (op_id == 1) {
+                        main_trace.at(main_trace_index).byte_lookup_table_output = a | b;
+                    } else {
+                        main_trace.at(main_trace_index).byte_lookup_table_output = a ^ b;
                     }
                 }
             }
