@@ -74,3 +74,31 @@ pub fn destroy_note<Note, N, M>(
 
     context.push_nullifier_for_note_hash(nullifier, note_hash_for_consumption)
 }
+
+pub fn destroy_note_unsafe<Note, N, M>(
+    context: &mut PrivateContext,
+    note: Note,
+    note_hash_for_read_request: Field
+) where Note: NoteInterface<N, M> {
+    // TODO(benesjan): leverage note hash here
+    let (note_hash, nullifier) = note.compute_note_hash_and_nullifier(context);
+
+    let note_hash_counter = note.get_header().note_hash_counter;
+    let note_hash_for_consumption = if (note_hash_counter == 0) {
+        // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
+        0
+    } else {
+        // A non-zero note hash counter implies that we're nullifying a pending note (i.e. one that has not yet been
+        // persisted in the trees and is instead in the pending new note hashes array). In such a case we populate its
+        // hash with real value to inform the kernel which note we're nullifyng so that it can either squash both
+        // the note and the nullifier if it's an inner note hash, or check that the it matches a pending note if it's
+        // a siloed note hash.
+        note_hash
+    };
+
+    let nullifier_counter = context.side_effect_counter;
+    assert(notify_nullified_note(nullifier, note_hash_for_consumption, nullifier_counter) == 0);
+
+    context.push_nullifier_for_note_hash(nullifier, note_hash_for_consumption)
+}
+
