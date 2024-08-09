@@ -109,8 +109,9 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
-        // --> If the preprocessor was not applied correctly we might read too many notes resulting in a higher DA cost
-        // (more nullifiers emitted). This however is fine as it's not the goal to prove optimal note selection.
+        // Because the `min_sum` notes is not constrained, users could choose to e.g. not call it. However, all this
+        // might result in is simply higher DA costs due to more nullifiers being emitted. Since we don't care
+        // about proving optimal note usage, we can save these constraints and make the circuit smaller.
         let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount).set_limit(max_notes);
         let notes = self.map.at(owner).pop_notes(options);
 
