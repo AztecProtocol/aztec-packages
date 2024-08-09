@@ -92,7 +92,7 @@ template <typename B> inline void read_from_file(B& is, std::string const& path,
         // Open the file and read the data directly into the polynomial memory.
         std::ifstream file(filepath, std::ios::binary);
         if (file) {
-            file.read(reinterpret_cast<char*>(value.data().get()), (std::streamsize)file_size);
+            file.read(reinterpret_cast<char*>(value.data()), (std::streamsize)file_size);
             file.close();
         } else {
             throw_or_abort("Failed to open file: " + filepath);
@@ -127,7 +127,7 @@ template <typename B> inline void write_to_file(B& os, std::string const& path, 
         auto value = key.polynomial_store.get(poly_id);
         auto size = value.size();
         std::ofstream ofs(filename);
-        ofs.write((char*)value.data().get(), (std::streamsize)(size * sizeof(bb::fr)));
+        ofs.write((char*)value.data(), (std::streamsize)(size * sizeof(bb::fr)));
         if (!ofs.good()) {
             throw_or_abort(format("Failed to write: ", filename));
         }

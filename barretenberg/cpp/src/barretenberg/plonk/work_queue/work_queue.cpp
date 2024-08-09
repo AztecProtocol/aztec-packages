@@ -67,7 +67,7 @@ std::shared_ptr<fr[]> work_queue::get_ifft_data(const size_t work_item_number) c
         if (item.work_type == WorkType::IFFT) {
             if (count == work_item_number) {
                 // Rename mul_scalars "data" or something. Hold onto shared_ptr so mem not released.
-                item.mul_scalars = key->polynomial_store.get(item.tag + "_lagrange").data();
+                item.mul_scalars = key->polynomial_store.get(item.tag + "_lagrange").dense_view().data();
                 return item.mul_scalars;
             }
             ++count;
@@ -83,7 +83,7 @@ void work_queue::put_ifft_data(std::shared_ptr<fr[]> result, const size_t work_i
         if (item.work_type == WorkType::IFFT) {
             if (count == work_item_number) {
                 bb::polynomial wire(key->circuit_size);
-                memcpy(wire.data().get(), result.get(), key->circuit_size * sizeof(bb::fr));
+                memcpy(wire.data(), result.get(), key->circuit_size * sizeof(bb::fr));
                 key->polynomial_store.put(item.tag, std::move(wire));
                 return;
             }
@@ -99,7 +99,7 @@ work_queue::queued_fft_inputs work_queue::get_fft_data(const size_t work_item_nu
         if (item.work_type == WorkType::SMALL_FFT) {
             if (count == work_item_number) {
                 // Rename mul_scalars "data" or something. Hold onto shared_ptr so mem not released.
-                item.mul_scalars = key->polynomial_store.get(item.tag).data();
+                item.mul_scalars = key->polynomial_store.get(item.tag).dense_view().data();
                 auto wire = item.mul_scalars;
                 return { wire, key->large_domain.root.pow(static_cast<uint64_t>(item.index)) };
             }
@@ -252,7 +252,7 @@ void work_queue::process_queue()
             auto wire = key->polynomial_store.get(item.tag);
             polynomial wire_fft(wire, 4 * key->circuit_size + 4);
 
-            wire_fft.coset_fft(key->large_domain);
+            wire_fft.dense_view().coset_fft(key->large_domain);
             for (size_t i = 0; i < 4; i++) {
                 wire_fft[4 * key->circuit_size + i] = wire_fft[i];
             }

@@ -414,29 +414,29 @@ concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra
 template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
-template <typename T> 
-concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                       UltraRecursiveFlavor_<MegaCircuitBuilder>, 
+template <typename T>
+concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                       UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-MegaRecursiveFlavor_<CircuitSimulatorBN254>, 
-TranslatorRecursiveFlavor_<UltraCircuitBuilder>, 
-TranslatorRecursiveFlavor_<MegaCircuitBuilder>, 
+MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
 TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
 ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -445,14 +445,14 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
-                                                           MegaFlavor, 
-                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>, 
+                                                           MegaFlavor,
+                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>, 
+                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename Container, typename Element>

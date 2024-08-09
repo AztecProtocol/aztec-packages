@@ -43,7 +43,7 @@ template <class Field, size_t num_widget_relations> struct challenge_array {
 template <class Field> using poly_array = std::array<std::pair<Field, Field>, PolynomialIndex::MAX_NUM_POLYNOMIALS>;
 
 template <class Field> struct poly_ptr_map {
-    std::unordered_map<PolynomialIndex, polynomial::pointer> coefficients;
+    std::unordered_map<PolynomialIndex, Field*> coefficients;
     size_t block_mask;
     size_t index_shift;
 };

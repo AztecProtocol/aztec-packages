@@ -127,7 +127,7 @@ void KateCommitmentScheme<settings>::generic_batch_open(const fr* src,
 
         // commit to the i-th opened polynomial
         polynomial offset_poly(std::span(&dest[dest_offset], (uint32_t)item_constants[i]));
-        KateCommitmentScheme::commit(offset_poly.data(), tags[i], item_constants[i], queue);
+        KateCommitmentScheme::commit(offset_poly.dense_view().data(), tags[i], item_constants[i], queue);
     }
 }
 
@@ -160,7 +160,7 @@ void KateCommitmentScheme<settings>::batch_open(const transcript::StandardTransc
         const auto& info_ = input_key->polynomial_manifest[i];
         const std::string poly_label(info_.polynomial_label);
 
-        auto poly = input_key->polynomial_store.get(poly_label).data();
+        auto poly = input_key->polynomial_store.get(poly_label).dense_view().data();
 
         const fr nu_challenge = transcript.get_challenge_field_element_from_map("nu", poly_label);
         opened_polynomials_at_zeta.push_back({ poly, nu_challenge });
@@ -185,7 +185,7 @@ void KateCommitmentScheme<settings>::batch_open(const transcript::StandardTransc
     for (size_t i = 1; i < settings::program_width; ++i) {
         const size_t offset = i * input_key->small_domain.size;
         const fr scalar = zeta.pow(static_cast<uint64_t>(offset));
-        opened_polynomials_at_zeta.push_back({ input_key->quotient_polynomial_parts[i].data(), scalar });
+        opened_polynomials_at_zeta.push_back({ input_key->quotient_polynomial_parts[i].dense_view().data(), scalar });
     }
 
     // Add up things to get coefficients of opening polynomials.
@@ -225,9 +225,11 @@ void KateCommitmentScheme<settings>::batch_open(const transcript::StandardTransc
 
     // Commit to the opening and shifted opening polynomials
     KateCommitmentScheme::commit(
-        input_key->polynomial_store.get("opening_poly").data(), "PI_Z", input_key->circuit_size, queue);
-    KateCommitmentScheme::commit(
-        input_key->polynomial_store.get("shifted_opening_poly").data(), "PI_Z_OMEGA", input_key->circuit_size, queue);
+        input_key->polynomial_store.get("opening_poly").dense_view().data(), "PI_Z", input_key->circuit_size, queue);
+    KateCommitmentScheme::commit(input_key->polynomial_store.get("shifted_opening_poly").dense_view().data(),
+                                 "PI_Z_OMEGA",
+                                 input_key->circuit_size,
+                                 queue);
 }
 
 template <typename settings>
@@ -369,18 +371,18 @@ void KateCommitmentScheme<settings>::add_opening_evaluations_to_transcript(
 
         if (in_lagrange_form) {
             poly_evaluation =
-                polynomial_arithmetic::compute_barycentric_evaluation(poly.get(), n, zeta, input_key->small_domain);
+                polynomial_arithmetic::compute_barycentric_evaluation(poly, n, zeta, input_key->small_domain);
         } else {
-            poly_evaluation = polynomial_arithmetic::evaluate(poly.get(), zeta, n);
+            poly_evaluation = polynomial_arithmetic::evaluate(poly, zeta, n);
         }
         transcript.add_element(poly_label, poly_evaluation.to_buffer());
 
         if (info.requires_shifted_evaluation) {
             if (in_lagrange_form) {
                 poly_evaluation =
-                    polynomial_arithmetic::compute_barycentric_evaluation(poly.get(), n, zeta, input_key->small_domain);
+                    polynomial_arithmetic::compute_barycentric_evaluation(poly, n, zeta, input_key->small_domain);
             } else {
-                poly_evaluation = polynomial_arithmetic::evaluate(poly.get(), shifted_z, n);
+                poly_evaluation = polynomial_arithmetic::evaluate(poly, shifted_z, n);
             }
             transcript.add_element(poly_label + "_omega", poly_evaluation.to_buffer());
         }

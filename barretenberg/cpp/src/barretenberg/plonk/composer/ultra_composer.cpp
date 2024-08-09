@@ -226,11 +226,11 @@ void UltraComposer::add_table_column_selector_poly_to_proving_key(polynomial& se
 {
     polynomial selector_poly_lagrange_form_copy(selector_poly_lagrange_form, circuit_proving_key->small_domain.size);
 
-    selector_poly_lagrange_form.ifft(circuit_proving_key->small_domain);
+    selector_poly_lagrange_form.dense_view().ifft(circuit_proving_key->small_domain);
     auto& selector_poly_coeff_form = selector_poly_lagrange_form;
 
     polynomial selector_poly_coset_form(selector_poly_coeff_form, circuit_proving_key->circuit_size * 4);
-    selector_poly_coset_form.coset_fft(circuit_proving_key->large_domain);
+    selector_poly_coset_form.dense_view().coset_fft(circuit_proving_key->large_domain);
 
     circuit_proving_key->polynomial_store.put(tag, std::move(selector_poly_coeff_form));
     circuit_proving_key->polynomial_store.put(tag + "_lagrange", std::move(selector_poly_lagrange_form_copy));

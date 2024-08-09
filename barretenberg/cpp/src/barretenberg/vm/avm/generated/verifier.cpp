@@ -40,7 +40,7 @@ using FF = AvmFlavor::FF;
     std::vector<FF> new_points(circuit_size, 0);
     std::copy(points.begin(), points.end(), new_points.data());
 
-    Polynomial<FF> polynomial(new_points);
+    Polynomial<FF> polynomial(new_points, circuit_size);
     return polynomial.evaluate_mle(challenges);
 }
 

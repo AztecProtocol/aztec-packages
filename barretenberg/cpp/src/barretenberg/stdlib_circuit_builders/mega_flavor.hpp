@@ -490,7 +490,7 @@ class MegaFlavor {
             this->databus_propagation_data = proving_key.databus_propagation_data;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = proving_key.commitment_key->commit(polynomial.as_span());
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.

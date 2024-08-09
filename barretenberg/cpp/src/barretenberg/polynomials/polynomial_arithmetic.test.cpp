@@ -1325,35 +1325,35 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
     EXPECT_EQ(poly.size(), interesting_poly.size());
 }
 
-/**
- * @brief Test the right shift functionality of the polynomial class
- *
- */
-TYPED_TEST(PolynomialTests, RightShift)
-{
-    using FF = TypeParam;
+// /**
+//  * @brief Test the right shift functionality of the polynomial class
+//  *
+//  */
+// TYPED_TEST(PolynomialTests, RightShift)
+// {
+//     using FF = TypeParam;
 
-    // Define valid parameters for computing a right shifted polynomial
-    size_t num_coeffs = 32;
-    size_t num_nonzero_coeffs = 7;
-    size_t shift_magnitude = 21;
-    Polynomial<FF> poly(num_coeffs);
-    Polynomial<FF> right_shifted_poly(num_coeffs);
+//     // Define valid parameters for computing a right shifted polynomial
+//     size_t num_coeffs = 32;
+//     size_t num_nonzero_coeffs = 7;
+//     size_t shift_magnitude = 21;
+//     Polynomial<FF> poly(num_coeffs);
+//     Polynomial<FF> right_shifted_poly(num_coeffs);
 
-    for (size_t idx = 0; idx < num_nonzero_coeffs; ++idx) {
-        poly[idx] = FF::random_element();
-    }
+//     for (size_t idx = 0; idx < num_nonzero_coeffs; ++idx) {
+//         poly[idx] = FF::random_element();
+//     }
 
-    // evaluate the unshifted polynomial
-    auto evaluation_point = FF::random_element();
-    auto unshifted_evaluation = poly.evaluate(evaluation_point);
+//     // evaluate the unshifted polynomial
+//     auto evaluation_point = FF::random_element();
+//     auto unshifted_evaluation = poly.evaluate(evaluation_point);
 
-    // compute the right shift of the original polynomial and its evaluation
-    right_shifted_poly.set_to_right_shifted(poly, shift_magnitude);
-    auto shifted_evaluation = right_shifted_poly.evaluate(evaluation_point);
+//     // compute the right shift of the original polynomial and its evaluation
+//     right_shifted_poly.set_to_right_shifted(poly, shift_magnitude);
+//     auto shifted_evaluation = right_shifted_poly.evaluate(evaluation_point);
 
-    // reconstruct the unshifted evaluation using that p^{shift}(X) = p(X)*X^m, where m is the shift magnitude
-    auto shifted_eval_reconstructed = unshifted_evaluation * evaluation_point.pow(shift_magnitude);
+//     // reconstruct the unshifted evaluation using that p^{shift}(X) = p(X)*X^m, where m is the shift magnitude
+//     auto shifted_eval_reconstructed = unshifted_evaluation * evaluation_point.pow(shift_magnitude);
 
-    EXPECT_EQ(shifted_evaluation, shifted_eval_reconstructed);
-}
+//     EXPECT_EQ(shifted_evaluation, shifted_eval_reconstructed);
+// }

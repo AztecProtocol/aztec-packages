@@ -90,7 +90,7 @@ template <class Flavor> class ProverInstance_ {
                                              circuit,
                                              dyadic_circuit_size);
 
-        std::span<FF> public_wires_source = proving_key.polynomials.w_r;
+        std::span<FF> public_wires_source = proving_key.polynomials.w_r.as_span();
 
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
