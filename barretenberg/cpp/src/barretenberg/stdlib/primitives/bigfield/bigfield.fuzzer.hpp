@@ -389,7 +389,7 @@ template <typename Builder> class BigFieldBase {
         e = bb::fq(value_data);                                                                                        \
     }
 
-            // Pick the last value from the mutation distrivution vector
+            // Pick the last value from the mutation distribution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
             // Choose mutation
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
@@ -594,7 +594,7 @@ template <typename Builder> class BigFieldBase {
         static constexpr size_t ADD = 3;
         static constexpr size_t SUBTRACT = 3;
         static constexpr size_t MULTIPLY = 3;
-        static constexpr size_t ADD_TWO = static_cast<size_t>(-1);
+        static constexpr size_t ADD_TWO = 4;
 #ifndef DISABLE_DIVISION
         static constexpr size_t DIVIDE = 3;
 #else
@@ -629,7 +629,7 @@ template <typename Builder> class BigFieldBase {
         static constexpr size_t SQR = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t ASSERT_NOT_EQUAL = 2;
-        static constexpr size_t ADD_TWO = 0;
+        static constexpr size_t ADD_TWO = 1;
 #ifndef DISABLE_DIVISION
         static constexpr size_t DIVIDE = 16;
 #endif
@@ -702,7 +702,6 @@ template <typename Builder> class BigFieldBase {
                     mult_madd_or_div.arguments.multOpArgs.add_elements_count % MULT_MADD_MAXIMUM_ADDED_ELEMENTS;
 
                 if (mult_madd_or_div.arguments.multOpArgs.add_elements_count < MULT_MADD_MINIMUM_ADDED_ELEMENTS) {
-
                     mult_madd_or_div.arguments.multOpArgs.add_elements_count = MULT_MADD_MINIMUM_ADDED_ELEMENTS;
                 }
                 mult_madd_or_div.arguments.multOpArgs.mult_pairs_count =
@@ -813,6 +812,10 @@ template <typename Builder> class BigFieldBase {
         {
             const bool reconstruct = static_cast<bool>(VarianceRNG.next() % 2);
 
+#ifdef SHOW_INFORMATION
+            std::cout << " reconstruction? " << reconstruct << std::endl;
+#endif
+
             if (!reconstruct) {
                 return this->bigfield;
             }
@@ -838,8 +841,11 @@ template <typename Builder> class BigFieldBase {
             if (b.get_value() > b.get_maximum_value()) {
                 abort();
             }
-            for (auto& limb : b.binary_basis_limbs) {
+            for (size_t i = 0; i < 4; i++) {
+                auto limb = b.binary_basis_limbs[i];
                 if (limb.maximum_value < limb.element.get_value()) {
+                    info("LIMB ", i, " VALUE IS NOT PROPERLY RESTRICTED");
+                    info(limb);
                     abort();
                 }
             }
@@ -922,7 +928,11 @@ template <typename Builder> class BigFieldBase {
                 abort();
             }
         }
-
+        ExecutionHandler add_two(const ExecutionHandler& other1, const ExecutionHandler& other2)
+        {
+            return ExecutionHandler(this->base + other1.base + other2.base,
+                                    this->bf().add_two(other1.bigfield, other2.bigfield));
+        }
         ExecutionHandler madd(const ExecutionHandler& other1, const ExecutionHandler& other2)
         {
 
@@ -1047,21 +1057,26 @@ template <typename Builder> class BigFieldBase {
                 abort();
             }
 
-            switch (VarianceRNG.next() % 6) {
+            uint32_t switch_case = VarianceRNG.next() % 5;
+
+#ifdef SHOW_INFORMATION
+            std::cout << " using " << switch_case << " constructor" << std::endl;
+#endif
+            switch (switch_case) {
             case 0:
                 /* Construct via bigfield_t */
                 return ExecutionHandler(this->base, bigfield_t(this->bigfield));
             case 1:
                 /* Construct via uint256_t */
                 return ExecutionHandler(this->base, bigfield_t(builder, bf_u256()));
-            case 2:
-                /* Construct via byte_array */
-                /*
-                 * Bug: https://github.com/AztecProtocol/aztec2-internal/issues/1496
-                 *
-                 * Remove of change this invocation if that issue is a false positive */
-                return ExecutionHandler(this->base, bigfield_t(this->bigfield.to_byte_array()));
-            case 3: {
+            // case 2: // TODO(alex): Uncomment once fixed
+            //     /* Construct via byte_array */
+            //     /*
+            //      * Bug: https://github.com/AztecProtocol/aztec2-internal/issues/1496
+            //      *
+            //      * Remove of change this invocation if that issue is a false positive */
+            //     return ExecutionHandler(this->base, bigfield_t(this->bigfield.to_byte_array()));
+            case 2: {
                 const uint256_t u256 = bf_u256();
                 const uint256_t u256_lo = u256.slice(0, bigfield_t::NUM_LIMB_BITS * 2);
                 const uint256_t u256_hi = u256.slice(bigfield_t::NUM_LIMB_BITS * 2, bigfield_t::NUM_LIMB_BITS * 4);
@@ -1071,7 +1086,7 @@ template <typename Builder> class BigFieldBase {
                 /* Construct via two field_t's */
                 return ExecutionHandler(this->base, bigfield_t(field_lo, field_hi));
             }
-            case 4: {
+            case 3: {
                 /* Invoke assignment operator */
 
                 bigfield_t bf_new(builder);
@@ -1079,7 +1094,7 @@ template <typename Builder> class BigFieldBase {
 
                 return ExecutionHandler(this->base, bigfield_t(bf_new));
             }
-            case 5: {
+            case 4: {
                 /* Invoke move constructor */
                 auto bf_copy = bf();
 
@@ -1407,6 +1422,42 @@ template <typename Builder> class BigFieldBase {
             return 0;
         };
         /**
+         * @brief Execute the ADD_TWO instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+        size_t
+         */
+        static inline size_t execute_ADD_TWO(Builder* builder,
+                                             std::vector<ExecutionHandler>& stack,
+                                             Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.fourArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
+            size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
+            size_t output_index = instruction.arguments.fourArgs.out;
+            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "ADD_TWO:", "+", "+")
+
+            ExecutionHandler result;
+            result = stack[first_index].add_two(stack[second_index], stack[third_index]);
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                PRINT_RESULT("", "pushed to ", stack.size(), result)
+                stack.push_back(result);
+            } else {
+                PRINT_RESULT("", "saved to ", output_index, result)
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+
+        /**
          * @brief Execute the MADD instruction
          *
          * @param builder
@@ -1678,6 +1729,9 @@ template <typename Builder> class BigFieldBase {
             size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out % stack.size();
             bool predicate = instruction.arguments.threeArgs.in2 % 2;
+
+            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Negating", "is negated " + std::to_string(predicate))
+
             ExecutionHandler result;
             result = stack[first_index].conditional_negate(builder, predicate);
             // If the output index is larger than the number of elements in stack, append
@@ -1714,6 +1768,10 @@ template <typename Builder> class BigFieldBase {
             bool predicate = instruction.arguments.fourArgs.in3 % 2;
 
             ExecutionHandler result;
+
+            PRINT_TWO_ARG_INSTRUCTION(
+                first_index, second_index, stack, "Selecting #" + std::to_string(predicate) + " from", ", ")
+
             result = stack[first_index].conditional_select(builder, stack[second_index], predicate);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
@@ -1745,11 +1803,16 @@ template <typename Builder> class BigFieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
             ExecutionHandler result;
+
+            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Setting value", "")
+
             result = stack[first_index].set(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
+                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
+                PRINT_RESULT("", "saved to ", stack.size(), result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1810,24 +1873,23 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
     (void)argv;
     // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected
     // coverage in 40 seconds)
-    fuzzer_havoc_settings = HavocSettings{
-        .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
-        .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
-        .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
-        .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
-        .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
-        .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
-        .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
-        .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // 2 because of limit
-        .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // -Fully checked
-        .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
-        .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
-        .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
-        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
-        .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
-        .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130    // Fully checked
-
-    };
+    fuzzer_havoc_settings = HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
+                                           .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
+                                           .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
+                                           .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
+                                           .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
+                                           .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
+                                           .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
+                                           .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // 2 because of limit
+                                           .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // -Fully checked
+                                           .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
+                                           .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
+                                           .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
+                                           .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
+                                           .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
+                                           .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130,   // Fully checked
+                                           .structural_mutation_distribution = {},
+                                           .value_mutation_distribution = {} };
     /**
      * @brief This is used, when we need to determine the probabilities of various mutations. Left here for
      * posterity

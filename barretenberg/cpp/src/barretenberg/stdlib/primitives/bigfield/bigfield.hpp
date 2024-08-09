@@ -211,6 +211,7 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
     bigfield operator+(const bigfield& other) const;
+    bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
 
@@ -409,7 +410,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Check that the maximum value of a bigfield product with added values overflows ctf modulus.
+     * Check that the maximum value of a bigfield product with added values overflows crt modulus.
      *
      * @param a_max multiplicand maximum value
      * @param b_max multiplier maximum value
@@ -435,7 +436,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Check that the maximum value of a sum of bigfield productc with added values overflows ctf modulus.
+     * Check that the maximum value of a sum of bigfield products with added values overflows crt modulus.
      *
      * @param as_max Vector of multiplicands' maximum values
      * @param b_max Vector of multipliers' maximum values
@@ -544,7 +545,8 @@ template <typename Builder, typename T> class bigfield {
                                  const bigfield& quotient,
                                  const bigfield& remainder);
     void reduction_check(const size_t num_products = 1) const;
-
+    void propagation_check();
+    void propagate_limbs();
 }; // namespace stdlib
 
 template <typename C, typename T> inline std::ostream& operator<<(std::ostream& os, bigfield<T, C> const& v)

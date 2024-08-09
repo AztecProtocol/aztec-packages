@@ -44,8 +44,7 @@ struct HavocSettings {
     size_t VAL_MUT_NON_MONTGOMERY_PROBABILITY; // The probability of not converting to montgomery form before applying
                                                // value mutations
     size_t VAL_MUT_SMALL_ADDITION_PROBABILITY; // The probability of performing small additions
-    size_t VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY; // The probability of performing small multiplications
-    size_t VAL_MUT_SPECIAL_VALUE_PROBABILITY; // The probability of assigning special values (0,1, p-1, p-2, p-1/2)
+    size_t VAL_MUT_SPECIAL_VALUE_PROBABILITY;  // The probability of assigning special values (0,1, p-1, p-2, p-1/2)
     std::vector<size_t> structural_mutation_distribution; // Holds the values to quickly select a structural mutation
                                                           // based on chosen probabilities
     std::vector<size_t> value_mutation_distribution; // Holds the values to quickly select a value mutation based on
@@ -157,7 +156,7 @@ concept ArithmeticFuzzHelperConstraint = requires {
 template <typename T>
 concept CheckableComposer = requires(T a) {
     {
-        CircuitChecker::check(a)
+        bb::CircuitChecker::check(a)
     } -> std::same_as<bool>;
 };
 
@@ -220,7 +219,7 @@ inline static FF mutateFieldElement(FF e, T& rng)
         e = FF(value_data);                                                                                            \
     }
 
-    // Pick the last value from the mutation distrivution vector
+    // Pick the last value from the mutation distribution vector
     // Choose mutation
     const size_t choice = rng.next() % 4;
     // 50% probability to use standard mutation
