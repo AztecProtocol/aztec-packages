@@ -111,26 +111,28 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOpt
         }
     }
 
-    // This function initializes a NoteGetterOptions with a filter, which takes the notes returned from the database and filter_args as its parameters.
-    // `filter_args` allows you to provide additional data or context to the custom filter.
+    // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
+    // the database and preprocessor_args as its parameters.
+    // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
     pub fn with_preprocessor(
-        preprocessor: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-        preprocessor_args: PREPROCESSOR_ARGS,
+        preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        preprocessor_args: PREPROCESSOR_ARGS
     ) -> NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, Field> where Note: NoteInterface<N, M> {
         NoteGetterOptions {
             selects: BoundedVec::new(),
             sorts: BoundedVec::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
-            preprocessor: return_all_notes,
-            preprocessor_args: 0,
-            filter,
-            filter_args,
+            preprocessor,
+            preprocessor_args,
+            filter: return_all_notes,
+            filter_args: 0,
             status: NoteStatus.ACTIVE
         }
     }
 
-    // This function initializes a NoteGetterOptions with a filter, which takes the notes returned from the database and filter_args as its parameters.
+    // This function initializes a NoteGetterOptions with a filter, which takes
+    // the notes returned from the database and filter_args as its parameters.
     // `filter_args` allows you to provide additional data or context to the custom filter.
     pub fn with_filter(
         filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
