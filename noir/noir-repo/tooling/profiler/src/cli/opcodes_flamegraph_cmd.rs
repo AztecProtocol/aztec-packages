@@ -126,7 +126,7 @@ fn locate_brillig_call<F>(
     for (acir_fn_index, acir_fn) in acir_functions.iter().enumerate() {
         for (acir_opcode_index, acir_opcode) in acir_fn.opcodes.iter().enumerate() {
             match acir_opcode {
-                Opcode::BrilligCall { id, .. } if (*id) as usize == brillig_fn_index => {
+                Opcode::BrilligCall { id, .. } if id.as_usize() == brillig_fn_index => {
                     return Some((acir_fn_index, acir_opcode_index))
                 }
                 _ => {}

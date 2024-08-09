@@ -72,7 +72,7 @@ lalrpop_mod!(pub noir_parser);
 mod test_helpers;
 
 use literals::literal;
-use path::{maybe_empty_path, path, path_no_turbofish};
+use path::{maybe_empty_path, path};
 use primitives::{dereference, ident, negation, not, nothing, right_shift_operator, token_kind};
 use traits::where_clause;
 

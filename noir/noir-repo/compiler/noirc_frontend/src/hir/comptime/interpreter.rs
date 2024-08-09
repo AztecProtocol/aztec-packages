@@ -325,42 +325,6 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         }
     }
 
-    fn unbind_generics_from_previous_function(&mut self) {
-        if let Some(bindings) = self.bound_generics.last() {
-            for var in bindings.keys() {
-                var.unbind(var.id());
-            }
-        }
-        // Push a new bindings list for the current function
-        self.bound_generics.push(HashMap::default());
-    }
-
-    fn rebind_generics_from_previous_function(&mut self) {
-        // Remove the currently bound generics first.
-        self.bound_generics.pop();
-
-        if let Some(bindings) = self.bound_generics.last() {
-            for (var, binding) in bindings {
-                var.force_bind(binding.clone());
-            }
-        }
-    }
-
-    fn remember_bindings(&mut self, main_bindings: &TypeBindings, impl_bindings: &TypeBindings) {
-        let bound_generics = self
-            .bound_generics
-            .last_mut()
-            .expect("remember_bindings called with no bound_generics on the stack");
-
-        for (var, binding) in main_bindings.values() {
-            bound_generics.insert(var.clone(), binding.follow_bindings());
-        }
-
-        for (var, binding) in impl_bindings.values() {
-            bound_generics.insert(var.clone(), binding.follow_bindings());
-        }
-    }
-
     pub(super) fn define_pattern(
         &mut self,
         pattern: &HirPattern,
