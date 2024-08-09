@@ -19,7 +19,7 @@ services:
       ETHEREUM_HOST: http://ethereum:8545
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
-      DEPLOY_AZTEC_CONTRACTS: true
+      DEPLOY_AZTEC_CONTRACTS: 1
       ARCHIVER_POLLING_INTERVAL: 10000
       SEQ_MAX_TX_PER_BLOCK: 4
       SEQ_MIN_TX_PER_BLOCK: 1
@@ -56,7 +56,7 @@ services:
       AZTEC_NODE_URL: http://aztec-node
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
-      PXE_PROVER_ENABLED: false
+      PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
       BOT_PRIVATE_KEY: 0xcafe
       BOT_TX_INTERVAL_SECONDS: 10
       BOT_PRIVATE_TRANSFERS_PER_TX: 1
@@ -89,7 +89,8 @@ services:
       AZTEC_PORT: 80
       PROVER_AGENT_ENABLED: false
       PROVER_PUBLISHER_PRIVATE_KEY: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
-      PROVER_REAL_PROOFS: false
+      PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
+      PROVER_AGENT_CONCURRENCY: 2
       IS_DEV_NET: true
     volumes:
       - ./log/aztec-prover/:/usr/src/yarn-project/aztec/log:rw
@@ -114,8 +115,8 @@ services:
       AZTEC_NODE_URL: http://aztec-prover
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
-      PROVER_REAL_PROOFS: false
-      PROVER_TEST_DELAY_MS: 200
+      PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
+      PROVER_TEST_DELAY_MS: "${PROVER_TEST_DELAY_MS:-0}"
       IS_DEV_NET: true
     volumes:
       - ./log/aztec-prover-agent/:/usr/src/yarn-project/aztec/log:rw
