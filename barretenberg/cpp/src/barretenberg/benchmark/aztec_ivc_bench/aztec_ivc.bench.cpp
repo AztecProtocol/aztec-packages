@@ -135,6 +135,7 @@ BENCHMARK_DEFINE_F(AztecIVCBench, FullStructured)(benchmark::State& state)
 
     Proof proof;
     for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
         proof = ivc.prove();
     }
