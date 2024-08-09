@@ -31,6 +31,7 @@ class ECCVMFlavor {
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
+    using SparsePolynomial = bb::SparsePolynomial<FF>;
     using GroupElement = typename G1::element;
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;

@@ -7,7 +7,6 @@
 #include <fstream>
 
 namespace bb {
-enum class DontZeroMemory { FLAG };
 
 /**
  * @brief Polynomial class that represents the coefficients 'a' of a_0 + a_1 x + a_n x^n of
@@ -33,6 +32,7 @@ template <typename Fr> class Polynomial {
     using iterator = Fr*;
     using const_iterator = Fr const*;
     using FF = Fr;
+    enum class DontZeroMemory { FLAG };
 
     Polynomial(size_t initial_size);
     // Constructor that does not initialize values, use with caution to save time.

@@ -32,6 +32,7 @@ class TranslatorFlavor {
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
+    using SparsePolynomial = bb::SparsePolynomial<FF>;
     using RelationSeparator = FF;
 
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
