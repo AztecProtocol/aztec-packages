@@ -29,6 +29,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
         std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
+        std::fill(polys.q_poseidon2_external.begin(), polys.q_poseidon2_external.end(), 0);
+        std::fill(polys.q_poseidon2_internal.begin(), polys.q_poseidon2_internal.end(), 0);
         std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
         std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
     };
@@ -55,18 +57,18 @@ TEST(Protogalaxy, CombinerOn2Instances)
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
             auto result = prover.compute_combiner</*OptimisationEnabled=*/false>(instances, pow_polynomial);
             // The expected_result values are computed by running the python script combiner_example_gen.py
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 8600UL,
-                                                                          12679448UL,
-                                                                          73617560UL,
-                                                                          220571672UL,
-                                                                          491290520UL,
-                                                                          923522840UL,
-                                                                          1555017368UL,
-                                                                          2423522840UL,
-                                                                          3566787992UL,
-                                                                          5022561560UL,
-                                                                          6828592280UL,
-                                                                          9022628888UL });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 9704UL,
+                                                                          13245288UL,
+                                                                          75534568UL,
+                                                                          224626280UL,
+                                                                          498269160UL,
+                                                                          934211944UL,
+                                                                          1570203368UL,
+                                                                          2443992168UL,
+                                                                          3593327080UL,
+                                                                          5055956840UL,
+                                                                          6869630184UL,
+                                                                          9072095848UL });
             EXPECT_EQ(result, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);

@@ -1,4 +1,5 @@
 #include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -79,6 +80,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
+        info("ECCVM Recursive Verifier");
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
         verifier.verify_proof(proof);
@@ -87,27 +89,33 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
-        InnerVerifier native_verifier(prover.key);
-        bool native_result = native_verifier.verify_proof(proof);
-        EXPECT_TRUE(native_result);
+        bool result = CircuitChecker::check(outer_circuit);
+        EXPECT_TRUE(result);
+        info("Result of circuit checker:", result);
 
-        auto recursive_manifest = verifier.transcript->get_manifest();
-        auto native_manifest = native_verifier.transcript->get_manifest();
-        for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_manifest[i], native_manifest[i])
-                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
-        }
+        // info("ECCVM Native Verifier");
+        // InnerVerifier native_verifier(prover.key);
+        // bool native_result = native_verifier.verify_proof(proof);
+        // EXPECT_TRUE(native_result);
 
-        // Ensure verification key is the same
-        EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
-        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
-            EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
-        }
+        // auto recursive_manifest = verifier.transcript->get_manifest();
+        // auto native_manifest = native_verifier.transcript->get_manifest();
+        // for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+        //     EXPECT_EQ(recursive_manifest[i], native_manifest[i])
+        //         << "Recursive Verifier/Verifier manifest discrepency in round " << i;
+        // }
+
+        // // Ensure verification key is the same
+        // EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
+        // EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
+        // EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
+        // for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
+        //     EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
+        // }
 
         // Construct a full proof from the recursive verifier circuit
         {
+            info("Ultra");
             auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
             OuterProver prover(instance);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);

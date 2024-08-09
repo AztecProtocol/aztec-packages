@@ -613,6 +613,8 @@ void prove_tube(const std::string& output_path)
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
+    // Print the number of gates post finalisation for a precise result
+    info("num gates in tube circuit: ", builder->get_num_gates());
     auto tube_proof = tube_prover.construct_proof();
     std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
