@@ -14,7 +14,7 @@ import { type LogFn } from '@aztec/foundation/log';
 
 import { Option } from 'commander';
 
-import { WalletDB } from '../../storage/wallet_db.js';
+import { type WalletDB } from '../../storage/wallet_db.js';
 import { aliasedAddressParser } from './index.js';
 
 export type CliFeeArgs = {

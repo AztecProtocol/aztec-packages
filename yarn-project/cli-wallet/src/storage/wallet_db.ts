@@ -1,8 +1,6 @@
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { LogFn } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-
-import { log } from 'console';
 
 import { type AccountType } from '../utils/accounts.js';
 
@@ -125,8 +123,8 @@ export class WalletDB {
     return { address, secretKey, salt, type };
   }
 
-  storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
-    this.#aliases.set(`${type}:${key}`, value);
+  async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
+    await this.#aliases.set(`${type}:${key}`, value);
     log(`Alias stored in database  ${type}:${key}`);
   }
 }

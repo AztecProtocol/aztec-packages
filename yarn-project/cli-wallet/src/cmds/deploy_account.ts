@@ -1,4 +1,4 @@
-import { AccountManager, type DeployAccountOptions } from '@aztec/aztec.js';
+import { type AccountManager, type DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
