@@ -65,7 +65,6 @@ pub fn generate_reset_output_hints(
     let mut siloed_nullifiers = kept_nullifiers;
     for i in 0..kept_nullifiers.len() {
         siloed_nullifiers[i].nullifier.value = silo_nullifier(kept_nullifiers[i]);
-        siloed_nullifiers[i].nullifier.note_hash = 0;
         siloed_nullifiers[i].contract_address = AztecAddress::zero();
     }
     let sorted_nullifier_hints = sort_get_order_hints_asc(kept_nullifiers);
