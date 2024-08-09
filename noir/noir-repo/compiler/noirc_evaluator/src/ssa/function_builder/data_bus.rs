@@ -58,7 +58,7 @@ impl DataBusBuilder {
 #[derive(Clone, Debug)]
 pub(crate) struct CallData {
     /// The id to this calldata assigned by the user
-    pub(crate) calldata_id: u32,
+    pub(crate) call_data_id: u32,
     pub(crate) array_id: ValueId,
     pub(crate) index_map: HashMap<ValueId, usize>,
 }
@@ -83,7 +83,7 @@ impl DataBus {
                 CallData {
                     array_id: f(cd.array_id),
                     index_map: call_data_map,
-                    calldata_id: cd.calldata_id,
+                    call_data_id: cd.call_data_id,
                 }
             })
             .collect();
@@ -91,7 +91,7 @@ impl DataBus {
     }
 
     pub(crate) fn call_data_array(&self) -> Vec<(u32, ValueId)> {
-        self.call_data.iter().map(|cd| (cd.calldata_id, cd.array_id)).collect()
+        self.call_data.iter().map(|cd| (cd.call_data_id, cd.array_id)).collect()
     }
     /// Construct a databus from call_data and return_data data bus builders
     pub(crate) fn get_data_bus(
@@ -101,12 +101,9 @@ impl DataBus {
         let mut call_data_args = Vec::new();
         for call_data_item in call_data {
             let array_id = call_data_item.databus.expect("Call data should have an array id");
-            let user_id = call_data_item.call_data_id.expect("Call data should have a user id");
-            call_data_args.push(CallData {
-                array_id,
-                calldata_id: user_id,
-                index_map: call_data_item.map,
-            });
+            let call_data_id =
+                call_data_item.call_data_id.expect("Call data should have a user id");
+            call_data_args.push(CallData { array_id, call_data_id, index_map: call_data_item.map });
         }
 
         DataBus { call_data: call_data_args, return_data: return_data.databus }

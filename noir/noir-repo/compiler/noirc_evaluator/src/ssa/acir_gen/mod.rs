@@ -1722,10 +1722,10 @@ impl<'a> Context<'a> {
         {
             databus = BlockType::ReturnData;
         }
-        for (user_id, array_id) in self.data_bus.call_data_array() {
+        for (call_data_id, array_id) in self.data_bus.call_data_array() {
             if self.block_id(&array_id) == array {
                 assert!(databus == BlockType::Memory);
-                databus = BlockType::CallData(user_id);
+                databus = BlockType::CallData(call_data_id);
                 break;
             }
         }
