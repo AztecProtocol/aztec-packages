@@ -42,6 +42,8 @@ struct BlockRootRollupInputs {
     // - checked on L1 for first block in batch
     // - checked against previous block_root.end_block_hash in a block_merge
     previous_block_hash: Field,
+    // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    prover_id: Field,
 }
 
 impl BlockRootRollupInputs {
@@ -124,7 +126,8 @@ impl BlockRootRollupInputs {
             end_global_variables: left.constants.global_variables, // with a current block range of 1, we only have 1 set of constants
             out_hash: content_commitment.out_hash,
             fees: fee_arr,
-            vk_tree_root: left.constants.vk_tree_root
+            vk_tree_root: left.constants.vk_tree_root,
+            prover_id: self.prover_id
         }
     }
 }
@@ -140,6 +143,7 @@ impl Empty for BlockRootRollupInputs {
             start_archive_snapshot: AppendOnlyTreeSnapshot::zero(),
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
+            prover_id: 0,
         }
     }
 }

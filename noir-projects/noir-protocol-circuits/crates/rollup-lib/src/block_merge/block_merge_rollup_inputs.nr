@@ -62,7 +62,8 @@ impl BlockMergeRollupInputs {
             end_global_variables: right.end_global_variables,
             out_hash,
             fees,
-            vk_tree_root: left.vk_tree_root
+            vk_tree_root: left.vk_tree_root,
+            prover_id: left.prover_id // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
         }
     }
 }

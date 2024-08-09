@@ -176,19 +176,20 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
-    const { header, archive, proverId, aggregationObject, proof } = submitProofArgs;
+    const { header, archive, proverId, blockHash, aggregationObject, proof } = submitProofArgs;
     const args = [
       `0x${header.toString('hex')}`,
       `0x${archive.toString('hex')}`,
       `0x${proverId.toString('hex')}`,
+      `0x${blockHash.toString('hex')}`,
       `0x${aggregationObject.toString('hex')}`,
       `0x${proof.toString('hex')}`,
     ] as const;
 
-    const gas = await this.rollupContract.estimateGas.submitProof(args, {
+    const gas = await this.rollupContract.estimateGas.submitBlockRootProof(args, {
       account: this.account,
     });
-    const hash = await this.rollupContract.write.submitProof(args, {
+    const hash = await this.rollupContract.write.submitBlockRootProof(args, {
       gas,
       account: this.account,
     });

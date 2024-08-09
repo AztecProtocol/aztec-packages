@@ -252,6 +252,7 @@ export async function getBlockRootRollupInput(
   messageTreeSnapshot: AppendOnlyTreeSnapshot,
   messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   db: MerkleTreeOperations,
+  proverId: Fr,
 ) {
   const previousRollupData: BlockRootRollupInputs['previousRollupData'] = [
     getPreviousRollupDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
@@ -284,6 +285,7 @@ export async function getBlockRootRollupInput(
     newArchiveSiblingPath,
     // TODO(#7346): Inject previous block hash (required when integrating batch rollup circuits)
     previousBlockHash: Fr.ZERO,
+    proverId,
   });
 }
 

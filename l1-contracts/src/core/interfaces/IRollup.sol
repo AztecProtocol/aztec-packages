@@ -9,13 +9,29 @@ interface IRollup {
 
   function process(bytes calldata _header, bytes32 _archive) external;
 
-  function submitProof(
+  function submitBlockRootProof(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _proverId,
+    // bytes32 _previousBlockHash,
+    bytes32 _currentBlockHash,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
+
+  // TODO(#7346): Integrate batch rollups
+  // function submitRootProof(
+  //   bytes32 _previousArchive,
+  //   bytes32 _archive,
+  //   bytes32 _previousBlockHash,
+  //   bytes32 _currentBlockHash,
+  //   bytes32 outHash,
+  //   address[32] calldata coinbases,
+  //   uint256[32] calldata fees,
+  //   bytes32 _proverId,
+  //   bytes calldata _aggregationObject,
+  //   bytes calldata _proof
+  // ) external;
 
   function setVerifier(address _verifier) external;
 }

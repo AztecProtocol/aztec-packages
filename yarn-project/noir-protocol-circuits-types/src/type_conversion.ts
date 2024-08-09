@@ -1963,6 +1963,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     out_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.outHash),
     fees: mapTuple(blockRootOrBlockMergePublicInputs.fees, mapFeeRecipientToNoir),
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
+    prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
   };
 }
 
@@ -2030,6 +2031,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
     mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, 32, mapFeeRecipientFromNoir),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
   );
 }
 
@@ -2128,6 +2130,7 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
+    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }
 

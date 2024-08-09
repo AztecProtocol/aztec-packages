@@ -115,6 +115,8 @@ export type L1SubmitProofArgs = {
   archive: Buffer;
   /** Identifier of the prover. */
   proverId: Buffer;
+  /** Identifier of the current block. */
+  blockHash: Buffer;
   /** The proof for the block. */
   proof: Buffer;
   /** The aggregation object for the block's proof. */
@@ -252,6 +254,7 @@ export class L1Publisher implements L2BlockReceiver {
     const txArgs: L1SubmitProofArgs = {
       header: header.toBuffer(),
       archive: archiveRoot.toBuffer(),
+      blockHash: header.hash().toBuffer(),
       proverId: proverId.toBuffer(),
       aggregationObject: serializeToBuffer(aggregationObject),
       proof: proof.withoutPublicInputs(),

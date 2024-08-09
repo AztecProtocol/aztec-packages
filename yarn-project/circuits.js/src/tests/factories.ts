@@ -905,6 +905,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     fr(seed + 0x600),
     makeTuple(32, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
+    fr(seed + 0x900),
   );
 }
 
@@ -971,8 +972,9 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
-    fr(seed + 0x2300),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    fr(seed + 0x2400),
+    fr(seed + 0x2500),
   );
 }
 

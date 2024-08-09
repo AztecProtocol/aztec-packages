@@ -54,6 +54,7 @@ struct BlockRootOrBlockMergePublicInputs {
   out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
   fees: [FeeRecipient; 32], // Concatenation of all coinbase and fees for the block range
   vk_tree_root: Field, // Root of allowed vk tree
+  prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
 }
 
 impl Empty for BlockRootOrBlockMergePublicInputs {
@@ -68,6 +69,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             out_hash: 0,
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: 0,
+            prover_id: 0,
         }
     }
 }
@@ -82,7 +84,8 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
     (self.end_global_variables.eq(other.end_global_variables)) &
     (self.out_hash == other.out_hash) &
     (self.fees.eq(other.fees)) &
-    (self.vk_tree_root == other.vk_tree_root) 
+    (self.vk_tree_root == other.vk_tree_root) &
+    (self.prover_id == other.prover_id)
   }
 }
 
@@ -101,6 +104,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
       fields.extend_from_array(self.fees[i].serialize());
     }
     fields.push(self.vk_tree_root as Field);
+    fields.push(self.prover_id as Field);
     assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
     fields.storage
@@ -120,6 +124,7 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
         out_hash: reader.read(),
         fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
         vk_tree_root: reader.read(),
+        prover_id: reader.read(),
     };
 
     reader.finish();

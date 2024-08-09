@@ -50,6 +50,10 @@ export class BlockRootRollupInputs {
      * TODO(#7346): Integrate batch rollup circuits and inject below
      */
     public previousBlockHash: Fr,
+    /**
+     * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+     */
+    public proverId: Fr,
   ) {}
 
   /**
@@ -92,6 +96,7 @@ export class BlockRootRollupInputs {
       fields.startArchiveSnapshot,
       fields.newArchiveSiblingPath,
       fields.previousBlockHash,
+      fields.proverId,
     ] as const;
   }
 
@@ -110,6 +115,7 @@ export class BlockRootRollupInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
   }

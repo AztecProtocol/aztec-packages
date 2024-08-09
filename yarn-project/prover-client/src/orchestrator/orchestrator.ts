@@ -798,6 +798,7 @@ export class ProvingOrchestrator {
       provingState.messageTreeSnapshot,
       provingState.messageTreeRootSiblingPath,
       this.db,
+      this.proverId,
     );
 
     this.deferredProving(
