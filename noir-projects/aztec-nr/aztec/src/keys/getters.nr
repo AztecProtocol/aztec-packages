@@ -28,20 +28,20 @@ trait KeyGetters {
 }
 
 impl KeyGetters for Header {
-    fn get_npk_m(self, context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_public_keys_at_historical_header(context, address, self).npk_m
+    fn get_npk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
+        get_historical_public_keys(address, self).npk_m
     }
 
-    fn get_ivpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_public_keys_at_historical_header(context, address, self).ivpk_m
+    fn get_ivpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
+        get_historical_public_keys(address, self).ivpk_m
     }
 
-    fn get_ovpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_public_keys_at_historical_header(context, address, self).ovpk_m
+    fn get_ovpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
+        get_historical_public_keys(address, self).ovpk_m
     }
 
-    fn get_tpk_m(self, context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_public_keys_at_historical_header(context, address, self).tpk_m
+    fn get_tpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
+        get_historical_public_keys(address, self).tpk_m
     }
 
     fn get_npk_m_hash(self, context: &mut PrivateContext, address: AztecAddress) -> Field {
@@ -66,18 +66,6 @@ global KEY_REGISTRY_STORAGE_SLOT = 1;
 // keys at once since the constraints for reading them all are actually fewer than if we read them one at a time - any
 // read keys that are not required by the caller can simply be discarded.
 pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddress) -> PublicKeys {
-    let current_header = context.get_header();
-    get_public_keys_at_historical_header(context, account, current_header)
-}
-
-pub fn get_public_keys_at_historical_header(
-    context: &mut PrivateContext,
-    account: AztecAddress,
-    historical_header: Header
-) -> PublicKeys {
-    // TODO: improve this so that we always hint the correct set of keys (either registry or canonical) and hash them
-    // once instead of having two different hints and twice as many constraints due to the double hashing.
-
     // We're going to perform historical reads from public storage, and so need to constrain the caller so that they
     // cannot use very old blocks when constructing proofs, and hence e.g. read very old keys. We are lax and allow
     // _any_ recent block number to be used, regardless of whether there may have been a recent key rotation. This means
@@ -86,14 +74,25 @@ pub fn get_public_keys_at_historical_header(
     // their keys frequently.
     // Note that we constrain the max block number even if the registry ends up being empty: this ensures that proof of
     // an empty registry is also fresh.
-    context.set_tx_max_block_number(historical_header.global_variables.block_number as u32 + KEY_REGISTRY_UPDATE_BLOCKS);
+    let current_header = context.get_header();
+    context.set_tx_max_block_number(current_header.global_variables.block_number as u32 + KEY_REGISTRY_UPDATE_BLOCKS);
+
+    get_historical_public_keys(account, current_header)
+}
+
+pub fn get_historical_public_keys(account: AztecAddress, historical_header: Header) -> PublicKeys {
+    // TODO: improve this so that we always hint the correct set of keys (either registry or canonical) and hash them
+    // once instead of having two different hints and twice as many constraints due to the double hashing.
 
     // The key registry is the primary source of information for keys, as that's where accounts store their new keys
     // when they perform rotation. The key registry conveniently stores a hash of each user's keys, so we can read that
     // single field and then prove that we know its preimage (i.e. the current set of keys).
     let key_registry_hash = key_registry_hash_public_historical_read(historical_header, account);
     if key_registry_hash != 0 {
-        let hinted_registry_public_keys = key_registry_get_stored_keys_hint(account);
+        let hinted_registry_public_keys = key_registry_get_stored_keys_hint(
+            account,
+            historical_header.global_variables.block_number as u32
+        );
         assert_eq(hinted_registry_public_keys.hash().to_field(), key_registry_hash);
 
         hinted_registry_public_keys
@@ -122,12 +121,17 @@ fn key_registry_hash_public_historical_read(historical_header: Header, account: 
     )
 }
 
-unconstrained fn key_registry_get_stored_keys_hint(account: AztecAddress) -> PublicKeys {
+unconstrained fn key_registry_get_stored_keys_hint(account: AztecAddress, block_number: u32) -> PublicKeys {
     // This is equivalent to the key registry contract having an unconstrained getter that we call from an oracle, but
-    // PXE does not yet support that functionality so we do this manually instad.
+    // PXE does not yet support that functionality so we do this manually instad. Note that this would be a *historical*
+    // call!
+
     // TODO (#7524): call the unconstrained KeyRegistry.get_current_keys() function instead
 
-    let context = UnconstrainedContext::at(AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS));
+    let context = UnconstrainedContext::at_historical(
+        AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
+        block_number
+    );
     let keys_storage = Map::new(
         context,
         KEY_REGISTRY_STORAGE_SLOT,
