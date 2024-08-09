@@ -13,8 +13,6 @@ export type ProverClientConfig = ProverConfig & {
   bbWorkingDirectory: string;
   /** The path to the bb binary */
   bbBinaryPath: string;
-  /** True to disable proving altogether. */
-  disableProver: boolean;
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
@@ -33,12 +31,6 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
     description: 'The path to the bb binary',
-  },
-  disableProver: {
-    env: 'PROVER_DISABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
-    description: 'Whether to disable proving.',
   },
   ...proverConfigMappings,
 };
