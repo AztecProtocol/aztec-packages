@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 /** World State synchronizer configuration values. */
 export interface WorldStateConfig {
@@ -27,9 +27,8 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
   },
   worldStateProvenBlocksOnly: {
     env: 'WS_PROVEN_BLOCKS_ONLY',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
     description: 'Whether to follow only the proven chain.',
+    ...booleanConfigHelper(),
   },
 };
 

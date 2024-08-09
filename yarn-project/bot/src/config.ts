@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
+  booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -78,8 +79,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   noStart: {
     env: 'BOT_NO_START',
     description: 'True to not automatically setup or start the bot on initialization.',
-    parseEnv: val => ['1', 'true'].includes(val),
-    default: false,
+    ...booleanConfigHelper(),
   },
   txMinedWaitSeconds: {
     env: 'BOT_TX_MINED_WAIT_SECONDS',
@@ -89,8 +89,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   noWaitForTransfers: {
     env: 'BOT_NO_WAIT_FOR_TRANSFERS',
     description: "Don't wait for transfer transactions.",
-    parseEnv: val => ['1', 'true'].includes(val),
-    default: false,
+    ...booleanConfigHelper(),
   },
 };
 
