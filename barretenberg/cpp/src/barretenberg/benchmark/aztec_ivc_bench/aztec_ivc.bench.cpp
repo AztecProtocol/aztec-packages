@@ -41,6 +41,7 @@ class AztecIVCBench : public benchmark::Fixture {
         auto verifier_inst = std::make_shared<VerifierInstance>(ivc.verification_queue[0].instance_vk);
         bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
 
+        // This is a benchmark, not a test, so just print success or failure to the log
         if (verified) {
             info("IVC successfully verified!");
         } else {
@@ -50,7 +51,7 @@ class AztecIVCBench : public benchmark::Fixture {
     }
 
     /**
-     * @brief Precompute the verification keys for the bench given a number of
+     * @brief Precompute the verification keys for the bench given the number of circuits in the IVC
      *
      * @param ivc
      * @param num_function_circuits
@@ -58,21 +59,21 @@ class AztecIVCBench : public benchmark::Fixture {
      */
     static auto precompute_verification_keys(AztecIVC& ivc, const size_t num_circuits)
     {
+        // Produce the set of mocked circuits to be accumulated
         MockCircuitMaker mock_circuit_maker;
-
         std::vector<Builder> circuits;
         for (size_t circuit_idx = 0; circuit_idx < num_circuits; ++circuit_idx) {
             circuits.emplace_back(mock_circuit_maker.create_next_circuit(ivc));
         }
 
-        // Compute and return th corresponding set of verfication keys
+        // Compute and return the corresponding set of verfication keys
         return ivc.precompute_folding_verification_keys(circuits);
     }
 
     /**
      * @brief Manage the construction of mock app/kernel circuits
      * @details Per the medium complexity benchmark spec, the first app circuit is size 2^19. Subsequent app and kernel
-     * circuits are size 2^17.
+     * circuits are size 2^17. Circuits produced are alternatingly app and kernel.
      */
     class MockCircuitMaker {
         size_t circuit_counter = 0;
@@ -96,10 +97,9 @@ class AztecIVCBench : public benchmark::Fixture {
     };
 
     /**
-     * @brief Perform a specified number of function circuit accumulation rounds
-     * @details
+     * @brief Perform a specified number of circuit accumulation rounds
      *
-     * @param NUM_CIRCUITS Number of function circuits to accumulate
+     * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
      */
     static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, AztecIVC& ivc, auto& precomputed_vks)
     {
