@@ -13,7 +13,10 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
     // Construct wire polynomials, selector polynomials, and copy cycles from raw circuit data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
 
-    add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
+    if constexpr (IsHonkFlavor<Flavor>) {
+        proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
+    }
+    // add_wires_and_selectors_to_proving_key(trace_data, builder, proving_key);
 
     if constexpr (IsUltraPlonkOrHonk<Flavor>) {
         add_memory_records_to_proving_key(trace_data, builder, proving_key);

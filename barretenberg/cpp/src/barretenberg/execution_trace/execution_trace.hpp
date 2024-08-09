@@ -42,20 +42,23 @@ template <class Flavor> class ExecutionTrace_ {
                         selector = other_selector.share();
                     }
                 }
+                proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
             } else {
                 {
                     ZoneScopedN("wires initialization");
                     // Initializate the wire and selector polynomials
                     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-                        wires[idx] =
-                            proving_key.polynomial_store.get("w_" + std::to_string(idx + 1) + "_lagrange").share();
+                        std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
+                        proving_key.polynomial_store.put(wire_tag, Polynomial(proving_key.circuit_size));
+                        wires[idx] = proving_key.polynomial_store.get(wire_tag).share();
                     }
                 }
                 {
                     ZoneScopedN("selector initialization");
                     for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
-                        selectors[idx] =
-                            proving_key.polynomial_store.get(Builder::Arithmetization::selector_names[idx]).share();
+                        std::string selector_tag = builder.selector_names[idx] + "_lagrange";
+                        proving_key.polynomial_store.put(selector_tag, Polynomial(proving_key.circuit_size));
+                        selectors[idx] = proving_key.polynomial_store.get(selector_tag).share();
                     }
                 }
             }
