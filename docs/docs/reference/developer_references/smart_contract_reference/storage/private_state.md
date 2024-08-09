@@ -275,7 +275,7 @@ Developers have the option to provide a custom preprocessor.
 This allows specific logic to be applied to notes that meet the criteria outlined above.
 The preprocessor takes the notes returned from the oracle and `preprocessor_args` as its parameters.
 
-An important distinction from the filter function below is that preprocessor is applied first and unlike filter it is applied in an unconstrained context.
+An important distinction from the filter function described below is that preprocessor is applied first and unlike filter it is applied in an unconstrained context.
 
 ### `preprocessor_args: PREPROCESSOR_ARGS`
 
@@ -283,7 +283,7 @@ An important distinction from the filter function below is that preprocessor is 
 
 ### `filter: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]`
 
-Just like preprocessor just applied in a constrained context (correct execution is proven) and applied after the filter is applied.
+Just like preprocessor just applied in a constrained context (correct execution is proven) and applied after the preprocessor.
 
 ### `filter_args: FILTER_ARGS`
 
