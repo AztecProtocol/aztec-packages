@@ -19,19 +19,19 @@ echo
 echo "Create a bootstrapping account just to force block creation"
 echo
 aztec-wallet create-account -a bootstrap
-aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:main accounts:main -w bootstrap -a counter
-aztec-wallet send increment -ca counter --args accounts:main accounts:main -w bootstrap
-aztec-wallet send increment -ca counter --args accounts:main accounts:main -w bootstrap
+aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:main accounts:main -f bootstrap -a counter
+aztec-wallet send increment -ca counter --args accounts:main accounts:main -f bootstrap
+aztec-wallet send increment -ca counter --args accounts:main accounts:main -f bootstrap
 
 echo
 echo "Deploy main account claiming the fee juice, use it later"
 echo
-aztec-wallet deploy-account -w main --payment method=native,claim
+aztec-wallet deploy-account -f main --payment method=native,claim
 # These should use --payment method=native
-aztec-wallet send increment -ca counter --args accounts:main accounts:main -w main 
-aztec-wallet send increment -ca counter --args accounts:main accounts:main -w main
+aztec-wallet send increment -ca counter --args accounts:main accounts:main -f main 
+aztec-wallet send increment -ca counter --args accounts:main accounts:main -f main
 
-RESULT=$(aztec-wallet simulate get_counter -ca counter --args accounts:main -w main | grep "Simulation result:" | awk '{print $3}')
+RESULT=$(aztec-wallet simulate get_counter -ca counter --args accounts:main -f main | grep "Simulation result:" | awk '{print $3}')
 
 if [ $RESULT = "4n" ]; then
     echo
