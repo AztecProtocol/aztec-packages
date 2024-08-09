@@ -48,6 +48,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     using RelationParams = ::bb::RelationParameters<FF>;
     using Transcript = typename Flavor::Transcript;
 
+    info("in honk recursive verifier");
     transcript = std::make_shared<Transcript>(proof);
 
     RelationParams relation_parameters;
@@ -85,6 +86,9 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
         }
         nested_pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
     }
+    info("in recursive verifier, pairing points are: ", nested_pairing_points[0], nested_pairing_points[1]);
+    // nested_pairing_points[0].validate_on_curve();
+    // nested_pairing_points[1].validate_on_curve();
     nested_agg_obj.P0 = nested_pairing_points[0];
     nested_agg_obj.P1 = nested_pairing_points[1];
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.

@@ -158,14 +158,10 @@ template <typename Builder> AggregationObjectIndices init_default_agg_obj_indice
                                                 x.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
                                                 x.slice(NUM_LIMB_BITS * 3, TOTAL_BITS) };
         for (size_t i = 0; i < NUM_LIMBS; ++i) {
-            info("val_limbs[", i, "] = ", val_limbs[i]);
             uint32_t idx = builder.add_variable(val_limbs[i]);
             agg_obj_indices[agg_obj_indices_idx] = idx;
             agg_obj_indices_idx++;
         }
-    }
-    for (size_t i = 0; i < agg_obj_indices_idx; ++i) {
-        info(builder.get_variable(agg_obj_indices[i]));
     }
     return agg_obj_indices;
 }

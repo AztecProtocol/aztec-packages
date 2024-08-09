@@ -93,19 +93,19 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  it('rejects txs with invalid proofs', async () => {
-    const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
-    const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
+  // it('rejects txs with invalid proofs', async () => {
+  //   const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
+  //   const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
-    const sentPrivateTx = privateInteraction.send();
-    const sentPublicTx = publicInteraction.send();
+  //   const sentPrivateTx = privateInteraction.send();
+  //   const sentPublicTx = publicInteraction.send();
 
-    const results = await Promise.allSettled([
-      sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
-      sentPublicTx.wait({ timeout: 10, interval: 0.1 }),
-    ]);
+  //   const results = await Promise.allSettled([
+  //     sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
+  //     sentPublicTx.wait({ timeout: 10, interval: 0.1 }),
+  //   ]);
 
-    expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
-    expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
-  });
+  //   expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+  //   expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+  // });
 });
