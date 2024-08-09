@@ -1,7 +1,7 @@
 import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
-import { type AztecAddress, type Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
 import { type WalletDB } from '../storage/wallet_db.js';
@@ -13,13 +13,15 @@ export type AccountType = (typeof AccountTypes)[number];
 export async function createOrRetrieveAccount(
   pxe: PXE,
   address?: AztecAddress,
+  db?: WalletDB,
   type: AccountType = 'schnorr',
   secretKey?: Fr,
   salt?: Fr,
   publicKey?: string | undefined,
-  db?: WalletDB,
 ) {
   let account;
+
+  salt ??= Fr.ZERO;
 
   if (db && address) {
     ({ type, secretKey, salt } = db.retrieveAccount(address));

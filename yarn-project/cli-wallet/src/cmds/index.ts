@@ -122,18 +122,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
   addOptions(deployAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('../cmds/deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, account: parsedAccountAddress, json } = options;
+    const { rpcUrl, wait, with: parsedWithAddress, json } = options;
 
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const account = await createOrRetrieveAccount(
-      client,
-      parsedAccountAddress,
-      undefined,
-      undefined,
-      Fr.ZERO,
-      undefined,
-      db,
-    );
+    const account = await createOrRetrieveAccount(client, parsedWithAddress, db);
 
     await deployAccount(account, wait, FeeOpts.fromCli(options, log, db), json, debugLogger, log);
   });
@@ -185,20 +177,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       publicDeployment,
       universal,
       rpcUrl,
-      account: parsedAccountAddress,
+      with: parsedWithAddress,
       alias,
       type,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const account = await createOrRetrieveAccount(
-      client,
-      parsedAccountAddress,
-      type,
-      secretKey,
-      Fr.ZERO,
-      publicKey,
-      db,
-    );
+    const account = await createOrRetrieveAccount(client, parsedWithAddress, db, type, secretKey, Fr.ZERO, publicKey);
     const wallet = await account.getWallet();
     const artifactPath = await artifactPathPromise;
 
@@ -253,7 +237,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       args,
       contractArtifact: artifactPathPromise,
       contractAddress,
-      account: parsedAccountAddress,
+      with: parsedWithAddress,
       noWait,
       rpcUrl,
       type,
@@ -262,15 +246,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       alias,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
-    const account = await createOrRetrieveAccount(
-      client,
-      parsedAccountAddress,
-      type,
-      secretKey,
-      Fr.ZERO,
-      publicKey,
-      db,
-    );
+    const account = await createOrRetrieveAccount(client, parsedWithAddress, db, type, secretKey, Fr.ZERO, publicKey);
     const wallet = await account.getWallet();
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
@@ -311,7 +287,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         args,
         contractArtifact: artifactPathPromise,
         contractAddress,
-        account: parsedAccountAddress,
+        with: parsedWithAddress,
         rpcUrl,
         type,
         secretKey,
@@ -319,15 +295,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const account = await createOrRetrieveAccount(
-        client,
-        parsedAccountAddress,
-        type,
-        secretKey,
-        Fr.ZERO,
-        publicKey,
-        db,
-      );
+      const account = await createOrRetrieveAccount(client, parsedWithAddress, db, type, secretKey, Fr.ZERO, publicKey);
       const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
@@ -406,10 +374,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const options = command.optsWithGlobals();
       const { contractArtifact: artifactPathPromise, contractAddress, address, rpcUrl, fields, hash } = options;
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-
       const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, address, db);
+      const wallet = await account.getWallet();
 
-      await addNote(client, address, contractAddress, noteName, storageFieldName, artifactPath, hash, fields, log);
+      await addNote(wallet, address, contractAddress, noteName, storageFieldName, artifactPath, hash, fields, log);
     });
 
   return program;

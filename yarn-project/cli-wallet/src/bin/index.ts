@@ -1,4 +1,4 @@
-import { Fr, fileURLToPath } from '@aztec/aztec.js';
+import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { type LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
@@ -35,7 +35,10 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
       const options = command.optsWithGlobals();
       const { alias } = options;
       const value = Fr.random();
+      const hash = computeSecretHash(value);
+
       await db.storeAlias('secrets', alias, Buffer.from(value.toString()), log);
+      await db.storeAlias('secrets', `${alias}:hash`, Buffer.from(hash.toString()), log);
     });
 
   return program;

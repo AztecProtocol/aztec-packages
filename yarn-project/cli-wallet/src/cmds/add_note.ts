@@ -1,10 +1,10 @@
-import { type AztecAddress, type PXE } from '@aztec/aztec.js';
+import { AccountWalletWithSecretKey, type AztecAddress, type PXE } from '@aztec/aztec.js';
 import { ExtendedNote, Note, type TxHash } from '@aztec/circuit-types';
 import { getContractArtifact, parseFields } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
 export async function addNote(
-  client: PXE,
+  wallet: AccountWalletWithSecretKey,
   address: AztecAddress,
   contractAddress: AztecAddress,
   noteName: string,
@@ -26,5 +26,5 @@ export async function addNote(
   }
 
   const extendedNote = new ExtendedNote(note, address, contractAddress, storageField.slot, contractNote.id, txHash);
-  await client.addNote(extendedNote);
+  await wallet.addNote(extendedNote);
 }

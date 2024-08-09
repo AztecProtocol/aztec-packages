@@ -47,7 +47,7 @@ export function createAliasOption(description: string, hide: boolean) {
 }
 
 export function createAccountOption(description: string, hide: boolean, db?: WalletDB) {
-  return new Option(`-ac, --account <string>`, description)
+  return new Option(`-w, --with <string>`, description)
     .hideHelp(hide)
     .argParser(address => aliasedAddressParser('accounts', address, db));
 }

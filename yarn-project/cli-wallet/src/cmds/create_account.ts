@@ -23,7 +23,15 @@ export async function createAccount(
 ) {
   secretKey ??= Fr.random();
 
-  const account = await createOrRetrieveAccount(client, undefined, accountType, secretKey, Fr.ZERO, publicKey);
+  const account = await createOrRetrieveAccount(
+    client,
+    undefined /* address, we don't have it yet */,
+    undefined /* db, as we want to create from scratch */,
+    accountType,
+    secretKey,
+    Fr.ZERO,
+    publicKey,
+  );
   const salt = account.getInstance().salt;
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
 
