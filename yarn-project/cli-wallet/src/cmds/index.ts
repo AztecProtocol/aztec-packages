@@ -15,15 +15,16 @@ import {
 } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type Command } from 'commander';
+import { Argument, type Command } from 'commander';
 import inquirer from 'inquirer';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import { Aliases, type WalletDB } from '../storage/wallet_db.js';
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
   aliasedAddressParser,
+  aliasedSecretKeyParser,
   artifactPathFromPromiseOrAlias,
   artifactPathParser,
   createAccountOption,
@@ -51,7 +52,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
     )
     .addOption(pxeOption)
-    .addOption(createSecretKeyOption('Private key for account. Uses random by default.', false).conflicts('public-key'))
+    .addOption(
+      createSecretKeyOption('Secret key for account. Uses random by default.', false, sk =>
+        aliasedSecretKeyParser(sk, db),
+      ).conflicts('public-key'),
+    )
     .addOption(createAliasOption('Alias for the account. Used for easy reference in subsequent commands.', !db))
     .addOption(createTypeOption(true))
     .option(
@@ -92,7 +97,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       skipInitialization,
       publicDeploy,
       wait,
-      FeeOpts.fromCli(options, log),
+      FeeOpts.fromCli(options, log, db),
       json,
       debugLogger,
       log,
@@ -101,6 +106,35 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const { address, alias, secretKey, salt } = accountCreationResult;
       await db.storeAccount(address, { type, secretKey, salt, alias, publicKey }, log);
     }
+  });
+
+  const deployAccountCommand = program
+    .command('deploy-account')
+    .description('Deploys an already registered aztec account that can be used for sending transactions.')
+    .addOption(createAccountOption('Alias or address of the account to deploy', !db, db))
+    .addOption(pxeOption)
+    .option('--json', 'Emit output as json')
+    // `options.wait` is default true. Passing `--no-wait` will set it to false.
+    // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
+    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
+
+  addOptions(deployAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
+    const { deployAccount } = await import('../cmds/deploy_account.js');
+    const options = command.optsWithGlobals();
+    const { rpcUrl, wait, account: parsedAccountAddress, json } = options;
+
+    const client = await createCompatibleClient(rpcUrl, debugLogger);
+    const account = await createOrRetrieveAccount(
+      client,
+      parsedAccountAddress,
+      undefined,
+      undefined,
+      Fr.ZERO,
+      undefined,
+      db,
+    );
+
+    await deployAccount(account, wait, FeeOpts.fromCli(options, log, db), json, debugLogger, log);
   });
 
   const deployCommand = program
@@ -122,7 +156,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--universal', 'Do not mix the sender address into the deployment.')
     .addOption(pxeOption)
     .addOption(createArgsOption(true, db))
-    .addOption(createSecretKeyOption("The sender's private key", !db).conflicts('alias'))
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
     .addOption(createAccountOption('Alias or address of the account to deploy from', !db, db))
     .addOption(createAliasOption('Alias for the contract. Used for easy reference subsequent commands.', !db))
     .addOption(createTypeOption(false))
@@ -181,7 +217,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       typeof init === 'string' ? false : init,
       universal,
       wait,
-      FeeOpts.fromCli(options, log),
+      FeeOpts.fromCli(options, log, db),
       debugLogger,
       log,
       logJson(log),
@@ -199,7 +235,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(createArgsOption(false, db))
     .addOption(createArtifactOption(db))
     .addOption(createContractAddressOption(db))
-    .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .addOption(createTypeOption(false))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
@@ -233,7 +271,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
-    await send(wallet, functionName, args, artifactPath, contractAddress, !noWait, FeeOpts.fromCli(options, log), log);
+    await send(
+      wallet,
+      functionName,
+      args,
+      artifactPath,
+      contractAddress,
+      !noWait,
+      FeeOpts.fromCli(options, log, db),
+      log,
+    );
   });
 
   program
@@ -244,7 +291,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(createArgsOption(false, db))
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
-    .addOption(createSecretKeyOption("The sender's private key.", !db).conflicts('alias'))
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createTypeOption(false))
     .action(async (functionName, _options, command) => {
@@ -316,6 +365,20 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       if (db) {
         await db.pushBridgedFeeJuice(recipient, secret, amount, log);
       }
+    });
+
+  program
+    .command('alias')
+    .description('Aliases information for easy reference.')
+    .addArgument(new Argument('<type>', 'Type of alias to create').choices(Aliases))
+    .argument('<key>', 'Key to alias.')
+    .argument('<value>', 'Value to assign to the alias.')
+    .action(async (type, key, value) => {
+      if (!db) {
+        throw new Error('No database available to store alias');
+      }
+      value = db?.tryRetrieveAlias(value) || value;
+      await db.storeAlias(type, key, value, log);
     });
 
   return program;

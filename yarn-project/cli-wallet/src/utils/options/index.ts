@@ -1,5 +1,5 @@
 import { type AztecAddress } from '@aztec/circuits.js';
-import { parseAztecAddress } from '@aztec/cli/utils';
+import { parseAztecAddress, parseSecretKey } from '@aztec/cli/utils';
 
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
@@ -19,6 +19,16 @@ export function aliasedAddressParser(defaultPrefix: AliasType, address: string, 
     const prefixed = address.includes(':') ? address : `${defaultPrefix}:${address}`;
     const rawAddress = db ? db.tryRetrieveAlias(prefixed) : address;
     return parseAztecAddress(rawAddress);
+  }
+}
+
+export function aliasedSecretKeyParser(sk: string, db?: WalletDB) {
+  if (sk.startsWith('0x')) {
+    return parseSecretKey(sk);
+  } else {
+    const prefixed = `${sk.startsWith('accounts') ? '' : 'accounts'}:${sk.endsWith(':sk') ? sk : `${sk}:sk`}`;
+    const rawSk = db ? db.tryRetrieveAlias(prefixed) : sk;
+    return parseSecretKey(rawSk);
   }
 }
 

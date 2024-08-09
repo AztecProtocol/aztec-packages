@@ -2,6 +2,8 @@ import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { LogFn } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
+import { log } from 'console';
+
 import { type AccountType } from '../utils/accounts.js';
 
 export const Aliases = ['accounts', 'contracts', 'artifacts'] as const;
@@ -29,25 +31,28 @@ export class WalletDB {
   }
 
   async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, log: LogFn) {
-    let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readUint32BE() || 0;
+    let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readInt8() || 0;
+    stackPointer++;
     await this.#bridgedFeeJuice.set(
-      `${recipient.toString()}:${stackPointer++}`,
+      `${recipient.toString()}:${stackPointer}`,
       Buffer.from(`${amount.toString()}:${secret.toString()}`),
     );
     await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([stackPointer]));
-    log(`Pushed ${amount} fee juice to recipient ${recipient.toString()}. Stack depth ${stackPointer}`);
+    log(`Pushed ${amount} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
   }
 
   async popBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
-    let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readUint32BE() || 0;
+    let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readInt8() || 0;
     const result = this.#bridgedFeeJuice.get(`${recipient.toString()}:${stackPointer}`);
     if (!result) {
-      throw new Error(`No fee juice available for recipient ${recipient.toString()}. Stack depth ${stackPointer}`);
+      throw new Error(
+        `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,
+      );
     }
     const [amountStr, secretStr] = result.toString().split(':');
     await this.#bridgedFeeJuice.set(`${recipient.toString()}:stackPointer`, Buffer.from([--stackPointer]));
-    log(`Retrieved ${amountStr} fee juice for recipient ${recipient.toString()}. Stack depth ${stackPointer}`);
-    return { amount: BigInt(amountStr), secret: Fr.fromString(secretStr) };
+    log(`Retrieved ${amountStr} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
+    return { amount: BigInt(amountStr), secret: secretStr };
   }
 
   async storeAccount(
@@ -87,8 +92,8 @@ export class WalletDB {
 
   tryRetrieveAlias(arg: string) {
     if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
-      const [type, alias] = arg.split(':');
-      const data = this.#aliases.get(`${type}:${alias ?? 'last'}`);
+      const [type, ...alias] = arg.split(':');
+      const data = this.#aliases.get(`${type}:${alias.join(':') ?? 'last'}`);
       return data ? data.toString() : arg;
     }
 
@@ -118,5 +123,10 @@ export class WalletDB {
     const salt = Fr.fromBuffer(this.#accounts.get(`${address.toString()}-salt`)!);
     const type = this.#accounts.get(`${address.toString()}-type`)!.toString('utf8') as AccountType;
     return { address, secretKey, salt, type };
+  }
+
+  storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
+    this.#aliases.set(`${type}:${key}`, value);
+    log(`Alias stored in database  ${type}:${key}`);
   }
 }

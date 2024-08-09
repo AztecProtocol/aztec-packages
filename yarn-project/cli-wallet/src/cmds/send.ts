@@ -20,12 +20,12 @@ export async function send(
   const call = contract.methods[functionName](...functionArgs);
 
   if (feeOpts.estimateOnly) {
-    const gas = await call.estimateGas({ ...feeOpts.toSendOpts(wallet) });
+    const gas = await call.estimateGas({ ...(await feeOpts.toSendOpts(wallet)) });
     printGasEstimates(feeOpts, gas, log);
     return;
   }
 
-  const tx = call.send({ ...feeOpts.toSendOpts(wallet) });
+  const tx = call.send({ ...(await feeOpts.toSendOpts(wallet)) });
   log(`\nTransaction hash: ${(await tx.getTxHash()).toString()}`);
   if (wait) {
     await tx.wait();
