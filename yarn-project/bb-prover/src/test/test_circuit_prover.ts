@@ -36,6 +36,7 @@ import {
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ProtocolCircuitVkIndexes,
@@ -77,11 +78,12 @@ import { mapPublicKernelToCircuitName } from '../stats.js';
 export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulator();
   private instrumentation: ProverInstrumentation;
+  private logger = createDebugLogger('aztec:test-prover');
 
   constructor(
     telemetry: TelemetryClient,
     private simulationProvider?: SimulationProvider,
-    private logger = createDebugLogger('aztec:test-prover'),
+    private opts: { proverTestDelayMs: number } = { proverTestDelayMs: 0 },
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
   }
@@ -110,7 +112,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact,
     );
     const result = convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap(witness);
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -138,7 +140,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact,
     );
     const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -179,7 +181,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return Promise.resolve(rootParityInput);
   }
 
@@ -218,7 +220,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return Promise.resolve(rootParityInput);
   }
 
@@ -250,6 +252,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -257,13 +260,14 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getTubeProof(
+  public async getTubeProof(
     _tubeInput: TubeInputs,
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
-    return Promise.resolve({
+    await this.delay();
+    return {
       tubeVK: VerificationKeyData.makeFake(),
       tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
-    });
+    };
   }
 
   /**
@@ -294,6 +298,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -399,6 +404,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -432,7 +438,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -461,7 +467,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -469,11 +475,18 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
+  public async getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
-    return Promise.resolve({ proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() });
+    await this.delay();
+    return { proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() };
+  }
+
+  private async delay(): Promise<void> {
+    if (this.opts.proverTestDelayMs > 0) {
+      await sleep(this.opts.proverTestDelayMs);
+    }
   }
 
   // Not implemented for test circuits
