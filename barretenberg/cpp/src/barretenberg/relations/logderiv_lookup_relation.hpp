@@ -35,8 +35,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1036): Scrutinize these adjustment factors. Counting
     // degrees suggests the first subrelation should require an adjustment of 2.
     static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
-        1, // inverse construction sub-relation
-        1  // log derivative lookup argument sub-relation
+        2, // inverse construction sub-relation
+        2  // log derivative lookup argument sub-relation
     };
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
