@@ -107,6 +107,10 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         target_amount: U128,
         max_notes: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
+        // We are using a preprocessor here (filter applied in unconstrained context) instead of a filter because we do
+        // not need to prove correct execution of the preprocessor
+        // --> if the preprocessor was not applied correctly we might read too many notes resulting in a higher DA cost
+        // (more nullifiers emitted). This however is fine as it's not the goal to prove optimal note selection.
         let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount).set_limit(max_notes);
         let notes = self.map.at(owner).pop_notes(options);
 
@@ -124,9 +128,9 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
 
 // Computes the partial sum of the notes array, stopping once 'min_sum' is reached. This can be used to minimize the
 // number of notes read that add to some value, e.g. when transferring some amount of tokens.
-// The filter does not check if total sum is larger or equal to 'min_sum' - all it does is remove extra notes if it does
-// reach that value.
-// Note that proper usage of this filter requires for notes to be sorted in descending order.
+// The processor (unconstrained filter) does not check if total sum is larger or equal to 'min_sum' - all it does
+// is remove extra notes if it does reach that value.
+// Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum<T, T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
     notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128

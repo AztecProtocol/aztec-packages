@@ -109,10 +109,9 @@ pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
 ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     let opt_notes = get_notes_internal(storage_slot, options);
+    let preprocessed_opt_notes = apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args);
 
-    let preprocessed_notes = apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args);
-
-    constrain_get_notes_internal(context, storage_slot, preprocessed_notes, options)
+    constrain_get_notes_internal(context, storage_slot, preprocessed_opt_notes, options)
 }
 
 unconstrained fn apply_preprocessor<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS>(
@@ -129,7 +128,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
 ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
-    // The filter is applied first to avoid pushing note resuad requests for notes we're not interested in. Note that
+    // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
     // the private kernel will later validate that these note actually exist, so transformations would cause for that
     // check to fail.

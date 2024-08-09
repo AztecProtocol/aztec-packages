@@ -83,6 +83,8 @@ struct NoteGetterOptions<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
     offset: u32,
+    // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
+    // unlike filter it is applied in an unconstrained context.
     preprocessor: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     preprocessor_args: PREPROCESSOR_ARGS,
     filter: fn ([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
@@ -91,10 +93,12 @@ struct NoteGetterOptions<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER
 }
 // docs:end:NoteGetterOptions
 
-// When retrieving notes using the NoteGetterOptions, the configurations are applied in a specific sequence to ensure precise and controlled data retrieval.
+// When retrieving notes using the NoteGetterOptions, the configurations are applied in a specific sequence to ensure
+// precise and controlled data retrieval.
 // The database-level configurations are applied first:
-// `selects` to specify fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap the result size.
-// And finally, a custom filter to refine the outcome further.
+// `selects` to specify fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap
+// the result size.
+// And finally, a custom preprocessor and filter to refine the outcome further.
 impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> NoteGetterOptions<Note, N, M, Field, Field> where Note: NoteInterface<N, M> {
