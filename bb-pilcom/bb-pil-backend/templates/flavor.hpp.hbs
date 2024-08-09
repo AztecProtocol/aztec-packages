@@ -41,7 +41,7 @@ template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::
 namespace bb {
 
 class {{name}}Flavor {
-  public: 
+  public:
     using Curve = {{name}}FlavorSettings::Curve;
     using G1 = {{name}}FlavorSettings::G1;
     using PCS = {{name}}FlavorSettings::PCS;
@@ -56,7 +56,7 @@ class {{name}}Flavor {
     using VerifierCommitmentKey = {{name}}FlavorSettings::VerifierCommitmentKey;
     using RelationSeparator = {{name}}FlavorSettings::RelationSeparator;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = {{len fixed}}; 
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = {{len fixed}};
     static constexpr size_t NUM_WITNESS_ENTITIES = {{len witness}};
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for the unshifted and one for the shifted
@@ -138,7 +138,7 @@ class {{name}}Flavor {
                     , public ShiftedEntities<DataType> {
         public:
           DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-          
+
           auto get_unshifted() {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
           }
@@ -154,7 +154,7 @@ class {{name}}Flavor {
           using Base = ProvingKeyAvm_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
           using Base::Base;
 
-          auto get_to_be_shifted() { 
+          auto get_to_be_shifted() {
             return {{name}}Flavor::get_to_be_shifted<DataType>(*this);
            }
       };
@@ -174,7 +174,7 @@ class {{name}}Flavor {
           using BaseDataType = const FF;
           using DataType = BaseDataType&;
 
-          {{!-- 
+          {{!--
           We define the flavor members here again to avoid having to make this class inherit from AllEntities.
           If we did inherit from AllEntities, we have to define a special constructor for AllEntities, and all
           the classes that AllEntities inherits from, in cascade.
@@ -196,7 +196,7 @@ class {{name}}Flavor {
           ProverPolynomials(ProverPolynomials&& o) noexcept = default;
           ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
           ~ProverPolynomials() = default;
-          
+
           ProverPolynomials(ProvingKey& proving_key);
 
           [[nodiscard]] size_t get_polynomial_size() const { return {{witness.0}}.size(); }

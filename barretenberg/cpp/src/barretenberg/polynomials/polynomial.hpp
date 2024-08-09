@@ -9,6 +9,16 @@
 namespace bb {
 enum class DontZeroMemory { FLAG };
 
+/**
+ * @brief Polynomial class that represents the coefficients 'a' of a_0 + a_1 x + a_n x^n of
+ * a finite field polynomial equation of degree that is at most the size of some zk circuit.
+ * The polynomial is used to represent the gates of our arithmetized zk programs.
+ * Polynomials use the majority of the memory in proving, so caution should be used in making sure
+ * unnecessary copies are avoided, both for avoiding unnecessary memory usage and performance
+ * due to unnecessary allocations.
+ *
+ * @tparam Fr the finite field type.
+ */
 template <typename Fr> class Polynomial {
   public:
     /**

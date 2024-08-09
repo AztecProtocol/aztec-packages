@@ -8,6 +8,7 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/sparse_polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -30,6 +31,7 @@ class UltraFlavor {
     using Commitment = Curve::AffineElement;
     using PCS = KZG<Curve>;
     using Polynomial = bb::Polynomial<FF>;
+    using SparsePolynomial = bb::SparsePolynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
@@ -232,7 +234,7 @@ class UltraFlavor {
      * @brief A container for polynomials handles.
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/966): use inheritance
-    class ProverPolynomials : public AllEntities<Polynomial> {
+    class ProverPolynomials : public AllEntities<SparsePolynomial> {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
@@ -240,7 +242,8 @@ class UltraFlavor {
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the
           // shifted polys
             for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ circuit_size };
+                // WORKTODO(sparse): proper lower bound on size
+                poly = SparsePolynomial{ circuit_size, circuit_size };
             }
             set_shifted();
         }
