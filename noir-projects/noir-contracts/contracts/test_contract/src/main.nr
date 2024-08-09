@@ -117,7 +117,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _) = get_notes(&mut context, storage_slot, options);
 
         notes.get(0).value
     }
@@ -133,7 +133,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _) = get_notes(&mut context, storage_slot, options);
 
         [notes.get(0).value, notes.get(1).value]
     }
@@ -175,7 +175,7 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _) = get_notes(&mut context, storage_slot, options);
 
         let note = notes.get(0);
 
