@@ -1,6 +1,6 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
 import { CompleteAddress, Point, PublicKeys } from '@aztec/circuits.js';
-import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
+import { NewKeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 import { jest } from '@jest/globals';
@@ -12,7 +12,7 @@ const TIMEOUT = 120_000;
 const SHARED_MUTABLE_DELAY = 5;
 
 describe('Key Registry', () => {
-  let keyRegistry: KeyRegistryContract;
+  let keyRegistry: NewKeyRegistryContract;
 
   let pxe: PXE;
   let testContract: TestContract;
@@ -26,7 +26,7 @@ describe('Key Registry', () => {
 
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(2));
-    keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
+    keyRegistry = await NewKeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
@@ -60,7 +60,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.register_npk_and_ivpk(
+          .methods.register_initial_keys(
             account,
             account.partialAddress,
             // TODO(#6337): Make calling `toNoirStruct()` unnecessary
@@ -113,18 +113,7 @@ describe('Key Registry', () => {
     it('registers', async () => {
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.register_npk_and_ivpk(
-          account,
-          account.partialAddress,
-          // TODO(#6337): Make calling `toNoirStruct()` unnecessary
-          account.publicKeys.toNoirStruct(),
-        )
-        .send()
-        .wait();
-
-      await keyRegistry
-        .withWallet(wallets[0])
-        .methods.register_ovpk_and_tpk(
+        .methods.register_initial_keys(
           account,
           account.partialAddress,
           // TODO(#6337): Make calling `toNoirStruct()` unnecessary
