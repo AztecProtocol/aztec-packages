@@ -214,7 +214,9 @@ describe('guides/dapp/testing', () => {
         await call2.prove();
 
         await call1.send().wait();
-        await expect(call2.send().wait()).rejects.toThrow(/dropped/);
+        await expect(call2.send().wait()).rejects.toThrow(
+          /The simulated transaction is unable to be added to state and is invalid./,
+        );
         // docs:end:tx-dropped
       });
 

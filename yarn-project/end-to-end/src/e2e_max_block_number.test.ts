@@ -72,7 +72,7 @@ describe('e2e_max_block_number', () => {
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow('dropped');
+        ).rejects.toThrow('The simulated transaction is unable to be added to state and is invalid.');
       });
     });
 
@@ -88,7 +88,7 @@ describe('e2e_max_block_number', () => {
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow('dropped');
+        ).rejects.toThrow('The simulated transaction is unable to be added to state and is invalid.');
       });
     });
   });

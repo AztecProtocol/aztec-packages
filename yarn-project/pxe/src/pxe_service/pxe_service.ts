@@ -564,9 +564,7 @@ export class PXEService implements PXE {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
 
-    const isValidTx = await this.node.validateTx(tx);
-
-    if (!isValidTx) {
+    if (!(await this.node.isValidTx(tx))) {
       throw new Error('The simulated transaction is unable to be added to state and is invalid.');
     }
 

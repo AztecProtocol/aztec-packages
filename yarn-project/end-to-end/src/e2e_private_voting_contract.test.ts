@@ -50,7 +50,7 @@ describe('e2e_voting_contract', () => {
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers as the voting contract
       // ignored our previous key rotation.
       await expect(votingContract.methods.cast_vote(candidate).send().wait()).rejects.toThrow(
-        'Reason: Tx dropped by P2P node.',
+        'The simulated transaction is unable to be added to state and is invalid.',
       );
     });
   });

@@ -106,7 +106,11 @@ describe('full_prover', () => {
       sentPublicTx.wait({ timeout: 10, interval: 0.1 }),
     ]);
 
-    expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
-    expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+    expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(
+      /Error: The simulated transaction is unable to be added to state and is invalid./,
+    );
+    expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(
+      /Error: The simulated transaction is unable to be added to state and is invalid./,
+    );
   });
 });
