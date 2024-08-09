@@ -186,7 +186,7 @@ impl<F: AcirField> std::fmt::Display for Opcode<F> {
                     BlockType::CallData(id) => write!(f, "INIT CALLDATA {} ", id)?,
                     BlockType::ReturnData => write!(f, "INIT RETURNDATA ")?,
                 }
-                write!(f, "(id: {}, start: {} len: {}) ", block_id.0, init[0].0, init.len())
+                write!(f, "(id: {}, len: {}) ", block_id.0, init.len())
             }
             // We keep the display for a BrilligCall and circuit Call separate as they
             // are distinct in their functionality and we should maintain this separation for debugging.
