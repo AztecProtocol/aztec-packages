@@ -1,7 +1,12 @@
 import { type AllowedElement } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -96,13 +101,13 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   enforceFees: {
     env: 'ENFORCE_FEES',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
     description: 'Whether to require every tx to have a fee payer',
+    ...booleanConfigHelper(),
   },
   sequencerSkipSubmitProofs: {
     env: 'SEQ_SKIP_SUBMIT_PROOFS',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
     description: 'Temporary flag to skip submitting proofs, so a prover-node takes care of it.',
+    ...booleanConfigHelper(),
   },
 };
 

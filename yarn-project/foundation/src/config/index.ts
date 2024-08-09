@@ -60,10 +60,23 @@ export function filterConfigMappings<T, K extends keyof T>(
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function numberConfigHelper(defaultVal: number): Partial<ConfigMapping> {
+export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'default'> {
   return {
     parseEnv: (val: string) => safeParseNumber(val, defaultVal),
     default: defaultVal,
+  };
+}
+
+/**
+ * Generates parseEnv and default values for a boolean config value.
+ * @param defaultVal - The default value to use if the environment variable is not set or is invalid
+ * @returns Object with parseEnv and default values for a boolean config value
+ */
+export function booleanConfigHelper(defaultVal = false): Pick<ConfigMapping, 'parseEnv' | 'default' | 'isBoolean'> {
+  return {
+    parseEnv: (val: string) => ['1', 'true', 'TRUE'].includes(val),
+    default: defaultVal,
+    isBoolean: true,
   };
 }
 
