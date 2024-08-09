@@ -98,6 +98,8 @@ library Constants {
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
+  uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
+  uint256 internal constant IS_DEV_NET = 1;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 20000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS = 3000;
@@ -184,13 +186,13 @@ library Constants {
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
   uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 514;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 388;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 610;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 43;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1336;
   uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2167;
-  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1303;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3613;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 441;
+  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1311;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3629;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;

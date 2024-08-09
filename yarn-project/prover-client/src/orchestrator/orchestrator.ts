@@ -1,5 +1,7 @@
 import {
   Body,
+  EncryptedNoteTxL2Logs,
+  EncryptedTxL2Logs,
   L2Block,
   MerkleTreeId,
   type PaddingProcessedTx,
@@ -158,8 +160,9 @@ export class ProvingOrchestrator implements BlockProver {
 
     // Cancel any currently proving block before starting a new one
     this.cancelBlock();
-
-    logger.info(`Starting new block with ${numTxs} transactions`);
+    logger.info(
+      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions`,
+    );
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
     let l1ToL2MessagesPadded: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
@@ -651,28 +654,30 @@ export class ProvingOrchestrator implements BlockProver {
       logger.debug('Not running base rollup, state invalid');
       return;
     }
-    if (
-      !tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
-        .toBuffer()
-        .equals(tx.processedTx.noteEncryptedLogs.hash())
-    ) {
+    const txNoteEncryptedLogs = EncryptedNoteTxL2Logs.hashNoteLogs(
+      tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHashes
+        .filter(log => !log.isEmpty())
+        .map(log => log.value.toBuffer()),
+    );
+    if (!txNoteEncryptedLogs.equals(tx.processedTx.noteEncryptedLogs.hash())) {
       provingState.reject(
-        `Note encrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.noteEncryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.noteEncryptedLogs.hash())}`,
+        `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogs)} === ${Fr.fromBuffer(
+          tx.processedTx.noteEncryptedLogs.hash(),
+        )}`,
       );
       return;
     }
-    if (
-      !tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
-        .toBuffer()
-        .equals(tx.processedTx.encryptedLogs.hash())
-    ) {
+    const txEncryptedLogs = EncryptedTxL2Logs.hashSiloedLogs(
+      tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHashes
+        .filter(log => !log.isEmpty())
+        .map(log => log.getSiloedHash()),
+    );
+    if (!txEncryptedLogs.equals(tx.processedTx.encryptedLogs.hash())) {
       // @todo This rejection messages is never seen. Never making it out to the logs
       provingState.reject(
-        `Encrypted logs hash mismatch: ${
-          tx.baseRollupInputs.kernelData.publicInputs.end.encryptedLogsHash
-        } === ${Fr.fromBuffer(tx.processedTx.encryptedLogs.hash())}`,
+        `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogs)} === ${Fr.fromBuffer(
+          tx.processedTx.encryptedLogs.hash(),
+        )}`,
       );
       return;
     }
