@@ -1,9 +1,10 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { PublicFeePaymentMethod, TxStatus, sleep } from '@aztec/aztec.js';
 import { type AccountWallet } from '@aztec/aztec.js/wallet';
+import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
-import { FPCContract, GasTokenContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
@@ -18,6 +19,11 @@ jest.setTimeout(1_800_000);
 
 const txTimeoutSec = 3600;
 
+// How many times we'll run bb verify on each tx for benchmarking purposes
+const txVerifyIterations = process.env.BENCH_TX_VERIFY_ITERATIONS
+  ? parseInt(process.env.BENCH_TX_VERIFY_ITERATIONS)
+  : 10;
+
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
 
@@ -31,7 +37,7 @@ describe('benchmarks/proving', () => {
 
   let recipient: CompleteAddress;
 
-  let initialGasContract: GasTokenContract;
+  let initialGasContract: FeeJuiceContract;
   let initialTestContract: TestContract;
   let initialTokenContract: TokenContract;
   let initialFpContract: FPCContract;
@@ -82,14 +88,8 @@ describe('benchmarks/proving', () => {
     )
       .send()
       .deployed();
-    initialGasContract = await GasTokenContract.at(GasTokenAddress, initialSchnorrWallet);
-    initialFpContract = await FPCContract.deploy(
-      initialSchnorrWallet,
-      initialTokenContract.address,
-      initialGasContract.address,
-    )
-      .send()
-      .deployed();
+    initialGasContract = await FeeJuiceContract.at(FeeJuiceAddress, initialSchnorrWallet);
+    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address).send().deployed();
 
     await Promise.all([
       initialGasContract.methods.mint_public(initialFpContract.address, 1e12).send().wait(),
@@ -191,22 +191,24 @@ describe('benchmarks/proving', () => {
     // };
 
     ctx.logger.info('Proving transactions');
-    await Promise.all([
-      fnCalls[0].prove({
-        fee: feeFnCall0,
-      }),
+    const provenTxs = await Promise.all([
+      fnCalls[0].prove({ fee: feeFnCall0 }),
       fnCalls[1].prove(),
       // fnCalls[2].prove(),
       // fnCalls[3].prove(),
     ]);
 
-    ctx.logger.info('Finished proving');
+    ctx.logger.info('Verifying transactions client proofs');
+    const verifier = await BBCircuitVerifier.new((await getBBConfig(ctx.logger))!);
+    for (let i = 0; i < txVerifyIterations; i++) {
+      for (const tx of provenTxs) {
+        expect(await verifier.verifyProof(tx)).toBe(true);
+      }
+    }
 
     ctx.logger.info('Sending transactions');
     const txs = [
-      fnCalls[0].send({
-        fee: feeFnCall0,
-      }),
+      fnCalls[0].send({ fee: feeFnCall0 }),
       fnCalls[1].send(),
       // fnCalls[2].send(),
       // fnCalls[3].send(),

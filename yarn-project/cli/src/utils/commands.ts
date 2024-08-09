@@ -36,7 +36,7 @@ export const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
 
 export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID of the ethereum host')
   .env('L1_CHAIN_ID')
-  .default('31337')
+  .default(31337)
   .argParser(value => {
     const parsedValue = Number(value);
     if (isNaN(parsedValue)) {
@@ -45,10 +45,10 @@ export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain I
     return parsedValue;
   });
 
-export const createPrivateKeyOption = (description: string, mandatory: boolean) =>
-  new Option('-pk, --private-key <string>', description)
-    .env('PRIVATE_KEY')
-    .argParser(parsePrivateKey)
+export const createSecretKeyOption = (description: string, mandatory: boolean) =>
+  new Option('-sk, --secret-key <string>', description)
+    .env('SECRET_KEY')
+    .argParser(parseSecretKey)
     .makeOptionMandatory(mandatory);
 
 export const logJson = (log: LogFn) => (obj: object) => log(JSON.stringify(obj, null, 2));
@@ -299,16 +299,16 @@ export function parsePartialAddress(address: string): Fr {
 }
 
 /**
- * Parses a private key from a string.
+ * Parses a secret key from a string.
  * @param privateKey - A string
- * @returns A private key
+ * @returns A secret key
  * @throws InvalidArgumentError if the input string is not valid.
  */
-export function parsePrivateKey(privateKey: string): Fr {
+export function parseSecretKey(secretKey: string): Fr {
   try {
-    return Fr.fromString(privateKey);
+    return Fr.fromString(secretKey);
   } catch (err) {
-    throw new InvalidArgumentError(`Invalid encryption private key: ${privateKey}`);
+    throw new InvalidArgumentError(`Invalid encryption secret key: ${secretKey}`);
   }
 }
 
@@ -352,4 +352,25 @@ export function parseField(field: string): Fr {
  */
 export function parseFields(fields: string[]): Fr[] {
   return fields.map(parseField);
+}
+
+/**
+ * Pretty prints an object as JSON
+ * @param data - The object to stringify
+ * @returns A JSON string
+ */
+export function prettyPrintJSON(data: Record<string, any>): string {
+  return JSON.stringify(
+    data,
+    (_key, val) => {
+      if (typeof val === 'bigint') {
+        return String(val);
+      } else if (val && typeof val === 'object' && 'toBuffer' in val) {
+        return '0x' + val.toBuffer().toString('hex');
+      } else {
+        return val;
+      }
+    },
+    2,
+  );
 }

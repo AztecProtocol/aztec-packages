@@ -1,4 +1,4 @@
-import { createEthereumChain } from '@aztec/ethereum';
+import { type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
@@ -12,7 +12,6 @@ import {
 } from 'viem';
 import type * as chains from 'viem/chains';
 
-import { type GlobalReaderConfig } from './config.js';
 import { type L1GlobalReader } from './global_builder.js';
 
 /**
@@ -22,10 +21,10 @@ export class ViemReader implements L1GlobalReader {
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
 
-  constructor(config: GlobalReaderConfig) {
-    const { rpcUrl, l1ChainId: chainId, l1Contracts } = config;
+  constructor(config: L1ReaderConfig) {
+    const { l1RpcUrl, l1ChainId: chainId, l1Contracts } = config;
 
-    const chain = createEthereumChain(rpcUrl, chainId);
+    const chain = createEthereumChain(l1RpcUrl, chainId);
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
@@ -37,10 +36,6 @@ export class ViemReader implements L1GlobalReader {
       abi: RollupAbi,
       client: this.publicClient,
     });
-  }
-
-  public async getLastTimestamp(): Promise<bigint> {
-    return BigInt(await this.rollupContract.read.lastBlockTs());
   }
 
   public async getVersion(): Promise<bigint> {
@@ -55,7 +50,15 @@ export class ViemReader implements L1GlobalReader {
     return await Promise.resolve((await this.publicClient.getBlock()).timestamp);
   }
 
-  public async getLastWarpedBlockTs(): Promise<bigint> {
-    return BigInt(await this.rollupContract.read.lastWarpedBlockTs());
+  public async getCurrentSlot(): Promise<bigint> {
+    return BigInt(await this.rollupContract.read.getCurrentSlot());
+  }
+
+  public async getSlotAt(timestamp: readonly [bigint]): Promise<bigint> {
+    return BigInt(await this.rollupContract.read.getSlotAt(timestamp));
+  }
+
+  public async getTimestampForSlot(slot: readonly [bigint]): Promise<bigint> {
+    return BigInt(await this.rollupContract.read.getTimestampForSlot(slot));
   }
 }
