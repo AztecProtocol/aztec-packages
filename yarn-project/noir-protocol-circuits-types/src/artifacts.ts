@@ -35,6 +35,8 @@ import PublicKernelTeardownJson from '../artifacts/public_kernel_teardown.json' 
 import PublicKernelTeardownSimulatedJson from '../artifacts/public_kernel_teardown_simulated.json' assert { type: 'json' };
 import BaseRollupJson from '../artifacts/rollup_base.json' assert { type: 'json' };
 import BaseRollupSimulatedJson from '../artifacts/rollup_base_simulated.json' assert { type: 'json' };
+import BlockMergeRollupJson from '../artifacts/rollup_block_merge.json' assert { type: 'json' };
+import BlockRootRollupJson from '../artifacts/rollup_block_root.json' assert { type: 'json' };
 import MergeRollupJson from '../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../artifacts/rollup_root.json' assert { type: 'json' };
 
@@ -64,6 +66,8 @@ export type ServerProtocolArtifact =
   | 'RootParityArtifact'
   | 'BaseRollupArtifact'
   | 'MergeRollupArtifact'
+  | 'BlockRootRollupArtifact'
+  | 'BlockMergeRollupArtifact'
   | 'RootRollupArtifact';
 
 export type ClientProtocolArtifact =
@@ -86,6 +90,8 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
   BaseRollupArtifact: BaseRollupJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
+  BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
+  BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };
 
@@ -100,6 +106,8 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
   BaseRollupArtifact: BaseRollupSimulatedJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
+  BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
+  BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };
 

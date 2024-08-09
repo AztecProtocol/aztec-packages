@@ -1,5 +1,8 @@
-use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
-use crate::abis::previous_rollup_data::PreviousRollupData;
+use crate::abis::{
+    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient}
+};
+use crate::abis::{previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData};
 use dep::types::{
     hash::{
     accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
@@ -11,7 +14,7 @@ use dep::types::{
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{uint256::U256, arrays::array_length},
+    utils::{uint256::U256, arrays::{array_length, array_merge}},
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
     public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
@@ -22,10 +25,7 @@ use dep::types::{
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
  *
  */
-pub fn assert_txs_filled_from_left(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) {
+pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
         let left_txs = left.num_txs;
@@ -48,10 +48,7 @@ pub fn assert_txs_filled_from_left(
  * Asserts that the constants used in the left and right child are identical
  *
  */
-pub fn assert_equal_constants(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) {
+pub fn assert_equal_constants(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
     assert(left.constants.eq(right.constants), "input proofs have different constants");
 }
 
@@ -72,11 +69,75 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
 }
 
-pub fn accumulate_fees(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) -> Field {
+// TODO(Miranda): split out?
+pub fn assert_prev_block_rollups_follow_on_from_each_other(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) {
+    assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
+    assert(
+        left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
+    );
+    assert(
+        left.end_block_hash.eq(right.previous_block_hash), "input block hashes do not follow on from each other"
+    );
+    assert(
+        left.end_global_variables.chain_id == right.start_global_variables.chain_id, "input blocks have different chain id"
+    );
+    assert(
+        left.end_global_variables.version == right.start_global_variables.version, "input blocks have different chain version"
+    );
+    assert(
+        left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
+    );
+    assert(
+        left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
+    );
+}
+
+pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) -> Field {
     left.accumulated_fees + right.accumulated_fees
+}
+
+pub fn accumulate_blocks_fees(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) -> [FeeRecipient; 32] {
+    // TODO(Miranda): Do we need to validate_array? We know that block_root is valid by construction, then block_merge constructs as below
+    let left_len = array_length(left.fees);
+    let right_len = array_length(right.fees);
+    assert(left_len + right_len <= 32, "too many fee payment structs accumulated in rollup");
+    let mut res = left.fees;
+    let mut should_check = true;
+    let mut offset = 0;
+    // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
+    // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
+    // TODO(Miranda): The below is a slow but working version for now. When we constrain either wonky or variable balanced rollups,
+    // construct the below in unconstrained, then constrain with hints, like squashing in reset.
+    for i in 0..16 {
+        // Since each fee arr comes from either block_root or this fn, we know left.fees and right.fees are deduped
+        // => it's sufficient to init the result as left.fees, then check each right.fees against it for any matching recipients.
+        // TODO: we only check !added here because an empty array member will have the zero address, which also
+        // may be a valid fee recipient, to avoid doubling counting. Should change the default to MAX_FIELD rather than zero?
+        // should_check is true before we check all non-empty elts of right.fees, false after
+        should_check &= i != right_len;
+        if should_check {
+            let mut added = false;
+            for j in 0..16 {
+                // If we find a matching recipient for this (right.fees[i]) fee, accumulate...
+                if (!added) & (right.fees[i].recipient == res[j].recipient) {
+                    res[j].value += right.fees[i].value;
+                    added = true;
+                }
+            }
+            // ...otherwise, push it to the 'end' and point to the new next available index
+            if !added {
+                res[left_len + offset] = right.fees[i];
+                offset += 1;
+            }
+        }
+    }
+    res
 }
 
 /**
@@ -90,6 +151,15 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
         [
         previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
         previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash
+    ]
+    )
+}
+// TODO(Miranda): combine fns?
+pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
+    accumulate_sha256(
+        [
+        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
+        previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
     ]
     )
 }

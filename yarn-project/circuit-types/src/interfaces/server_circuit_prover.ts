@@ -11,6 +11,9 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -74,6 +77,24 @@ export interface ServerCircuitProver {
     input: MergeRollupInputs,
     signal?: AbortSignal,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+    signal?: AbortSignal,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
 
   /**
    * Creates a proof for the given input.

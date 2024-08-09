@@ -180,17 +180,19 @@ describe('proof_verification', () => {
       logger.info('Rollup only accepts valid proofs now');
       await availabilityContract.write.publish([`0x${block.body.toBuffer().toString('hex')}`]);
     });
-
+    // TODO(#7373) & TODO(#7246): Rollup.submitProof has changed to submitBlockRootProof/submitRootProof
+    // The inputs below may change depending on which submit fn we are using when we have a verifier.
     it('verifies proof', async () => {
       const args = [
         `0x${block.header.toBuffer().toString('hex')}`,
         `0x${block.archive.root.toBuffer().toString('hex')}`,
         `0x${proverId.toBuffer().toString('hex')}`,
+        `0x${block.header.hash().toBuffer().toString('hex')}`,
         `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
         `0x${proof.withoutPublicInputs().toString('hex')}`,
       ] as const;
 
-      await expect(rollupContract.write.submitProof(args)).resolves.toBeDefined();
+      await expect(rollupContract.write.submitBlockRootProof(args)).resolves.toBeDefined();
     });
   });
 });
