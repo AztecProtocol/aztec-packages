@@ -15,10 +15,10 @@ import {
 } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { Argument, type Command, Option } from 'commander';
+import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
-import { Aliases, type WalletDB } from '../storage/wallet_db.js';
+import { type WalletDB } from '../storage/wallet_db.js';
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {

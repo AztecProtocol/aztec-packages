@@ -1,7 +1,7 @@
 import { type AztecAddress, type PXE } from '@aztec/aztec.js';
 import { ExtendedNote, Note, type TxHash } from '@aztec/circuit-types';
 import { getContractArtifact, parseFields } from '@aztec/cli/utils';
-import { LogFn } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 
 export async function addNote(
   client: PXE,

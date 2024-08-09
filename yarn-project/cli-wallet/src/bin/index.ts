@@ -1,5 +1,5 @@
 import { Fr, fileURLToPath } from '@aztec/aztec.js';
-import { LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
 import { Argument, Command } from 'commander';
