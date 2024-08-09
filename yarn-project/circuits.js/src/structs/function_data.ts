@@ -1,5 +1,5 @@
 import { type FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -49,6 +49,15 @@ export class FunctionData {
   }
 
   /**
+   * Returns whether this instance is equal to another.
+   * @param other
+   * @returns
+   */
+  equals(other: FunctionData): boolean {
+    return this.selector.equals(other.selector) && this.isPrivate === other.isPrivate;
+  }
+
+  /**
    * Returns a new instance of FunctionData with zero function selector.
    * @param args - Arguments to pass to the constructor.
    * @returns A new instance of FunctionData with zero function selector.
@@ -82,6 +91,6 @@ export class FunctionData {
   }
 
   hash(): Fr {
-    return pedersenHash(this.toFields(), GeneratorIndex.FUNCTION_DATA);
+    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.FUNCTION_DATA);
   }
 }

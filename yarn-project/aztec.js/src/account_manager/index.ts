@@ -17,7 +17,10 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 /**
  * Options to deploy an account contract.
  */
-export type DeployAccountOptions = Pick<DeployOptions, 'fee' | 'skipClassRegistration' | 'skipPublicDeployment'>;
+export type DeployAccountOptions = Pick<
+  DeployOptions,
+  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'estimateGas' | 'skipInitialization'
+>;
 
 /**
  * Manages a user account. Provides methods for calculating the account's address, deploying the account contract,
@@ -68,6 +71,15 @@ export class AccountManager {
   }
 
   /**
+   * Gets the address for this given account.
+   * Does not require the account to be deployed or registered.
+   * @returns The address.
+   */
+  public getAddress() {
+    return this.getCompleteAddress().address;
+  }
+
+  /**
    * Returns the contract instance definition associated with this account.
    * Does not require the account to be deployed or registered.
    * @returns ContractInstance instance.
@@ -101,11 +113,12 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async register(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
-    await this.#register();
     await this.pxe.registerContract({
       artifact: this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
     });
+
+    await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
 
     await waitForAccountSynch(this.pxe, this.getCompleteAddress(), opts);
     return this.getWallet();
@@ -124,8 +137,10 @@ export class AccountManager {
           `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
         );
       }
-      await this.#register();
-      const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
+
+      await this.pxe.registerAccount(this.secretKey, this.getCompleteAddress().partialAddress);
+
+      const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
       const deployWallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
 
       // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
@@ -160,9 +175,10 @@ export class AccountManager {
           contractAddressSalt: this.salt,
           skipClassRegistration: opts?.skipClassRegistration ?? true,
           skipPublicDeployment: opts?.skipPublicDeployment ?? true,
-          skipInitialization: false,
+          skipInitialization: opts?.skipInitialization ?? false,
           universalDeploy: true,
           fee: opts?.fee,
+          estimateGas: opts?.estimateGas,
         }),
       )
       .then(tx => tx.getTxHash());
@@ -186,10 +202,5 @@ export class AccountManager {
    */
   public isDeployable() {
     return this.accountContract.getDeploymentArgs() !== undefined;
-  }
-
-  async #register(): Promise<void> {
-    const completeAddress = this.getCompleteAddress();
-    await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
   }
 }

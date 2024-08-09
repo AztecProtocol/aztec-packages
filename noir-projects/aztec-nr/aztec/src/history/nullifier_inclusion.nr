@@ -1,4 +1,4 @@
-use dep::std::merkle::compute_merkle_root;
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::header::Header;
 
 use crate::{
@@ -24,7 +24,7 @@ impl ProveNullifierInclusion for Header {
         // 4) Prove that the nullifier is in the nullifier tree
         assert(
             self.state.partial.nullifier_tree.root
-            == compute_merkle_root(nullifier_leaf, witness.index, witness.path), "Proving nullifier inclusion failed"
+            == root_from_sibling_path(nullifier_leaf, witness.index, witness.path), "Proving nullifier inclusion failed"
         );
         // --> Now we have traversed the trees all the way up to archive root and verified that the nullifier
         //     was included in the nullifier tree.
@@ -36,9 +36,11 @@ trait ProveNoteIsNullified {
 }
 
 impl ProveNoteIsNullified for Header {
+    // docs:start:prove_note_is_nullified
     fn prove_note_is_nullified<Note, N, M>(self, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M> {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }
+    // docs:end:prove_note_is_nullified
 }

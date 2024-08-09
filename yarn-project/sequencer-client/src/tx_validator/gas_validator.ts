@@ -1,8 +1,8 @@
-import { type Tx, type TxValidator } from '@aztec/circuit-types';
+import { PublicKernelType, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { GasTokenArtifact } from '@aztec/protocol-contracts/gas-token';
-import { AbstractPhaseManager, PublicKernelPhase, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
+import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
+import { AbstractPhaseManager, computeFeePayerBalanceStorageSlot } from '@aztec/simulator';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -12,11 +12,11 @@ export interface PublicStateSource {
 export class GasTxValidator implements TxValidator<Tx> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
-  #gasTokenAddress: AztecAddress;
+  #feeJuiceAddress: AztecAddress;
 
-  constructor(publicDataSource: PublicStateSource, gasTokenAddress: AztecAddress) {
+  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, public enforceFees: boolean) {
     this.#publicDataSource = publicDataSource;
-    this.#gasTokenAddress = gasTokenAddress;
+    this.#feeJuiceAddress = feeJuiceAddress;
   }
 
   async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
@@ -38,7 +38,11 @@ export class GasTxValidator implements TxValidator<Tx> {
     const feePayer = tx.data.feePayer;
     // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
     if (feePayer.isZero()) {
-      return true;
+      if (this.enforceFees) {
+        this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to missing fee payer`);
+      } else {
+        return true;
+      }
     }
 
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
@@ -46,17 +50,19 @@ export class GasTxValidator implements TxValidator<Tx> {
 
     // Read current balance of the feePayer
     const initialBalance = await this.#publicDataSource.storageRead(
-      this.#gasTokenAddress,
+      this.#feeJuiceAddress,
       computeFeePayerBalanceStorageSlot(feePayer),
     );
 
-    // If there is a claim in this tx that increases the fee payer balance in gas token, add it to balance
-    const { [PublicKernelPhase.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
+    // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
+    const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
     const claimFunctionCall = setupFns.find(
       fn =>
-        fn.contractAddress.equals(this.#gasTokenAddress) &&
-        fn.callContext.msgSender.equals(this.#gasTokenAddress) &&
-        fn.functionSelector.equals(GasTokenArtifact.functions.find(f => f.name === '_increase_public_balance')!) &&
+        fn.contractAddress.equals(this.#feeJuiceAddress) &&
+        fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
+        fn.callContext.functionSelector.equals(
+          FeeJuiceArtifact.functions.find(f => f.name === '_increase_public_balance')!,
+        ) &&
         fn.args[0].equals(feePayer) &&
         !fn.callContext.isStaticCall &&
         !fn.callContext.isDelegateCall,

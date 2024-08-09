@@ -1,10 +1,10 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
-    constants::{GAS_LENGTH, FIXED_DA_GAS}, hash::pedersen_hash,
+    constants::{GAS_LENGTH, FIXED_DA_GAS, FIXED_L2_GAS}, hash::pedersen_hash,
     traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered, utils::reader::Reader,
     abis::gas_fees::GasFees
 };
-use dep::std::ops::{Add, Sub};
+use std::ops::{Add, Sub};
 
 struct Gas {
     da_gas: u32,
@@ -17,7 +17,7 @@ impl Gas {
     }
 
     pub fn tx_overhead() -> Self {
-        Self { da_gas: FIXED_DA_GAS, l2_gas: 0 }
+        Self { da_gas: FIXED_DA_GAS, l2_gas: FIXED_L2_GAS }
     }
 
     pub fn compute_fee(self, fees: GasFees) -> Field {

@@ -1,19 +1,11 @@
 import { type AztecAddress, type EthAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
 
-/** A function that the sequencer allows to run in either setup or teardown phase */
-export type AllowedFunction =
-  | {
-      /** The contract address this selector is valid for */
-      address: AztecAddress;
-      /** The function selector */
-      selector: FunctionSelector;
-    }
-  | {
-      /** The contract class this selector is valid for */
-      classId: Fr;
-      /** The function selector */
-      selector: FunctionSelector;
-    };
+type AllowedInstance = { address: AztecAddress };
+type AllowedInstanceFunction = { address: AztecAddress; selector: FunctionSelector };
+type AllowedClass = { classId: Fr };
+type AllowedClassFunction = { classId: Fr; selector: FunctionSelector };
+
+export type AllowedElement = AllowedInstance | AllowedInstanceFunction | AllowedClass | AllowedClassFunction;
 
 /**
  * The sequencer configuration.
@@ -25,6 +17,10 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
+  /** The minimum number of seconds in-between consecutive blocks. */
+  minSecondsBetweenBlocks?: number;
+  /** The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached. */
+  maxSecondsBetweenBlocks?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -34,7 +30,13 @@ export interface SequencerConfig {
   /** The path to the ACVM binary */
   acvmBinaryPath?: string;
   /** The list of functions calls allowed to run in setup */
-  allowedFunctionsInSetup?: AllowedFunction[];
+  allowedInSetup?: AllowedElement[];
   /** The list of functions calls allowed to run teardown */
-  allowedFunctionsInTeardown?: AllowedFunction[];
+  allowedInTeardown?: AllowedElement[];
+  /** Max block size */
+  maxBlockSizeInBytes?: number;
+  /** Whether to require every tx to have a fee payer */
+  enforceFees?: boolean;
+  /** Temporary flag to skip submitting proofs, so a prover-node takes care of it. */
+  sequencerSkipSubmitProofs?: boolean;
 }

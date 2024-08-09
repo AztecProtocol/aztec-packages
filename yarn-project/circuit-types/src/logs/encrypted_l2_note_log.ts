@@ -52,14 +52,18 @@ export class EncryptedL2NoteLog {
     return sha256Trunc(preimage);
   }
 
+  public getSiloedHash(): Buffer {
+    return this.hash();
+  }
+
   /**
    * Crates a random log.
    * @returns A random log.
    */
   public static random(): EncryptedL2NoteLog {
     const randomEphPubKey = Point.random();
-    const randomLogContent = randomBytes(144 - Point.SIZE_IN_BYTES);
-    const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toBuffer()]);
+    const randomLogContent = randomBytes(144 - Point.COMPRESSED_SIZE_IN_BYTES);
+    const data = Buffer.concat([Fr.random().toBuffer(), randomLogContent, randomEphPubKey.toCompressedBuffer()]);
     return new EncryptedL2NoteLog(data);
   }
 

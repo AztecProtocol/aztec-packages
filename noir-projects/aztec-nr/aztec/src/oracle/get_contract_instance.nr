@@ -4,17 +4,17 @@ use dep::protocol_types::{
 };
 
 #[oracle(getContractInstance)]
-fn get_contract_instance_oracle(_address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
+unconstrained fn get_contract_instance_oracle(_address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 // Returns a ContractInstance plus a boolean indicating whether the instance was found.
 #[oracle(avmOpcodeGetContractInstance)]
-fn get_contract_instance_oracle_avm(_address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH + 1] {}
+unconstrained fn get_contract_instance_oracle_avm(_address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH + 1] {}
 
 unconstrained fn get_contract_instance_internal(address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH] {
     get_contract_instance_oracle(address)
 }
 
-unconstrained fn get_contract_instance_internal_avm(address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH + 1] {
+unconstrained pub fn get_contract_instance_internal_avm(address: AztecAddress) -> [Field; CONTRACT_INSTANCE_LENGTH + 1] {
     get_contract_instance_oracle_avm(address)
 }
 

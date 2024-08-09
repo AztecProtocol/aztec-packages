@@ -52,14 +52,15 @@ class ECCVMFlavor {
 
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<ECCVMTranscriptRelation<FF>,
-                                 ECCVMPointTableRelation<FF>,
-                                 ECCVMWnafRelation<FF>,
-                                 ECCVMMSMRelation<FF>,
-                                 ECCVMSetRelation<FF>,
-                                 ECCVMLookupRelation<FF>,
-                                 ECCVMBoolsRelation<FF>>;
-
+    template <typename FF>
+    using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>,
+                                  ECCVMPointTableRelation<FF>,
+                                  ECCVMWnafRelation<FF>,
+                                  ECCVMMSMRelation<FF>,
+                                  ECCVMSetRelation<FF>,
+                                  ECCVMLookupRelation<FF>,
+                                  ECCVMBoolsRelation<FF>>;
+    using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -75,7 +76,9 @@ class ECCVMFlavor {
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-  private:
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
+    // public as it is also used in the recursive flavor but the two could possibly me unified eventually
+  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -313,12 +316,6 @@ class ECCVMFlavor {
 
   public:
     /**
-     * @brief A container for polynomials produced after the first round of sumcheck.
-     * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
-     */
-    using FoldedPolynomials = AllEntities<std::vector<FF>>;
-
-    /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
      */
@@ -327,12 +324,6 @@ class ECCVMFlavor {
         using Base = AllEntities<FF>;
         using Base::Base;
     };
-
-    /**
-     * @brief A container for polynomials produced after the first round of sumcheck.
-     * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
-     */
-    using RowPolynomials = AllEntities<FF>;
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -661,7 +652,7 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
@@ -670,16 +661,17 @@ class ECCVMFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        std::vector<FF> public_inputs;
-
+        VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : public_inputs(proving_key->public_inputs)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
+            // IPA verification key requires one more point.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
+            // how many points they need
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
             this->circuit_size = proving_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key->num_public_inputs;
@@ -690,6 +682,14 @@ class ECCVMFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
+
+        MSGPACK_FIELDS(circuit_size,
+                       log_circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       lagrange_first,
+                       lagrange_second,
+                       lagrange_last);
     };
 
     /**
@@ -800,15 +800,18 @@ class ECCVMFlavor {
         };
     };
 
-    class VerifierCommitments : public AllEntities<Commitment> {
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment> {
       public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key)
+        VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
             this->lagrange_first = verification_key->lagrange_first;
             this->lagrange_second = verification_key->lagrange_second;
             this->lagrange_last = verification_key->lagrange_last;
         }
     };
+
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     /**
      * @brief Derived class that defines proof structure for ECCVM proofs, as well as supporting functions.
@@ -908,10 +911,6 @@ class ECCVMFlavor {
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         std::vector<Commitment> zm_cq_comms;
         Commitment zm_cq_comm;
-        uint32_t ipa_poly_degree;
-        std::vector<Commitment> ipa_l_comms;
-        std::vector<Commitment> ipa_r_comms;
-        FF ipa_a_0_eval;
         Commitment translation_hack_comm;
         FF translation_eval_op;
         FF translation_eval_px;
@@ -919,10 +918,11 @@ class ECCVMFlavor {
         FF translation_eval_z1;
         FF translation_eval_z2;
         FF hack_eval;
-        uint32_t translation_ipa_poly_degree;
-        std::vector<Commitment> translation_ipa_l_comms;
-        std::vector<Commitment> translation_ipa_r_comms;
-        FF translation_ipa_a_0_eval;
+        Commitment shplonk_q_comm;
+        uint32_t ipa_poly_degree;
+        std::vector<Commitment> ipa_l_comms;
+        std::vector<Commitment> ipa_r_comms;
+        FF ipa_a_0_eval;
 
         Transcript() = default;
 
@@ -936,7 +936,6 @@ class ECCVMFlavor {
             size_t num_frs_read = 0;
             circuit_size = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
                                                                                         num_frs_read);
-            size_t log_n = numeric::get_msb(circuit_size);
             transcript_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
@@ -1113,30 +1112,19 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
                                                                                          num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 sumcheck_univariates.emplace_back(NativeTranscript::template deserialize_from_buffer<
                                                   bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     NativeTranscript::proof_data, num_frs_read));
             }
             sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
                 NativeTranscript::proof_data, num_frs_read);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 zm_cq_comms.push_back(
                     NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             zm_cq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
-            ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
-            for (size_t i = 0; i < log_poly_degree; ++i) {
-                ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-                ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-            }
-            ipa_a_0_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             translation_hack_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             translation_eval_op =
@@ -1152,17 +1140,20 @@ class ECCVMFlavor {
             hack_eval =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
-            translation_ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(
-                NativeTranscript::proof_data, num_frs_read);
+            shplonk_q_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
+            ipa_poly_degree = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
+                                                                                           num_frs_read);
+
+            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
             for (size_t i = 0; i < log_poly_degree; ++i) {
-                translation_ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                ipa_l_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read));
-                translation_ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                ipa_r_comms.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read));
             }
 
-            translation_ipa_a_0_eval =
+            ipa_a_0_eval =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
         }
 
@@ -1172,7 +1163,6 @@ class ECCVMFlavor {
             NativeTranscript::proof_data.clear();
 
             NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
-            size_t log_n = numeric::get_msb(circuit_size);
 
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);
@@ -1272,24 +1262,15 @@ class ECCVMFlavor {
                                                            NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(sumcheck_univariates[i], NativeTranscript::proof_data);
             }
             NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
-            for (size_t i = 0; i < log_n; ++i) {
+            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(zm_cq_comms[i], NativeTranscript::proof_data);
             }
             NativeTranscript::template serialize_to_buffer(zm_cq_comm, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
-
-            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
-            for (size_t i = 0; i < log_poly_degree; ++i) {
-                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
-            }
-
-            NativeTranscript::template serialize_to_buffer(ipa_a_0_eval, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_hack_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
@@ -1298,16 +1279,16 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(hack_eval, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(translation_ipa_poly_degree, NativeTranscript::proof_data);
-            log_poly_degree = static_cast<size_t>(numeric::get_msb(translation_ipa_poly_degree));
+            NativeTranscript::template serialize_to_buffer(shplonk_q_comm, NativeTranscript::proof_data);
+
+            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
+            auto log_poly_degree = static_cast<size_t>(numeric::get_msb(ipa_poly_degree));
             for (size_t i = 0; i < log_poly_degree; ++i) {
-                NativeTranscript::template serialize_to_buffer(translation_ipa_l_comms[i],
-                                                               NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(translation_ipa_r_comms[i],
-                                                               NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
-            serialize_to_buffer(translation_ipa_a_0_eval, proof_data);
+            serialize_to_buffer(ipa_a_0_eval, proof_data);
 
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }

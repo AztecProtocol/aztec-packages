@@ -66,6 +66,29 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_read_and_write()
+    {
+        // a generic point
+        {
+            affine_element P = affine_element(element::random_element());
+            [[maybe_unused]] affine_element R;
+
+            std::vector<uint8_t> v(sizeof(R));
+            uint8_t* ptr = v.data();
+            write(ptr, P);
+            ASSERT_TRUE(P.on_curve());
+
+            // // Reset to start?
+            // ptr = v.data();
+
+            const uint8_t* read_ptr = v.data();
+            // good read
+            read(read_ptr, R);
+            ASSERT_TRUE(R.on_curve());
+            ASSERT_TRUE(P == R);
+        }
+    }
+
     static void test_point_compression()
     {
         for (size_t i = 0; i < 10; i++) {
@@ -111,17 +134,6 @@ template <typename G1> class TestAffineElement : public testing::Test {
     }
 
     /**
-     * @brief Check that msgpack encoding is consistent with decoding
-     *
-     */
-    static void test_msgpack_roundtrip()
-    {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-        auto [actual, expected] = msgpack_roundtrip(affine_element{ 1, 1 });
-        EXPECT_EQ(actual, expected);
-    }
-
-    /**
      * @brief A regression test to make sure the -1 case is covered
      *
      */
@@ -137,12 +149,33 @@ template <typename G1> class TestAffineElement : public testing::Test {
             EXPECT_EQ(affine_points[i], -result[i]);
         }
     }
+
+    /**
+     * @brief Ensure that the point at inifinity has a fixed value.
+     *
+     */
+    static void test_fixed_point_at_infinity()
+    {
+        using Fq = affine_element::Fq;
+        affine_element P = affine_element::infinity();
+        affine_element Q(Fq::zero(), Fq::zero());
+        Q.x.self_set_msb();
+        affine_element R = affine_element(element::random_element());
+        EXPECT_EQ(P, Q);
+        EXPECT_NE(P, R);
+    }
 };
 
+// using TestTypes = testing::Types<bb::g1>;
 using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1::g1>;
 } // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
+
+TYPED_TEST(TestAffineElement, ReadWrite)
+{
+    TestFixture::test_read_and_write();
+}
 
 TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 {
@@ -158,6 +191,15 @@ TYPED_TEST(TestAffineElement, PointCompression)
     }
 }
 
+TYPED_TEST(TestAffineElement, FixedInfinityPoint)
+{
+    if constexpr (TypeParam::Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_fixed_point_at_infinity();
+    }
+}
+
 TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
 {
     if constexpr (TypeParam::Fq::modulus.data[3] >= 0x4000000000000000ULL) {
@@ -170,11 +212,6 @@ TYPED_TEST(TestAffineElement, PointCompressionUnsafe)
 TYPED_TEST(TestAffineElement, InfinityOrderingRegression)
 {
     TestFixture::test_infinity_ordering_regression();
-}
-
-TYPED_TEST(TestAffineElement, Msgpack)
-{
-    TestFixture::test_msgpack_roundtrip();
 }
 
 namespace bb::group_elements {

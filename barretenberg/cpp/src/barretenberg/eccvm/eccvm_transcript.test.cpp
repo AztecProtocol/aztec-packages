@@ -26,12 +26,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_eccvm_honk_manifest(size_t circuit_size, size_t log_ipa_poly_degree)
+    TranscriptManifest construct_eccvm_honk_manifest(size_t circuit_size)
     {
         TranscriptManifest manifest_expected;
         auto log_n = numeric::get_msb(circuit_size);
-        ASSERT(log_n == log_ipa_poly_degree);
-
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the type
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
@@ -140,7 +138,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
             manifest_expected.add_challenge(round, label);
         }
 
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             round++;
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
@@ -153,7 +151,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 0; i < log_n; ++i) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "ZM:C_q_" + idx, frs_per_G);
         }
@@ -164,20 +162,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "ZM:x", "ZM:z");
 
         round++;
-        manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_uint32);
-        manifest_expected.add_challenge(round, "IPA:generator_challenge");
-
-        for (size_t i = 0; i < log_n; ++i) {
-            round++;
-            std::string idx = std::to_string(log_n - i - 1);
-            manifest_expected.add_entry(round, "IPA:L_" + idx, frs_per_G);
-            manifest_expected.add_entry(round, "IPA:R_" + idx, frs_per_G);
-            std::string label = "IPA:round_challenge_" + idx;
-            manifest_expected.add_challenge(round, label);
-        }
-
-        round++;
-        manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:hack_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
@@ -189,6 +173,13 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Translation:z2", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:hack_evaluation", frs_per_Fr);
         manifest_expected.add_challenge(round, "Translation:ipa_batching_challenge");
+
+        round++;
+        manifest_expected.add_challenge(round, "Shplonk:nu");
+
+        round++;
+        manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
+        manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
         manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_uint32);
@@ -209,6 +200,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         return manifest_expected;
     }
+
     ECCVMCircuitBuilder generate_trace(numeric::RNG* engine = nullptr)
     {
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
@@ -258,8 +250,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected =
-        this->construct_eccvm_honk_manifest(prover.key->circuit_size, prover.sumcheck_output.challenge.size());
+    auto manifest_expected = this->construct_eccvm_honk_manifest(prover.key->circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {

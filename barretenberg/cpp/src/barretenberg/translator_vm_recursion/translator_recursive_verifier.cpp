@@ -11,8 +11,11 @@ namespace bb {
 
 template <typename Flavor>
 TranslatorRecursiveVerifier_<Flavor>::TranslatorRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    Builder* builder,
+    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , transcript(transcript)
     , builder(builder)
 {}
 
@@ -57,24 +60,20 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
-    using ZeroMorph = ::bb::ZeroMorphVerifier_<PCS>;
+    using Curve = typename Flavor::Curve;
+    using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript->load_proof(stdlib_proof);
 
-    // TODO(github.com/AztecProtocol/barretenberg/issues/985): Normally, the ECCVM verifier would have run
-    // before the translator and there will already by data in the transcript that can be hash to get the batching
-    // challenge. Once this is implemented the hack can be removed.
-    transcript->template receive_from_prover<BF>("init");
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
+    const FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     ASSERT(static_cast<uint32_t>(circuit_size.get_value()) == key->circuit_size);
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
 
@@ -111,21 +110,24 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description ofthe
-    // unrolled protocol.
-    auto pairing_points = ZeroMorph::verify(commitments.get_unshifted_without_concatenated(),
-                                            commitments.get_to_be_shifted(),
-                                            claimed_evaluations.get_unshifted_without_concatenated(),
-                                            claimed_evaluations.get_shifted(),
-                                            multivariate_challenge,
-                                            transcript,
-                                            commitments.get_concatenation_groups(),
-                                            claimed_evaluations.get_concatenated_constraints());
+    // Execute ZeroMorph rounds followed by the univariate PCS. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a
+    // complete description ofthe unrolled protocol.
+
+    auto opening_claim = ZeroMorph::verify(circuit_size,
+                                           commitments.get_unshifted_without_concatenated(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted_without_concatenated(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           Commitment::one(builder),
+                                           transcript,
+                                           commitments.get_concatenation_groups(),
+                                           claimed_evaluations.get_concatenated_constraints());
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     return pairing_points;
 }
 
-// this we verify outside translator
 template <typename Flavor>
 bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<typename Flavor::BF, typename Flavor::FF>& translation_evaluations)
@@ -152,7 +154,7 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
         // multiply by x here to deal with shift
         eccvm_opening.assert_equal(x * accumulated_result);
-        return true;
+        return (eccvm_opening.get_value() == (x * accumulated_result).get_value());
     };
 
     bool is_value_reconstructed =

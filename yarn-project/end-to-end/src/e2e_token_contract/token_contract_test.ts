@@ -12,6 +12,8 @@ import {
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
+import { jest } from '@jest/globals';
+
 import {
   type ISnapshotManager,
   type SubsystemsContext,
@@ -24,8 +26,8 @@ import { TokenSimulator } from '../simulators/token_simulator.js';
 const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class TokenContractTest {
-  static TOKEN_NAME = 'Aztec Token';
-  static TOKEN_SYMBOL = 'AZT';
+  static TOKEN_NAME = 'USDC';
+  static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
   logger: DebugLogger;
@@ -46,6 +48,9 @@ export class TokenContractTest {
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
   async applyBaseSnapshots() {
+    // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
+    jest.setTimeout(120_000);
+
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -86,6 +91,7 @@ export class TokenContractTest {
 
         this.tokenSim = new TokenSimulator(
           this.asset,
+          this.wallets[0],
           this.logger,
           this.accounts.map(a => a.address),
         );

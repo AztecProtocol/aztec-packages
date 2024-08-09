@@ -46,11 +46,17 @@ E2E_TEST:
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   RUN docker run -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
 
+e2e-p2p:
+  DO +E2E_TEST --test=./src/e2e_p2p_network.test.ts
+
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
-e2e-prover:
-  DO +E2E_TEST --test=./src/e2e_prover --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+e2e-prover-full:
+  DO +E2E_TEST --test=./src/e2e_prover/full --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
+
+e2e-prover-with-padding:
+  DO +E2E_TEST --test=./src/e2e_prover/with_padding --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
@@ -69,6 +75,9 @@ e2e-blacklist-token-contract:
 
 e2e-block-building:
   DO +E2E_TEST --test=./src/e2e_block_building.test.ts
+
+e2e-bot:
+  DO +E2E_TEST --test=./src/e2e_bot.test.ts
 
 e2e-card-game:
   DO +E2E_TEST --test=./src/e2e_card_game.test.ts
@@ -133,8 +142,14 @@ e2e-pending-note-hashes-contract:
 e2e-private-voting-contract:
   DO +E2E_TEST --test=./src/e2e_private_voting_contract.test.ts
 
+e2e-prover-node:
+  DO +E2E_TEST --test=./src/e2e_prover_node.test.ts
+
 e2e-fees-private-payments:
   DO +E2E_TEST --test=./src/e2e_fees/private_payments.test.ts
+
+e2e-fees-private-refunds:
+  DO +E2E_TEST --test=./src/e2e_fees/private_refunds.test.ts
 
 e2e-fees-gas-estimation:
   DO +E2E_TEST --test=./src/e2e_fees/gas_estimation.test.ts
@@ -145,8 +160,8 @@ e2e-fees-dapp-subscription:
 e2e-fees-failures:
   DO +E2E_TEST --test=./src/e2e_fees/failures.test.ts
 
-e2e-fees-native-payments:
-  DO +E2E_TEST --test=./src/e2e_fees/native_payments.test.ts
+e2e-fees-fee-juice-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/fee_juice_payments.test.ts
 
 e2e-fees-account-init:
   DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
@@ -159,6 +174,9 @@ e2e-public-to-private-messaging:
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts
+
+e2e-logs:
+  DO +E2E_TEST --test=./src/e2e_event_logs.test.ts
 
 e2e-static-calls:
   DO +E2E_TEST --test=./src/e2e_static_calls.test.ts
@@ -232,3 +250,6 @@ bench-prover:
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+
+e2e-devnet-smoke:
+  DO +E2E_COMPOSE_TEST --test=devnet/e2e_smoke.test.ts --compose_file=scripts/docker-compose-devnet.yml

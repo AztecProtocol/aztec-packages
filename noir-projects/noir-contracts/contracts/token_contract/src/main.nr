@@ -1,6 +1,7 @@
 // docs:start:token_all
 // docs:start:imports
 mod types;
+mod test;
 
 // Minimal token implementation that supports `AuthWit` accounts.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
@@ -15,16 +16,39 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        hash::compute_secret_hash,
-        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress}
+        context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
+        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
+        encrypted_logs::{
+        encrypted_note_emission::{
+        encode_and_encrypt_note, encode_and_encrypt_note_with_keys,
+        encode_and_encrypt_note_with_keys_unconstrained
+    },
+        encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
+    }
     };
 
     // docs:start:import_authwit
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
+    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     // docs:end:import_authwit
 
     use crate::types::{transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
     // docs:end::imports
+
+    // In the first transfer iteration we are computing a lot of additional information (validating inputs, retrieving
+    // keys, etc.), so the gate count is already relatively high. We therefore only read a few notes to keep the happy
+    // case with few constraints.
+    global INITIAL_TRANSFER_CALL_MAX_NOTES = 2;
+    // All the recursive call does is nullify notes, meaning the gate count is low, but it is all constant overhead. We
+    // therefore read more notes than in the base case to increase the efficiency of the overhead, since this results in
+    // an overall small circuit regardless.
+    global RECURSIVE_TRANSFER_CALL_MAX_NOTES = 8;
+
+    #[aztec(event)]
+    struct Transfer {
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: Field,
+    }
 
     // docs:start:storage_struct
     #[aztec(storage)]
@@ -190,9 +214,12 @@ contract Token {
     }
     // docs:end:mint_private
 
+    // TODO: Nuke this - test functions do not belong to token contract!
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
-        storage.balances.add(context.msg_sender(), U128::from_integer(amount));
+        let caller = context.msg_sender();
+        storage.balances.add(caller, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, caller));
+
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
@@ -266,23 +293,25 @@ contract Token {
     // docs:start:redeem_shield
     #[aztec(private)]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
-        let pending_shields = storage.pending_shields;
         let secret_hash = compute_secret_hash(secret);
-        // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
-        // stored in field with index 1 (select(1, secret_hash)).
+
+        // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
+        // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
         options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
             TransparentNote::properties().secret_hash,
             secret_hash,
             Option::none()
         ).set_limit(1);
-        let notes = pending_shields.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
-        // Remove the note from the pending shields set
-        pending_shields.remove(note);
+
+        let notes = storage.pending_shields.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, U128::from_integer(amount));
+        // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
+        // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
+        let from = context.msg_sender();
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, to));
     }
     // docs:end:redeem_shield
 
@@ -295,7 +324,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
 
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -303,7 +332,113 @@ contract Token {
 
     // docs:start:transfer
     #[aztec(private)]
-    fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer(to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+
+        // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
+        // be needed twice.
+        let header = context.get_header();
+        let from_ovpk = header.get_ovpk_m(&mut context, from);
+        let from_ivpk = header.get_ivpk_m(&mut context, from);
+        let to_ivpk = header.get_ivpk_m(&mut context, to);
+
+        let amount = U128::from_integer(amount);
+
+        // We reduce `from`'s balance by amount by recursively removing notes over potentially multiple calls. This
+        // method keeps the gate count for each individual call low - reading too many notes at once could result in
+        // circuits in which proving is not feasible.
+        // Since the sum of the amounts in the notes we nullified was potentially larger than amount, we create a new
+        // note for `from` with the change amount, e.g. if `amount` is 10 and two notes are nullified with amounts 8 and
+        // 5, then the change will be 3 (since 8 + 5 - 10 = 3).
+        let change = subtract_balance(
+            &mut context,
+            storage,
+            from,
+            amount,
+            INITIAL_TRANSFER_CALL_MAX_NOTES
+        );
+
+        storage.balances.add(from, change).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, from_ivpk, from));
+
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
+
+        // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
+        // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
+        // another person where the payment is considered to be successful when the other party successfully decrypts a
+        // note).
+        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_ovpk, to_ivpk, to));
+    }
+    // docs:end:transfer
+
+    #[contract_library_method]
+    fn subtract_balance(
+        context: &mut PrivateContext,
+        storage: Storage<&mut PrivateContext>,
+        account: AztecAddress,
+        amount: U128,
+        max_notes: u32
+    ) -> U128 {
+        let subtracted = storage.balances.try_sub(account, amount, max_notes);
+
+        // Failing to subtract any amount means that the owner was unable to produce more notes that could be nullified.
+        // We could in some cases fail early inside try_sub if we detected that fewer notes than the maximum were
+        // returned and we were still unable to reach the target amount, but that'd make the code more complicated, and
+        // optimizing for the failure scenario is not as important.
+        assert(subtracted > U128::from_integer(0), "Balance too low");
+
+        if subtracted >= amount {
+            // We have achieved our goal of nullifying notes that add up to more than amount, so we return the change
+            subtracted - amount
+        } else {
+            // try_sub failed to nullify enough notes to reach the target amount, so we compute the amount remaining
+            // and try again.
+            let remaining = amount - subtracted;
+            compute_recurse_subtract_balance_call(*context, account, remaining).call(context)
+        }
+    }
+
+    // TODO(#7729): apply no_predicates to the contract interface method directly instead of having to use a wrapper
+    // like we do here.
+    #[no_predicates]
+    #[contract_library_method]
+    fn compute_recurse_subtract_balance_call(
+        context: PrivateContext,
+        account: AztecAddress,
+        remaining: U128
+    ) -> PrivateCallInterface<25, U128, (AztecAddress, Field)> {
+        Token::at(context.this_address())._recurse_subtract_balance(account, remaining.to_field())
+    }
+
+    // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to
+    // serialization issues.
+    #[aztec(internal)]
+    #[aztec(private)]
+    fn _recurse_subtract_balance(account: AztecAddress, amount: Field) -> U128 {
+        subtract_balance(
+            &mut context,
+            storage,
+            account,
+            U128::from_integer(amount),
+            RECURSIVE_TRANSFER_CALL_MAX_NOTES
+        )
+    }
+
+    /**
+     * Cancel a private authentication witness.
+     * @param inner_hash The inner hash of the authwit to cancel.
+     */
+    // docs:start:cancel_authwit
+    #[aztec(private)]
+    fn cancel_authwit(inner_hash: Field) {
+        let on_behalf_of = context.msg_sender();
+        let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
+        context.push_nullifier(nullifier);
+    }
+    // docs:end:cancel_authwit
+
+    // docs:start:transfer_from
+    #[aztec(private)]
+    fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -312,13 +447,22 @@ contract Token {
         }
         // docs:end:assert_current_call_valid_authwit
 
+        // By fetching the keys here, we can avoid doing an extra read from the storage, since from_ovpk would
+        // be needed twice.
+        let header = context.get_header();
+        let from_ovpk = header.get_ovpk_m(&mut context, from);
+        let from_ivpk = header.get_ivpk_m(&mut context, from);
+        let to_ivpk = header.get_ivpk_m(&mut context, to);
+
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount);
         // docs:start:increase_private_balance
-        storage.balances.add(to, amount);
+        // docs:start:encrypted
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, from_ivpk, from));
+        // docs:end:encrypted
         // docs:end:increase_private_balance
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk, to_ivpk, to));
     }
-    // docs:end:transfer
+    // docs:end:transfer_from
 
     // docs:start:burn
     #[aztec(private)]
@@ -329,7 +473,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount));
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -364,4 +508,5 @@ contract Token {
     }
     // docs:end:balance_of_private
 }
+
 // docs:end:token_all

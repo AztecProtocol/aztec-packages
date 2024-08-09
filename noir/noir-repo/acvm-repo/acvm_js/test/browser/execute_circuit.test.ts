@@ -1,10 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import initACVM, {
-  executeCircuit,
-  WitnessMap,
-  initLogLevel,
-  ForeignCallHandler,
-} from '@noir-lang/acvm_js';
+import initACVM, { executeCircuit, WitnessMap, initLogLevel, ForeignCallHandler } from '@noir-lang/acvm_js';
 
 beforeEach(async () => {
   await initACVM();
@@ -80,16 +75,6 @@ it('successfully processes complex brillig foreign call opcodes', async () => {
   expect(solved_witness).to.be.deep.eq(expectedWitnessMap);
 });
 
-it('successfully executes a Pedersen opcode', async function () {
-  const { bytecode, initialWitnessMap, expectedWitnessMap } = await import('../shared/pedersen');
-
-  const solvedWitness: WitnessMap = await executeCircuit(bytecode, initialWitnessMap, () => {
-    throw Error('unexpected oracle');
-  });
-
-  expect(solvedWitness).to.be.deep.eq(expectedWitnessMap);
-});
-
 it('successfully executes a MultiScalarMul opcode', async () => {
   const { bytecode, initialWitnessMap, expectedWitnessMap } = await import('../shared/multi_scalar_mul');
 
@@ -119,4 +104,3 @@ it('successfully executes a MemoryOp opcode', async () => {
 
   expect(solvedWitness).to.be.deep.eq(expectedWitnessMap);
 });
-

@@ -13,6 +13,13 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     };
 
     /**
+     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
+     * i.e. all selectors and public polynomials are treated as constants.
+     *
+     */
+    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{ 2, 2 };
+
+    /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
@@ -57,7 +64,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
      * at the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith -
      * 3) at product.
      *
-     * The The relation is
+     * The relation is
      * defined as C(in(X)...) = q_arith * [ -1/2(q_arith - 3)(q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) +
      * (q_o * w_o) + (q_4 * w_4) + q_c + (q_arith - 1)w_4_shift ]
      *

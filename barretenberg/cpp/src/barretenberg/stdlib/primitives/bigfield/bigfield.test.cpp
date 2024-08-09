@@ -841,6 +841,19 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_NE(ret.get_context(), nullptr);
     }
 
+    static void test_inversion()
+    {
+        fq_ct a = fq_ct(-7);
+        fq_ct a_inverse = a.invert();
+        fq_ct a_inverse_division = fq_ct(1) / a;
+
+        fq a_native = fq(-7);
+        fq a_native_inverse = a_native.invert();
+        EXPECT_EQ(bb::fq((a.get_value() % uint512_t(bb::fq::modulus)).lo), a_native);
+        EXPECT_EQ(bb::fq((a_inverse.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);
+        EXPECT_EQ(bb::fq((a_inverse_division.get_value() % uint512_t(bb::fq::modulus)).lo), a_native_inverse);
+    }
+
     static void test_assert_equal_not_equal()
     {
         auto builder = Builder();
@@ -878,6 +891,27 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_pow()
+    {
+        Builder builder;
+
+        fq base_val(engine.get_random_uint256());
+        uint32_t exponent_val = engine.get_random_uint32();
+        fq expected = base_val.pow(exponent_val);
+
+        fq_ct base(&builder, static_cast<uint256_t>(base_val));
+        fq_ct result = base.pow(exponent_val);
+        EXPECT_EQ(fq(result.get_value()), expected);
+
+        fr_ct exponent = witness_ct(&builder, exponent_val);
+        result = base.pow(exponent);
+        EXPECT_EQ(fq(result.get_value()), expected);
+
+        info("num gates = ", builder.get_num_gates());
+        bool check_result = CircuitChecker::check(builder);
+        EXPECT_EQ(check_result, true);
     }
 };
 
@@ -968,9 +1002,19 @@ TYPED_TEST(stdlib_bigfield, division_context)
     TestFixture::test_division_context();
 }
 
+TYPED_TEST(stdlib_bigfield, inverse)
+{
+    TestFixture::test_inversion();
+}
+
 TYPED_TEST(stdlib_bigfield, assert_equal_not_equal)
 {
     TestFixture::test_assert_equal_not_equal();
+}
+
+TYPED_TEST(stdlib_bigfield, pow)
+{
+    TestFixture::test_pow();
 }
 
 // // This test was disabled before the refactor to use TYPED_TEST's/

@@ -5,16 +5,10 @@ import { SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
-import { type P2PConfig } from '../config.js';
+import type { BootnodeConfig } from '../config.js';
 import { AZTEC_ENR_KEY, AZTEC_NET } from '../service/discV5_service.js';
 import { createLibP2PPeerId } from '../service/index.js';
-
-/**
- * Required P2P config values for a bootstrap node.
- */
-export type BootNodeConfig = Partial<P2PConfig> &
-  Pick<P2PConfig, 'announceHostname' | 'announcePort'> &
-  Required<Pick<P2PConfig, 'udpListenIp' | 'udpListenPort'>>;
+import { convertToMultiaddr } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -30,14 +24,19 @@ export class BootstrapNode {
    * @param config - A partial P2P configuration. No need for TCP values as well as aztec node specific values.
    * @returns An empty promise.
    */
-  public async start(config: BootNodeConfig) {
-    const { peerIdPrivateKey, udpListenIp, udpListenPort, announceHostname, announcePort } = config;
+  public async start(config: BootnodeConfig) {
+    const { peerIdPrivateKey, udpListenAddress, udpAnnounceAddress } = config;
     const peerId = await createLibP2PPeerId(peerIdPrivateKey);
     this.peerId = peerId;
     const enr = SignableENR.createFromPeerId(peerId);
 
-    const listenAddrUdp = multiaddr(`/ip4/${udpListenIp}/udp/${udpListenPort}`);
-    const publicAddr = multiaddr(`${announceHostname}/udp/${announcePort}`);
+    const listenAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
+
+    if (!udpAnnounceAddress) {
+      throw new Error('You need to provide a UDP announce address.');
+    }
+
+    const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
     enr.setLocationMultiaddr(publicAddr);
     enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
 
@@ -49,6 +48,7 @@ export class BootstrapNode {
       bindAddrs: { ip4: listenAddrUdp },
       config: {
         lookupTimeout: 2000,
+        allowUnverifiedSessions: true,
       },
     });
 

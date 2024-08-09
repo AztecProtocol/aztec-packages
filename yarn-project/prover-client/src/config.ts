@@ -1,6 +1,5 @@
-import { type ProverConfig } from '@aztec/circuit-types';
-
-import { tmpdir } from 'os';
+import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
 /**
  * The prover configuration.
@@ -14,8 +13,34 @@ export type ProverClientConfig = ProverConfig & {
   bbWorkingDirectory: string;
   /** The path to the bb binary */
   bbBinaryPath: string;
-  /** The interval agents poll for jobs at */
-  proverAgentPollInterval: number;
+  /** True to disable proving altogether. */
+  disableProver: boolean;
+};
+
+export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
+  acvmWorkingDirectory: {
+    env: 'ACVM_WORKING_DIRECTORY',
+    description: 'The working directory to use for simulation/proving',
+  },
+  acvmBinaryPath: {
+    env: 'ACVM_BINARY_PATH',
+    description: 'The path to the ACVM binary',
+  },
+  bbWorkingDirectory: {
+    env: 'BB_WORKING_DIRECTORY',
+    description: 'The working directory to for proving',
+  },
+  bbBinaryPath: {
+    env: 'BB_BINARY_PATH',
+    description: 'The path to the bb binary',
+  },
+  disableProver: {
+    env: 'PROVER_DISABLED',
+    parseEnv: (val: string) => ['1', 'true'].includes(val),
+    default: false,
+    description: 'Whether to disable proving.',
+  },
+  ...proverConfigMappings,
 };
 
 /**
@@ -24,30 +49,5 @@ export type ProverClientConfig = ProverConfig & {
  * @returns The prover configuration.
  */
 export function getProverEnvVars(): ProverClientConfig {
-  const {
-    ACVM_WORKING_DIRECTORY = tmpdir(),
-    ACVM_BINARY_PATH = '',
-    BB_WORKING_DIRECTORY = tmpdir(),
-    BB_BINARY_PATH = '',
-    PROVER_AGENTS = '1',
-    PROVER_AGENT_POLL_INTERVAL_MS = '50',
-    PROVER_REAL_PROOFS = '',
-  } = process.env;
-
-  const parsedProverAgents = parseInt(PROVER_AGENTS, 10);
-  const proverAgents = Number.isSafeInteger(parsedProverAgents) ? parsedProverAgents : 0;
-  const parsedProverAgentPollInterval = parseInt(PROVER_AGENT_POLL_INTERVAL_MS, 10);
-  const proverAgentPollInterval = Number.isSafeInteger(parsedProverAgentPollInterval)
-    ? parsedProverAgentPollInterval
-    : 50;
-
-  return {
-    acvmWorkingDirectory: ACVM_WORKING_DIRECTORY,
-    acvmBinaryPath: ACVM_BINARY_PATH,
-    bbBinaryPath: BB_BINARY_PATH,
-    bbWorkingDirectory: BB_WORKING_DIRECTORY,
-    proverAgents,
-    realProofs: ['1', 'true'].includes(PROVER_REAL_PROOFS),
-    proverAgentPollInterval,
-  };
+  return getConfigFromMappings<ProverClientConfig>(proverClientConfigMappings);
 }

@@ -17,6 +17,7 @@ import {
   type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   type ContractClassPublic,
@@ -44,7 +45,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockBodies: Map<string, Body> = new Map();
 
   /**
-   * An array containing all the the tx effects in the L2 blocks that have been fetched so far.
+   * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
 
@@ -71,6 +72,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private l1ToL2Messages = new L1ToL2MessageStore();
 
+  private contractArtifacts: Map<string, ContractArtifact> = new Map();
+
   private contractClasses: Map<string, ContractClassPublic> = new Map();
 
   private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
@@ -81,6 +84,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private lastL1BlockNewBlocks: bigint = 0n;
   private lastL1BlockNewMessages: bigint = 0n;
+  private lastProvenL2BlockNumber: number = 0;
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -173,14 +177,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
-    const blockBodies = txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex')));
-
-    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Block body is undefined');
-    }
-
-    return Promise.resolve(blockBodies as Body[]);
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
+    return Promise.resolve(
+      txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex'))),
+    );
   }
 
   /**
@@ -385,7 +385,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     }
 
     const contractAddress = filter.contractAddress;
-    const selector = filter.selector;
 
     const logs: ExtendedUnencryptedL2Log[] = [];
 
@@ -398,8 +397,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
           const log = txLogs[logIndexInTx];
           if (
             (!txHash || block.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
-            (!selector || log.selector.equals(selector))
+            (!contractAddress || log.contractAddress.equals(contractAddress))
           ) {
             logs.push(new ExtendedUnencryptedL2Log(new LogId(block.number, txIndexInBlock, logIndexInTx), log));
             if (logs.length === this.maxLogs) {
@@ -432,10 +430,28 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2Blocks[this.l2Blocks.length - 1].number);
   }
 
+  public getProvenL2BlockNumber(): Promise<number> {
+    return Promise.resolve(this.lastProvenL2BlockNumber);
+  }
+
+  public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+    this.lastProvenL2BlockNumber = l2BlockNumber;
+    return Promise.resolve();
+  }
+
   public getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
     });
+  }
+
+  public addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+    this.contractArtifacts.set(address.toString(), contract);
+    return Promise.resolve();
+  }
+
+  public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
+    return Promise.resolve(this.contractArtifacts.get(address.toString()));
   }
 }

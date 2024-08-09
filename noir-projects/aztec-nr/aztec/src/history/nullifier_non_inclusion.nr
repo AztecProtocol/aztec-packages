@@ -1,4 +1,4 @@
-use dep::std::merkle::compute_merkle_root;
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::{header::Header, utils::field::{full_field_less_than, full_field_greater_than}};
 use crate::{
     context::PrivateContext, note::{utils::compute_siloed_nullifier, note_interface::NoteInterface},
@@ -20,7 +20,7 @@ impl ProveNullifierNonInclusion for Header {
         let low_nullifier_leaf = witness.leaf_preimage.hash();
         assert(
             self.state.partial.nullifier_tree.root
-            == compute_merkle_root(low_nullifier_leaf, witness.index, witness.path), "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
+            == root_from_sibling_path(low_nullifier_leaf, witness.index, witness.path), "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion"
         );
 
         // 2.b) Prove that the low nullifier is smaller than the nullifier
@@ -44,9 +44,11 @@ trait ProveNoteNotNullified {
 }
 
 impl ProveNoteNotNullified for Header {
+    // docs:start:prove_note_not_nullified
     fn prove_note_not_nullified<Note, N, M>(self, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M> {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }
+    // docs:end:prove_note_not_nullified
 }

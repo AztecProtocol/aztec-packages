@@ -11,13 +11,15 @@ namespace acir_proofs {
  */
 class AcirComposer {
 
-    using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
+    using WitnessVector = std::vector<bb::fr, bb::ContainerSlabAllocator<bb::fr>>;
 
   public:
     AcirComposer(size_t size_hint = 0, bool verbose = true);
 
-    template <typename Builder = UltraCircuitBuilder>
-    void create_circuit(acir_format::AcirFormat& constraint_system, WitnessVector const& witness = {});
+    template <typename Builder = bb::UltraCircuitBuilder>
+    void create_circuit(acir_format::AcirFormat& constraint_system,
+                        WitnessVector const& witness = {},
+                        bool collect_gates_per_opcode = false);
 
     std::shared_ptr<bb::plonk::proving_key> init_proving_key();
 

@@ -25,6 +25,8 @@ import {
   GrumpkinScalar,
   Point,
 } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/foundation/abi';
+import { BaseHashType } from '@aztec/foundation/hash';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
 /**
@@ -53,9 +55,18 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       Point,
       TxExecutionRequest,
       TxHash,
+      BaseHashType,
     },
-    { Tx, SimulatedTx, TxReceipt, EncryptedNoteL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
+    {
+      EncryptedNoteL2BlockL2Logs,
+      NoteSelector,
+      NullifierMembershipWitness,
+      SimulatedTx,
+      Tx,
+      TxReceipt,
+      UnencryptedL2BlockL2Logs,
+    },
     false,
     'pxe',
     fetch,
-  );
+  ) as PXE;

@@ -39,10 +39,17 @@ library Errors {
 
   // Rollup
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
+  error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
+  error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
+  error Rollup__SlotValueTooLarge(uint256 slot); // 0x7234f4fe
+  error Rollup__SlotAlreadyInChain(uint256 lastSlot, uint256 proposedSlot); // 0x83510bd0
+  error Rollup__InvalidEpoch(uint256 expected, uint256 actual); // 0x3c6d65e6
+  error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidChainId(uint256 expected, uint256 actual); // 0x37b5bc12
   error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
+  error Rollup__InvalidTimestamp(uint256 expected, uint256 actual); // 0x3132e895
   error Rollup__TimestampInFuture(); // 0xbc1ce916
   error Rollup__TimestampTooOld(); // 0x72ed9c81
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
@@ -53,10 +60,25 @@ library Errors {
 
   //TxsDecoder
   error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
+  error TxsDecoder__TxsTooLarge(uint256 expected, uint256 actual); // 0xc7d44a62
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
+  error HeaderLib__InvalidSlotNumber(uint256 expected, uint256 actual); // 0x09ba91ff
 
   // MerkleLib
   error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
+
+  // SignatureLib
+  error SignatureLib__CannotVerifyEmpty(); // 0xc7690a37
+  error SignatureLib__InvalidSignature(address expected, address recovered); // 0xd9cbae6c
+
+  // SampleLib
+  error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
+
+  // Sequencer Selection (Leonidas)
+  error Leonidas__EpochNotSetup(); // 0xcf4e597e
+  error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
+  error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
+  error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0x2e7debe9
 }

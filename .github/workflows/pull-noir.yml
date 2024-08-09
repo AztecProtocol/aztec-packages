@@ -5,8 +5,11 @@ name: Pull from noir repo
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
+
 on:
-  # o
+  schedule:
+    # Run every morning at 8 AM UTC
+    - cron: "0 8 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -99,6 +102,12 @@ jobs:
               # We don't really need the sync commit on our side, and don't need .gitrepo at all except just in time for the command.
               git checkout origin/master -- noir/noir-repo/.aztec-sync-commit noir/noir-repo/.gitrepo
               git commit -am "[$LINES changes] $COMMIT_MESSAGE"
+
+              # There's various changes which we need to make to account for CI differences so we run this script to apply them.
+              git checkout origin/master -- noir/scripts/sync-in-fixup.sh
+              noir/scripts/sync-in-fixup.sh
+              git commit -am "chore: apply sync fixes"
+
               git push origin $STAGING_BRANCH --force
             else
               echo "Problems syncing noir. Needs manual attention, might be a merge conflict."

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/dsl/types.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>
@@ -8,8 +7,8 @@ namespace acir_format {
 
 struct MemOp {
     uint8_t access_type;
-    poly_triple index;
-    poly_triple value;
+    bb::poly_triple index;
+    bb::poly_triple value;
 };
 
 enum BlockType {
@@ -20,15 +19,44 @@ enum BlockType {
 };
 
 struct BlockConstraint {
-    std::vector<poly_triple> init;
+    std::vector<bb::poly_triple> init;
     std::vector<MemOp> trace;
     BlockType type;
+    uint32_t calldata_id{ 0 };
 };
 
 template <typename Builder>
 void create_block_constraints(Builder& builder,
-                              const BlockConstraint constraint,
+                              const BlockConstraint& constraint,
                               bool has_valid_witness_assignments = true);
+
+template <typename Builder>
+void process_ROM_operations(Builder& builder,
+                            const BlockConstraint& constraint,
+                            bool has_valid_witness_assignments,
+                            std::vector<bb::stdlib::field_t<Builder>>& init);
+template <typename Builder>
+void process_RAM_operations(Builder& builder,
+                            const BlockConstraint& constraint,
+                            bool has_valid_witness_assignments,
+                            std::vector<bb::stdlib::field_t<Builder>>& init);
+template <typename Builder>
+void process_call_data_operations(Builder& builder,
+                                  const BlockConstraint& constraint,
+                                  bool has_valid_witness_assignments,
+                                  std::vector<bb::stdlib::field_t<Builder>>& init);
+template <typename Builder>
+void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init);
+
+/**
+ * @brief Assign a unique ID to each calldata block constraint based on the order in which it was recieved
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1070): this is a workaround to allow calldata inputs to be
+ * distinguished by the backend since no identifiers are received from noir.
+ *
+ * @tparam Builder
+ * @param constraints
+ */
+template <typename Builder> void assign_calldata_ids(std::vector<BlockConstraint>& constraints);
 
 template <typename B> inline void read(B& buf, MemOp& mem_op)
 {

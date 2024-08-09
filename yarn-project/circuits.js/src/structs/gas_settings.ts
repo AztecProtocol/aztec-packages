@@ -21,6 +21,10 @@ export class GasSettings {
     public readonly inclusionFee: Fr,
   ) {}
 
+  getSize(): number {
+    return this.toBuffer().length;
+  }
+
   static from(args: {
     gasLimits: FieldsOf<Gas>;
     teardownGasLimits: FieldsOf<Gas>;
@@ -70,6 +74,11 @@ export class GasSettings {
       inclusionFee: new Fr(DEFAULT_INCLUSION_FEE),
       ...overrides,
     });
+  }
+
+  /** Default gas settings with no teardown */
+  static teardownless() {
+    return GasSettings.default({ teardownGasLimits: Gas.from({ l2Gas: 0, daGas: 0 }) });
   }
 
   /** Gas settings to use for simulating a contract call. */

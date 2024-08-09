@@ -1,14 +1,19 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
-import { Archiver, getConfigEnvVars } from './archiver/index.js';
+import { Archiver, getArchiverConfigFromEnv } from './archiver/index.js';
 import { MemoryArchiverStore } from './archiver/memory_archiver_store/memory_archiver_store.js';
 
 export * from './archiver/index.js';
 export * from './rpc/index.js';
+export * from './factory.js';
+
+// We are not storing the info from these events in the archiver for now (and we don't really need to), so we expose this query directly
+export { retrieveL2ProofVerifiedEvents } from './archiver/data_retrieval.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -17,8 +22,8 @@ const log = createDebugLogger('aztec:archiver');
  */
 // eslint-disable-next-line require-await
 async function main() {
-  const config = getConfigEnvVars();
-  const { rpcUrl, l1Contracts } = config;
+  const config = getArchiverConfigFromEnv();
+  const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
   const publicClient = createPublicClient({
     chain: localhost,
@@ -34,6 +39,8 @@ async function main() {
     l1Contracts.inboxAddress,
     l1Contracts.registryAddress,
     archiverStore,
+    1000,
+    new NoopTelemetryClient(),
   );
 
   const shutdown = async () => {

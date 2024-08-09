@@ -23,20 +23,20 @@ import {Hash} from "../Hash.sol";
  *  |                                                                                                     |            | TxEffect 0 {
  *  | 0x4                                                                                                 | 0x1        |   revertCode
  *  | 0x5                                                                                                 | 0x20       |   transactionFee
- *  | 0x25                                                                                                | 0x1        |   len(newNoteHashes) (denoted b)
- *  | 0x25 + 0x1                                                                                          | b * 0x20   |   newNoteHashes
- *  | 0x25 + 0x1 + b * 0x20                                                                               | 0x1        |   len(newNullifiers) (denoted c)
- *  | 0x25 + 0x1 + b * 0x20 + 0x1                                                                         | c * 0x20   |   newNullifiers
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                              | 0x1        |   len(newL2ToL1Msgs) (denoted d)
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                                        | d * 0x20   |   newL2ToL1Msgs
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                             | 0x1        |   len(newPublicDataWrites) (denoted e)
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                                      | e * 0x40   |   newPublicDataWrites
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                           | 0x04       |   byteLen(newNoteEncryptedLogs) (denoted f)
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4                     | f          |   newNoteEncryptedLogs
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f                 | 0x04       |   byteLen(newEncryptedLogs) (denoted g)
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4           | g          |   newEncryptedLogs
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4 + g       | 0x04       |   byteLen(newUnencryptedLogs) (denoted h)
- *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4 + g + 0x04| h          |   newUnencryptedLogs
+ *  | 0x25                                                                                                | 0x1        |   len(noteHashes) (denoted b)
+ *  | 0x25 + 0x1                                                                                          | b * 0x20   |   noteHashes
+ *  | 0x25 + 0x1 + b * 0x20                                                                               | 0x1        |   len(nullifiers) (denoted c)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1                                                                         | c * 0x20   |   nullifiers
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20                                                              | 0x1        |   len(l2ToL1Msgs) (denoted d)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1                                                        | d * 0x20   |   l2ToL1Msgs
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20                                             | 0x1        |   len(publicDataUpdateRequests) (denoted e)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01                                      | e * 0x40   |   publicDataUpdateRequests
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40                           | 0x04       |   byteLen(noteEncryptedLogs) (denoted f)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4                     | f          |   noteEncryptedLogs
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f                 | 0x04       |   byteLen(encryptedLogs) (denoted g)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4           | g          |   encryptedLogs
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4 + g       | 0x04       |   byteLen(unencryptedLogs) (denoted h)
+ *  | 0x25 + 0x1 + b * 0x20 + 0x1 + c * 0x20 + 0x1 + d * 0x20 + 0x01 + e * 0x40 + 0x4 + f + 0x4 + g + 0x04| h          |   unencryptedLogs
  *  |                                                                                                     |            | },
  *  |                                                                                                     |            | TxEffect 1 {
  *  |                                                                                                     |            |   ...
@@ -103,10 +103,10 @@ library TxsDecoder {
          * Leaf_i = (
          *    revertCode,
          *    transactionFee,
-         *    newNoteHashesKernel,
-         *    newNullifiersKernel,
-         *    newL2ToL1MsgsKernel,
-         *    newPublicDataWritesKernel,
+         *    noteHashesKernel,
+         *    nullifiersKernel,
+         *    l2ToL1MsgsKernel,
+         *    publicDataUpdateRequestsKernel,
          *    noteEncryptedLogsLength,
          *    encryptedLogsLength,
          *    unencryptedLogsLength,
@@ -118,57 +118,65 @@ library TxsDecoder {
          * Zero values.
          */
 
-        // Revert Code
+        // REVERT CODE
         offsets.revertCode = offset;
         offset += 0x1;
 
-        // Transaction Fee
+        // TX FEE
         offsets.transactionFee = offset;
         offset += 0x20;
 
-        // Note hashes
+        // NOTE HASHES
         uint256 count = read1(_body, offset);
         offset += 0x1;
         counts.noteHash = count;
         offsets.noteHash = offset;
         offset += count * 0x20; // each note hash is 0x20 bytes long
 
-        // Nullifiers
+        // NULLIFIERS
         count = read1(_body, offset);
         offset += 0x1;
         counts.nullifier = count;
         offsets.nullifier = offset;
         offset += count * 0x20; // each nullifier is 0x20 bytes long
 
-        // L2 to L1 messages
+        // L2 TO L1 MESSAGES
         count = read1(_body, offset);
         offset += 0x1;
         counts.l2ToL1Msgs = count;
         offsets.l2ToL1Msgs = offset;
         offset += count * 0x20; // each l2 to l1 message is 0x20 bytes long
 
-        // Public data writes
+        // PUBLIC DATA UPDATE REQUESTS
         count = read1(_body, offset);
         offset += 0x1;
         counts.publicData = count;
         offsets.publicData = offset;
-        offset += count * 0x40; // each public data write is 0x40 bytes long
+        offset += count * 0x40; // each public data update request is 0x40 bytes long
 
-        /**
-         * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
-         * Note: will advance offsets by the number of bytes processed.
-         */
+        // NOTE ENCRYPTED LOGS LENGTH
         offsets.noteEncryptedLogsLength = offset;
         offset += 0x20;
+
+        // ENCRYPTED LOGS LENGTH
         offsets.encryptedLogsLength = offset;
         offset += 0x20;
+
+        // UNENCRYPTED LOGS LENGTH
         offsets.unencryptedLogsLength = offset;
         offset += 0x20;
 
+        /**
+         * Compute note, encrypted and unencrypted logs hashes corresponding to the current leaf.
+         * Note: will advance offsets by the number of bytes processed.
+         */
+        // NOTE ENCRYPTED LOGS HASH
         (vars.noteEncryptedLogsHash, offset, vars.kernelNoteEncryptedLogsLength) =
           computeKernelNoteEncryptedLogsHash(offset, _body);
+        // ENCRYPTED LOGS HASH
         (vars.encryptedLogsHash, offset, vars.kernelEncryptedLogsLength) =
           computeKernelEncryptedLogsHash(offset, _body);
+        // UNENCRYPTED LOGS HASH
         (vars.unencryptedLogsHash, offset, vars.kernelUnencryptedLogsLength) =
           computeKernelUnencryptedLogsHash(offset, _body);
 
@@ -249,11 +257,11 @@ library TxsDecoder {
       // We pad base leaves with hashes of empty tx effect.
       for (uint256 i = numTxEffects; i < vars.baseLeaves.length; i++) {
         // Value taken from tx_effect.test.ts "hash of empty tx effect matches snapshot" test case
-        vars.baseLeaves[i] = hex"003f2c7d671d4a2c210124550cf00f8e21727a0ae1a43e1758982a25725dde2b";
+        vars.baseLeaves[i] = hex"00e8b31e302d11fbf7da124b537ba2d44f88e165da03c6557e2b0f6dc486e025";
       }
     }
 
-    return computeRoot(vars.baseLeaves);
+    return computeUnbalancedRoot(vars.baseLeaves);
   }
 
   /**
@@ -509,6 +517,40 @@ library TxsDecoder {
   }
 
   /**
+   * @notice Computes the root for a binary unbalanced Merkle-tree given the leaves.
+   * @dev Filled in greedily with subtrees. Useful for txsEffectHash and outHash tree.
+   * @param _leaves - The 32 bytes leafs to build the tree of.
+   * @return The root of the Merkle tree.
+   */
+  function computeUnbalancedRoot(bytes32[] memory _leaves) internal pure returns (bytes32) {
+    // e.g. an unbalanced tree of 7 txs will contain subtrees of 4, 2, and 1 tx(s) = 111
+    // e.g. an unbalanced tree of 9 txs will contain subtrees of 8 and 1 tx(s) = 1001
+    // We collect the roots of each subtree
+    bytes32 root;
+    uint256 currentSubtreeSize = 1;
+    uint256 numTxs = _leaves.length;
+    // We must calculate the smaller rightmost subtrees first, hence starting at 1
+    while (numTxs != 0) {
+      // If size & txs == 0, the subtree doesn't exist for this number of txs
+      if (currentSubtreeSize & numTxs == 0) {
+        currentSubtreeSize <<= 1;
+        continue;
+      }
+      bytes32[] memory leavesInSubtree = new bytes32[](currentSubtreeSize);
+      uint256 start = numTxs - currentSubtreeSize;
+      for (uint256 i = start; i < numTxs; i++) {
+        leavesInSubtree[i - start] = _leaves[i];
+      }
+      bytes32 subtreeRoot = computeRoot(leavesInSubtree);
+      root =
+        numTxs == _leaves.length ? subtreeRoot : Hash.sha256ToField(bytes.concat(subtreeRoot, root));
+      numTxs -= currentSubtreeSize;
+      currentSubtreeSize <<= 1;
+    }
+    return root;
+  }
+
+  /**
    * @notice Wrapper around the slicing to avoid some stack too deep
    * @param _data - The data to slice
    * @param _start - The start of the slice
@@ -584,18 +626,6 @@ library TxsDecoder {
     } else if (_numTxEffects == 1) {
       return 1;
     }
-
-    uint32 v = _numTxEffects;
-
-    // the following rounds _numTxEffects up to the next power of 2 (works only for 4 bytes value!)
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-
-    return v - _numTxEffects;
+    return 0;
   }
 }

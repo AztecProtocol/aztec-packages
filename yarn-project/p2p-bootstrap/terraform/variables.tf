@@ -26,5 +26,6 @@ variable "P2P_MAX_PEERS" {
 }
 
 variable "DOCKERHUB_ACCOUNT" {
-  type = string
+  type    = string
+  default = "aztecprotocol"
 }

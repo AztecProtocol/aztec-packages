@@ -1,4 +1,4 @@
-use dep::std::option::Option;
+use std::option::Option;
 use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
 
@@ -70,7 +70,7 @@ global NoteStatus = NoteStatusEnum {
     // TODO 4217: add 'NULLIFIED'
 };
 
-fn return_all_notes<Note, N>(
+fn return_all_notes<Note, let N: u32>(
     notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     _p: Field
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
@@ -78,7 +78,7 @@ fn return_all_notes<Note, N>(
 }
 
 // docs:start:NoteGetterOptions
-struct NoteGetterOptions<Note, N, M, FILTER_ARGS> {
+struct NoteGetterOptions<Note, let N: u32, let M: u32, FILTER_ARGS> {
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
@@ -93,7 +93,7 @@ struct NoteGetterOptions<Note, N, M, FILTER_ARGS> {
 // The database-level configurations are applied first:
 // `selects` to specify fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap the result size.
 // And finally, a custom filter to refine the outcome further.
-impl<Note, N, M, FILTER_ARGS> NoteGetterOptions<Note, N, M, FILTER_ARGS> {
+impl<Note, let N: u32, let M: u32, FILTER_ARGS> NoteGetterOptions<Note, N, M, FILTER_ARGS> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> NoteGetterOptions<Note, N, M, Field> where Note: NoteInterface<N, M> {
         NoteGetterOptions {
@@ -156,6 +156,10 @@ impl<Note, N, M, FILTER_ARGS> NoteGetterOptions<Note, N, M, FILTER_ARGS> {
     // This method lets you set a limit for the maximum number of notes to be retrieved in a single query result.
     pub fn set_limit(&mut self, limit: u32) -> Self {
         assert(limit <= MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32);
+        // By requesting that the limit is a constant, we guarantee that it will be possible to loop over it, reducing
+        // gate counts when a limit has been set.
+        assert_constant(limit);
+
         self.limit = limit;
         *self
     }

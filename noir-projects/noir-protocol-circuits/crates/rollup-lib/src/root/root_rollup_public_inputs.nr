@@ -4,6 +4,12 @@ struct RootRollupPublicInputs {
     // Snapshot of archive tree after this block/rollup been processed
     archive: AppendOnlyTreeSnapshot,
 
+    // Root of the protocol circuits VK tree
+    vk_tree_root: Field,
+
     // New block header
     header: Header,
+
+    // Identifier of the prover
+    prover_id: Field,
 }

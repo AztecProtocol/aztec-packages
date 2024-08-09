@@ -1,0 +1,50 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../key-store"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../pxe"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../world-state"
+    }
+  ],
+  "include": ["src"]
+}

@@ -14,14 +14,14 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallets, blacklisted } = t);
-  });
+  }, 600_000);
 
   afterAll(async () => {
     await t.teardown();
   });
 
   afterEach(async () => {
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
   });
 
   it('transfer less than balance', async () => {
@@ -30,6 +30,9 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     expect(amount).toBeGreaterThan(0n);
     await asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
+
+    // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
+    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   it('transfer to self', async () => {
@@ -62,6 +65,9 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     // docs:end:add_authwit
     // docs:end:authwit_transfer_example
 
+    // We give wallets[1] access to wallets[0]'s notes to be able to transfer the notes.
+    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
+
     // Perform the transfer
     await action.send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
@@ -72,6 +78,9 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
       .send();
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+
+    // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
+    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   describe('failure cases', () => {
@@ -136,10 +145,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
         .withWallet(wallets[1])
         .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
       const messageHash = computeAuthWitMessageHash(
-        wallets[1].getAddress(),
-        wallets[0].getChainId(),
-        wallets[0].getVersion(),
-        action.request(),
+        { caller: wallets[1].getAddress(), action: action.request() },
+        { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
       );
 
       await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
@@ -156,14 +163,15 @@ describe('e2e_blacklist_token_contract transfer private', () => {
         .withWallet(wallets[2])
         .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
       const expectedMessageHash = computeAuthWitMessageHash(
-        wallets[2].getAddress(),
-        wallets[0].getChainId(),
-        wallets[0].getVersion(),
-        action.request(),
+        { caller: wallets[2].getAddress(), action: action.request() },
+        { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
       );
 
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[2].addAuthWitness(witness);
+
+      // We give wallets[2] access to wallets[0]'s notes to test the authwit.
+      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
 
       await expect(action.prove()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
@@ -174,13 +182,13 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     it('transfer from a blacklisted account', async () => {
       await expect(
         asset.methods.transfer(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
-      ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+      ).rejects.toThrow(/Assertion failed: Blacklisted: Sender .*/);
     });
 
     it('transfer to a blacklisted account', async () => {
       await expect(
         asset.methods.transfer(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).prove(),
-      ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+      ).rejects.toThrow(/Assertion failed: Blacklisted: Recipient .*/);
     });
   });
 });

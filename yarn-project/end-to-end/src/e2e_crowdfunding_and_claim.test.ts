@@ -9,11 +9,13 @@ import {
   Fr,
   Note,
   type PXE,
+  PackedValues,
+  TxExecutionRequest,
   type TxHash,
   computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { computePartialAddress } from '@aztec/circuits.js';
+import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
@@ -192,7 +194,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         // eslint-disable-next-line camelcase
         storage_slot: extendedNote.storageSlot,
         // eslint-disable-next-line camelcase
-        is_transient: false,
+        note_hash_counter: 0, // set as 0 as note is not transient
         nonce: noteNonces[0],
       },
       value: extendedNote.note.items[0],
@@ -209,7 +211,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[0])
-        .methods.transfer(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
+        .methods.transfer_from(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[0].createAuthWit({ caller: crowdfundingContract.address, action });
       await donorWallets[0].addAuthWitness(witness);
     }
@@ -225,7 +227,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         });
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
-      const notes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
+      const notes = donateTxReceipt.debugInfo?.visibleIncomingNotes.filter(x =>
         x.contractAddress.equals(crowdfundingContract.address),
       );
       expect(notes!.length).toEqual(1);
@@ -236,6 +238,9 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 3) We claim the reward token via the Claim contract
     {
+      // We allow the donor wallet to use the crowdfunding contract's notes
+      donorWallets[0].setScopes([donorWallets[0].getAddress(), crowdfundingContract.address]);
+
       await claimContract
         .withWallet(donorWallets[0])
         .methods.claim(valueNote, donorWallets[0].getAddress())
@@ -252,6 +257,8 @@ describe('e2e_crowdfunding_and_claim', () => {
       .simulate();
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
+    // We allow the operator wallet to use the crowdfunding contract's notes
+    operatorWallet.setScopes([operatorWallet.getAddress(), crowdfundingContract.address]);
     // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods.withdraw(donationAmount).send().wait();
 
@@ -275,7 +282,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[1])
-        .methods.transfer(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+        .methods.transfer_from(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
       await donorWallets[1].addAuthWitness(witness);
     }
@@ -291,7 +298,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       });
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the value note)
-    const notes = donateTxReceipt.debugInfo?.visibleNotes.filter(x =>
+    const notes = donateTxReceipt.debugInfo?.visibleIncomingNotes.filter(x =>
       x.contractAddress.equals(crowdfundingContract.address),
     );
     expect(notes!.length).toEqual(1);
@@ -347,9 +354,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     let note: any;
     {
       const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
-      const { visibleNotes } = receipt.debugInfo!;
-      expect(visibleNotes.length).toEqual(1);
-      note = await processExtendedNote(visibleNotes![0]);
+      const { visibleIncomingNotes } = receipt.debugInfo!;
+      expect(visibleIncomingNotes.length).toEqual(1);
+      note = await processExtendedNote(visibleIncomingNotes![0]);
     }
 
     // 3) Test the note was included
@@ -361,6 +368,51 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
+  it('cannot withdraw as non operator', async () => {
+    const donationAmount = 500n;
+
+    // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
+    const action = donationToken
+      .withWallet(donorWallets[1])
+      .methods.transfer_from(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+    const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
+    await donorWallets[1].addAuthWitness(witness);
+
+    // 2) We donate to the crowdfunding contract
+    await crowdfundingContract.withWallet(donorWallets[1]).methods.donate(donationAmount).send().wait({
+      debug: true,
+    });
+
+    // Calling the function normally will fail as msg_sender != operator
+    await expect(
+      crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).send().wait(),
+    ).rejects.toThrow('Assertion failed: Not an operator');
+
+    // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
+    const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
+    // ...using the withdraw fn as our entrypoint
+    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const request = new TxExecutionRequest(
+      call.to,
+      call.selector,
+      entrypointPackedValues.hash,
+      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default()),
+      [entrypointPackedValues],
+      [],
+    );
+    // NB: Removing the msg_sender assertion from private_init will still result in a throw, as we are using
+    // a non-entrypoint function (withdraw never calls context.end_setup()), meaning the min revertible counter will remain 0.
+    // This does not protect fully against impersonation as the contract could just call context.end_setup() and the below would pass.
+    // => the private_init msg_sender assertion is required (#7190, #7404)
+
+    // We allow the donor wallet to use the crowdfunding contract's notes
+    donorWallets[1].setScopes([donorWallets[1].getAddress(), crowdfundingContract.address]);
+
+    await expect(donorWallets[1].simulateTx(request, true, operatorWallet.getAddress())).rejects.toThrow(
+      'Assertion failed: Users cannot set msg_sender in first call',
+    );
+  });
+
   it('cannot donate after a deadline', async () => {
     const donationAmount = 1000n;
 
@@ -368,13 +420,13 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const action = donationToken
         .withWallet(donorWallets[1])
-        .methods.transfer(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+        .methods.transfer_from(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
       await donorWallets[1].addAuthWitness(witness);
     }
 
     // 2) We set next block timestamp to be after the deadline
-    await cheatCodes.aztec.warp(deadline + 1);
+    await cheatCodes.eth.warp(deadline + 1);
 
     // 3) We donate to the crowdfunding contract
     await expect(

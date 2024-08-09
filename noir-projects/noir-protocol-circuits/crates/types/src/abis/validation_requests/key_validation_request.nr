@@ -1,11 +1,7 @@
-use dep::std::cmp::Eq;
-use crate::{
-    constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
-    grumpkin_point::GrumpkinPoint
-};
+use crate::{constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize}, point::Point};
 
 struct KeyValidationRequest {
-    pk_m: GrumpkinPoint,
+    pk_m: Point,
     sk_app: Field, // not a grumpkin scalar because it's output of poseidon2
 }
 
@@ -19,7 +15,7 @@ impl Eq for KeyValidationRequest {
 impl Empty for KeyValidationRequest {
     fn empty() -> Self {
         KeyValidationRequest {
-            pk_m: GrumpkinPoint::zero(),
+            pk_m: Point::empty(),
             sk_app: 0,
         }
     }
@@ -30,6 +26,7 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
         [
             self.pk_m.x,
             self.pk_m.y,
+            self.pk_m.is_infinite as Field,
             self.sk_app,
         ]
     }
@@ -38,8 +35,8 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
         Self {
-            pk_m: GrumpkinPoint::new(fields[0], fields[1]),
-            sk_app: fields[2],
+            pk_m: Point { x:fields[0], y: fields[1], is_infinite: fields[2] as bool},
+            sk_app: fields[3],
         }
     }
 }

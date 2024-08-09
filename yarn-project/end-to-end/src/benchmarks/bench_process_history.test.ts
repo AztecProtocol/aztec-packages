@@ -21,7 +21,7 @@ import {
 const BLOCK_SIZE = BENCHMARK_HISTORY_BLOCK_SIZE;
 const CHAIN_LENGTHS = BENCHMARK_HISTORY_CHAIN_LENGTHS;
 const MAX_CHAIN_LENGTH = CHAIN_LENGTHS[CHAIN_LENGTHS.length - 1];
-const SETUP_BLOCK_COUNT = 3; // deploy protocol contracts + deploy account + deploy contract
+const SETUP_BLOCK_COUNT = 4; // deploy protocol contracts + deploy account + deploy contract
 
 describe('benchmarks/process_history', () => {
   let context: EndToEndContext;
@@ -54,7 +54,7 @@ describe('benchmarks/process_history', () => {
           const node = await AztecNodeService.createAndSync(nodeConfig);
           // call getPublicStorageAt (which calls #getWorldState, which calls #syncWorldState) to force a sync with
           // world state to ensure the node has caught up
-          await node.getPublicStorageAt(AztecAddress.random(), Fr.random());
+          await node.getPublicStorageAt(AztecAddress.random(), Fr.random(), 'latest');
           return node;
         });
 

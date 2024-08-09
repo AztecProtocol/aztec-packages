@@ -1,7 +1,9 @@
 #include "bigint_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -10,6 +12,8 @@
 #include <vector>
 
 namespace acir_format::tests {
+
+using Composer = plonk::UltraComposer;
 
 class BigIntTests : public ::testing::Test {
   protected:
@@ -196,12 +200,14 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
     apply_constraints(constraint_system, contraints3);
     apply_constraints(constraint_system, contraints4);
     apply_constraints(constraint_system, contraints5);
+    mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
@@ -228,7 +234,7 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
 
     BigIntFromLeBytes from_le_bytes_constraint_bigint1{
         .inputs = { 1 },
-        .modulus = { 0x47, 0xFD, 0x7C, 0xD8, 0x16, 0x8C, 0x20, 0x3C, 0x8d, 0xca, 0x71, 0x68, 0x91, 0x6a, 0x81, 0x97, 
+        .modulus = { 0x47, 0xFD, 0x7C, 0xD8, 0x16, 0x8C, 0x20, 0x3C, 0x8d, 0xca, 0x71, 0x68, 0x91, 0x6a, 0x81, 0x97,
   0x5d, 0x58, 0x81, 0x81, 0xb6, 0x45, 0x50, 0xb8, 0x29, 0xa0, 0x31, 0xe1, 0x72, 0x4e, 0x64, 0x30, },
         .result = 1,
     };
@@ -267,8 +273,9 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
-
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     WitnessVector witness{
         0, 3, 6, 3, 0,
@@ -323,6 +330,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
@@ -333,6 +341,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
     constraint_system.bigint_operations.push_back(get<0>(contraints5));
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
@@ -383,6 +392,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
     apply_constraints(constraint_system, contraints2);
@@ -393,6 +403,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
     constraint_system.bigint_operations.push_back(get<0>(contraints5));
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+    mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 
@@ -464,8 +475,9 @@ TEST_F(BigIntTests, TestBigIntDIV)
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
-
+        .original_opcode_indices = create_empty_original_opcode_indices(),
     };
+    mock_opcode_indices(constraint_system);
 
     WitnessVector witness{
         0, 6, 3, 2, 0,

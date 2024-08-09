@@ -14,6 +14,7 @@ import {
   EthCheatCodes,
   type L1ContractArtifactsForDeployment,
   LogType,
+  NoFeePaymentMethod,
   type PXE,
   type SentTx,
   SignerlessWallet,
@@ -27,18 +28,22 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { type BBNativeProofCreator } from '@aztec/bb-prover';
+import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import {
+  CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
+  GasSettings,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
-  GasPortalAbi,
-  GasPortalBytecode,
+  FeeJuicePortalAbi,
+  FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -50,13 +55,16 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { KeyRegistryContract } from '@aztec/noir-contracts.js';
-import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
-import { GasTokenAddress, getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
+import { FeeJuiceAddress, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
+import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
 import getPort from 'get-port';
@@ -69,7 +77,6 @@ import {
   type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
-  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -83,6 +90,13 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const { PXE_URL = '' } = process.env;
+
+const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+if (typeof afterAll === 'function') {
+  afterAll(async () => {
+    await telemetry.stop();
+  });
+}
 
 const getAztecUrl = () => {
   return PXE_URL;
@@ -114,38 +128,23 @@ export const setupL1Contracts = async (
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
-    gasToken: {
+    feeJuice: {
       contractAbi: PortalERC20Abi,
       contractBytecode: PortalERC20Bytecode,
     },
-    gasPortal: {
-      contractAbi: GasPortalAbi,
-      contractBytecode: GasPortalBytecode,
+    feeJuicePortal: {
+      contractAbi: FeeJuicePortalAbi,
+      contractBytecode: FeeJuicePortalBytecode,
     },
   };
 
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
-  await initGasBridge(l1Data);
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
+    l2FeeJuiceAddress: FeeJuiceAddress,
+    vkTreeRoot: getVKTreeRoot(),
+  });
 
   return l1Data;
 };
-
-async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Contracts) {
-  const gasPortal = getContract({
-    address: l1ContractAddresses.gasPortalAddress.toString(),
-    abi: GasPortalAbi,
-    client: walletClient,
-  });
-
-  await gasPortal.write.initialize(
-    [
-      l1ContractAddresses.registryAddress.toString(),
-      l1ContractAddresses.gasTokenAddress.toString(),
-      GasTokenAddress.toString(),
-    ],
-    {} as any,
-  );
-}
 
 /**
  * Sets up Private eXecution Environment (PXE).
@@ -162,7 +161,7 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativeProofCreator,
+  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -221,29 +220,32 @@ async function setupWithRemoteEnvironment(
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
     chain: foundry,
-    transport: http(config.rpcUrl),
+    transport: http(config.l1RpcUrl),
   });
   const publicClient = createPublicClient({
     chain: foundry,
-    transport: http(config.rpcUrl),
+    transport: http(config.l1RpcUrl),
   });
   const deployL1ContractsValues: DeployL1Contracts = {
     l1ContractAddresses: l1Contracts,
     walletClient,
     publicClient,
   };
-  const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
+  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
+  const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
   // this contract might already have been deployed
   // the following deploying functions are idempotent
   await deployCanonicalKeyRegistry(
     new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
   );
+  await deployCanonicalAuthRegistry(
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+  );
 
   if (enableGas) {
-    await deployCanonicalGasToken(
+    await deployCanonicalFeeJuice(
       new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
     );
   }
@@ -324,7 +326,7 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
-  if (!config.rpcUrl) {
+  if (!config.l1RpcUrl) {
     if (PXE_URL) {
       throw new Error(
         `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
@@ -333,7 +335,7 @@ export async function setup(
 
     const res = await startAnvil();
     anvil = res.anvil;
-    config.rpcUrl = res.rpcUrl;
+    config.l1RpcUrl = res.rpcUrl;
   }
 
   // Enable logging metrics to a local file named after the test suite
@@ -344,7 +346,7 @@ export async function setup(
   }
 
   if (opts.stateLoad) {
-    const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
+    const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
@@ -358,7 +360,7 @@ export async function setup(
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, hdAccount, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, hdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
@@ -376,8 +378,8 @@ export async function setup(
     config.bbBinaryPath = bbConfig.bbBinaryPath;
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
-  config.l1BlockPublishRetryIntervalMS = 100;
-  const aztecNode = await AztecNodeService.createAndSync(config);
+  config.l1PublishRetryIntervalMS = 100;
+  const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
   const prover = aztecNode.getProver();
 
@@ -387,18 +389,23 @@ export async function setup(
 
   logger.verbose('Deploying key registry...');
   await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+  );
+
+  logger.verbose('Deploying auth registry...');
+  await deployCanonicalAuthRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
   );
 
   if (enableGas) {
-    logger.verbose('Deploying gas token...');
-    await deployCanonicalGasToken(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    logger.verbose('Deploying Fee Juice...');
+    await deployCanonicalFeeJuice(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
   }
 
   const wallets = await createAccounts(pxe, numberOfAccounts);
-  const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
+  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {
@@ -430,6 +437,16 @@ export async function setup(
     prover,
     teardown,
   };
+}
+
+/** Returns an L1 wallet client for anvil using a well-known private key based on the index. */
+export function getL1WalletClient(rpcUrl: string, index: number) {
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
+  return createWalletClient({
+    account: hdAccount,
+    chain: foundry,
+    transport: http(rpcUrl),
+  });
 }
 
 /**
@@ -608,27 +625,41 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 /**
  * Deploy the protocol contracts to a running instance.
  */
-export async function deployCanonicalGasToken(deployer: Wallet) {
-  // "deploy" the Gas token as it contains public functions
-  const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
-  const canonicalGasToken = getCanonicalGasToken();
+export async function deployCanonicalFeeJuice(pxe: PXE) {
+  // "deploy" the Fee Juice as it contains public functions
+  const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
+  const canonicalFeeJuice = getCanonicalFeeJuice();
 
-  if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
-    getLogger().debug('Gas token already deployed');
-    await expect(deployer.isContractPubliclyDeployed(canonicalGasToken.address)).resolves.toBe(true);
+  if (await pxe.isContractClassPubliclyRegistered(canonicalFeeJuice.contractClass.id)) {
+    getLogger().debug('Fee Juice already deployed');
+    await expect(pxe.isContractPubliclyDeployed(canonicalFeeJuice.address)).resolves.toBe(true);
     return;
   }
 
-  const gasToken = await GasTokenContract.deploy(deployer)
-    .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
-    .deployed();
-  await gasToken.methods.set_portal(gasPortalAddress).send().wait();
+  // Capsules will die soon, patience!
+  const publicBytecode = canonicalFeeJuice.contractClass.packedBytecode;
+  const encodedBytecode = bufferAsFields(publicBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  await pxe.addCapsule(encodedBytecode);
 
-  getLogger().info(`Gas token publicly deployed at ${gasToken.address}`);
+  await pxe.registerContract(canonicalFeeJuice);
+  const wallet = new SignerlessWallet(pxe);
+  const feeJuice = await FeeJuiceContract.at(canonicalFeeJuice.address, wallet);
 
-  await expect(deployer.isContractClassPubliclyRegistered(gasToken.instance.contractClassId)).resolves.toBe(true);
-  await expect(deployer.getContractInstance(gasToken.address)).resolves.toBeDefined();
-  await expect(deployer.isContractPubliclyDeployed(gasToken.address)).resolves.toBe(true);
+  await feeJuice.methods
+    .deploy(
+      canonicalFeeJuice.contractClass.artifactHash,
+      canonicalFeeJuice.contractClass.privateFunctionsRoot,
+      canonicalFeeJuice.contractClass.publicBytecodeCommitment,
+      feeJuicePortalAddress,
+    )
+    .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
+    .wait();
+
+  getLogger().info(`Fee Juice publicly deployed at ${feeJuice.address}`);
+
+  await expect(pxe.isContractClassPubliclyRegistered(feeJuice.instance.contractClassId)).resolves.toBe(true);
+  await expect(pxe.getContractInstance(feeJuice.address)).resolves.toBeDefined();
+  await expect(pxe.isContractPubliclyDeployed(feeJuice.address)).resolves.toBe(true);
 }
 
 export async function deployCanonicalKeyRegistry(deployer: Wallet) {
@@ -662,4 +693,37 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet) {
   expect(getContractClassFromArtifact(keyRegistry.artifact).id).toEqual(keyRegistry.instance.contractClassId);
   await expect(deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalKeyRegistry.instance.address)).resolves.toBeDefined();
+}
+
+export async function deployCanonicalAuthRegistry(deployer: Wallet) {
+  const canonicalAuthRegistry = getCanonicalAuthRegistry();
+
+  // We check to see if there exists a contract at the canonical Auth Registry address with the same contract class id as we expect. This means that
+  // the auth registry has already been deployed to the correct address.
+  if (
+    (await deployer.getContractInstance(canonicalAuthRegistry.address))?.contractClassId.equals(
+      canonicalAuthRegistry.contractClass.id,
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id))
+  ) {
+    return;
+  }
+
+  const authRegistry = await AuthRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalAuthRegistry.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (
+    !authRegistry.address.equals(canonicalAuthRegistry.address) ||
+    !authRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_AUTH_REGISTRY_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Auth Registry address ${authRegistry.address} does not match expected address ${canonicalAuthRegistry.address}, or they both do not equal CANONICAL_AUTH_REGISTRY_ADDRESS`,
+    );
+  }
+
+  expect(computeContractAddressFromInstance(authRegistry.instance)).toEqual(authRegistry.address);
+  expect(getContractClassFromArtifact(authRegistry.artifact).id).toEqual(authRegistry.instance.contractClassId);
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalAuthRegistry.instance.address)).resolves.toBeDefined();
 }

@@ -14,26 +14,31 @@
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
 using namespace bb;
-using G1 = bb::g1;
-using Fr = bb::fr;
 
-class ECCVMComposerTests : public ::testing::Test {
+class ECCVMTests : public ::testing::Test {
   protected:
-    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialized for every test.
     void SetUp() override { srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
+
+/**
+ * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
+ *
+ * @param engine
+ * @return ECCVMCircuitBuilder
+ */
 ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
 {
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-
-    auto generators = G1::derive_generators("test generators", 3);
-
-    typename G1::element a = generators[0];
-    typename G1::element b = generators[1];
-    typename G1::element c = generators[2];
+    G1 a = G1::random_element(engine);
+    G1 b = G1::random_element(engine);
+    G1 c = G1::random_element(engine);
     Fr x = Fr::random_element(engine);
     Fr y = Fr::random_element(engine);
 
@@ -55,7 +60,7 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     return builder;
 }
 
-TEST_F(ECCVMComposerTests, BaseCase)
+TEST_F(ECCVMTests, BaseCase)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
     ECCVMProver prover(builder);
@@ -66,7 +71,7 @@ TEST_F(ECCVMComposerTests, BaseCase)
     ASSERT_TRUE(verified);
 }
 
-TEST_F(ECCVMComposerTests, EqFails)
+TEST_F(ECCVMTests, EqFails)
 {
     auto builder = generate_circuit(&engine);
     // Tamper with the eq op such that the expected value is incorect

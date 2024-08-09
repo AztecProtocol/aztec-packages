@@ -6,6 +6,11 @@
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 set -eu
 
+if [ "$(uname)" == "Darwin" ]; then
+  shopt -s expand_aliases
+  alias clang++-16="clang++"
+fi
+
 cd "$(dirname "$0")"
 
 CMD=${1:-}
@@ -98,7 +103,8 @@ if [ "$CMD" = "clean" ]; then
   echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
   echo -n "Continue? [y/n] "
   read user_input
-  if [ "$user_input" != "y" ] && [ "$user_input" != "Y" ]; then
+  if [ "$user_input" != "y" ] && [ "$user_input" != "yes" ] && [ "$user_input" != "Y" ] && [ "$user_input" != "YES" ]; then
+    echo "Exiting without cleaning"
     exit 1
   fi
 
@@ -112,6 +118,7 @@ if [ "$CMD" = "clean" ]; then
   # Remove all untracked files, directories, nested repos, and .gitignore files.
   git clean -ffdx
 
+  echo "Cleaning complete"
   exit 0
 elif [ "$CMD" = "full" ]; then
   if can_use_ci_cache; then

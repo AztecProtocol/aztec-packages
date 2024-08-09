@@ -1,23 +1,39 @@
+import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
+import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
-import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
+import {
+  type ClientProtocolArtifact,
+  type ProtocolArtifact,
+  ProtocolCircuitArtifacts,
+} from '@aztec/noir-protocol-circuits-types';
 
 import * as fs from 'fs/promises';
+import * as path from 'path';
 
-import { BB_RESULT, generateContractForCircuit, generateKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
-import { type BBProverConfig } from '../prover/bb_prover.js';
+import {
+  BB_RESULT,
+  PROOF_FILENAME,
+  VK_FILENAME,
+  generateContractForCircuit,
+  generateKeyForNoirCircuit,
+  verifyClientIvcProof,
+  verifyProof,
+} from '../bb/execute.js';
+import { type BBConfig } from '../config.js';
+import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
-export class BBCircuitVerifier {
+export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
-    private config: BBProverConfig,
+    private config: BBConfig,
     private verificationKeys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>(),
     private logger: DebugLogger,
   ) {}
 
   public static async new(
-    config: BBProverConfig,
+    config: BBConfig,
     initialCircuits: ProtocolArtifact[] = [],
     logger = createDebugLogger('aztec:bb-verifier'),
   ) {
@@ -73,11 +89,11 @@ export class BBCircuitVerifier {
 
   public async verifyProofForCircuit(circuit: ProtocolArtifact, proof: Proof) {
     const operation = async (bbWorkingDirectory: string) => {
-      const proofFileName = `${bbWorkingDirectory}/proof`;
-      const verificationKeyPath = `${bbWorkingDirectory}/vk`;
+      const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
+      const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
       const verificationKey = await this.getVerificationKeyData(circuit);
 
-      this.logger.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
+      this.logger.debug(`${circuit} Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
@@ -92,6 +108,13 @@ export class BBCircuitVerifier {
         const errorMessage = `Failed to verify ${circuit} proof!`;
         throw new Error(errorMessage);
       }
+
+      this.logger.debug(`${circuit} verification successful`, {
+        circuitName: mapProtocolArtifactNameToCircuitName(circuit),
+        duration: result.durationMs,
+        eventName: 'circuit-verification',
+        proofType: 'ultra-honk',
+      } satisfies CircuitVerificationStats);
     };
     await runInDirectory(this.config.bbWorkingDirectory, operation);
   }
@@ -111,5 +134,45 @@ export class BBCircuitVerifier {
     }
 
     return fs.readFile(result.contractPath!, 'utf-8');
+  }
+
+  public async verifyProof(tx: Tx): Promise<boolean> {
+    try {
+      // TODO(#7370) The verification keys should be supplied separately and based on the expectedCircuit
+      // rather than read from the tx object itself. We also need the vks for the translator and ecc, which
+      // are not being saved along the other vks yet. Reuse the 'verifyProofForCircuit' method above once
+      // we have all the verification keys available.
+      const expectedCircuit: ClientProtocolArtifact = tx.data.forPublic
+        ? 'PrivateKernelTailToPublicArtifact'
+        : 'PrivateKernelTailArtifact';
+      const circuit = 'ClientIVC';
+
+      // Block below is almost copy-pasted from verifyProofForCircuit
+      const operation = async (bbWorkingDirectory: string) => {
+        const logFunction = (message: string) => {
+          this.logger.debug(`${circuit} BB out - ${message}`);
+        };
+
+        await tx.clientIvcProof.writeToOutputDirectory(bbWorkingDirectory);
+        const result = await verifyClientIvcProof(this.config.bbBinaryPath, bbWorkingDirectory, logFunction);
+
+        if (result.status === BB_RESULT.FAILURE) {
+          const errorMessage = `Failed to verify ${circuit} proof!`;
+          throw new Error(errorMessage);
+        }
+
+        this.logger.debug(`${circuit} verification successful`, {
+          circuitName: mapProtocolArtifactNameToCircuitName(expectedCircuit),
+          duration: result.durationMs,
+          eventName: 'circuit-verification',
+          proofType: 'client-ivc',
+        } satisfies CircuitVerificationStats);
+      };
+      await runInDirectory(this.config.bbWorkingDirectory, operation);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Failed to verify ClientIVC proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
+      return false;
+    }
   }
 }

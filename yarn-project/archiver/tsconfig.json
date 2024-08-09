@@ -28,7 +28,13 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../types"
+    },
+    {
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

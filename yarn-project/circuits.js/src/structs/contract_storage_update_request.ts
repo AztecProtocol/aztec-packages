@@ -22,25 +22,28 @@ export class ContractStorageUpdateRequest {
      */
     public readonly newValue: Fr,
     /**
-     * Optional side effect counter tracking position of this event in tx execution.
+     * Side effect counter tracking position of this event in tx execution.
      */
-    public readonly sideEffectCounter?: number,
+    public readonly counter: number,
+    /**
+     * Contract address whose storage is being read.
+     */
     public contractAddress?: AztecAddress, // TODO: Should not be optional. This is a temporary hack to silo the storage slot with the correct address for nested executions.
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.storageSlot, this.newValue);
+    return serializeToBuffer(this.storageSlot, this.newValue, this.counter);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ContractStorageUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new ContractStorageUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readNumber());
   }
 
   /**
-   * Create PublicCallRequest from a fields dictionary.
+   * Create ContractStorageUpdateRequest from a fields dictionary.
    * @param fields - The dictionary.
-   * @returns A PublicCallRequest object.
+   * @returns A ContractStorageUpdateRequest object.
    */
   static from(fields: FieldsOf<ContractStorageUpdateRequest>): ContractStorageUpdateRequest {
     return new ContractStorageUpdateRequest(...ContractStorageUpdateRequest.getFields(fields));
@@ -52,11 +55,11 @@ export class ContractStorageUpdateRequest {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<ContractStorageUpdateRequest>) {
-    return [fields.storageSlot, fields.newValue, fields.sideEffectCounter, fields.contractAddress] as const;
+    return [fields.storageSlot, fields.newValue, fields.counter, fields.contractAddress] as const;
   }
 
   static empty() {
-    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO);
+    return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO, 0);
   }
 
   isEmpty() {
@@ -64,11 +67,13 @@ export class ContractStorageUpdateRequest {
   }
 
   toFriendlyJSON() {
-    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.newValue.toFriendlyJSON()}`;
+    return `Slot=${this.storageSlot.toFriendlyJSON()}: ${this.newValue.toFriendlyJSON()}, sideEffectCounter=${
+      this.counter
+    }`;
   }
 
   toFields(): Fr[] {
-    const fields = [this.storageSlot, this.newValue];
+    const fields = [this.storageSlot, this.newValue, new Fr(this.counter)];
     if (fields.length !== CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH) {
       throw new Error(
         `Invalid number of fields for ContractStorageUpdateRequest. Expected ${CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH}, got ${fields.length}`,
@@ -83,6 +88,6 @@ export class ContractStorageUpdateRequest {
     const storageSlot = reader.readField();
     const newValue = reader.readField();
 
-    return new ContractStorageUpdateRequest(storageSlot, newValue);
+    return new ContractStorageUpdateRequest(storageSlot, newValue, reader.readU32());
   }
 }

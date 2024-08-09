@@ -10,7 +10,8 @@
     "./contracts": "./dest/contracts/index.js",
     "./interfaces": "./dest/interfaces/index.js",
     "./membership": "./dest/sibling-path/index.js",
-    "./noir": "./dest/noir/index.js"
+    "./noir": "./dest/noir/index.js",
+    "./network": "./dest/network/index.js"
   },
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
@@ -34,7 +35,15 @@
     "rootDir": "./src",
     "transform": {
       "^.+\\.tsx?$": [
-        "@swc/jest"
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            }
+          }
+        }
       ]
     },
     "extensionsToTreatAsEsm": [

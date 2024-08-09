@@ -1,6 +1,6 @@
 import { Fr, computeSecretHash } from '@aztec/aztec.js';
 
-import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
+import { U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
@@ -13,14 +13,14 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallets, blacklisted } = t);
-  });
+  }, 600_000);
 
   afterAll(async () => {
     await t.teardown();
   });
 
   afterEach(async () => {
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
   });
 
   const secret = Fr.random();
@@ -38,7 +38,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     const receipt = await asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).send().wait();
 
     tokenSim.shield(wallets[0].getAddress(), amount);
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
@@ -60,14 +60,12 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     const receipt = await action.send().wait();
 
     tokenSim.shield(wallets[0].getAddress(), amount);
-    await t.tokenSim.check(wallets[0]);
+    await t.tokenSim.check();
 
     // Check that replaying the shield should fail!
-    const txReplay = asset
-      .withWallet(wallets[1])
-      .methods.shield(wallets[0].getAddress(), amount, secretHash, nonce)
-      .send();
-    await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    await expect(
+      asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce).simulate(),
+    ).rejects.toThrow(/unauthorized/);
 
     // Redeem it
     await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
@@ -120,7 +118,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       const action = asset.withWallet(wallets[2]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
       await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
-      await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
+      await expect(action.prove()).rejects.toThrow(/unauthorized/);
     });
 
     it('on behalf of other (without approval)', async () => {
@@ -130,14 +128,14 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
-        asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce).prove(),
-      ).rejects.toThrow(`Assertion failed: Message not authorized by account`);
+        asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce).simulate(),
+      ).rejects.toThrow(/unauthorized/);
     });
 
     it('shielding from blacklisted account', async () => {
       await expect(
         asset.withWallet(blacklisted).methods.shield(blacklisted.getAddress(), 1n, secretHash, 0).prove(),
-      ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+      ).rejects.toThrow(/Assertion failed: Blacklisted: Sender .*/);
     });
   });
 });

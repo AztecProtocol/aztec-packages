@@ -19,6 +19,12 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../bot"
+    },
+    {
       "path": "../builder"
     },
     {
@@ -26,6 +32,12 @@
     },
     {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../cli"
+    },
+    {
+      "path": "../cli-wallet"
     },
     {
       "path": "../entrypoints"
@@ -46,6 +58,9 @@
       "path": "../noir-contracts.js"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
     },
     {
@@ -58,7 +73,19 @@
       "path": "../prover-client"
     },
     {
+      "path": "../prover-node"
+    },
+    {
       "path": "../pxe"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../txe"
+    },
+    {
+      "path": "../types"
     }
   ],
   "include": ["src"]

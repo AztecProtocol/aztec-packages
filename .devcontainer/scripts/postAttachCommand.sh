@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-TYPE=$1
-NAME=$2
 
+apt update
 apt install gh
 gh codespace ports visibility 8080:public -c $CODESPACE_NAME
 
-npx create-aztec-app sandbox start
+npx aztec-app sandbox start
 
 r=$(tput sgr0)       # Reset color
 bold=$(tput bold)    # Bold text

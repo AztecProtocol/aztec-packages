@@ -1,19 +1,59 @@
-use dep::protocol_types::traits::{Deserialize, Serialize};
+use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
 
 #[oracle(storageRead)]
-fn storage_read_oracle<N>(_storage_slot: Field, _number_of_elements: Field) -> [Field; N] {}
+unconstrained fn storage_read_oracle<let N: u32>(address: Field, storage_slot: Field, block_number: Field, length: Field) -> [Field; N] {}
 
-unconstrained fn storage_read_oracle_wrapper<N>(_storage_slot: Field) -> [Field; N] {
-    storage_read_oracle(_storage_slot, N)
+unconstrained pub fn raw_storage_read<let N: u32>(
+    address: AztecAddress,
+    storage_slot: Field,
+    block_number: u32
+) -> [Field; N] {
+    storage_read_oracle(
+        address.to_field(),
+        storage_slot,
+        block_number as Field,
+        N as Field
+    )
 }
 
-pub fn storage_read<N>(storage_slot: Field) -> [Field; N] {
-    storage_read_oracle_wrapper(storage_slot)
+unconstrained pub fn storage_read<T, let N: u32>(
+    address: AztecAddress,
+    storage_slot: Field,
+    block_number: u32
+) -> T where T: Deserialize<N> {
+    T::deserialize(raw_storage_read(address, storage_slot, block_number))
 }
 
-#[oracle(storageWrite)]
-fn storage_write_oracle<N>(_storage_slot: Field, _values: [Field; N]) -> [Field; N] {}
+mod tests {
+    use crate::oracle::storage::{raw_storage_read, storage_read};
+    use dep::protocol_types::address::AztecAddress;
 
-unconstrained pub fn storage_write<N>(storage_slot: Field, fields: [Field; N]) {
-    let _hash = storage_write_oracle(storage_slot, fields);
+    use std::test::OracleMock;
+    use crate::test::mocks::mock_struct::MockStruct;
+
+    global address = AztecAddress::from_field(29);
+    global slot = 7;
+    global block_number = 17;
+
+    #[test]
+    fn test_raw_storage_read() {
+        let written = MockStruct { a: 13, b: 42 };
+
+        let _ = OracleMock::mock("storageRead").returns(written.serialize());
+
+        let read: [Field; 2] = raw_storage_read(address, slot, block_number);
+        assert_eq(read[0], 13);
+        assert_eq(read[1], 42);
+    }
+
+    #[test]
+    fn test_storage_read() {
+        let written = MockStruct { a: 13, b: 42 };
+
+        let _ = OracleMock::mock("storageRead").returns(written.serialize());
+
+        let read: MockStruct = storage_read(address, slot, block_number);
+        assert_eq(read.a, 13);
+        assert_eq(read.b, 42);
+    }
 }

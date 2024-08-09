@@ -51,7 +51,7 @@ template <typename Builder> void create_keccak_permutations(Builder& builder, co
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte_array
     for (size_t i = 0; i < constraint.state.size(); ++i) {
-        state[i] = field_ct::from_witness_index(&builder, constraint.state[i]);
+        state[i] = to_field_ct(constraint.state[i], builder);
     }
 
     std::array<field_ct, 25> output_state = bb::stdlib::keccak<Builder>::permutation_opcode(state, &builder);
@@ -60,15 +60,15 @@ template <typename Builder> void create_keccak_permutations(Builder& builder, co
         builder.assert_equal(output_state[i].normalize().witness_index, constraint.result[i]);
     }
 }
-template void create_keccak_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                             const KeccakConstraint& constraint);
-template void create_keccak_permutations<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                              const Keccakf1600& constraint);
+template void create_keccak_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
+                                                                 const KeccakConstraint& constraint);
+template void create_keccak_permutations<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
+                                                                  const Keccakf1600& constraint);
 
-template void create_keccak_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                            const KeccakConstraint& constraint);
+template void create_keccak_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
+                                                                const KeccakConstraint& constraint);
 
-template void create_keccak_permutations<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                             const Keccakf1600& constraint);
+template void create_keccak_permutations<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
+                                                                 const Keccakf1600& constraint);
 
 } // namespace acir_format

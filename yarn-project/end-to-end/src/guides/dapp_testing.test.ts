@@ -64,10 +64,10 @@ describe('guides/dapp/testing', () => {
           TokenContract.notes.TransparentNote.id,
           receipt.txHash,
         );
-        await pxe.addNote(extendedNote);
+        await owner.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
+        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
 
@@ -104,32 +104,10 @@ describe('guides/dapp/testing', () => {
           TokenContract.notes.TransparentNote.id,
           receipt.txHash,
         );
-        await pxe.addNote(extendedNote);
+        await owner.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
-      });
-    });
-
-    describe('cheats', () => {
-      let pxe: PXE;
-      let owner: AccountWallet;
-      let testContract: TestContract;
-      let cheats: CheatCodes;
-
-      beforeAll(async () => {
-        pxe = createPXEClient(PXE_URL);
-        owner = await createAccount(pxe);
-        testContract = await TestContract.deploy(owner).send().deployed();
-        cheats = CheatCodes.create(ETHEREUM_HOST, pxe);
-      });
-
-      it('warps time to 1h into the future', async () => {
-        // docs:start:warp
-        const newTimestamp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
-        await cheats.aztec.warp(newTimestamp);
-        await testContract.methods.is_time_equal(newTimestamp).send().wait();
-        // docs:end:warp
+        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       });
     });
 
@@ -166,7 +144,7 @@ describe('guides/dapp/testing', () => {
           TokenContract.notes.TransparentNote.id,
           receipt.txHash,
         );
-        await pxe.addNote(extendedNote);
+        await owner.addNote(extendedNote);
 
         await token.methods.redeem_shield(ownerAddress, 100n, secret).send().wait();
 
@@ -179,10 +157,11 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        const notes = await pxe.getNotes({
+        const notes = await pxe.getIncomingNotes({
           owner: owner.getAddress(),
           contractAddress: token.address,
           storageSlot: ownerSlot,
+          scopes: [owner.getAddress()],
         });
         const values = notes.map(note => note.note.items[0]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
@@ -214,22 +193,22 @@ describe('guides/dapp/testing', () => {
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
-        const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
+        const call = token.methods.transfer(recipient.getAddress(), 200n);
         await expect(call.prove()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
       });
 
       it('asserts a local transaction simulation fails by calling send', async () => {
         // docs:start:local-tx-fails-send
-        const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
+        const call = token.methods.transfer(recipient.getAddress(), 200n);
         await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails-send
       });
 
       it('asserts a transaction is dropped', async () => {
         // docs:start:tx-dropped
-        const call1 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 80n, 0);
-        const call2 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 50n, 0);
+        const call1 = token.methods.transfer(recipient.getAddress(), 80n);
+        const call2 = token.methods.transfer(recipient.getAddress(), 50n);
 
         await call1.prove();
         await call2.prove();

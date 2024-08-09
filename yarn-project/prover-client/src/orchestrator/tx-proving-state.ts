@@ -1,12 +1,18 @@
-import { type MerkleTreeId, type ProcessedTx, type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
+import {
+  AVM_REQUEST,
+  type AvmProvingRequest,
+  type MerkleTreeId,
+  type ProcessedTx,
+  type PublicKernelRequest,
+  PublicKernelType,
+} from '@aztec/circuit-types';
 import {
   type AppendOnlyTreeSnapshot,
   type BaseRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type RecursiveProof,
   type VerificationKeyData,
-  makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
 
 export enum TX_PROVING_CODE {
@@ -16,6 +22,7 @@ export enum TX_PROVING_CODE {
 }
 
 export type PublicFunction = {
+  vmRequest: AvmProvingRequest | undefined;
   vmProof: Proof | undefined;
   previousProofType: PublicKernelType;
   previousKernelProven: boolean;
@@ -43,24 +50,24 @@ export class TxProvingState {
     public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
     privateKernelVk: VerificationKeyData,
   ) {
-    let previousKernelProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined =
-      makeRecursiveProofFromBinary(processedTx.proof, NESTED_RECURSIVE_PROOF_LENGTH);
     let previousProofType = PublicKernelType.NON_PUBLIC;
-    for (let i = 0; i < processedTx.publicKernelRequests.length; i++) {
-      const kernelRequest = processedTx.publicKernelRequests[i];
+    for (let i = 0; i < processedTx.publicProvingRequests.length; i++) {
+      const provingRequest = processedTx.publicProvingRequests[i];
+      const kernelRequest = provingRequest.type === AVM_REQUEST ? provingRequest.kernelRequest : provingRequest;
       // the first circuit has a valid previous proof, it came from private
-      if (previousKernelProof) {
-        kernelRequest.inputs.previousKernel.proof = previousKernelProof;
+      if (i === 0) {
         kernelRequest.inputs.previousKernel.vk = privateKernelVk;
+        kernelRequest.inputs.previousKernel.clientIvcProof = processedTx.clientIvcProof;
       }
+      const vmRequest = provingRequest.type === AVM_REQUEST ? provingRequest : undefined;
       const publicFunction: PublicFunction = {
+        vmRequest,
         vmProof: undefined,
         previousProofType,
         previousKernelProven: i === 0,
         publicKernelRequest: kernelRequest,
       };
       this.publicFunctions.push(publicFunction);
-      previousKernelProof = undefined;
       previousProofType = kernelRequest.type;
     }
   }

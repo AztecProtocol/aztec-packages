@@ -45,6 +45,7 @@ export class SentTx {
    * The function internally awaits for the 'txHashPromise' to resolve, and then returns the resolved transaction hash.
    *
    * @returns A promise that resolves to the transaction hash of the SentTx instance.
+   * TODO(#7717): Don't throw here.
    */
   public getTxHash(): Promise<TxHash> {
     return this.txHashPromise;
@@ -80,13 +81,15 @@ export class SentTx {
     if (opts?.debug) {
       const txHash = await this.getTxHash();
       const tx = (await this.pxe.getTxEffect(txHash))!;
-      const visibleNotes = await this.pxe.getNotes({ txHash });
+      const visibleIncomingNotes = await this.pxe.getIncomingNotes({ txHash });
+      const visibleOutgoingNotes = await this.pxe.getOutgoingNotes({ txHash });
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
         nullifiers: tx.nullifiers,
         publicDataWrites: tx.publicDataWrites,
         l2ToL1Msgs: tx.l2ToL1Msgs,
-        visibleNotes,
+        visibleIncomingNotes,
+        visibleOutgoingNotes,
       };
     }
     return receipt;
@@ -109,7 +112,7 @@ export class SentTx {
    */
   public async getVisibleNotes(): Promise<ExtendedNote[]> {
     await this.wait();
-    return this.pxe.getNotes({ txHash: await this.getTxHash() });
+    return this.pxe.getIncomingNotes({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

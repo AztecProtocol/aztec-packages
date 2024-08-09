@@ -1,5 +1,7 @@
 #include "recursion_constraint.hpp"
 #include "acir_format.hpp"
+#include "acir_format_mocks.hpp"
+#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
@@ -7,8 +9,10 @@
 #include <vector>
 
 using namespace acir_format;
+using namespace bb;
 using namespace bb::plonk;
 
+using Composer = plonk::UltraComposer;
 class AcirRecursionConstraint : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
@@ -33,8 +37,8 @@ Builder create_inner_circuit()
     };
 
     LogicConstraint logic_constraint{
-        .a = 0,
-        .b = 1,
+        .a = WitnessOrConstant<bb::fr>::from_index(0),
+        .b = WitnessOrConstant<bb::fr>::from_index(1),
         .result = 2,
         .num_bits = 32,
         .is_xor_gate = 1,
@@ -81,35 +85,39 @@ Builder create_inner_circuit()
         .q_c = 1,
     };
 
-    AcirFormat constraint_system{ .varnum = 6,
-                                  .recursive = true,
-                                  .num_acir_opcodes = 7,
-                                  .public_inputs = { 1, 2 },
-                                  .logic_constraints = { logic_constraint },
-                                  .range_constraints = { range_a, range_b },
-                                  .aes128_constraints = {},
-                                  .sha256_constraints = {},
-                                  .sha256_compression = {},
-                                  .schnorr_constraints = {},
-                                  .ecdsa_k1_constraints = {},
-                                  .ecdsa_r1_constraints = {},
-                                  .blake2s_constraints = {},
-                                  .blake3_constraints = {},
-                                  .keccak_constraints = {},
-                                  .keccak_permutations = {},
-                                  .pedersen_constraints = {},
-                                  .pedersen_hash_constraints = {},
-                                  .poseidon2_constraints = {},
-                                  .multi_scalar_mul_constraints = {},
-                                  .ec_add_constraints = {},
-                                  .recursion_constraints = {},
-                                  .honk_recursion_constraints = {},
-                                  .bigint_from_le_bytes_constraints = {},
-                                  .bigint_to_le_bytes_constraints = {},
-                                  .bigint_operations = {},
-                                  .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
-                                  .quad_constraints = {},
-                                  .block_constraints = {} };
+    AcirFormat constraint_system{
+        .varnum = 6,
+        .recursive = true,
+        .num_acir_opcodes = 7,
+        .public_inputs = { 1, 2 },
+        .logic_constraints = { logic_constraint },
+        .range_constraints = { range_a, range_b },
+        .aes128_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .honk_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
+        .quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
 
     uint256_t inverse_of_five = fr(5).invert();
     WitnessVector witness{
@@ -161,18 +169,16 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                   proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
         } else {
             proof_witnesses.erase(proof_witnesses.begin(),
-                                  proof_witnesses.begin() +
-                                      static_cast<std::ptrdiff_t>(num_inner_public_inputs -
-                                                                  RecursionConstraint::AGGREGATION_OBJECT_SIZE));
+                                  proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs -
+                                                                                        bb::AGGREGATION_OBJECT_SIZE));
         }
 
         const std::vector<bb::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
 
         const uint32_t key_hash_start_idx = static_cast<uint32_t>(witness_offset);
         const uint32_t public_input_start_idx = key_hash_start_idx + 1;
-        const uint32_t proof_indices_start_idx =
-            static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs -
-                                  (has_nested_proof ? RecursionConstraint::AGGREGATION_OBJECT_SIZE : 0));
+        const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
+            public_input_start_idx + num_inner_public_inputs - (has_nested_proof ? bb::AGGREGATION_OBJECT_SIZE : 0));
         const uint32_t key_indices_start_idx = static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size());
 
         std::vector<uint32_t> proof_indices;
@@ -193,7 +199,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
         } else {
-            for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+            for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
         }
@@ -228,7 +234,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                 witness[inner_public_inputs[i]] = inner_public_input_values[i];
             }
         } else {
-            for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+            for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
                 witness[inner_public_inputs[i]] = inner_public_input_values[i];
             }
         }
@@ -236,35 +242,42 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         witness_offset = key_indices_start_idx + key_witnesses.size();
     }
 
-    AcirFormat constraint_system{ .varnum = static_cast<uint32_t>(witness.size()),
-                                  .recursive = false,
-                                  .num_acir_opcodes = static_cast<uint32_t>(recursion_constraints.size()),
-                                  .public_inputs = {},
-                                  .logic_constraints = {},
-                                  .range_constraints = {},
-                                  .aes128_constraints = {},
-                                  .sha256_constraints = {},
-                                  .sha256_compression = {},
-                                  .schnorr_constraints = {},
-                                  .ecdsa_k1_constraints = {},
-                                  .ecdsa_r1_constraints = {},
-                                  .blake2s_constraints = {},
-                                  .blake3_constraints = {},
-                                  .keccak_constraints = {},
-                                  .keccak_permutations = {},
-                                  .pedersen_constraints = {},
-                                  .pedersen_hash_constraints = {},
-                                  .poseidon2_constraints = {},
-                                  .multi_scalar_mul_constraints = {},
-                                  .ec_add_constraints = {},
-                                  .recursion_constraints = recursion_constraints,
-                                  .honk_recursion_constraints = {},
-                                  .bigint_from_le_bytes_constraints = {},
-                                  .bigint_to_le_bytes_constraints = {},
-                                  .bigint_operations = {},
-                                  .poly_triple_constraints = {},
-                                  .quad_constraints = {},
-                                  .block_constraints = {} };
+    std::vector<size_t> recursion_opcode_indices(recursion_constraints.size());
+    std::iota(recursion_opcode_indices.begin(), recursion_opcode_indices.end(), 0);
+
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(witness.size()),
+        .recursive = false,
+        .num_acir_opcodes = static_cast<uint32_t>(recursion_constraints.size()),
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .aes128_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .multi_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = recursion_constraints,
+        .honk_recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
+        .block_constraints = {},
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
 
     auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness);
 

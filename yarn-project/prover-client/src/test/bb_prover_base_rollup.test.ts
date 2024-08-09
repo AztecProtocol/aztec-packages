@@ -1,8 +1,14 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { VerificationKeyData } from '@aztec/circuits.js';
+import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
+import {
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  PrivateKernelEmptyInputData,
+  makeEmptyRecursiveProof,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js';
 
@@ -14,7 +20,7 @@ describe('prover/bb_prover/base-rollup', () => {
 
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig);
+      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
     context = await TestContext.new(logger, 1, buildProver);
@@ -24,16 +30,23 @@ describe('prover/bb_prover/base-rollup', () => {
     await context.cleanup();
   });
 
-  // TODO(@PhilWindle): Re-enable once we can handle empty tx slots
-  it.skip('proves the base rollup', async () => {
-    const tx = await makeBloatedProcessedTx(context.actualDb, 1);
+  it('proves the base rollup', async () => {
+    const header = context.actualDb.getInitialHeader();
+    const chainId = context.globalVariables.chainId;
+    const version = context.globalVariables.version;
+    const vkTreeRoot = getVKTreeRoot();
+
+    const inputs = new PrivateKernelEmptyInputData(header, chainId, version, vkTreeRoot);
+    const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
+    const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
     const baseRollupInputs = await buildBaseRollupInput(
       tx,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       context.globalVariables,
       context.actualDb,
-      VerificationKeyData.makeFake(),
+      paddingTxPublicInputsAndProof.verificationKey,
     );
     logger.verbose('Proving base rollups');
     const proofOutputs = await context.prover.getBaseRollupProof(baseRollupInputs);

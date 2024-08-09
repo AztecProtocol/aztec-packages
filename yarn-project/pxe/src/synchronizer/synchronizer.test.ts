@@ -21,7 +21,7 @@ describe('Synchronizer', () => {
   let headerBlock3: Header;
 
   beforeEach(() => {
-    headerBlock3 = makeHeader(randomInt(1000), initialSyncBlockNumber);
+    headerBlock3 = makeHeader(randomInt(1000), initialSyncBlockNumber, initialSyncBlockNumber);
 
     aztecNode = mock<AztecNode>();
     database = new KVPxeDatabase(openTmpStore());
@@ -132,7 +132,7 @@ describe('Synchronizer', () => {
       const partialAddress = Fr.random();
       const completeAddress = await keyStore.addAccount(secretKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
-      synchronizer.addAccount(completeAddress.publicKeys.masterIncomingViewingPublicKey, keyStore, startingBlockNum);
+      await synchronizer.addAccount(completeAddress.address, keyStore, startingBlockNum);
       return completeAddress;
     };
 

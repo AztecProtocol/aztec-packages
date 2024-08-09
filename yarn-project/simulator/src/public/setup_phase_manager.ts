@@ -1,10 +1,11 @@
-import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
+import { PublicKernelType, type PublicProvingRequest, type Tx } from '@aztec/circuit-types';
 import { type GlobalVariables, type Header, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_executor.js';
+import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
+import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 /**
@@ -19,39 +20,39 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    phase: PublicKernelPhase = PublicKernelPhase.SETUP,
+    phase: PublicKernelType = PublicKernelType.SETUP,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
-  override async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
+  override async handle(
+    tx: Tx,
+    previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
+    previousCircuit: ProtocolArtifact,
+  ) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
     // TODO(#6464): Should we allow emitting contracts in the private setup phase?
     // if so, this should only add contracts that were deployed during private app logic.
     await this.publicContractsDB.addNewContracts(tx);
-    const [kernelInputs, publicKernelOutput, newUnencryptedFunctionLogs, revertReason, _returnValues, gasUsed] =
-      await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput).catch(
+    const { publicProvingInformation, kernelOutput, lastKernelArtifact, newUnencryptedLogs, revertReason, gasUsed } =
+      await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousCircuit).catch(
         // the abstract phase manager throws if simulation gives error in a non-revertible phase
         async err => {
           await this.publicStateDB.rollbackToCommit();
           throw err;
         },
       );
-    tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
+    tx.unencryptedLogs.addFunctionLogs(newUnencryptedLogs);
     await this.publicStateDB.checkpoint();
 
     // Return a list of setup proving requests
-    const kernelRequests = kernelInputs.map(input => {
-      const request: PublicKernelRequest = {
-        type: PublicKernelType.SETUP,
-        inputs: input,
-      };
-      return request;
+    const publicProvingRequests: PublicProvingRequest[] = publicProvingInformation.map(info => {
+      return makeAvmProvingRequest(info, PublicKernelType.SETUP);
     });
     return {
-      kernelRequests,
-      kernelInputs,
-      publicKernelOutput,
+      publicProvingRequests,
+      publicKernelOutput: kernelOutput,
+      lastKernelArtifact,
       revertReason,
       returnValues: [],
       gasUsed,

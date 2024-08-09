@@ -1,10 +1,10 @@
-use dep::std::merkle::compute_merkle_root;
+use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::{constants::HEADER_LENGTH, header::Header};
 
 use crate::{context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness};
 
 #[oracle(getHeader)]
-fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
+unconstrained fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
 
 unconstrained pub fn get_header_at_internal(block_number: u32) -> Header {
     let header = get_header_at_oracle(block_number);
@@ -42,7 +42,7 @@ pub fn get_header_at(block_number: u32, context: PrivateContext) -> Header {
         // 6) Check that the block is in the archive (i.e. the witness is valid)
         assert(
             context.historical_header.last_archive.root
-            == compute_merkle_root(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed"
+            == root_from_sibling_path(block_hash, witness.index, witness.path), "Proving membership of a block in archive failed"
         );
 
         // 7) Return the block header

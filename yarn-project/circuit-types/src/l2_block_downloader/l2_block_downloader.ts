@@ -19,12 +19,23 @@ export class L2BlockDownloader {
   private running = false;
   private from = 0;
   private interruptibleSleep = new InterruptibleSleep();
-  private semaphore: Semaphore;
-  private jobQueue = new SerialQueue();
-  private blockQueue = new MemoryFifo<L2Block[]>();
+  private readonly semaphore: Semaphore;
+  private readonly jobQueue = new SerialQueue();
+  private readonly blockQueue = new MemoryFifo<L2Block[]>();
+  private readonly proven: boolean;
+  private readonly pollIntervalMS: number;
 
-  constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number, private pollIntervalMS = 10000) {
-    this.semaphore = new Semaphore(maxQueueSize);
+  constructor(
+    private l2BlockSource: L2BlockSource,
+    opts: {
+      maxQueueSize: number;
+      proven?: boolean;
+      pollIntervalMS?: number;
+    },
+  ) {
+    this.pollIntervalMS = opts.pollIntervalMS ?? 1000;
+    this.proven = opts.proven ?? false;
+    this.semaphore = new Semaphore(opts.maxQueueSize);
   }
 
   /**
@@ -57,15 +68,36 @@ export class L2BlockDownloader {
   /**
    * Repeatedly queries the block source and adds the received blocks to the block queue.
    * Stops when no further blocks are received.
+   * @param targetBlockNumber - Optional block number to stop at.
+   * @param proven - Optional override of the default "proven" setting.
    * @returns The total number of blocks added to the block queue.
    */
-  private async collectBlocks() {
+  private async collectBlocks(targetBlockNumber?: number, onlyProven?: boolean) {
     let totalBlocks = 0;
     while (true) {
-      const blocks = await this.l2BlockSource.getBlocks(this.from, 10);
+      // If we have a target and have reached it, return
+      if (targetBlockNumber !== undefined && this.from > targetBlockNumber) {
+        log.verbose(`Reached target block number ${targetBlockNumber}`);
+        return totalBlocks;
+      }
+
+      // If we have a target, then request at most the number of blocks to get to it
+      const limit = targetBlockNumber !== undefined ? Math.min(targetBlockNumber - this.from + 1, 10) : 10;
+      const proven = onlyProven === undefined ? this.proven : onlyProven;
+
+      // Hit the archiver for blocks
+      const blocks = await this.l2BlockSource.getBlocks(this.from, limit, proven);
+
+      // If there are no more blocks, return
       if (!blocks.length) {
         return totalBlocks;
       }
+
+      log.verbose(
+        `Received ${blocks.length} blocks from archiver after querying from ${this.from} limit ${limit} (proven ${proven})`,
+      );
+
+      // Push new blocks into the queue and loop
       await this.semaphore.acquire();
       this.blockQueue.put(blocks);
       this.from += blocks.length;
@@ -105,9 +137,13 @@ export class L2BlockDownloader {
 
   /**
    * Forces an immediate request for blocks.
+   * Repeatedly queries the block source and adds the received blocks to the block queue.
+   * Stops when no further blocks are received.
+   * @param targetBlockNumber - Optional block number to stop at.
+   * @param proven - Optional override of the default "proven" setting.
    * @returns A promise that fulfills once the poll is complete
    */
-  public pollImmediate(): Promise<number> {
-    return this.jobQueue.put(() => this.collectBlocks());
+  public pollImmediate(targetBlockNumber?: number, onlyProven?: boolean): Promise<number> {
+    return this.jobQueue.put(() => this.collectBlocks(targetBlockNumber, onlyProven));
   }
 }

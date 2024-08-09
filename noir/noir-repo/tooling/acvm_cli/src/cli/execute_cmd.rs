@@ -2,6 +2,7 @@ use std::io::{self, Write};
 
 use acir::circuit::Program;
 use acir::native_types::{WitnessMap, WitnessStack};
+use acir::FieldElement;
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 
@@ -38,7 +39,7 @@ pub(crate) struct ExecuteCommand {
 fn run_command(args: ExecuteCommand) -> Result<String, CliError> {
     let bytecode = read_bytecode_from_file(&args.working_directory, &args.bytecode)?;
     let circuit_inputs = read_inputs_from_file(&args.working_directory, &args.input_witness)?;
-    let output_witness = execute_program_from_witness(circuit_inputs, &bytecode, None)?;
+    let output_witness = execute_program_from_witness(circuit_inputs, &bytecode)?;
     assert_eq!(output_witness.length(), 1, "ACVM CLI only supports a witness stack of size 1");
     let output_witness_string = create_output_witness_string(
         &output_witness.peek().expect("Should have a witness stack item").witness,
@@ -63,17 +64,16 @@ pub(crate) fn run(args: ExecuteCommand) -> Result<String, CliError> {
 }
 
 pub(crate) fn execute_program_from_witness(
-    inputs_map: WitnessMap,
+    inputs_map: WitnessMap<FieldElement>,
     bytecode: &[u8],
-    foreign_call_resolver_url: Option<&str>,
-) -> Result<WitnessStack, CliError> {
-    let program: Program = Program::deserialize_program(bytecode)
+) -> Result<WitnessStack<FieldElement>, CliError> {
+    let program: Program<FieldElement> = Program::deserialize_program(bytecode)
         .map_err(|_| CliError::CircuitDeserializationError())?;
     execute_program(
         &program,
         inputs_map,
         &Bn254BlackBoxSolver,
-        &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
+        &mut DefaultForeignCallExecutor::new(true, None, None, None),
     )
     .map_err(CliError::CircuitExecutionError)
 }

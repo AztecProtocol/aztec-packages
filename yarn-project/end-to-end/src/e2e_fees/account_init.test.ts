@@ -3,9 +3,9 @@ import {
   type AccountManager,
   type AccountWallet,
   type DebugLogger,
+  FeeJuicePaymentMethod,
+  FeeJuicePaymentMethodWithClaim,
   Fr,
-  NativeFeePaymentMethod,
-  NativeFeePaymentMethodWithClaim,
   type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
@@ -63,8 +63,8 @@ describe('e2e_fees account_init', () => {
 
   async function initBalances() {
     [[fpcsInitialGas], [fpcsInitialPublicBananas]] = await Promise.all([
-      t.gasBalances(bananaFPC.address),
-      t.bananaPublicBalances(bananaFPC.address),
+      t.getGasBalanceFn(bananaFPC.address),
+      t.getBananaPublicBalanceFn(bananaFPC.address),
     ]);
   }
 
@@ -84,29 +84,29 @@ describe('e2e_fees account_init', () => {
   });
 
   describe('account pays its own fee', () => {
-    it('pays natively in the gas token after Alice bridges funds', async () => {
-      await t.gasTokenContract.methods.mint_public(bobsAddress, t.INITIAL_GAS_BALANCE).send().wait();
-      const [bobsInitialGas] = await t.gasBalances(bobsAddress);
+    it('pays natively in the Fee Juice after Alice bridges funds', async () => {
+      await t.feeJuiceContract.methods.mint_public(bobsAddress, t.INITIAL_GAS_BALANCE).send().wait();
+      const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(t.INITIAL_GAS_BALANCE);
 
-      const paymentMethod = new NativeFeePaymentMethod(bobsAddress);
+      const paymentMethod = new FeeJuicePaymentMethod(bobsAddress);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
-      await expect(t.gasBalances(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
+      await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
     });
 
-    it('pays natively in the gas token by bridging funds themselves', async () => {
-      const { secret } = await t.gasBridgeTestHarness.prepareTokensOnL1(
+    it('pays natively in the Fee Juice by bridging funds themselves', async () => {
+      const { secret } = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(
         t.INITIAL_GAS_BALANCE,
         t.INITIAL_GAS_BALANCE,
         bobsAddress,
       );
 
-      const paymentMethod = new NativeFeePaymentMethodWithClaim(bobsAddress, t.INITIAL_GAS_BALANCE, secret);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, t.INITIAL_GAS_BALANCE, secret);
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
-      await expect(t.gasBalances(bobsAddress)).resolves.toEqual([t.INITIAL_GAS_BALANCE - tx.transactionFee!]);
+      await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([t.INITIAL_GAS_BALANCE - tx.transactionFee!]);
     });
 
     it('pays privately through an FPC', async () => {
@@ -128,16 +128,18 @@ describe('e2e_fees account_init', () => {
       expect(actualFee).toBeGreaterThan(0n);
 
       // the new account should have paid the full fee to the FPC
-      await expect(t.bananaPrivateBalances(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
+      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - maxFee]);
 
       // the FPC got paid through "unshield", so it's got a new public balance
-      await expect(t.bananaPublicBalances(bananaFPC.address)).resolves.toEqual([fpcsInitialPublicBananas + actualFee]);
+      await expect(t.getBananaPublicBalanceFn(bananaFPC.address)).resolves.toEqual([
+        fpcsInitialPublicBananas + actualFee,
+      ]);
 
       // the FPC should have been the fee payer
-      await expect(t.gasBalances(bananaFPC.address)).resolves.toEqual([fpcsInitialGas - actualFee]);
+      await expect(t.getGasBalanceFn(bananaFPC.address)).resolves.toEqual([fpcsInitialGas - actualFee]);
 
       // the new account should have received a refund
-      await t.addPendingShieldNoteToPXE(bobsAddress, maxFee - actualFee, computeSecretHash(rebateSecret), tx.txHash);
+      await t.addPendingShieldNoteToPXE(aliceAddress, maxFee - actualFee, computeSecretHash(rebateSecret), tx.txHash);
 
       // and it can redeem the refund
       await bananaCoin.methods
@@ -145,7 +147,7 @@ describe('e2e_fees account_init', () => {
         .send()
         .wait();
 
-      await expect(t.bananaPrivateBalances(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
+      await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
     });
 
     it('pays publicly through an FPC', async () => {
@@ -164,21 +166,21 @@ describe('e2e_fees account_init', () => {
       expect(actualFee).toBeGreaterThan(0n);
 
       // we should have paid the fee to the FPC
-      await expect(t.bananaPublicBalances(bobsAddress, bananaFPC.address)).resolves.toEqual([
+      await expect(t.getBananaPublicBalanceFn(bobsAddress, bananaFPC.address)).resolves.toEqual([
         mintedBananas - actualFee,
         fpcsInitialPublicBananas + actualFee,
       ]);
 
       // the FPC should have paid the sequencer
-      await expect(t.gasBalances(bananaFPC.address)).resolves.toEqual([fpcsInitialGas - actualFee]);
+      await expect(t.getGasBalanceFn(bananaFPC.address)).resolves.toEqual([fpcsInitialGas - actualFee]);
     });
   });
 
   describe('another account pays the fee', () => {
-    it('pays natively in the gas token', async () => {
-      // mint gas tokens to alice
-      await t.gasTokenContract.methods.mint_public(aliceAddress, t.INITIAL_GAS_BALANCE).send().wait();
-      const [alicesInitialGas] = await t.gasBalances(aliceAddress);
+    it('pays natively in the Fee Juice', async () => {
+      // mint Fee Juice to alice
+      await t.feeJuiceContract.methods.mint_public(aliceAddress, t.INITIAL_GAS_BALANCE).send().wait();
+      const [alicesInitialGas] = await t.getGasBalanceFn(aliceAddress);
 
       // bob generates the private keys for his account on his own
       const bobsPublicKeysHash = deriveKeys(bobsSecretKey).publicKeys.hash();
@@ -189,7 +191,7 @@ describe('e2e_fees account_init', () => {
       await pxe.registerRecipient(bobsCompleteAddress);
 
       // and deploys bob's account, paying the fee from her balance
-      const paymentMethod = new NativeFeePaymentMethod(aliceAddress);
+      const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const tx = await SchnorrAccountContract.deployWithPublicKeysHash(
         bobsPublicKeysHash,
         aliceWallet,
@@ -206,9 +208,9 @@ describe('e2e_fees account_init', () => {
         })
         .wait();
 
-      // alice paid in gas tokens
+      // alice paid in Fee Juice
       expect(tx.transactionFee!).toBeGreaterThan(0n);
-      await expect(t.gasBalances(aliceAddress)).resolves.toEqual([alicesInitialGas - tx.transactionFee!]);
+      await expect(t.getGasBalanceFn(aliceAddress)).resolves.toEqual([alicesInitialGas - tx.transactionFee!]);
 
       // bob can now use his wallet for sending txs
       await bananaCoin.withWallet(bobsWallet).methods.transfer_public(bobsAddress, aliceAddress, 0n, 0n).send().wait();

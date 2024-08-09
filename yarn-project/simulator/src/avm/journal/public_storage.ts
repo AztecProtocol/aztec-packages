@@ -16,7 +16,7 @@ type PublicStorageReadResult = {
  */
 export class PublicStorage {
   /** Cached storage writes. */
-  private cache: PublicStorageCache;
+  private readonly cache: PublicStorageCache;
 
   constructor(
     /** Reference to node storage. Checked on parent cache-miss. */
@@ -25,6 +25,13 @@ export class PublicStorage {
     private readonly parent?: PublicStorage,
   ) {
     this.cache = new PublicStorageCache();
+  }
+
+  /**
+   * Create a new public storage manager forked from this one
+   */
+  public fork() {
+    return new PublicStorage(this.hostPublicStorage, this);
   }
 
   /**
@@ -71,6 +78,9 @@ export class PublicStorage {
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
       value = await this.hostPublicStorage.storageRead(storageAddress, slot);
+      // TODO(dbanks12): if value retrieved from host storage, we can cache it here
+      // any future reads to the same slot can read from cache instead of more expensive
+      // DB access
     } else {
       cached = true;
     }
@@ -124,7 +134,7 @@ class PublicStorageCache {
    * mapping storage slot to latest staged write value.
    */
   public cachePerContract: Map<bigint, Map<bigint, Fr>> = new Map();
-  // FIXME: storage ^ should be private, but its value is used in tests for "currentStorageValue"
+  // FIXME: storage ^ should be private, but its value is used in commitToDB
 
   /**
    * Read a staged value from storage, if it has been previously written to.

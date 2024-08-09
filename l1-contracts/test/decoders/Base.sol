@@ -62,6 +62,7 @@ contract DecoderBase is Test {
     address coinbase;
     bytes32 feeRecipient;
     GasFees gasFees;
+    uint256 slotNumber;
     uint256 timestamp;
     uint256 version;
   }
@@ -73,8 +74,8 @@ contract DecoderBase is Test {
 
   struct ContentCommitment {
     bytes32 inHash;
+    uint256 numTxs;
     bytes32 outHash;
-    uint256 txTreeHeight;
     bytes32 txsEffectsHash;
   }
 

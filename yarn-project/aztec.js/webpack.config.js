@@ -1,7 +1,6 @@
 // import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
-import path from 'path';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
@@ -66,7 +65,6 @@ export default {
       buffer: require.resolve('buffer/'),
       util: require.resolve('util/'),
       stream: require.resolve('stream-browserify'),
-      tty: require.resolve('tty-browserify'),
     },
   },
 };

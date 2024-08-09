@@ -1,13 +1,4 @@
-import {
-  type DebugLogger,
-  ExtendedNote,
-  Fr,
-  Note,
-  type PXE,
-  SignerlessWallet,
-  type Wallet,
-  toBigInt,
-} from '@aztec/aztec.js';
+import { type DebugLogger, ExtendedNote, Fr, Note, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -50,20 +41,6 @@ describe('e2e_non_contract_account', () => {
     expect(siloedNullifier.equals(expectedSiloedNullifier)).toBeTruthy();
   });
 
-  it('msg.sender is 0 when a non-contract account calls a private function on a contract', async () => {
-    const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
-
-    // Send transaction as arbitrary non-contract account
-    const tx = contractWithNoContractWallet.methods.emit_msg_sender().send();
-    await tx.wait({ interval: 0.1 });
-
-    const logs = (await tx.getUnencryptedLogs()).logs;
-    expect(logs.length).toBe(1);
-
-    const msgSender = toBigInt(logs[0].log.data);
-    expect(msgSender).toBe(0n);
-  });
-
   // Note: This test doesn't really belong here as it doesn't have anything to do with non-contract accounts. I needed
   // to test the TestNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
   // seems wasteful. Move this test if a better place is found.
@@ -81,6 +58,7 @@ describe('e2e_non_contract_account', () => {
     // Add the note
     const note = new Note([new Fr(value)]);
 
+    // We have to manually add the note because the note was not broadcasted.
     const extendedNote = new ExtendedNote(
       note,
       wallet.getCompleteAddress().address,

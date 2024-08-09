@@ -2,11 +2,13 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include <algorithm>
 
 namespace bb {
 
@@ -32,6 +34,8 @@ class ClientIVC {
     using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
     using VerifierInstances = VerifierInstances_<Flavor>;
     using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+    using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
+    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
     using GURecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
@@ -42,23 +46,15 @@ class ClientIVC {
     struct Proof {
         FoldProof folding_proof; // final fold proof
         HonkProof decider_proof;
-        Goblin::Proof goblin_proof;
+        GoblinProof goblin_proof;
 
-        std::vector<FF> to_buffer() const
-        {
-            size_t proof_size = folding_proof.size() + decider_proof.size() + goblin_proof.size();
+        size_t size() const { return folding_proof.size() + decider_proof.size() + goblin_proof.size(); }
 
-            std::vector<FF> result;
-            result.reserve(proof_size);
-            const auto insert = [&result](const std::vector<FF>& buf) {
-                result.insert(result.end(), buf.begin(), buf.end());
-            };
-            insert(folding_proof);
-            insert(decider_proof);
-            insert(goblin_proof.to_buffer());
-            return result;
-        }
+        MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
+
+    // Utility for tracking the max size of each block across the full IVC
+    MaxBlockSizeTracker max_block_size_tracker;
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
@@ -66,7 +62,7 @@ class ClientIVC {
     // be needed in the real IVC as they are provided as inputs
 
   public:
-    Goblin goblin;
+    GoblinProver goblin;
     ProverFoldOutput fold_output;
     std::shared_ptr<ProverInstance> prover_accumulator;
     std::shared_ptr<VerifierInstance> verifier_accumulator;
@@ -76,7 +72,7 @@ class ClientIVC {
     std::shared_ptr<VerificationKey> instance_vk;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
-    bool structured_flag = false;
+    TraceStructure trace_structure = TraceStructure::NONE;
 
     // A flag indicating whether the IVC has been initialized with an initial instance
     bool initialized = false;
@@ -85,7 +81,15 @@ class ClientIVC {
 
     Proof prove();
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
+    static bool verify(const Proof& proof,
+                       const std::shared_ptr<VerifierInstance>& accumulator,
+                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
+                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
+
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances) const;
+
+    bool prove_and_verify();
 
     HonkProof decider_prove() const;
 

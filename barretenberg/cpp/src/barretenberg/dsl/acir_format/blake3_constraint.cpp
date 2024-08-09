@@ -1,4 +1,6 @@
 #include "blake3_constraint.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "round.hpp"
 
 namespace acir_format {
@@ -14,13 +16,13 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte_array
     for (const auto& witness_index_num_bits : constraint.inputs) {
-        auto witness_index = witness_index_num_bits.witness;
+        auto witness_index = witness_index_num_bits.blackbox_input;
         auto num_bits = witness_index_num_bits.num_bits;
 
         // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
         auto num_bytes = round_to_nearest_byte(num_bits);
 
-        field_ct element = field_ct::from_witness_index(&builder, witness_index);
+        field_ct element = to_field_ct(witness_index, builder);
         byte_array_ct element_bytes(element, num_bytes);
 
         arr.write(element_bytes);
@@ -36,9 +38,9 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
     }
 }
 
-template void create_blake3_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                             const Blake3Constraint& constraint);
-template void create_blake3_constraints<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
-                                                            const Blake3Constraint& constraint);
+template void create_blake3_constraints<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
+                                                                 const Blake3Constraint& constraint);
+template void create_blake3_constraints<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
+                                                                const Blake3Constraint& constraint);
 
 } // namespace acir_format

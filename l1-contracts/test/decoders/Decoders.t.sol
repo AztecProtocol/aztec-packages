@@ -27,10 +27,10 @@ contract DecodersTest is DecoderBase {
   }
 
   function testDecodeBlocks() public {
-    _testDecodeBlock("mixed_block_0");
     _testDecodeBlock("mixed_block_1");
-    _testDecodeBlock("empty_block_0");
+    _testDecodeBlock("mixed_block_2");
     _testDecodeBlock("empty_block_1");
+    _testDecodeBlock("empty_block_2");
   }
 
   function _testDecodeBlock(string memory name) public virtual {
@@ -47,6 +47,9 @@ contract DecodersTest is DecoderBase {
 
         assertEq(
           header.globalVariables.blockNumber, globalVariables.blockNumber, "Invalid block number"
+        );
+        assertEq(
+          header.globalVariables.slotNumber, globalVariables.slotNumber, "Invalid slot number"
         );
         assertEq(header.globalVariables.chainId, globalVariables.chainId, "Invalid chain Id");
         assertEq(header.globalVariables.timestamp, globalVariables.timestamp, "Invalid timestamp");
@@ -72,11 +75,7 @@ contract DecodersTest is DecoderBase {
       {
         DecoderBase.ContentCommitment memory contentCommitment = referenceHeader.contentCommitment;
 
-        assertEq(
-          header.contentCommitment.txTreeHeight,
-          contentCommitment.txTreeHeight,
-          "Invalid txTreeSize"
-        );
+        assertEq(header.contentCommitment.numTxs, contentCommitment.numTxs, "Invalid txTreeSize");
         assertEq(
           header.contentCommitment.txsEffectsHash,
           contentCommitment.txsEffectsHash,
@@ -332,26 +331,10 @@ contract DecodersTest is DecoderBase {
 
     numTxEffects = 3;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 2 - numTxEffects, "Incorrect number of tx effects to pad");
-
-    numTxEffects = 5;
-    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
-
-    numTxEffects = 8;
-    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
-
-    numTxEffects = 10;
-    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
-
-    numTxEffects = 16;
-    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 0, "Incorrect number of tx effects to pad");
 
     numTxEffects = 17;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 5 - numTxEffects, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 0, "Incorrect number of tx effects to pad");
   }
 }

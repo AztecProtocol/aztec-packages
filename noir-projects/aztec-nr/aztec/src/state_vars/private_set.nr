@@ -1,13 +1,10 @@
-use dep::protocol_types::{
-    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis::read_request::ReadRequest,
-    grumpkin_point::GrumpkinPoint
-};
-use crate::context::{PrivateContext, PublicContext};
+use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, abis::read_request::ReadRequest};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE, lifecycle::{create_note, create_note_hash_from_public, destroy_note},
     note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
     note_header::NoteHeader, note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_read_request
+    utils::compute_note_hash_for_read_request, note_emission::NoteEmission
 };
 use crate::state_vars::storage::Storage;
 
@@ -29,68 +26,67 @@ impl<Note, Context> PrivateSet<Note, Context> {
     // docs:end:new
 }
 
-impl<Note> PrivateSet<Note, &mut PublicContext> {
+impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInterface<N, M> {
     // docs:start:insert_from_public
-    pub fn insert_from_public<N, M>(self, note: &mut Note) where Note: NoteInterface<N, M> {
+    pub fn insert_from_public(self, note: &mut Note) {
         create_note_hash_from_public(self.context, self.storage_slot, note);
     }
     // docs:end:insert_from_public
 }
 
-impl<Note> PrivateSet<Note, &mut PrivateContext> {
+impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInterface<N, M> + Eq {
     // docs:start:insert
-    pub fn insert<N, M>(
-        self,
-        note: &mut Note,
-        broadcast: bool,
-        ivpk_m: GrumpkinPoint
-    ) where Note: NoteInterface<N, M> {
-        create_note(self.context, self.storage_slot, note, broadcast, ivpk_m);
+    pub fn insert(self, note: &mut Note) -> NoteEmission<Note> {
+        create_note(self.context, self.storage_slot, note)
     }
     // docs:end:insert
 
-    // DEPRECATED
-    fn assert_contains_and_remove(_self: Self, _note: &mut Note, _nonce: Field) {
-        assert(
-            false, "`assert_contains_and_remove` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() and PrivateSet.remove() in your contract to verify and remove a note."
-        );
+    pub fn pop_notes<FILTER_ARGS>(
+        self,
+        options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
+    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        let notes = get_notes(self.context, self.storage_slot, options);
+        // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
+        // time and hence will result in less constraints when set to a lower value than
+        // MAX_NOTE_HASH_READ_REQUESTS_PER_CALL.
+        for i in 0..options.limit {
+            if i < notes.len() {
+                let note = notes.get_unchecked(i);
+                // We immediately destroy the note without doing any of the read request checks `remove` typically
+                // performs because we know that the `get_notes` call has already placed those constraints.
+                destroy_note(self.context, note);
+            }
+        }
+
+        notes
     }
 
-    // DEPRECATED
-    fn assert_contains_and_remove_publicly_created(_self: Self, _note: &mut Note) {
-        assert(
-            false, "`assert_contains_and_remove_publicly_created` has been deprecated. Please call PXE.addNote() to add a note to the database. Then use PrivateSet.get_notes() and PrivateSet.remove() in your contract to verify and remove a note."
-        );
-    }
-
-    // docs:start:remove
-    pub fn remove<N, M>(self, note: Note) where Note: NoteInterface<N, M> {
+    /// Note that if you obtained the note via `get_notes` it's much better to use `pop_notes` as `pop_notes` results
+    /// in significantly less constrains due to avoiding an extra hash and read request check.
+    pub fn remove(self, note: Note) {
         let note_hash = compute_note_hash_for_read_request(note);
         let has_been_read = self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
         destroy_note(self.context, note);
     }
-    // docs:end:remove
 
-    // docs:start:get_notes
-    pub fn get_notes<N, M, FILTER_ARGS>(
+    /// Note that if you later on remove the note it's much better to use `pop_notes` as `pop_notes` results
+    /// in significantly less constrains due to avoiding 1 read request check.
+    pub fn get_notes<FILTER_ARGS>(
         self,
         options: NoteGetterOptions<Note, N, M, FILTER_ARGS>
-    ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
-        let storage_slot = self.storage_slot;
-        let opt_notes = get_notes(self.context, storage_slot, options);
-        opt_notes
+    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        get_notes(self.context, self.storage_slot, options)
     }
-    // docs:end:get_notes
 }
 
-impl<Note> PrivateSet<Note, ()> {
+impl<Note, let N: u32, let M: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
     // docs:start:view_notes
-    unconstrained pub fn view_notes<N, M>(
+    unconstrained pub fn view_notes(
         self,
         options: NoteViewerOptions<Note, N, M>
-    ) -> [Option<Note>; MAX_NOTES_PER_PAGE] where Note: NoteInterface<N, M> {
+    ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> {
         view_notes(self.storage_slot, options)
     }
     // docs:end:view_notes

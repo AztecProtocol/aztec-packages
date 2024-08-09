@@ -12,7 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData } from '../acvm/index.js';
-import { type CommitmentsDB } from '../public/db.js';
+import { type CommitmentsDB } from '../public/db_interfaces.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -78,12 +78,18 @@ export interface DBOracle extends CommitmentsDB {
    * The query result is paginated using 'limit' and 'offset' values.
    * Returns an object containing an array of note data.
    *
-   * @param contractAddress - The AztecAddress instance representing the contract address.
-   * @param storageSlot - The Fr instance representing the storage slot of the notes.
+   * @param contractAddress - The contract address of the notes.
+   * @param storageSlot - The storage slot of the notes.
    * @param status - The status of notes to fetch.
+   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A Promise that resolves to an array of note data.
    */
-  getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus): Promise<NoteData[]>;
+  getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    status: NoteStatus,
+    scopes?: AztecAddress[],
+  ): Promise<NoteData[]>;
 
   /**
    * Retrieve the artifact information of a specific function within a contract.

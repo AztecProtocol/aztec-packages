@@ -32,7 +32,15 @@
     "rootDir": "./src",
     "transform": {
       "^.+\\.tsx?$": [
-        "@swc/jest"
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            }
+          }
+        }
       ]
     },
     "extensionsToTreatAsEsm": [
@@ -49,6 +57,7 @@
   },
   "dependencies": {
     "@aztec/archiver": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -57,9 +66,11 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "koa": "^2.14.2",

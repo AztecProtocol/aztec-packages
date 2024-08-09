@@ -1,8 +1,22 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger } from '@aztec/foundation/log';
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import { type AztecKVStore } from './interfaces/store.js';
 import { AztecLmdbStore } from './lmdb/store.js';
+
+export function createStore(
+  config: { dataDirectory: string | undefined },
+  rollupAddress: EthAddress,
+  log: Logger = createDebugLogger('aztec:kv-store'),
+) {
+  if (config.dataDirectory) {
+    log.info(`Using data directory: ${config.dataDirectory}`);
+  } else {
+    log.info('Using ephemeral data directory');
+  }
+
+  return initStoreForRollup(AztecLmdbStore.open(config.dataDirectory, false), rollupAddress, log);
+}
 
 /**
  * Clears the store if the rollup address does not match the one stored in the database.
@@ -16,6 +30,9 @@ export async function initStoreForRollup<T extends AztecKVStore>(
   rollupAddress: EthAddress,
   log?: Logger,
 ): Promise<T> {
+  if (!rollupAddress) {
+    throw new Error('Rollup address is required');
+  }
   const rollupAddressValue = store.openSingleton<ReturnType<EthAddress['toString']>>('rollupAddress');
   const rollupAddressString = rollupAddress.toString();
   const storedRollupAddressString = rollupAddressValue.get();

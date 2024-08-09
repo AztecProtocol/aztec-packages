@@ -3,6 +3,7 @@ import { type CompleteAddress, type Fq, type Fr } from '@aztec/circuits.js';
 
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
 import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
 /**
@@ -12,11 +13,10 @@ export class SignerlessWallet extends BaseWallet {
   constructor(pxe: PXE, private entrypoint?: EntrypointInterface) {
     super(pxe);
   }
-
   async createTxExecutionRequest(execution: ExecutionRequestInit): Promise<TxExecutionRequest> {
     let entrypoint = this.entrypoint;
     if (!entrypoint) {
-      const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
+      const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
       entrypoint = new DefaultEntrypoint(chainId, protocolVersion);
     }
 
@@ -24,26 +24,26 @@ export class SignerlessWallet extends BaseWallet {
   }
 
   getChainId(): Fr {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getChainId not implemented.');
   }
 
   getVersion(): Fr {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getVersion not implemented.');
   }
 
   getPublicKeysHash(): Fr {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getPublicKeysHash not implemented.');
   }
 
   getCompleteAddress(): CompleteAddress {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method getCompleteAddress not implemented.');
   }
 
-  createAuthWit(_messageHash: Fr): Promise<AuthWitness> {
-    throw new Error('Method not implemented.');
+  createAuthWit(_intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness> {
+    throw new Error('SignerlessWallet: Method createAuthWit not implemented.');
   }
 
   rotateNullifierKeys(_newNskM: Fq): Promise<void> {
-    throw new Error('Method not implemented.');
+    throw new Error('SignerlessWallet: Method rotateNullifierKeys not implemented.');
   }
 }

@@ -6,7 +6,6 @@ import {
   type CompleteAddress,
   ExtendedNote,
   Fr,
-  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Note,
   Schnorr,
@@ -22,7 +21,7 @@ const PRIVATE_KEY = GrumpkinScalar.fromString('0xd35d743ac0dfe3d6dbe6be8c877cb52
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
-  constructor(private privateKey: GrumpkinPrivateKey = PRIVATE_KEY) {
+  constructor(private privateKey = PRIVATE_KEY) {
     super(SchnorrHardcodedAccountContractArtifact);
   }
 
@@ -82,7 +81,7 @@ describe('guides/writing_an_account_contract', () => {
       TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
-    await pxe.addNote(extendedNote);
+    await wallet.addNote(extendedNote);
 
     await token.methods.redeem_shield(address, mintAmount, secret).send().wait();
 
