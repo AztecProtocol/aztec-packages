@@ -7,13 +7,13 @@ pub fn assert_sorted_transformed_value_array<T, S, let N: u32>(
     transformed_value_array: [S; N],
     sorted_transformed_value_array: [S; N],
     hints: [OrderHint; N]
-) where T: Ordered, S: Empty + Eq {
+) where T: Ordered + Empty + Eq, S: Empty + Eq {
     for i in 0..N {
         let original = original_array[i];
-        let value = transformed_value_array[i];
-        if is_empty(value) {
+        if is_empty(original) {
             assert(is_empty(sorted_transformed_value_array[i]), "unexpected non-empty item");
         } else {
+            let value = transformed_value_array[i];
             let sorted_index = hints[i].sorted_index;
             assert_eq(value, sorted_transformed_value_array[sorted_index], "mismatch sorted values");
             assert_eq(original.counter(), hints[sorted_index].counter, "mismatch counters");
@@ -51,6 +51,12 @@ mod tests {
     impl Empty for TestItem {
         fn empty() -> Self {
             TestItem { name: 0, price: 0, tax: 0, counter: 0 }
+        }
+    }
+
+     impl Eq for TestItem {
+        fn eq(self, other: Self) -> bool {
+            (self.name == other.name) & (self.price == other.price) & (self.tax == other.tax) & (self.counter == other.counter)
         }
     }
 

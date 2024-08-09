@@ -40,6 +40,7 @@ import RootRollupJson from '../artifacts/rollup_root.json' assert { type: 'json'
 
 export type PrivateResetArtifacts =
   | 'PrivateKernelResetFullArtifact'
+  | 'PrivateKernelResetFullInnerArtifact'
   | 'PrivateKernelResetBigArtifact'
   | 'PrivateKernelResetMediumArtifact'
   | 'PrivateKernelResetSmallArtifact'
@@ -47,6 +48,7 @@ export type PrivateResetArtifacts =
 
 export const PrivateResetTagToArtifactName: Record<PrivateKernelResetTags, PrivateResetArtifacts> = {
   full: 'PrivateKernelResetFullArtifact',
+  'full-inner': 'PrivateKernelResetFullInnerArtifact',
   big: 'PrivateKernelResetBigArtifact',
   medium: 'PrivateKernelResetMediumArtifact',
   small: 'PrivateKernelResetSmallArtifact',
@@ -105,6 +107,7 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
 
 export const ResetSimulatedArtifacts: Record<PrivateResetArtifacts, NoirCompiledCircuit> = {
   PrivateKernelResetFullArtifact: PrivateKernelResetSimulatedJson as NoirCompiledCircuit,
+  PrivateKernelResetFullInnerArtifact: PrivateKernelResetSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetBigArtifact: PrivateKernelResetBigSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetMediumArtifact: PrivateKernelResetMediumSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetSmallArtifact: PrivateKernelResetSmallSimulatedJson as NoirCompiledCircuit,
@@ -115,6 +118,7 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
   PrivateKernelInitArtifact: PrivateKernelInitJson as NoirCompiledCircuit,
   PrivateKernelInnerArtifact: PrivateKernelInnerJson as NoirCompiledCircuit,
   PrivateKernelResetFullArtifact: PrivateKernelResetJson as NoirCompiledCircuit,
+  PrivateKernelResetFullInnerArtifact: PrivateKernelResetJson as NoirCompiledCircuit,
   PrivateKernelResetBigArtifact: PrivateKernelResetBigJson as NoirCompiledCircuit,
   PrivateKernelResetMediumArtifact: PrivateKernelResetMediumJson as NoirCompiledCircuit,
   PrivateKernelResetSmallArtifact: PrivateKernelResetSmallJson as NoirCompiledCircuit,
