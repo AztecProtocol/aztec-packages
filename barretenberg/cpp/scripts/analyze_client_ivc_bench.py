@@ -47,7 +47,6 @@ for key in to_keep:
         time_ms = bench[key] / 1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/sum_of_kept_times_ms:>8.2%}")
 
-
 # Validate that kept times account for most of the total measured time.
 total_time_ms = bench["real_time"]
 totals = '\nTotal time accounted for: {:.0f}ms/{:.0f}ms = {:.2%}'
@@ -80,7 +79,6 @@ for key in protogalaxy_round_labels:
         time_ms = bench[key]/1e6
     total_time_ms = bench["ProtogalaxyProver::fold_instances(t)"]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/total_time_ms:>8.2%}")
-
 
 # Extract a set of components from the benchmark data and display timings and relative percentages 
 def print_contributions(prefix, ivc_bench_json, bench_name, components):

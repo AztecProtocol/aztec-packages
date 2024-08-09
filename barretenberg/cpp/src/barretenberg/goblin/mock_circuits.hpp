@@ -50,17 +50,13 @@ class GoblinMockCircuits {
      * @param builder
      * @param large If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
      */
-    static void construct_mock_function_circuit_new(MegaBuilder& builder, bool large = false)
+    static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
     {
-        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
-        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
-        const size_t NUM_ITERATIONS_LARGE = 12; // results in circuit size 2^19 (502238 gates)
-
-        if (large) {
-            stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS_LARGE);
+        if (large) { // Results in circuit size 2^19
+            stdlib::generate_sha256_test_circuit(builder, 12);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 11);
-            stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS_LARGE);
-        } else { // Results in circuit size 2^17 when accumulated via ClientIvc
+            stdlib::generate_merkle_membership_test_circuit(builder, 12);
+        } else { // Results in circuit size 2^17
             stdlib::generate_sha256_test_circuit(builder, 10);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
@@ -69,10 +65,11 @@ class GoblinMockCircuits {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
         // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
+        // circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to folding
+        // where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
+
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
      * @details Although the details of the circuit constructed here are arbitrary, the intent is to mock something a

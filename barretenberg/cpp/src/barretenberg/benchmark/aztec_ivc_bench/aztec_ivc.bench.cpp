@@ -89,7 +89,7 @@ class AztecIVCBench : public benchmark::Fixture {
                 GoblinMockCircuits::construct_mock_folding_kernel(circuit);
             } else { // construct mock app
                 bool use_large_circuit = (circuit_counter == 1);
-                GoblinMockCircuits::construct_mock_function_circuit_new(circuit, use_large_circuit);
+                GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit);
             }
             return circuit;
         }
