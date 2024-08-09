@@ -50,7 +50,7 @@ class ClientIVCTests : public ::testing::Test {
      * polynomials will bump size to next power of 2)
      *
      */
-    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 15)
+    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -61,6 +61,9 @@ class ClientIVCTests : public ::testing::Test {
         // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
+        // verifier.
+        circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices(circuit));
         return circuit;
     }
 };
