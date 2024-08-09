@@ -1,4 +1,4 @@
-import { AccountWalletWithSecretKey, type AztecAddress, type PXE } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecAddress } from '@aztec/aztec.js';
 import { ExtendedNote, Note, type TxHash } from '@aztec/circuit-types';
 import { getContractArtifact, parseFields } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';

@@ -360,7 +360,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
     .addOption(
-      new Option('-f, --fields [noteFields...]', 'The members of a Note')
+      new Option('-b, --body [noteFields...]', 'The members of a Note')
         .argParser((arg, prev: string[]) => {
           const next = db?.tryRetrieveAlias(arg) || arg;
           prev.push(next);
