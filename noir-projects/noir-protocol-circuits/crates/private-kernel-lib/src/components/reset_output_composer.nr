@@ -93,7 +93,6 @@ impl ResetOutputComposer {
         let mut nullifiers = sort_by_counters_asc(self.hints.kept_nullifiers);
         for i in 0..nullifiers.len() {
             nullifiers[i].nullifier.value = silo_nullifier(nullifiers[i]);
-            nullifiers[i].nullifier.note_hash = 0;
             nullifiers[i].contract_address = AztecAddress::zero();
         }
         nullifiers

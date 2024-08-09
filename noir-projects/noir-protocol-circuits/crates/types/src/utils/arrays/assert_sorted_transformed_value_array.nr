@@ -54,7 +54,7 @@ mod tests {
         }
     }
 
-     impl Eq for TestItem {
+    impl Eq for TestItem {
         fn eq(self, other: Self) -> bool {
             (self.name == other.name) & (self.price == other.price) & (self.tax == other.tax) & (self.counter == other.counter)
         }
