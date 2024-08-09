@@ -107,7 +107,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         target_amount: U128,
         max_notes: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
-        let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
+        let options = NoteGetterOptions::with_preprocessor(preprocess_notes_min_sum, target_amount).set_limit(max_notes);
         let notes = self.map.at(owner).pop_notes(options);
 
         let mut subtracted = U128::from_integer(0);
@@ -127,7 +127,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
 // The filter does not check if total sum is larger or equal to 'min_sum' - all it does is remove extra notes if it does
 // reach that value.
 // Note that proper usage of this filter requires for notes to be sorted in descending order.
-pub fn filter_notes_min_sum<T, T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+pub fn preprocess_notes_min_sum<T, T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
     notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
 ) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {

@@ -110,9 +110,17 @@ pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
 ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     let opt_notes = get_notes_internal(storage_slot, options);
 
-    // apply_filter_hin(...)
+    let preprocessed_notes = apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args);
 
-    constrain_get_notes_internal(context, storage_slot, opt_notes, options)
+    constrain_get_notes_internal(context, storage_slot, preprocessed_notes, options)
+}
+
+unconstrained fn apply_preprocessor<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS>(
+    notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor_args: PREPROCESSOR_ARGS
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    preprocessor(notes, preprocessor_args)
 }
 
 fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
