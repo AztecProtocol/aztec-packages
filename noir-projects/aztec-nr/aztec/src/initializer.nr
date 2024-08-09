@@ -25,8 +25,7 @@ pub fn assert_is_initialized_public(context: &mut PublicContext) {
 
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
     let init_nullifier = compute_contract_initialization_nullifier(context.this_address());
-    let header = context.get_header();
-    header.prove_nullifier_inclusion(init_nullifier);
+    context.push_nullifier_read_request(init_nullifier);
 }
 
 fn compute_contract_initialization_nullifier(address: AztecAddress) -> Field {
