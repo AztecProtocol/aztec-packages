@@ -6,6 +6,7 @@ import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
+import { GrumpkinCrs } from './crs/node/index.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
@@ -163,6 +164,42 @@ export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: st
     await api.destroy();
   }
   /* eslint-enable camelcase */
+}
+
+export async function verifyClientIvc(directory: string, crsPath: string, iterations: number) {
+  const { api } = await initLite();
+  const grumpkinCrs = await GrumpkinCrs.new(1 << 14, crsPath);
+  await api.srsInitGrumpkinSrs(grumpkinCrs.getG1Data(), grumpkinCrs.numPoints);
+  debug('loaded grumpkin crs');
+  try {
+    const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = [
+      'inst_vk',
+      'pg_acc',
+      'client_ivc_proof',
+      'translator_vk',
+      'ecc_vk',
+    ].map(fileName => readFileSync(path.join(directory, fileName)));
+    debug('loaded file data');
+    let verified = false;
+    const timer = new Timer();
+    for (let i = 0; i < iterations; i++) {
+      const iterTimer = new Timer();
+      verified = await api.acirVerifyClientIvc(
+        clientIvcProofBuffer,
+        pgAccBuffer,
+        instVkBuffer,
+        eccVkBuffer,
+        translatorVkBuffer,
+      );
+      debug(`verified: ${verified} in ${iterTimer.ms()}ms`);
+    }
+    if (iterations > 1) {
+      debug(`avg verification time: ${timer.ms() / iterations}ms`);
+    }
+    return verified;
+  } finally {
+    await api.destroy();
+  }
 }
 
 export async function prove(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
@@ -471,6 +508,17 @@ program
   .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
     const result = await foldAndVerifyProgram(bytecodePath, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('verify_client_ivc')
+  .description('Verify a Client IVC proof. Process exits with success or failure code.')
+  .option('-d, --dir-path <path>', 'Directory with ClientIVC proof and vk files')
+  .option('-i, --iterations <num>', 'How many times to run the verification for benchmarking purposes', '1')
+  .action(async ({ dirPath, iterations, crsPath }) => {
+    handleGlobalOptions();
+    const result = await verifyClientIvc(dirPath, crsPath, +iterations);
     process.exit(result ? 0 : 1);
   });
 
