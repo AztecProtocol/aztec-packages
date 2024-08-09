@@ -109,9 +109,8 @@ pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
 ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> where Note: NoteInterface<N, M> + Eq {
     let opt_notes = get_notes_internal(storage_slot, options);
-    let preprocessed_opt_notes = apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args);
 
-    constrain_get_notes_internal(context, storage_slot, preprocessed_opt_notes, options)
+    constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 
 unconstrained fn apply_preprocessor<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS>(
@@ -201,7 +200,7 @@ unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_A
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
 
-    oracle::notes::get_notes(
+    let opt_notes = oracle::notes::get_notes(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -219,7 +218,9 @@ unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_A
         placeholder_opt_notes,
         placeholder_fields,
         placeholder_note_length
-    )
+    );
+
+    apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
 }
 
 unconstrained pub fn view_notes<Note, let N: u32, let M: u32>(
