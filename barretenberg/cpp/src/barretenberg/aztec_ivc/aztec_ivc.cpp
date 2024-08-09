@@ -41,11 +41,6 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     // Construct the prover instance for circuit
     auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
-    // info("Circuit count = ", circuit_count);
-    // info("Num gates = ", circuit.get_num_gates());
-    // info("Circuit size = ", prover_instance->proving_key.circuit_size);
-    // circuit.blocks.summarize();
-
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
         instance_vk = precomputed_vk;

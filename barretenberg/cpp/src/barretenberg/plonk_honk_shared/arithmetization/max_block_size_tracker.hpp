@@ -37,7 +37,6 @@ struct MaxBlockSizeTracker {
     {
         info("Minimum required block sizes for structured trace: ");
         for (auto [label, max_size] : zip_view(block_labels, max_sizes.get())) {
-            info(label + ": ", max_size);
             std::cout << std::left << std::setw(20) << (label + ":") << max_size << std::endl;
         }
         info("");
