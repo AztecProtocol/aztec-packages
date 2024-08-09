@@ -24,15 +24,8 @@ pub fn assert_is_initialized_public(context: &mut PublicContext) {
 }
 
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_contract_initialization_nullifier(context.this_address());
+    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
     context.push_nullifier_read_request(init_nullifier);
-}
-
-fn compute_contract_initialization_nullifier(address: AztecAddress) -> Field {
-    compute_siloed_nullifier(
-        address,
-        compute_unsiloed_contract_initialization_nullifier(address)
-    )
 }
 
 fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> Field {
