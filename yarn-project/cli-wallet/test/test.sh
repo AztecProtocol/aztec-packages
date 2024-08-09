@@ -17,5 +17,6 @@ cd ./flows
 
 #./basic.sh $COMMAND $NOIR_CONTRACTS_PATH
 #./no_alias.sh $COMMAND $NOIR_CONTRACTS_PATH
-./create_account_pay_native.sh $COMMAND $NOIR_CONTRACTS_PATH
+#./create_account_pay_native.sh $COMMAND $NOIR_CONTRACTS_PATH
+./shield_and_transfer.sh $COMMAND $NOIR_CONTRACTS_PATH
 

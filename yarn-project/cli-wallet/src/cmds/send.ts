@@ -26,7 +26,8 @@ export async function send(
   }
 
   const tx = call.send({ ...(await feeOpts.toSendOpts(wallet)) });
-  log(`\nTransaction hash: ${(await tx.getTxHash()).toString()}`);
+  const txHash = (await tx.getTxHash()).toString();
+  log(`\nTransaction hash: ${txHash}`);
   if (wait) {
     await tx.wait();
 
@@ -40,4 +41,5 @@ export async function send(
   } else {
     log('Transaction pending. Check status with get-tx-receipt');
   }
+  return txHash;
 }

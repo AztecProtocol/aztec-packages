@@ -1,5 +1,5 @@
 import { type AztecAddress } from '@aztec/circuits.js';
-import { parseAztecAddress, parseSecretKey } from '@aztec/cli/utils';
+import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
 
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
@@ -11,6 +11,16 @@ const TARGET_DIR = 'target';
 
 export const ARTIFACT_DESCRIPTION =
   "Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract";
+
+export function aliasedTxHashParser(txHash: string, db?: WalletDB) {
+  try {
+    return parseTxHash(txHash);
+  } catch (err) {
+    const prefixed = txHash.includes(':') ? txHash : `transactions:${txHash}`;
+    const rawTxHash = db ? db.tryRetrieveAlias(prefixed) : txHash;
+    return parseTxHash(rawTxHash);
+  }
+}
 
 export function aliasedAddressParser(defaultPrefix: AliasType, address: string, db?: WalletDB) {
   if (address.startsWith('0x')) {

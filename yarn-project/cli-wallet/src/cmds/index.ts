@@ -15,7 +15,7 @@ import {
 } from '@aztec/cli/utils';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { Argument, type Command } from 'commander';
+import { Argument, type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
 import { Aliases, type WalletDB } from '../storage/wallet_db.js';
@@ -25,6 +25,7 @@ import {
   ARTIFACT_DESCRIPTION,
   aliasedAddressParser,
   aliasedSecretKeyParser,
+  aliasedTxHashParser,
   artifactPathFromPromiseOrAlias,
   artifactPathParser,
   createAccountOption,
@@ -236,6 +237,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(createArtifactOption(db))
     .addOption(createContractAddressOption(db))
     .addOption(
+      createAliasOption('Alias for the transaction hash. Used for easy reference in subsequent commands.', !db),
+    )
+    .addOption(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
@@ -255,6 +259,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       type,
       secretKey,
       publicKey,
+      alias,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const account = await createOrRetrieveAccount(
@@ -271,7 +276,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
-    await send(
+    const txHash = await send(
       wallet,
       functionName,
       args,
@@ -281,6 +286,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       FeeOpts.fromCli(options, log, db),
       log,
     );
+    if (db && txHash) {
+      await db.storeTxHash(txHash, log, alias);
+    }
   });
 
   program
@@ -368,17 +376,40 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('alias')
-    .description('Aliases information for easy reference.')
-    .addArgument(new Argument('<type>', 'Type of alias to create').choices(Aliases))
-    .argument('<key>', 'Key to alias.')
-    .argument('<value>', 'Value to assign to the alias.')
-    .action(async (type, key, value) => {
-      if (!db) {
-        throw new Error('No database available to store alias');
-      }
-      value = db?.tryRetrieveAlias(value) || value;
-      await db.storeAlias(type, key, value, log);
+    .command('add-note')
+    .description('Adds a note to the database in the PXE.')
+    .argument('[name]', 'The Note name')
+    .argument(
+      '[storageFieldName]',
+      'The name of the variable in the storage field that contains the note. WARNING: Maps are not supported',
+    )
+    .requiredOption('-a, --address <string>', 'The Aztec address of the note owner.', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .requiredOption('-h, --hash <string>', 'The tx hash of the tx containing the note.', txHash =>
+      aliasedTxHashParser(txHash, db),
+    )
+    .addOption(createContractAddressOption(db))
+    .addOption(createArtifactOption(db))
+    .addOption(
+      new Option('-f, --fields [noteFields...]', 'The members of a Note')
+        .argParser((arg, prev: string[]) => {
+          const next = db?.tryRetrieveAlias(arg) || arg;
+          prev.push(next);
+          return prev;
+        })
+        .default([]),
+    )
+    .addOption(pxeOption)
+    .action(async (noteName, storageFieldName, _options, command) => {
+      const { addNote } = await import('./add_note.js');
+      const options = command.optsWithGlobals();
+      const { contractArtifact: artifactPathPromise, contractAddress, address, rpcUrl, fields, hash } = options;
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+
+      await addNote(client, address, contractAddress, noteName, storageFieldName, artifactPath, hash, fields, log);
     });
 
   return program;

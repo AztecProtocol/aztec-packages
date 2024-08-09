@@ -4,7 +4,7 @@ import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type AccountType } from '../utils/accounts.js';
 
-export const Aliases = ['accounts', 'contracts', 'artifacts'] as const;
+export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions'] as const;
 export type AliasType = (typeof Aliases)[number];
 
 export class WalletDB {
@@ -88,6 +88,14 @@ export class WalletDB {
     log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
+  async storeTxHash(txHash: string, log: LogFn, alias?: string) {
+    if (alias) {
+      await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash));
+    }
+    await this.#aliases.set(`transactions:last`, Buffer.from(txHash));
+    log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+  }
+
   tryRetrieveAlias(arg: string) {
     if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
       const [type, ...alias] = arg.split(':');
@@ -125,6 +133,6 @@ export class WalletDB {
 
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
     await this.#aliases.set(`${type}:${key}`, value);
-    log(`Alias stored in database  ${type}:${key}`);
+    log(`Data stored in database with alias ${type}:${key}`);
   }
 }

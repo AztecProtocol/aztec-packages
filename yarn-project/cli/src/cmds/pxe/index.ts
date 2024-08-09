@@ -4,11 +4,9 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type Command } from 'commander';
 
 import {
-  createSecretKeyOption,
   logJson,
   parseAztecAddress,
   parseEthereumAddress,
-  parseField,
   parseFieldFromHexString,
   parseOptionalAztecAddress,
   parseOptionalInteger,
@@ -156,30 +154,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (address, options) => {
       const { getRecipient } = await import('./get_recipient.js');
       await getRecipient(address, options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('add-note')
-    .description('Adds a note to the database in the PXE.')
-    .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
-    .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
-    .argument('<storageSlot>', 'The storage slot of the note.', parseField)
-    .argument('<noteTypeId>', 'The type ID of the note.', parseField)
-    .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
-    .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
-    .addOption(pxeOption)
-    .action(async (address, contractAddress, storageSlot, noteTypeId, txHash, options) => {
-      const { addNote } = await import('./add_note.js');
-      await addNote(
-        address,
-        contractAddress,
-        storageSlot,
-        noteTypeId,
-        txHash,
-        options.note,
-        options.rpcUrl,
-        debugLogger,
-      );
     });
 
   program
