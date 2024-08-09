@@ -16,6 +16,7 @@ import PrivateKernelResetBigJson from '../artifacts/private_kernel_reset_big.jso
 import PrivateKernelResetMediumJson from '../artifacts/private_kernel_reset_medium.json' assert { type: 'json' };
 import PrivateKernelResetSimulatedJson from '../artifacts/private_kernel_reset_simulated.json' assert { type: 'json' };
 import PrivateKernelResetBigSimulatedJson from '../artifacts/private_kernel_reset_simulated_big.json' assert { type: 'json' };
+import PrivateKernelResetFullInnerSimulatedJson from '../artifacts/private_kernel_reset_simulated_full_inner.json' assert { type: 'json' };
 import PrivateKernelResetMediumSimulatedJson from '../artifacts/private_kernel_reset_simulated_medium.json' assert { type: 'json' };
 import PrivateKernelResetSmallSimulatedJson from '../artifacts/private_kernel_reset_simulated_small.json' assert { type: 'json' };
 import PrivateKernelResetTinySimulatedJson from '../artifacts/private_kernel_reset_simulated_tiny.json' assert { type: 'json' };
@@ -107,7 +108,7 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
 
 export const ResetSimulatedArtifacts: Record<PrivateResetArtifacts, NoirCompiledCircuit> = {
   PrivateKernelResetFullArtifact: PrivateKernelResetSimulatedJson as NoirCompiledCircuit,
-  PrivateKernelResetFullInnerArtifact: PrivateKernelResetSimulatedJson as NoirCompiledCircuit,
+  PrivateKernelResetFullInnerArtifact: PrivateKernelResetFullInnerSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetBigArtifact: PrivateKernelResetBigSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetMediumArtifact: PrivateKernelResetMediumSimulatedJson as NoirCompiledCircuit,
   PrivateKernelResetSmallArtifact: PrivateKernelResetSmallSimulatedJson as NoirCompiledCircuit,
