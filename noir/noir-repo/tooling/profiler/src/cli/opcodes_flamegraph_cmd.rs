@@ -139,7 +139,10 @@ fn locate_brillig_call<F>(
 #[cfg(test)]
 mod tests {
     use acir::{
-        circuit::{brillig::{BrilligBytecode, BrilligFunctionId}, Circuit, Opcode, Program},
+        circuit::{
+            brillig::{BrilligBytecode, BrilligFunctionId},
+            Circuit, Opcode, Program,
+        },
         AcirField, FieldElement,
     };
     use color_eyre::eyre::{self};
@@ -207,8 +210,12 @@ mod tests {
 
         let artifact_path = temp_dir.path().join("test.json");
 
-        let acir: Vec<Opcode<FieldElement>> =
-            vec![Opcode::BrilligCall { id: BrilligFunctionId(0), inputs: vec![], outputs: vec![], predicate: None }];
+        let acir: Vec<Opcode<FieldElement>> = vec![Opcode::BrilligCall {
+            id: BrilligFunctionId(0),
+            inputs: vec![],
+            outputs: vec![],
+            predicate: None,
+        }];
 
         let artifact = ProgramArtifact {
             noir_version: "0.0.0".to_string(),
