@@ -1,11 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Create an args array to iterate over
+cmd_args=("$@")
+
+# Check if we're running against an Aztec network
+NETWORK=${NETWORK:-}
+# Also check CLI args that take precedence over network vars
+while [[ "${#cmd_args[@]}" -gt 0 ]]; do
+  case "${cmd_args[0]}" in
+  --pxe.network)
+    NETWORK="${cmd_args[1]}" # Set version to user-specified network (e.g. 'devnet')
+    echo "Using aztecprotocol/aztec: $VERSION"
+    cmd_args=("${cmd_args[@]:2}") # Remove the processed argument and its value
+    ;;                            # Move past argument and value
+  *)
+    cmd_args=("${cmd_args[@]:1}") # Remove just the processed argument
+    ;;
+  esac
+done
+
+export VERSION=${VERSION:-${NETWORK:-"latest"}}
+
 # Directory of env_var file
 TS_ENV_VAR_FILE=/usr/src/yarn-project/foundation/src/config/env_var.ts
 LOCAL_TS_FILE=./env_var.ts
-NETWORK=${NETWORK:-}
-VERSION=${VERSION:-${NETWORK:-"latest"}}
 LOCAL_ENV_VAR_FILE="./.${VERSION}_aztec_cli_vars"
 
 function get_compose {
@@ -54,9 +73,9 @@ elif [ "${1:-}" == "start" ]; then
     # Create temp container
     temp_container_id=$(docker create aztecprotocol/aztec:$VERSION)
     # Copy env vars file from container
-    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE $LOCAL_TS_FILE &> /dev/null
+    docker cp ${temp_container_id}:$TS_ENV_VAR_FILE $LOCAL_TS_FILE &>/dev/null
     # Remove temp container
-    docker rm $temp_container_id &> /dev/null
+    docker rm $temp_container_id &>/dev/null
 
     # Parse the TypeScript file
     parse_ts_file
