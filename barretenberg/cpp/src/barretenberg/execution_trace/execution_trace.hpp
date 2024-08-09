@@ -53,9 +53,9 @@ template <class Flavor> class ExecutionTrace_ {
                 }
                 {
                     ZoneScopedN("selector initialization");
-                    for (auto [selector, other_selector] :
-                         zip_view(selectors, proving_key.polynomials.get_selectors())) {
-                        selector = other_selector.share();
+                    for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
+                        selectors[idx] =
+                            proving_key.polynomial_store.get(Builder::Arithmetization::selector_names[idx]).share();
                     }
                 }
             }
