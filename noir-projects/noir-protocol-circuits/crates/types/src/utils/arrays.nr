@@ -34,10 +34,7 @@ pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N> wh
     BoundedVec { storage: array, len }
 }
 
-unconstrained fn filter_array_to_bounded_vec_unsafe<T, let N: u32>(
-    arr: [T; N],
-    should_propagate: [bool; N]
-) -> BoundedVec<T, N> {
+unconstrained fn filter_array_to_bounded_vec_unsafe<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> {
     let mut vec = BoundedVec::new();
     for i in 0..N {
         if should_propagate[i] {
@@ -47,7 +44,10 @@ unconstrained fn filter_array_to_bounded_vec_unsafe<T, let N: u32>(
     vec
 }
 
-pub fn filter_array_to_bounded_vec<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> where T: Eq {
+pub fn filter_array_to_bounded_vec<T, let N: u32>(
+    arr: [T; N],
+    should_propagate: [bool; N]
+) -> BoundedVec<T, N> where T: Eq {
     let vec_hint = filter_array_to_bounded_vec_unsafe(arr, should_propagate);
     let mut verifying_index = 0;
 
