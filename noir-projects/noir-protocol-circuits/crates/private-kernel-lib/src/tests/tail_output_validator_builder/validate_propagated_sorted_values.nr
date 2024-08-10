@@ -26,7 +26,7 @@ fn validate_propagated_sorted_values_l2_to_l1_msgs_unordered_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch sorted values")]
+#[test(should_fail_with="incorrect transformed value")]
 fn validate_propagated_sorted_values_l2_to_l1_msgs_mismatch_hash_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -66,7 +66,7 @@ fn validate_propagated_sorted_values_unencrypted_log_hashes_unordered_succeeds()
     builder.validate();
 }
 
-#[test(should_fail_with="mismatch unencrypted_logs_hashes")]
+#[test(should_fail_with="incorrect transformed value")]
 fn validate_propagated_sorted_values_unencrypted_log_hashes_wrong_order_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 

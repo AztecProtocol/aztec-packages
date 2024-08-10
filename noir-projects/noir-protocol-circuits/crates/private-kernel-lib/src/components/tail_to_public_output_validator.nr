@@ -10,7 +10,8 @@ use dep::types::{
     log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
     nullifier::{Nullifier, ScopedNullifier}, public_call_request::PublicCallRequest
 },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message, address::AztecAddress, traits::is_empty_array,
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, address::AztecAddress,
+    traits::{is_empty, is_empty_array},
     utils::arrays::{
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
     assert_split_transformed_value_arrays, validate_array
@@ -69,16 +70,16 @@ impl TailToPublicOutputValidator {
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
         // public_teardown_call_stack
-        let num_teardown_calls = validate_array(self.output.public_teardown_call_stack);
-        assert(
-            (num_teardown_calls == 0) | (num_teardown_calls == 1), "invalid number of teardown call requests"
-        );
         assert_eq(
             self.output.public_teardown_call_stack[0].item, self.previous_kernel.public_teardown_call_request.item, "mismatch public_teardown_call_request"
         );
         assert_eq(
             self.output.public_teardown_call_stack[0].counter, 0, "cannot expose teardown call request counter"
         );
+        let teardown_call_stack = self.output.public_teardown_call_stack;
+        for i in 1..teardown_call_stack.len() {
+            assert(is_empty(teardown_call_stack[i]), "unexpected teardown call request");
+        }
     }
 
     fn validate_propagated_split_values(self) {

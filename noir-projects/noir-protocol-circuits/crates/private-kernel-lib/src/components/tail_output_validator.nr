@@ -10,7 +10,7 @@ use dep::types::{
     log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
-    utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_array_with_order_hints}
+    utils::arrays::assert_exposed_sorted_transformed_value_array
 };
 
 struct TailOutputValidator {
@@ -74,22 +74,19 @@ impl TailOutputValidator {
 
     fn validate_propagated_sorted_values(self) {
         // l2_to_l1_msgs
-        assert_sorted_transformed_value_array(
+        assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.l2_to_l1_msgs,
-            self.previous_kernel.end.l2_to_l1_msgs.map(|log: ScopedL2ToL1Message| log.expose_to_public()),
             self.output.end.l2_to_l1_msgs,
+            |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev.expose_to_public(),
             self.hints.sorted_l2_to_l1_msg_hints
         );
 
         // unencrypted_log_hashes
-        assert_sorted_array_with_order_hints(
+        assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.unencrypted_logs_hashes,
-            self.hints.sorted_unencrypted_log_hashes,
+            self.output.end.unencrypted_logs_hashes,
+            |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
             self.hints.sorted_unencrypted_log_hash_hints
-        );
-
-        assert_eq(
-            self.hints.sorted_unencrypted_log_hashes.map(|log: ScopedLogHash| log.expose_to_public()), self.output.end.unencrypted_logs_hashes, "mismatch unencrypted_logs_hashes"
         );
     }
 

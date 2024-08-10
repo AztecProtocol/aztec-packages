@@ -214,7 +214,6 @@ mod tests {
             let mut output = nullifiers;
             for i in 1..N {
                 output[i].nullifier.value = silo_nullifier(nullifiers[i]);
-                output[i].nullifier.note_hash = 0;
                 output[i].contract_address = AztecAddress::zero();
             }
             output
@@ -538,6 +537,7 @@ mod tests {
         builder.previous_kernel.append_note_hashes_with_logs(4);
         builder.previous_kernel.append_nullifiers(3);
         builder.previous_kernel.append_encrypted_log_hashes(3);
+        builder.previous_kernel.nullifiers.storage[2].nullifier.note_hash = 9988;
         // Get ordered items before shuffling.
         let note_hashes = builder.previous_kernel.note_hashes.storage;
         let nullifiers = builder.previous_kernel.nullifiers.storage;
