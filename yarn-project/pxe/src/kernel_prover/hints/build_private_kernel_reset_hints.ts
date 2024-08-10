@@ -171,12 +171,12 @@ export async function buildPrivateKernelResetInputs(
   const numNoteHashes = countAccumulatedItems(noteHashes);
   const remainingNoteHashes = transientNullifierIndexesForNoteHashes
     .slice(0, numNoteHashes)
-    .reduce((index: number) => 0 + (index === nullifiers.length ? 1 : 0), 0);
+    .reduce((remaining, index) => remaining + (index === nullifiers.length ? 1 : 0), 0);
 
   const numNullifiers = countAccumulatedItems(nullifiers);
   const remainingNullifiers = transientNoteHashIndexesForNullifiers
     .slice(0, numNullifiers)
-    .reduce((index: number) => 0 + (index === noteHashes.length ? 1 : 0), 0);
+    .reduce((remaining, index) => remaining + (index === noteHashes.length ? 1 : 0), 0);
 
   const numEncryptedLogHashes = countAccumulatedItems(publicInputs.end.encryptedLogsHashes);
 
