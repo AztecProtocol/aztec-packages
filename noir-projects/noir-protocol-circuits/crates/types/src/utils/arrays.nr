@@ -43,19 +43,73 @@ unconstrained fn filter_array_to_bounded_vec_unsafe<T, let N: u32>(
     vec
 }
 
-pub fn filter_array_to_bounded_vec<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> where T: Eq {
+pub fn filter_array_to_bounded_vec<T, let N: u32>(
+    arr: [T; N],
+    should_propagate: [bool; N]
+) -> BoundedVec<T, N> where T: Eq + Empty {
     let vec_hint = filter_array_to_bounded_vec_unsafe(arr, should_propagate);
     let mut verifying_index = 0;
 
     for i in 0..N {
         if should_propagate[i] {
-            assert_eq(arr[i], vec_hint.get(verifying_index));
+            // We can get_unchecked, because we're accessing the index incrementally, 
+            // and after this loop we're checking we haven't gone out of bounds.
+            assert_eq(arr[i], vec_hint.get_unchecked(verifying_index));
             verifying_index += 1;
         }
     }
+
     assert_eq(verifying_index, vec_hint.len());
 
+    let empty = T::empty();
+    let mut end: u1 = 0;
+    for i in 0..N {
+        // Do this gymnastics with `end`, because it avoids incrementing verifying_index (which costs more gates).
+        // We seek to use `i` in `get_unchecked(i)` instead of `verifying_index`, to save constraints.
+        end = end + (i == verifying_index) as u1;
+        if end as bool {
+            assert_eq(empty, vec_hint.get_unchecked(i));
+        }
+    }
+
     vec_hint
+}
+
+// @returns the filtered array, and a field representing the 'length' of the filtered array.
+unconstrained fn filter_array_to_array_unsafe<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> [T; N] {
+    let mut result: [T; N] = std::unsafe::zeroed();
+    let mut j: u32 = 0;
+    for i in 0..N {
+        if should_propagate[i] {
+            result[j] = arr[i];
+            j += 1;
+        }
+    }
+    result
+}
+
+// This is hopefully more-efficient than using BoundedVec
+pub fn filter_array_to_array<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> [T; N] where T: Eq + Empty {
+    let filtered_arr_hint = filter_array_to_array_unsafe(arr, should_propagate);
+    let mut verifying_index = 0;
+
+    for i in 0..N {
+        if should_propagate[i] {
+            assert_eq(arr[i], filtered_arr_hint[verifying_index]);
+            verifying_index += 1;
+        }
+    }
+
+    let empty = T::empty();
+    let mut end: u1 = 0;
+    for i in 0..N {
+        end = end + (i == verifying_index) as u1;
+        if end as bool {
+            assert_eq(empty, filtered_arr_hint[i]);
+        }
+    }
+
+    filtered_arr_hint
 }
 
 unconstrained pub fn find_index_hint<T, let N: u32>(array: [T; N], find: T) -> u32 where T: Eq {
