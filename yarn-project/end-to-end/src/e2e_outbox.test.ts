@@ -93,7 +93,7 @@ describe('E2E Outbox Tests', () => {
     // Outbox L1 tests
 
     // Check L1 has expected message tree
-    const [l1Root, l1MinHeight] = await outbox.read.roots([txReceipt.blockNumber]);
+    const [l1Root, l1MinHeight] = await outbox.read.getRootData([txReceipt.blockNumber]);
     expect(l1Root).toEqual(`0x${block?.header.contentCommitment.outHash.toString('hex')}`);
     // The path for the message should have the shortest possible height, since we only have 2 msgs
     expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
@@ -209,7 +209,7 @@ describe('E2E Outbox Tests', () => {
     // Outbox L1 tests
 
     // Check L1 has expected message tree
-    const [l1Root, l1MinHeight] = await outbox.read.roots([l2TxReceipt0.blockNumber]);
+    const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
     expect(l1Root).toEqual(`0x${block?.header.contentCommitment.outHash.toString('hex')}`);
 
     // The path for the single message should have the shortest possible height
@@ -325,7 +325,7 @@ describe('E2E Outbox Tests', () => {
     // Outbox L1 tests
 
     // Check L1 has expected message tree
-    const [l1Root, l1MinHeight] = await outbox.read.roots([l2TxReceipt0.blockNumber]);
+    const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
     expect(l1Root).toEqual(`0x${block?.header.contentCommitment.outHash.toString('hex')}`);
     // The path for the message should have the shortest possible height, since we only have one msg per tx
     expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
