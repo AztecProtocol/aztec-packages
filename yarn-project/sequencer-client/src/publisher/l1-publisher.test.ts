@@ -18,6 +18,7 @@ describe('L1Publisher', () => {
 
   let header: Buffer;
   let archive: Buffer;
+  let blockHash: Buffer;
   let txsEffectsHash: Buffer;
   let body: Buffer;
 
@@ -28,6 +29,7 @@ describe('L1Publisher', () => {
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
+    blockHash = l2Block.header.hash().toBuffer();
     txsEffectsHash = l2Block.body.getTxsEffectsHash();
     body = l2Block.body.toBuffer();
 
@@ -64,7 +66,7 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendPublishAndProcessTx).toHaveBeenCalledWith({ header, archive, body });
+    expect(txSender.sendPublishAndProcessTx).toHaveBeenCalledWith({ header, archive, blockHash, body });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(publishAndProcessTxHash);
   });
 
@@ -74,7 +76,7 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, body });
+    expect(txSender.sendProcessTx).toHaveBeenCalledWith({ header, archive, blockHash, body });
     expect(txSender.getTransactionReceipt).toHaveBeenCalledWith(processTxHash);
   });
 

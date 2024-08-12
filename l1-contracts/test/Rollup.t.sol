@@ -123,7 +123,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
@@ -140,7 +140,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
@@ -156,7 +156,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
@@ -177,7 +177,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
@@ -204,7 +204,7 @@ contract RollupTest is DecoderBase {
     bytes32 archive = data.archive;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TryingToProveNonExistingBlock.selector));
-    rollup.submitBlockRootProof(header, archive, bytes32(0), bytes32(0), "", "");
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
   }
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
@@ -225,7 +225,7 @@ contract RollupTest is DecoderBase {
         Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(1), 0xdeadbeef
       )
     );
-    rollup.submitBlockRootProof(header, archive, bytes32(0), bytes32(0), "", "");
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
   }
 
   function testSubmitProofInvalidProposedArchive() public setUpFor("empty_block_1") {
@@ -240,7 +240,7 @@ contract RollupTest is DecoderBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidProposedArchive.selector, archive, badArchive)
     );
-    rollup.submitBlockRootProof(header, badArchive, bytes32(0), bytes32(0), "", "");
+    rollup.submitBlockRootProof(header, badArchive, bytes32(0), "", "");
   }
 
   function _testBlock(string memory name, bool _submitProof) public {
@@ -259,10 +259,10 @@ contract RollupTest is DecoderBase {
 
     uint256 toConsume = inbox.toConsume();
 
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
 
     if (_submitProof) {
-      rollup.submitBlockRootProof(header, archive, bytes32(0), bytes32(0), "", "");
+      rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
       assertTrue(
         rollup.isBlockProven(full.block.decodedHeader.globalVariables.blockNumber),

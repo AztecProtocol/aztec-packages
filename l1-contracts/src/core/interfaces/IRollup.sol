@@ -18,15 +18,21 @@ interface IRollup {
   function publishAndProcess(
     bytes calldata _header,
     bytes32 _archive,
+    bytes32 _blockHash,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external;
-  function publishAndProcess(bytes calldata _header, bytes32 _archive, bytes calldata _body)
-    external;
-  function process(bytes calldata _header, bytes32 _archive) external;
+  function publishAndProcess(
+    bytes calldata _header,
+    bytes32 _archive,
+    bytes32 _blockHash,
+    bytes calldata _body
+  ) external;
+  function process(bytes calldata _header, bytes32 _archive, bytes32 _blockHash) external;
   function process(
     bytes calldata _header,
     bytes32 _archive,
+    bytes32 _blockHash,
     SignatureLib.Signature[] memory _signatures
   ) external;
 
@@ -34,8 +40,6 @@ interface IRollup {
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _proverId,
-    // bytes32 _previousBlockHash,
-    bytes32 _currentBlockHash,
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external;
@@ -44,8 +48,6 @@ interface IRollup {
   // function submitRootProof(
   //   bytes32 _previousArchive,
   //   bytes32 _archive,
-  //   bytes32 _previousBlockHash,
-  //   bytes32 _currentBlockHash,
   //   bytes32 outHash,
   //   address[32] calldata coinbases,
   //   uint256[32] calldata fees,

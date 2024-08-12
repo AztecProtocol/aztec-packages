@@ -100,7 +100,7 @@ async function getBlockMetadataFromRollupTx(
   if (!(functionName === 'process' || functionName === 'publishAndProcess')) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex] = args! as readonly [Hex, Hex];
+  const [headerHex, archiveRootHex, _] = args! as readonly [Hex, Hex, Hex];
 
   const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
 
