@@ -36,7 +36,7 @@ pub fn compute_note_hash_for_read_request<Note, let N: u32, let M: u32>(note: No
     }
 }
 
-pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
+pub fn compute_note_hash_for_consumption_2<Note, let N: u32, let M: u32>(note: Note, note_hash_for_read_request: Field) -> Field where Note: NoteInterface<N, M> {
     let header = note.get_header();
     // There are 3 cases for reading a note intended for consumption:
     // 1. The note was inserted in this transaction, is revertible, or is not nullified by a revertible nullifier in 
@@ -45,14 +45,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
     //    the same transaction: (note_hash_counter != 0) & (nonce != 0)
     // 3. The note was inserted in a previous transaction: (note_hash_counter == 0) & (nonce != 0)
 
-    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
-    let note_hash = note.compute_note_hiding_point().x;
-
-    if header.nonce == 0 {
-        // Case 1.
-        // If a note is transient, we just read the note_hash (kernel will hash it with nonce and silo by contract address).
-        note_hash
-    } else {
+    if (header.nonce != 0) & (header.note_hash_counter != 0) {
         // Case 2: If a note is non-revertible, and is nullified by a revertible nullifier, we cannot squash them in the 
         // private reset circuit. Because if the tx reverts, we will have to keep the note hash and throw away the 
         // nullifier.
@@ -65,7 +58,7 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // tree) created in a previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash);
+        let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash_for_read_request);
         compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
@@ -75,7 +68,16 @@ pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Not
         // siloed by the kernel circuit. That being said, the siloed note hash computed above CAN be
         // used for nullifier computation, and this achieves the (arguably unnecessary) property that
         // nullifiers are computed from a note hash's fully-computed note hash tree leaf.
+    } else {
+        // Case 1.
+        // If a note is transient, we just read the note_hash (kernel will hash it with nonce and silo by contract address).
+        note_hash_for_read_request
     }
+}
+
+pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
+    let note_hash_for_read_request = compute_note_hash_for_read_request(note);
+    compute_note_hash_for_consumption_2(note, note_hash_for_read_request)
 }
 
 pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, let S: u32>(

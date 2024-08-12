@@ -1,7 +1,10 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_note_hash_for_read_request, compute_note_hash_for_consumption},
+    utils::{
+    compute_note_hash_for_read_request, compute_note_hash_for_consumption,
+    compute_note_hash_for_consumption_2
+},
     note_emission::NoteEmission
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
@@ -65,8 +68,7 @@ pub fn destroy_note_unsafe<Note, N, M>(
     note: Note,
     note_hash_for_read_request: Field
 ) where Note: NoteInterface<N, M> {
-    // TODO(benesjan): leverage note hash here
-    let note_hash_for_consumption = compute_note_hash_for_consumption(note);
+    let note_hash_for_consumption = compute_note_hash_for_consumption_2(note, note_hash_for_read_request);
     let nullifier = note.compute_nullifier(context, note_hash_for_consumption);
 
     let note_hash_counter = note.get_header().note_hash_counter;
