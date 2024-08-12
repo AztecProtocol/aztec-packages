@@ -105,28 +105,21 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, aggregation_s
  */
 template <typename Builder, typename Curve>
 aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
-                                                            AggregationObjectIndices const& witness_indices)
+                                                            const AggregationObjectIndices& witness_indices)
 {
-    aggregation_state<Curve> agg_obj;
-
-    size_t idx = 0;
-    std::array<typename Curve::Group, 2> pairing_points;
-    for (size_t i = 0; i < 2; i++) {
-        std::array<typename Curve::BaseField, 2> base_field_vals;
-        for (size_t j = 0; j < 2; j++) {
-            std::array<typename Curve::ScalarField, 4> bigfield_limbs;
-            for (size_t k = 0; k < 4; k++) {
-                bigfield_limbs[k] = Curve::ScalarField::from_witness_index(&builder, witness_indices[idx]);
-                idx++;
-            }
-            base_field_vals[j] =
-                typename Curve::BaseField(bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
-        }
-        pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
+    std::array<typename Curve::BaseField, 4> aggregation_elements;
+    for (size_t i = 0; i < 4; ++i) {
+        aggregation_elements[i] =
+            typename Curve::BaseField(Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i]),
+                                      Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 1]),
+                                      Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 2]),
+                                      Curve::ScalarField::from_witness_index(&builder, witness_indices[4 * i + 3]));
+        aggregation_elements[i].assert_is_in_field();
     }
-    agg_obj.P0 = pairing_points[0];
-    agg_obj.P1 = pairing_points[1];
-    return agg_obj;
+
+    return { typename Curve::Group(aggregation_elements[0], aggregation_elements[1]),
+             typename Curve::Group(aggregation_elements[2], aggregation_elements[3]),
+             /*has_data=*/true };
 }
 
 /**
