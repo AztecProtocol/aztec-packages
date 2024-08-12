@@ -12,7 +12,8 @@ use dep::types::{
     log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::NoteHash,
     nullifier::Nullifier, public_call_request::PublicCallRequest
 },
-    hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, address::AztecAddress,
+    hash::{silo_note_hash, silo_nullifier, mask_encrypted_log_hash},
     traits::{Empty, is_empty, is_empty_array},
     utils::arrays::{
     array_length, assert_split_sorted_transformed_value_arrays_asc,
@@ -104,7 +105,7 @@ impl TailToPublicOutputValidator {
 
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.note_hashes,
-            siloed_note_hashes.map(|value: Field| NoteHash { value, counter: 0 }),
+            siloed_note_hashes.map(|value: Field| NoteHash { value, counter: 0 }.scope(AztecAddress::zero())),
             split_counter,
             output_non_revertible.note_hashes,
             output_revertible.note_hashes,
@@ -127,16 +128,10 @@ impl TailToPublicOutputValidator {
         );
 
         // l2_to_l1_msgs
-        let tx_context = self.previous_kernel.constants.tx_context;
-        validate_transformed_values(
-            prev_data.l2_to_l1_msgs,
-            hints.siloed_l2_to_l1_msgs,
-            |msg| silo_l2_to_l1_message(msg, tx_context.version, tx_context.chain_id)
-        );
 
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.l2_to_l1_msgs,
-            hints.siloed_l2_to_l1_msgs,
+            prev_data.l2_to_l1_msgs.map(|log: ScopedL2ToL1Message| log.expose_to_public()),
             split_counter,
             output_non_revertible.l2_to_l1_msgs,
             output_revertible.l2_to_l1_msgs,
@@ -162,13 +157,17 @@ impl TailToPublicOutputValidator {
         // encrypted_logs_hashes
         validate_value_transformation(
             prev_data.encrypted_logs_hashes,
-            hints.siloed_encrypted_logs_hashes,
-            |slh: ScopedEncryptedLogHash, lh: LogHash| (lh.value == silo_encrypted_log_hash(slh)) & (lh.length == slh.log_hash.length) & (lh.counter == 0)
+            hints.masked_encrypted_logs_hashes,
+            |lh: ScopedEncryptedLogHash, mlh: ScopedLogHash| 
+            (mlh.contract_address == mask_encrypted_log_hash(lh)) & 
+            (lh.log_hash.value == mlh.log_hash.value) & 
+            (lh.log_hash.length == mlh.log_hash.length) & 
+            (mlh.log_hash.counter == 0)
         );
 
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.encrypted_logs_hashes,
-            hints.siloed_encrypted_logs_hashes,
+            hints.masked_encrypted_logs_hashes,
             split_counter,
             output_non_revertible.encrypted_logs_hashes,
             output_revertible.encrypted_logs_hashes,

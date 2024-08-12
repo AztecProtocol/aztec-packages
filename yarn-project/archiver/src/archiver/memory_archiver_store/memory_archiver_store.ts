@@ -45,7 +45,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockBodies: Map<string, Body> = new Map();
 
   /**
-   * An array containing all the the tx effects in the L2 blocks that have been fetched so far.
+   * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
 
@@ -177,14 +177,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
-    const blockBodies = txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex')));
-
-    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Block body is undefined');
-    }
-
-    return Promise.resolve(blockBodies as Body[]);
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
+    return Promise.resolve(
+      txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex'))),
+    );
   }
 
   /**

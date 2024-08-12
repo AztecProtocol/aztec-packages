@@ -3,7 +3,7 @@ import { GeneratorIndex, KeyValidationRequest, computeAppNullifierSecretKey, der
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js';
 
@@ -11,7 +11,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { computeNoteHidingPoint, computeSlottedNoteHash } from './test_utils.js';
+import { computeNoteHash } from './test_utils.js';
 
 describe('Simulator', () => {
   let oracle: MockProxy<DBOracle>;
@@ -61,11 +61,13 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const noteHidingPoint = computeNoteHidingPoint(note.items);
-      const slottedNoteHash = computeSlottedNoteHash(storageSlot, noteHidingPoint);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, slottedNoteHash);
+      const noteHash = computeNoteHash(storageSlot, note.items);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
       const siloedNoteHash = siloNoteHash(contractAddress, uniqueNoteHash);
-      const innerNullifier = poseidon2Hash([siloedNoteHash, appNullifierSecretKey, GeneratorIndex.NOTE_NULLIFIER]);
+      const innerNullifier = poseidon2HashWithSeparator(
+        [siloedNoteHash, appNullifierSecretKey],
+        GeneratorIndex.NOTE_NULLIFIER,
+      );
 
       const result = await simulator.computeNoteHashAndOptionallyANullifier(
         contractAddress,
@@ -77,7 +79,7 @@ describe('Simulator', () => {
       );
 
       expect(result).toEqual({
-        slottedNoteHash,
+        noteHash,
         uniqueNoteHash,
         siloedNoteHash,
         innerNullifier,

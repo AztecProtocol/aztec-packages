@@ -12,7 +12,7 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -293,12 +293,14 @@ describe('e2e_block_building', () => {
       // compare logs
       expect(rct.status).toEqual('success');
       const encryptedLogs = tx.encryptedLogs.unrollLogs();
-      expect(encryptedLogs[0].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
-      expect(encryptedLogs[1].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
+      expect(encryptedLogs[0].maskedContractAddress).toEqual(
+        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
+      );
+      expect(encryptedLogs[1].maskedContractAddress).toEqual(
+        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
+      );
       // Setting randomness = 0 in app means 'do not mask the address'
       expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
-      const expectedEncryptedLogsHash = tx.encryptedLogs.hash();
-      expect(tx.data.forRollup?.end.encryptedLogsHash).toEqual(new Fr(expectedEncryptedLogsHash));
 
       // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
       // will likely not be useful when complete.
