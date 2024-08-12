@@ -3,15 +3,17 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
-/*! \brief The child class of UltraFlavor that runs with ZK Sumcheck. Most of the properties of UltraFlavor are
+/*!
+\brief Child class of UltraFlavor that runs with ZK Sumcheck.
+\details
+Most of the properties of UltraFlavor are
 inherited without any changes, except for the MAX_PARTIAL_RELATION_LENGTH which is now computed as a maximum of
 SUBRELATION_PARTIAL_LENGTHS incremented by the corresponding SUBRELATION_WITNESS_DEGREES over all relations included in
 UltraFlavor, which also affects the size of ExtendedEdges univariate containers.
 Moreover, the container SumcheckTupleOfTuplesOfUnivariates is resized to reflect that masked
-witness polynomials are of degree at most \f$2\$ in each variable, and hence, for any subrelation, the corresponding
-univariate accumuluator size has to be increased by the subrelation's witness degree.
-See
-*
+witness polynomials are of degree at most \f$2\f$ in each variable, and hence, for any subrelation, the corresponding
+univariate accumuluator size has to be increased by the subrelation's witness degree. See more in
+\ref docs/src/sumcheck-outline.md "Sumcheck Outline".
 */
 class UltraFlavorWithZK : public bb::UltraFlavor {
 
