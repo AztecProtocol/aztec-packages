@@ -42,7 +42,7 @@ export class BlockProposal extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.txs.length, this.txs, this.signature.length, this.signature]);
+    return serializeToBuffer([this.header, this.txs.length, this.txs, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
@@ -50,7 +50,7 @@ export class BlockProposal extends Gossipable {
     return new BlockProposal(
       reader.readObject(Header),
       reader.readArray(reader.readNumber(), TxHash),
-      reader.readBuffer(),
+      reader.readObject(Signature),
     );
   }
 }

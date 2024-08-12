@@ -52,8 +52,7 @@ export class BlockAttestation extends Gossipable {
       // Recover the sender from the attestation
       const address = await recoverAddress({
         hash: this.p2pMessageIdentifier().to0xString(),
-        // TODO(md): FIX with the new signature type
-        signature: this.signature,
+        signature: this.signature.to0xString(),
       });
       // Cache the sender for later use
       this.sender = EthAddress.fromString(address);
@@ -63,15 +62,15 @@ export class BlockAttestation extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.signature.length, this.signature]);
+    return serializeToBuffer([this.header, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(Header), reader.readBuffer());
+    return new BlockAttestation(reader.readObject(Header), reader.readObject(Signature));
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(Header.empty(), Buffer.from([]));
+    return new BlockAttestation(Header.empty(), Signature.empty());
   }
 }

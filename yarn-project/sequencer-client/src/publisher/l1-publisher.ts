@@ -43,19 +43,9 @@ export type MinimalTransactionReceipt = {
 };
 
 /**
- * @notice An attestation for the sequencing model.
- * @todo    This is not where it belongs. But I think we should do a bigger rewrite of some of
- *          this spaghetti.
- */
-export type Attestation = { isEmpty: boolean; v: number; r: `0x${string}`; s: `0x${string}` };
-
-/**
  * Pushes txs to the L1 chain and waits for their completion.
  */
 export interface L1PublisherTxSender {
-  /** Attests to the given archive root. */
-  attest(archive: `0x${string}`): Promise<Attestation>;
-
   /** Returns the EOA used for sending txs to L1.  */
   getSenderAddress(): Promise<EthAddress>;
 
@@ -182,7 +172,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, attestations?: Attestation[]): Promise<boolean> {
+  public async processL2Block(block: L2Block, attestations?: Signature[]): Promise<boolean> {
     const ctx = { blockNumber: block.number, blockHash: block.hash().toString() };
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();

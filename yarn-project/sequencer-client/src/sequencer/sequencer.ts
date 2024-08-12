@@ -6,6 +6,8 @@ import {
   Tx,
   type TxValidator,
   BlockAttestation,
+  BlockWithAttestations,
+  Signature,
 } from '@aztec/circuit-types';
 import {
   type AllowedElement,
@@ -411,7 +413,7 @@ export class Sequencer {
     }
   }
 
-  protected async collectAttestations(block: L2Block): Promise<BlockHeaderAndAttestations[] | undefined> {
+  protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
     // @todo  This should collect attestations properly and fix the ordering of them to make sense
     //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
     //        It is assuming that there will only be ONE (1) validator, so only one attestation
@@ -425,7 +427,7 @@ export class Sequencer {
     //                ;   ;
     //                /   \
     //  _____________/_ __ \_____________
-    if (IS_DEV_NET | this.validatorClient == undefined) {
+    if (IS_DEV_NET || !this.validatorClient) {
       return undefined;
     }
 
@@ -434,9 +436,10 @@ export class Sequencer {
     // NOTES - put here
 
     const proposal = await this.validatorClient.createBlockProposal(block.header, []);
-    const headerAndAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
+    const headerWithAttestations = await this.validatorClient.broadcastAndCollectAttestations(proposal);
 
-    return attestations;
+    // Temporary glue code:
+    return headerWithAttestations.attestations;
   }
 
   /**
@@ -446,7 +449,8 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: BlockAttestation[]) {
+  // TODO: change to block with attestations???
+  protected async publishL2Block(block: L2Block, attestations?: Signature[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 

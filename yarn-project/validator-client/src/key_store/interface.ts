@@ -1,8 +1,10 @@
+import { Signature } from "@aztec/circuit-types";
+
 /** Key Store
  *
  * A keystore interface that can be replaced with a local keystore / remote signer service
  */
 export interface ValidatorKeyStore {
-  sign(message: Buffer): Promise<Buffer>;
+  sign(message: Buffer): Promise<Signature>;
   // validateSignature(signature: Buffer, message?: Buffer ): Promise<boolean>;
 }
