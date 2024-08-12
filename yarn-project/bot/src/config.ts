@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
+  booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -22,7 +23,7 @@ export type BotConfig = {
   /** How many public token transfers are executed per tx. */
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
-  feePaymentMethod: 'native' | 'none';
+  feePaymentMethod: 'fee_juice' | 'none';
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -40,19 +41,19 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
     parseEnv: (val: string) => Fr.fromString(val),
-    default: Fr.random(),
+    defaultValue: Fr.random(),
   },
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
     description: 'Encryption secret for a recipient account.',
     parseEnv: (val: string) => Fr.fromString(val),
-    default: Fr.fromString('0xcafecafe'),
+    defaultValue: Fr.fromString('0xcafecafe'),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
     description: 'Salt for the token contract deployment.',
     parseEnv: (val: string) => Fr.fromString(val),
-    default: Fr.fromString('1'),
+    defaultValue: Fr.fromString('1'),
   },
   txIntervalSeconds: {
     env: 'BOT_TX_INTERVAL_SECONDS',
@@ -71,15 +72,14 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   feePaymentMethod: {
     env: 'BOT_FEE_PAYMENT_METHOD',
-    description: 'How to handle fee payments. (Options: native, none)',
-    parseEnv: val => (val as 'native' | 'none') || undefined,
-    default: 'none',
+    description: 'How to handle fee payments. (Options: fee_juice, none)',
+    parseEnv: val => (val as 'fee_juice' | 'none') || undefined,
+    defaultValue: 'none',
   },
   noStart: {
     env: 'BOT_NO_START',
     description: 'True to not automatically setup or start the bot on initialization.',
-    parseEnv: val => ['1', 'true'].includes(val),
-    default: false,
+    ...booleanConfigHelper(),
   },
   txMinedWaitSeconds: {
     env: 'BOT_TX_MINED_WAIT_SECONDS',
@@ -89,8 +89,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   noWaitForTransfers: {
     env: 'BOT_NO_WAIT_FOR_TRANSFERS',
     description: "Don't wait for transfer transactions.",
-    parseEnv: val => ['1', 'true'].includes(val),
-    default: false,
+    ...booleanConfigHelper(),
   },
 };
 
