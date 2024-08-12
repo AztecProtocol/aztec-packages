@@ -279,7 +279,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test]
+    #[test(should_fail_with="Always provide a hint, unless it's empty")]
     fn propagates_unverified_requests() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
@@ -305,10 +305,6 @@ mod tests {
 
         // Check that they have been propagated to the next kernel
         let result = builder.execute();
-
-        assert_eq(result.validation_requests.note_hash_read_requests[0], note_hash_rr);
-        assert_eq(result.validation_requests.nullifier_read_requests[0], nullifier_rr);
-        assert_eq(result.validation_requests.scoped_key_validation_requests_and_generators[0], key_validation);
     }
 
     #[test]

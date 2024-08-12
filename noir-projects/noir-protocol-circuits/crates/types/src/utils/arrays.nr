@@ -43,19 +43,48 @@ unconstrained fn filter_array_to_bounded_vec_unsafe<T, let N: u32>(
     vec
 }
 
-pub fn filter_array_to_bounded_vec<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> where T: Eq {
+pub fn filter_array_to_bounded_vec<T, let N: u32>(
+    arr: [T; N],
+    should_propagate: [bool; N]
+) -> BoundedVec<T, N> where T: Eq + Empty {
     let vec_hint = filter_array_to_bounded_vec_unsafe(arr, should_propagate);
     let mut verifying_index = 0;
 
     for i in 0..N {
         if should_propagate[i] {
-            assert_eq(arr[i], vec_hint.get(verifying_index));
+            // We can get_unchecked, because we're accessing the index incrementally, 
+            // and after this loop we're checking we haven't gone out of bounds.
+            assert_eq(arr[i], vec_hint.get_unchecked(verifying_index));
             verifying_index += 1;
         }
     }
+
     assert_eq(verifying_index, vec_hint.len());
 
+    let empty = T::empty();
+    let mut end: u1 = 0;
+    for i in 0..N {
+        // Do this gymnastics with `end`, because it avoids incrementing verifying_index (which costs more gates).
+        // We seek to use `i` in `get_unchecked(i)` instead of `verifying_index`, to save constraints.
+        end = end + (i == verifying_index) as u1;
+        if end as bool {
+            assert_eq(empty, vec_hint.get_unchecked(i));
+        }
+    }
+
     vec_hint
+}
+
+// To call this, write `shift_array::<_, _, shift>(arr)`, 
+// where `shift` is some value or numeric generic for `Shift`; the size of the shift.
+fn shift_array<T, let N: u32, let Shift: u32>(arr: [T; N]) -> [T; N] where T: Empty {
+    let empty = T::empty();
+    let mut res: [T; N] = [empty; N];
+    for i in 0..N - Shift {
+        let j = i + Shift;
+        res[i] = arr[j];
+    }
+    res
 }
 
 unconstrained pub fn find_index_hint<T, let N: u32>(array: [T; N], find: T) -> u32 where T: Eq {
