@@ -92,7 +92,7 @@ fn check_notes_order<let N: u32>(
 pub fn get_note<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
     storage_slot: Field
-) -> Note where Note: NoteInterface<N, M> {
+) -> (Note, Field) where Note: NoteInterface<N, M> {
     let note = get_note_internal(storage_slot);
 
     check_note_header(*context, storage_slot, note);
@@ -100,7 +100,7 @@ pub fn get_note<Note, let N: u32, let M: u32>(
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
 
     context.push_note_hash_read_request(note_hash_for_read_request);
-    note
+    (note, note_hash_for_read_request)
 }
 
 pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(

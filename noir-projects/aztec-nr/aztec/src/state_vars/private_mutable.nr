@@ -5,7 +5,7 @@ use dep::protocol_types::{
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
-    lifecycle::{create_note, destroy_note}, note_getter::{get_note, view_notes},
+    lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_note, view_notes},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions, note_emission::NoteEmission
 };
 use crate::oracle::notes::check_nullifier_exists;
@@ -59,10 +59,10 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
 
     // docs:start:replace
     pub fn replace(self, new_note: &mut Note) -> NoteEmission<Note> {
-        let prev_note: Note = get_note(self.context, self.storage_slot);
+        let (prev_note, note_hash_for_read_request): (Note, Field) = get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
-        destroy_note(self.context, prev_note);
+        destroy_note_unsafe(self.context, prev_note, note_hash_for_read_request);
 
         // Add replacement note.
         create_note(self.context, self.storage_slot, new_note)
@@ -91,10 +91,10 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
 
     // docs:start:get_note
     pub fn get_note(self) -> NoteEmission<Note> {
-        let mut note = get_note(self.context, self.storage_slot);
+        let mut (note, note_hash_for_read_request) = get_note(self.context, self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note(self.context, note);
+        destroy_note_unsafe(self.context, note, note_hash_for_read_request);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.

@@ -51,6 +51,7 @@ pub fn create_note_hash_from_public<Note, N, M>(
     context.push_note_hash(note_hash);
 }
 
+// Note: This function is currently totally unused.
 pub fn destroy_note<Note, N, M>(
     context: &mut PrivateContext,
     note: Note

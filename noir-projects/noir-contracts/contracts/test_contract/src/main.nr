@@ -29,7 +29,7 @@ contract Test {
         context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
-        lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
+        lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
@@ -175,11 +175,12 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
+        let (notes, note_hashes): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         let note = notes.get(0);
+        let note_hash = note_hashes.get(0);
 
-        destroy_note(&mut context, note);
+        destroy_note_unsafe(&mut context, note, note_hash);
     }
 
     #[aztec(private)]
