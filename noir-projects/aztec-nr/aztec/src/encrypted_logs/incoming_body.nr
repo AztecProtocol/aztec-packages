@@ -71,8 +71,8 @@ mod test {
 
         fn set_header(&mut self, header: NoteHeader) {self.header = header; }
 
-        fn compute_note_hash_and_nullifier(_self: Self, _context: &mut PrivateContext) -> (Field, Field) {
-            (1, 1)
+        fn compute_nullifier(_self: Self, _context: &mut PrivateContext, _note_hash_for_consumption: Field) -> Field {
+            1
         }
 
         fn compute_note_hash_and_nullifier_without_context(_self: Self) -> (Field, Field) {(1,1)}

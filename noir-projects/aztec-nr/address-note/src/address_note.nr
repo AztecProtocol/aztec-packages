@@ -25,28 +25,26 @@ struct AddressNote {
 
 impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
 
-    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_consumption: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
-        let nullifier = poseidon2_hash_with_separator([
-            note_hash_for_nullify,
+        poseidon2_hash_with_separator([
+            note_hash_for_consumption,
             secret
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        );
-        (note_hash_for_nullify, nullifier)
+        )
     }
 
     fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let note_hash_for_consumption = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
         let nullifier = poseidon2_hash_with_separator([
-            note_hash_for_nullify,
+            note_hash_for_consumption,
             secret
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         );
-        (note_hash_for_nullify, nullifier)
+        (note_hash_for_consumption, nullifier)
     }
 }
 

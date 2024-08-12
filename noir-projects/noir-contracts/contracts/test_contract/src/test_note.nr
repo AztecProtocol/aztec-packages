@@ -18,9 +18,9 @@ struct TestNote {
 
 impl NoteInterface<TEST_NOTE_LEN, TEST_NOTE_BYTES_LENGTH> for TestNote {
 
-    fn compute_note_hash_and_nullifier(self, _context: &mut PrivateContext) -> (Field, Field) {
+    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_consumption: Field) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
-        (0, 0)
+        0
     }
 
     fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {

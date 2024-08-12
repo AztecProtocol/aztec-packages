@@ -4,7 +4,7 @@ use dep::protocol_types::point::Point;
 
 // docs:start:note_interface
 trait NoteInterface<let N: u32, let M: u32> {
-    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field);
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_consumption: Field) -> Field;
 
     fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field);
     

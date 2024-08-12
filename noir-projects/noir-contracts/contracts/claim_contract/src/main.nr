@@ -1,5 +1,6 @@
 contract Claim {
     use dep::aztec::{
+        note::utils::compute_note_hash_for_consumption,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable
     };
@@ -38,7 +39,8 @@ contract Claim {
         // Note: Only the owner of the npk_m will be able to produce the nsk_app and compute this nullifier.
         // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
         // the address of a contract it was emitted from.
-        let (_, nullifier) = proof_note.compute_note_hash_and_nullifier(&mut context);
+        let note_hash_for_consumption = compute_note_hash_for_consumption(proof_note);
+        let nullifier = proof_note.compute_nullifier(&mut context, note_hash_for_consumption);
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction

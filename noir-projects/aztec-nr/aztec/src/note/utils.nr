@@ -17,7 +17,8 @@ pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext
 ) -> Field where Note: NoteInterface<N, M> {
     let header = note_with_header.get_header();
-    let (_, inner_nullifier) = note_with_header.compute_note_hash_and_nullifier(context);
+    let note_hash_for_consumption = compute_note_hash_for_consumption(note_with_header);
+    let inner_nullifier = note_with_header.compute_nullifier(context, note_hash_for_consumption);
 
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
