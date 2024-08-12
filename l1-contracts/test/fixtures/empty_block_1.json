@@ -20,9 +20,9 @@
       },
       "globalVariables": {
         "blockNumber": 1,
-        "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000005",
         "chainId": 31337,
-        "timestamp": 0,
+        "timestamp": 1723019086,
         "version": 1,
         "coinbase": "0xdb59aa78df10a886e7987fedcf49ae50541b0f91",
         "feeRecipient": "0x2eca3f1c9be9eef0c92d6f57fc6283f91d3bb957d4b876d425ba152859fbbf98",

@@ -1,3 +1,4 @@
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DebugLogger } from '@aztec/foundation/log';
 
@@ -12,8 +13,8 @@ export const l1ContractsNames = [
   'registryAddress',
   'inboxAddress',
   'outboxAddress',
-  'gasTokenAddress',
-  'gasPortalAddress',
+  'feeJuiceAddress',
+  'feeJuicePortalAddress',
 ] as const;
 
 /**
@@ -23,30 +24,48 @@ export type L1ContractAddresses = {
   [K in (typeof l1ContractsNames)[number]]: EthAddress;
 };
 
-export function getL1ContractAddressesFromEnv() {
-  const {
-    AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
-    ROLLUP_CONTRACT_ADDRESS,
-    REGISTRY_CONTRACT_ADDRESS,
-    INBOX_CONTRACT_ADDRESS,
-    OUTBOX_CONTRACT_ADDRESS,
-    GAS_TOKEN_CONTRACT_ADDRESS,
-    GAS_PORTAL_CONTRACT_ADDRESS,
-  } = process.env;
+const parseEnv = (val: string) => EthAddress.fromString(val);
 
-  return {
-    availabilityOracleAddress: AVAILABILITY_ORACLE_CONTRACT_ADDRESS
-      ? EthAddress.fromString(AVAILABILITY_ORACLE_CONTRACT_ADDRESS)
-      : EthAddress.ZERO,
-    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
-      ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
-      : EthAddress.ZERO,
-  };
+export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses> = {
+  availabilityOracleAddress: {
+    env: 'AVAILABILITY_ORACLE_CONTRACT_ADDRESS',
+    description: 'The deployed L1 availability oracle contract address.',
+    parseEnv,
+  },
+  rollupAddress: {
+    env: 'ROLLUP_CONTRACT_ADDRESS',
+    description: 'The deployed L1 rollup contract address.',
+    parseEnv,
+  },
+  registryAddress: {
+    env: 'REGISTRY_CONTRACT_ADDRESS',
+    description: 'The deployed L1 registry contract address.',
+    parseEnv,
+  },
+  inboxAddress: {
+    env: 'INBOX_CONTRACT_ADDRESS',
+    description: 'The deployed L1 inbox contract address.',
+    parseEnv,
+  },
+  outboxAddress: {
+    env: 'OUTBOX_CONTRACT_ADDRESS',
+    description: 'The deployed L1 outbox contract address.',
+    parseEnv,
+  },
+  feeJuiceAddress: {
+    env: 'FEE_JUICE_CONTRACT_ADDRESS',
+    description: 'The deployed L1 gas token contract address.',
+    parseEnv,
+  },
+  feeJuicePortalAddress: {
+    env: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
+    description: 'The deployed L1 gas portal contract address.',
+    parseEnv,
+  },
+};
+
+export function getL1ContractAddressesFromEnv() {
+  return getConfigFromMappings<L1ContractAddresses>(l1ContractAddressesMapping);
 }
 
 function convertToL1ContractAddresses(obj: any): L1ContractAddresses {

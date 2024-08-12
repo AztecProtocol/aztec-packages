@@ -9,11 +9,11 @@ import {
 import {
   type AllowedElement,
   BlockProofError,
-  type BlockProver,
   PROVING_STATUS,
+  type ProverClient,
 } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, type GlobalVariables, type Header, IS_DEV_NET } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -24,7 +24,7 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type Attestation, type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -61,7 +61,7 @@ export class Sequencer {
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
-    private prover: BlockProver,
+    private prover: ProverClient,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
@@ -71,7 +71,7 @@ export class Sequencer {
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.updateConfig(config);
-    this.metrics = new SequencerMetrics(telemetry, 'Sequencer');
+    this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
   }
 
@@ -174,14 +174,15 @@ export class Sequencer {
     try {
       // Update state when the previous block has been synced
       const prevBlockSynced = await this.isBlockSynced();
+      // Do not go forward with new block if the previous one has not been mined and processed
+      if (!prevBlockSynced) {
+        this.log.debug('Previous block has not been mined and processed yet');
+        return;
+      }
+
       if (prevBlockSynced && this.state === SequencerState.PUBLISHING_BLOCK) {
         this.log.debug(`Block has been synced`);
         this.state = SequencerState.IDLE;
-      }
-
-      // Do not go forward with new block if the previous one has not been mined and processed
-      if (!prevBlockSynced) {
-        return;
       }
 
       const historicalHeader = (await this.l2BlockSource.getBlock(-1))?.header;
@@ -235,6 +236,8 @@ export class Sequencer {
         this._feeRecipient,
       );
 
+      // @todo @LHerskind Include some logic to consider slots
+
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
       const allValidTxs = await this.takeValidTxs(
         pendingTxs,
@@ -264,8 +267,6 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(txHashes);
       }
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
-      // Cancel any further proving on the block
-      this.prover?.cancelBlock();
       await this.worldState.getLatest().rollback();
     }
   }
@@ -284,7 +285,7 @@ export class Sequencer {
     historicalHeader: Header | undefined,
     elapsedSinceLastBlock: number,
   ): Promise<void> {
-    this.metrics.recordNewBlock(validTxs.length);
+    this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
     this.log.info(`Building block ${newGlobalVariables.blockNumber.toNumber()} with ${validTxs.length} transactions`);
@@ -299,6 +300,8 @@ export class Sequencer {
       if (!(await this.publisher.isItMyTurnToSubmit())) {
         throw new Error(`Not this sequencer turn to submit block`);
       }
+
+      // @todo @LHerskind Should take into account, block number, proposer and slot number
     };
 
     // Get l1 to l2 messages from the contract
@@ -315,10 +318,11 @@ export class Sequencer {
     const blockSize = Math.max(2, numRealTxs);
 
     const blockBuildingTimer = new Timer();
-    const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+    const prover = this.prover.createBlockProver(this.worldState.getLatest());
+    const blockTicket = await prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(validTxs, blockSize, this.prover, this.txValidatorFactory.validatorForProcessedTxs()),
+      processor.process(validTxs, blockSize, prover, this.txValidatorFactory.validatorForProcessedTxs()),
     );
     if (failedTxs.length > 0) {
       const failedTxData = failedTxs.map(fail => fail.tx);
@@ -332,14 +336,14 @@ export class Sequencer {
     // we should bail.
     if (processedTxs.length === 0 && !this.skipMinTxsPerBlockCheck(elapsedSinceLastBlock)) {
       this.log.verbose('No txs processed correctly to build block. Exiting');
-      this.prover.cancelBlock();
+      prover.cancelBlock();
       return;
     }
 
     await assertBlockHeight();
 
     // All real transactions have been added, set the block as full and complete the proving.
-    await this.prover.setBlockCompleted();
+    await prover.setBlockCompleted();
 
     // Here we are now waiting for the block to be proven.
     // TODO(@PhilWindle) We should probably periodically check for things like another
@@ -352,23 +356,33 @@ export class Sequencer {
     await assertBlockHeight();
 
     // Block is proven, now finalise and publish!
-    const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
+    const { block, aggregationObject, proof } = await prover.finaliseBlock();
 
     await assertBlockHeight();
 
     const workDuration = workTimer.ms();
-    this.log.verbose(`Assembled block ${block.number}`, {
-      eventName: 'l2-block-built',
-      duration: workDuration,
-      publicProcessDuration: publicProcessorDuration,
-      rollupCircuitsDuration: blockBuildingTimer.ms(),
-      ...block.getStats(),
-    } satisfies L2BlockBuiltStats);
+    this.log.verbose(
+      `Assembled block ${block.number} (txEffectsHash: ${block.header.contentCommitment.txsEffectsHash.toString(
+        'hex',
+      )})`,
+      {
+        eventName: 'l2-block-built',
+        duration: workDuration,
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: blockBuildingTimer.ms(),
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats,
+    );
 
     try {
-      await this.publishL2Block(block);
+      const attestations = await this.collectAttestations(block);
+      await this.publishL2Block(block, attestations);
       this.metrics.recordPublishedBlock(workDuration);
-      this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
+      this.log.info(
+        `Submitted rollup block ${block.number} with ${
+          processedTxs.length
+        } transactions duration=${workDuration}ms (Submitter: ${await this.publisher.senderAddress()})`,
+      );
     } catch (err) {
       this.metrics.recordFailedBlock();
       throw err;
@@ -381,12 +395,34 @@ export class Sequencer {
       await this.publisher.submitProof(
         block.header,
         block.archive.root,
-        this.prover.getProverId(),
+        prover.getProverId(),
         aggregationObject,
         proof,
       );
       this.log.info(`Submitted proof for block ${block.number}`);
     }
+  }
+
+  protected async collectAttestations(block: L2Block): Promise<Attestation[] | undefined> {
+    // @todo  This should collect attestations properly and fix the ordering of them to make sense
+    //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
+    //        It is assuming that there will only be ONE (1) validator, so only one attestation
+    //        is needed.
+    // @note  This is quite a sin, but I'm committing war crimes in this code already.
+    //            _ ._  _ , _ ._
+    //          (_ ' ( `  )_  .__)
+    //       ( (  (    )   `)  ) _)
+    //      (__ (_   (_ . _) _) ,__)
+    //           `~~`\ ' . /`~~`
+    //                ;   ;
+    //                /   \
+    //  _____________/_ __ \_____________
+    if (IS_DEV_NET) {
+      return undefined;
+    }
+
+    const myAttestation = await this.publisher.attest(block.archive.root.toString());
+    return [myAttestation];
   }
 
   /**
@@ -396,10 +432,10 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block) {
+  protected async publishL2Block(block: L2Block, attestations?: Attestation[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
-    const publishedL2Block = await this.publisher.processL2Block(block);
+    const publishedL2Block = await this.publisher.processL2Block(block, attestations);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

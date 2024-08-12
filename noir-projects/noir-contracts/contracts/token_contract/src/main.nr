@@ -293,20 +293,19 @@ contract Token {
     // docs:start:redeem_shield
     #[aztec(private)]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
-        let pending_shields = storage.pending_shields;
         let secret_hash = compute_secret_hash(secret);
-        // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
-        // stored in field with index 1 (select(1, secret_hash)).
+
+        // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
+        // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
         options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
             TransparentNote::properties().secret_hash,
             secret_hash,
             Option::none()
         ).set_limit(1);
-        let notes = pending_shields.get_notes(options);
-        let note = notes.get(0);
-        // Remove the note from the pending shields set
-        pending_shields.remove(note);
+
+        let notes = storage.pending_shields.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
@@ -394,8 +393,20 @@ contract Token {
             // try_sub failed to nullify enough notes to reach the target amount, so we compute the amount remaining
             // and try again.
             let remaining = amount - subtracted;
-            Token::at(context.this_address())._recurse_subtract_balance(account, remaining.to_field()).call(context)
+            compute_recurse_subtract_balance_call(*context, account, remaining).call(context)
         }
+    }
+
+    // TODO(#7729): apply no_predicates to the contract interface method directly instead of having to use a wrapper
+    // like we do here.
+    #[no_predicates]
+    #[contract_library_method]
+    fn compute_recurse_subtract_balance_call(
+        context: PrivateContext,
+        account: AztecAddress,
+        remaining: U128
+    ) -> PrivateCallInterface<25, U128, (AztecAddress, Field)> {
+        Token::at(context.this_address())._recurse_subtract_balance(account, remaining.to_field())
     }
 
     // TODO(#7728): even though the amount should be a U128, we can't have that type in a contract interface due to
