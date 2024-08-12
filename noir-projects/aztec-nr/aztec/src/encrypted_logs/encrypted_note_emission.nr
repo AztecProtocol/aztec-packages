@@ -22,7 +22,7 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
 
     let contract_address: AztecAddress = context.this_address();
 
-    let (encrypted_log, log_hash) = compute(
+    let encrypted_log: [u8; M] = compute_encrypted_note_log(
         contract_address,
         storage_slot,
         ovsk_app,
@@ -31,6 +31,7 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
         recipient,
         note
     );
+    let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
 }
