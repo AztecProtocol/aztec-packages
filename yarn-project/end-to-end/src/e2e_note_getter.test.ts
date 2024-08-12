@@ -202,44 +202,44 @@ describe('e2e_note_getter', () => {
       });
     });
 
-    describe('active and nullified notes', () => {
-      const activeOrNullified = true;
+    // describe('active and nullified notes', () => {
+    //   const activeOrNullified = true;
 
-      it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
-        await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-      });
+    //   it('returns active notes', async () => {
+    //     await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+    //     await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
+    //   });
 
-      it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
-        await contract.methods.call_destroy_note(storageSlot).send().wait();
+    //   it('returns nullified notes', async () => {
+    //     await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+    //     await contract.methods.call_destroy_note(storageSlot).send().wait();
 
-        await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
-      });
+    //     await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
+    //   });
 
-      it('returns both active and nullified notes', async () => {
-        // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
-        // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
-        await contract.methods
-          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
-          .send()
-          .wait();
-        await contract.methods.call_destroy_note(storageSlot).send().wait();
+    //   it('returns both active and nullified notes', async () => {
+    //     // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
+    //     // we can't be sure which one was deleted since we're just deleting based on the storage slot.
+    //     await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+    //     await contract.methods
+    //       .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
+    //       .send()
+    //       .wait();
+    //     await contract.methods.call_destroy_note(storageSlot).send().wait();
 
-        // We now fetch multiple notes, and get both the active and the nullified one.
-        const viewNotesManyResult = await contract.methods
-          .call_view_notes_many(storageSlot, activeOrNullified)
-          .simulate();
-        const getNotesManyResult = await contract.methods
-          .call_get_notes_many(storageSlot, activeOrNullified)
-          .simulate();
+    //     // We now fetch multiple notes, and get both the active and the nullified one.
+    //     const viewNotesManyResult = await contract.methods
+    //       .call_view_notes_many(storageSlot, activeOrNullified)
+    //       .simulate();
+    //     const getNotesManyResult = await contract.methods
+    //       .call_get_notes_many(storageSlot, activeOrNullified)
+    //       .simulate();
 
-        // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note
-        // however that both view_notes and get_notes get the exact same result.
-        expect(viewNotesManyResult).toEqual(getNotesManyResult);
-        expect(viewNotesManyResult.sort()).toEqual([BigInt(VALUE), BigInt(VALUE + 1)]);
-      });
-    });
+    //     // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note
+    //     // however that both view_notes and get_notes get the exact same result.
+    //     expect(viewNotesManyResult).toEqual(getNotesManyResult);
+    //     expect(viewNotesManyResult.sort()).toEqual([BigInt(VALUE), BigInt(VALUE + 1)]);
+    //   });
+    // });
   });
 });

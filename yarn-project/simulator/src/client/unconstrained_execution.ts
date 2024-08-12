@@ -29,6 +29,8 @@ export async function executeUnconstrainedFunction(
 
   const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
+  // eslint-disable-next-line no-console
+  console.log('unconstrained exec');
   const acirExecutionResult = await acvm(acir, initialWitness, new Oracle(oracle)).catch((err: Error) => {
     throw new ExecutionError(
       err.message,
