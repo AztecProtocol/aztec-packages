@@ -61,7 +61,7 @@ export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
 export async function buildBaseRollupInput(
   tx: ProcessedTx,
-  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
+  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
   kernelVk: VerificationKeyData,
