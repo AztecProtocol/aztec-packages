@@ -102,11 +102,6 @@ template <class Flavor> class ProverInstance_ {
         }
 
         // Set the recursive proof indices
-        info("setting proving key recursive proof public input indices: ",
-             circuit.recursive_proof_public_input_indices[0],
-             " ",
-             circuit.recursive_proof_public_input_indices[1]);
-        info("prover instance constructor, contains_recursive_proof: ", circuit.contains_recursive_proof);
         proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
         proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
 

@@ -1326,7 +1326,7 @@ int main(int argc, char* argv[])
         }
 
         std::string command = args[0];
-        info("bb command is: ", command);
+        vinfo("bb command is: ", command);
         std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
