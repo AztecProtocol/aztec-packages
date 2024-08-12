@@ -23,6 +23,7 @@ pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
+// TODO(#7775): make this not impossible to understand
 pub fn compute_note_hash_for_read_request<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
     // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
     let note_hash = note.compute_note_hiding_point().x;
@@ -36,7 +37,11 @@ pub fn compute_note_hash_for_read_request<Note, let N: u32, let M: u32>(note: No
     }
 }
 
-pub fn compute_note_hash_for_consumption_2<Note, let N: u32, let M: u32>(note: Note, note_hash_for_read_request: Field) -> Field where Note: NoteInterface<N, M> {
+// TODO(#7775): make this not impossible to understand
+pub fn compute_note_hash_for_consumption_internal<Note, let N: u32, let M: u32>(
+    note: Note,
+    note_hash_for_read_request: Field
+) -> Field where Note: NoteInterface<N, M> {
     let header = note.get_header();
     // There are 3 cases for reading a note intended for consumption:
     // 1. The note was inserted in this transaction, is revertible, or is not nullified by a revertible nullifier in 
@@ -70,14 +75,14 @@ pub fn compute_note_hash_for_consumption_2<Note, let N: u32, let M: u32>(note: N
         // nullifiers are computed from a note hash's fully-computed note hash tree leaf.
     } else {
         // Case 1.
-        // If a note is transient, we just read the note_hash (kernel will hash it with nonce and silo by contract address).
+        // If a note is transient, we just read the note_hash_for_read_request (kernel will hash it with nonce and silo by contract address).
         note_hash_for_read_request
     }
 }
 
 pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
-    compute_note_hash_for_consumption_2(note, note_hash_for_read_request)
+    compute_note_hash_for_consumption_internal(note, note_hash_for_read_request)
 }
 
 pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, let S: u32>(
