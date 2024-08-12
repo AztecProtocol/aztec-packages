@@ -37,6 +37,9 @@
       "path": "../cli"
     },
     {
+      "path": "../cli-wallet"
+    },
+    {
       "path": "../entrypoints"
     },
     {
@@ -80,6 +83,9 @@
     },
     {
       "path": "../txe"
+    },
+    {
+      "path": "../types"
     }
   ],
   "include": ["src"]

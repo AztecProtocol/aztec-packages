@@ -9,12 +9,14 @@ import {DecoderBase} from "../decoders/Base.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "../../src/core/sequencer_selection/SignatureLib.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
 import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 import {Rollup} from "../../src/core/Rollup.sol";
+import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
@@ -24,8 +26,12 @@ import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
+ *
+ * We will skip these test if we are running with IS_DEV_NET = true
  */
 contract SpartaTest is DecoderBase {
+  using MessageHashUtils for bytes32;
+
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
@@ -40,7 +46,20 @@ contract SpartaTest is DecoderBase {
 
   SignatureLib.Signature internal emptySignature;
 
-  function setUp() public virtual {
+  /**
+   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   */
+  modifier setup(uint256 _validatorCount) {
+    string memory _name = "mixed_block_1";
+    {
+      Leonidas leonidas = new Leonidas(address(1));
+      DecoderBase.Full memory full = load(_name);
+      uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
+      uint256 initialTime =
+        full.block.decodedHeader.globalVariables.timestamp - slotNumber * leonidas.SLOT_DURATION();
+      vm.warp(initialTime);
+    }
+
     registry = new Registry();
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
@@ -56,35 +75,81 @@ contract SpartaTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    for (uint256 i = 1; i < 5; i++) {
+    for (uint256 i = 1; i < _validatorCount + 1; i++) {
       uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       rollup.addValidator(validator);
     }
+    _;
   }
 
-  function _testProposerForFutureEpoch() public {
-    // @todo Implement
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+    if (Constants.IS_DEV_NET == 1) {
+      return;
+    }
+
+    uint256 pre = rollup.getCurrentEpoch();
+    vm.warp(
+      block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
+    );
+    uint256 post = rollup.getCurrentEpoch();
+    assertEq(pre + _epochsToJump, post, "Invalid epoch");
+
+    address expectedProposer = rollup.getCurrentProposer();
+
+    // Add a validator which will also setup the epoch
+    rollup.addValidator(address(0xdead));
+
+    address actualProposer = rollup.getCurrentProposer();
+    assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function _testValidatorSetLargerThanCommittee() public {
-    // @todo Implement
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
+    if (Constants.IS_DEV_NET == 1) {
+      return;
+    }
+
+    assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
+    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
+
+    uint256 ts = block.timestamp + rollup.EPOCH_DURATION() * rollup.SLOT_DURATION();
+
+    uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
+    _testBlock("mixed_block_2", _insufficientSigs, committeSize, false, ts); // We need signatures!
+
+    assertEq(
+      rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
+      rollup.TARGET_COMMITTEE_SIZE(),
+      "Invalid committee size"
+    );
   }
 
-  function testHappyPath() public {
-    _testBlock("mixed_block_0", 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_1", 3, false); // We need signatures!
+  function testHappyPath() public setup(4) {
+    if (Constants.IS_DEV_NET == 1) {
+      return;
+    }
+
+    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
+    _testBlock("mixed_block_2", false, 3, false); // We need signatures!
   }
 
-  function testInvalidProposer() public {
-    _testBlock("mixed_block_0", 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_1", 3, true); // We need signatures!
+  function testInvalidProposer() public setup(4) {
+    if (Constants.IS_DEV_NET == 1) {
+      return;
+    }
+
+    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
+    _testBlock("mixed_block_2", true, 3, true); // We need signatures!
   }
 
-  function testInsufficientSigs() public {
-    _testBlock("mixed_block_0", 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_1", 2, false); // We need signatures!
+  function testInsufficientSigs() public setup(4) {
+    if (Constants.IS_DEV_NET == 1) {
+      return;
+    }
+
+    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
+    _testBlock("mixed_block_2", true, 2, false); // We need signatures!
   }
 
   struct StructToAvoidDeepStacks {
@@ -93,7 +158,22 @@ contract SpartaTest is DecoderBase {
     bool shouldRevert;
   }
 
-  function _testBlock(string memory _name, uint256 _signatureCount, bool _invalidaProposer) public {
+  function _testBlock(
+    string memory _name,
+    bool _expectRevert,
+    uint256 _signatureCount,
+    bool _invalidaProposer
+  ) internal {
+    _testBlock(_name, _expectRevert, _signatureCount, _invalidaProposer, 0);
+  }
+
+  function _testBlock(
+    string memory _name,
+    bool _expectRevert,
+    uint256 _signatureCount,
+    bool _invalidaProposer,
+    uint256 _ts
+  ) internal {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
@@ -102,7 +182,18 @@ contract SpartaTest is DecoderBase {
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
+    vm.warp(max(block.timestamp, max(full.block.decodedHeader.globalVariables.timestamp, _ts)));
+
+    if (_ts > 0) {
+      // Update the timestamp and slot in the header
+      uint256 slotValue = rollup.getCurrentSlot();
+      uint256 timestampMemoryPosition = 0x01b4;
+      uint256 slotMemoryPosition = 0x0194;
+      assembly {
+        mstore(add(header, add(0x20, timestampMemoryPosition)), _ts)
+        mstore(add(header, add(0x20, slotMemoryPosition)), slotValue)
+      }
+    }
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -124,16 +215,22 @@ contract SpartaTest is DecoderBase {
         signatures[i] = createSignature(validators[i], archive);
       }
 
-      if (_signatureCount < ree.needed) {
-        vm.expectRevert(
-          abi.encodeWithSelector(
-            Errors.Leonidas__InsufficientAttestations.selector, ree.needed, _signatureCount
-          )
-        );
+      if (_expectRevert) {
         ree.shouldRevert = true;
+        if (_signatureCount < ree.needed) {
+          vm.expectRevert(
+            abi.encodeWithSelector(
+              Errors.Leonidas__InsufficientAttestationsProvided.selector,
+              ree.needed,
+              _signatureCount
+            )
+          );
+        }
+        // @todo Handle SignatureLib__InvalidSignature case
+        // @todo Handle Leonidas__InsufficientAttestations case
       }
 
-      if (_invalidaProposer) {
+      if (_expectRevert && _invalidaProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -153,6 +250,8 @@ contract SpartaTest is DecoderBase {
     } else {
       rollup.process(header, archive);
     }
+
+    assertEq(_expectRevert, ree.shouldRevert, "Invalid revert expectation");
 
     assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
@@ -211,7 +310,8 @@ contract SpartaTest is DecoderBase {
     returns (SignatureLib.Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
+    bytes32 digestForSig = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digestForSig);
 
     return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
   }

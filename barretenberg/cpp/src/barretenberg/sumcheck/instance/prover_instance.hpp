@@ -97,6 +97,14 @@ template <class Flavor> class ProverInstance_ {
             size_t idx = i + proving_key.pub_inputs_offset;
             proving_key.public_inputs.emplace_back(public_wires_source[idx]);
         }
+
+        // Set the recursive proof indices
+        proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
+        proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
+
+        if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
+            proving_key.databus_propagation_data = circuit.databus_propagation_data;
+        }
     }
 
     ProverInstance_() = default;

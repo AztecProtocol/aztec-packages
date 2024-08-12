@@ -1,24 +1,23 @@
 import {
+  type AccountWallet,
   type AztecAddress,
   BatchCall,
   Fr,
   PrivateFeePaymentMethod,
   type TxReceipt,
-  type Wallet,
   computeSecretHash,
 } from '@aztec/aztec.js';
 import { type GasSettings } from '@aztec/circuits.js';
-import { type TokenContract as BananaCoin, FPCContract, type GasTokenContract } from '@aztec/noir-contracts.js';
+import { type TokenContract as BananaCoin, FPCContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
-  let aliceWallet: Wallet;
+  let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
-  let gasTokenContract: GasTokenContract;
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
@@ -29,8 +28,7 @@ describe('e2e_fees private_payment', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, gasTokenContract, bananaCoin, bananaFPC, gasSettings } =
-      await t.setup());
+    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
   });
 
   afterAll(async () => {
@@ -73,6 +71,9 @@ describe('e2e_fees private_payment', () => {
       t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
+
+    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
+    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   const getFeeAndRefund = (tx: Pick<TxReceipt, 'transactionFee'>) => [tx.transactionFee!, maxFee - tx.transactionFee!];
@@ -358,9 +359,7 @@ describe('e2e_fees private_payment', () => {
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
-    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address, gasTokenContract.address)
-      .send()
-      .deployed();
+    const bankruptFPC = await FPCContract.deploy(aliceWallet, bananaCoin.address).send().deployed();
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 

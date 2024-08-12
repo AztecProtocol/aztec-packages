@@ -6,7 +6,7 @@ import {
   computeOvskApp,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
@@ -33,7 +33,7 @@ export abstract class L1Payload {
 
   /**
    * Encrypts an event payload for a given recipient and sender.
-   * Creates an incoming log the the recipient using the recipient's ivsk, and
+   * Creates an incoming log the recipient using the recipient's ivsk, and
    * an outgoing log for the sender using the sender's ovsk.
    *
    * @param ephSk - An ephemeral secret key used for the encryption
@@ -155,7 +155,7 @@ export abstract class L1Payload {
     randomness: Fr,
     maskedContractAddress: Fr,
   ) {
-    if (!pedersenHash([contractAddress, randomness], 0).equals(maskedContractAddress)) {
+    if (!poseidon2HashWithSeparator([contractAddress, randomness], 0).equals(maskedContractAddress)) {
       throw new Error(
         'The provided masked contract address does not match with the incoming address from header and randomness from body',
       );

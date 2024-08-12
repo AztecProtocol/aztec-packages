@@ -248,13 +248,13 @@ contract Test {
     // Purely exists for testing
     #[aztec(public)]
     fn emit_nullifier_public(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // Forcefully emits a nullifier (for testing purposes)
     #[aztec(private)]
     fn emit_nullifier(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // For testing non-note encrypted logs
@@ -474,9 +474,8 @@ contract Test {
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
-        let notes = notes_set.get_notes(options);
-        let note = notes.get_unchecked(0);
-        notes_set.remove(note);
+        let notes = notes_set.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
     }
 
     unconstrained fn get_constant() -> pub Field {
