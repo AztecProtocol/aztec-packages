@@ -19,7 +19,7 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { BaseHashType } from '@aztec/foundation/hash';
+import { Buffer32 } from '../../../foundation/dest/buffer/index.js';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 /**
@@ -41,7 +41,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       TxEffect,
       LogId,
       TxHash,
-      BaseHashType,
+      Buffer32,
       PublicDataWitness,
       SiblingPath,
     },
