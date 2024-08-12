@@ -39,6 +39,8 @@ contract Claim {
         // Note: Only the owner of the npk_m will be able to produce the nsk_app and compute this nullifier.
         // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
         // the address of a contract it was emitted from.
+        // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
+        // handle it on its own.
         let note_hash_for_consumption = compute_note_hash_for_consumption(proof_note);
         let nullifier = proof_note.compute_nullifier(&mut context, note_hash_for_consumption);
         context.push_nullifier(nullifier);
