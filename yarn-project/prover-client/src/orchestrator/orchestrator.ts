@@ -494,7 +494,7 @@ export class ProvingOrchestrator implements BlockProver {
     const txIndex = provingState.addNewTx(txProvingState);
     this.enqueueTube(provingState, txIndex);
     const numPublicKernels = txProvingState.getNumPublicKernels();
-    // Enqueue all of the VM/kernel proving requests
+    // Enqueue all of the VM proving requests
     // Rather than handle the Kernel Tail as a special case here, we will just handle it inside enqueueVM
     for (let i = 0; i < numPublicKernels; i++) {
       logger.debug(`Enqueueing public VM ${i} for tx ${txIndex}`);
