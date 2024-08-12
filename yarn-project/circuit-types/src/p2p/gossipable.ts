@@ -1,4 +1,4 @@
-import { type Buffer32 } from '../../../foundation/dest/buffer/index.js';
+import { type Buffer32 } from '@aztec/foundation/buffer';
 
 /**
  * Gossipable

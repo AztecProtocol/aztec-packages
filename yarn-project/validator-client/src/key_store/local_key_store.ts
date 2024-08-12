@@ -1,7 +1,8 @@
+import { Signature } from '@aztec/circuit-types';
+
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { ValidatorKeyStore } from './index.js';
-import {Signature} from "@aztec/circuit-types";
 
 /**
  * Local Key Store

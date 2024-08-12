@@ -1,4 +1,4 @@
-import { Signature, type L2Block } from '@aztec/circuit-types';
+import { type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { type EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';

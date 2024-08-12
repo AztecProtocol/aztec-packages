@@ -1,4 +1,4 @@
-import { ConfigMappingsType, getConfigFromMappings } from "@aztec/foundation/config";
+import { ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
 /**
  * The Validator Configuration
@@ -32,4 +32,3 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
 export function getProverEnvVars(): ValidatorClientConfig {
   return getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
 }
-

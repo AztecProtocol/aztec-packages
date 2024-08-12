@@ -1,12 +1,12 @@
 import { EthAddress, Header } from '@aztec/circuits.js';
-import { Buffer32 } from '../../../foundation/dest/buffer/index.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { recoverAddress } from 'viem';
 
 import { Gossipable } from './gossipable.js';
-import { TopicType, createTopicString } from './topic_type.js';
 import { Signature } from './signature.js';
+import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {

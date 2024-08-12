@@ -1,4 +1,4 @@
-import { Signature } from "@aztec/circuit-types";
+import { Signature } from '@aztec/circuit-types';
 
 /** Key Store
  *

@@ -73,7 +73,6 @@ export class ViemTxSender implements L1PublisherTxSender {
     });
   }
 
-
   getSenderAddress(): Promise<EthAddress> {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
@@ -165,7 +164,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
     if (encodedData.attestations) {
       // Temp mapping to viem types
-      const attestations = encodedData.attestations.map((attest) => attest.toViemSignature());
+      const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
 
       const args = [
         `0x${encodedData.header.toString('hex')}`,
@@ -201,7 +200,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendPublishAndProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
     // @note  This is quite a sin, but I'm committing war crimes in this code already.
     if (encodedData.attestations) {
-      const attestations = encodedData.attestations.map((attest) => attest.toViemSignature());
+      const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
       const args = [
         `0x${encodedData.header.toString('hex')}`,
         `0x${encodedData.archive.toString('hex')}`,

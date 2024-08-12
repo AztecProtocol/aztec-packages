@@ -1,9 +1,9 @@
 import { FunctionSelector, Header } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { Buffer32 } from '../../../../foundation/dest/buffer/index.js';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { type AztecNode } from '../../interfaces/aztec-node.js';

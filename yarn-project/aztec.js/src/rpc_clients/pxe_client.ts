@@ -26,7 +26,7 @@ import {
   Point,
 } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { Buffer32 } from '../../../foundation/dest/buffer/index.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
 /**

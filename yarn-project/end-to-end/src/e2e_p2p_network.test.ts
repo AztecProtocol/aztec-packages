@@ -1,15 +1,26 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep, EthCheatCodes, DeployL1Contracts } from '@aztec/aztec.js';
+import {
+  CompleteAddress,
+  type DebugLogger,
+  type DeployL1Contracts,
+  EthCheatCodes,
+  Fr,
+  GrumpkinScalar,
+  type SentTx,
+  TxStatus,
+  sleep,
+} from '@aztec/aztec.js';
 import { IS_DEV_NET } from '@aztec/circuits.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { BootstrapNode } from '@aztec/p2p';
+import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import fs from 'fs';
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
+import { MNEMONIC } from './fixtures/fixtures.js';
 import {
   type NodeContext,
   createBootstrapNode,
@@ -18,7 +29,6 @@ import {
   generatePeerIdPrivateKeys,
 } from './fixtures/setup_p2p_test.js';
 import { setup } from './fixtures/utils.js';
-import { MNEMONIC } from './fixtures/fixtures.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;

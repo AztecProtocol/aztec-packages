@@ -1,6 +1,6 @@
 import { type BlockAttestation } from './block_attestation.js';
 import { type BlockProposal } from './block_proposal.js';
-import { Signature } from './signature.js';
+import { type Signature } from './signature.js';
 
 /**
  * BlockWithAttestations

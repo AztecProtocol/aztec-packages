@@ -3,11 +3,9 @@ import {
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
+  type Signature,
   Tx,
   type TxValidator,
-  BlockAttestation,
-  BlockWithAttestations,
-  Signature,
 } from '@aztec/circuit-types';
 import {
   type AllowedElement,
