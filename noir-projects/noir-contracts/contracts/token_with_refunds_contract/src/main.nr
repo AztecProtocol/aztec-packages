@@ -280,20 +280,19 @@ contract TokenWithRefunds {
     // docs:start:redeem_shield
     #[aztec(private)]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
-        let pending_shields = storage.pending_shields;
         let secret_hash = compute_secret_hash(secret);
-        // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
-        // stored in field with index 1 (select(1, secret_hash)).
+
+        // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
+        // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
         options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
             TransparentNote::properties().secret_hash,
             secret_hash,
             Option::none()
         ).set_limit(1);
-        let notes = pending_shields.get_notes(options);
-        let note = notes.get_unchecked(0);
-        // Remove the note from the pending shields set
-        pending_shields.remove(note);
+
+        let notes = storage.pending_shields.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
@@ -424,11 +423,24 @@ contract TokenWithRefunds {
     // docs:end:balance_of_private
 
     // REFUNDS SPECIFIC FUNCTIONALITY FOLLOWS
-    use dep::aztec::{
-        note::utils::compute_slotted_note_hiding_point_raw, prelude::FunctionSelector,
-        protocol_types::{storage::map::derive_storage_slot_in_map, point::Point}
-    };
+    use dep::aztec::prelude::{FunctionSelector, NoteHeader, Point};
+    use crate::types::token_note::TokenNoteHidingPoint;
 
+    /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
+    /// were the same we could fingerprint the user by doing the following:
+    ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
+    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness) - G_npk * fee_payer_npk =
+    ///                              = G_rnd * randomness
+    ///      2) user_fingerprint = user_point - randomness_influence =
+    ///                          = (G_npk * user_npk + G_rnd * randomness) - G_rnd * randomness =
+    ///                          = G_npk * user_npk
+    ///      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint
+    ///         and link that the 2 transactions were made by the same user. Given that it's expected that only
+    ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
+    ///         by trying different fee payer npk values of these known contracts is a feasible attack.
+    ///
+    /// `fee_payer_point` and `user_point` above are public information because they are passed as args to the public
+    /// `complete_refund(...)` function.
     #[aztec(private)]
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
@@ -453,46 +465,82 @@ contract TokenWithRefunds {
         // to the user in the `complete_refund(...)` function.
         storage.balances.sub(user, U128::from_integer(funded_amount)).emit(encode_and_encrypt_note_with_keys(&mut context, user_ovpk, user_ivpk, user));
 
-        // 4. We generate the refund points.
-        let (fee_payer_point, user_point) = TokenNote::generate_refund_points(
-            fee_payer_npk_m_hash,
-            user_npk_m_hash,
-            user_randomness,
-            fee_payer_randomness
-        );
+        // 4. We create the partial notes for the fee payer and the user.
+        // --> Called "partial" because they don't have the amount set yet (that will be done in `complete_refund(...)`).
+        let fee_payer_partial_note = TokenNote {
+            header: NoteHeader {
+                contract_address: AztecAddress::zero(),
+                nonce: 0,
+                storage_slot: storage.balances.map.at(fee_payer).storage_slot,
+                note_hash_counter: 0
+            },
+            amount: U128::zero(),
+            npk_m_hash: fee_payer_npk_m_hash,
+            randomness: fee_payer_randomness
+        };
+        let user_partial_note = TokenNote {
+            header: NoteHeader {
+                contract_address: AztecAddress::zero(),
+                nonce: 0,
+                storage_slot: storage.balances.map.at(user).storage_slot,
+                note_hash_counter: 0
+            },
+            amount: U128::zero(),
+            npk_m_hash: user_npk_m_hash,
+            randomness: user_randomness
+        };
 
-        // 5. Now we "manually" compute the slots and the slotted note hiding points
-        let fee_payer_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, fee_payer);
-        let user_balances_slot = derive_storage_slot_in_map(TokenWithRefunds::storage().balances.slot, user);
-
-        let slotted_fee_payer_point = compute_slotted_note_hiding_point_raw(fee_payer_balances_slot, fee_payer_point);
-        let slotted_user_point = compute_slotted_note_hiding_point_raw(user_balances_slot, user_point);
+        // 5. Now we get the note hiding points.
+        let mut fee_payer_point = fee_payer_partial_note.to_note_hiding_point();
+        let mut user_point = user_partial_note.to_note_hiding_point();
 
         // 6. Set the public teardown function to `complete_refund(...)`. Public teardown is the only time when a public
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)"),
+            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)"),
             [
-            slotted_fee_payer_point.x, slotted_fee_payer_point.y, slotted_fee_payer_point.is_infinite as Field, slotted_user_point.x, slotted_user_point.y, slotted_user_point.is_infinite as Field, funded_amount
+            fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
         ]
         );
     }
 
+    // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
+    // to serialization issues.
     #[aztec(public)]
     #[aztec(internal)]
-    fn complete_refund(fee_payer_point: Point, user_point: Point, funded_amount: Field) {
-        // 1. We get the final note hashes by calling a `complete_refund` function on the note.
-        // We use 1:1 exchange rate between fee juice and token so just passing transaction fee and funded amount
-        // to `complete_refund(...)` function is enough.
-        let (fee_payer_note_hash, user_note_hash) = TokenNote::complete_refund(
-            fee_payer_point,
-            user_point,
-            funded_amount,
-            context.transaction_fee()
-        );
+    fn complete_refund(
+        // TODO(#7771): the following makes macros crash --> try getting it work once we migrate to metaprogramming
+        // mut fee_payer_point: TokenNoteHidingPoint,
+        // mut user_point: TokenNoteHidingPoint,
+        fee_payer_point_immutable: TokenNoteHidingPoint,
+        user_point_immutable: TokenNoteHidingPoint,
+        funded_amount: Field
+    ) {
+        // TODO(#7771): nuke the following 2 lines once we have mutable args
+        let mut fee_payer_point = fee_payer_point_immutable;
+        let mut user_point = user_point_immutable;
 
-        // 2. At last we emit the note hashes.
+        // TODO(#7728): Remove the next line
+        let funded_amount = U128::from_integer(funded_amount);
+        let tx_fee = U128::from_integer(context.transaction_fee());
+
+        // 1. We check that user funded the fee payer contract with at least the transaction fee.
+        // TODO(#7796): we should try to prevent reverts here
+        assert(funded_amount >= tx_fee, "funded amount not enough to cover tx fee");
+
+        // 2. We compute the refund amount as the difference between funded amount and tx fee.
+        let refund_amount = funded_amount - tx_fee;
+
+        // 3. We add fee to the fee payer point and refund amount to the user point.
+        fee_payer_point.add_amount(tx_fee);
+        user_point.add_amount(refund_amount);
+
+        // 4. We finalize the hiding points to get the note hashes.
+        let fee_payer_note_hash = fee_payer_point.finalize();
+        let user_note_hash = user_point.finalize();
+
+        // 5. At last we emit the note hashes.
         context.push_note_hash(fee_payer_note_hash);
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
