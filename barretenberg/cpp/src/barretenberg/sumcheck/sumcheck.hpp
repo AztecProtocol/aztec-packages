@@ -126,7 +126,6 @@ template <typename Flavor> class SumcheckProver {
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using ZKSumcheckData = ZKSumcheckData<Flavor>;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
@@ -206,7 +205,7 @@ template <typename Flavor> class SumcheckProver {
                                  const std::vector<FF>& gate_challenges)
     {
         // Declare a container for ZK Sumcheck data
-        ZKSumcheckData zk_sumcheck_data;
+        ZKSumcheckData<Flavor> zk_sumcheck_data;
         // In case the Flavor has ZK, we populate sumcheck data structure with randomness, compute correcting term for
         // the total sum, etc.
         if constexpr (Flavor::HasZK) {
@@ -288,7 +287,14 @@ template <typename Flavor> class SumcheckProver {
         };
 
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
-        return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations };
+        // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
+        if constexpr (!Flavor::HasZK) {
+            return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations };
+        } else {
+            return SumcheckOutput<Flavor>{
+                multivariate_challenge, multivariate_evaluations, zk_sumcheck_data.libra_evaluations, {}
+            };
+        }
     };
 
     /**
@@ -399,7 +405,7 @@ polynomials that are sent in clear.
      *
      * @param zk_sumcheck_data
      */
-    void setup_zk_sumcheck_data(ZKSumcheckData& zk_sumcheck_data)
+    void setup_zk_sumcheck_data(ZKSumcheckData<Flavor>& zk_sumcheck_data)
     {
 
         EvalMaskingScalars eval_masking_scalars;
@@ -426,13 +432,13 @@ polynomials that are sent in clear.
 
         std::vector<FF> libra_evaluations;
         libra_evaluations.reserve(multivariate_d);
-        zk_sumcheck_data = ZKSumcheckData(eval_masking_scalars,
-                                          masking_terms_evaluations,
-                                          libra_univariates,
-                                          libra_scaling_factor,
-                                          libra_challenge,
-                                          libra_running_sum,
-                                          libra_evaluations);
+        zk_sumcheck_data = ZKSumcheckData<Flavor>(eval_masking_scalars,
+                                                  masking_terms_evaluations,
+                                                  libra_univariates,
+                                                  libra_scaling_factor,
+                                                  libra_challenge,
+                                                  libra_running_sum,
+                                                  libra_evaluations);
     };
 
     /**
@@ -485,7 +491,7 @@ polynomials that are sent in clear.
      * @param masking_scalars
      * @param round_challenge
      */
-    void update_masking_terms_evaluations(ZKSumcheckData& zk_sumcheck_data, FF round_challenge)
+    void update_masking_terms_evaluations(ZKSumcheckData<Flavor>& zk_sumcheck_data, FF round_challenge)
     {
         for (auto [masking_term, masking_scalar] :
              zip_view(zk_sumcheck_data.masking_terms_evaluations, zk_sumcheck_data.eval_masking_scalars)) {
@@ -560,14 +566,16 @@ polynomials that are sent in clear.
      last univariate in the table \f$\texttt{libra_univariates}\f$ and dividing the result by \f$
      \texttt{libra_challenge} \f$.
         -  update the table of Libra univariates by multiplying every term by \f$\texttt{libra_challenge}^{-1}\f$.
-
+     @todo Refactor once the Libra univariates are extracted from the Proving Key. Then the prover does not need to
+        update the first round_idx - 1 univariates and could release the memory. Also, use batch_invert / reduce
+        the number of divisions by 2.
      * @param libra_univariates
      * @param round_challenge
      * @param round_idx
      * @param libra_running_sum
      * @param libra_evaluations
      */
-    void update_libra_data(ZKSumcheckData& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
+    void update_libra_data(ZKSumcheckData<Flavor>& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
     {
         // when round_idx = d - 1, the update is not needed
         if (round_idx < zk_sumcheck_data.libra_univariates.size() - 1) {
@@ -576,9 +584,10 @@ polynomials that are sent in clear.
             };
             // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
             auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge);
+            auto next_libra_univariate = zk_sumcheck_data.libra_univariates[round_idx + 1];
             // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
-            zk_sumcheck_data.libra_running_sum += -zk_sumcheck_data.libra_univariates[round_idx + 1].value_at(0) -
-                                                  zk_sumcheck_data.libra_univariates[round_idx + 1].value_at(1);
+            zk_sumcheck_data.libra_running_sum +=
+                -next_libra_univariate.value_at(0) - next_libra_univariate.value_at(1);
             zk_sumcheck_data.libra_running_sum *= FF(1) / FF(2);
 
             zk_sumcheck_data.libra_running_sum += libra_evaluation;
@@ -597,7 +606,7 @@ polynomials that are sent in clear.
         };
     }
 
-    void update_zk_sumcheck_data(ZKSumcheckData& zk_sumcheck_data, FF round_challenge, size_t round_idx)
+    void update_zk_sumcheck_data(ZKSumcheckData<Flavor>& zk_sumcheck_data, FF round_challenge, size_t round_idx)
     {
         update_libra_data(zk_sumcheck_data, round_challenge, round_idx);
         update_masking_terms_evaluations(zk_sumcheck_data, round_challenge);
@@ -670,6 +679,8 @@ template <typename Flavor> class SumcheckVerifier {
      *
      */
     using ClaimedEvaluations = typename Flavor::AllValues;
+    // For ZK Flavors: the verifier obtains a vector of evaluations of \f$ d \f$ univariate polynomials and uses them to
+    // compute full_honk_relation_purported_value
     using ClaimedLibraEvaluations = typename std::vector<FF>;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -799,7 +810,12 @@ template <typename Flavor> class SumcheckVerifier {
             final_check = (full_honk_purported_value == round.target_total_sum);
         }
         verified = final_check && verified;
-        return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
+        // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
+        if constexpr (!Flavor::HasZK) {
+            return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
+        } else {
+            return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, libra_evaluations, verified };
+        }
     };
 };
 } // namespace bb

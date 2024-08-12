@@ -40,8 +40,6 @@ template <typename Flavor> class SumcheckProverRound {
   public:
     using FF = typename Flavor::FF;
     using ExtendedEdges = typename Flavor::ExtendedEdges;
-    using ZKSumcheckData = ZKSumcheckData<Flavor>;
-
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
      */
@@ -62,42 +60,8 @@ template <typename Flavor> class SumcheckProverRound {
      * "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
-    // /**
-    //  * @brief This structure is created for contain various polynomials and constants required by ZK Sumcheck.
-    //  *
-    //  */
-    // struct ZKSumcheckData {
-    //     // The number of all witnesses including shifts and derived witnesses from flavors that have ZK,
-    //     // otherwise, set this constant to 0.
-    //     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
-    //     // Array of random scalars used to hide the witness info from leaking through the claimed evaluations
-    //     using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
-    //     // Auxiliary table that represents the evaluations of quadratic polynomials r_j * X(1-X) at 0,...,
-    //     // MAX_PARTIAL_RELATION_LENGTH - 1
-    //     using EvaluationMaskingTable =
-    //         std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESS_ENTITIES>;
-    //     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK
-    //     // Sumcheck.
-    //     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH :
-    //     0;
-    //     // Container for the Libra Univariates. Their number depends on the size of the circuit.
-    //     using LibraUnivariates = std::vector<bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>>;
-    //     // Container for the evaluations of Libra Univariates that have to be proven.
-    //     using ClaimedLibraEvaluations = std::vector<FF>;
-
-    //     EvalMaskingScalars eval_masking_scalars;
-    //     EvaluationMaskingTable masking_terms_evaluations;
-    //     LibraUnivariates libra_univariates;
-    //     FF libra_scaling_factor{ 1 };
-    //     FF libra_challenge;
-    //     FF libra_running_sum;
-    //     ClaimedLibraEvaluations libra_evaluations;
-    // };
-
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
-
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
@@ -138,7 +102,7 @@ template <typename Flavor> class SumcheckProverRound {
     void extend_edges(ExtendedEdges& extended_edges,
                       ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       size_t edge_idx,
-                      std::optional<ZKSumcheckData> zk_sumcheck_data = std::nullopt)
+                      std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt)
     {
 
         if constexpr (!Flavor::HasZK) {
@@ -194,7 +158,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::PowPolynomial<FF>& pow_polynomial,
         const RelationSeparator alpha,
-        std::optional<ZKSumcheckData> zk_sumcheck_data = std::nullopt) // only submitted when Flavor HasZK
+        std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt) // only submitted when Flavor HasZK
     {
         BB_OP_COUNT_TIME();
 
@@ -348,7 +312,8 @@ template <typename Flavor> class SumcheckProverRound {
      * @param zk_sumcheck_data
      * @param round_idx
      */
-    static SumcheckRoundUnivariate compute_libra_round_univariate(ZKSumcheckData zk_sumcheck_data, size_t round_idx)
+    static SumcheckRoundUnivariate compute_libra_round_univariate(ZKSumcheckData<Flavor> zk_sumcheck_data,
+                                                                  size_t round_idx)
     {
         SumcheckRoundUnivariate libra_round_univariate;
         // select the i'th column of Libra book-keeping table
