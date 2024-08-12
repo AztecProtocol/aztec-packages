@@ -112,12 +112,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   tcpListenAddress: {
     env: 'TCP_LISTEN_ADDR',
-    default: '0.0.0.0:40400',
+    defaultValue: '0.0.0.0:40400',
     description: 'The listen address for TCP. Format: <IP_ADDRESS>:<PORT>.',
   },
   udpListenAddress: {
     env: 'UDP_LISTEN_ADDR',
-    default: '0.0.0.0:40400',
+    defaultValue: '0.0.0.0:40400',
     description: 'The listen address for UDP. Format: <IP_ADDRESS>:<PORT>.',
   },
   tcpAnnounceAddress: {
@@ -142,7 +142,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   transactionProtocol: {
     env: 'P2P_TX_PROTOCOL',
     description: 'Protocol identifier for transaction gossiping.',
-    default: '/aztec/0.1.0',
+    defaultValue: '/aztec/0.1.0',
   },
   minPeerCount: {
     env: 'P2P_MIN_PEERS',

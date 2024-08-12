@@ -27,7 +27,7 @@ export interface AztecStartOption {
 
 export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
   const options: AztecStartOption[] = [];
-  for (const [key, { env, default: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
+  for (const [key, { env, defaultValue: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
     if (universalOptions.includes(key)) {
       continue;
     }
