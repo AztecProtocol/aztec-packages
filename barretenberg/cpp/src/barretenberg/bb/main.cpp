@@ -6,6 +6,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -573,7 +574,7 @@ void prove_tube(const std::string& output_path)
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
     auto num_public_inputs = static_cast<size_t>(static_cast<uint256_t>(proof.folding_proof[1]));
-    for (size_t i = 0; i < num_public_inputs; i++) {
+    for (size_t i = 0; i < num_public_inputs - bb::AGGREGATION_OBJECT_SIZE; i++) {
         // We offset 3
         builder->add_public_variable(proof.folding_proof[i + 3]);
     }
@@ -1324,6 +1325,7 @@ int main(int argc, char* argv[])
         }
 
         std::string command = args[0];
+        info("bb command is: ", command);
         std::string bytecode_path = get_option(args, "-b", "./target/program.json");
         std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         std::string proof_path = get_option(args, "-p", "./proofs/proof");
