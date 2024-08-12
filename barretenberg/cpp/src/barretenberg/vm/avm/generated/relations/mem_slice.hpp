@@ -6,27 +6,6 @@
 
 namespace bb::Avm_vm {
 
-template <typename FF> struct MemSliceRow {
-    FF slice_addr{};
-    FF slice_addr_shift{};
-    FF slice_clk{};
-    FF slice_clk_shift{};
-    FF slice_cnt{};
-    FF slice_cnt_shift{};
-    FF slice_col_offset{};
-    FF slice_col_offset_shift{};
-    FF slice_one_min_inv{};
-    FF slice_sel_cd_cpy{};
-    FF slice_sel_cd_cpy_shift{};
-    FF slice_sel_mem_active{};
-    FF slice_sel_mem_active_shift{};
-    FF slice_sel_return{};
-    FF slice_sel_return_shift{};
-    FF slice_sel_start_shift{};
-    FF slice_space_id{};
-    FF slice_space_id_shift{};
-};
-
 template <typename FF_> class mem_sliceImpl {
   public:
     using FF = FF_;
@@ -39,6 +18,7 @@ template <typename FF_> class mem_sliceImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = (new_term.slice_sel_mem_active - (new_term.slice_sel_cd_cpy + new_term.slice_sel_return));
@@ -47,13 +27,13 @@ template <typename FF_> class mem_sliceImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = ((new_term.slice_cnt * (-new_term.slice_one_min_inv + FF(1))) - new_term.slice_sel_mem_active);
+            auto tmp = ((new_term.slice_cnt * (FF(1) - new_term.slice_one_min_inv)) - new_term.slice_sel_mem_active);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = ((-new_term.slice_sel_mem_active + FF(1)) * new_term.slice_one_min_inv);
+            auto tmp = ((FF(1) - new_term.slice_sel_mem_active) * new_term.slice_one_min_inv);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
@@ -104,8 +84,8 @@ template <typename FF_> class mem_sliceImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (((-new_term.slice_sel_mem_active + FF(1)) * new_term.slice_sel_mem_active_shift) *
-                        (-new_term.slice_sel_start_shift + FF(1)));
+            auto tmp = (((FF(1) - new_term.slice_sel_mem_active) * new_term.slice_sel_mem_active_shift) *
+                        (FF(1) - new_term.slice_sel_start_shift));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }

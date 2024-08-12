@@ -28,6 +28,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -109,7 +110,7 @@ export class Archiver implements ArchiveSource {
     telemetry: TelemetryClient,
     blockUntilSynced = true,
   ): Promise<Archiver> {
-    const chain = createEthereumChain(config.rpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
@@ -234,6 +235,8 @@ export class Archiver implements ArchiveSource {
     // the metadata
     let retrievedBlocks: DataRetrieval<L2Block>;
     {
+      // @todo @LHerskind Investigate how necessary that nextExpectedL2BlockNum really is.
+      //                  Also, I would expect it to break horribly if we have a reorg.
       const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
         this.publicClient,
         this.rollupAddress,
@@ -247,15 +250,27 @@ export class Archiver implements ArchiveSource {
         ([header]) => header.contentCommitment.txsEffectsHash,
       );
 
+      // @note @LHerskind   We will occasionally be hitting this point BEFORE, we have actually retrieved the bodies.
+      //                    The main reason this have not been an issue earlier is because:
+      //                    i) the design previously published the body in one tx and the header in another,
+      //                       which in an anvil auto mine world mean that they are separate blocks.
+      //                    ii) We have been lucky that latency have been small enough to not matter.
       const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
       if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
-        throw new Error('Block headers length does not equal block bodies length');
+        this.log.warn('Block headers length does not equal block bodies length');
       }
 
-      const blocks = retrievedBlockMetadata.retrievedData.map(
-        (blockMetadata, i) => new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i]),
-      );
+      const blocks: L2Block[] = [];
+      for (let i = 0; i < retrievedBlockMetadata.retrievedData.length; i++) {
+        const [header, archive] = retrievedBlockMetadata.retrievedData[i];
+        const blockBody = blockBodiesFromStore[i];
+        if (blockBody) {
+          blocks.push(new L2Block(archive, header, blockBody));
+        } else {
+          this.log.warn(`Block body not found for block ${header.globalVariables.blockNumber.toBigInt()}.`);
+        }
+      }
 
       (blocks.length ? this.log.verbose : this.log.debug)(
         `Retrieved ${blocks.length || 'no'} new L2 blocks between L1 blocks ${
@@ -263,8 +278,13 @@ export class Archiver implements ArchiveSource {
         } and ${currentL1BlockNumber}.`,
       );
 
+      // Set the `lastProcessedL1BlockNumber` to the smallest of the header and body retrieval
+      const min = (a: bigint, b: bigint) => (a < b ? a : b);
       retrievedBlocks = {
-        lastProcessedL1BlockNumber: retrievedBlockMetadata.lastProcessedL1BlockNumber,
+        lastProcessedL1BlockNumber: min(
+          retrievedBlockMetadata.lastProcessedL1BlockNumber,
+          retrievedBlockBodies.lastProcessedL1BlockNumber,
+        ),
         retrievedData: blocks,
       };
     }
@@ -291,8 +311,12 @@ export class Archiver implements ArchiveSource {
     );
 
     if (retrievedBlocks.retrievedData.length > 0) {
+      const timer = new Timer();
       await this.store.addBlocks(retrievedBlocks);
-      this.instrumentation.processNewBlocks(retrievedBlocks.retrievedData);
+      this.instrumentation.processNewBlocks(
+        timer.ms() / retrievedBlocks.retrievedData.length,
+        retrievedBlocks.retrievedData,
+      );
       const lastL2BlockNumber = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
       this.log.verbose(`Processed ${retrievedBlocks.retrievedData.length} new L2 blocks up to ${lastL2BlockNumber}`);
     }
@@ -323,6 +347,7 @@ export class Archiver implements ArchiveSource {
     if (provenBlockNumber > currentProvenBlockNumber) {
       this.log.verbose(`Updated last proven block number from ${currentProvenBlockNumber} to ${provenBlockNumber}`);
       await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     }
   }
 

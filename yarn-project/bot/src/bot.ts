@@ -1,7 +1,7 @@
 import {
   type AztecAddress,
   BatchCall,
-  NativeFeePaymentMethod,
+  FeeJuicePaymentMethod,
   NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
@@ -51,7 +51,8 @@ export class Bot {
       ),
     ];
 
-    const paymentMethod = feePaymentMethod === 'native' ? new NativeFeePaymentMethod(sender) : new NoFeePaymentMethod();
+    const paymentMethod =
+      feePaymentMethod === 'fee_juice' ? new FeeJuicePaymentMethod(sender) : new NoFeePaymentMethod();
     const gasSettings = GasSettings.default();
     const opts: SendMethodOptions = { estimateGas: true, fee: { paymentMethod, gasSettings } };
 
@@ -68,9 +69,15 @@ export class Bot {
     this.log.verbose(`Sending tx`, logCtx);
     const tx = batch.send(opts);
 
-    this.log.verbose(`Awaiting tx ${tx.getTxHash()} to be mined (timeout ${this.config.txMinedWaitSeconds}s)`, logCtx);
-    const receipt = await tx.wait({ timeout: this.config.txMinedWaitSeconds });
+    const txHash = await tx.getTxHash();
 
+    if (this.config.noWaitForTransfers) {
+      this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
+      return;
+    }
+
+    this.log.verbose(`Awaiting tx ${txHash} to be mined (timeout ${this.config.txMinedWaitSeconds}s)`, logCtx);
+    const receipt = await tx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Tx ${receipt.txHash} mined in block ${receipt.blockNumber}`, logCtx);
   }
 

@@ -14,6 +14,7 @@ services:
       PXE_DATA_DIRECTORY: /var/lib/aztec/pxe
       NODE_NO_WARNINGS: 1
       AZTEC_PORT: 8080
+      MNEMONIC: "test test test test test test test test test test test junk"
     entrypoint: >
       sh -c '
         export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url);
@@ -50,8 +51,8 @@ services:
       INBOX_CONTRACT_ADDRESS: "0x12d9b5effc69bf5c0c29c8258c6b6fa95a08de74"
       OUTBOX_CONTRACT_ADDRESS: "0x3ec4b6c68a8c2ce4c78cdd465b3019b11a568d1d"
       AVAILABILITY_ORACLE_CONTRACT_ADDRESS: "0x98a4089127f3f5d555656f1c9b1801342c9d6bce"
-      GAS_TOKEN_CONTRACT_ADDRESS: "0x73c43b919973711e096bfc04c9d4b3be511ffc0b"
-      GAS_PORTAL_CONTRACT_ADDRESS: "0xdf25b0a34dbee9f25518f7a4d63bab8b3bb3e496"
+      FEE_JUICE_CONTRACT_ADDRESS: "0x73c43b919973711e096bfc04c9d4b3be511ffc0b"
+      FEE_JUICE_PORTAL_CONTRACT_ADDRESS: "0xdf25b0a34dbee9f25518f7a4d63bab8b3bb3e496"
       ETHEREUM_HOST:
       P2P_TCP_LISTEN_ADDR: "0.0.0.0:9000"
       P2P_UDP_LISTEN_ADDR: "0.0.0.0:9001"
@@ -61,7 +62,7 @@ services:
       P2P_ENABLED: true
       PEER_ID_PRIVATE_KEY:
       AZTEC_PORT: 8999
-      TEL_COLLECTOR_BASE_URL: ${TEL_COLLECTOR_BASE_URL:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
     secrets:
       - ethereum-host
       - p2p-boot-node
@@ -76,13 +77,13 @@ services:
         # if the stack is started with --profile metrics --profile node, give the collector a chance to start before the node
         i=0
         max=3
-        while ! curl --head --silent $$TEL_COLLECTOR_BASE_URL > /dev/null; do
+        while ! curl --head --silent $$OTEL_EXPORTER_OTLP_ENDPOINT > /dev/null; do
           echo "OpenTelemetry collector not up. Retrying after 1s";
           sleep 1;
           i=$$((i+1));
           if [ $$i -eq $$max ]; then
-            echo "OpenTelemetry collector at $$TEL_COLLECTOR_BASE_URL not up after $${max}s. Running without metrics";
-            unset TEL_COLLECTOR_BASE_URL;
+            echo "OpenTelemetry collector at $$OTEL_EXPORTER_OTLP_ENDPOINT not up after $${max}s. Running without metrics";
+            unset OTEL_EXPORTER_OTLP_ENDPOINT;
             break
           fi;
         done;
@@ -106,7 +107,7 @@ services:
     environment:
       PXE_URL: http://pxe:8080
       NODE_NO_WARNINGS: 1
-      PRIVATE_KEY:
+      SECRET_KEY:
       ETHEREUM_HOST:
     profiles:
       - cli
@@ -185,6 +186,7 @@ configs:
         otlp:
           protocols:
             http:
+              endpoint: 0.0.0.0:4318
 
       processors:
         batch:

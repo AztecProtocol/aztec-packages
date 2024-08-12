@@ -8,9 +8,6 @@ contract InclusionProofs {
 
     use dep::aztec::protocol_types::{contract_class_id::ContractClassId, header::Header};
     use dep::aztec::{note::note_getter_options::NoteStatus};
-    // docs:start:imports
-    // Imports are not needed as inclusion / non_inclusion proofs are accessible on the header.
-    // docs:end:imports
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
@@ -58,13 +55,14 @@ contract InclusionProofs {
         let note = private_values.get_notes(options).get(0);
         // docs:end:get_note_from_pxe
 
+        // docs:start:prove_note_inclusion
         // 2) Prove the note inclusion
         let header = if (use_block_number) {
             context.get_header_at(block_number)
         } else {
             context.get_header()
         };
-        // docs:start:prove_note_inclusion
+
         header.prove_note_inclusion(note);
         // docs:end:prove_note_inclusion
     }
@@ -151,10 +149,8 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let notes = private_values.get_notes(options);
-        let note = notes.get(0);
-
-        private_values.remove(note);
+        let notes = private_values.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
     }
     // docs:end:nullify_note
 
@@ -192,15 +188,14 @@ contract InclusionProofs {
     fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
         let header = context.get_header_at(block_number);
-
+        // docs:start:public_storage_historical_read
         assert_eq(
-            // docs:start:public_storage_historical_read
             header.public_storage_historical_read(
                 storage.public_unused_value.storage_slot,
                 context.this_address()
-            // docs:end:public_storage_historical_read
             ), 0
         );
+        // docs:end:public_storage_historical_read
     }
 
     #[aztec(private)]
