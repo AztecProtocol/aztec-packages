@@ -41,6 +41,7 @@ if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
   echo "System does not have enough memory for parallel builds, falling back to sequential"
   ./noir-contracts/bootstrap.sh
   ./noir-protocol-circuits/bootstrap.sh
+  ./mock-protocol-circuits/bootstrap.sh
 else
   ((./noir-contracts/bootstrap.sh) > >(awk -v g="$g" -v r="$r" '{print g "contracts: " r $0}')) &
   ((./noir-protocol-circuits/bootstrap.sh) > >(awk -v b="$b" -v r="$r" '{print  b "protocol-circuits: " r $0}')) &
