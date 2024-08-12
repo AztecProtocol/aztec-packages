@@ -135,13 +135,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--fee-juice-address <value>',
-      description: 'The deployed L1 gas token contract address',
+      description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
     },
     {
       flag: '--fee-juice-portal-address <value>',
-      description: 'The deployed L1 gas portal contract address',
+      description: 'The deployed L1 Fee Juice portal contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
     },
@@ -172,6 +172,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: false,
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
       parseVal: val => ['1', true].includes(val),
+    },
+    {
+      flag: '--node.assumeProvenUntilBlockNumber',
+      description:
+        'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
+      envVar: 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER',
+      parseVal: (val: string) => parseInt(val, 10),
+      defaultValue: 0,
     },
     {
       flag: '--node.publisherPrivateKey <value>',

@@ -6,10 +6,6 @@
 
 namespace bb::Avm_vm {
 
-template <typename FF> struct ConversionRow {
-    FF conversion_sel_to_radix_le{};
-};
-
 template <typename FF_> class conversionImpl {
   public:
     using FF = FF_;
@@ -22,9 +18,10 @@ template <typename FF_> class conversionImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.conversion_sel_to_radix_le * (-new_term.conversion_sel_to_radix_le + FF(1)));
+            auto tmp = (new_term.conversion_sel_to_radix_le * (FF(1) - new_term.conversion_sel_to_radix_le));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
