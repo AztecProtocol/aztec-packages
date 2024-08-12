@@ -41,11 +41,10 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     }
     // docs:end:nullifier
 
-    fn compute_note_hash_and_nullifier_without_context(self) -> ( Field, Field ) {
+    fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_consumption = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        let nullifier = poseidon2_hash_with_separator([note_hash_for_consumption,secret,],GENERATOR_INDEX__NOTE_NULLIFIER);
-        (note_hash_for_consumption, nullifier)
+        poseidon2_hash_with_separator([note_hash_for_consumption, secret],GENERATOR_INDEX__NOTE_NULLIFIER)
     }
 
     fn compute_note_hiding_point(self) -> Point {

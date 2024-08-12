@@ -43,16 +43,15 @@ impl NoteInterface<CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN> for CardNote {
         )
     }
 
-    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
+    fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_consumption = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        let nullifier = poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator([
             note_hash_for_consumption,
             secret,
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        );
-        (note_hash_for_consumption, nullifier)
+        )
     }
 }
 // docs:end:note_interface

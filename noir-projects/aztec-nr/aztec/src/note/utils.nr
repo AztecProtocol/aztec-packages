@@ -100,8 +100,7 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, l
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
-        let (_, nullifier) = note.compute_note_hash_and_nullifier_without_context();
-        nullifier
+        note.compute_nullifier_without_context()
     } else {
         0
     };
