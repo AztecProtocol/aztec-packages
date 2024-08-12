@@ -97,7 +97,6 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
   searchEndBlock: bigint,
 ): Promise<DataRetrieval<Body>> {
   const retrievedBlockBodies: Body[] = [];
-  let lastProcessedL1BlockNumber = searchStartBlock;
 
   do {
     if (searchStartBlock > searchEndBlock) {
@@ -115,11 +114,10 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
 
     const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
     retrievedBlockBodies.push(...newBlockBodies.map(([body]) => body));
-    lastProcessedL1BlockNumber = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber!;
-    searchStartBlock = lastProcessedL1BlockNumber + 1n;
+    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
 
-  return { lastProcessedL1BlockNumber, retrievedData: retrievedBlockBodies };
+  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockBodies };
 }
 
 /**
