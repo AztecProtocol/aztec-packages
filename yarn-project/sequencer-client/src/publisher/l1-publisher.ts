@@ -1,4 +1,4 @@
-import { type L2Block } from '@aztec/circuit-types';
+import { Signature, type L2Block } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { type EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
@@ -116,7 +116,7 @@ export type L1ProcessArgs = {
   /** L2 block body. */
   body: Buffer;
   /** Attestations */
-  attestations?: Attestation[];
+  attestations?: Signature[];
 };
 
 /** Arguments to the submitProof method of the rollup contract */
@@ -151,10 +151,6 @@ export class L1Publisher implements L2BlockReceiver {
   constructor(private txSender: L1PublisherTxSender, client: TelemetryClient, config?: PublisherConfig) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
-  }
-
-  public async attest(archive: `0x${string}`): Promise<Attestation> {
-    return await this.txSender.attest(archive);
   }
 
   public async senderAddress(): Promise<EthAddress> {

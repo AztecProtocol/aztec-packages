@@ -71,8 +71,8 @@ export class Buffer32 {
     return this.buffer.toString('hex');
   }
 
-  public to0xString(): `0x{string}` {
-    return `0x${this.buffer.toString('hex')}` as `0x{string}`;
+  public to0xString(): `0x${string}` {
+    return `0x${this.buffer.toString('hex')}`;
   }
 
   /**

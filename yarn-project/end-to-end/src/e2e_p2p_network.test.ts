@@ -1,19 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep } from '@aztec/aztec.js';
-import { type BootstrapNode } from '@aztec/p2p';
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  CompleteAddress,
-  type DebugLogger,
-  type DeployL1Contracts,
-  EthCheatCodes,
-  Fr,
-  GrumpkinScalar,
-  type SentTx,
-  TxStatus,
-  sleep,
-} from '@aztec/aztec.js';
+import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep, EthCheatCodes, DeployL1Contracts } from '@aztec/aztec.js';
 import { IS_DEV_NET } from '@aztec/circuits.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { BootstrapNode } from '@aztec/p2p';
@@ -31,6 +18,7 @@ import {
   generatePeerIdPrivateKeys,
 } from './fixtures/setup_p2p_test.js';
 import { setup } from './fixtures/utils.js';
+import { MNEMONIC } from './fixtures/fixtures.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -89,7 +77,7 @@ describe('e2e_p2p_network', () => {
     const timestamp = (await cheatCodes.timestamp()) + Number(timeToJump);
     await cheatCodes.warp(timestamp);
 
-    bootstrapNode = await createBootstrapNode();
+    bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
     // TODO: refactor? Config settings

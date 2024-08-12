@@ -16,6 +16,13 @@ import {Buffer32} from "@aztec/foundation/buffer";
 //     };
 //   }
 
+export type ViemSignature = {
+    r: `0x${string}`,
+    s: `0x${string}`,
+    v: number,
+    isEmpty: boolean
+}
+
 /**
  * Signature
  */
@@ -28,19 +35,27 @@ export class Signature {
         // TODO: even this can be smaller with different serialization types - ahh
         /** The v value of the signature */
         public readonly v: number,
+
+        public readonly isEmpty: boolean = false
     ) {}
 
     static fromBuffer(buf: Buffer | BufferReader): Signature {
         const reader = BufferReader.asReader(buf);
+        const r = reader.readObject(Buffer32);
+        const s = reader.readObject(Buffer32);
+
+        const isEmpty = r.isZero() && s.isZero();
+
         return new Signature(
+            r,
+            s,
             reader.readNumber(),
-            reader.readObject(Buffer32),
-            reader.readObject(Buffer32),
+            isEmpty
         );
     }
 
     static empty(): Signature {
-        return new Signature(Buffer32.ZERO, Buffer32.ZERO, 0);
+        return new Signature(Buffer32.ZERO, Buffer32.ZERO, 0, true);
     }
 
     toBuffer(): Buffer {
@@ -50,5 +65,31 @@ export class Signature {
 
     to0xString(): `0x${string}` {
         return `0x${this.r.toString()}${this.s.toString()}${this.v.toString(16)}`;
+    }
+
+    static from0xString(sig: `0x${string}`) : Signature {
+        const buf = Buffer.from(sig.slice(2), 'hex');
+        const reader = BufferReader.asReader(buf);
+
+        const r = reader.readObject(Buffer32);
+        const s = reader.readObject(Buffer32);
+
+        const isEmpty = r.isZero() && s.isZero();
+
+        return new Signature(
+            r,
+            s,
+            reader.readUInt8(),
+            isEmpty
+        );
+    }
+
+    toViemSignature(): ViemSignature {
+        return {
+            r: this.r.to0xString(),
+            s: this.s.to0xString(),
+            v: this.v,
+            isEmpty: this.isEmpty
+        };
     }
 }

@@ -3,12 +3,13 @@ import { makeHeader } from '@aztec/circuits.js/testing';
 
 import { TxHash } from '../index.js';
 import { BlockProposal } from './block_proposal.js';
+import { Signature } from './signature.js';
 
 describe('Block Proposal serialization / deserialization', () => {
   const makeBlockProposal = (): BlockProposal => {
     const blockHeader = makeHeader(1);
     const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-    const signature = Buffer.alloc(64, 1);
+    const signature = Signature.fromBuffer(Buffer.alloc(68, 1));
 
     return new BlockProposal(blockHeader, txs, signature);
   };

@@ -79,10 +79,6 @@ describe('sequencer', () => {
 
     publisher = mock<L1Publisher>();
 
-    publisher.attest.mockImplementation(_archive => {
-      return Promise.resolve(mockedAttestation);
-    });
-
     publisher.isItMyTurnToSubmit.mockResolvedValue(true);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();

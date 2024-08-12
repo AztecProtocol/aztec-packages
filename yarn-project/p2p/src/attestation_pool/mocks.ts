@@ -1,4 +1,4 @@
-import { BlockAttestation } from '@aztec/circuit-types';
+import { BlockAttestation, Signature } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 
 import { type PrivateKeyAccount } from 'viem';
@@ -26,7 +26,7 @@ export const mockAttestation = async (signer: PrivateKeyAccount, slot: number = 
   const hash = header.hash();
   const message = hash.toString();
   const sigString = await signer.signMessage({ message });
-  const signature = Buffer.from(sigString.slice(2), 'hex');
 
+  const signature = Signature.from0xString(sigString);
   return new BlockAttestation(header, signature);
 };
