@@ -371,6 +371,7 @@ jobs:
         run: |
           env
           earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }}
 
   build-end:
     runs-on: ubuntu-latest
