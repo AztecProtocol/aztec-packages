@@ -185,7 +185,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _proverId,
-    // TODO(#7246): Prev block hash unchecked for single blocks, should be checked for batch rollups. See block-building-helpers.ts for where to inject.
+    // TODO(#7346): Prev block hash unchecked for single blocks, should be checked for batch rollups. See block-building-helpers.ts for where to inject.
     // bytes32 _previousBlockHash,
     bytes32 _currentBlockHash,
     bytes calldata _aggregationObject,
@@ -363,11 +363,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //   }
 
   //   // TODO(#7346): Add a constant with calculated len of RootRollupPublicInputs:
-  //   // Currently 64 for fees (32 * 2) + 4 for archives (2 * 2) + 6 for indiv. fields
+  //   // Currently 64 for fees (32 * 2) + 4 for archives (2 * 2) + 7 for indiv. fields
   //   // Public inputs are not fully verified (TODO(#7373))
 
   //   bytes32[] memory publicInputs =
-  //     new bytes32[](74 + Constants.AGGREGATION_OBJECT_LENGTH);
+  //     new bytes32[](75 + Constants.AGGREGATION_OBJECT_LENGTH);
 
   //   // From root_rollup_public_inputs.nr RootRollupPublicInputs.
   //   // previous_archive.root: the previous archive tree root
@@ -389,7 +389,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //   // verifyMembership(archivePath, _previousBlockHash, startBlockNumber - 1, expectedLastArchive)
 
   //   // end_timestamp: TODO: is this the correct timestamp for public inputs?
-  //   publicInputs[5] = bytes32(lastBlockTs);
+  //   uint256 timestamp = getTimestampForSlot(blocks[endBlockNumber].slotNumber);
+  //   publicInputs[5] = bytes32(timestamp);
 
   //   // end_block_hash: the block hash of block number endBlockNumber
   //   publicInputs[6] = _currentBlockHash;
@@ -416,13 +417,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //     //   GAS_TOKEN.transfer(coinbases[i], fees[i]);
   //     // }
   //   }
-
+  //   // vk_tree_root
+  //   publicInputs[73] = vkTreeRoot;
   //   // prover_id: id of current block range's prover
-  //   publicInputs[73] = _proverId;
-
-  //   for (uint256 i = 0; i < 74; i++) {
-  //     console.logBytes32(publicInputs[i]);
-  //   }
+  //   publicInputs[74] = _proverId;
 
   //   // the block proof is recursive, which means it comes with an aggregation object
   //   // this snippet copies it into the public inputs needed for verification
@@ -433,7 +431,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //     assembly {
   //       part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
   //     }
-  //     publicInputs[i + 74] = part;
+  //     publicInputs[i + 75] = part;
   //   }
 
   //   if (!verifier.verify(_proof, publicInputs)) {

@@ -1037,6 +1037,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x800),
     makeTuple(32, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
+    fr(seed + 0x200),
   );
 }
 

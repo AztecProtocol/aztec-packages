@@ -62,6 +62,7 @@ impl RootRollupInputs {
             end_block_number: right.end_global_variables.block_number,
             out_hash,
             fees,
+            vk_tree_root: left.vk_tree_root,
             prover_id: self.prover_id
         }
     }

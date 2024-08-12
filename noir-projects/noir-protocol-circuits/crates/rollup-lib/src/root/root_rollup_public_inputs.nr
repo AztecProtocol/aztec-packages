@@ -11,5 +11,6 @@ struct RootRollupPublicInputs {
     end_block_number: Field,
     out_hash: Field,
     fees: [FeeRecipient; 32],
+    vk_tree_root: Field,
     prover_id: Field,
 }
