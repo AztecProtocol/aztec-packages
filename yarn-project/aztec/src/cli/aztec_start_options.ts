@@ -171,6 +171,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
       defaultValue: false,
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
+      parseVal: val => ['1', true].includes(val),
+    },
+    {
+      flag: '--node.assumeProvenUntilBlockNumber',
+      description:
+        'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
+      envVar: 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER',
+      parseVal: (val: string) => parseInt(val, 10),
+      defaultValue: 0,
     },
     {
       flag: '--node.publisherPrivateKey <value>',
