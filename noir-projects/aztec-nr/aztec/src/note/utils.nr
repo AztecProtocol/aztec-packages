@@ -44,9 +44,18 @@ pub fn compute_note_hash_for_consumption_internal<Note, let N: u32, let M: u32>(
 ) -> Field where Note: NoteInterface<N, M> {
     let header = note.get_header();
 
-    if (header.nonce == 0) {
-        note_hash_for_read_request
+    if header.note_hash_counter != 0 {
+        if header.nonce == 0 {
+            // Case 1: Transient note
+            note_hash_for_read_request
+        } else {
+            // Case 2: Non-revertible note, nullified by a revertible nullifier
+            let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash_for_read_request);
+            compute_siloed_note_hash(header.contract_address, unique_note_hash)
+        }
     } else {
+        // Case 3: Note from a previous transaction
+        // note_hash_for_read_request is already the unique_note_hash in this case
         compute_siloed_note_hash(header.contract_address, note_hash_for_read_request)
     }
 }
