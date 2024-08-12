@@ -31,7 +31,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
-  TubeInputs,
+  type TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
@@ -226,16 +226,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       kernelRequest.inputs.previousKernel.vk,
     );
 
-    // PUBLIC KERNEL: kernel request should be nonempty at start of public kernel proving but it is not
-    // TODO(#7369): We should properly enqueue the tube in the public kernel lifetime
-    if (!kernelRequest.inputs.previousKernel.clientIvcProof.isEmpty()) {
-      const { tubeVK, tubeProof } = await this.getTubeProof(
-        new TubeInputs(kernelRequest.inputs.previousKernel.clientIvcProof),
-      );
-      kernelRequest.inputs.previousKernel.vk = tubeVK;
-      kernelRequest.inputs.previousKernel.proof = tubeProof;
-    }
-
     await this.verifyWithKey(
       kernelRequest.inputs.previousKernel.vk,
       kernelRequest.inputs.previousKernel.proof.binaryProof,
@@ -289,9 +279,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
     // We may need to convert the recursive proof into fields format
     logger.debug(`kernel Data proof: ${baseRollupInput.kernelData.proof}`);
-    logger.info(`in getBaseRollupProof`);
-    logger.info(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
-    logger.info(`Number of public inputs ${baseRollupInput.kernelData.publicInputs}`);
+    logger.debug(`Number of public inputs in baseRollupInput: ${baseRollupInput.kernelData.vk.numPublicInputs}`);
     baseRollupInput.kernelData.proof = await this.ensureValidProof(
       baseRollupInput.kernelData.proof,
       'BaseRollupArtifact',
@@ -477,7 +465,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
     this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
 
-    logger.debug(`Generated witness`, {
+    logger.info(`Generated witness`, {
       circuitName,
       duration: timer.ms(),
       inputSize: input.toBuffer().length,
@@ -531,7 +519,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const proof = new Proof(rawProof, vkData.numPublicInputs);
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 
-      this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs / 1000);
+      this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
       this.instrumentation.recordSize('proofSize', circuitName, proof.buffer.length);
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
@@ -634,6 +622,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       // Read the proof as fields
       const tubeVK = await extractVkData(provingResult.vkPath!);
       const tubeProof = await this.readTubeProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
+
+      this.instrumentation.recordDuration('provingDuration', 'tubeCircuit', provingResult.durationMs);
+      this.instrumentation.recordSize('proofSize', 'tubeCircuit', tubeProof.binaryProof.buffer.length);
+      this.instrumentation.recordSize('circuitPublicInputCount', 'tubeCircuit', tubeVK.numPublicInputs);
+      this.instrumentation.recordSize('circuitSize', 'tubeCircuit', tubeVK.circuitSize);
+
       // Sanity check the tube proof (can be removed later)
       await this.verifyWithKey(tubeVK, tubeProof.binaryProof);
 
@@ -681,7 +675,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const proof = await this.readProofAsFields(provingResult.proofPath!, circuitType, proofLength);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
-      this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs / 1000);
+      this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
       this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);

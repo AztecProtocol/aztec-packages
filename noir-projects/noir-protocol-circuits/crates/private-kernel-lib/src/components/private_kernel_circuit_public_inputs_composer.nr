@@ -10,8 +10,8 @@ use dep::types::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 },
-    hash::{silo_encrypted_log_hash, silo_l2_to_l1_message, silo_note_hash, silo_nullifier},
-    traits::is_empty, transaction::tx_request::TxRequest,
+    hash::{silo_note_hash, silo_nullifier, mask_encrypted_log_hash}, traits::is_empty,
+    transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counters_asc, sort_by_counters_desc}
 };
 
@@ -66,6 +66,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
         public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
         public_inputs.validation_requests.scoped_key_validation_requests_and_generators = array_to_bounded_vec(start.scoped_key_validation_requests_and_generators);
+        public_inputs.validation_requests.split_counter = start.split_counter;
 
         let start = previous_kernel_public_inputs.end;
         public_inputs.end.note_hashes = array_to_bounded_vec(start.note_hashes);
@@ -275,8 +276,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     fn silo_scoped_values(&mut self) {
         self.silo_note_hashes();
         self.silo_nullifiers();
-        self.silo_l2_to_l1_messages();
-        self.silo_encrypted_logs();
+        self.mask_encrypted_logs();
     }
 
     fn silo_note_hashes(&mut self) {
@@ -298,22 +298,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         }
     }
 
-    fn silo_l2_to_l1_messages(&mut self) {
-        let l2_to_l1_msgs = self.public_inputs.end.l2_to_l1_msgs.storage;
-        let tx_context = self.public_inputs.constants.tx_context;
-        for i in 0..l2_to_l1_msgs.len() {
-            self.public_inputs.end.l2_to_l1_msgs.storage[i].message.content = silo_l2_to_l1_message(
-                l2_to_l1_msgs[i],
-                tx_context.version,
-                tx_context.chain_id,
-            );
-        }
-    }
-
-    fn silo_encrypted_logs(&mut self) {
+    fn mask_encrypted_logs(&mut self) {
         let logs = self.public_inputs.end.encrypted_logs_hashes.storage;
         for i in 0..logs.len() {
-            self.public_inputs.end.encrypted_logs_hashes.storage[i].log_hash.value = silo_encrypted_log_hash(logs[i]);
+            self.public_inputs.end.encrypted_logs_hashes.storage[i].contract_address = mask_encrypted_log_hash(logs[i]);
         }
     }
 }

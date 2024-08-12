@@ -1,27 +1,16 @@
-use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface}};
-
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__INNER_NOTE_HASH,
-    hash::{
-    pedersen_hash, compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
-    compute_siloed_nullifier as compute_siloed_nullifier_from_preimage
-},
-    utils::arr_copy_slice
+use crate::{
+    context::PrivateContext, generators::G_slot,
+    note::{note_header::NoteHeader, note_interface::NoteInterface}
 };
 
-pub fn compute_inner_note_hash_from_preimage(storage_slot: Field, note_content_hash: Field) -> Field {
-    pedersen_hash(
-        [storage_slot, note_content_hash],
-        GENERATOR_INDEX__INNER_NOTE_HASH
-    )
-}
-
-pub fn compute_inner_note_hash<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    let header = note.get_header();
-    let note_hash = note.compute_note_content_hash();
-
-    compute_inner_note_hash_from_preimage(header.storage_slot, note_hash)
-}
+use dep::protocol_types::{
+    hash::{
+    compute_unique_note_hash, compute_siloed_note_hash as compute_siloed_note_hash,
+    compute_siloed_nullifier as compute_siloed_nullifier_from_preimage
+},
+    point::Point, utils::arr_copy_slice
+};
+use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     note_with_header: Note,
@@ -33,44 +22,49 @@ pub fn compute_siloed_nullifier<Note, let N: u32, let M: u32>(
     compute_siloed_nullifier_from_preimage(header.contract_address, inner_nullifier)
 }
 
-fn compute_note_hash_for_read_request_from_innter_and_nonce(
-    inner_note_hash: Field,
-    nonce: Field
-) -> Field {
-    // TODO(#1386): This if-else can be nuked once we have nonces injected from public
-    if (nonce == 0) {
-        // If nonce is zero, that means we are reading a public note.
-        inner_note_hash
-    } else {
-        compute_unique_note_hash(nonce, inner_note_hash)
-    }
-}
-
 pub fn compute_note_hash_for_read_request<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
-    let inner_note_hash = compute_inner_note_hash(note);
+    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+    let note_hash = note.compute_note_hiding_point().x;
     let nonce = note.get_header().nonce;
+    let counter = note.get_header().note_hash_counter;
 
-    compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, nonce)
+    if counter != 0 {
+        note_hash
+    } else {
+        compute_unique_note_hash(nonce, note_hash)
+    }
 }
 
 pub fn compute_note_hash_for_consumption<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface<N, M> {
     let header = note.get_header();
     // There are 3 cases for reading a note intended for consumption:
-    // 1. The note was inserted in this transaction, and is transient.
-    // 2. The note was inserted in a previous transaction, and was inserted in public
-    // 3. The note was inserted in a previous transaction, and was inserted in private
+    // 1. The note was inserted in this transaction, is revertible, or is not nullified by a revertible nullifier in 
+    //    the same transaction: (note_hash_counter != 0) & (nonce == 0)
+    // 2. The note was inserted in this transaction, is non-revertible, and is nullified by a revertible nullifier in 
+    //    the same transaction: (note_hash_counter != 0) & (nonce != 0)
+    // 3. The note was inserted in a previous transaction: (note_hash_counter == 0) & (nonce != 0)
 
-    let inner_note_hash = compute_inner_note_hash(note);
+    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+    let note_hash = note.compute_note_hiding_point().x;
 
-    if (header.note_hash_counter != 0) {
-        // If a note is transient, we just read the inner_note_hash (kernel will silo by contract address).
-        inner_note_hash
+    if header.nonce == 0 {
+        // Case 1.
+        // If a note is transient, we just read the note_hash (kernel will hash it with nonce and silo by contract address).
+        note_hash
     } else {
-        // If a note is not transient, that means we are reading a settled note (from tree) created in a
-        // previous TX. So we need the siloed_note_hash which has already been hashed with
+        // Case 2: If a note is non-revertible, and is nullified by a revertible nullifier, we cannot squash them in the 
+        // private reset circuit. Because if the tx reverts, we will have to keep the note hash and throw away the 
+        // nullifier.
+        // And if the tx does not revert, both will be emitted. In which case, the nullifier must be created in the app
+        // from the siloed note hash.
+        // The kernel circuit will check that a nullifier with non-zero note_nonce is linked to a note hash, whose
+        // siloed note hash matches the note hash specified in the nullifier.
+
+        // Case 3: If a note is not from the current transaction, that means we are reading a settled note (from 
+        // tree) created in a previous TX. So we need the siloed_note_hash which has already been hashed with
         // nonce and then contract address. This hash will match the existing leaf in the note hash
         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-        let unique_note_hash = compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, header.nonce);
+        let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash);
         compute_siloed_note_hash(header.contract_address, unique_note_hash)
         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
         // "siloed" by contract address. When a note hash is computed solely for the purpose of
@@ -92,8 +86,9 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, l
     let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     note.set_header(note_header);
 
-    let inner_note_hash = compute_inner_note_hash(note);
-    let unique_note_hash = compute_note_hash_for_read_request_from_innter_and_nonce(inner_note_hash, note_header.nonce);
+    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+    let note_hash = note.compute_note_hiding_point().x;
+    let unique_note_hash = compute_unique_note_hash(note_header.nonce, note_hash);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 
     let inner_nullifier = if compute_nullifier {
@@ -103,6 +98,6 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let M: u32, l
         0
     };
     // docs:start:compute_note_hash_and_optionally_a_nullifier_returns
-    [inner_note_hash, unique_note_hash, siloed_note_hash, inner_nullifier]
+    [note_hash, unique_note_hash, siloed_note_hash, inner_nullifier]
     // docs:end:compute_note_hash_and_optionally_a_nullifier_returns
 }

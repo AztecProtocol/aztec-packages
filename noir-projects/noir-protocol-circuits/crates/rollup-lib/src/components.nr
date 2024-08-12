@@ -1,7 +1,10 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
-    hash::{accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash},
+    hash::{
+    accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
+    compute_tx_note_logs_hash
+},
     merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -91,9 +94,9 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
     )
 }
 
-pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> Field {
-    let non_empty_items = array_length(combined.l2_to_l1_msgs);
-    let merkle_tree = VariableMerkleTree::new_sha(combined.l2_to_l1_msgs, non_empty_items);
+pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
+    let non_empty_items = array_length(l2_to_l1_msgs);
+    let merkle_tree = VariableMerkleTree::new_sha(l2_to_l1_msgs, non_empty_items);
     merkle_tree.get_root()
 }
 
@@ -112,8 +115,8 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
-    let scoped_logs = unencrypted_logs_hashes.map(
+fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+    let siloed_logs = unencrypted_logs_hashes.map(
         |log: ScopedLogHash| {
         LogHash {
             value: silo_unencrypted_log_hash(log),
@@ -122,7 +125,20 @@ fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_
         }
     }
     );
-    compute_tx_logs_hash(scoped_logs)
+    compute_tx_logs_hash(siloed_logs)
+}
+
+fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+    let siloed_encrypted_logs = encrypted_logs_hashes.map(
+        |log: ScopedLogHash| {
+        LogHash {
+            value: silo_encrypted_log_hash(log),
+            counter: log.log_hash.counter,
+            length: log.log_hash.length
+        }
+    }
+    );
+    compute_tx_logs_hash(siloed_encrypted_logs)
 }
 
 // Tx effects hash consists of
@@ -147,13 +163,13 @@ pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]
 ) -> Field {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
     let note_hashes = combined.note_hashes;
     let nullifiers = combined.nullifiers;
-    let l2_to_l1_msgs = combined.l2_to_l1_msgs;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
@@ -161,9 +177,9 @@ pub fn compute_tx_effects_hash(
     let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
-    let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
-    let encrypted_logs_hash = combined.encrypted_logs_hash;
-    let unencrypted_logs_hash = scope_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
+    let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
+    let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
+    let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
 
     let mut offset = 0;
 

@@ -14,9 +14,9 @@
 
 #include <cstddef>
 #ifndef DISABLE_AZTEC_VM
-#include "barretenberg/vm/avm_trace/avm_common.hpp"
-#include "barretenberg/vm/avm_trace/avm_execution.hpp"
-#include "barretenberg/vm/avm_trace/stats.hpp"
+#include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/execution.hpp"
+#include "barretenberg/vm/stats.hpp"
 #endif
 #include "config.hpp"
 #include "get_bn254_crs.hpp"
@@ -329,7 +329,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     using TranslatorVK = TranslatorFlavor::VerificationKey;
 
     init_bn254_crs(1 << 24);
-    init_grumpkin_crs(1 << 14);
+    init_grumpkin_crs(1 << 15);
 
     auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
     auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
@@ -411,7 +411,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
                        const std::filesystem::path& translator_vk_path)
 {
     init_bn254_crs(1);
-    init_grumpkin_crs(1 << 14);
+    init_grumpkin_crs(1 << 15);
 
     const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
     const auto accumulator = read_to_shared_ptr<ClientIVC::VerifierInstance>(accumulator_path);
@@ -658,16 +658,16 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  */
-void gateCount(const std::string& bytecodePath, bool honk_recursion)
+template <typename Builder = UltraCircuitBuilder> void gateCount(const std::string& bytecodePath, bool honk_recursion)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
     auto constraint_systems = get_constraint_systems(bytecodePath, honk_recursion);
     size_t i = 0;
     for (auto constraint_system : constraint_systems) {
-        acir_proofs::AcirComposer acir_composer(0, verbose_logging);
-        acir_composer.create_circuit(constraint_system, {}, true);
-        auto circuit_size = acir_composer.get_total_circuit_size();
+        auto builder = acir_format::create_circuit<Builder>(
+            constraint_system, 0, {}, honk_recursion, std::make_shared<bb::ECCOpQueue>(), true);
+        auto circuit_size = builder.get_total_circuit_size();
 
         // Build individual circuit report
         std::string gates_per_opcode_str;
@@ -948,7 +948,7 @@ void avm_prove(const std::filesystem::path& bytecode_path,
 
     // Prove execution and return vk
     auto const [verification_key, proof] =
-        avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints);
+        AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints));
 
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
     std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
@@ -969,7 +969,8 @@ void avm_prove(const std::filesystem::path& bytecode_path,
 #ifdef AVM_TRACK_STATS
     info("------- STATS -------");
     const auto& stats = avm_trace::Stats::get();
-    info(stats.to_string());
+    const int levels = std::getenv("AVM_STATS_DEPTH") != nullptr ? std::stoi(std::getenv("AVM_STATS_DEPTH")) : 2;
+    info(stats.to_string(levels));
 #endif
 }
 
@@ -993,7 +994,7 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     auto num_public_inputs = from_buffer<size_t>(vk_bytes, sizeof(size_t));
     auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs);
 
-    const bool verified = avm_trace::Execution::verify(vk, proof);
+    const bool verified = AVM_TRACK_TIME_V("verify/all", avm_trace::Execution::verify(vk, proof));
     vinfo("verified: ", verified);
     return verified;
 }
@@ -1402,7 +1403,9 @@ int main(int argc, char* argv[])
             auto tube_vk_path = output_path + "/vk";
             return verify_honk<UltraFlavor>(tube_proof_path, tube_vk_path) ? 0 : 1;
         } else if (command == "gates") {
-            gateCount(bytecode_path, honk_recursion);
+            gateCount<UltraCircuitBuilder>(bytecode_path, honk_recursion);
+        } else if (command == "gates_mega_honk") {
+            gateCount<MegaCircuitBuilder>(bytecode_path, honk_recursion);
         } else if (command == "verify") {
             return verify(proof_path, vk_path) ? 0 : 1;
         } else if (command == "contract") {

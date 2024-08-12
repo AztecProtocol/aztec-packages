@@ -1,17 +1,18 @@
 import { type PXE, createDebugLogger } from '@aztec/aztec.js';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { Bot } from './bot.js';
 import { type BotConfig } from './config.js';
 
 export class BotRunner {
   private log = createDebugLogger('aztec:bot');
-  private interval?: NodeJS.Timeout;
   private bot?: Promise<Bot>;
   private pxe?: PXE;
-  private running: Set<Promise<void>> = new Set();
+  private runningPromise: RunningPromise;
 
   public constructor(private config: BotConfig, dependencies: { pxe?: PXE } = {}) {
     this.pxe = dependencies.pxe;
+    this.runningPromise = new RunningPromise(() => this.#safeRun(), config.txIntervalSeconds * 1000);
   }
 
   /** Initializes the bot if needed. Blocks until the bot setup is finished. */
@@ -29,9 +30,9 @@ export class BotRunner {
    */
   public async start() {
     await this.setup();
-    if (!this.interval) {
+    if (!this.runningPromise.isRunning()) {
       this.log.info(`Starting bot with interval of ${this.config.txIntervalSeconds}s`);
-      this.interval = setInterval(() => this.run(), this.config.txIntervalSeconds * 1000);
+      this.runningPromise.start();
     }
   }
 
@@ -39,21 +40,16 @@ export class BotRunner {
    * Stops sending txs. Returns once all ongoing txs are finished.
    */
   public async stop() {
-    if (this.interval) {
+    if (this.runningPromise.isRunning()) {
       this.log.verbose(`Stopping bot`);
-      clearInterval(this.interval);
-      this.interval = undefined;
-    }
-    if (this.running.size > 0) {
-      this.log.verbose(`Waiting for ${this.running.size} running txs to finish`);
-      await Promise.all(this.running);
+      await this.runningPromise.stop();
     }
     this.log.info(`Stopped bot`);
   }
 
   /** Returns whether the bot is running. */
   public isRunning() {
-    return !!this.interval;
+    return this.runningPromise.isRunning();
   }
 
   /**
@@ -67,6 +63,7 @@ export class BotRunner {
       await this.stop();
     }
     this.config = { ...this.config, ...config };
+    this.runningPromise.setPollingIntervalMS(this.config.txIntervalSeconds * 1000);
     await this.#createBot();
     this.log.info(`Bot config updated`);
     if (wasRunning) {
@@ -80,14 +77,24 @@ export class BotRunner {
    */
   public async run() {
     if (!this.bot) {
+      this.log.error(`Trying to run with uninitialized bot`);
       throw new Error(`Bot is not initialized`);
     }
-    this.log.verbose(`Manually triggered bot run`);
-    const bot = await this.bot;
-    const promise = bot.run();
-    this.running.add(promise);
-    await promise;
-    this.running.delete(promise);
+
+    let bot;
+    try {
+      bot = await this.bot;
+    } catch (err) {
+      this.log.error(`Error awaiting bot set up: ${err}`);
+      throw err;
+    }
+
+    try {
+      await bot.run();
+    } catch (err) {
+      this.log.error(`Error running bot: ${err}`);
+      throw err;
+    }
   }
 
   /** Returns the current configuration for the bot. */
@@ -96,7 +103,20 @@ export class BotRunner {
   }
 
   async #createBot() {
-    this.bot = Bot.create(this.config, { pxe: this.pxe });
-    await this.bot;
+    try {
+      this.bot = Bot.create(this.config, { pxe: this.pxe });
+      await this.bot;
+    } catch (err) {
+      this.log.error(`Error setting up bot: ${err}`);
+      throw err;
+    }
+  }
+
+  async #safeRun() {
+    try {
+      await this.run();
+    } catch (err) {
+      // Already logged in run()
+    }
   }
 }
