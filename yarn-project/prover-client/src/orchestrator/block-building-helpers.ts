@@ -37,7 +37,6 @@ import {
   type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
-  type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,

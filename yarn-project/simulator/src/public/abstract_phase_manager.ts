@@ -14,7 +14,6 @@ import {
 import {
   type AvmExecutionHints,
   AztecAddress,
-  ClientIvcProof,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,

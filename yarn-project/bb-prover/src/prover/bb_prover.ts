@@ -31,7 +31,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
-  TubeInputs,
+  type TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
