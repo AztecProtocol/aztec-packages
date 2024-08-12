@@ -60,6 +60,8 @@ pub fn reset_key_validation_requests<N>(
             assert(
                 sk_app.eq(request.sk_app), "Failed to derive matching app secret key from the secret key."
             );
+        } else {
+            assert(is_empty(key_validation_requests[i]), "Always provide a hint, unless it's empty");
         }
     }
 
