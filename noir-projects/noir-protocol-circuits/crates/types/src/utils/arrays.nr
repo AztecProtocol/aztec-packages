@@ -75,41 +75,16 @@ pub fn filter_array_to_bounded_vec<T, let N: u32>(
     vec_hint
 }
 
-// @returns the filtered array, and a field representing the 'length' of the filtered array.
-unconstrained fn filter_array_to_array_unsafe<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> [T; N] {
-    let mut result: [T; N] = std::unsafe::zeroed();
-    let mut j: u32 = 0;
-    for i in 0..N {
-        if should_propagate[i] {
-            result[j] = arr[i];
-            j += 1;
-        }
-    }
-    result
-}
-
-// This is hopefully more-efficient than using BoundedVec
-pub fn filter_array_to_array<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> [T; N] where T: Eq + Empty {
-    let filtered_arr_hint = filter_array_to_array_unsafe(arr, should_propagate);
-    let mut verifying_index = 0;
-
-    for i in 0..N {
-        if should_propagate[i] {
-            assert_eq(arr[i], filtered_arr_hint[verifying_index]);
-            verifying_index += 1;
-        }
-    }
-
+// To call this, write `shift_array::<_, _, shift>(arr)`, 
+// where `shift` is some value or numeric generic for `Shift`; the size of the shift.
+fn shift_array<T, let N: u32, let Shift: u32>(arr: [T; N]) -> [T; N] where T: Empty {
     let empty = T::empty();
-    let mut end: u1 = 0;
-    for i in 0..N {
-        end = end + (i == verifying_index) as u1;
-        if end as bool {
-            assert_eq(empty, filtered_arr_hint[i]);
-        }
+    let mut res: [T; N] = [empty; N];
+    for i in 0..N - Shift {
+        let j = i + Shift;
+        res[i] = arr[j];
     }
-
-    filtered_arr_hint
+    res
 }
 
 unconstrained pub fn find_index_hint<T, let N: u32>(array: [T; N], find: T) -> u32 where T: Eq {

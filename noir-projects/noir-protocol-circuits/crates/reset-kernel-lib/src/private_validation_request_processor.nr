@@ -38,7 +38,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             for_rollup: self.validation_requests.for_rollup,
             note_hash_read_requests: remaining_note_hash_read_requests.storage,
             nullifier_read_requests: remaining_nullifier_read_requests.storage,
-            scoped_key_validation_requests_and_generators: remaining_key_validation_requests.storage,
+            scoped_key_validation_requests_and_generators: remaining_key_validation_requests,
             split_counter: Option::some(self.validate_split_counter())
         }
     }
@@ -74,7 +74,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
         )
     }
 
-    fn validate_keys(self) -> BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
+    fn validate_keys(self) -> [ScopedKeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_TX] {
         reset_key_validation_requests(
             self.validation_requests.scoped_key_validation_requests_and_generators,
             self.key_validation_hints

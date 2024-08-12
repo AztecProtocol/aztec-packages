@@ -1,7 +1,7 @@
 use dep::types::{
     traits::{Empty, is_empty}, abis::{validation_requests::ScopedKeyValidationRequestAndGenerator},
     constants::MAX_KEY_VALIDATION_REQUESTS_PER_TX, scalar::Scalar, hash::poseidon2_hash_with_separator,
-    utils::arrays::filter_array_to_bounded_vec
+    utils::arrays::{filter_array_to_bounded_vec, shift_array}
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
@@ -29,14 +29,15 @@ impl Eq for KeyValidationHint {
 pub fn reset_key_validation_requests<N>(
     key_validation_requests: [ScopedKeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_TX],
     key_validation_hints: [KeyValidationHint; N]
-) -> BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX> {
-    let mut should_propagate = key_validation_requests.map(|req| !is_empty(req));
+) -> [ScopedKeyValidationRequestAndGenerator; MAX_KEY_VALIDATION_REQUESTS_PER_TX] {
     for i in 0..N {
         let hint = key_validation_hints[i];
+        // Ensure we always read the left-most elements of this array each time.
         // Determining here whether a key validation request will be validated based on a hint is not a vulnerability
         // because in the reset circuit we verify that there are no requests remaining to be validated. For this reason
         // the circuits cannot be tricked by not providing a hint (the final check would fail).
         if !is_empty(hint) {
+            assert_eq(hint.request_index, i);
             let scoped_request = key_validation_requests[hint.request_index];
             let contract_address = scoped_request.contract_address;
             let request_and_generator = scoped_request.request;
@@ -59,10 +60,10 @@ pub fn reset_key_validation_requests<N>(
             assert(
                 sk_app.eq(request.sk_app), "Failed to derive matching app secret key from the secret key."
             );
-
-            should_propagate[hint.request_index] = false;
         }
     }
 
-    filter_array_to_bounded_vec(key_validation_requests, should_propagate)
+    // Assuming we always read the left-most elements of the `key_validation_requests` array each time,
+    // we can just shift it for 0 constraints.
+    shift_array::<_, _, N>(key_validation_requests)
 }

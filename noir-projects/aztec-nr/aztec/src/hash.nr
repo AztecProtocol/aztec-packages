@@ -128,7 +128,7 @@ pub fn hash_args(args: [Field]) -> Field {
                 index_inside_current_chunk = 0;
             }
         }
-        if index_inside_current_chunk > 0 {
+        if index_inside_current_chunk != 0 {
             chunks_hashes[current_chunk_index] = poseidon2_hash_with_separator(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
         }
         poseidon2_hash_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
