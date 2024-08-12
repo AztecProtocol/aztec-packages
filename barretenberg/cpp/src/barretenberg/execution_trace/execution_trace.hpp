@@ -30,7 +30,7 @@ template <class Flavor> class ExecutionTrace_ {
             if constexpr (IsHonkFlavor<Flavor>) {
                 {
                     ZoneScopedN("wires initialization");
-                    // Initializate the wire and selector polynomials
+                    // Initialize and share the wire and selector polynomials
                     for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
                         wire = other_wire.share();
                     }
@@ -46,19 +46,19 @@ template <class Flavor> class ExecutionTrace_ {
             } else {
                 {
                     ZoneScopedN("wires initialization");
-                    // Initializate the wire and selector polynomials
+                    // Initialize and share the wire and selector polynomials
                     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+                        wires[idx] = Polynomial(proving_key.circuit_size);
                         std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-                        proving_key.polynomial_store.put(wire_tag, Polynomial(proving_key.circuit_size));
-                        wires[idx] = proving_key.polynomial_store.get(wire_tag).share();
+                        proving_key.polynomial_store.put(wire_tag, wires[idx].share());
                     }
                 }
                 {
                     ZoneScopedN("selector initialization");
                     for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
+                        selectors[idx] = Polynomial(proving_key.circuit_size);
                         std::string selector_tag = builder.selector_names[idx] + "_lagrange";
-                        proving_key.polynomial_store.put(selector_tag, Polynomial(proving_key.circuit_size));
-                        selectors[idx] = proving_key.polynomial_store.get(selector_tag).share();
+                        proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
                     }
                 }
             }
@@ -80,17 +80,6 @@ template <class Flavor> class ExecutionTrace_ {
     static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
 
   private:
-    /**
-     * @brief Add the wire and selector polynomials from the trace data to a honk or plonk proving key
-     *
-     * @param trace_data
-     * @param builder
-     * @param proving_key
-     */
-    static void add_wires_and_selectors_to_proving_key(TraceData& trace_data,
-                                                       Builder& builder,
-                                                       typename Flavor::ProvingKey& proving_key);
-
     /**
      * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes
      * @details The 4th wire of RAM/ROM read/write gates is generated at proving time as a linear combination of the
