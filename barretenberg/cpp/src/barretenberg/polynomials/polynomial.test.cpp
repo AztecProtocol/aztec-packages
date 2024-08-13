@@ -6,7 +6,7 @@
 using namespace bb;
 
 // Simple test/demonstration of shifted functionality
-TEST(SparsePolynomial, Shifted)
+TEST(Polynomial, Shifted)
 {
     using FF = bb::fr;
     using Polynomial = LegacyPolynomial<FF>;
@@ -32,7 +32,7 @@ TEST(SparsePolynomial, Shifted)
 }
 
 // Simple test/demonstration of share functionality
-TEST(SparsePolynomial, Share)
+TEST(Polynomial, Share)
 {
     using FF = bb::fr;
     using Polynomial = LegacyPolynomial<FF>;

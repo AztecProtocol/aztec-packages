@@ -6,12 +6,12 @@
 using namespace bb;
 
 // Simple test/demonstration of shifted functionality
-TEST(Polynomial, Shifted)
+TEST(LegacyPolynomial, Shifted)
 {
     using FF = bb::fr;
-    using Polynomial = LegacyPolynomial<FF>;
+    using LegacyPolynomial = LegacyPolynomial<FF>;
     const size_t SIZE = 10;
-    auto poly = Polynomial::random(SIZE);
+    auto poly = LegacyPolynomial::random(SIZE);
     poly[0] = 0; // make it shiftable
 
     // Instantiate the shift via the shited method
@@ -32,12 +32,12 @@ TEST(Polynomial, Shifted)
 }
 
 // Simple test/demonstration of share functionality
-TEST(Polynomial, Share)
+TEST(LegacyPolynomial, Share)
 {
     using FF = bb::fr;
-    using Polynomial = LegacyPolynomial<FF>;
+    using LegacyPolynomial = LegacyPolynomial<FF>;
     const size_t SIZE = 10;
-    auto poly = Polynomial::random(SIZE);
+    auto poly = LegacyPolynomial::random(SIZE);
 
     // "clone" the poly via the share method
     auto poly_clone = poly.share();
@@ -54,7 +54,7 @@ TEST(Polynomial, Share)
 
     // If reset the original poly, it will no longer be equal to the clone made earlier
     // Note: if we had not made a clone, the memory from the original poly would be leaked
-    auto poly2 = Polynomial::random(SIZE);
+    auto poly2 = LegacyPolynomial::random(SIZE);
     poly = poly2.share();
 
     EXPECT_NE(poly_clone, poly);

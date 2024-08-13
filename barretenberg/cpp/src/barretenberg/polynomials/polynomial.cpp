@@ -32,6 +32,12 @@ template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size,
         /* Our backing memory, since shift is 0 it is equal to our memory size.
          * We add one to the size here to allow for an efficient shift by 1 that retains size. */
     };
+    // We need to zero the extra padding memory that we reserve for shifts.
+    // We do this here as generally code that does not zero memory and then
+    // later initializes it won't generally also initialize the padding.
+    for (size_t i = 0; i < MAXIMUM_COEFFICIENT_SHIFT; i++) {
+        data()[size + i] = Fr{};
+    }
 }
 
 /**
@@ -39,7 +45,7 @@ template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size,
  **/
 
 /**
- * @brief Initialize a SparsePolynomial to size 'size', zeroing memory.
+ * @brief Initialize a Polynomial to size 'size', zeroing memory.
  *
  * @param size The size of the polynomial.
  */
@@ -50,7 +56,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
 }
 
 /**
- * @brief Initialize a SparsePolynomial to size 'size'.
+ * @brief Initialize a Polynomial to size 'size'.
  * Important: This does NOT zero memory.
  *
  * @param size The initial size of the polynomial.
@@ -86,10 +92,10 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
                            size_t virtual_size)
     : Polynomial(interpolation_points.size(), virtual_size)
 {
-    ASSERT(coefficients_.size() > 0);
+    ASSERT(coefficients_.size_ > 0);
 
     polynomial_arithmetic::compute_efficient_interpolation(
-        evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
+        evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size_);
 }
 
 template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
@@ -107,10 +113,10 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     if (this == &other) {
         return *this;
     }
-    allocate_backing_memory(other.coefficients_.size(), other.coefficients_.virtual_size());
+    allocate_backing_memory(other.coefficients_.size_, other.coefficients_.virtual_size_);
     memcpy(static_cast<void*>(coefficients_.data()),
            static_cast<const void*>(other.coefficients_.data()),
-           sizeof(Fr) * other.coefficients_.size());
+           sizeof(Fr) * other.coefficients_.size_);
     return *this;
 }
 
@@ -177,13 +183,13 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     ASSERT(size() == static_cast<size_t>(1 << m));
 
     // we do m rounds l = 0,...,m-1.
-    // in round l, n_l is the size of the buffer containing the SparsePolynomial partially evaluated
+    // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
     // at u₀,..., u_l.
     // in round 0, this is half the size of n
     size_t n_l = 1 << (m - 1);
 
-    // temporary buffer of half the size of the SparsePolynomial
-    // TODO(AD): Make this a SparsePolynomial with DontZeroMemory::FLAG
+    // temporary buffer of half the size of the Polynomial
+    // TODO(AD): Make this a Polynomial with DontZeroMemory::FLAG
     auto tmp_ptr = _allocate_aligned_memory<Fr>(sizeof(Fr) * n_l);
     auto tmp = tmp_ptr.get();
 
@@ -215,24 +221,24 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     // Get size of partial evaluation point u = (u_0,...,u_{m-1})
     const size_t m = evaluation_points.size();
 
-    // Assert that the size of the SparsePolynomial being evaluated is a power of 2 greater than (1 << m)
+    // Assert that the size of the Polynomial being evaluated is a power of 2 greater than (1 << m)
     ASSERT(numeric::is_power_of_two(size()));
     ASSERT(size() >= static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size());
 
-    // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the SparsePolynomial has been
+    // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the Polynomial has been
     // partially evaluated at u_{m-l-1}, ..., u_{m-1} in variables X_{n-l-1}, ..., X_{n-1}. The size of this
-    // SparsePolynomial is n_l.
+    // Polynomial is n_l.
     size_t n_l = 1 << (n - 1);
 
-    // Temporary buffer of half the size of the SparsePolynomial
+    // Temporary buffer of half the size of the Polynomial
     Polynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
 
     for (size_t i = 0; i < n_l; i++) {
-        // Initiate our intermediate results using this SparsePolynomial.
+        // Initiate our intermediate results using this Polynomial.
         intermediate[i] = get(i) + u_l * (get(i + n_l) - get(i));
     }
     // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
@@ -244,7 +250,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
         }
     }
 
-    // Construct resulting SparsePolynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
+    // Construct resulting Polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
     Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = intermediate[idx];
@@ -430,7 +436,7 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
 }
 
 /**
- * @brief Returns a SparsePolynomial the left-shift of self.
+ * @brief Returns a Polynomial the left-shift of self.
  *
  * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
  * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
@@ -438,14 +444,13 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
     ASSERT(data()[0].is_zero());
+    ASSERT(size() > 0);
+    ASSERT(data()[size()].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
     Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.shift_ += 1;
-    // We only expect to shift by 1
-    ASSERT(result.coefficients_.shift_ == 1);
-    ASSERT(result.size() == size());
-    ASSERT(result.virtual_size() == virtual_size());
-    ASSERT(result.data()[0] == data()[1]);
+    // We only expect to shift by MAXIMUM_COEFFICIENT_SHIFT
+    ASSERT(result.coefficients_.shift_ <= MAXIMUM_COEFFICIENT_SHIFT);
     return result;
 }
 
