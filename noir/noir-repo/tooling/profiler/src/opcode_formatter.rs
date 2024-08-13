@@ -135,6 +135,7 @@ fn format_brillig_opcode_kind<F>(opcode: &BrilligOpcode<F>) -> String {
         BrilligOpcode::JumpIfNot { .. } => "jump_if_not".to_string(),
         BrilligOpcode::Load { .. } => "load".to_string(),
         BrilligOpcode::Mov { .. } => "mov".to_string(),
+        BrilligOpcode::IndirectMov { .. } => "imov".to_string(),
         BrilligOpcode::Return => "return".to_string(),
         BrilligOpcode::Stop { .. } => "stop".to_string(),
         BrilligOpcode::Store { .. } => "store".to_string(),

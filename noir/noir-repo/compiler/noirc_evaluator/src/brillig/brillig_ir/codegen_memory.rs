@@ -112,6 +112,38 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         self.deallocate_register(index_of_element_in_memory);
     }
 
+    pub(crate) fn codegen_array_item_copy(
+        &mut self,
+        source_array_pointer: MemoryAddress,
+        source_index: SingleAddrVariable,
+        destination_array_pointer: MemoryAddress,
+        destination_index: SingleAddrVariable,
+    ) {
+        assert!(source_index.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
+        assert!(destination_index.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
+
+        let source_item_pointer = self.allocate_register();
+        self.binary_instruction(
+            SingleAddrVariable::new_usize(source_array_pointer),
+            source_index,
+            SingleAddrVariable::new_usize(source_item_pointer),
+            BrilligBinaryOp::Add,
+        );
+
+        let destination_item_pointer = self.allocate_register();
+        self.binary_instruction(
+            SingleAddrVariable::new_usize(destination_array_pointer),
+            destination_index,
+            SingleAddrVariable::new_usize(destination_item_pointer),
+            BrilligBinaryOp::Add,
+        );
+
+        self.indirect_mov_instruction(destination_item_pointer, source_item_pointer);
+
+        self.deallocate_register(source_item_pointer);
+        self.deallocate_register(destination_item_pointer);
+    }
+
     pub(crate) fn codegen_store_variable_in_array(
         &mut self,
         array_pointer: MemoryAddress,
@@ -166,14 +198,9 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
     ) {
         assert!(num_elements_variable.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
 
-        let value_register = self.allocate_register();
-
         self.codegen_loop(num_elements_variable.address, |ctx, iterator| {
-            ctx.codegen_array_get(source_pointer, iterator, value_register);
-            ctx.codegen_array_set(destination_pointer, iterator, value_register);
+            ctx.codegen_array_item_copy(source_pointer, iterator, destination_pointer, iterator);
         });
-
-        self.deallocate_register(value_register);
     }
 
     /// Loads a variable stored previously
@@ -261,10 +288,9 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
 
         let start_value_register = self.allocate_register();
         let index_at_end_of_array = self.allocate_register();
-        let end_value_register = self.allocate_register();
 
         self.codegen_loop(iteration_count, |ctx, iterator_register| {
-            // Load both values
+            // Load start value
             ctx.codegen_array_get(vector.pointer, iterator_register, start_value_register);
 
             // The index at the end of array is size - 1 - iterator
@@ -277,14 +303,15 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
                 BrilligBinaryOp::Sub,
             );
 
-            ctx.codegen_array_get(
+            // Copy the end value to the start value
+            ctx.codegen_array_item_copy(
                 vector.pointer,
                 SingleAddrVariable::new_usize(index_at_end_of_array),
-                end_value_register,
+                vector.pointer,
+                iterator_register,
             );
 
-            // Write both values
-            ctx.codegen_array_set(vector.pointer, iterator_register, end_value_register);
+            // Write the start value at the end
             ctx.codegen_array_set(
                 vector.pointer,
                 SingleAddrVariable::new_usize(index_at_end_of_array),
@@ -294,7 +321,6 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
 
         self.deallocate_register(iteration_count);
         self.deallocate_register(start_value_register);
-        self.deallocate_register(end_value_register);
         self.deallocate_register(index_at_end_of_array);
     }
 }

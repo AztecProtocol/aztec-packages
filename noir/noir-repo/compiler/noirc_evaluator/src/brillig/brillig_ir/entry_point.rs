@@ -193,7 +193,6 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         flattened_array_pointer: MemoryAddress,
     ) -> MemoryAddress {
         if Self::has_nested_arrays(item_type) {
-            let movement_register = self.allocate_register();
             let deflattened_array_pointer = self.allocate_register();
 
             let target_item_size = item_type.len();
@@ -221,15 +220,11 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
 
                     match subitem {
                         BrilligParameter::SingleAddr(_) => {
-                            self.codegen_array_get(
+                            self.codegen_array_item_copy(
                                 flattened_array_pointer,
                                 source_index,
-                                movement_register,
-                            );
-                            self.codegen_array_set(
                                 deflattened_array_pointer,
                                 target_index,
-                                movement_register,
                             );
                             source_offset += 1;
                         }
@@ -284,8 +279,6 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
                     self.deallocate_single_addr(target_index);
                 }
             }
-
-            self.deallocate_register(movement_register);
 
             deflattened_array_pointer
         } else {
@@ -376,8 +369,6 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         deflattened_array_pointer: MemoryAddress,
     ) {
         if Self::has_nested_arrays(item_type) {
-            let movement_register = self.allocate_register();
-
             let source_item_size = item_type.len();
             let target_item_size: usize = item_type.iter().map(Self::flattened_size).sum();
 
@@ -397,15 +388,11 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
 
                     match subitem {
                         BrilligParameter::SingleAddr(_) => {
-                            self.codegen_array_get(
+                            self.codegen_array_item_copy(
                                 deflattened_array_pointer,
                                 source_index,
-                                movement_register,
-                            );
-                            self.codegen_array_set(
                                 flattened_array_pointer,
                                 target_index,
-                                movement_register,
                             );
                             target_offset += 1;
                         }
@@ -469,8 +456,6 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
                     self.deallocate_single_addr(target_index);
                 }
             }
-
-            self.deallocate_register(movement_register);
         } else {
             let item_count =
                 self.make_usize_constant_instruction((item_count * item_type.len()).into());

@@ -662,6 +662,15 @@ namespace Program {
             static Mov bincodeDeserialize(std::vector<uint8_t>);
         };
 
+        struct IndirectMov {
+            Program::MemoryAddress destination_pointer;
+            Program::MemoryAddress source_pointer;
+
+            friend bool operator==(const IndirectMov&, const IndirectMov&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static IndirectMov bincodeDeserialize(std::vector<uint8_t>);
+        };
+
         struct ConditionalMov {
             Program::MemoryAddress destination;
             Program::MemoryAddress source_a;
@@ -716,7 +725,7 @@ namespace Program {
             static Stop bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        std::variant<BinaryFieldOp, BinaryIntOp, Cast, JumpIfNot, JumpIf, Jump, CalldataCopy, Call, Const, Return, ForeignCall, Mov, ConditionalMov, Load, Store, BlackBox, Trap, Stop> value;
+        std::variant<BinaryFieldOp, BinaryIntOp, Cast, JumpIfNot, JumpIf, Jump, CalldataCopy, Call, Const, Return, ForeignCall, Mov, IndirectMov, ConditionalMov, Load, Store, BlackBox, Trap, Stop> value;
 
         friend bool operator==(const BrilligOpcode&, const BrilligOpcode&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -5505,6 +5514,47 @@ Program::BrilligOpcode::Mov serde::Deserializable<Program::BrilligOpcode::Mov>::
     Program::BrilligOpcode::Mov obj;
     obj.destination = serde::Deserializable<decltype(obj.destination)>::deserialize(deserializer);
     obj.source = serde::Deserializable<decltype(obj.source)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const BrilligOpcode::IndirectMov &lhs, const BrilligOpcode::IndirectMov &rhs) {
+        if (!(lhs.destination_pointer == rhs.destination_pointer)) { return false; }
+        if (!(lhs.source_pointer == rhs.source_pointer)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> BrilligOpcode::IndirectMov::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<BrilligOpcode::IndirectMov>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline BrilligOpcode::IndirectMov BrilligOpcode::IndirectMov::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<BrilligOpcode::IndirectMov>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::BrilligOpcode::IndirectMov>::serialize(const Program::BrilligOpcode::IndirectMov &obj, Serializer &serializer) {
+    serde::Serializable<decltype(obj.destination_pointer)>::serialize(obj.destination_pointer, serializer);
+    serde::Serializable<decltype(obj.source_pointer)>::serialize(obj.source_pointer, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::BrilligOpcode::IndirectMov serde::Deserializable<Program::BrilligOpcode::IndirectMov>::deserialize(Deserializer &deserializer) {
+    Program::BrilligOpcode::IndirectMov obj;
+    obj.destination_pointer = serde::Deserializable<decltype(obj.destination_pointer)>::deserialize(deserializer);
+    obj.source_pointer = serde::Deserializable<decltype(obj.source_pointer)>::deserialize(deserializer);
     return obj;
 }
 

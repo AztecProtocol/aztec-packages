@@ -332,6 +332,18 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         self.push_opcode(BrilligOpcode::Mov { destination, source });
     }
 
+    /// Emits a `imov` instruction.
+    ///
+    /// Copies the value pointed by `source_pointer` into the address pointed by `destination_pointer`
+    pub(crate) fn indirect_mov_instruction(
+        &mut self,
+        destination_pointer: MemoryAddress,
+        source_pointer: MemoryAddress,
+    ) {
+        self.debug_show.indirect_mov_instruction(destination_pointer, source_pointer);
+        self.push_opcode(BrilligOpcode::IndirectMov { destination_pointer, source_pointer });
+    }
+
     /// Emits a conditional `mov` instruction.
     ///
     /// Copies the value at `source` into `destination`

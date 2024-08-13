@@ -155,6 +155,13 @@ pub fn brillig_to_avm(
                     destination_pointer.to_usize() as u32,
                 ));
             }
+            BrilligOpcode::IndirectMov { destination_pointer, source_pointer } => {
+                avm_instrs.push(generate_mov_instruction(
+                    Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                    source_pointer.to_usize() as u32,
+                    destination_pointer.to_usize() as u32,
+                ));
+            }
             BrilligOpcode::Call { location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {

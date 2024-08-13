@@ -295,6 +295,17 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                 self.memory.write(*destination_address, source_value);
                 self.increment_program_counter()
             }
+            Opcode::IndirectMov { destination_pointer, source_pointer } => {
+                // Convert our source_pointer to an address
+                let source = self.memory.read_ref(*source_pointer);
+                // Use our usize source index to lookup the value in memory
+                let value = self.memory.read(source);
+                // Convert our destination_pointer to an address
+                let destination = self.memory.read_ref(*destination_pointer);
+                // Use our usize destination index to set the value in memory
+                self.memory.write(destination, value);
+                self.increment_program_counter()
+            }
             Opcode::ConditionalMov { destination, source_a, source_b, condition } => {
                 let condition_value = self.memory.read(*condition);
                 if condition_value.try_into().expect("condition value is not a boolean") {
