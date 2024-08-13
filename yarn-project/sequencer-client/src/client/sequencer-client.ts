@@ -1,5 +1,4 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type ProverClient } from '@aztec/circuit-types/interfaces';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -7,6 +6,7 @@ import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
+import { BlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
 import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { getL1Publisher } from '../publisher/index.js';
@@ -40,7 +40,6 @@ export class SequencerClient {
     contractDataSource: ContractDataSource,
     l2BlockSource: L2BlockSource,
     l1ToL2MessageSource: L1ToL2MessageSource,
-    prover: ProverClient,
     simulationProvider: SimulationProvider,
     telemetryClient: TelemetryClient,
   ) {
@@ -61,7 +60,7 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
-      prover,
+      new BlockBuilderFactory(simulationProvider, telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
