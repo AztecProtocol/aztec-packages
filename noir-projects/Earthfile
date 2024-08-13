@@ -11,6 +11,7 @@ source:
   WORKDIR /usr/src/noir-projects
 
   # Copy source.
+  COPY package.json yarn.lock mega_honk_circuits.json .
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
   # for debugging rebuilds
