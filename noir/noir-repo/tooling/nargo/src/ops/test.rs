@@ -52,7 +52,12 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                     &compiled_program.program,
                     WitnessMap::new(),
                     blackbox_solver,
-                    &mut DefaultForeignCallExecutor::new(show_output, foreign_call_resolver_url),
+                    &mut DefaultForeignCallExecutor::new(
+                        show_output,
+                        foreign_call_resolver_url,
+                        root_path,
+                        package_name,
+                    ),
                 );
                 test_status_program_compile_pass(
                     test_function,
@@ -88,6 +93,8 @@ pub fn run_test<B: BlackBoxFunctionSolver<FieldElement>>(
                                 &mut DefaultForeignCallExecutor::<FieldElement>::new(
                                     false,
                                     foreign_call_resolver_url,
+                                    root_path.clone(),
+                                    package_name.clone(),
                                 ),
                             )
                             .map_err(|err| err.to_string())
