@@ -119,6 +119,8 @@ template <class Builder> class DataBusDepot {
         auto& public_inputs = inst_2->public_inputs;
         auto& commitments = inst_2->witness_commitments;
 
+        info("Databus execute: is_kernel = ", is_kernel_instance);
+
         // Assert equality between return data commitments propagated via the public inputs and the corresponding
         // calldata commitment
         if (is_kernel_instance) { // only kernels can contain commitments propagated via public inputs
