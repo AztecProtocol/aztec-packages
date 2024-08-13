@@ -9,6 +9,10 @@
 
 using namespace bb;
 
+/**
+ * @brief A test suite that mirrors the logic in the nominal IVC benchmark case
+ *
+ */
 class AztecIVCIntegrationTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
@@ -49,9 +53,8 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
 };
 
 /**
- * @brief Prove and verify accumulation of a set of mocked private function execution circuits
- * @details This case is meant to mirror the medium complexity benchmark configuration case but processes only 6
- * circuits total (3 app, 3 kernel) to save time.
+ * @brief Prove and verify accumulation of a set of mocked private function execution circuits with precomputed
+ * verification keys
  *
  */
 TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
@@ -73,4 +76,36 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
+ * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
+ * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test tampers
+ * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return data.
+ * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and thus
+ * causes failure of the IVC to verify.
+ *
+ */
+TEST_F(AztecIVCIntegrationTests, DatabusFailure)
+{
+    AztecIVC ivc;
+    ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
+
+    MockCircuitProducer circuit_producer;
+
+    // Construct and accumulate a series of mocked private function execution circuits
+    size_t NUM_CIRCUITS = 6;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        Builder circuit = circuit_producer.create_next_circuit(ivc);
+
+        // Tamper with the return data of the second app circuit before it is processed as input to the next kernel
+        if (idx == 2) {
+            circuit_producer.tamper_with_databus();
+        }
+
+        ivc.execute_accumulation_prover(circuit);
+    }
+
+    EXPECT_FALSE(ivc.prove_and_verify());
 };
