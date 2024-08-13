@@ -1,5 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
@@ -18,12 +18,10 @@ export type AztecNodeConfig = ArchiverConfig &
   SequencerClientConfig &
   ProverClientConfig &
   WorldStateConfig &
+  Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig & {
     /** Whether the sequencer is disabled for this node. */
     disableSequencer: boolean;
-
-    /** Whether the prover is disabled for this node. */
-    disableProver: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -34,15 +32,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...p2pConfigMappings,
   disableSequencer: {
     env: 'SEQ_DISABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
     description: 'Whether the sequencer is disabled for this node.',
-  },
-  disableProver: {
-    env: 'PROVER_DISABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
-    description: 'Whether the prover is disabled for this node.',
+    ...booleanConfigHelper(),
   },
 };
 

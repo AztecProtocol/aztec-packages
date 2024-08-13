@@ -80,6 +80,7 @@ export type CircuitName =
   | 'private-kernel-init'
   | 'private-kernel-inner'
   | 'private-kernel-reset-full'
+  | 'private-kernel-reset-full-inner'
   | 'private-kernel-reset-big'
   | 'private-kernel-reset-medium'
   | 'private-kernel-reset-small'
@@ -93,7 +94,8 @@ export type CircuitName =
   | 'public-kernel-tail'
   | 'avm-circuit'
   | 'empty-nested'
-  | 'private-kernel-empty';
+  | 'private-kernel-empty'
+  | 'tube-circuit';
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
