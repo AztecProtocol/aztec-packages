@@ -61,6 +61,42 @@ void AztecIVC::execute_accumulation_prover(ClientCircuit& circuit,
     // Set the instance verification key from precomputed if available, else compute it
     instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
 
+    if (instance_vk->databus_propagation_data.is_kernel) {
+        info("Kernel:");
+        info("calldata:");
+        for (size_t i = 0; i < 5; ++i) {
+            auto& val = prover_instance->proving_key.polynomials.calldata[i];
+            info(val);
+        }
+        info("secondary calldata:");
+        for (size_t i = 0; i < 5; ++i) {
+            auto& val = prover_instance->proving_key.polynomials.secondary_calldata[i];
+            info(val);
+        }
+        info("return data:");
+        for (size_t i = 0; i < 5; ++i) {
+            auto& val = prover_instance->proving_key.polynomials.return_data[i];
+            info(val);
+        }
+    } else {
+        info("App:");
+        info("calldata:");
+        for (size_t i = 0; i < 5; ++i) {
+            auto& val = prover_instance->proving_key.polynomials.calldata[i];
+            info(val);
+        }
+        info("secondary calldata:");
+        for (size_t i = 0; i < 5; ++i) {
+            auto& val = prover_instance->proving_key.polynomials.secondary_calldata[i];
+            info(val);
+        }
+        info("return data:");
+        for (size_t i = 0; i < 5; ++i) {
+            auto& val = prover_instance->proving_key.polynomials.return_data[i];
+            info(val);
+        }
+    }
+
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (!initialized) {
         fold_output.accumulator = prover_instance;

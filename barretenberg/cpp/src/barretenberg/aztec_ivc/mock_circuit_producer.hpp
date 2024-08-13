@@ -17,9 +17,58 @@ namespace {
 class PrivateFunctionExecutionMockCircuitProducer {
     using ClientCircuit = AztecIVC::ClientCircuit;
     using Flavor = MegaFlavor;
+    using FF = Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;
+
+    struct MockDatabusProducer {
+        using BusArray = std::vector<FF>;
+
+        static constexpr size_t BUS_ARRAY_SIZE = 3; // arbitrary length of mock bus arrrays
+        BusArray app_return_data;
+        BusArray kernel_return_data;
+
+        FF dummy_val = 1;
+
+        BusArray generate_random_bus_array()
+        {
+            BusArray result;
+            for (size_t i = 0; i < BUS_ARRAY_SIZE; ++i) {
+                result.emplace_back(dummy_val);
+                // result.emplace_back(FF::random_element());
+            }
+            dummy_val += 1;
+            return result;
+        }
+
+        void populate_app_databus(ClientCircuit& circuit)
+        {
+            // update the app return data and populate it in the circuit
+            app_return_data = generate_random_bus_array();
+            for (auto& val : app_return_data) {
+                circuit.add_public_return_data(circuit.add_variable(val));
+            }
+        };
+
+        void populate_kernel_databus(ClientCircuit& circuit)
+        {
+            // populate the two calldata inputs from the previous kernel and app return data (if it exists)
+            for (auto& val : kernel_return_data) {
+                circuit.add_public_calldata(circuit.add_variable(val));
+            }
+            for (auto& val : app_return_data) {
+                circuit.add_public_secondary_calldata(circuit.add_variable(val));
+            }
+            // update the kernel return data and populate it in the circuit
+            kernel_return_data = generate_random_bus_array();
+            for (auto& val : kernel_return_data) {
+                circuit.add_public_return_data(circuit.add_variable(val));
+            }
+        };
+    };
+
+    MockDatabusProducer mock_databus;
 
   public:
     ClientCircuit create_next_circuit(AztecIVC& ivc)
@@ -31,11 +80,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         if (is_kernel) {
             GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+            mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
             ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
         } else {
-            // bool use_large_circuit = false; // first circuit is size 2^19
-            bool use_large_circuit = (circuit_counter == 1); // first circuit is size 2^19
-            GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit);
+            bool use_large_circuit = (circuit_counter == 1);                            // first circuit is size 2^19
+            GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
+            mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
         }
         return circuit;
     }
