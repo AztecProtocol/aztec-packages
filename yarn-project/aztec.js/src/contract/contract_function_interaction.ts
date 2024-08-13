@@ -23,7 +23,7 @@ export type SimulateMethodOptions = {
   from?: AztecAddress;
   /** Gas settings for the simulation. */
   gasSettings?: GasSettings;
-  /** Option to throw an error if simulation does not produce a valid transaction. */
+  /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
 };
 
