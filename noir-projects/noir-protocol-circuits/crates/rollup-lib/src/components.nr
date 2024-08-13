@@ -103,41 +103,14 @@ pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs
 ) -> [FeeRecipient; 32] {
-    // TODO(Miranda): Do we need to validate_array? We know that block_root is valid by construction, then block_merge constructs as below
     let left_len = array_length(left.fees);
     let right_len = array_length(right.fees);
     assert(left_len + right_len <= 32, "too many fee payment structs accumulated in rollup");
-    let mut res = left.fees;
-    let mut should_check = true;
-    let mut offset = 0;
+    // TODO(Miranda): combine fees with same recipient depending on rollup structure
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
-    // TODO(Miranda): The below is a slow but working version for now. When we constrain either wonky or variable balanced rollups,
-    // construct the below in unconstrained, then constrain with hints, like squashing in reset.
-    for i in 0..16 {
-        // Since each fee arr comes from either block_root or this fn, we know left.fees and right.fees are deduped
-        // => it's sufficient to init the result as left.fees, then check each right.fees against it for any matching recipients.
-        // TODO: we only check !added here because an empty array member will have the zero address, which also
-        // may be a valid fee recipient, to avoid doubling counting. Should change the default to MAX_FIELD rather than zero?
-        // should_check is true before we check all non-empty elts of right.fees, false after
-        should_check &= i != right_len;
-        if should_check {
-            let mut added = false;
-            for j in 0..16 {
-                // If we find a matching recipient for this (right.fees[i]) fee, accumulate...
-                if (!added) & (right.fees[i].recipient == res[j].recipient) {
-                    res[j].value += right.fees[i].value;
-                    added = true;
-                }
-            }
-            // ...otherwise, push it to the 'end' and point to the new next available index
-            if !added {
-                res[left_len + offset] = right.fees[i];
-                offset += 1;
-            }
-        }
-    }
-    res
+    // Either way, construct arr in unconstrained and make use of hints to point to merged fee array.
+    array_merge(left.fees, right.fees)
 }
 
 /**

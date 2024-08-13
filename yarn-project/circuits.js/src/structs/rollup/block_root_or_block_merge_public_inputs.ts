@@ -112,7 +112,6 @@ export class BlockRootOrBlockMergePublicInputs {
   }
 }
 
-// TODO(Miranda): Move into own file?
 export class FeeRecipient {
   constructor(public recipient: EthAddress, public value: Fr) {}
 

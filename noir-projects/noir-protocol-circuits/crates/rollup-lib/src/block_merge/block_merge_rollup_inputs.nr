@@ -73,7 +73,7 @@ mod tests {
         block_merge::block_merge_rollup_inputs::BlockMergeRollupInputs,
         tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs
     };
-    use dep::types::{hash::accumulate_sha256, address::EthAddress, traits::is_empty};
+    use dep::types::{hash::accumulate_sha256, address::EthAddress};
     use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX};
 
     #[test(should_fail_with="input blocks have different chain id")]
@@ -127,16 +127,19 @@ mod tests {
     fn block_fees_are_accumulated() {
         let mut inputs = default_block_merge_rollup_inputs();
         let outputs = inputs.block_merge_rollup_circuit();
-        // Default previous rollup inputs have the same fee recipient, so they should be accumulated into one
-        let expected_fee_total = inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value
-            + inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value;
-        assert_eq(outputs.fees[0].value, expected_fee_total);
-        assert(is_empty(outputs.fees[1]));
+        // TODO(Miranda): Uncomment below when fees are accumulated: components.nr -> accumulate_blocks_fees()
 
-        inputs = default_block_merge_rollup_inputs();
-        // Force each previous rollup to have different fee recipients
-        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].recipient = EthAddress::from_field(2);
-        let outputs = inputs.block_merge_rollup_circuit();
+        // // Default previous rollup inputs have the same fee recipient, so they should be accumulated into one
+        // let expected_fee_total = inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value
+        //     + inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value;
+        // assert_eq(outputs.fees[0].value, expected_fee_total);
+        // assert(is_empty(outputs.fees[1]));
+
+        // inputs = default_block_merge_rollup_inputs();
+        // // Force each previous rollup to have different fee recipients
+        // inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].recipient = EthAddress::from_field(2);
+        // let outputs = inputs.block_merge_rollup_circuit();
+
         assert_eq(
             outputs.fees[0], inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0]
         );
