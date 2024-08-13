@@ -1,6 +1,6 @@
 contract Claim {
     use dep::aztec::{
-        note::utils::compute_note_hash_for_consumption,
+        note::utils::compute_note_hash_for_nullify,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::SharedImmutable
     };
@@ -41,8 +41,8 @@ contract Claim {
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
         // handle it on its own.
-        let note_hash_for_consumption = compute_note_hash_for_consumption(proof_note);
-        let nullifier = proof_note.compute_nullifier(&mut context, note_hash_for_consumption);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(proof_note);
+        let nullifier = proof_note.compute_nullifier(&mut context, note_hash_for_nullify);
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction

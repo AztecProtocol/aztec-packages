@@ -1,7 +1,7 @@
 use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    note::utils::compute_note_hash_for_consumption, oracle::unsafe_rand::unsafe_rand,
+    note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app
 };
 
@@ -26,10 +26,10 @@ struct TokenNote {
 
 impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:start:nullifier
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_consumption: Field) -> Field {
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator([
-            note_hash_for_consumption,
+            note_hash_for_nullify,
             secret
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -38,10 +38,10 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:end:nullifier
 
     fn compute_nullifier_without_context(self) -> Field {
-        let note_hash_for_consumption = compute_note_hash_for_consumption(self);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator([
-            note_hash_for_consumption,
+            note_hash_for_nullify,
             secret,
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,

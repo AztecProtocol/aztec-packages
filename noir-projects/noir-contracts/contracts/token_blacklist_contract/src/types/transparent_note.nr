@@ -1,6 +1,6 @@
 // docs:start:token_types_all
 use dep::aztec::{
-    note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
+    note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_nullify},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
@@ -40,7 +40,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
         }
     }
 
-    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_consumption: Field) -> Field {
+    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
         self.compute_nullifier_without_context()
     }
 
@@ -53,9 +53,9 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
     //         circuit. 
     // This achieves that the note can only be spent by the party that knows the secret.
     fn compute_nullifier_without_context(self) -> Field {
-        let note_hash_for_consumption = compute_note_hash_for_consumption(self);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         poseidon2_hash_with_separator([
-            note_hash_for_consumption,
+            note_hash_for_nullify,
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )

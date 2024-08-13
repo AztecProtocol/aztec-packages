@@ -9,7 +9,7 @@ trait NoteInterface<let N: u32, let M: u32> {
     // The reason why we receive this as an argument instead of computing it ourselves directly is because the
     // caller will typically already have computed this note hash, and we can reuse that value to reduce the total
     // gate count of the circuit.
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_consumption: Field) -> Field;
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field;
 
     // Unlike compute_nullifier, this function does not take a note hash since it'll only be invoked in unconstrained
     // contexts, where there is no gate count.

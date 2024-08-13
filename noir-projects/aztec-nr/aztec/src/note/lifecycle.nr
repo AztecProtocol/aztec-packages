@@ -1,7 +1,7 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_note_hash_for_read_request, compute_note_hash_for_consumption_internal},
+    utils::{compute_note_hash_for_read_request, compute_note_hash_for_nullify_internal},
     note_emission::NoteEmission
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
@@ -66,8 +66,8 @@ pub fn destroy_note_unsafe<Note, N, M>(
     note: Note,
     note_hash_for_read_request: Field
 ) where Note: NoteInterface<N, M> {
-    let note_hash_for_consumption = compute_note_hash_for_consumption_internal(note, note_hash_for_read_request);
-    let nullifier = note.compute_nullifier(context, note_hash_for_consumption);
+    let note_hash_for_nullify = compute_note_hash_for_nullify_internal(note, note_hash_for_read_request);
+    let nullifier = note.compute_nullifier(context, note_hash_for_nullify);
 
     let note_hash_counter = note.get_header().note_hash_counter;
     let notification_note_hash = if (note_hash_counter == 0) {
@@ -79,7 +79,7 @@ pub fn destroy_note_unsafe<Note, N, M>(
         // hash with real value to inform the kernel which note we're nullifyng so that it can either squash both
         // the note and the nullifier if it's an inner note hash, or check that the it matches a pending note if it's
         // a siloed note hash.
-        note_hash_for_consumption
+        note_hash_for_nullify
     };
 
     let nullifier_counter = context.side_effect_counter;

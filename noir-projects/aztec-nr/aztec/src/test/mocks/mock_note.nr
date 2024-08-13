@@ -40,7 +40,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
       0
     }
 
-    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, _note_hash_for_consumption: Field) -> Field {
+    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
       0
     }
 
