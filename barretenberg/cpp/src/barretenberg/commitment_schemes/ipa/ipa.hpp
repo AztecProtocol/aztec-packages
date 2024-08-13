@@ -79,7 +79,7 @@ template <typename Curve_> class IPA {
    using Commitment = typename Curve::AffineElement;
    using CK = CommitmentKey<Curve>;
    using VK = VerifierCommitmentKey<Curve>;
-   using Polynomial = bb::SparsePolynomial<Fr>;
+   using Polynomial = bb::Polynomial<Fr>;
    using VerifierAccumulator = bool;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically

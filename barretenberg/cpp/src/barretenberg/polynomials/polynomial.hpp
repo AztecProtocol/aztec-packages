@@ -10,7 +10,7 @@
 namespace bb {
 
 /**
- * @brief Sparse polynomial class that represents the coefficients 'a' of a_0 + a_1 x + a_n x^n of
+ * @brief Structured polynomial class that represents the coefficients 'a' of a_0 + a_1 x + a_n x^n of
  * a finite field polynomial equation of degree that is at most the size of some zk circuit.
  * Past 'n' it has a virtual size where it conceptually has coefficients all equal to 0.
  * Notably, we allow indexing past 'n' up to our virtual size (checked only in a debug build, however).
@@ -23,31 +23,31 @@ namespace bb {
  *
  * @tparam Fr the finite field type.
  */
-template <typename Fr> class SparsePolynomial {
+template <typename Fr> class Polynomial {
   public:
     using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
-    SparsePolynomial(size_t size, size_t virtual_size);
+    Polynomial(size_t size, size_t virtual_size);
     // Intended just for plonk, where size == virtual_size always
-    SparsePolynomial(size_t size)
-        : SparsePolynomial(size, size)
+    Polynomial(size_t size)
+        : Polynomial(size, size)
     {}
     // Constructor that does not initialize values, use with caution to save time.
-    SparsePolynomial(size_t size, size_t virtual_size, DontZeroMemory flag);
-    SparsePolynomial(const SparsePolynomial& other);
-    SparsePolynomial(const SparsePolynomial& other, size_t target_size);
+    Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag);
+    Polynomial(const Polynomial& other);
+    Polynomial(const Polynomial& other, size_t target_size);
 
-    SparsePolynomial(SparsePolynomial&& other) noexcept = default;
+    Polynomial(Polynomial&& other) noexcept = default;
 
-    SparsePolynomial(std::span<const Fr> coefficients, size_t virtual_size);
+    Polynomial(std::span<const Fr> coefficients, size_t virtual_size);
 
-    SparsePolynomial(std::span<const Fr> coefficients)
-        : SparsePolynomial(coefficients, coefficients.size())
+    Polynomial(std::span<const Fr> coefficients)
+        : Polynomial(coefficients, coefficients.size())
     {}
 
     // Allow polynomials to be entirely reset/dormant
-    SparsePolynomial() = default;
+    Polynomial() = default;
 
     /**
      * @brief Create the degree-(m-1) polynomial T(X) that interpolates the given evaluations.
@@ -56,17 +56,17 @@ template <typename Fr> class SparsePolynomial {
      * @param interpolation_points (x₁,…,xₘ)
      * @param evaluations (y₁,…,yₘ)
      */
-    SparsePolynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations, size_t virtual_size);
+    Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations, size_t virtual_size);
 
     // move assignment
-    SparsePolynomial& operator=(SparsePolynomial&& other) noexcept = default;
-    SparsePolynomial& operator=(const SparsePolynomial& other);
-    ~SparsePolynomial() = default;
+    Polynomial& operator=(Polynomial&& other) noexcept = default;
+    Polynomial& operator=(const Polynomial& other);
+    ~Polynomial() = default;
 
     /**
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
-    SparsePolynomial share() const;
+    Polynomial share() const;
 
     void clear() { coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{}; }
 
@@ -88,7 +88,7 @@ template <typename Fr> class SparsePolynomial {
         return true;
     }
 
-    bool operator==(SparsePolynomial const& rhs) const;
+    bool operator==(Polynomial const& rhs) const;
 
     void set(size_t i, const Fr& value) { coefficients_.set(i, value); };
     Fr get(size_t i) const { return coefficients_.get(i); };
@@ -106,7 +106,7 @@ template <typename Fr> class SparsePolynomial {
      * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
-    SparsePolynomial shifted() const;
+    Polynomial shifted() const;
 
     /**
      * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)
@@ -137,7 +137,7 @@ template <typename Fr> class SparsePolynomial {
      * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
      * @return DensePolynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
      */
-    SparsePolynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
+    Polynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
 
     Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
@@ -197,21 +197,21 @@ template <typename Fr> class SparsePolynomial {
      *
      * @param other q(X)
      */
-    SparsePolynomial& operator+=(std::span<const Fr> other);
+    Polynomial& operator+=(std::span<const Fr> other);
 
     /**
      * @brief subtracts the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    SparsePolynomial& operator-=(std::span<const Fr> other);
+    Polynomial& operator-=(std::span<const Fr> other);
 
     /**
      * @brief sets this = p(X) to s⋅p(X)
      *
      * @param scaling_factor s
      */
-    SparsePolynomial& operator*=(Fr scaling_factor);
+    Polynomial& operator*=(Fr scaling_factor);
 
     std::span<const Fr> as_span() const
     {
@@ -234,11 +234,11 @@ template <typename Fr> class SparsePolynomial {
         return coefficients_.data()[i];
     }
 
-    static SparsePolynomial random(size_t size) { return random(size, size); }
+    static Polynomial random(size_t size) { return random(size, size); }
 
-    static SparsePolynomial random(size_t size, size_t virtual_size)
+    static Polynomial random(size_t size, size_t virtual_size)
     {
-        SparsePolynomial p(size, virtual_size, DontZeroMemory::FLAG);
+        Polynomial p(size, virtual_size, DontZeroMemory::FLAG);
         std::generate_n(p.coefficients_.data(), size, []() { return Fr::random_element(); });
         return p;
     }
@@ -261,7 +261,7 @@ template <typename Fr> class SparsePolynomial {
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
 
-template <typename Fr> inline std::ostream& operator<<(std::ostream& os, SparsePolynomial<Fr> const& p)
+template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynomial<Fr> const& p)
 {
     if (p.size() == 0) {
         return os << "[]";

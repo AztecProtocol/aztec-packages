@@ -10,7 +10,7 @@ using namespace bb;
 
 template <class FF> class GrandProductTests : public testing::Test {
 
-    using Polynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
 
   public:
     void SetUp() { srs::init_crs_factory("../srs_db/ignition"); }

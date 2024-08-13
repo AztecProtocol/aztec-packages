@@ -61,7 +61,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
   public:
     CommitmentTest()

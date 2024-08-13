@@ -8,7 +8,7 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/legacy_polynomial.hpp"
-#include "barretenberg/polynomials/sparse_polynomial.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -30,7 +30,7 @@ class UltraFlavor {
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using PCS = KZG<Curve>;
-    using Polynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 

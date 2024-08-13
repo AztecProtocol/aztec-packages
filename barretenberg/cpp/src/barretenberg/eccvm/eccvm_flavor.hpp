@@ -7,7 +7,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/polynomials/sparse_polynomial.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
@@ -31,7 +31,7 @@ class ECCVMFlavor {
     using PCS = IPA<Curve>;
     using FF = typename Curve::ScalarField;
     using BF = typename Curve::BaseField;
-    using Polynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using GroupElement = typename G1::element;
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;

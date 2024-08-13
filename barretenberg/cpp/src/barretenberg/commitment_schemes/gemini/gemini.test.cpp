@@ -1,7 +1,7 @@
 #include "gemini.hpp"
 
 #include "../commitment_key.test.hpp"
-#include "barretenberg/polynomials/sparse_polynomial.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -14,7 +14,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
-    using Polynomial = typename bb::SparsePolynomial<Fr>;
+    using Polynomial = typename bb::Polynomial<Fr>;
 
   public:
     void execute_gemini_and_verify_claims(size_t log_n,

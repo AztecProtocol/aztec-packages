@@ -30,7 +30,7 @@ class UltraKeccakFlavor {
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using PCS = KZG<Curve>;
-    using Polynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 

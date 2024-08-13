@@ -1,4 +1,4 @@
-#include "sparse_polynomial.hpp"
+#include "polynomial.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -22,7 +22,7 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
     return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
 }
 
-template <typename Fr> void SparsePolynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size)
+template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size)
 {
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         size,                              /* actual memory size */
@@ -41,7 +41,7 @@ template <typename Fr> void SparsePolynomial<Fr>::allocate_backing_memory(size_t
  *
  * @param size The size of the polynomial.
  */
-template <typename Fr> SparsePolynomial<Fr>::SparsePolynomial(size_t size, size_t virtual_size)
+template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size)
 {
     allocate_backing_memory(size, virtual_size);
     memset(static_cast<void*>(coefficients_.data()), 0, sizeof(Fr) * size);
@@ -54,7 +54,7 @@ template <typename Fr> SparsePolynomial<Fr>::SparsePolynomial(size_t size, size_
  * @param size The initial size of the polynomial.
  * @param flag Signals that we do not zero memory.
  */
-template <typename Fr> SparsePolynomial<Fr>::SparsePolynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
+template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
 {
     // Flag is unused, but we don't memset 0 if passed.
     (void)flag;
@@ -62,13 +62,12 @@ template <typename Fr> SparsePolynomial<Fr>::SparsePolynomial(size_t size, size_
 }
 
 template <typename Fr>
-SparsePolynomial<Fr>::SparsePolynomial(const SparsePolynomial<Fr>& other)
-    : SparsePolynomial<Fr>(other, other.size())
+Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
+    : Polynomial<Fr>(other, other.size())
 {}
 
 // fully copying "expensive" constructor
-template <typename Fr>
-SparsePolynomial<Fr>::SparsePolynomial(const SparsePolynomial<Fr>& other, const size_t target_size)
+template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
     allocate_backing_memory(std::max(target_size, other.size()), other.virtual_size());
 
@@ -79,10 +78,10 @@ SparsePolynomial<Fr>::SparsePolynomial(const SparsePolynomial<Fr>& other, const 
 
 // interpolation constructor
 template <typename Fr>
-SparsePolynomial<Fr>::SparsePolynomial(std::span<const Fr> interpolation_points,
-                                       std::span<const Fr> evaluations,
-                                       size_t virtual_size)
-    : SparsePolynomial(interpolation_points.size(), virtual_size)
+Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
+                           std::span<const Fr> evaluations,
+                           size_t virtual_size)
+    : Polynomial(interpolation_points.size(), virtual_size)
 {
     ASSERT(coefficients_.size() > 0);
 
@@ -90,7 +89,7 @@ SparsePolynomial<Fr>::SparsePolynomial(std::span<const Fr> interpolation_points,
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
 }
 
-template <typename Fr> SparsePolynomial<Fr>::SparsePolynomial(std::span<const Fr> coefficients, size_t virtual_size)
+template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
 {
     allocate_backing_memory(coefficients.size(), virtual_size);
 
@@ -100,7 +99,7 @@ template <typename Fr> SparsePolynomial<Fr>::SparsePolynomial(std::span<const Fr
 // Assignments
 
 // full copy "expensive" assignment
-template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator=(const SparsePolynomial<Fr>& other)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomial<Fr>& other)
 {
     if (this == &other) {
         return *this;
@@ -112,14 +111,14 @@ template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator=(con
     return *this;
 }
 
-template <typename Fr> SparsePolynomial<Fr> SparsePolynomial<Fr>::share() const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
 {
-    SparsePolynomial p;
+    Polynomial p;
     p.coefficients_ = coefficients_;
     return p;
 }
 
-template <typename Fr> bool SparsePolynomial<Fr>::operator==(SparsePolynomial const& rhs) const
+template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) const
 {
     // If either is empty, both must be
     if (is_empty() || rhs.is_empty()) {
@@ -138,7 +137,7 @@ template <typename Fr> bool SparsePolynomial<Fr>::operator==(SparsePolynomial co
     return true;
 }
 
-template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator+=(std::span<const Fr> other)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(std::span<const Fr> other)
 {
     const size_t other_size = other.size();
     ASSERT(in_place_operation_viable(other_size));
@@ -157,17 +156,17 @@ template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator+=(st
     return *this;
 }
 
-template <typename Fr> Fr SparsePolynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
+template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
     return polynomial_arithmetic::evaluate(data(), z, target_size);
 }
 
-template <typename Fr> Fr SparsePolynomial<Fr>::evaluate(const Fr& z) const
+template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
     return polynomial_arithmetic::evaluate(data(), z, size());
 }
 
-template <typename Fr> Fr SparsePolynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
+template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
     const size_t m = evaluation_points.size();
 
@@ -208,8 +207,7 @@ template <typename Fr> Fr SparsePolynomial<Fr>::evaluate_mle(std::span<const Fr>
     return result;
 }
 
-template <typename Fr>
-SparsePolynomial<Fr> SparsePolynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
 {
     // Get size of partial evaluation point u = (u_0,...,u_{m-1})
     const size_t m = evaluation_points.size();
@@ -225,7 +223,7 @@ SparsePolynomial<Fr> SparsePolynomial<Fr>::partial_evaluate_mle(std::span<const 
     size_t n_l = 1 << (n - 1);
 
     // Temporary buffer of half the size of the SparsePolynomial
-    SparsePolynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
+    Polynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
@@ -244,7 +242,7 @@ SparsePolynomial<Fr> SparsePolynomial<Fr>::partial_evaluate_mle(std::span<const 
     }
 
     // Construct resulting SparsePolynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    SparsePolynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
+    Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = intermediate[idx];
     }
@@ -257,7 +255,7 @@ SparsePolynomial<Fr> SparsePolynomial<Fr>::partial_evaluate_mle(std::span<const 
  **/
 
 template <typename Fr>
-void SparsePolynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
+void Polynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -267,7 +265,7 @@ void SparsePolynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
+void Polynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -277,7 +275,7 @@ void SparsePolynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr co
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
+void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -287,9 +285,9 @@ void SparsePolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
-                                     const EvaluationDomain<Fr>& large_domain,
-                                     const size_t domain_extension)
+void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
+                               const EvaluationDomain<Fr>& large_domain,
+                               const size_t domain_extension)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     size_t extended_size = domain.size * domain_extension;
@@ -301,7 +299,7 @@ void SparsePolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+void Polynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -311,7 +309,7 @@ void SparsePolynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& d
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
+void Polynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -321,7 +319,7 @@ void SparsePolynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
+void Polynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -331,7 +329,7 @@ void SparsePolynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+void Polynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -341,7 +339,7 @@ void SparsePolynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain
 }
 
 template <typename Fr>
-void SparsePolynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
+void Polynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -351,30 +349,30 @@ void SparsePolynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-Fr SparsePolynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
+Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_kate_opening_coefficients(data(), data(), z, size());
 }
 
 template <typename Fr>
-Fr SparsePolynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
+Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
 }
 
 template <typename Fr>
-Fr SparsePolynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
-                                           const Fr& z,
-                                           const EvaluationDomain<Fr>& small_domain)
+Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
+                                     const Fr& z,
+                                     const EvaluationDomain<Fr>& small_domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 
 {
     return polynomial_arithmetic::evaluate_from_fft(data(), large_domain, z, small_domain);
 }
 
-template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator-=(std::span<const Fr> other)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<const Fr> other)
 {
     const size_t other_size = other.size();
     ASSERT(in_place_operation_viable(other_size));
@@ -393,7 +391,7 @@ template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator-=(st
     return *this;
 }
 
-template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator*=(const Fr scaling_factor)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
 {
     ASSERT(in_place_operation_viable());
 
@@ -411,7 +409,7 @@ template <typename Fr> SparsePolynomial<Fr>& SparsePolynomial<Fr>::operator*=(co
     return *this;
 }
 
-template <typename Fr> void SparsePolynomial<Fr>::add_scaled(std::span<const Fr> other, Fr scaling_factor)
+template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other, Fr scaling_factor)
 {
     const size_t other_size = other.size();
     ASSERT(in_place_operation_viable(other_size));
@@ -434,9 +432,9 @@ template <typename Fr> void SparsePolynomial<Fr>::add_scaled(std::span<const Fr>
  * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
  * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
  */
-template <typename Fr> SparsePolynomial<Fr> SparsePolynomial<Fr>::shifted() const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
-    SparsePolynomial result;
+    Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.shift_ += 1;
     // We only expect to shift by 1
@@ -449,7 +447,7 @@ template <typename Fr> SparsePolynomial<Fr> SparsePolynomial<Fr>::shifted() cons
  * @brief sets a block of memory to all zeroes
  * Used, for example, when one Polynomioal is instantiated from another one with size_>= other.size_.
  */
-template <typename Fr> void SparsePolynomial<Fr>::zero_memory_beyond(const size_t start_position)
+template <typename Fr> void Polynomial<Fr>::zero_memory_beyond(const size_t start_position)
 {
     size_t end = size();
     ASSERT(end >= start_position);
@@ -460,7 +458,7 @@ template <typename Fr> void SparsePolynomial<Fr>::zero_memory_beyond(const size_
     }
 }
 
-template class SparsePolynomial<bb::fr>;
-template class SparsePolynomial<grumpkin::fr>;
+template class Polynomial<bb::fr>;
+template class Polynomial<grumpkin::fr>;
 
 } // namespace bb

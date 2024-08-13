@@ -19,7 +19,7 @@ template <typename Curve_> class KZG {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
     using VerifierAccumulator = std::array<GroupElement, 2>;
 
     /**

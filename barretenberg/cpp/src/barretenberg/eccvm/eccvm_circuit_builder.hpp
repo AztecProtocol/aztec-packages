@@ -8,7 +8,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/polynomials/sparse_polynomial.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
@@ -18,7 +18,7 @@ class ECCVMCircuitBuilder {
   public:
     using CycleGroup = bb::g1;
     using FF = grumpkin::fr;
-    using Polynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
 
     using CycleScalar = typename CycleGroup::subgroup_field;
     using Element = typename CycleGroup::element;

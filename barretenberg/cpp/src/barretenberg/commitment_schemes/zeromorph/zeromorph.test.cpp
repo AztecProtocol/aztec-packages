@@ -10,7 +10,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
   public:
     using Curve = typename PCS::Curve;
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using VerifierAccumulator = typename PCS::VerifierAccumulator;
@@ -326,7 +326,7 @@ TYPED_TEST(ZeroMorphTest, QuotientConstruction)
     using Curve = typename TypeParam::Curve;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     // Define size parameters
     size_t N = 16;
@@ -374,7 +374,7 @@ TYPED_TEST(ZeroMorphTest, BatchedLiftedDegreeQuotient)
     using Curve = typename TypeParam::Curve;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     const size_t N = 8;
 
@@ -419,7 +419,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZeta)
     using Curve = typename TypeParam::Curve;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     const size_t N = 8;
 
@@ -503,7 +503,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     using Curve = typename TypeParam::Curve;
     using ZeroMorphProver = ZeroMorphProver_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::SparsePolynomial<Fr>;
+    using Polynomial = bb::Polynomial<Fr>;
 
     const size_t N = 8;
     size_t log_N = numeric::get_msb(N);

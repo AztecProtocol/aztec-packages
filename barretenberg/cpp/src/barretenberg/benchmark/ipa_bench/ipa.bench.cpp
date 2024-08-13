@@ -1,5 +1,5 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
-#include "barretenberg/polynomials/sparse_polynomial.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;
@@ -8,7 +8,7 @@ using namespace bb;
 namespace {
 using Curve = curve::Grumpkin;
 using Fr = Curve::ScalarField;
-using Polynomial = SparsePolynomial<Fr>;
+using Polynomial = Polynomial<Fr>;
 
 constexpr size_t MIN_POLYNOMIAL_DEGREE_LOG2 = 10;
 constexpr size_t MAX_POLYNOMIAL_DEGREE_LOG2 = 16;

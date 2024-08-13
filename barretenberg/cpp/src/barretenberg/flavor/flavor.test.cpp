@@ -47,7 +47,7 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
     using Flavor = UltraFlavor;
     using FF = Flavor::FF;
     using PartiallyEvaluatedMultivariates = Flavor::PartiallyEvaluatedMultivariates;
-    using Polynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
 
     PartiallyEvaluatedMultivariates polynomials_A;
     auto random_poly = Polynomial(10);

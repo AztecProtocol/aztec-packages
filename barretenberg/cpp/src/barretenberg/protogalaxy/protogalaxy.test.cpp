@@ -185,7 +185,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         // Construct fully random prover polynomials
         ProverPolynomials full_polynomials;
         for (auto& poly : full_polynomials.get_all()) {
-            poly = bb::SparsePolynomial<FF>::random(instance_size);
+            poly = bb::Polynomial<FF>::random(instance_size);
         }
 
         auto relation_parameters = bb::RelationParameters<FF>::get_random();

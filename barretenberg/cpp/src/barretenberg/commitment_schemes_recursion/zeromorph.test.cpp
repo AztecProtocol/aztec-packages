@@ -36,7 +36,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     using ZeroMorphProver = ZeroMorphProver_<NativeCurve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
-    using Polynomial = bb::SparsePolynomial<NativeFr>;
+    using Polynomial = bb::Polynomial<NativeFr>;
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
