@@ -5,7 +5,7 @@
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/sparse_polynomial.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -38,7 +38,7 @@ template <class FF> inline std::vector<FF> powers_of_challenge(const FF challeng
 template <typename Curve> class ZeroMorphProver_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
     // TODO(#742): Set this N_max to be the number of G1 elements in the mocked zeromorph SRS once it's in place.
@@ -90,7 +90,7 @@ template <typename Curve> class ZeroMorphProver_ {
         std::vector<FF> f_k;
         f_k.resize(size_q);
 
-        std::vector<FF> g(polynomial.data().get(), polynomial.data().get() + size_q);
+        std::vector<FF> g(polynomial.data(), polynomial.data() + size_q);
 
         // Compute q_k in reverse order from k= n-2, i.e. q_{n-2}, ..., q_0
         for (size_t k = 1; k < log_N; ++k) {

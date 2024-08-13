@@ -233,7 +233,7 @@ class UltraFlavor {
      * @brief A container for polynomials handles.
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/966): use inheritance
-    class ProverPolynomials : public AllEntities<SparsePolynomial> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
@@ -242,7 +242,7 @@ class UltraFlavor {
           // shifted polys
             for (auto& poly : get_unshifted()) {
                 // WORKTODO(sparse): proper lower bound on size
-                poly = SparsePolynomial{ circuit_size, circuit_size };
+                poly = Polynomial{ circuit_size };
             }
             set_shifted();
         }

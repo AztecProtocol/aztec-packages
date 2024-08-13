@@ -43,7 +43,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
     auto full_circuit_size = mini_circuit_size * Flavor::CONCATENATION_GROUP_SIZE;
@@ -160,7 +160,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
     const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
@@ -241,7 +241,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
 
     auto& engine = numeric::get_debug_randomness();
 
@@ -344,7 +344,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
 
     constexpr size_t mini_circuit_size = 2048;
@@ -719,7 +719,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     using GroupElement = typename Flavor::GroupElement;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
 
     constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     constexpr auto mini_circuit_size = 2048;

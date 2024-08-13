@@ -22,7 +22,7 @@ class IPATest : public CommitmentTest<Curve> {
     using GroupElement = typename Curve::Element;
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 };
 } // namespace
 

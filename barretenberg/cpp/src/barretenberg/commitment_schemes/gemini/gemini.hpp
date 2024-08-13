@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../claim.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/sparse_polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <vector>
@@ -59,7 +59,7 @@ namespace bb {
  */
 template <typename Curve> struct GeminiProverOutput {
     std::vector<OpeningPair<Curve>> opening_pairs;
-    std::vector<bb::Polynomial<typename Curve::ScalarField>> witnesses;
+    std::vector<SparsePolynomial<typename Curve::ScalarField>> witnesses;
 };
 
 namespace gemini {
@@ -101,7 +101,7 @@ template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t
 
 template <typename Curve> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 
   public:
     static std::vector<Polynomial> compute_gemini_polynomials(std::span<const Fr> mle_opening_point,

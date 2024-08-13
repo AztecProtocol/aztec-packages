@@ -27,7 +27,7 @@ namespace bb {
  */
 template <typename Curve> class ShplonkProver_ {
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 
   public:
     /**

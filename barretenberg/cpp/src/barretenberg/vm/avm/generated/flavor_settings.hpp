@@ -16,7 +16,7 @@ class AvmFlavorSettings {
     using PCS = KZG<Curve>;
 
     using FF = G1::subgroup_field;
-    using Polynomial = bb::Polynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
     using PolynomialHandle = std::span<FF>;
     using GroupElement = G1::element;
     using Commitment = G1::affine_element;

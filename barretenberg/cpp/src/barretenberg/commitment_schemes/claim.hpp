@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/sparse_polynomial.hpp"
 
 namespace bb {
 /**
@@ -26,7 +26,7 @@ template <typename Curve> class OpeningPair {
  */
 template <typename Curve> class ProverOpeningClaim {
     using Fr = typename Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 
   public:
     Polynomial polynomial;           // p

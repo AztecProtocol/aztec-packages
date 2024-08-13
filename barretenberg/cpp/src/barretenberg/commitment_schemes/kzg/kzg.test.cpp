@@ -19,7 +19,7 @@ template <class Curve> class KZGTest : public CommitmentTest<Curve> {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 };
 
 TYPED_TEST_SUITE(KZGTest, CommitmentSchemeParams);

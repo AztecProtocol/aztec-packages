@@ -11,7 +11,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 
   public:
     template <class CK> inline std::shared_ptr<CK> create_commitment_key(size_t num_points);
@@ -46,7 +46,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparse)
     using CK = CommitmentKey<Curve>;
     using G1 = Curve::AffineElement;
     using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
+    using Polynomial = bb::SparsePolynomial<Fr>;
 
     const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
     const size_t num_nonzero = 7;
