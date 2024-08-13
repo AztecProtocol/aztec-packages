@@ -36,7 +36,7 @@ EARTHLY_RUN_STATS_JSON="earthly-run-stats.json"
 EARTHLY_ARGS="--logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-}"
 
 function print_earthly_command_timings() {
-  jq --version || return
+  jq --version >/dev/null || return
   # Use jq to extract target names, start times, and end times
   echo "TARGET TIMES"
   jq -r '
@@ -51,7 +51,7 @@ function print_earthly_command_timings() {
     duration_s=$((duration_ns / 1000000000))
     duration_ms=$(( (duration_ns % 1000000000) / 1000000 ))
     # Print target name and duration in seconds and milliseconds
-    printf "(%d.%03ds) %s\n" "$duration_s" "$duration_ms" "$name"
+    printf "%d.%03ds - %s\n" "$duration_s" "$duration_ms" "$name"
   done | sort -n
 }
 
