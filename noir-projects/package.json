@@ -1,7 +1,6 @@
 {
-  "name": "mock-protocol-circuits",
+  "name": "noir-projects",
   "version": "0.0.0",
-  "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.609.0",
     "@aws-sdk/credential-providers": "^3.609.0",

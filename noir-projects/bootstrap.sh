@@ -37,6 +37,8 @@ esac
 # If builds fail with an amount of free memory greater than this value then it should be increased.
 MIN_PARALLEL_BUILD_MEMORY=32854492
 
+yarn
+
 if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
   echo "System does not have enough memory for parallel builds, falling back to sequential"
   ./noir-contracts/bootstrap.sh

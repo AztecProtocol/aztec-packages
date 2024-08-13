@@ -15,8 +15,6 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-yarn
-
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 $NARGO compile --silence-warnings
 
@@ -25,7 +23,7 @@ echo Using BB hash $BB_HASH
 mkdir -p "./target/keys"
 
 for pathname in "./target"/*.json; do    
-    BB_HASH=$BB_HASH node ../noir-protocol-circuits/scripts/generate_vk_json.js "$pathname" "./target/keys" &
+    BB_HASH=$BB_HASH node ../scripts/generate_vk_json.js "$pathname" "./target/keys" &
 done
 
 for job in $(jobs -p); do
