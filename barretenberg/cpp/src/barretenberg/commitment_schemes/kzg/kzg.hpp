@@ -3,7 +3,7 @@
 #include "../claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <memory>

@@ -1,7 +1,7 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 
 using namespace bb;
 
@@ -9,7 +9,7 @@ using namespace bb;
 TEST(SparsePolynomial, Shifted)
 {
     using FF = bb::fr;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = LegacyPolynomial<FF>;
     const size_t SIZE = 10;
     auto poly = Polynomial::random(SIZE);
     poly[0] = 0; // make it shiftable
@@ -35,7 +35,7 @@ TEST(SparsePolynomial, Shifted)
 TEST(SparsePolynomial, Share)
 {
     using FF = bb::fr;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = LegacyPolynomial<FF>;
     const size_t SIZE = 10;
     auto poly = Polynomial::random(SIZE);
 

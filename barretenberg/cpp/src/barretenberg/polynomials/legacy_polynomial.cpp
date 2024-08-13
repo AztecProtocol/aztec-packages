@@ -1,4 +1,4 @@
-#include "polynomial.hpp"
+#include "legacy_polynomial.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -22,7 +22,7 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(const size
     return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
 }
 
-template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t n_elements)
+template <typename Fr> void LegacyPolynomial<Fr>::allocate_backing_memory(size_t n_elements)
 {
     size_ = n_elements;
     // capacity() is size_ plus padding for shifted polynomials
@@ -39,7 +39,7 @@ template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t n_ele
  *
  * @param initial_size The initial size of the polynomial.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t initial_size)
+template <typename Fr> LegacyPolynomial<Fr>::LegacyPolynomial(size_t initial_size)
 {
     allocate_backing_memory(initial_size);
     memset(static_cast<void*>(coefficients_), 0, sizeof(Fr) * capacity());
@@ -52,7 +52,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t initial_size)
  * @param initial_size The initial size of the polynomial.
  * @param flag Signals that we do not zero memory.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t initial_size, DontZeroMemory flag)
+template <typename Fr> LegacyPolynomial<Fr>::LegacyPolynomial(size_t initial_size, DontZeroMemory flag)
 {
     // Flag is unused, but we don't memset 0 if passed.
     (void)flag;
@@ -60,12 +60,13 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t initial_size, DontZeroM
 }
 
 template <typename Fr>
-Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
-    : Polynomial<Fr>(other, other.size())
+LegacyPolynomial<Fr>::LegacyPolynomial(const LegacyPolynomial<Fr>& other)
+    : LegacyPolynomial<Fr>(other, other.size())
 {}
 
 // fully copying "expensive" constructor
-template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
+template <typename Fr>
+LegacyPolynomial<Fr>::LegacyPolynomial(const LegacyPolynomial<Fr>& other, const size_t target_size)
 {
     allocate_backing_memory(std::max(target_size, other.size()));
 
@@ -75,14 +76,14 @@ template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, c
 
 // move constructor
 template <typename Fr>
-Polynomial<Fr>::Polynomial(Polynomial<Fr>&& other) noexcept
+LegacyPolynomial<Fr>::LegacyPolynomial(LegacyPolynomial<Fr>&& other) noexcept
     : backing_memory_(std::exchange(other.backing_memory_, nullptr))
     , coefficients_(std::exchange(other.coefficients_, nullptr))
     , size_(std::exchange(other.size_, 0))
 {}
 
 // span constructor
-template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients)
+template <typename Fr> LegacyPolynomial<Fr>::LegacyPolynomial(std::span<const Fr> coefficients)
 {
     allocate_backing_memory(coefficients.size());
     memcpy(static_cast<void*>(coefficients_),
@@ -93,8 +94,8 @@ template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficien
 
 // interpolation constructor
 template <typename Fr>
-Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations)
-    : Polynomial(interpolation_points.size())
+LegacyPolynomial<Fr>::LegacyPolynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations)
+    : LegacyPolynomial(interpolation_points.size())
 {
     ASSERT(size_ > 0);
 
@@ -105,7 +106,7 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points, std::span<c
 // Assignments
 
 // full copy "expensive" assignment
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomial<Fr>& other)
+template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator=(const LegacyPolynomial<Fr>& other)
 {
     if (this == &other) {
         return *this;
@@ -116,15 +117,15 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(std::span<const Fr> coefficients) noexcept
+template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator=(std::span<const Fr> coefficients) noexcept
 {
     // move assign a Polynomial constructed with the span
-    *this = Polynomial<Fr>{ coefficients };
+    *this = LegacyPolynomial<Fr>{ coefficients };
     return *this;
 }
 
 // #######
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(Polynomial&& other) noexcept
+template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator=(LegacyPolynomial&& other) noexcept
 {
     if (&other == this) {
         return *this;
@@ -137,26 +138,26 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(Polynomial&& ot
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
+template <typename Fr> LegacyPolynomial<Fr> LegacyPolynomial<Fr>::share() const
 {
-    Polynomial p;
+    LegacyPolynomial p;
     p.backing_memory_ = backing_memory_;
     p.size_ = size_;
     p.coefficients_ = coefficients_;
     return p;
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
+template <typename Fr> Fr LegacyPolynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
     return polynomial_arithmetic::evaluate(coefficients_, z, target_size);
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
+template <typename Fr> Fr LegacyPolynomial<Fr>::evaluate(const Fr& z) const
 {
     return polynomial_arithmetic::evaluate(coefficients_, z, size_);
 }
 
-template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) const
+template <typename Fr> bool LegacyPolynomial<Fr>::operator==(LegacyPolynomial const& rhs) const
 {
     // If either is empty, both must be
     if (is_empty() || rhs.is_empty()) {
@@ -185,7 +186,7 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
  * @param commitment_data Describes each polynomial being opened: its commitment, the opening points used and the
  * polynomial evaluations
  */
-template <typename Fr> void Polynomial<Fr>::zero_memory_beyond(const size_t start_position)
+template <typename Fr> void LegacyPolynomial<Fr>::zero_memory_beyond(const size_t start_position)
 {
     size_t end = capacity();
     ASSERT(end >= start_position);
@@ -202,7 +203,7 @@ template <typename Fr> void Polynomial<Fr>::zero_memory_beyond(const size_t star
  **/
 
 template <typename Fr>
-void Polynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
+void LegacyPolynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -212,7 +213,7 @@ void Polynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-void Polynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
+void LegacyPolynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -222,7 +223,7 @@ void Polynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant
 }
 
 template <typename Fr>
-void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
+void LegacyPolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -232,9 +233,9 @@ void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
-                               const EvaluationDomain<Fr>& large_domain,
-                               const size_t domain_extension)
+void LegacyPolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
+                                     const EvaluationDomain<Fr>& large_domain,
+                                     const size_t domain_extension)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     size_t extended_size = domain.size * domain_extension;
@@ -246,7 +247,7 @@ void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
 }
 
 template <typename Fr>
-void Polynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+void LegacyPolynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -256,7 +257,7 @@ void Polynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain,
 }
 
 template <typename Fr>
-void Polynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
+void LegacyPolynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -266,7 +267,7 @@ void Polynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& 
 }
 
 template <typename Fr>
-void Polynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
+void LegacyPolynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -276,7 +277,7 @@ void Polynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-void Polynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
+void LegacyPolynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -286,7 +287,7 @@ void Polynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, cons
 }
 
 template <typename Fr>
-void Polynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
+void LegacyPolynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     ASSERT(in_place_operation_viable(domain.size));
@@ -296,35 +297,35 @@ void Polynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
 }
 
 template <typename Fr>
-Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
+Fr LegacyPolynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_kate_opening_coefficients(coefficients_, coefficients_, z, size_);
 }
 
 template <typename Fr>
-Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
+Fr LegacyPolynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_barycentric_evaluation(coefficients_, domain.size, z, domain);
 }
 
 template <typename Fr>
-Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
-                                     const Fr& z,
-                                     const EvaluationDomain<Fr>& small_domain)
+Fr LegacyPolynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
+                                           const Fr& z,
+                                           const EvaluationDomain<Fr>& small_domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 
 {
     return polynomial_arithmetic::evaluate_from_fft(coefficients_, large_domain, z, small_domain);
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
+template <typename Fr> LegacyPolynomial<Fr> LegacyPolynomial<Fr>::shifted() const
 {
     ASSERT(size_ > 0);
     ASSERT(coefficients_[0].is_zero());
     ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
-    Polynomial p;
+    LegacyPolynomial p;
     p.backing_memory_ = backing_memory_;
     p.size_ = size_;
     p.coefficients_ = coefficients_ + 1;
@@ -334,7 +335,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 // TODO(#723): This method is used for the transcript aggregation protocol. For convenience we currently enforce that
 // the shift is the same size as the input but this does not need to be the case. Revisit the logic/assertions in this
 // method when that issue is addressed.
-template <typename Fr> void Polynomial<Fr>::set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size)
+template <typename Fr> void LegacyPolynomial<Fr>::set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size)
 {
     // Ensure we're not trying to shift self
     ASSERT(coefficients_ != coeffs_in.data());
@@ -363,7 +364,7 @@ template <typename Fr> void Polynomial<Fr>::set_to_right_shifted(std::span<Fr> c
     zero_memory_beyond(size_);
 }
 
-template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other, Fr scaling_factor)
+template <typename Fr> void LegacyPolynomial<Fr>::add_scaled(std::span<const Fr> other, Fr scaling_factor)
 {
     const size_t other_size = other.size();
     ASSERT(in_place_operation_viable(other_size));
@@ -380,7 +381,7 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
     });
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(std::span<const Fr> other)
+template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator+=(std::span<const Fr> other)
 {
     const size_t other_size = other.size();
     ASSERT(in_place_operation_viable(other_size));
@@ -399,7 +400,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(std::span<cons
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<const Fr> other)
+template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator-=(std::span<const Fr> other)
 {
     const size_t other_size = other.size();
     ASSERT(in_place_operation_viable(other_size));
@@ -418,7 +419,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<cons
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
+template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator*=(const Fr scaling_factor)
 {
     ASSERT(in_place_operation_viable());
 
@@ -436,7 +437,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
+template <typename Fr> Fr LegacyPolynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
     const size_t m = evaluation_points.size();
 
@@ -477,7 +478,8 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     return result;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
+template <typename Fr>
+LegacyPolynomial<Fr> LegacyPolynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
 {
     // Get size of partial evaluation point u = (u_0,...,u_{m-1})
     const size_t m = evaluation_points.size();
@@ -492,7 +494,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     size_t n_l = 1 << (n - 1);
 
     // Temporary buffer of half the size of the polynomial
-    Polynomial<Fr> intermediate(n_l, DontZeroMemory::FLAG);
+    LegacyPolynomial<Fr> intermediate(n_l, DontZeroMemory::FLAG);
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
@@ -511,7 +513,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     }
 
     // Construct resulting polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    Polynomial<Fr> result(n_l, DontZeroMemory::FLAG);
+    LegacyPolynomial<Fr> result(n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result[idx] = intermediate[idx];
     }
@@ -519,7 +521,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     return result;
 }
 
-template class Polynomial<bb::fr>;
-template class Polynomial<grumpkin::fr>;
+template class LegacyPolynomial<bb::fr>;
+template class LegacyPolynomial<grumpkin::fr>;
 
 } // namespace bb

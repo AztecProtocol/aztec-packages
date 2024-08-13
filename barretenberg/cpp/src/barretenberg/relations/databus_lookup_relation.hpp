@@ -3,7 +3,7 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 

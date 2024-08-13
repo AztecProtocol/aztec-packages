@@ -6,7 +6,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
 #include <utility>

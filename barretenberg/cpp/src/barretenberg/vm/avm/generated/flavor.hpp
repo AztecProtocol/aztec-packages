@@ -10,7 +10,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm/avm/generated/flavor_settings.hpp"

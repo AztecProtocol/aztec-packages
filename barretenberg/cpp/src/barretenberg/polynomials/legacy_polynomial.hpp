@@ -15,10 +15,12 @@ namespace bb {
  * Polynomials use the majority of the memory in proving, so caution should be used in making sure
  * unnecessary copies are avoided, both for avoiding unnecessary memory usage and performance
  * due to unnecessary allocations.
+ * Note: This should not be used for new code, hence the Legacy name. This is only used in older plonk-centric code
+ * as opposed to newer honk-centric code.
  *
  * @tparam Fr the finite field type.
  */
-template <typename Fr> class Polynomial {
+template <typename Fr> class LegacyPolynomial {
   public:
     /**
      * Implements requirements of `std::ranges::contiguous_range` and `std::ranges::sized_range`
@@ -34,19 +36,19 @@ template <typename Fr> class Polynomial {
     using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
-    Polynomial(size_t initial_size);
+    LegacyPolynomial(size_t initial_size);
     // Constructor that does not initialize values, use with caution to save time.
-    Polynomial(size_t initial_size, DontZeroMemory flag);
-    Polynomial(const Polynomial& other);
-    Polynomial(const Polynomial& other, size_t target_size);
+    LegacyPolynomial(size_t initial_size, DontZeroMemory flag);
+    LegacyPolynomial(const LegacyPolynomial& other);
+    LegacyPolynomial(const LegacyPolynomial& other, size_t target_size);
 
-    Polynomial(Polynomial&& other) noexcept;
+    LegacyPolynomial(LegacyPolynomial&& other) noexcept;
 
     // Create a polynomial from the given fields.
-    Polynomial(std::span<const Fr> coefficients);
+    LegacyPolynomial(std::span<const Fr> coefficients);
 
     // Allow polynomials to be entirely reset/dormant
-    Polynomial() = default;
+    LegacyPolynomial() = default;
 
     /**
      * @brief Create the degree-(m-1) polynomial T(X) that interpolates the given evaluations.
@@ -55,18 +57,18 @@ template <typename Fr> class Polynomial {
      * @param interpolation_points (x₁,…,xₘ)
      * @param evaluations (y₁,…,yₘ)
      */
-    Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations);
+    LegacyPolynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations);
 
     // move assignment
-    Polynomial& operator=(Polynomial&& other) noexcept;
-    Polynomial& operator=(std::span<const Fr> coefficients) noexcept;
-    Polynomial& operator=(const Polynomial& other);
-    ~Polynomial() = default;
+    LegacyPolynomial& operator=(LegacyPolynomial&& other) noexcept;
+    LegacyPolynomial& operator=(std::span<const Fr> coefficients) noexcept;
+    LegacyPolynomial& operator=(const LegacyPolynomial& other);
+    ~LegacyPolynomial() = default;
 
     /**
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
-    Polynomial share() const;
+    LegacyPolynomial share() const;
 
     std::array<uint8_t, 32> hash() const { return crypto::sha256(byte_span()); }
 
@@ -96,7 +98,7 @@ template <typename Fr> class Polynomial {
         return true;
     }
 
-    bool operator==(Polynomial const& rhs) const;
+    bool operator==(LegacyPolynomial const& rhs) const;
 
     // Const and non const versions of coefficient accessors
     Fr const& operator[](const size_t i) const { return coefficients_[i]; }
@@ -155,7 +157,7 @@ template <typename Fr> class Polynomial {
      * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
-    Polynomial shifted() const;
+    LegacyPolynomial shifted() const;
 
     /**
      * @brief Set self to the right shift of input coefficients
@@ -182,21 +184,21 @@ template <typename Fr> class Polynomial {
      *
      * @param other q(X)
      */
-    Polynomial& operator+=(std::span<const Fr> other);
+    LegacyPolynomial& operator+=(std::span<const Fr> other);
 
     /**
      * @brief subtracts the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    Polynomial& operator-=(std::span<const Fr> other);
+    LegacyPolynomial& operator-=(std::span<const Fr> other);
 
     /**
      * @brief sets this = p(X) to s⋅p(X)
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(Fr scaling_factor);
+    LegacyPolynomial& operator*=(Fr scaling_factor);
 
     /**
      * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)
@@ -227,7 +229,7 @@ template <typename Fr> class Polynomial {
      * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
      * @return Polynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
      */
-    Polynomial<Fr> partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
+    LegacyPolynomial<Fr> partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
 
     /**
      * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
@@ -259,9 +261,9 @@ template <typename Fr> class Polynomial {
     std::size_t size() const { return size_; }
     std::size_t capacity() const { return size_ + MAXIMUM_COEFFICIENT_SHIFT; }
 
-    static Polynomial random(const size_t num_coeffs)
+    static LegacyPolynomial random(const size_t num_coeffs)
     {
-        Polynomial p(num_coeffs);
+        LegacyPolynomial p(num_coeffs);
         std::generate_n(p.begin(), num_coeffs, []() { return Fr::random_element(); });
         return p;
     }
@@ -291,7 +293,7 @@ template <typename Fr> class Polynomial {
     size_t size_ = 0;
 };
 
-template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynomial<Fr> const& p)
+template <typename Fr> inline std::ostream& operator<<(std::ostream& os, LegacyPolynomial<Fr> const& p)
 {
     if (p.size() == 0) {
         return os << "[]";
@@ -308,7 +310,7 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynom
               << "]";
 }
 
-using polynomial = Polynomial<bb::fr>;
+using polynomial = LegacyPolynomial<bb::fr>;
 
 } // namespace bb
 

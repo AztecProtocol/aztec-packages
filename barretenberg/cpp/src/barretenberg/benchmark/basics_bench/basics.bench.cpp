@@ -452,7 +452,7 @@ void pippenger(State& state)
     for (auto _ : state) {
         state.PauseTiming();
         size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
-        Polynomial<Fr> pol(num_cycles);
+        LegacyPolynomial<Fr> pol(num_cycles);
         for (size_t i = 0; i < num_cycles; i++) {
             *(uint256_t*)&pol[i] = engine.get_random_uint256();
             pol[i].self_reduce_once();

@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <typeinfo>
 

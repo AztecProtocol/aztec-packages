@@ -6,7 +6,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"

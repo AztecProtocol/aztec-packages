@@ -13,10 +13,10 @@ template <typename Curve> std::shared_ptr<CommitmentKey<Curve>> create_commitmen
 }
 
 // Generate a polynomial with a specified number of nonzero random coefficients
-template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, const size_t num_nonzero)
+template <typename FF> LegacyPolynomial<FF> sparse_random_poly(const size_t size, const size_t num_nonzero)
 {
     auto& engine = numeric::get_debug_randomness();
-    auto polynomial = Polynomial<FF>(size);
+    auto polynomial = LegacyPolynomial<FF>(size);
 
     for (size_t i = 0; i < num_nonzero; i++) {
         size_t idx = engine.get_random_uint32() % size;
@@ -37,7 +37,7 @@ template <typename Curve> void bench_commit_zero(::benchmark::State& state)
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    const auto polynomial = Polynomial<typename Curve::ScalarField>(num_points);
+    const auto polynomial = LegacyPolynomial<typename Curve::ScalarField>(num_points);
     for (auto _ : state) {
         key->commit(polynomial);
     }
@@ -52,7 +52,7 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     const size_t num_points = 1 << state.range(0);
     const size_t num_nonzero = SPARSE_NUM_NONZERO;
 
-    auto polynomial = Polynomial<Fr>(num_points);
+    auto polynomial = LegacyPolynomial<Fr>(num_points);
     for (size_t i = 0; i < num_nonzero; i++) {
         polynomial[i] = 1;
     }
@@ -71,7 +71,7 @@ template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::Sta
     const size_t num_points = 1 << state.range(0);
     const size_t num_nonzero = SPARSE_NUM_NONZERO;
 
-    auto polynomial = Polynomial<Fr>(num_points);
+    auto polynomial = LegacyPolynomial<Fr>(num_points);
     for (size_t i = 0; i < num_nonzero; i++) {
         polynomial[i] = 1;
     }
@@ -120,7 +120,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    auto polynomial = Polynomial<Fr>(num_points);
+    auto polynomial = LegacyPolynomial<Fr>(num_points);
     for (auto& coeff : polynomial) {
         coeff = Fr::random_element();
     }

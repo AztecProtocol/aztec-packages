@@ -3,7 +3,7 @@
 #include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace bb {
