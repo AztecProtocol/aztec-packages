@@ -136,7 +136,6 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external override(ILeonidas) returns (address[] memory) {
-
     setupEpoch();
     return epochs[getCurrentEpoch()].committee;
   }
