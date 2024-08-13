@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/serialize/cbind.hpp"
 #include "circuit_builder_base.hpp"
-#include <stdexcept>
 
 namespace bb {
 template <typename FF_> CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint)
@@ -252,7 +251,7 @@ void CircuitBuilderBase<FF_>::set_recursive_proof(const AggregationObjectIndices
 {
     if (contains_recursive_proof) {
         failure("added recursive proof when one already exists");
-        throw std::runtime_error("added recursive proof when one already exists");
+        ASSERT(0);
     }
     contains_recursive_proof = true;
     for (size_t i = 0; i < proof_output_witness_indices.size(); ++i) {
