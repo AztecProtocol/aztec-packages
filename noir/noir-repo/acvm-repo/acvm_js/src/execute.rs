@@ -208,9 +208,9 @@ impl<'a, B: BlackBoxFunctionSolver<FieldElement>> ProgramExecutor<'a, B> {
                         };
 
                         let brillig_function_id = match &error {
-                            OpcodeResolutionError::BrilligFunctionFailed { function_id, .. } => {
-                                Some(*function_id)
-                            }
+                            OpcodeResolutionError::BrilligFunctionFailed {
+                                function_id, ..
+                            } => Some(*function_id),
                             _ => None,
                         };
 
