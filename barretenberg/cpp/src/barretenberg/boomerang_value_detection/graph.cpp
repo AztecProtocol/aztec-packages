@@ -281,17 +281,6 @@ void Graph_<FF>::add_new_edge(const uint32_t& first_variable_index, const uint32
     }
 }
 
-// template <typename FF>
-// void Graph_<FF>::update_edges_for_sorted_variables(const std::vector<uint32_t>& sorted_variables,
-//                                                    const uint32_t& zero_idx)
-//{
-//     for (size_t i = 0; i < sorted_variables.size() - 1; i++) {
-//         if (sorted_variables[i] != zero_idx && sorted_variables[i + 1] != zero_idx) {
-//             add_new_edge(sorted_variables[i], sorted_variables[i + 1]);
-//         }
-//     }
-//  }
-
 template <typename FF> std::set<uint32_t> Graph_<FF>::get_variable_adjacency_list(const uint32_t& variable_index)
 {
     if (variable_index >= (this->variable_adjacency_lists).size()) {
@@ -389,14 +378,6 @@ void Graph_<FF>::print_dangerous_variables(const bb::StandardCircuitBuilder_<FF>
             uint32_t out_idx = block.w_o()[i];
             if (it == left_idx || it == right_idx || it == out_idx) {
                 info("variable ", it, " in the gate with number ", i);
-                //                 std::vector<FF> selectors = {
-                //                     block.q_m()[i], block.q_1()[i], block.q_2()[i], block.q_3()[i],
-                //                     block.q_c()[i]
-                //                 };
-                //                 info("selectors of this gate: ");
-                //                 for (const auto& it : selectors) {
-                //                     info(it);
-                //                 }
                 break;
             }
         }
