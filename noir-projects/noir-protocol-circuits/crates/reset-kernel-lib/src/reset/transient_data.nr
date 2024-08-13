@@ -29,8 +29,8 @@ pub fn verify_squashed_transient_data_with_hint_indexes<
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32,
-    note_hash_hint_indexes: [u32; NUM_NOTE_HASHES],
-    nullifier_hint_indexes: [u32; NUM_NULLIFIERS]
+    squashed_note_hash_hints: [bool; NUM_NOTE_HASHES],
+    squashed_nullifier_hints: [bool; NUM_NULLIFIERS]
 ) {
     let mut num_squashed = 0;
     for i in 0..NUM_INDEX_HINTS {
@@ -56,54 +56,40 @@ pub fn verify_squashed_transient_data_with_hint_indexes<
                 // Since the nullifier counter must be larger than the note hash counter, it's not possible to squash a revertible note hash with a non-revertible nullifier.
             }
             num_squashed += 1;
+
+            // Padded note hashes.
+            let padded_note_hash = expected_note_hashes[NUM_NOTE_HASHES - num_squashed];
+            assert(squashed_note_hash_hints[hint.note_hash_index], "Wrong squashed note hash hint");
+            assert(is_empty(padded_note_hash), "Empty note hash must be padded to the right");
+
+            // Padded nullifiers.
+            let padded_nullifier = expected_nullifiers[NUM_NULLIFIERS - num_squashed];
+            assert(squashed_nullifier_hints[hint.nullifier_index], "Wrong squashed nullifier hint");
+            assert(is_empty(padded_nullifier), "Empty nullifier must be padded to the right");
         }
     }
 
     let mut note_hashes_kept = 0;
-    let mut note_hashes_removed = 0;
     for i in 0..NUM_NOTE_HASHES {
-        let hint_index = note_hash_hint_indexes[i];
-        let expected_index = if hint_index == NUM_INDEX_HINTS {
-            note_hashes_kept
-        } else {
-            NUM_NOTE_HASHES - note_hashes_removed - 1
-        };
-        let expected_note_hash = expected_note_hashes[expected_index];
-        if hint_index == NUM_INDEX_HINTS {
-            assert_eq(expected_note_hash, note_hashes[i], "Propagated note hash does not match");
-            note_hashes_kept += 1;
-        } else {
+        if !squashed_note_hash_hints[i] {
             assert_eq(
-                transient_data_index_hints[hint_index].note_hash_index, i, "Invalid note hash hint index"
+                expected_note_hashes[note_hashes_kept], note_hashes[i], "Propagated note hash does not match"
             );
-            assert(is_empty(expected_note_hash), "Empty note hash must be padded to the right");
-            note_hashes_removed += 1;
+            note_hashes_kept += 1;
         }
     }
-    assert_eq(note_hashes_removed, num_squashed, "Wrong number of note hashes removed");
+    assert_eq(note_hashes_kept + num_squashed, NUM_NOTE_HASHES, "Wrong number of note hashes removed");
 
     let mut nullifiers_kept = 0;
-    let mut nullifiers_removed = 0;
     for i in 0..NUM_NULLIFIERS {
-        let hint_index = nullifier_hint_indexes[i];
-        let expected_index = if hint_index == NUM_INDEX_HINTS {
-            nullifiers_kept
-        } else {
-            NUM_NULLIFIERS - nullifiers_removed - 1
-        };
-        let expected_nullifier = expected_nullifiers[expected_index];
-        if hint_index == NUM_INDEX_HINTS {
-            assert_eq(expected_nullifier, nullifiers[i], "Propagated nullifier does not match");
-            nullifiers_kept += 1;
-        } else {
+        if !squashed_nullifier_hints[i] {
             assert_eq(
-                transient_data_index_hints[hint_index].nullifier_index, i, "Invalid nullifier hint index"
+                expected_nullifiers[nullifiers_kept], nullifiers[i], "Propagated nullifier does not match"
             );
-            assert(is_empty(expected_nullifier), "Empty nullifier must be padded to the right");
-            nullifiers_removed += 1;
+            nullifiers_kept += 1;
         }
     }
-    assert_eq(nullifiers_removed, num_squashed, "Wrong number of nullifiers removed");
+    assert_eq(nullifiers_kept + num_squashed, NUM_NULLIFIERS, "Wrong number of nullifiers removed");
 
     let mut note_logs_kept = 0;
     let mut note_logs_removed = 0;
@@ -138,32 +124,32 @@ pub fn verify_squashed_transient_data_with_hint_indexes<
     }
 }
 
-unconstrained pub fn get_note_hash_hint_indexes<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32>(
+unconstrained pub fn get_squashed_note_hash_hints<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32>(
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
     _note_hashes: [ScopedNoteHash; NUM_NOTE_HASHES]
-) -> [u32; NUM_NOTE_HASHES] {
-    let mut indexes = [NUM_INDEX_HINTS; NUM_NOTE_HASHES];
+) -> [bool; NUM_NOTE_HASHES] {
+    let mut hints = [false; NUM_NOTE_HASHES];
     for i in 0..transient_data_index_hints.len() {
         let note_hash_index = transient_data_index_hints[i].note_hash_index;
         if note_hash_index != NUM_NOTE_HASHES {
-            indexes[note_hash_index] = i;
+            hints[note_hash_index] = true;
         }
     }
-    indexes
+    hints
 }
 
-unconstrained pub fn get_nullifier_hint_indexes<let NUM_INDEX_HINTS: u32, let NUM_NULLIFIERS: u32>(
+unconstrained pub fn get_squashed_nullifier_hints<let NUM_INDEX_HINTS: u32, let NUM_NULLIFIERS: u32>(
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
     _nullifiers: [ScopedNullifier; NUM_NULLIFIERS]
-) -> [u32; NUM_NULLIFIERS] {
-    let mut indexes = [NUM_INDEX_HINTS; NUM_NULLIFIERS];
+) -> [bool; NUM_NULLIFIERS] {
+    let mut hints = [false; NUM_NULLIFIERS];
     for i in 0..transient_data_index_hints.len() {
         let nullifier_index = transient_data_index_hints[i].nullifier_index;
         if nullifier_index != NUM_NULLIFIERS {
-            indexes[nullifier_index] = i;
+            hints[nullifier_index] = true;
         }
     }
-    indexes
+    hints
 }
 
 pub fn verify_squashed_transient_data<
@@ -182,8 +168,8 @@ pub fn verify_squashed_transient_data<
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32
 ) {
-    let note_hash_hint_indexes = get_note_hash_hint_indexes(transient_data_index_hints, note_hashes);
-    let nullifier_hint_indexes: [u32; NUM_NULLIFIERS] = get_nullifier_hint_indexes(transient_data_index_hints, nullifiers);
+    let squashed_note_hash_hints = get_squashed_note_hash_hints(transient_data_index_hints, note_hashes);
+    let squashed_nullifier_hints = get_squashed_nullifier_hints(transient_data_index_hints, nullifiers);
     verify_squashed_transient_data_with_hint_indexes(
         note_hashes,
         nullifiers,
@@ -194,14 +180,14 @@ pub fn verify_squashed_transient_data<
         transient_data_index_hints,
         transient_or_propagated_note_hash_indexes_for_logs,
         split_counter,
-        note_hash_hint_indexes,
-        nullifier_hint_indexes
+        squashed_note_hash_hints,
+        squashed_nullifier_hints
     );
 }
 
 mod tests {
     use crate::reset::transient_data::{
-        get_note_hash_hint_indexes, get_nullifier_hint_indexes, TransientDataIndexHint,
+        get_squashed_note_hash_hints, get_squashed_nullifier_hints, TransientDataIndexHint,
         verify_squashed_transient_data, verify_squashed_transient_data_with_hint_indexes
     };
     use dep::types::{
@@ -365,10 +351,10 @@ mod tests {
             TransientDataIndexHint { nullifier_index: NUM_NULLIFIERS, note_hash_index: NUM_NOTE_HASHES }
         }
 
-        pub fn get_hint_indexes(self) -> ([u32; NUM_NOTE_HASHES], [u32; NUM_NULLIFIERS]) {
-            let note_hash_hint_indexes = get_note_hash_hint_indexes(self.transient_data_index_hints, self.note_hashes);
-            let nullifier_hint_indexes = get_nullifier_hint_indexes(self.transient_data_index_hints, self.nullifiers);
-            (note_hash_hint_indexes, nullifier_hint_indexes)
+        pub fn get_hint_indexes(self) -> ([bool; NUM_NOTE_HASHES], [bool; NUM_NULLIFIERS]) {
+            let squashed_note_hash_hints = get_squashed_note_hash_hints(self.transient_data_index_hints, self.note_hashes);
+            let squashed_nullifier_hints = get_squashed_nullifier_hints(self.transient_data_index_hints, self.nullifiers);
+            (squashed_note_hash_hints, squashed_nullifier_hints)
         }
 
         pub fn verify(self) {
@@ -387,8 +373,8 @@ mod tests {
 
         pub fn verify_with_hint_indexes(
             self,
-            note_hash_hint_indexes: [u32; NUM_NOTE_HASHES],
-            nullifier_hint_indexes: [u32; NUM_NULLIFIERS]
+            squashed_note_hash_hints: [bool; NUM_NOTE_HASHES],
+            squashed_nullifier_hints: [bool; NUM_NULLIFIERS]
         ) {
             verify_squashed_transient_data_with_hint_indexes(
                 self.note_hashes,
@@ -400,8 +386,8 @@ mod tests {
                 self.transient_data_index_hints,
                 self.transient_or_propagated_note_hash_indexes_for_logs,
                 self.split_counter,
-                note_hash_hint_indexes,
-                nullifier_hint_indexes
+                squashed_note_hash_hints,
+                squashed_nullifier_hints
             );
         }
     }
@@ -515,15 +501,14 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Invalid note hash hint index")]
-    fn fails_wrong_note_hash_hint_index() {
+    #[test(should_fail_with="Wrong squashed note hash hint")]
+    fn fails_wrong_note_hash_squashed_hint() {
         let mut builder = TestDataBuilder::new_clear_all();
 
-        let mut (note_hash_hint_indexes, nullifier_hint_indexes) = builder.get_hint_indexes();
-        // Point to the hint for another note hash.
-        note_hash_hint_indexes[0] += 1;
+        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        squashed_note_hash_hints[0] = false;
 
-        builder.verify_with_hint_indexes(note_hash_hint_indexes, nullifier_hint_indexes);
+        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
     #[test(should_fail_with="Empty note hash must be padded to the right")]
@@ -535,21 +520,21 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Wrong number of note hashes removed")]
+    #[test(should_fail_with="Wrong squashed note hash hint")]
     fn fails_propagate_note_hash_for_squashed_nullifier() {
         let mut builder = TestDataBuilder::new_clear_all();
 
         // Propagate the note hash at index 1.
         builder.expected_note_hashes[0] = builder.note_hashes[1];
 
-        let mut (note_hash_hint_indexes, nullifier_hint_indexes) = builder.get_hint_indexes();
-        // Tweak the hint so it's assumed the note hash has not been squashed.
-        note_hash_hint_indexes[1] = builder.transient_data_index_hints.len();
+        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        // Set the hint to false so it's assumed the note hash has not been squashed.
+        squashed_note_hash_hints[1] = false;
 
-        builder.verify_with_hint_indexes(note_hash_hint_indexes, nullifier_hint_indexes);
+        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
-    #[test(should_fail_with="Wrong number of note hashes removed")]
+    #[test(should_fail_with="Empty note hash must be padded to the right")]
     fn fails_identical_note_hashes_nullify_same_note_hash() {
         let mut builder = TestDataBuilder::new_identical_note_hashes();
 
@@ -560,7 +545,26 @@ mod tests {
         builder.expected_note_hashes[0] = builder.note_hashes[1];
         builder.expected_note_hashes[1] = builder.note_hashes[2];
 
-        builder.verify();
+        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        // Set the hint to false so it's assumed the note hash has not been squashed.
+        squashed_note_hash_hints[1] = false;
+
+        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+    }
+
+    #[test(should_fail_with="Wrong number of note hashes removed")]
+    fn fails_note_hash_not_propagated() {
+        let mut builder = TestDataBuilder::new();
+
+        // Do not propagate any note hashes.
+        builder.expected_note_hashes[0] = ScopedNoteHash::empty();
+
+        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        assert_eq(squashed_note_hash_hints[1], false);
+        // Set the hint to true so it's assumed the note hash has been squashed.
+        squashed_note_hash_hints[1] = true;
+
+        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
     #[test(should_fail_with="Propagated nullifier does not match")]
@@ -581,15 +585,18 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with="Invalid nullifier hint index")]
+    #[test(should_fail_with="Wrong squashed nullifier hint")]
     fn fails_wrong_nullifier_hint_index() {
         let mut builder = TestDataBuilder::new_clear_all();
 
-        let mut (note_hash_hint_indexes, nullifier_hint_indexes) = builder.get_hint_indexes();
-        // Point to the hint for another nullifer.
-        nullifier_hint_indexes[0] += 1;
+        // Propagate the nullifier at index 1.
+        builder.expected_nullifiers[0] = builder.nullifiers[1];
 
-        builder.verify_with_hint_indexes(note_hash_hint_indexes, nullifier_hint_indexes);
+        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        // Set the hint to false so it's assumed the note hash has not been squashed.
+        squashed_nullifier_hints[1] = false;
+
+        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
     #[test(should_fail_with="Empty nullifier must be padded to the right")]
@@ -603,16 +610,16 @@ mod tests {
 
     #[test(should_fail_with="Wrong number of nullifiers removed")]
     fn fails_propagate_nullifier_for_squashed_note_hash() {
-        let mut builder = TestDataBuilder::new_clear_all();
+        let mut builder = TestDataBuilder::new();
 
-        // Propagate the nullifier at index 1.
-        builder.expected_nullifiers[0] = builder.nullifiers[1];
+        // Do not propagate any nullifiers.
+        builder.expected_nullifiers[0] = ScopedNullifier::empty();
 
-        let mut (note_hash_hint_indexes, nullifier_hint_indexes) = builder.get_hint_indexes();
-        // Tweak the hint so it's assumed the nullifier has not been squashed.
-        nullifier_hint_indexes[1] = builder.transient_data_index_hints.len();
+        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        // Set the hint to true so it's assumed the note hash has been squashed.
+        squashed_nullifier_hints[2] = true;
 
-        builder.verify_with_hint_indexes(note_hash_hint_indexes, nullifier_hint_indexes);
+        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
     }
 
     #[test(should_fail_with="Empty log must be padded to the right")]
