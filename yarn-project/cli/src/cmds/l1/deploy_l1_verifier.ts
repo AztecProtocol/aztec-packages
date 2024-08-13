@@ -8,7 +8,7 @@ import solc from 'solc';
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-export async function deployUltraVerifier(
+export async function deployUltraHonkVerifier(
   ethRpcUrl: string,
   privateKey: string,
   mnemonic: string,
@@ -26,13 +26,13 @@ export async function deployUltraVerifier(
   const { BBCircuitVerifier } = await import('@aztec/bb-prover');
 
   const circuitVerifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });
-  const contractSrc = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraVerifier.sol');
-  log('Generated UltraVerifier contract');
+  const contractSrc = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraHonkVerifier.sol');
+  log('Generated UltraHonkVerifier contract');
 
   const input = {
     language: 'Solidity',
     sources: {
-      'UltraVerifier.sol': {
+      'UltraHonkVerifier.sol': {
         content: contractSrc,
       },
     },
@@ -52,10 +52,10 @@ export async function deployUltraVerifier(
   };
 
   const output = JSON.parse(solc.compile(JSON.stringify(input)));
-  log('Compiled UltraVerifier');
+  log('Compiled UltraHonkVerifier');
 
-  const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
-  const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
+  const abi = output.contracts['UltraHonkVerifier.sol']['UltraHonkVerifier'].abi;
+  const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!)
@@ -63,7 +63,7 @@ export async function deployUltraVerifier(
   const { publicClient, walletClient } = createL1Clients(ethRpcUrl, account);
 
   const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
-  log(`Deployed UltraVerifier at ${verifierAddress.toString()}`);
+  log(`Deployed HonkVerifier at ${verifierAddress.toString()}`);
 
   const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
   const { l1ContractAddresses } = await pxe.getNodeInfo();

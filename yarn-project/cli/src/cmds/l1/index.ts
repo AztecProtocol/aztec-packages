@@ -61,7 +61,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--bb <path>', 'Path to bb binary')
     .option('--bb-working-dir <path>', 'Path to bb working directory')
     .action(async options => {
-      const { deployMockVerifier, deployUltraVerifier } = await import('./deploy_l1_verifier.js');
+      const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
       if (options.verifier === 'mock') {
         await deployMockVerifier(
           options.ethRpcUrl,
@@ -72,7 +72,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
           debugLogger,
         );
       } else {
-        await deployUltraVerifier(
+        await deployUltraHonkVerifier(
           options.ethRpcUrl,
           options.privateKey,
           options.mnemonic,

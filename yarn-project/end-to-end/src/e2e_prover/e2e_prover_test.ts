@@ -324,8 +324,8 @@ export class FullProverTest {
 
     const output = JSON.parse(solc.compile(JSON.stringify(input)));
 
-    const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
-    const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
+    const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
+    const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
     const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
 
