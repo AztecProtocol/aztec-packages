@@ -44,16 +44,9 @@ function getSourceCodeLocationsFromOpcodeLocation(
   brilligFunctionId?: BrilligFunctionId,
 ): SourceCodeLocation[] {
   const { debugSymbols, files } = debug;
-  if (brilligFunctionId !== undefined) {
-    // eslint-disable-next-line no-console
-    console.log('brilligFunctionId: ', brilligFunctionId);
-  }
+  
   let callStack = debugSymbols.locations[opcodeLocation] || [];
   if (callStack.length === 0) {
-    // eslint-disable-next-line no-console
-    console.log("GOT HERE");
-    // eslint-disable-next-line no-console
-    console.log('brilligFunctionId: ', brilligFunctionId);
     if (brilligFunctionId !== undefined) {
       callStack = debugSymbols.brillig_locations[brilligFunctionId][opcodeLocation] || [];
       // eslint-disable-next-line no-console
@@ -156,17 +149,11 @@ export function extractCallStack(
   error: Error | ExecutionError,
   debug?: FunctionDebugMetadata,
 ): NoirCallStack | undefined {
-  // eslint-disable-next-line no-console
-  // console.log('debug: ', debug);
-  // eslint-disable-next-line no-console
-  // console.log('brillig locs: ', debug?.debugSymbols.brillig_locations);
   if (!('callStack' in error) || !error.callStack) {
     return undefined;
   }
   const { callStack, brilligFunctionId } = error;
   if (!debug) {
-    // eslint-disable-next-line no-console
-    console.log("NO DEBUG");
     return callStack;
   }
 

@@ -27,8 +27,6 @@ export async function executePrivateFunction(
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
-  // eslint-disable-next-line no-console
-  console.log('private exec');
   const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
     throw new ExecutionError(
       err.message,
