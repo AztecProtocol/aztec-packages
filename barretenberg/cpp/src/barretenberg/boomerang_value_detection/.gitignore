@@ -1,0 +1,3 @@
+*
+!.gitignore
+!/src/barretenberg/boomerang_value_detection/**
