@@ -7,6 +7,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
+#include "barretenberg/polynomials/sparse_polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
@@ -31,8 +32,7 @@ class TranslatorFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using Polynomial = bb::Polynomial<FF>;
-    using SparsePolynomial = bb::SparsePolynomial<FF>;
+    using Polynomial = bb::SparsePolynomial<FF>;
     using RelationSeparator = FF;
 
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;

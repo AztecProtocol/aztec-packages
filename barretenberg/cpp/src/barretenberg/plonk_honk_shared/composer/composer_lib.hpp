@@ -17,6 +17,7 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::SparsePo
     // Create lookup selector polynomials which interpolate each table column.
     // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
     // put the table column's values at the end. (The first gates are for non-lookup constraints).
+    // WORKTODO(sparse) comment that this is just for plonk
     // [0, ..., 0, ...table, 0, 0, 0, x]
     //  ^^^^^^^^^  ^^^^^^^^  ^^^^^^^  ^nonzero to ensure uniqueness and to avoid infinity commitments
     //  |          table     randomness
@@ -77,13 +78,18 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
  * read counts for the individual tables.
  */
 template <typename Flavor>
-void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
-                                  typename Flavor::Polynomial& read_tags,
+void construct_lookup_read_counts(typename Flavor::SparsePolynomial& read_counts,
+                                  typename Flavor::SparsePolynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit,
                                   size_t dyadic_circuit_size)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t offset = dyadic_circuit_size - circuit.get_tables_size();
+    // read_counts =
+    //     typename Flavor::SparsePolynomial(circuit.get_tables_size(), dyadic_circuit_size, /*start index*/ offset);
+    // read_tags =
+    //     typename Flavor::SparsePolynomial(circuit.get_tables_size(), dyadic_circuit_size, /*start index*/ offset);
+    // WORKTODO(sparse) circuit.get_tables_size() is the actual size of our structured polynomial;
 
     size_t table_offset = offset; // offset of the present table in the table polynomials
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
