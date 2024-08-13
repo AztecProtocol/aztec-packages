@@ -1066,10 +1066,7 @@ pub fn patch_debug_info_pcs(
             1,
             "We should only be attempting to transpile a single Brillig function"
         );
-        let mut patched_brillig_locations: BTreeMap<
-            BrilligFunctionId,
-            BTreeMap<OpcodeLocation, Vec<Location>>,
-        > = BTreeMap::new();
+        let mut patched_brillig_locations = BTreeMap::new();
         for (brillig_function_id, opcode_locations_map) in
             patched_debug_info.brillig_locations.iter()
         {
