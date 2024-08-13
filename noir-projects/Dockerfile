@@ -21,6 +21,8 @@ WORKDIR /usr/src/noir-projects/noir-contracts
 RUN ./bootstrap.sh
 WORKDIR /usr/src/noir-projects/noir-protocol-circuits
 RUN ./bootstrap.sh
+WORKDIR /usr/src/noir-projects/mock-protocol-circuits
+RUN ./bootstrap.sh
 WORKDIR /usr/src/noir-projects/aztec-nr
 RUN nargo compile --silence-warnings
 

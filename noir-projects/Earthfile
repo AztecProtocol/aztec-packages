@@ -11,7 +11,7 @@ source:
   WORKDIR /usr/src/noir-projects
 
   # Copy source.
-  COPY --dir aztec-nr noir-contracts noir-protocol-circuits .
+  COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits .
 
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
