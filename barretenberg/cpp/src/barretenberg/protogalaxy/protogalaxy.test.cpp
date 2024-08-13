@@ -28,10 +28,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     using Builder = typename Flavor::CircuitBuilder;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using RelationParameters = bb::RelationParameters<FF>;
+    using RelationParameters = RelationParameters<FF>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using PowPolynomial = bb::PowPolynomial<FF>;
+    using PowPolynomial = PowPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
@@ -40,7 +40,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     using TupleOfInstances =
         std::tuple<std::vector<std::shared_ptr<ProverInstance>>, std::vector<std::shared_ptr<VerifierInstance>>>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 
     static void construct_circuit(Builder& builder)
     {
@@ -185,10 +185,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         // Construct fully random prover polynomials
         ProverPolynomials full_polynomials;
         for (auto& poly : full_polynomials.get_all()) {
-            poly = bb::Polynomial<FF>::random(instance_size);
+            poly = SparsePolynomial<FF>::random(instance_size);
         }
 
-        auto relation_parameters = bb::RelationParameters<FF>::get_random();
+        auto relation_parameters = RelationParameters<FF>::get_random();
         RelationSeparator alphas;
         for (auto& alpha : alphas) {
             alpha = FF::random_element();
@@ -202,7 +202,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
 
         // Construct pow(\vec{betas}) as in the paper
-        auto pow_beta = bb::PowPolynomial(betas);
+        auto pow_beta = PowPolynomial(betas);
         pow_beta.compute_values();
 
         // Compute the corresponding target sum and create a dummy accumulator
@@ -233,12 +233,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     static void test_combiner_quotient()
     {
         auto compressed_perturbator = FF(2); // F(\alpha) in the paper
-        auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
+        auto combiner = Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
         auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
         // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
         // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
-        auto expected_evals = bb::Univariate<FF, 12, 2>(std::array<FF, 10>{
+        auto expected_evals = Univariate<FF, 12, 2>(std::array<FF, 10>{
             (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
             (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
             (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
@@ -275,7 +275,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         ProverInstances instances{ { instance1, instance2 } };
         ProtoGalaxyProver::combine_relation_parameters(instances);
 
-        bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
+        Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
         EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
         // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
         // deriving values from them
@@ -302,7 +302,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         ProverInstances instances{ { instance1, instance2 } };
         ProtoGalaxyProver::combine_alpha(instances);
 
-        bb::Univariate<FF, 12> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
+        Univariate<FF, 12> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
         for (const auto& alpha : instances.alphas) {
             EXPECT_EQ(alpha, expected_alpha);
         }
@@ -338,7 +338,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             construct_circuit(builder2);
 
             // Add some arithmetic gates
-            bb::MockCircuits::add_arithmetic_gates(builder1, /*num_gates=*/4);
+            MockCircuits::add_arithmetic_gates(builder1, /*num_gates=*/4);
 
             check_fold_and_decide(builder1, builder2);
         }
@@ -352,7 +352,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             construct_circuit(builder2);
 
             // Add some arithmetic gates with public inputs to the first circuit
-            bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder1, /*num_gates=*/4);
+            MockCircuits::add_arithmetic_gates_with_public_inputs(builder1, /*num_gates=*/4);
 
             check_fold_and_decide(builder1, builder2);
         }
@@ -366,8 +366,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             construct_circuit(builder2);
 
             // Add a different number of lookup gates to each circuit
-            bb::MockCircuits::add_lookup_gates(builder1, /*num_iterations=*/2); // 12 gates plus 4096 table
-            bb::MockCircuits::add_lookup_gates(builder2, /*num_iterations=*/1); // 6 gates plus 4096 table
+            MockCircuits::add_lookup_gates(builder1, /*num_iterations=*/2); // 12 gates plus 4096 table
+            MockCircuits::add_lookup_gates(builder2, /*num_iterations=*/1); // 6 gates plus 4096 table
 
             check_fold_and_decide(builder1, builder2);
         }
@@ -386,8 +386,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder2);
 
         // Add a different number of lookup gates to each circuit
-        bb::MockCircuits::add_lookup_gates(builder1, /*num_iterations=*/2); // 12 gates plus 4096 table
-        bb::MockCircuits::add_lookup_gates(builder2, /*num_iterations=*/1); // 6 gates plus 4096 table
+        MockCircuits::add_lookup_gates(builder1, /*num_iterations=*/2); // 12 gates plus 4096 table
+        MockCircuits::add_lookup_gates(builder2, /*num_iterations=*/1); // 6 gates plus 4096 table
 
         // Erroneously set a non-zero wire value to zero in one of the lookup gates
         for (auto& wire_3_witness_idx : builder1.blocks.lookup.w_o()) {
