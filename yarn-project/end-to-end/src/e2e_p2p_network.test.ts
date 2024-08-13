@@ -119,7 +119,7 @@ describe('e2e_p2p_network', () => {
       bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
-      /*activate validators=*/ !IS_DEV_NET
+      /*activate validators=*/ !IS_DEV_NET,
     );
 
     // wait a bit for peers to discover each other

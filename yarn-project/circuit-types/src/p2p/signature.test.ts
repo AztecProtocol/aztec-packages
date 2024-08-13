@@ -1,29 +1,31 @@
-import { Fr } from "@aztec/foundation/fields";
-import { randomSigner } from "./mocks.js";
-import { Signature } from "./signature.js";
-import { recoverAddress, recoverMessageAddress } from "viem";
+import { Fr } from '@aztec/foundation/fields';
 
-describe("Signature serialization / deserialization", () => {
-    it("Should serialize / deserialize", async () => {
-        const signer = randomSigner();
+import { recoverMessageAddress } from 'viem';
 
-        const originalMessage = Fr.random();
-        const m = `0x${originalMessage.toBuffer().toString("hex")}`;
+import { randomSigner } from './mocks.js';
+import { Signature } from './signature.js';
 
-        const signature = await signer.signMessage({ message: m });
+describe('Signature serialization / deserialization', () => {
+  it('Should serialize / deserialize', async () => {
+    const signer = randomSigner();
 
-        const signatureObj = Signature.from0xString(signature);
-        
-        // Serde
-        const serialized = signatureObj.toBuffer();
-        const deserialized = Signature.fromBuffer(serialized);
-        expect(deserialized).toEqual(signatureObj);
+    const originalMessage = Fr.random();
+    const m = `0x${originalMessage.toBuffer().toString('hex')}`;
 
-        const as0x = deserialized.to0xString();
-        expect(as0x).toEqual(signature);
+    const signature = await signer.signMessage({ message: m });
 
-        // Recover signature
-        const sender = await recoverMessageAddress({ message: originalMessage.toString(), signature: as0x });
-        expect(sender).toEqual(signer.address);
-    });
+    const signatureObj = Signature.from0xString(signature);
+
+    // Serde
+    const serialized = signatureObj.toBuffer();
+    const deserialized = Signature.fromBuffer(serialized);
+    expect(deserialized).toEqual(signatureObj);
+
+    const as0x = deserialized.to0xString();
+    expect(as0x).toEqual(signature);
+
+    // Recover signature
+    const sender = await recoverMessageAddress({ message: originalMessage.toString(), signature: as0x });
+    expect(sender).toEqual(signer.address);
+  });
 });

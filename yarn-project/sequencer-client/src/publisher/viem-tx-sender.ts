@@ -93,7 +93,7 @@ export class ViemTxSender implements L1PublisherTxSender {
 
   async getCurrentEpochCommittee(): Promise<EthAddress[]> {
     const committee = await this.rollupContract.simulate.getCurrentEpochCommittee();
-    return committee.result.map(address => EthAddress.fromString(address)); 
+    return committee.result.map(address => EthAddress.fromString(address));
   }
 
   async getCurrentArchive(): Promise<Buffer> {

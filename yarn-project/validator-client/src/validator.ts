@@ -1,9 +1,9 @@
-import { BlockAttestation, BlockProposal, BlockWithAttestations, TxHash } from '@aztec/circuit-types';
+import { BlockAttestation, BlockProposal, TxHash } from '@aztec/circuit-types';
 import { Header } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { P2P } from '@aztec/p2p';
-import {Fr } from "@aztec/foundation/fields";
 
 import { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -95,10 +95,16 @@ export class ValidatorClient {
     return attestations;
   }
 
-  public async broadcastAndCollectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]> {
+  public async broadcastAndCollectAttestations(
+    proposal: BlockProposal,
+    numberOfRequiredAttestations: number,
+  ): Promise<BlockAttestation[]> {
     this.broadcastBlockProposal(proposal);
 
-    const attestations = await this.collectAttestations(proposal.header.globalVariables.slotNumber.toBigInt(), numberOfRequiredAttestations);
+    const attestations = await this.collectAttestations(
+      proposal.header.globalVariables.slotNumber.toBigInt(),
+      numberOfRequiredAttestations,
+    );
     this.log.info(`Collected all attestations for block proposal, ${proposal.p2pMessageIdentifier()}`);
     return attestations;
   }

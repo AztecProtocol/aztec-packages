@@ -166,7 +166,7 @@ export class L1Publisher implements L2BlockReceiver {
     return submitter.isZero() || submitter.equals(sender);
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+  public getCurrentEpochCommittee(): Promise<EthAddress[]> {
     return this.txSender.getCurrentEpochCommittee();
   }
 

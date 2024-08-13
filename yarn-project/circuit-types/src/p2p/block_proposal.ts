@@ -1,13 +1,14 @@
 import { EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import {Fr } from "@aztec/foundation/fields";
+
+import { recoverMessageAddress } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
-import { recoverAddress, recoverMessageAddress } from 'viem';
 
 export class BlockProposalHash extends Buffer32 {
   constructor(hash: Buffer) {

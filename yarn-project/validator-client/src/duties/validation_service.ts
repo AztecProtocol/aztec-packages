@@ -1,6 +1,6 @@
 import { BlockAttestation, BlockProposal, TxHash } from '@aztec/circuit-types';
 import { Header } from '@aztec/circuits.js';
-import {Fr } from "@aztec/foundation/fields";
+import { Fr } from '@aztec/foundation/fields';
 
 import { ValidatorKeyStore } from '../key_store/interface.js';
 

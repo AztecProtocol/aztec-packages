@@ -1,4 +1,5 @@
 import {
+  type BlockAttestation,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
@@ -6,7 +7,6 @@ import {
   Signature,
   Tx,
   type TxValidator,
-  BlockAttestation,
 } from '@aztec/circuit-types';
 import {
   type AllowedElement,
@@ -432,13 +432,16 @@ export class Sequencer {
 
     // TODO(md): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
-    const numberOfRequiredAttestations = Math.floor(committee.length * 2/3) + 1;
+    const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
     // TODO(md): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
 
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
-    const attestations = await this.validatorClient.broadcastAndCollectAttestations(proposal, numberOfRequiredAttestations);
+    const attestations = await this.validatorClient.broadcastAndCollectAttestations(
+      proposal,
+      numberOfRequiredAttestations,
+    );
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     const orderedSignatures = await this.orderAttestations(attestations, committee);
@@ -448,24 +451,24 @@ export class Sequencer {
 
   private async orderAttestations(
     attestations: BlockAttestation[],
-    orderAddresses: EthAddress[]
+    orderAddresses: EthAddress[],
   ): Promise<Signature[]> {
     // Create a map of sender addresses to BlockAttestations
     const attestationMap = new Map<string, BlockAttestation>();
-    
+
     for (const attestation of attestations) {
       const sender = await attestation.getSender();
       if (sender) {
         attestationMap.set(sender.toString(), attestation);
       }
     }
-  
+
     // Create the ordered array based on the orderAddresses, else return an empty signature
     const orderedAttestations = orderAddresses.map(address => {
       const addressString = address.toString();
       return attestationMap.get(addressString)?.signature || Signature.empty();
     });
-  
+
     return orderedAttestations;
   }
 

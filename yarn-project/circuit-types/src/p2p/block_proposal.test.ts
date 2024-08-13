@@ -12,7 +12,7 @@ describe('Block Proposal serialization / deserialization', () => {
     expect(deserialized).toEqual(proposal);
   });
 
-  it("Should serialize / deserialize + recover sender", async () => {
+  it('Should serialize / deserialize + recover sender', async () => {
     const account = randomSigner();
 
     const proposal = await makeBlockProposal(account);
@@ -24,5 +24,5 @@ describe('Block Proposal serialization / deserialization', () => {
     // Recover signature
     const sender = await deserialized.getSender();
     expect(sender.toChecksumString()).toEqual(account.address);
-  })
+  });
 });

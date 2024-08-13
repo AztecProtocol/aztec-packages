@@ -1,9 +1,9 @@
 import { EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { recoverMessageAddress } from 'viem';
-import {Fr } from "@aztec/foundation/fields";
 
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
