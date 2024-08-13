@@ -3,9 +3,9 @@
     // relative to `.code-workspace`.
     "folders": [
         {
-            "name": "barretenberg",
-            "path": "./"
-        },
+            "name": "aztec-packages",
+            "path": ".."
+        }
     ],
     // List recommended extensions for the whole workspace.
     "extensions": {

@@ -466,3 +466,100 @@ TEST(standard_circuit_constructor, test_check_circuit_broken)
     bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, false);
 }
+
+TEST(standard_circuit, test_boomerang_value_1)
+{
+    StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
+    fr a = fr::random_element();                                 // взяли случайный элемент
+    uint32_t a_idx = circuit_constructor.add_public_variable(a); // добавили его в схему
+    fr b = fr::random_element();                                 // еще один случайный элемент
+    fr c = a + b;
+    fr d = fr::random_element();
+    fr e = d + a; //
+    // uint32_t a_idx = circuit_constructor.add_variable(a);
+    uint32_t b_idx = circuit_constructor.add_variable(b);
+    uint32_t c_idx = circuit_constructor.add_variable(c);
+    uint32_t d_idx = circuit_constructor.add_variable(d);
+    uint32_t e_idx = circuit_constructor.add_variable(e);
+    uint32_t a_duplicate_idx = circuit_constructor.add_variable(
+        a); // вот это бумеранг, потому что e работало именно с a, но между ними a_duplicate и a нет никакой связи.
+    circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+    circuit_constructor.create_add_gate(
+        { a_duplicate_idx, d_idx, e_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+
+    bool result = CircuitChecker::check(circuit_constructor);
+    bool result1 = CircuitChecker::check(circuit_constructor);
+    EXPECT_EQ(result, true);
+    EXPECT_EQ(result1, true);
+    circuit_constructor.print_boomerang_variables();
+}
+
+TEST(standard_circuit_constructor, print_boomerang_variables)
+{
+    // need to calculate expression a + 2 * b + 3 * c
+    StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
+    fr a = fr::random_element();
+    fr b = fr::random_element();
+    fr c = fr::random_element();
+    fr two = fr(2);
+    fr three = fr(3);
+    uint32_t a_idx = circuit_constructor.add_variable(a);
+    uint32_t b_idx = circuit_constructor.add_variable(b);
+    uint32_t c_idx = circuit_constructor.add_variable(c);
+    fr d1 = circuit_constructor.get_variable(a_idx) + two * circuit_constructor.get_variable(b_idx);
+    uint32_t d1_idx = circuit_constructor.add_variable(d1);
+    fr d2 = circuit_constructor.get_variable(d1_idx) + three * circuit_constructor.get_variable(c_idx);
+    uint32_t d2_idx = circuit_constructor.add_variable(d2);
+    circuit_constructor.create_add_gate({ d1_idx, c_idx, d2_idx, fr::one(), three, fr::neg_one(), fr::zero() });
+    bool result = CircuitChecker::check(circuit_constructor);
+    EXPECT_EQ(result, true);
+    circuit_constructor.print_boomerang_variables();
+}
+
+TEST(standard_circuit_constructor, test_logic_constraint)
+{
+    StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
+    fr a = fr(1);
+    fr b = fr(2);
+    uint32_t a_idx = circuit_constructor.add_variable(a);
+    uint32_t b_idx = circuit_constructor.add_variable(b);
+    size_t num_bits = 2;
+    auto accumulators = circuit_constructor.create_logic_constraint(a_idx, b_idx, num_bits, true);
+    bool result = CircuitChecker::check(circuit_constructor);
+    EXPECT_EQ(result, true);
+    circuit_constructor.print_boomerang_variables();
+}
+
+TEST(standard_circuit_builder, test_boomerang_value_4)
+{
+    StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
+    fr a = fr::random_element();
+    fr b = fr::random_element();
+    fr c = a + b;
+    uint32_t a_idx = circuit_constructor.add_variable(a);
+    uint32_t b_idx = circuit_constructor.add_variable(b);
+    uint32_t c_idx = circuit_constructor.add_variable(c);
+    circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+    fr d = fr::random_element();
+    fr e = fr::random_element();
+    fr f = d + e;
+    uint32_t d_idx = circuit_constructor.add_variable(d);
+    uint32_t e_idx = circuit_constructor.add_variable(e);
+    uint32_t f_idx = circuit_constructor.add_variable(f);
+    circuit_constructor.create_add_gate({ d_idx, e_idx, f_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+    fr g = c * f;
+    fr g1 = c + f;
+    uint32_t g_idx = circuit_constructor.add_variable(g);
+    uint32_t g1_idx = circuit_constructor.add_variable(g1);
+    circuit_constructor.create_mul_gate({ c_idx, f_idx, g_idx, fr::one(), fr::neg_one(), fr::zero() });
+    circuit_constructor.create_add_gate({ c_idx, f_idx, g1_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+    fr g_dupl = circuit_constructor.get_variable(g_idx);
+    fr g_inv = g_dupl.invert();
+    fr g_2 = g_inv + g1;
+    uint32_t g_inv_idx = circuit_constructor.add_variable(g_inv);
+    uint32_t g2_idx = circuit_constructor.add_variable(g_2);
+    circuit_constructor.create_add_gate({ g_inv_idx, g1_idx, g2_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
+    bool result = CircuitChecker::check(circuit_constructor);
+    EXPECT_EQ(result, true);
+    circuit_constructor.print_boomerang_variables();
+}

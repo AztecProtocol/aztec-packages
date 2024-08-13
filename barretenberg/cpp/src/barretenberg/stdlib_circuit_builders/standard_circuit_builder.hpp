@@ -103,6 +103,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
 
     // TODO(#216)(Adrian): The 2 following methods should be virtual in the base class
     uint32_t put_constant_variable(const FF& variable);
+    void print_boomerang_variables();
 
     size_t get_num_constant_gates() const override { return 0; }
 
