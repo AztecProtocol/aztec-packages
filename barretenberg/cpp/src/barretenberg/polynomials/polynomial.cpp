@@ -443,8 +443,8 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     result.coefficients_.shift_ += 1;
     // We only expect to shift by 1
     ASSERT(result.coefficients_.shift_ == 1);
-    ASSERT(result.size() == size() - 1);
-    ASSERT(result.virtual_size() == virtual_size() - 1);
+    ASSERT(result.size() == size());
+    ASSERT(result.virtual_size() == virtual_size());
     ASSERT(result.data()[0] == data()[1]);
     return result;
 }
