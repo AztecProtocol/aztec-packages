@@ -15,8 +15,6 @@ if [ -n "$CMD" ]; then
   fi
 fi
 
-yarn
-
 echo "Compiling contracts..."
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 $NARGO compile --silence-warnings
