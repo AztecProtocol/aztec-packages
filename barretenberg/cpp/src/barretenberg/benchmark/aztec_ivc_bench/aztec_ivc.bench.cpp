@@ -70,7 +70,7 @@ class AztecIVCBench : public benchmark::Fixture {
                 circuit = circuit_producer.create_next_circuit(ivc);
             }
 
-            ivc.execute_accumulation_prover(circuit, precomputed_vks[circuit_idx]);
+            ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
         }
     }
 };

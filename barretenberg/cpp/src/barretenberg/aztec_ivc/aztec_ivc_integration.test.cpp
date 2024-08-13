@@ -46,7 +46,7 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
-        ivc.execute_accumulation_prover(circuit);
+        ivc.accumulate(circuit);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -72,7 +72,7 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
-        ivc.execute_accumulation_prover(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -104,7 +104,7 @@ TEST_F(AztecIVCIntegrationTests, DatabusFailure)
             circuit_producer.tamper_with_databus();
         }
 
-        ivc.execute_accumulation_prover(circuit);
+        ivc.accumulate(circuit);
     }
 
     EXPECT_FALSE(ivc.prove_and_verify());

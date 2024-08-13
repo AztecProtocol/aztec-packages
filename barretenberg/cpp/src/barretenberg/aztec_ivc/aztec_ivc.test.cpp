@@ -81,7 +81,7 @@ class AztecIVCTests : public ::testing::Test {
 
             for (size_t idx = 0; idx < num_circuits; ++idx) {
                 ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
-                ivc.execute_accumulation_prover(circuit);                         // accumulate the circuit
+                ivc.accumulate(circuit);                                          // accumulate the circuit
                 vkeys.emplace_back(ivc.instance_vk);                              // save the VK for the circuit
             }
             is_kernel = false;
@@ -119,11 +119,11 @@ TEST_F(AztecIVCTests, Basic)
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.execute_accumulation_prover(circuit_0);
+    ivc.accumulate(circuit_0);
 
     // Create another circuit and accumulate
     Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.execute_accumulation_prover(circuit_1);
+    ivc.accumulate(circuit_1);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -148,7 +148,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.execute_accumulation_prover(circuit);
+            ivc.accumulate(circuit);
         }
         EXPECT_TRUE(ivc.prove_and_verify());
     }
@@ -164,7 +164,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.execute_accumulation_prover(circuit);
+            ivc.accumulate(circuit);
 
             if (idx == 2) {
                 EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
@@ -186,7 +186,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.execute_accumulation_prover(circuit);
+            ivc.accumulate(circuit);
 
             if (idx == 2) {
                 EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
@@ -208,7 +208,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-            ivc.execute_accumulation_prover(circuit);
+            ivc.accumulate(circuit);
         }
 
         // Only a single proof should be present in the queue when verification of the IVC is performed
@@ -236,7 +236,7 @@ TEST_F(AztecIVCTests, BasicLarge)
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.execute_accumulation_prover(circuit);
+        ivc.accumulate(circuit);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -259,7 +259,7 @@ TEST_F(AztecIVCTests, BasicStructured)
     size_t log2_num_gates = 5;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
-        ivc.execute_accumulation_prover(circuit);
+        ivc.accumulate(circuit);
         log2_num_gates += 2;
     }
 
@@ -283,7 +283,7 @@ TEST_F(AztecIVCTests, PrecomputedVerificationKeys)
     // Construct and accumulate set of arbitrary circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.execute_accumulation_prover(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -309,7 +309,7 @@ TEST_F(AztecIVCTests, StructuredPrecomputedVKs)
     // Construct and accumulate set of arbitrary circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
-        ivc.execute_accumulation_prover(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

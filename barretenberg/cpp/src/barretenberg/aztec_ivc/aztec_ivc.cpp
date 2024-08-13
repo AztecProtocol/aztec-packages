@@ -16,11 +16,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // The folding verification queue should be either empty or contain two fold proofs
     ASSERT(verification_queue.empty() || verification_queue.size() == 2);
 
-    info("Complete kernel.");
-    info("verification_queue.size() = ", verification_queue.size());
-    info("merge_verification_queue.size() = ", merge_verification_queue.size());
     for (auto& [proof, vkey] : verification_queue) {
-        info("Append recursive verifier.");
         // Perform folding recursive verification
         FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
         auto verifier_accum = verifier.verify_folding_proof(proof);
@@ -33,7 +29,6 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Recusively verify all merge proofs in queue
     for (auto& proof : merge_verification_queue) {
-        info("Append recursive merge.");
         goblin.verify_merge(circuit, proof);
     }
     merge_verification_queue.clear();
@@ -48,8 +43,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * @param circuit
  * @param precomputed_vk
  */
-void AztecIVC::execute_accumulation_prover(ClientCircuit& circuit,
-                                           const std::shared_ptr<VerificationKey>& precomputed_vk)
+void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
@@ -60,42 +54,6 @@ void AztecIVC::execute_accumulation_prover(ClientCircuit& circuit,
 
     // Set the instance verification key from precomputed if available, else compute it
     instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
-
-    if (instance_vk->databus_propagation_data.is_kernel) {
-        info("Kernel:");
-        info("calldata:");
-        for (size_t i = 0; i < 5; ++i) {
-            auto& val = prover_instance->proving_key.polynomials.calldata[i];
-            info(val);
-        }
-        info("secondary calldata:");
-        for (size_t i = 0; i < 5; ++i) {
-            auto& val = prover_instance->proving_key.polynomials.secondary_calldata[i];
-            info(val);
-        }
-        info("return data:");
-        for (size_t i = 0; i < 5; ++i) {
-            auto& val = prover_instance->proving_key.polynomials.return_data[i];
-            info(val);
-        }
-    } else {
-        info("App:");
-        info("calldata:");
-        for (size_t i = 0; i < 5; ++i) {
-            auto& val = prover_instance->proving_key.polynomials.calldata[i];
-            info(val);
-        }
-        info("secondary calldata:");
-        for (size_t i = 0; i < 5; ++i) {
-            auto& val = prover_instance->proving_key.polynomials.secondary_calldata[i];
-            info(val);
-        }
-        info("return data:");
-        for (size_t i = 0; i < 5; ++i) {
-            auto& val = prover_instance->proving_key.polynomials.return_data[i];
-            info(val);
-        }
-    }
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (!initialized) {

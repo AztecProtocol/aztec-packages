@@ -98,8 +98,7 @@ class AztecIVC {
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     // Perform prover work for accumulation (e.g. PG folding, merge proving)
-    void execute_accumulation_prover(ClientCircuit& circuit,
-                                     const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
 
     Proof prove();
 
