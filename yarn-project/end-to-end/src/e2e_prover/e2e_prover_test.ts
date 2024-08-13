@@ -1,4 +1,5 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type Archiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
@@ -17,6 +18,7 @@ import {
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
+import { type ProverNode, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
 
 // TODO(#7373): Deploy honk solidity verifier
@@ -72,6 +74,7 @@ export class FullProverTest {
   circuitProofVerifier?: BBCircuitVerifier;
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
+  private proverNode!: ProverNode;
 
   constructor(testName: string, private minNumberOfTxsPerBlock: number) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
@@ -205,6 +208,19 @@ export class FullProverTest {
     }
 
     this.logger.debug(`Full prover PXE started!!`);
+
+    const proverConfig = {
+      ...this.context.aztecNodeConfig,
+      txProviderNodeUrl: undefined,
+      dataDirectory: undefined,
+      proverId: new Fr(42),
+    };
+    const archiver = this.context.aztecNode.getBlockSource() as Archiver;
+    this.proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: this.aztecNode, archiver });
+    this.proverNode.start();
+
+    this.logger.info('Prover node started');
+
     return this;
   }
 

@@ -63,8 +63,8 @@ describe('full_prover', () => {
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
       await Promise.all([
-        sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
-        sentPublicTx.wait({ timeout: 1200, interval: 10 }),
+        sentPrivateTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 600 }),
+        sentPublicTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 600 }),
       ]);
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
