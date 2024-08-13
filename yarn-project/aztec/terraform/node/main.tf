@@ -209,6 +209,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "${local.data_dir}/node_${count.index + 1}/data"
         },
         {
+          name  = "IS_DEV_NET"
+          value = "true"
+        },
+        {
           name  = "ARCHIVER_POLLING_INTERVAL"
           value = "10000"
         },
