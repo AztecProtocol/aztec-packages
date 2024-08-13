@@ -68,11 +68,14 @@ template <class Flavor> class ProverInstance_ {
         if constexpr (IsGoblinFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
         }
-
-        proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());
+        {
+            ZoneScopedN("constructing proving key");
+            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());
+        }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key, is_structured);
+        ZoneScopedN("constructing prover instance after trace populate");
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
@@ -96,6 +99,14 @@ template <class Flavor> class ProverInstance_ {
         for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
             size_t idx = i + proving_key.pub_inputs_offset;
             proving_key.public_inputs.emplace_back(public_wires_source[idx]);
+        }
+
+        // Set the recursive proof indices
+        proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
+        proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
+
+        if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
+            proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
     }
 

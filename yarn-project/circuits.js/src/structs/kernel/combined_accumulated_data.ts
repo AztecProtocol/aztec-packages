@@ -6,14 +6,17 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { inspect } from 'util';
 
 import {
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
-import { ScopedLogHash } from '../log_hash.js';
+import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
+import { LogHash, ScopedLogHash } from '../log_hash.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 
 /**
@@ -32,17 +35,15 @@ export class CombinedAccumulatedData {
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public l2ToL1Msgs: Tuple<Fr, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
-     * Accumulated encrypted note logs hash from all the previous kernel iterations.
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * Accumulated note logs hashes from all the previous kernel iterations.
      */
-    public noteEncryptedLogsHash: Fr,
+    public noteEncryptedLogsHashes: Tuple<LogHash, typeof MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
     /**
-     * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * Accumulated encrypted logs hashes from all the previous kernel iterations.
      */
-    public encryptedLogsHash: Fr,
+    public encryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_ENCRYPTED_LOGS_PER_TX>,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
@@ -74,8 +75,8 @@ export class CombinedAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteHashes) +
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
-      this.noteEncryptedLogsHash.size +
-      this.encryptedLogsHash.size +
+      arraySerializedSizeOfNonEmpty(this.noteEncryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.encryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
       this.noteEncryptedLogPreimagesLength.size +
       this.encryptedLogPreimagesLength.size +
@@ -90,8 +91,8 @@ export class CombinedAccumulatedData {
       fields.noteHashes,
       fields.nullifiers,
       fields.l2ToL1Msgs,
-      fields.noteEncryptedLogsHash,
-      fields.encryptedLogsHash,
+      fields.noteEncryptedLogsHashes,
+      fields.encryptedLogsHashes,
       fields.unencryptedLogsHashes,
       fields.noteEncryptedLogPreimagesLength,
       fields.encryptedLogPreimagesLength,
@@ -123,9 +124,9 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, Fr),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
+      reader.readArray(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash),
+      reader.readArray(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -148,9 +149,9 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      Fr.zero(),
-      Fr.zero(),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
+      makeTuple(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, LogHash.empty),
+      makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       Fr.zero(),
       Fr.zero(),
@@ -171,11 +172,17 @@ export class CombinedAccumulatedData {
         .map(x => inspect(x))
         .join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs
-        .filter(x => !x.isZero())
+        .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
-      noteEncryptedLogsHash: ${this.noteEncryptedLogsHash.toString()},
-      encryptedLogsHash: ${this.encryptedLogsHash.toString()},
+      noteEncryptedLogsHash:  [${this.noteEncryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}]
+      encryptedLogsHash: [${this.encryptedLogsHashes
+        .filter(x => !x.isEmpty())
+        .map(x => inspect(x))
+        .join(', ')}]
       unencryptedLogsHashes: : [${this.unencryptedLogsHashes
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))

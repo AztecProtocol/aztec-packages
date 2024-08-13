@@ -1,7 +1,8 @@
 import { type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
+import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
@@ -94,6 +95,18 @@ export class EthCheatCodes {
   }
 
   /**
+   * Set the interval between blocks (block time)
+   * @param interval - The interval to use between blocks
+   */
+  public async setBlockInterval(interval: number): Promise<void> {
+    const res = await this.rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    if (res.error) {
+      throw new Error(`Error setting block interval: ${res.error.message}`);
+    }
+    this.logger.info(`Set block interval to ${interval}`);
+  }
+
+  /**
    * Set the next block timestamp
    * @param timestamp - The timestamp to set the next block to
    */
@@ -103,6 +116,19 @@ export class EthCheatCodes {
       throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     }
     this.logger.info(`Set next block timestamp to ${timestamp}`);
+  }
+
+  /**
+   * Set the next block timestamp and mines the block
+   * @param timestamp - The timestamp to set the next block to
+   */
+  public async warp(timestamp: number): Promise<void> {
+    const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
+    if (res.error) {
+      throw new Error(`Error warping: ${res.error.message}`);
+    }
+    await this.mine();
+    this.logger.info(`Warped to ${timestamp}`);
   }
 
   /**
@@ -239,14 +265,12 @@ export class AztecCheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
-   * @param baseSlot - The base slot of the map (specified in Aztec.nr contract)
+   * @param mapSlot - The slot of the map (specified in Aztec.nr contract)
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
-    // Based on `at` function in
-    // aztec3-packages/aztec-nr/aztec/src/state_vars/map.nr
-    return pedersenHash([new Fr(baseSlot), new Fr(key)]);
+  public computeSlotInMap(mapSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
+    return deriveStorageSlotInMap(mapSlot, new Fr(key));
   }
 
   /**
@@ -258,18 +282,12 @@ export class AztecCheatCodes {
   }
 
   /**
-   * Set time of the next execution on aztec.
-   * It also modifies time on eth for next execution and stores this time as the last rollup block on the rollup contract.
-   * @param to - The timestamp to set the next block to (must be greater than current time)
+   * Get the current timestamp
+   * @returns The current timestamp
    */
-  public async warp(to: number): Promise<void> {
-    const rollupContract = (await this.pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
-    await this.eth.setNextBlockTimestamp(to);
-    // also store this time on the rollup contract (slot 2 tracks `lastBlockTs`).
-    // This is because when the sequencer executes public functions, it uses the timestamp stored in the rollup contract.
-    await this.eth.store(rollupContract, 2n, BigInt(to));
-    // also store this on slot 3 of the rollup contract (`lastWarpedBlockTs`) which tracks the last time warp was used.
-    await this.eth.store(rollupContract, 3n, BigInt(to));
+  public async timestamp(): Promise<number> {
+    const res = await this.pxe.getBlock(await this.blockNumber());
+    return res?.header.globalVariables.timestamp.toNumber() ?? 0;
   }
 
   /**

@@ -1,5 +1,5 @@
 import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
-import { type FunctionDebugMetadata, type OpcodeLocation } from '@aztec/foundation/abi';
+import type { BrilligFunctionId, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
@@ -18,7 +18,7 @@ import { type ORACLE_NAMES } from './oracle/index.js';
  */
 type ACIRCallback = Record<
   ORACLE_NAMES,
-  (...args: ForeignCallInput[]) => void | ForeignCallOutput | Promise<ForeignCallOutput>
+  (...args: ForeignCallInput[]) => void | Promise<void> | ForeignCallOutput | Promise<ForeignCallOutput>
 >;
 
 /**
@@ -41,10 +41,16 @@ export interface ACIRExecutionResult {
 function getSourceCodeLocationsFromOpcodeLocation(
   opcodeLocation: string,
   debug: FunctionDebugMetadata,
+  brilligFunctionId?: BrilligFunctionId,
 ): SourceCodeLocation[] {
   const { debugSymbols, files } = debug;
 
-  const callStack = debugSymbols.locations[opcodeLocation] || [];
+  let callStack = debugSymbols.locations[opcodeLocation] || [];
+  if (callStack.length === 0) {
+    if (brilligFunctionId !== undefined) {
+      callStack = debugSymbols.brillig_locations[brilligFunctionId][opcodeLocation] || [];
+    }
+  }
   return callStack.map(call => {
     const { file: fileId, span } = call;
 
@@ -76,8 +82,11 @@ function getSourceCodeLocationsFromOpcodeLocation(
 export function resolveOpcodeLocations(
   opcodeLocations: OpcodeLocation[],
   debug: FunctionDebugMetadata,
+  brilligFunctionId?: BrilligFunctionId,
 ): SourceCodeLocation[] {
-  return opcodeLocations.flatMap(opcodeLocation => getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug));
+  return opcodeLocations.flatMap(opcodeLocation =>
+    getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug, brilligFunctionId),
+  );
 }
 
 /**
@@ -143,13 +152,13 @@ export function extractCallStack(
   if (!('callStack' in error) || !error.callStack) {
     return undefined;
   }
-  const { callStack } = error;
+  const { callStack, brilligFunctionId } = error;
   if (!debug) {
     return callStack;
   }
 
   try {
-    return resolveOpcodeLocations(callStack, debug);
+    return resolveOpcodeLocations(callStack, debug, brilligFunctionId);
   } catch (err) {
     return callStack;
   }

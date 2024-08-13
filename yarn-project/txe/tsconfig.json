@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../accounts"
+    },
+    {
       "path": "../archiver"
     },
     {
@@ -28,13 +31,13 @@
       "path": "../kv-store"
     },
     {
-      "path": "../noir-contracts.js"
-    },
-    {
       "path": "../pxe"
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
     },
     {
       "path": "../types"

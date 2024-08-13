@@ -11,15 +11,6 @@ terraform {
   }
 }
 
-variable "DEPLOY_TAG" {
-  type = string
-}
-
-# S3 Bucket to store contract addresses
-resource "aws_s3_bucket" "contract_addresses" {
-  bucket = "aztec-${var.DEPLOY_TAG}-deployments"
-}
-
 variable "ROLLUP_CONTRACT_ADDRESS" {
   type    = string
   default = ""
@@ -66,20 +57,20 @@ output "outbox_contract_address" {
 }
 
 
-variable "GAS_TOKEN_CONTRACT_ADDRESS" {
+variable "FEE_JUICE_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "gas_token_contract_address" {
-  value = var.GAS_TOKEN_CONTRACT_ADDRESS
+output "fee_juice_contract_address" {
+  value = var.FEE_JUICE_CONTRACT_ADDRESS
 }
 
-variable "GAS_PORTAL_CONTRACT_ADDRESS" {
+variable "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
   type    = string
   default = ""
 }
 
-output "gas_portal_contract_address" {
-  value = var.GAS_PORTAL_CONTRACT_ADDRESS
+output "FEE_JUICE_PORTAL_CONTRACT_ADDRESS" {
+  value = var.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
 }

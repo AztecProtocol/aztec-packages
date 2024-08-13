@@ -1,11 +1,11 @@
-use crate::{file_writer::BBFiles, utils::snake_case};
+use crate::file_writer::BBFiles;
 use handlebars::Handlebars;
 use serde_json::json;
 
 pub trait ProverBuilder {
     fn create_prover_hpp(&mut self, name: &str);
 
-    fn create_prover_cpp(&mut self, name: &str, lookup_names: &[String]);
+    fn create_prover_cpp(&mut self, name: &str);
 }
 
 impl ProverBuilder for BBFiles {
@@ -25,19 +25,14 @@ impl ProverBuilder for BBFiles {
 
         let prover_hpp = handlebars.render("prover.hpp", data).unwrap();
 
-        self.write_file(
-            &self.prover,
-            &format!("{}_prover.hpp", snake_case(name)),
-            &prover_hpp,
-        );
+        self.write_file(None, "prover.hpp", &prover_hpp);
     }
 
-    fn create_prover_cpp(&mut self, name: &str, lookup_names: &[String]) {
+    fn create_prover_cpp(&mut self, name: &str) {
         let mut handlebars = Handlebars::new();
 
         let data = &json!({
             "name": name,
-            "lookups": lookup_names,
         });
 
         handlebars
@@ -49,10 +44,6 @@ impl ProverBuilder for BBFiles {
 
         let prover_cpp = handlebars.render("prover.cpp", data).unwrap();
 
-        self.write_file(
-            &self.prover,
-            &format!("{}_prover.cpp", snake_case(name)),
-            &prover_cpp,
-        );
+        self.write_file(None, "prover.cpp", &prover_cpp);
     }
 }
