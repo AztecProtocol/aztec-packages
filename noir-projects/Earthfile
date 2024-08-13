@@ -87,6 +87,9 @@ format:
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
   RUN nargo fmt --check
 
+  WORKDIR /usr/src/noir-projects/mock-protocol-circuits
+  RUN nargo fmt --check
+
   WORKDIR /usr/src/noir-projects/noir-contracts
   RUN nargo fmt --check
 
