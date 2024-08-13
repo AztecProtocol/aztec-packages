@@ -17,3 +17,15 @@ fi
 
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 $NARGO compile --silence-warnings
+
+BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
+echo Using BB hash $BB_HASH
+mkdir -p "./target/keys"
+
+for pathname in "./target"/*.json; do    
+    BB_HASH=$BB_HASH node ../noir-protocol-circuits/scripts/generate_vk_json.js "$pathname" "./target/keys" &
+done
+
+for job in $(jobs -p); do
+  wait $job || exit 1
+done
