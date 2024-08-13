@@ -55,7 +55,7 @@ function getBarretenbergHash() {
 
 function generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk) {
   return `${barretenbergHash}-${bytecodeHash}-${
-    isMegaHonk ? "mega-honk" : "ultra-honk"
+    isMegaHonk ? "mega-honk" : "keccak-ultra-honk"
   }`;
 }
 
@@ -155,10 +155,10 @@ async function generateVKData(
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
   const writeVkCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
+    isMegaHonk ? "write_vk_mega_honk" : "write_vk_keccak_ultra_honk"
   } -h -b "${artifactPath}" -o "${binaryVkPath}"`;
   const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
+    isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_keccak_ultra_honk"
   } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
 
   await new Promise((resolve, reject) => {

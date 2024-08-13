@@ -148,11 +148,11 @@ export async function generateKeyForNoirCircuit(
       // args are the output path and the input bytecode path
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
-      let result = await executeBB(pathToBB, `write_${key}_ultra_honk`, args, log);
+      let result = await executeBB(pathToBB, `write_${key}_keccak_ultra_honk`, args, log);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
       if (result.status == BB_RESULT.SUCCESS && key === 'vk') {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
-        result = await executeBB(pathToBB, `vk_as_fields_ultra_honk`, asFieldsArgs, log);
+        result = await executeBB(pathToBB, `vk_as_fields_keccak_ultra_honk`, asFieldsArgs, log);
       }
       const duration = timer.ms();
 
@@ -293,7 +293,7 @@ export async function computeVerificationKey(
     };
     let result = await executeBB(
       pathToBB,
-      'write_vk_ultra_honk',
+      'write_vk_keccak_ultra_honk',
       ['-o', outputPath, '-b', bytecodePath, '-v'],
       logFunction,
     );
@@ -302,7 +302,7 @@ export async function computeVerificationKey(
     }
     result = await executeBB(
       pathToBB,
-      'vk_as_fields_ultra_honk',
+      'vk_as_fields_keccak_ultra_honk',
       ['-o', outputPath + '_fields.json', '-k', outputPath, '-v'],
       logFunction,
     );
@@ -601,7 +601,7 @@ export async function verifyProof(
   verificationKeyPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify_ultra_honk', log);
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify_keccak_ultra_honk', log);
 }
 
 /**
@@ -674,7 +674,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify_ultra_honk' | 'avm_verify',
+  command: 'verify_keccak_ultra_honk' | 'avm_verify',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -728,7 +728,7 @@ export async function writeVkAsFields(
   try {
     const args = ['-k', `${verificationKeyPath}/${verificationKeyFilename}`, '-v'];
     const timer = new Timer();
-    const result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', args, log);
+    const result = await executeBB(pathToBB, 'vk_as_fields_keccak_ultra_honk', args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration, vkPath: verificationKeyPath };

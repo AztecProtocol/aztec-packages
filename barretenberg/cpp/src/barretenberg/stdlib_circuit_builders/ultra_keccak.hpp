@@ -1,4 +1,3 @@
-// TODO: the only change should be making honk generic over the transcript
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -34,6 +33,8 @@ class UltraKeccakFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -43,6 +44,8 @@ class UltraKeccakFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
+    // The total number of witnesses including shifts and derived entities.
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -133,7 +136,6 @@ class UltraKeccakFlavor {
         };
         auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
         auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
-
         auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
     };
 
@@ -154,31 +156,49 @@ class UltraKeccakFlavor {
                               lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
+        auto get_to_be_shifted() { return RefArray{ z_perm }; };
 
         MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
+     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     */
+    template <typename DataType> class ShiftedWitnessEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l_shift,    // column 0
+                              w_r_shift,    // column 1
+                              w_o_shift,    // column 2
+                              w_4_shift,    // column 3
+                              z_perm_shift) // column 4
+
+        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+    };
+
+    /**
      * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
      */
-    template <typename DataType> class ShiftedEntities {
+    template <typename DataType> class ShiftedTables {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               table_1_shift, // column 0
                               table_2_shift, // column 1
                               table_3_shift, // column 2
-                              table_4_shift, // column 3
-                              w_l_shift,     // column 4
-                              w_r_shift,     // column 5
-                              w_o_shift,     // column 6
-                              w_4_shift,     // column 7
-                              z_perm_shift)  // column 10
+                              table_4_shift  // column 3
+        )
+    };
 
-        auto get_shifted()
-        {
-            return RefArray{ table_1_shift, table_2_shift, table_3_shift, table_4_shift, w_l_shift,
-                             w_r_shift,     w_o_shift,     w_4_shift,     z_perm_shift };
-        };
+    /**
+     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
+     */
+    template <typename DataType>
+    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
+
+        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
+        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
     };
 
     /**
@@ -197,25 +217,41 @@ class UltraKeccakFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
+        auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
-        auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
-        auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };
-        auto get_tables() { return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4 }; };
+        auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
+        auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };
+        auto get_tables() { return PrecomputedEntities<DataType>::get_table_polynomials(); };
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
-
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4, this->w_l,
-                             this->w_r,     this->w_o,     this->w_4,     this->z_perm };
+            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
+                               WitnessEntities<DataType>::get_wires(),
+                               WitnessEntities<DataType>::get_to_be_shifted());
         };
+
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        // getter for shifted witnesses
+        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_shifted_witnesses(); };
+        // getter for shifted tables
+        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
+        // getter for all witnesses including shifted ones
+        auto get_all_witnesses()
+        {
+            return concatenate(WitnessEntities<DataType>::get_all(),
+                               ShiftedEntities<DataType>::get_shifted_witnesses());
+        };
+        // getter for the complement of all witnesses inside all entities
+        auto get_non_witnesses()
+        {
+            return concatenate(PrecomputedEntities<DataType>::get_all(),
+                               ShiftedEntities<DataType>::get_shifted_tables());
+        };
     };
 
   public:
@@ -240,6 +276,7 @@ class UltraKeccakFlavor {
         ProverPolynomials(size_t circuit_size)
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the
           // shifted polys
+            ZoneScopedN("creating empty prover polys");
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };
             }
@@ -372,6 +409,8 @@ class UltraKeccakFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
+            this->contains_recursive_proof = proving_key.contains_recursive_proof;
+            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
@@ -382,6 +421,8 @@ class UltraKeccakFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
+                        const bool contains_recursive_proof,
+                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -412,6 +453,8 @@ class UltraKeccakFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
+            this->contains_recursive_proof = contains_recursive_proof;
+            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -444,6 +487,8 @@ class UltraKeccakFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
+                       contains_recursive_proof,
+                       recursive_proof_public_input_indices,
                        q_m,
                        q_c,
                        q_l,
