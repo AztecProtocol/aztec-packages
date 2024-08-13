@@ -319,7 +319,7 @@ accumulator_triple_<FF> StandardCircuitBuilder_<FF>::create_logic_constraint(con
     uint32_t out_accumulator_idx = this->zero_idx;
     constexpr FF four = FF(4);
     constexpr FF neg_two = -FF(2);
-    // constexpr FF two = FF(2);
+    constexpr FF two = FF(2);
 
     // Num bits is expected to be even
     ASSERT(num_bits % 2 == 0);
