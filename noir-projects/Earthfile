@@ -45,7 +45,7 @@ build-mock-protocol-circuits:
       bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
   RUN yarn
   RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
-  SAVE ARTIFACT noir-protocol-circuits
+  SAVE ARTIFACT mock-protocol-circuits
 
 build:
   FROM +source
