@@ -40,6 +40,7 @@ export interface ServerCircuitProver {
   getBaseParityProof(
     inputs: BaseParityInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
@@ -49,6 +50,7 @@ export interface ServerCircuitProver {
   getRootParityProof(
     inputs: RootParityInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
   /**
@@ -58,6 +60,7 @@ export interface ServerCircuitProver {
   getBaseRollupProof(
     baseRollupInput: BaseRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
   /**
@@ -67,6 +70,7 @@ export interface ServerCircuitProver {
   getTubeProof(
     tubeInput: TubeInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>;
 
   /**
@@ -76,6 +80,7 @@ export interface ServerCircuitProver {
   getMergeRollupProof(
     input: MergeRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>>;
 
   /**
@@ -103,6 +108,7 @@ export interface ServerCircuitProver {
   getRootRollupProof(
     input: RootRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>>;
 
   /**
@@ -112,6 +118,7 @@ export interface ServerCircuitProver {
   getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>>;
 
   /**
@@ -121,23 +128,26 @@ export interface ServerCircuitProver {
   getPublicTailProof(
     kernelRequest: PublicKernelTailRequest,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
 
   getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>>;
 
   getEmptyTubeProof(
     inputs: PrivateKernelEmptyInputData,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndTubeProof<KernelCircuitPublicInputs>>;
 
   /**
    * Create a proof for the AVM circuit.
    * @param inputs - Inputs to the AVM circuit.
    */
-  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal): Promise<ProofAndVerificationKey>;
+  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal, epochNumber?: number): Promise<ProofAndVerificationKey>;
 }
 
 /**

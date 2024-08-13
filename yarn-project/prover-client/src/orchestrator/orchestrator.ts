@@ -349,6 +349,7 @@ export class ProvingOrchestrator implements BlockProver {
               getVKTreeRoot(),
             ),
             signal,
+            provingState.epochNumber,
           ),
       ),
       result => {
@@ -631,7 +632,7 @@ export class ProvingOrchestrator implements BlockProver {
       return;
     }
 
-    // We build tha base rollup inputs using a mock proof and verification key.
+    // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, inputs] = await elapsed(
       buildBaseRollupInput(
@@ -751,7 +752,7 @@ export class ProvingOrchestrator implements BlockProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-rollup' as CircuitName,
         },
-        signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal),
+        signal => this.prover.getBaseRollupProof(tx.baseRollupInputs, signal, provingState.epochNumber),
       ),
       result => {
         logger.debug(`Completed proof for base rollup for tx ${tx.processedTx.hash.toString()}`);
@@ -787,7 +788,12 @@ export class ProvingOrchestrator implements BlockProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' as CircuitName,
         },
-        signal => this.prover.getTubeProof(new TubeInputs(txProvingState.processedTx.clientIvcProof), signal),
+        signal =>
+          this.prover.getTubeProof(
+            new TubeInputs(txProvingState.processedTx.clientIvcProof),
+            signal,
+            provingState.epochNumber,
+          ),
       ),
       result => {
         logger.debug(`Completed tube proof for tx index: ${txIndex}`);
@@ -826,7 +832,7 @@ export class ProvingOrchestrator implements BlockProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'merge-rollup' as CircuitName,
         },
-        signal => this.prover.getMergeRollupProof(inputs, signal),
+        signal => this.prover.getMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
         this.storeAndExecuteNextMergeLevel(provingState, level, index, [
@@ -871,7 +877,7 @@ export class ProvingOrchestrator implements BlockProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-root-rollup' as CircuitName,
         },
-        signal => this.prover.getBlockRootRollupProof(inputs, signal),
+        signal => this.prover.getBlockRootRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
         provingState.blockRootRollupPublicInputs = result.inputs;
@@ -901,7 +907,7 @@ export class ProvingOrchestrator implements BlockProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' as CircuitName,
         },
-        signal => this.prover.getBaseParityProof(inputs, signal),
+        signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
       ),
       rootInput => {
         provingState.setRootParityInputs(rootInput, index);
@@ -920,7 +926,7 @@ export class ProvingOrchestrator implements BlockProver {
 
   // Runs the root parity circuit ans stored the outputs
   // Enqueues the root rollup proof if all inputs are available
-  private enqueueRootParityCircuit(provingState: ProvingState | undefined, inputs: RootParityInputs) {
+  private enqueueRootParityCircuit(provingState: ProvingState, inputs: RootParityInputs) {
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -930,7 +936,7 @@ export class ProvingOrchestrator implements BlockProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' as CircuitName,
         },
-        signal => this.prover.getRootParityProof(inputs, signal),
+        signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
       ),
       async rootInput => {
         provingState!.finalRootParityInput = rootInput;
@@ -1016,7 +1022,7 @@ export class ProvingOrchestrator implements BlockProver {
             publicFunction.vmRequest!.avmHints,
           );
           try {
-            return await this.prover.getAvmProof(inputs, signal);
+            return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
           } catch (err) {
             if (process.env.AVM_PROVING_STRICT) {
               throw err;
@@ -1127,9 +1133,9 @@ export class ProvingOrchestrator implements BlockProver {
           signal,
         ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs | PublicKernelCircuitPublicInputs>> => {
           if (request.type === PublicKernelType.TAIL) {
-            return this.prover.getPublicTailProof(request, signal);
+            return this.prover.getPublicTailProof(request, signal, provingState.epochNumber);
           } else {
-            return this.prover.getPublicKernelProof(request, signal);
+            return this.prover.getPublicKernelProof(request, signal, provingState.epochNumber);
           }
         },
       ),
