@@ -43,9 +43,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
     description: 'Whether the validator is disabled for this node.',
+    ...booleanConfigHelper(),
   },
 };
 

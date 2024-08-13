@@ -426,32 +426,7 @@ export class Sequencer {
     );
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
-    const orderedSignatures = await this.orderAttestations(attestations, committee);
-
-    return orderedSignatures;
-  }
-
-  private async orderAttestations(
-    attestations: BlockAttestation[],
-    orderAddresses: EthAddress[],
-  ): Promise<Signature[]> {
-    // Create a map of sender addresses to BlockAttestations
-    const attestationMap = new Map<string, BlockAttestation>();
-
-    for (const attestation of attestations) {
-      const sender = await attestation.getSender();
-      if (sender) {
-        attestationMap.set(sender.toString(), attestation);
-      }
-    }
-
-    // Create the ordered array based on the orderAddresses, else return an empty signature
-    const orderedAttestations = orderAddresses.map(address => {
-      const addressString = address.toString();
-      return attestationMap.get(addressString)?.signature || Signature.empty();
-    });
-
-    return orderedAttestations;
+    return await orderAttestations(attestations, committee);
   }
 
   /**
@@ -572,4 +547,31 @@ export enum SequencerState {
    * Sequencer is stopped and not processing any txs from the pool.
    */
   STOPPED,
+}
+
+/** Order Attestations
+ *
+ * Returns attestation signatures in the order of a series of provided ethereum addresses
+ * The rollup smart contract expects attestations to appear in the order of the committee
+ *
+ * @todo: perform this logic within the memory attestation store instead?
+ */
+async function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Promise<Signature[]> {
+  // Create a map of sender addresses to BlockAttestations
+  const attestationMap = new Map<string, BlockAttestation>();
+
+  for (const attestation of attestations) {
+    const sender = await attestation.getSender();
+    if (sender) {
+      attestationMap.set(sender.toString(), attestation);
+    }
+  }
+
+  // Create the ordered array based on the orderAddresses, else return an empty signature
+  const orderedAttestations = orderAddresses.map(address => {
+    const addressString = address.toString();
+    return attestationMap.get(addressString)?.signature || Signature.empty();
+  });
+
+  return orderedAttestations;
 }

@@ -173,12 +173,6 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const prover = await createProverClient(config, telemetry);
-
-    if (!prover && !config.disableSequencer) {
-      throw new Error("Can't start a sequencer without a prover");
-    }
-
     // TODO: likely that the sequencer will consume a validator client and use it
     // to broadcast the blocks
     const validatorClient = createValidatorClient(config, p2pClient);

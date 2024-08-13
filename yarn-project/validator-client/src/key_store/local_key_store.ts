@@ -28,8 +28,4 @@ export class LocalKeyStore implements ValidatorKeyStore {
 
     return Signature.from0xString(signature);
   }
-
-  // public async validateSignature(signature: Buffer, message?: Buffer | undefined): Promise<boolean> {
-
-  // }
 }

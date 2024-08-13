@@ -10,9 +10,6 @@ import { ValidationService } from './duties/validation_service.js';
 import { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 
-// Temporarily hardcode the committee size
-const COMMITTEE_SIZE = 4;
-
 /** Validator
  *
  *

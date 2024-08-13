@@ -1,4 +1,4 @@
-import { ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 /**
  * The Validator Configuration
@@ -18,9 +18,8 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
     description: 'Do not run the validator',
+    ...booleanConfigHelper(),
   },
 };
 
