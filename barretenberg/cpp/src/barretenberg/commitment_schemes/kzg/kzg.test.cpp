@@ -64,7 +64,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using GroupElement = typename TypeParam::Element;
-    using Polynomial = typename bb::Polynomial<Fr>;
+    using Polynomial = typename bb::SparsePolynomial<Fr>;
 
     const size_t n = 16;
     const size_t log_n = 4;

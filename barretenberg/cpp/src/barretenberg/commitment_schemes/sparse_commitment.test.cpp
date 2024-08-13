@@ -1,5 +1,5 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/sparse_polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 #include <gtest/gtest.h>

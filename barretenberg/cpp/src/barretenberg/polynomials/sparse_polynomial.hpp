@@ -234,6 +234,8 @@ template <typename Fr> class SparsePolynomial {
         return coefficients_.data()[i];
     }
 
+    static SparsePolynomial random(size_t size) { return random(size, size); }
+
     static SparsePolynomial random(size_t size, size_t virtual_size)
     {
         SparsePolynomial p(size, virtual_size, DontZeroMemory::FLAG);
