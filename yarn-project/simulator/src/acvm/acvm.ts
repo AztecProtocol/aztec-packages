@@ -49,8 +49,6 @@ function getSourceCodeLocationsFromOpcodeLocation(
   if (callStack.length === 0) {
     if (brilligFunctionId !== undefined) {
       callStack = debugSymbols.brillig_locations[brilligFunctionId][opcodeLocation] || [];
-      // eslint-disable-next-line no-console
-      console.log("GOT HERE");
     }
   }
   return callStack.map(call => {
