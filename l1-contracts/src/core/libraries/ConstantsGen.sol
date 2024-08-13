@@ -74,10 +74,11 @@ library Constants {
   uint256 internal constant PRIVATE_KERNEL_INIT_INDEX = 0;
   uint256 internal constant PRIVATE_KERNEL_INNER_INDEX = 1;
   uint256 internal constant PRIVATE_KERNEL_RESET_FULL_INDEX = 2;
-  uint256 internal constant PRIVATE_KERNEL_RESET_BIG_INDEX = 3;
-  uint256 internal constant PRIVATE_KERNEL_RESET_MEDIUM_INDEX = 4;
-  uint256 internal constant PRIVATE_KERNEL_RESET_SMALL_INDEX = 5;
-  uint256 internal constant PRIVATE_KERNEL_RESET_TINY_INDEX = 6;
+  uint256 internal constant PRIVATE_KERNEL_RESET_FULL_INNER_INDEX = 3;
+  uint256 internal constant PRIVATE_KERNEL_RESET_BIG_INDEX = 4;
+  uint256 internal constant PRIVATE_KERNEL_RESET_MEDIUM_INDEX = 5;
+  uint256 internal constant PRIVATE_KERNEL_RESET_SMALL_INDEX = 6;
+  uint256 internal constant PRIVATE_KERNEL_RESET_TINY_INDEX = 7;
   uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 10;
   uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 11;
   uint256 internal constant EMPTY_NESTED_INDEX = 12;
@@ -98,6 +99,8 @@ library Constants {
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
+  uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
+  uint256 internal constant IS_DEV_NET = 1;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 20000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS = 3000;
