@@ -55,6 +55,7 @@ build:
   SAVE ARTIFACT aztec-nr
   SAVE ARTIFACT noir-contracts
   SAVE ARTIFACT noir-protocol-circuits
+  SAVE ARTIFACT mock-protocol-circuits
 
 test:
   FROM ../yarn-project/+txe
