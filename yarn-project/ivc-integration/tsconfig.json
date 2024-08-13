@@ -17,12 +17,6 @@
       "path": "../types"
     },
     {
-      "path": "../kv-store"
-    },
-    {
-      "path": "../merkle-tree"
-    },
-    {
       "path": "../bb-prover"
     },
   ],

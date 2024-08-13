@@ -672,12 +672,9 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/kv-store": "workspace:^"
-    "@aztec/merkle-tree": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
-    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
