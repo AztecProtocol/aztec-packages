@@ -3,7 +3,6 @@ import {
   type EventMetadata,
   type EventType,
   type ExtendedNote,
-  type ExtendedNoteWithNonce,
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
   type L2Block,
@@ -18,6 +17,7 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  type UniqueNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
@@ -121,10 +121,10 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNoteWithNonce[]> {
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNoteWithNonce[]> {
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getOutgoingNotes(filter);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {

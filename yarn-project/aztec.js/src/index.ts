@@ -102,7 +102,7 @@ export {
   EncryptedLogOutgoingBody,
   EventType,
   ExtendedNote,
-  ExtendedNoteWithNonce,
+  UniqueNote,
   FunctionCall,
   L1Actor,
   L1ToL2Message,

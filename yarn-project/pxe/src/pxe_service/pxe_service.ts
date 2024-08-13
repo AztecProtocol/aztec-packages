@@ -6,7 +6,6 @@ import {
   type EventMetadata,
   EventType,
   type ExtendedNote,
-  ExtendedNoteWithNonce,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
@@ -27,6 +26,7 @@ import {
   type TxHash,
   type TxReceipt,
   UnencryptedTxL2Logs,
+  UniqueNote,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import {
@@ -297,7 +297,7 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNoteWithNonce[]> {
+  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getIncomingNotes(filter);
 
     // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
@@ -313,7 +313,7 @@ export class PXEService implements PXE {
         }
         owner = completeAddresses.address;
       }
-      return new ExtendedNoteWithNonce(
+      return new UniqueNote(
         dao.note,
         owner,
         dao.contractAddress,
@@ -326,7 +326,7 @@ export class PXEService implements PXE {
     return Promise.all(extendedNotes);
   }
 
-  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNoteWithNonce[]> {
+  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getOutgoingNotes(filter);
 
     // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
@@ -342,7 +342,7 @@ export class PXEService implements PXE {
         }
         owner = completeAddresses.address;
       }
-      return new ExtendedNoteWithNonce(
+      return new UniqueNote(
         dao.note,
         owner,
         dao.contractAddress,

@@ -6,13 +6,13 @@ import {
   type CheatCodes,
   type DebugLogger,
   ExtendedNote,
-  type ExtendedNoteWithNonce,
   Fr,
   Note,
   type PXE,
   PackedValues,
   TxExecutionRequest,
   type TxHash,
+  type UniqueNote,
   computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
@@ -181,22 +181,22 @@ describe('e2e_crowdfunding_and_claim', () => {
     ]);
   };
 
-  // Processes extended note such that it can be passed to a claim function of Claim contract
-  const processExtendedNote = (extendedNote: ExtendedNoteWithNonce) => {
+  // Processes unique note such that it can be passed to a claim function of Claim contract
+  const processUniqueNote = (uniqueNote: UniqueNote) => {
     return {
       header: {
         // eslint-disable-next-line camelcase
-        contract_address: extendedNote.contractAddress,
+        contract_address: uniqueNote.contractAddress,
         // eslint-disable-next-line camelcase
-        storage_slot: extendedNote.storageSlot,
+        storage_slot: uniqueNote.storageSlot,
         // eslint-disable-next-line camelcase
         note_hash_counter: 0, // set as 0 as note is not transient
-        nonce: extendedNote.nonce,
+        nonce: uniqueNote.nonce,
       },
-      value: extendedNote.note.items[0],
+      value: uniqueNote.note.items[0],
       // eslint-disable-next-line camelcase
-      npk_m_hash: extendedNote.note.items[1],
-      randomness: extendedNote.note.items[2],
+      npk_m_hash: uniqueNote.note.items[1],
+      randomness: uniqueNote.note.items[2],
     };
   };
 
@@ -229,7 +229,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       expect(notes!.length).toEqual(1);
 
       // Set the value note in a format which can be passed to claim function
-      valueNote = processExtendedNote(notes![0]);
+      valueNote = processUniqueNote(notes![0]);
     }
 
     // 3) We claim the reward token via the Claim contract
@@ -300,7 +300,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(notes!.length).toEqual(1);
 
     // Set the value note in a format which can be passed to claim function
-    const anotherDonationNote = processExtendedNote(notes![0]);
+    const anotherDonationNote = processUniqueNote(notes![0]);
 
     // We create an unrelated pxe and wallet without access to the nsk_app that correlates to the npk_m specified in the proof note.
     let unrelatedWallet: AccountWallet;
@@ -352,7 +352,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
       const { visibleIncomingNotes } = receipt.debugInfo!;
       expect(visibleIncomingNotes.length).toEqual(1);
-      note = processExtendedNote(visibleIncomingNotes![0]);
+      note = processUniqueNote(visibleIncomingNotes![0]);
     }
 
     // 3) Test the note was included

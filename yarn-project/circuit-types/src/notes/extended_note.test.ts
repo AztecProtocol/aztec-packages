@@ -1,5 +1,5 @@
-import { randomExtendedNote, randomExtendedNoteWithNonce } from '../mocks.js';
-import { ExtendedNote, ExtendedNoteWithNonce } from './extended_note.js';
+import { randomExtendedNote, randomUniqueNote } from '../mocks.js';
+import { ExtendedNote, UniqueNote } from './extended_note.js';
 
 describe('Extended Note', () => {
   it('convert to and from buffer', () => {
@@ -9,10 +9,10 @@ describe('Extended Note', () => {
   });
 });
 
-describe('Extended Note with nonce', () => {
+describe('Unique Note', () => {
   it('convert to and from buffer', () => {
-    const extendedNote = randomExtendedNoteWithNonce();
-    const buf = extendedNote.toBuffer();
-    expect(ExtendedNoteWithNonce.fromBuffer(buf)).toEqual(extendedNote);
+    const uniqueNote = randomUniqueNote();
+    const buf = uniqueNote.toBuffer();
+    expect(UniqueNote.fromBuffer(buf)).toEqual(uniqueNote);
   });
 });

@@ -58,7 +58,7 @@ export class ExtendedNote {
   }
 }
 
-export class ExtendedNoteWithNonce extends ExtendedNote {
+export class UniqueNote extends ExtendedNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     note: Note,
@@ -106,6 +106,6 @@ export class ExtendedNoteWithNonce extends ExtendedNote {
 
   static override fromString(str: string) {
     const hex = str.replace(/^0x/, '');
-    return ExtendedNoteWithNonce.fromBuffer(Buffer.from(hex, 'hex'));
+    return UniqueNote.fromBuffer(Buffer.from(hex, 'hex'));
   }
 }

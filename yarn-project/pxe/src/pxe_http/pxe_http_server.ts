@@ -3,7 +3,6 @@ import {
   CompleteAddress,
   EncryptedNoteL2BlockL2Logs,
   ExtendedNote,
-  ExtendedNoteWithNonce,
   ExtendedUnencryptedL2Log,
   L2Block,
   LogId,
@@ -17,6 +16,7 @@ import {
   TxHash,
   TxReceipt,
   UnencryptedL2BlockL2Logs,
+  UniqueNote,
 } from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
@@ -49,7 +49,7 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       GrumpkinScalar,
       Note,
       ExtendedNote,
-      ExtendedNoteWithNonce,
+      UniqueNote,
       AuthWitness,
       L2Block,
       TxEffect,

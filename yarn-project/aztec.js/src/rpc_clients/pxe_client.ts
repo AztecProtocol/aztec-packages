@@ -2,7 +2,6 @@ import {
   AuthWitness,
   EncryptedNoteL2BlockL2Logs,
   ExtendedNote,
-  ExtendedNoteWithNonce,
   ExtendedUnencryptedL2Log,
   L2Block,
   LogId,
@@ -16,6 +15,7 @@ import {
   TxHash,
   TxReceipt,
   UnencryptedL2BlockL2Logs,
+  UniqueNote,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -46,7 +46,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       FunctionSelector,
       EthAddress,
       ExtendedNote,
-      ExtendedNoteWithNonce,
+      UniqueNote,
       ExtendedUnencryptedL2Log,
       Fr,
       GrumpkinScalar,
