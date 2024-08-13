@@ -3,6 +3,8 @@ use dep::mock_types::{
     MAX_COMMITMENTS_PER_TX
 };
 
+// Mock reset kernel that reset read requests.
+// It needs hints to locate the commitment that matches the read requests.
 fn main(
     mut prev_kernel_public_inputs: PrivateKernelPublicInputs,
     commitment_read_hints: [u32; MAX_COMMITMENT_READ_REQUESTS_PER_TX]
