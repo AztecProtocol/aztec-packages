@@ -47,6 +47,7 @@ if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
 else
   ((./noir-contracts/bootstrap.sh) > >(awk -v g="$g" -v r="$r" '{print g "contracts: " r $0}')) &
   ((./noir-protocol-circuits/bootstrap.sh) > >(awk -v b="$b" -v r="$r" '{print  b "protocol-circuits: " r $0}')) &
+  ((./mock-protocol-circuits/bootstrap.sh) > >(awk -v b="$b" -v r="$r" '{print  b "mock-protocol-circuits: " r $0}')) &
 
   for job in $(jobs -p); do
     wait $job || exit 1
