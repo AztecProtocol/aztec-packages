@@ -18,7 +18,7 @@ import {
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
-import { type ProverNode, createProverNode } from '@aztec/prover-node';
+import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
 
 // TODO(#7373): Deploy honk solidity verifier
@@ -156,12 +156,11 @@ export class FullProverTest {
 
     this.logger.debug(`Configuring the node for real proofs...`);
     await this.aztecNode.setConfig({
-      proverAgentConcurrency: 2,
       realProofs: true,
       minTxsPerBlock: this.minNumberOfTxsPerBlock,
     });
 
-    this.logger.debug(`Main setup completed, initializing full prover PXE and Node...`);
+    this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
 
     for (let i = 0; i < 2; i++) {
       const result = await setupPXEService(
@@ -207,13 +206,25 @@ export class FullProverTest {
       this.provenAssets.push(asset);
     }
 
-    this.logger.debug(`Full prover PXE started!!`);
+    this.logger.info(`Full prover PXE started`);
 
-    const proverConfig = {
+    const blockNumber = await this.context.pxe.getBlockNumber();
+    await this.context.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+      hash: await getContract({
+        abi: RollupAbi,
+        address: this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        client: this.context.deployL1ContractsValues.walletClient,
+      }).write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber)]),
+    });
+    this.logger.verbose(`Rollup contract set to assume proven until block ${blockNumber}`);
+
+    const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
       txProviderNodeUrl: undefined,
       dataDirectory: undefined,
       proverId: new Fr(42),
+      realProofs: true,
+      proverAgentConcurrency: 2,
     };
     const archiver = this.context.aztecNode.getBlockSource() as Archiver;
     this.proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: this.aztecNode, archiver });
