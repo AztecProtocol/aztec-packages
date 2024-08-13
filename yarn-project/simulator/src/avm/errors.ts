@@ -141,8 +141,6 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
  */
 export function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): AvmRevertReason {
   const revertMessage = decodeRevertDataAsMessage(revertData);
-  // eslint-disable-next-line no-console
-  console.log('revertMessage: ', revertMessage);
   return createRevertReason(revertMessage, context);
 }
 

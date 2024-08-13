@@ -44,7 +44,7 @@ function getSourceCodeLocationsFromOpcodeLocation(
   brilligFunctionId?: BrilligFunctionId,
 ): SourceCodeLocation[] {
   const { debugSymbols, files } = debug;
-  
+
   let callStack = debugSymbols.locations[opcodeLocation] || [];
   if (callStack.length === 0) {
     if (brilligFunctionId !== undefined) {
@@ -84,7 +84,9 @@ export function resolveOpcodeLocations(
   debug: FunctionDebugMetadata,
   brilligFunctionId?: BrilligFunctionId,
 ): SourceCodeLocation[] {
-  return opcodeLocations.flatMap(opcodeLocation => getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug, brilligFunctionId));
+  return opcodeLocations.flatMap(opcodeLocation =>
+    getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug, brilligFunctionId),
+  );
 }
 
 /**
