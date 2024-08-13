@@ -538,7 +538,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { circuitOutput: output, proof };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
@@ -608,7 +608,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { proof, verificationKey };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation, cleanupDir);
+    return await this.runInDirectory(operation);
   }
 
   public async getTubeProof(
@@ -640,7 +640,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { tubeVK, tubeProof };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -699,7 +699,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         proof,
       };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -752,7 +752,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
     };
 
-    await runInDirectory(this.config.bbWorkingDirectory, operation);
+    await this.runInDirectory(operation);
   }
 
   /**
@@ -824,7 +824,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         true,
       );
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -957,5 +957,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     return proof;
+  }
+
+  private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
+    return runInDirectory(this.config.bbWorkingDirectory, fn, this.config.bbSkipCleanup);
   }
 }
