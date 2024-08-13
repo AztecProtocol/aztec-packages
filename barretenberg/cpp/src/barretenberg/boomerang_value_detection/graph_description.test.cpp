@@ -64,9 +64,9 @@ TEST(standard_circuit_constructor, test_graph_with_two_gates)
 TEST(standard_circuit_constructor, test_graph_with_boomerang_variable)
 {
     StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
-    fr a = fr::random_element();                                 // взяли случайный элемент
-    uint32_t a_idx = circuit_constructor.add_public_variable(a); // добавили его в схему
-    fr b = fr::random_element();                                 // еще один случайный элемент
+    fr a = fr::random_element();
+    uint32_t a_idx = circuit_constructor.add_public_variable(a);
+    fr b = fr::random_element();
     fr c = a + b;
     fr d = fr::random_element();
     fr e = d + a; //
@@ -75,8 +75,7 @@ TEST(standard_circuit_constructor, test_graph_with_boomerang_variable)
     uint32_t c_idx = circuit_constructor.add_variable(c);
     uint32_t d_idx = circuit_constructor.add_variable(d);
     uint32_t e_idx = circuit_constructor.add_variable(e);
-    uint32_t a_duplicate_idx = circuit_constructor.add_variable(
-        a); // вот это бумеранг, потому что e работало именно с a, но между ними a_duplicate и a нет никакой связи.
+    uint32_t a_duplicate_idx = circuit_constructor.add_variable(a);
     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
     circuit_constructor.create_add_gate(
         { a_duplicate_idx, d_idx, e_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
@@ -110,19 +109,17 @@ TEST(standard_circuit_constructor, test_graph_connected_components)
 TEST(standard_circuit_constructor, test_graph_with_two_connected_components)
 {
     StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
-    fr a = fr::random_element();                                 // взяли случайный элемент
-    uint32_t a_idx = circuit_constructor.add_public_variable(a); // добавили его в схему
-    fr b = fr::random_element();                                 // еще один случайный элемент
+    fr a = fr::random_element();
+    uint32_t a_idx = circuit_constructor.add_public_variable(a);
+    fr b = fr::random_element();
     fr c = a + b;
     fr d = fr::random_element();
     fr e = d + a; //
-    // uint32_t a_idx = circuit_constructor.add_variable(a);
     uint32_t b_idx = circuit_constructor.add_variable(b);
     uint32_t c_idx = circuit_constructor.add_variable(c);
     uint32_t d_idx = circuit_constructor.add_variable(d);
     uint32_t e_idx = circuit_constructor.add_variable(e);
-    uint32_t a_duplicate_idx = circuit_constructor.add_variable(
-        a); // вот это бумеранг, потому что e работало именно с a, но между ними a_duplicate и a нет никакой связи.
+    uint32_t a_duplicate_idx = circuit_constructor.add_variable(a);
     circuit_constructor.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
     circuit_constructor.create_add_gate(
         { a_duplicate_idx, d_idx, e_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
@@ -283,8 +280,6 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
     Graph graph = Graph(circuit_constructor);
     graph.print_connected_components();
     graph.print_variables_gate_counts();
-    // circuit_constructor.create_ecc_add_gate({ x1 + 1, y1, x2, y2, x3, y3, 1 });
-    // EXPECT_EQ(CircuitChecker::check(circuit_constructor), false);
 }
 
 TEST(ultra_circuit_constructor, test_for_elliptic_double_gate)
@@ -314,21 +309,6 @@ TEST(ultra_circuit_constructor, test_for_elliptic_double_gate)
 
 TEST(ultra_circuit_constructor, test_graph_for_elliptic_gates_with_arithmetic_gates)
 {
-    // for (size_t i = 0; i < 5; ++i) {
-    //     for (size_t j = 0; j < 5; ++j) {
-    //         uint64_t left = static_cast<uint64_t>(j);
-    //         uint64_t right = static_cast<uint64_t>(i);
-    //         uint32_t left_idx = circuit_constructor.add_variable(fr(left));
-    //         uint32_t right_idx = circuit_constructor.add_variable(fr(right));
-    //         uint32_t result_idx = circuit_constructor.add_variable(fr(left ^ right));
-
-    //        uint32_t add_idx =
-    //            circuit_constructor.add_variable(fr(left) + fr(right) + circuit_constructor.get_variable(result_idx));
-    //        circuit_constructor.create_big_add_gate(
-    //            { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
-    //    }
-    //}
-
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
 
     typedef grumpkin::g1::affine_element affine_element;
@@ -346,12 +326,10 @@ TEST(ultra_circuit_constructor, test_graph_for_elliptic_gates_with_arithmetic_ga
     uint32_t y3 = circuit_constructor.add_variable(p3.y);
 
     circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
-    // info("number of elliptic gates after ecc_add_gate == ", circuit_constructor.blocks.elliptic.size());
     affine_element p4(element(p3).dbl());
     uint32_t x4 = circuit_constructor.add_variable(p4.x);
     uint32_t y4 = circuit_constructor.add_variable(p4.y);
     circuit_constructor.create_ecc_dbl_gate({ x3, y3, x4, y4 });
-    // info("number of elliptic gates after ecc_dbl_gate == ", circuit_constructor.blocks.elliptic.size());
     bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 

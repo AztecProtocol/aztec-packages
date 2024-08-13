@@ -35,7 +35,7 @@ template <typename FF> class Graph_ {
                                            const uint32_t& zero_idx);
     void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector,
                                          const uint32_t& zero_idx,
-                                         const std::map<FF, uint32_t>& constant_variables_indices,
+                                         const std::map<FF, uint32_t>& constant_variable_indices,
                                          bool is_sorted_variables);
     bool check_is_not_constant_variable(const uint32_t& variable_index,
                                         const std::map<FF, uint32_t>& constant_variables_indices);
