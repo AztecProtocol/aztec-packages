@@ -4,7 +4,7 @@ use dep::protocol_types::point::Point;
 
 // docs:start:note_interface
 trait NoteInterface<let N: u32, let M: u32> {
-    // This function MUST be called with the correct note hash for consuption! It will otherwise silently fail and
+    // This function MUST be called with the correct note hash for consumption! It will otherwise silently fail and
     // compute an incorrect value.
     // The reason why we receive this as an argument instead of computing it ourselves directly is because the
     // caller will typically already have computed this note hash, and we can reuse that value to reduce the total
