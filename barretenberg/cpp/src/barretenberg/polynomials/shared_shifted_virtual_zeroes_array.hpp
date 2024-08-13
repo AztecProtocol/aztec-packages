@@ -30,9 +30,12 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     }
 
     // Method to get the memory-backed size such that we can set index 0..size()-1.
-    size_t size() const { return size_ - shift_; }
+    // Note: We DO NOT reduce our size or virtual size by shift_. This is because
+    // only support a shift by values that are included in backing_memory_.
+    // This guarantee is to be upheld by the class that uses SharedShiftedVirtualZeroesArray.
+    size_t size() const { return size_; }
     // Method to get virtual size such that we can get index 0..virtual_size()-1.
-    size_t virtual_size() const { return virtual_size_ - shift_; };
+    size_t virtual_size() const { return virtual_size_; };
 
     T* data() { return backing_memory_.get() + shift_; }
     const T* data() const { return backing_memory_.get() + shift_; }

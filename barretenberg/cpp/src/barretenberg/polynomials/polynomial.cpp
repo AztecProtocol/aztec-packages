@@ -25,10 +25,12 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
 template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size)
 {
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
-        size,                              /* actual memory size */
-        virtual_size,                      /* virtual size, i.e. until what size do we conceptually have zeroes */
-        0,                                 /* shift, initially 0 */
-        _allocate_aligned_memory<Fr>(size) /* our backing memory, since shift is 0 it is equal to our memory size */
+        size,         /* actual memory size */
+        virtual_size, /* virtual size, i.e. until what size do we conceptually have zeroes */
+        0,            /* shift, initially 0 */
+        _allocate_aligned_memory<Fr>(size + MAXIMUM_COEFFICIENT_SHIFT)
+        /* Our backing memory, since shift is 0 it is equal to our memory size.
+         * We add one to the size here to allow for an efficient shift by 1 that retains size. */
     };
 }
 
@@ -74,6 +76,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, c
     memcpy(static_cast<void*>(coefficients_.data()),
            static_cast<const void*>(other.coefficients_.data()),
            sizeof(Fr) * other.size());
+    zero_memory_beyond(other.size());
 }
 
 // interpolation constructor
@@ -434,12 +437,15 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
  */
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
+    ASSERT(data()[0].is_zero());
     Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.shift_ += 1;
     // We only expect to shift by 1
-    ASSERT(data()[0].is_zero());
     ASSERT(result.coefficients_.shift_ == 1);
+    ASSERT(result.size() == size() - 1);
+    ASSERT(result.virtual_size() == virtual_size() - 1);
+    ASSERT(result.data()[0] == data()[1]);
     return result;
 }
 
