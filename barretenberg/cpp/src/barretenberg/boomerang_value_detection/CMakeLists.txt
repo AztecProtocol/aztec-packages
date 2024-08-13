@@ -1,0 +1,1 @@
+barretenberg_module(boomerang_value_detection stdlib_circuit_builders circuit_checker)
