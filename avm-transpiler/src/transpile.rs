@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
 
-use acvm::acir::circuit::brillig::BrilligFunctionId;
 use acvm::acir::circuit::OpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
@@ -1061,11 +1060,6 @@ pub fn patch_debug_info_pcs(
     brillig_pcs_to_avm_pcs: &[usize],
 ) -> Vec<DebugInfo> {
     for patched_debug_info in debug_infos.iter_mut() {
-        assert_eq!(
-            patched_debug_info.brillig_locations.len(),
-            1,
-            "We should only be attempting to transpile a single Brillig function"
-        );
         let mut patched_brillig_locations = BTreeMap::new();
         for (brillig_function_id, opcode_locations_map) in
             patched_debug_info.brillig_locations.iter()
