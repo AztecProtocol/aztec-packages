@@ -55,6 +55,7 @@ build:
 
   COPY +build-contracts/noir-contracts ./noir-contracts
   COPY +build-protocol-circuits/noir-protocol-circuits ./noir-protocol-circuits
+  COPY +build-mock-protocol-circuits/mock-protocol-circuits ./mock-protocol-circuits
 
   SAVE ARTIFACT aztec-nr
   SAVE ARTIFACT noir-contracts
