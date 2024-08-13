@@ -79,8 +79,7 @@ impl<Note, let N: u32, let M: u32> PrivateSet<Note, &mut PrivateContext> where N
         self,
         options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
-        let notes_and_hashes = get_notes(self.context, self.storage_slot, options);
-        notes_and_hashes.0
+        get_notes(self.context, self.storage_slot, options).0
     }
 }
 
