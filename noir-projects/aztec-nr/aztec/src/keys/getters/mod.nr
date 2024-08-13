@@ -18,6 +18,8 @@ use crate::{
 
 global DELAY = 5;
 
+mod test;
+
 // docs:start:key-getters
 trait KeyGetters {
   fn get_npk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
@@ -29,19 +31,19 @@ trait KeyGetters {
 
 impl KeyGetters for Header {
     fn get_npk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(address, self).npk_m
+        get_historical_public_keys(self, address).npk_m
     }
 
     fn get_ivpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(address, self).ivpk_m
+        get_historical_public_keys(self, address).ivpk_m
     }
 
     fn get_ovpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(address, self).ovpk_m
+        get_historical_public_keys(self, address).ovpk_m
     }
 
     fn get_tpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(address, self).tpk_m
+        get_historical_public_keys(self, address).tpk_m
     }
 
     fn get_npk_m_hash(self, context: &mut PrivateContext, address: AztecAddress) -> Field {
@@ -77,10 +79,10 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
     let current_header = context.get_header();
     context.set_tx_max_block_number(current_header.global_variables.block_number as u32 + KEY_REGISTRY_UPDATE_BLOCKS);
 
-    get_historical_public_keys(account, current_header)
+    get_historical_public_keys(current_header, account)
 }
 
-pub fn get_historical_public_keys(account: AztecAddress, historical_header: Header) -> PublicKeys {
+pub fn get_historical_public_keys(historical_header: Header, account: AztecAddress) -> PublicKeys {
     // TODO: improve this so that we always hint the correct set of keys (either registry or canonical) and hash them
     // once instead of having two different hints and twice as many constraints due to the double hashing.
 
@@ -100,7 +102,9 @@ pub fn get_historical_public_keys(account: AztecAddress, historical_header: Head
         // If nothing was written to the registry, we may still be able to produce the correct keys if we happen to know
         // the canonical set (i.e. the ones that are part of the account's preimage).
         let (hinted_canonical_public_keys, partial_address) = get_public_keys_and_partial_address(account);
-        assert_eq(account, AztecAddress::compute(hinted_canonical_public_keys.hash(), partial_address));
+        assert_eq(
+            account, AztecAddress::compute(hinted_canonical_public_keys.hash(), partial_address), "Invalid public keys hint for address"
+        );
 
         hinted_canonical_public_keys
     }
