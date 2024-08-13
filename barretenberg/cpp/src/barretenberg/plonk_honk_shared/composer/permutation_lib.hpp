@@ -13,7 +13,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/iterate_over_domain.hpp"
-#include "barretenberg/polynomials/legacy_polynomial.hpp"
 
 #include <algorithm>
 #include <cstddef>

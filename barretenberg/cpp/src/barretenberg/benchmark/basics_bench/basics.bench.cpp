@@ -24,6 +24,7 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <benchmark/benchmark.h>
 
@@ -452,7 +453,7 @@ void pippenger(State& state)
     for (auto _ : state) {
         state.PauseTiming();
         size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
-        LegacyPolynomial<Fr> pol(num_cycles);
+        Polynomial<Fr> pol(num_cycles);
         for (size_t i = 0; i < num_cycles; i++) {
             *(uint256_t*)&pol[i] = engine.get_random_uint256();
             pol[i].self_reduce_once();
