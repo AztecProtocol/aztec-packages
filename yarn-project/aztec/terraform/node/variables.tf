@@ -58,11 +58,6 @@ variable "SEQ_MIN_SECONDS_BETWEEN_BLOCKS" {
   default = 30
 }
 
-variable "SEQ_SKIP_SUBMIT_PROOFS" {
-  type    = bool
-  default = true
-}
-
 variable "P2P_MIN_PEERS" {
   type    = string
   default = 5

@@ -163,7 +163,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
     {
       name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
       image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
-      command           = ["start", "--node", "--archiver", "--sequencer", "--prover"]
+      command           = ["start", "--node", "--archiver", "--sequencer"]
       essential         = true
       memoryReservation = 3776
       portMappings = [
@@ -239,10 +239,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
           value = local.sequencer_private_keys[count.index]
-        },
-        {
-          name  = "SEQ_SKIP_SUBMIT_PROOFS"
-          value = tostring(var.SEQ_SKIP_SUBMIT_PROOFS)
         },
         {
           name  = "ROLLUP_CONTRACT_ADDRESS"
