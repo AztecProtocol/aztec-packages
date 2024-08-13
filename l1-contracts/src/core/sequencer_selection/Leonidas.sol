@@ -131,6 +131,17 @@ contract Leonidas is Ownable, ILeonidas {
   }
 
   /**
+   * @notice  Get the validator set for the current epoch
+   *
+   * @return The validator set for the current epoch
+   */
+  function getCurrentEpochCommittee() external override(ILeonidas) returns (address[] memory) {
+
+    setupEpoch();
+    return epochs[getCurrentEpoch()].committee;
+  }
+
+  /**
    * @notice  Get the validator set
    *
    * @dev     Consider removing this to replace with a `size` and individual getter.

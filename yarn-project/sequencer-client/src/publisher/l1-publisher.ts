@@ -52,6 +52,9 @@ export interface L1PublisherTxSender {
   /** Returns the address of the L2 proposer at the NEXT Ethereum block zero if anyone can submit. */
   getProposerAtNextEthBlock(): Promise<EthAddress>;
 
+  /** TODO(md): should this be on the tx sender (same with above?) */
+  getCurrentEpochCommittee(): Promise<EthAddress[]>;
+
   /**
    * Publishes tx effects to Availability Oracle.
    * @param encodedBody - Encoded block body.
@@ -161,6 +164,10 @@ export class L1Publisher implements L2BlockReceiver {
     const submitter = await this.txSender.getProposerAtNextEthBlock();
     const sender = await this.txSender.getSenderAddress();
     return submitter.isZero() || submitter.equals(sender);
+  }
+
+  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+    return this.txSender.getCurrentEpochCommittee();
   }
 
   /**

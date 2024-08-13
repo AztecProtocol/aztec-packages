@@ -2,7 +2,8 @@ import { EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { recoverAddress } from 'viem';
+import { recoverMessageAddress } from 'viem';
+import {Fr } from "@aztec/foundation/fields";
 
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
@@ -28,6 +29,8 @@ export class BlockAttestation extends Gossipable {
   constructor(
     /** The block header the attestation is made over */
     public readonly header: Header,
+    // TODO: temp?
+    public readonly archive: Fr,
     /** The signature of the block attester */
     public readonly signature: Signature,
   ) {
@@ -39,7 +42,7 @@ export class BlockAttestation extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockAttestationHash.fromField(this.header.hash());
+    return BlockAttestationHash.fromField(this.archive);
   }
 
   /**Get sender
@@ -50,8 +53,8 @@ export class BlockAttestation extends Gossipable {
   async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const address = await recoverAddress({
-        hash: this.p2pMessageIdentifier().to0xString(),
+      const address = await recoverMessageAddress({
+        message: { raw: this.p2pMessageIdentifier().to0xString() },
         signature: this.signature.to0xString(),
       });
       // Cache the sender for later use
@@ -62,15 +65,15 @@ export class BlockAttestation extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.signature]);
+    return serializeToBuffer([this.header, this.archive, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(Header), reader.readObject(Signature));
+    return new BlockAttestation(reader.readObject(Header), reader.readObject(Fr), reader.readObject(Signature));
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(Header.empty(), Signature.empty());
+    return new BlockAttestation(Header.empty(), Fr.ZERO, Signature.empty());
   }
 }

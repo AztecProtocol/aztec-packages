@@ -1,9 +1,9 @@
 import { BlockAttestation, BlockProposal, BlockWithAttestations, TxHash } from '@aztec/circuit-types';
 import { Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { P2P } from '@aztec/p2p';
+import {Fr } from "@aztec/foundation/fields";
 
 import { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -65,8 +65,8 @@ export class ValidatorClient {
     return this.validationService.attestToProposal(proposal);
   }
 
-  async createBlockProposal(header: Header, txs: TxHash[]): Promise<BlockProposal> {
-    return this.validationService.attestToBlock(header, txs);
+  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+    return this.validationService.attestToBlock(header, archive, txs);
   }
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
@@ -74,19 +74,19 @@ export class ValidatorClient {
   }
 
   // TODO: should the validator client know about the slot it will be receiving from
-  private async collectAttestations(slot: bigint): Promise<BlockAttestation[]> {
+  private async collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClients attestation pool for this block
     // until we have enough attestations
 
     // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
-    let target = COMMITTEE_SIZE - 1;
     // TODO: this will need to come from the smart contract
     // as when setting up the tests the committee has one validator in it :(
+    // TODO(md): WE DO NOT WANT TO WAIT ON THIS WITHOUT A TIMEOUT
     let attestations: BlockAttestation[] = [];
-    while (attestations.length < target) {
+    while (attestations.length < numberOfRequiredAttestations) {
       attestations = await this.p2pClient.getAttestationsForSlot(slot);
 
-      if (attestations.length < target) {
+      if (attestations.length < numberOfRequiredAttestations) {
         this.log.verbose(`Waiting ${this.attestationPoolingIntervalMs}ms for more attestations...`);
         await sleep(this.attestationPoolingIntervalMs);
       }
@@ -95,11 +95,11 @@ export class ValidatorClient {
     return attestations;
   }
 
-  public async broadcastAndCollectAttestations(proposal: BlockProposal): Promise<BlockWithAttestations> {
+  public async broadcastAndCollectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]> {
     this.broadcastBlockProposal(proposal);
 
-    const attestations = await this.collectAttestations(proposal.header.globalVariables.slotNumber.toBigInt());
+    const attestations = await this.collectAttestations(proposal.header.globalVariables.slotNumber.toBigInt(), numberOfRequiredAttestations);
     this.log.info(`Collected all attestations for block proposal, ${proposal.p2pMessageIdentifier()}`);
-    return BlockWithAttestations.fromBlockAndBlockAttestations(proposal, attestations);
+    return attestations;
   }
 }

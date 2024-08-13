@@ -22,9 +22,9 @@ export class LocalKeyStore implements ValidatorKeyStore {
    * @param messageBuffer - The message buffer to sign
    * @return signature
    */
-  public async sign(messageBuffer: Buffer): Promise<Signature> {
-    const message = `0x${messageBuffer.toString('hex')}`;
-    const signature = await this.signer.signMessage({ message });
+  public async sign(digestBuffer: Buffer): Promise<Signature> {
+    const digest: `0x${string}` = `0x${digestBuffer.toString('hex')}`;
+    const signature = await this.signer.signMessage({ message: { raw: digest } });
 
     return Signature.from0xString(signature);
   }

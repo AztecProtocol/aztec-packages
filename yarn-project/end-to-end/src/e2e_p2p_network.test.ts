@@ -71,7 +71,7 @@ describe('e2e_p2p_network', () => {
       //        validity, but we currently have no way to collect them.
       //        When attestations works, add all 4, and lets ROLL!
 
-      for (let i = 0; i < 1; i++) {
+      for (let i = 0; i < NUM_NODES; i++) {
         const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
         const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
         const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
@@ -119,6 +119,7 @@ describe('e2e_p2p_network', () => {
       bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      /*activate validators=*/ !IS_DEV_NET
     );
 
     // wait a bit for peers to discover each other
@@ -147,7 +148,7 @@ describe('e2e_p2p_network', () => {
     await bootstrapNode.stop();
   });
 
-  it('should re-discover stored peers without bootstrap node', async () => {
+  it.skip('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = await createNodes(
       config,

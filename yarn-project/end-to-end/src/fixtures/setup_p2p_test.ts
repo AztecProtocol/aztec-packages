@@ -8,7 +8,7 @@ import { type BootnodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { generatePrivateKey } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from './utils.js';
 
@@ -66,8 +66,10 @@ export async function createNode(
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
 
   if (activateValidators) {
-    const validatorPrivKey = getPrivateKeyFromIndex(100 + publisherAddressIndex);
+    // NOTE(md): this is the same as the publisher for now - but probably shoudl be diff
+    const validatorPrivKey = getPrivateKeyFromIndex(1 + publisherAddressIndex);
     config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+      console.log("add nodes validator accounts: ", privateKeyToAccount(config.validatorPrivateKey as `0x${string}`).address);
     config.disableValidator = false;
   }
 

@@ -1,11 +1,13 @@
-import { Header } from '@aztec/circuits.js';
+import { EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import {Fr } from "@aztec/foundation/fields";
 
 import { TxHash } from '../tx/tx_hash.js';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
+import { recoverAddress, recoverMessageAddress } from 'viem';
 
 export class BlockProposalHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -22,9 +24,14 @@ export class BlockProposalHash extends Buffer32 {
 export class BlockProposal extends Gossipable {
   static override p2pTopic: string;
 
+  private sender: EthAddress | undefined;
+
   constructor(
     /** The block header, after execution of the below sequence of transactions */
     public readonly header: Header,
+
+    // TODO: temp?
+    public readonly archive: Fr,
     /** The sequence of transactions in the block */
     public readonly txs: TxHash[],
     /** The signer of the BlockProposal over the header of the new block*/
@@ -38,17 +45,33 @@ export class BlockProposal extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockProposalHash.fromField(this.header.hash());
+    return BlockProposalHash.fromField(this.archive);
+  }
+
+  async getSender() {
+    if (!this.sender) {
+      // Recover the sender from the attestation
+      // TODO: perf: this does another hash behind the scenes
+      const address = await recoverMessageAddress({
+        message: { raw: this.p2pMessageIdentifier().to0xString() },
+        signature: this.signature.to0xString(),
+      });
+      // Cache the sender for later use
+      this.sender = EthAddress.fromString(address);
+    }
+
+    return this.sender;
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.txs.length, this.txs, this.signature]);
+    return serializeToBuffer([this.header, this.archive, this.txs.length, this.txs, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
     return new BlockProposal(
       reader.readObject(Header),
+      reader.readObject(Fr),
       reader.readArray(reader.readNumber(), TxHash),
       reader.readObject(Signature),
     );

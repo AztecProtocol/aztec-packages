@@ -1,5 +1,6 @@
 import { BlockAttestation, Signature } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
@@ -23,10 +24,10 @@ export const generateAccount = () => {
 export const mockAttestation = async (signer: PrivateKeyAccount, slot: number = 0): Promise<BlockAttestation> => {
   // Use arbitrary numbers for all other than slot
   const header = makeHeader(1, 2, slot);
-  const hash = header.hash();
-  const message = hash.toString();
+  const archive = Fr.random();
+  const message = archive.toString();
   const sigString = await signer.signMessage({ message });
 
   const signature = Signature.from0xString(sigString);
-  return new BlockAttestation(header, signature);
+  return new BlockAttestation(header, archive, signature);
 };
