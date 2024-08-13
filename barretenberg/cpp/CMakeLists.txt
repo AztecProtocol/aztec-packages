@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.47.0 # x-release-please-version
+    VERSION 0.48.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -37,6 +37,7 @@ option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OF
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 # Note: Must do 'sudo apt-get install libdw-dev' or equivalent
 option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
+option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -50,6 +51,13 @@ endif()
 
 if(CHECK_CIRCUIT_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES)
+endif()
+
+if(ENABLE_TRACY)
+    add_compile_options(-DTRACY_ENABLE)
+    SET(TRACY_LIBS Tracy::TracyClient)
+else()
+    SET(TRACY_LIBS)
 endif()
 
 if(ENABLE_ASAN)
@@ -87,7 +95,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-fbracket-depth=512)
+    add_compile_options(-fbracket-depth=1024)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
     endif()
@@ -139,6 +147,7 @@ include(cmake/build.cmake)
 include(GNUInstallDirs)
 include(cmake/arch.cmake)
 include(cmake/threading.cmake)
+include(cmake/tracy.cmake)
 include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)

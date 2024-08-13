@@ -5,8 +5,8 @@ import { type LogFn } from '@aztec/foundation/log';
 import {
   deployCanonicalAuthRegistry,
   deployCanonicalKeyRegistry,
-  deployCanonicalL2GasToken,
-} from '../utils/deploy_contracts.js';
+  deployCanonicalL2FeeJuice,
+} from '../misc/deploy_contracts.js';
 
 const waitOpts: WaitOpts = {
   timeout: 180,
@@ -27,15 +27,21 @@ export async function deployProtocolContracts(rpcUrl: string, l1ChainId: number,
   const authRegistryAddress = await deployCanonicalAuthRegistry(deployer, waitOpts);
 
   // Deploy Fee Juice
-  const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
-  const feeJuiceAddress = await deployCanonicalL2GasToken(deployer, gasPortalAddress, waitOpts);
+  const feeJuicePortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
+  const feeJuiceAddress = await deployCanonicalL2FeeJuice(deployer, feeJuicePortalAddress, waitOpts);
 
   if (json) {
-    log('', {
-      keyRegistryAddress: keyRegistryAddress.toString(),
-      authRegistryAddress: authRegistryAddress.toString(),
-      feeJuiceAddress: feeJuiceAddress.toString(),
-    });
+    log(
+      JSON.stringify(
+        {
+          keyRegistryAddress: keyRegistryAddress.toString(),
+          authRegistryAddress: authRegistryAddress.toString(),
+          feeJuiceAddress: feeJuiceAddress.toString(),
+        },
+        null,
+        2,
+      ),
+    );
   } else {
     log(`Key Registry: ${keyRegistryAddress}`);
     log(`Auth Registry: ${authRegistryAddress}`);

@@ -41,12 +41,11 @@ void generate_dummy_proof() {}
  *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
-    Builder& builder,
-    const RecursionConstraint& input,
-    const std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE>& input_aggregation_object,
-    const std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE>& nested_aggregation_object,
-    bool has_valid_witness_assignments)
+AggregationObjectIndices create_recursion_constraints(Builder& builder,
+                                                      const RecursionConstraint& input,
+                                                      const AggregationObjectIndices& input_aggregation_object,
+                                                      const AggregationObjectIndices& nested_aggregation_object,
+                                                      bool has_valid_witness_assignments)
 {
     const auto& nested_aggregation_indices = nested_aggregation_object;
     bool nested_aggregation_indices_all_zero = true;
@@ -165,21 +164,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     // Assign correct witness value to the verification key hash
     vkey->hash().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
 
-    ASSERT(result.public_inputs.size() == input.public_inputs.size());
-
-    // Assign the `public_input` field to the public input of the inner proof
-    for (size_t i = 0; i < input.public_inputs.size(); ++i) {
-        result.public_inputs[i].assert_equal(field_ct::from_witness_index(&builder, input.public_inputs[i]));
-    }
-
-    // We want to return an array, so just copy the vector into the array
-    ASSERT(result.proof_witness_indices.size() == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
-    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> resulting_output_aggregation_object;
-    std::copy(result.proof_witness_indices.begin(),
-              result.proof_witness_indices.begin() + RecursionConstraint::AGGREGATION_OBJECT_SIZE,
-              resulting_output_aggregation_object.begin());
-
-    return resulting_output_aggregation_object;
+    return result.get_witness_indices();
 }
 
 /**
@@ -198,12 +183,11 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
     output.emplace_back(vkey->contains_recursive_proof);
-    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
-        if (vkey->recursive_proof_public_input_indices.size() > i) {
+    for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+        if (vkey->contains_recursive_proof) {
             output.emplace_back(vkey->recursive_proof_public_input_indices[i]);
         } else {
             output.emplace_back(0);
-            ASSERT(vkey->contains_recursive_proof == false);
         }
     }
     for (const auto& descriptor : vkey->polynomial_manifest.get()) {
@@ -251,7 +235,7 @@ std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& p
     output.emplace_back(1); // num public inputs
 
     output.emplace_back(contains_recursive_proof); // contains_recursive_proof
-    for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+    for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
         output.emplace_back(0); // recursive_proof_public_input_indices
     }
 
@@ -355,7 +339,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.
-                        for (size_t k = 0; k < num_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++k) {
+                        for (size_t k = 0; k < num_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++k) {
                             fields.emplace_back(0);
                         }
                         for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {

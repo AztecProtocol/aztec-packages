@@ -1,9 +1,10 @@
 use crate::{
     abis::{
-    gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData, note_hash::NoteHash,
-    nullifier::Nullifier, public_call_request::PublicCallRequest,
+    gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
+    note_hash::ScopedNoteHash, nullifier::Nullifier, public_call_request::PublicCallRequest,
     public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
 },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
@@ -13,12 +14,12 @@ use crate::{
 };
 
 struct PublicAccumulatedDataBuilder {
-    note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_TX>,
+    note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
-    l2_to_l1_msgs: BoundedVec<Field, MAX_L2_TO_L1_MSGS_PER_TX>,
+    l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
 
     note_encrypted_logs_hashes: BoundedVec<LogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,

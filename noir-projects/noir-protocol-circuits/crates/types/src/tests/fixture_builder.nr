@@ -18,8 +18,8 @@ use crate::{
     public_data_update_request::PublicDataUpdateRequest, read_request::{ReadRequest, ScopedReadRequest},
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
     validation_requests::{
-    ValidationRequests, ValidationRequestsBuilder, KeyValidationRequest,
-    KeyValidationRequestAndGenerator, ScopedKeyValidationRequestAndGenerator
+    KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
+    PublicValidationRequests, RollupValidationRequests, ScopedKeyValidationRequestAndGenerator
 }
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
@@ -34,7 +34,7 @@ use crate::{
 },
     hash::{
     compute_l2_to_l1_hash, compute_tx_logs_hash, compute_tx_note_logs_hash, compute_siloed_nullifier,
-    silo_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash
+    silo_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash, mask_encrypted_log_hash
 },
     header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -108,6 +108,7 @@ struct FixtureBuilder {
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
     scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
+    validation_requests_split_counter: Option<u32>,
 
     // Function.
     function_data: FunctionData,
@@ -315,25 +316,22 @@ impl FixtureBuilder {
     }
 
     pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
-        let note_hashes = BoundedVec { storage: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash), len: self.note_hashes.len() };
         let nullifiers = BoundedVec { storage: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier), len: self.nullifiers.len() };
-        let l2_to_l1_msgs = BoundedVec {
-            storage: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
-            len: self.l2_to_l1_msgs.len()
-        };
         let note_encrypted_logs_hashes = BoundedVec {
             storage: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
             len: self.note_encrypted_logs_hashes.len()
         };
         let encrypted_logs_hashes = BoundedVec {
-            storage: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.log_hash).map(|l: EncryptedLogHash| LogHash { value: l.value, counter: l.counter, length: l.length }),
+            storage: self.encrypted_logs_hashes.storage.map(
+                |l: ScopedEncryptedLogHash| ScopedLogHash { log_hash: LogHash { value: l.log_hash.value, counter: l.log_hash.counter, length: l.log_hash.length}, contract_address: l.contract_address }
+            ),
             len: self.encrypted_logs_hashes.len()
         };
 
         PublicAccumulatedDataBuilder {
-            note_hashes,
+            note_hashes: self.note_hashes,
             nullifiers,
-            l2_to_l1_msgs,
+            l2_to_l1_msgs: self.l2_to_l1_msgs,
             note_encrypted_logs_hashes,
             encrypted_logs_hashes,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes,
@@ -351,7 +349,7 @@ impl FixtureBuilder {
         PublicAccumulatedData {
             note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.expose_to_public()),
             nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.expose_to_public()),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.expose_to_public()),
             note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
@@ -365,9 +363,9 @@ impl FixtureBuilder {
         CombinedAccumulatedData {
             note_hashes: self.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.message.content),
-            note_encrypted_logs_hash: self.note_encrypted_logs_hash,
-            encrypted_logs_hash: self.encrypted_logs_hash,
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage.map(|m: ScopedL2ToL1Message| m.expose_to_public()),
+            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public()),
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public()),
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage.map(|l: ScopedLogHash| l.expose_to_public()),
             note_encrypted_log_preimages_length: self.note_encrypted_log_preimages_length,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
@@ -377,21 +375,19 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_validation_requests(self) -> ValidationRequests {
-        let validation_requests = ValidationRequestsBuilder {
-            max_block_number: self.max_block_number,
-            note_hash_read_requests: self.note_hash_read_requests,
-            nullifier_read_requests: self.nullifier_read_requests,
-            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests,
-            scoped_key_validation_requests_and_generators: self.scoped_key_validation_requests_and_generators,
-            public_data_reads: self.public_data_reads
-        };
-        validation_requests.finish()
+    pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
+        PrivateValidationRequests {
+            for_rollup: self.to_rollup_validation_requests(),
+            note_hash_read_requests: self.note_hash_read_requests.storage,
+            nullifier_read_requests: self.nullifier_read_requests.storage,
+            scoped_key_validation_requests_and_generators: self.scoped_key_validation_requests_and_generators.storage,
+            split_counter: self.validation_requests_split_counter
+        }
     }
 
     pub fn to_private_kernel_circuit_public_inputs(self) -> PrivateKernelCircuitPublicInputs {
         let end = self.to_private_accumulated_data();
-        let validation_requests = self.to_validation_requests();
+        let validation_requests = self.to_private_validation_requests();
         let constants = self.to_constant_data();
         let public_teardown_call_request = self.public_teardown_call_stack.get_unchecked(0);
 
@@ -410,6 +406,15 @@ impl FixtureBuilder {
         PrivateKernelData { public_inputs, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
+    pub fn to_public_validation_requests(self) -> PublicValidationRequests {
+        PublicValidationRequests {
+            for_rollup: self.to_rollup_validation_requests(),
+            nullifier_read_requests: self.nullifier_read_requests.storage,
+            nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
+            public_data_reads: self.public_data_reads.storage
+        }
+    }
+
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
         // TODO: Split the data using self.min_revertible_side_effect_counter.
         let accumulated_data = self.to_public_accumulated_data();
@@ -423,7 +428,7 @@ impl FixtureBuilder {
         } else {
             PublicAccumulatedData::empty()
         };
-        let validation_requests = self.to_validation_requests();
+        let validation_requests = self.to_public_validation_requests();
         let constants = self.to_constant_data();
 
         PublicKernelCircuitPublicInputs {
@@ -442,8 +447,12 @@ impl FixtureBuilder {
         PublicKernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
+    pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
+        RollupValidationRequests { max_block_number: self.max_block_number }
+    }
+
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
-        let rollup_validation_requests = self.to_validation_requests().for_rollup;
+        let rollup_validation_requests = self.to_rollup_validation_requests();
         let end = self.to_combined_accumulated_data();
         let constants = self.to_constant_data();
 
@@ -476,9 +485,9 @@ impl FixtureBuilder {
         // First nullifier is tx hash.
         let tx_hash = self.nullifiers.get(0).value();
         let index = self.note_hashes.len();
-        let note_hash = NoteHash { value, counter: 0 }.scope(self.storage_contract_address);
-        let siloed_value = silo_note_hash(note_hash, tx_hash, index);
-        self.add_new_note_hash(siloed_value);
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.storage_contract_address);
+        let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
+        self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(AztecAddress::zero()));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -521,14 +530,26 @@ impl FixtureBuilder {
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
+        let note_hash = 0;
+        self.add_nullifier_for_note_hash(value, note_hash);
+    }
+
+    pub fn add_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
         self.nullifiers.push(
-            Nullifier { value, counter: self.next_counter(), note_hash: 0 }.scope(self.storage_contract_address)
+            Nullifier { value, counter: self.next_counter(), note_hash }.scope(self.storage_contract_address)
         );
     }
 
     pub fn add_siloed_nullifier(&mut self, value: Field) {
+        let note_hash = 0;
+        self.add_siloed_nullifier_for_note_hash(value, note_hash);
+    }
+
+    pub fn add_siloed_nullifier_for_note_hash(&mut self, value: Field, note_hash: Field) {
         let siloed_value = compute_siloed_nullifier(self.storage_contract_address, value);
-        self.add_nullifier(siloed_value);
+        self.nullifiers.push(
+            Nullifier { value: siloed_value, counter: self.next_counter(), note_hash }.scope(AztecAddress::zero())
+        );
     }
 
     pub fn append_nullifiers(&mut self, num_extra_nullifier: u32) {
@@ -557,6 +578,10 @@ impl FixtureBuilder {
         );
     }
 
+    pub fn add_exposed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
+        self.l2_to_l1_msgs.push(L2ToL1Message { recipient, content, counter: 0 }.scope(self.storage_contract_address));
+    }
+
     pub fn add_siloed_l2_to_l1_message(&mut self, content: Field, recipient: EthAddress) {
         let siloed_content = compute_l2_to_l1_hash(
             self.storage_contract_address,
@@ -578,12 +603,12 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn append_siloed_l2_to_l1_msgs(&mut self, num: u32) {
+    pub fn append_exposed_l2_to_l1_msgs(&mut self, num: u32) {
         let index_offset = self.l2_to_l1_msgs.len();
         for i in 0..self.l2_to_l1_msgs.max_len() {
             if i < num {
                 let (content, recipient) = self.mock_l2_to_l1_msg(index_offset + i);
-                self.add_siloed_l2_to_l1_message(content, recipient);
+                self.add_exposed_l2_to_l1_message(content, recipient);
             }
         }
     }
@@ -700,20 +725,16 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn hash_note_encrypted_log_hashes(&mut self) {
-        let log_hashes = self.note_encrypted_logs_hashes.storage.map(|l: NoteLogHash| l.expose_to_public());
-        self.note_encrypted_logs_hash = compute_tx_note_logs_hash(log_hashes);
-    }
-
     pub fn add_encrypted_log_hash(&mut self, hash: Field, length: Field) {
         let log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 };
         self.encrypted_logs_hashes.push(log_hash.scope(self.storage_contract_address));
         self.encrypted_log_preimages_length += length;
     }
 
-    pub fn add_siloed_encrypted_log_hash(&mut self, hash: Field, length: Field) {
+    pub fn add_masked_encrypted_log_hash(&mut self, hash: Field, length: Field) {
         let mut log_hash = EncryptedLogHash { value: hash, counter: self.next_counter(), length, randomness: 2 }.scope(self.storage_contract_address);
-        log_hash.log_hash.value = silo_encrypted_log_hash(log_hash);
+        log_hash.contract_address = mask_encrypted_log_hash(log_hash);
+        log_hash.log_hash.randomness = 0;
         self.encrypted_logs_hashes.push(log_hash);
         self.encrypted_log_preimages_length += length;
     }
@@ -728,15 +749,10 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn hash_encrypted_log_hashes(&mut self) {
-        let mut log_hashes = self.encrypted_logs_hashes.storage.map(|l: ScopedEncryptedLogHash| l.expose_to_public());
+    pub fn mask_encrypted_log_hashes(&mut self) {
         for i in 0..self.encrypted_logs_hashes.max_len() {
-            let log_hash = self.encrypted_logs_hashes.storage[i];
-            if !log_hash.contract_address.is_zero() {
-                log_hashes[i].value = silo_encrypted_log_hash(log_hash);
-            }
+            self.encrypted_logs_hashes.storage[i].contract_address = mask_encrypted_log_hash(self.encrypted_logs_hashes.storage[i]);
         }
-        self.encrypted_logs_hash = compute_tx_logs_hash(log_hashes);
     }
 
     pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
@@ -1029,6 +1045,7 @@ impl Empty for FixtureBuilder {
             nullifier_non_existent_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
+            validation_requests_split_counter: Option::none(),
             function_data: FunctionData::empty(),
             args_hash: 0,
             returns_hash: 0,

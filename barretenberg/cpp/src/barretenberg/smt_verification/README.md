@@ -119,7 +119,7 @@ To store it on the disk just do the following
     - ```smt_circuit::StandardCircuit circuit(CircuitSchema c_info, Solver* s, TermType type, str tag="", bool optimizations=true)```
     - ```smt_circuit::UltraCircuit circuit(CircuitSchema c_info, Solver* s, TermType type, str tag="", bool optimizations=true)```
 	
-	It will generate all the symbolic values of the circuit wires, add all the gate constrains, create a map `term_name->STerm` and the inverse of it. Where `term_name` is the the name you provided earlier.
+	It will generate all the symbolic values of the circuit wires, add all the gate constrains, create a map `term_name->STerm` and the inverse of it. Where `term_name` is the name you provided earlier.
 
     In case you want to create two similar circuits with the same `solver` and `schema`, then you should specify the `tag`(name) of a circuit. 
 
@@ -184,11 +184,17 @@ Now you have the values of the specified terms, which resulted into `true` resul
 **!Note that the return values are decimal strings/binary strings**, so if you want to use them later you should use `FFConst` with base 10, etc.
 
 Also, there is a header file "barretenberg/smt_verification/utl/smt_util.hpp" that contains two useful functions:
-- `default_model(verctor<str> special_names, circuit1, circuit2, *solver, fname="witness.out")`
-- `default_model_single(vector<str> special_names, circuit, *solver, fname="witness.out)`
+- `default_model(verctor<str> special_names, circuit1, circuit2, *solver, fname="witness.out", bool pack = true)`
+- `default_model_single(vector<str> special_names, circuit, *solver, fname="witness.out, bool pack = true)`
 
 These functions will write witness variables in c-like array format into file named `fname`.
 The vector of `special_names` is the values that you want ot see in stdout.
+`pack` argument tells this function to save an `msgpack` buffer of the witness on disk. Name of the file will be `fname`.pack 
+
+You can then import the saved witness using one of the following functions:
+
+- `vec<vec<fr>> import_witness(str fname)`
+- `vec<fr> import_witness_single(str fname)`
  
 ## 4. Automated verification of a unique witness
 There's a static member of `StandardCircuit` and `UltraCircuit` 
@@ -203,7 +209,7 @@ Another one is
 - `pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness_ext(CircuitSchema circuit_info, Solver* s, TermType type, vector<str> equal_variables, vector<str> nequal_variables, vector<str> at_least_one_equal_variable, vector<str> at_least_one_nequal_variable)` that does the same but provides you with more flexible settings.
 - Same in `UltraCircuit`
 
-The return circuits can be useful, if you want to define some additional constraints, that are not covered by the the above functions.
+The return circuits can be useful, if you want to define some additional constraints, that are not covered by the above functions.
 You can call `s.check`, `s.model`, `smt_timer` or `default_model` further.
 
 ## 5. smt_util.hpp
@@ -211,6 +217,7 @@ Besides already mentioned `smt_timer`, `default_model` and `default_model_single
 
 - `pair<vector<fr>, vector<fr>> base4(uint32_t el)` - that will return base4 accumulators
 - `void fix_range_lists(UltraCircuitBuilder& builder)` - Since we are not using the part of the witness, that contains range lists, they are set to 0 by the solver. We need to overwrite them to check the witness obtained by the solver.
+- `bb::fr string_to_fr(str num, int base, size_t step)` - converts string of an arbitrary base into `bb::fr` value. $\max_{step}(base^{step} \le 2^{64})$
 
 ```c++
     UltraCircuitBuilder builder;

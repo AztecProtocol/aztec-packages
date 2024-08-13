@@ -42,7 +42,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         }
 
         // Validate output.
-        if !std::runtime::is_unconstrained() {
+        if dep::types::validate::should_validate_output() {
             TailOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
         }
 
@@ -53,20 +53,16 @@ impl PrivateKernelTailCircuitPrivateInputs {
 mod tests {
     use crate::private_kernel_tail::{PrivateKernelTailCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::constants::{
-        MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE,
-        GENERATOR_INDEX__IVSK_M, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_NOTE_HASH,
-        PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_LOG_BYTE,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_NOTE_HASH, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier}, gas::Gas,
-        log_hash::ScopedLogHash
+        gas::Gas, log_hash::ScopedLogHash
     },
-        address::{AztecAddress, EthAddress}, scalar::Scalar,
-        hash::{sha256_to_field, silo_note_hash, silo_nullifier, compute_siloed_encrypted_log_hash},
-        tests::fixture_builder::FixtureBuilder, utils::{arrays::array_length},
-        traits::{Empty, is_empty}, point::Point
+        address::{AztecAddress, EthAddress}, tests::fixture_builder::FixtureBuilder, traits::is_empty,
+        point::Point
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -81,27 +77,6 @@ mod tests {
             previous_kernel.set_first_nullifier();
 
             PrivateKernelTailInputsBuilder { previous_kernel }
-        }
-
-        // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
-        // note_hashes for the given note_hashes.
-        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [Field; N] {
-            // First nullifier is tx hash.
-            let tx_hash = self.previous_kernel.nullifiers.get_unchecked(0).value();
-            let mut output = [0; N];
-            for i in 0..N {
-                output[i] = silo_note_hash(note_hashes[i], tx_hash, i);
-            }
-            output
-        }
-
-        pub fn compute_output_nullifiers<N>(_self: Self, nullifiers: [ScopedNullifier; N]) -> [Field; N] {
-            let mut output = [0; N];
-            output[0] = nullifiers[0].value();
-            for i in 1..N {
-                output[i] = silo_nullifier(nullifiers[i]);
-            }
-            output
         }
 
         pub fn execute(&mut self) -> KernelCircuitPublicInputs {
@@ -136,14 +111,14 @@ mod tests {
     }
 
     #[test]
-    fn logs_are_handled_as_expected() {
+    fn measuring_of_log_lengths() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.add_masked_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
         builder.previous_kernel.add_unencrypted_log_hash(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
@@ -159,123 +134,34 @@ mod tests {
         assert_eq(
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
+    }
 
-        let siloed_encrypted_logs_hash = compute_siloed_encrypted_log_hash(
-            builder.previous_kernel.storage_contract_address,
-            builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness,
-            prev_encrypted_logs_hash
-        );
+    #[test]
+    fn ordering_of_unencrypted_logs() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
 
-        // noir-fmt:ignore
-        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = siloed_encrypted_logs_hash
-            .to_be_bytes(32)
-            .append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32])
-            .as_array();
-        let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
+        builder.previous_kernel.append_unencrypted_log_hashes(2);
+
+        // Reorder the logs
+        let original_logs = builder.previous_kernel.unencrypted_logs_hashes.storage;
+        let mut reversed_logs = [ScopedLogHash::empty(); 2];
+        for i in 0..reversed_logs.len() {
+            reversed_logs[i] = builder.previous_kernel.unencrypted_logs_hashes.pop();
+        }
+        builder.previous_kernel.unencrypted_logs_hashes.extend_from_array(reversed_logs);
+
+        let public_inputs = builder.execute();
+
+        let resulting_encrypted_logs = public_inputs.end.unencrypted_logs_hashes;
 
         assert_eq(
-            public_inputs.end.unencrypted_logs_hashes, builder.previous_kernel.unencrypted_logs_hashes.storage.map(|log: ScopedLogHash| log.expose_to_public())
+            resulting_encrypted_logs, original_logs.map(
+                |mut log: ScopedLogHash| {
+               log.log_hash.counter = 0;
+               log
+            }
+            )
         );
-    }
-
-    unconstrained fn compute_hash_bytes(
-        siloed_encrypted_logs_hash: Field,
-        new_siloed_encrypted_logs_hash: Field
-    ) -> [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] {
-        siloed_encrypted_logs_hash.to_be_bytes(32).append(new_siloed_encrypted_logs_hash.to_be_bytes(32)).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 64]).as_array()
-    }
-
-    #[test]
-    fn encrypted_logs_are_hashed_as_expected() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = 80;
-        let prev_encrypted_log_preimages_length = 13;
-        builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-
-        // Set the randomness to 0 to signal not masking the address to silo with
-        builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness = 0;
-
-        let new_encrypted_logs_hash = 26;
-        let new_encrypted_log_preimages_length = 50;
-        builder.previous_kernel.add_encrypted_log_hash(new_encrypted_logs_hash, new_encrypted_log_preimages_length);
-
-        let public_inputs = builder.execute();
-
-        assert_eq(
-            public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length + new_encrypted_log_preimages_length
-        );
-
-        let siloed_encrypted_logs_hash = compute_siloed_encrypted_log_hash(
-            builder.previous_kernel.storage_contract_address,
-            builder.previous_kernel.encrypted_logs_hashes.storage[0].log_hash.randomness,
-            prev_encrypted_logs_hash
-        );
-
-        let siloed_hash_bytes: [u8; 64] = builder.previous_kernel.storage_contract_address.to_field().to_be_bytes(32).append(prev_encrypted_logs_hash.to_be_bytes(32)).as_array();
-        assert_eq(siloed_encrypted_logs_hash, sha256_to_field(siloed_hash_bytes));
-
-        let new_siloed_encrypted_logs_hash = compute_siloed_encrypted_log_hash(
-            builder.previous_kernel.storage_contract_address,
-            builder.previous_kernel.encrypted_logs_hashes.storage[1].log_hash.randomness,
-            new_encrypted_logs_hash
-        );
-
-        let hash_bytes = compute_hash_bytes(siloed_encrypted_logs_hash, new_siloed_encrypted_logs_hash);
-        let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
-    }
-
-    #[test]
-    fn ordering_of_note_hashes_and_nullifiers() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-
-        builder.previous_kernel.append_note_hashes(10);
-        builder.previous_kernel.append_nullifiers(10);
-
-        let sorted_note_hashes = builder.previous_kernel.note_hashes.storage;
-        let sorted_nullifiers = builder.previous_kernel.nullifiers.storage;
-
-        let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
-        let mut reversed_nullifiers = [ScopedNullifier::empty(); 10];
-
-        for i in 0..10 {
-            reversed_note_hashes[9 - i] = builder.previous_kernel.note_hashes.pop();
-            reversed_nullifiers[9 - i] = builder.previous_kernel.nullifiers.pop();
-        }
-
-        builder.previous_kernel.note_hashes.extend_from_array(reversed_note_hashes);
-        builder.previous_kernel.nullifiers.extend_from_array(reversed_nullifiers);
-
-        let public_inputs = builder.execute();
-
-        let expected_note_hashes = builder.compute_output_note_hashes(sorted_note_hashes);
-        let expected_nullifiers = builder.compute_output_nullifiers(sorted_nullifiers);
-        for i in 0..10 {
-            assert(public_inputs.end.note_hashes[i].eq(expected_note_hashes[i]));
-            assert(public_inputs.end.nullifiers[i].eq(expected_nullifiers[i]));
-        }
-    }
-
-    #[test]
-    fn native_empty_nullified_note_hash_means_persistent_nullifier_0() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.append_note_hashes(2);
-        builder.previous_kernel.append_nullifiers(2);
-        builder.previous_kernel.add_note_encrypted_log_hash(
-            42,
-            5,
-            builder.previous_kernel.note_hashes.get(0).note_hash.counter
-        );
-        let public_inputs = builder.execute();
-        assert_eq(array_length(public_inputs.end.note_hashes), 2);
-        assert_eq(array_length(public_inputs.end.nullifiers), 3);
-        let expected_gas = Gas::tx_overhead() + Gas::new(
-                DA_GAS_PER_BYTE * DA_BYTES_PER_FIELD * 5 + DA_GAS_PER_BYTE * 5,
-                L2_GAS_PER_NOTE_HASH * 2 + L2_GAS_PER_NULLIFIER * 3 + L2_GAS_PER_LOG_BYTE * 5
-            );
-        assert_eq(public_inputs.end.gas_used, expected_gas);
     }
 
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
@@ -296,6 +182,13 @@ mod tests {
     fn non_empty_public_teardown_call_request_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.append_public_teardown_call_request();
+        builder.failed();
+    }
+
+    #[test(should_fail_with="split_counter must be 0 for pure private tx")]
+    fn non_zero_validation_requests_split_counter_fail() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.validation_requests_split_counter = Option::some(123);
         builder.failed();
     }
 
@@ -321,7 +214,7 @@ mod tests {
         let _void = builder.previous_kernel.add_request_for_key_validation(
             Point { x: 1, y: 2, is_infinite: false },
             27,
-            GENERATOR_INDEX__IVSK_M
+            GENERATOR_INDEX__IVSK_M as Field
         );
         builder.failed();
     }
@@ -365,11 +258,11 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.add_encrypted_log_hash(42, 3);
-        builder.previous_kernel.add_encrypted_log_hash(42, 4);
+        builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
+        builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
         builder.previous_kernel.add_unencrypted_log_hash(42, 5);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.add_encrypted_log_hash(42, 6);
+        builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
         builder.previous_kernel.add_unencrypted_log_hash(42, 7);
 
         let public_inputs = builder.execute();

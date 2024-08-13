@@ -6,7 +6,6 @@ namespace acir_format {
 using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
-using fq_ct = stdlib::bigfield<Builder, Bn254FqParams>;
 
 /**
  * @brief HonkRecursionConstraint struct contains information required to recursively verify a proof!
@@ -48,11 +47,6 @@ struct HonkRecursionConstraint {
     // In Honk, the proof starts with circuit_size, num_public_inputs, and pub_input_offset. We use this offset to keep
     // track of where the public inputs start.
     static constexpr size_t inner_public_input_offset = 3;
-    // An aggregation state is represented by two G1 affine elements. Each G1 point has
-    // two field element coordinates (x, y). Thus, four field elements
-    static constexpr size_t NUM_AGGREGATION_ELEMENTS = 4;
-    // Four limbs are used when simulating a non-native field using the bigfield class
-    static constexpr size_t AGGREGATION_OBJECT_SIZE = NUM_AGGREGATION_ELEMENTS * fq_ct::NUM_LIMBS; // 16 field elements
     std::vector<uint32_t> key;
     std::vector<uint32_t> proof;
     std::vector<uint32_t> public_inputs;
@@ -60,11 +54,9 @@ struct HonkRecursionConstraint {
     friend bool operator==(HonkRecursionConstraint const& lhs, HonkRecursionConstraint const& rhs) = default;
 };
 
-std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> create_honk_recursion_constraints(
-    Builder& builder,
-    const HonkRecursionConstraint& input,
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
-    std::array<uint32_t, HonkRecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
-    bool has_valid_witness_assignments = false);
+AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
+                                                           const HonkRecursionConstraint& input,
+                                                           AggregationObjectIndices input_aggregation_object,
+                                                           bool has_valid_witness_assignments = false);
 
 } // namespace acir_format

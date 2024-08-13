@@ -45,7 +45,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2BlockBodies: Map<string, Body> = new Map();
 
   /**
-   * An array containing all the the tx effects in the L2 blocks that have been fetched so far.
+   * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
 
@@ -83,6 +83,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewBlocks: bigint = 0n;
+  private lastL1BlockNewBlockBodies: bigint = 0n;
   private lastL1BlockNewMessages: bigint = 0n;
   private lastProvenL2BlockNumber: number = 0;
 
@@ -163,11 +164,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
-    for (const body of blockBodies) {
+  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean> {
+    for (const body of blockBodies.retrievedData) {
       void this.l2BlockBodies.set(body.getTxsEffectsHash().toString('hex'), body);
     }
-
+    this.lastL1BlockNewBlockBodies = blockBodies.lastProcessedL1BlockNumber;
     return Promise.resolve(true);
   }
 
@@ -177,14 +178,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
-    const blockBodies = txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex')));
-
-    if (blockBodies.some(bodyBuffer => bodyBuffer === undefined)) {
-      throw new Error('Block body is undefined');
-    }
-
-    return Promise.resolve(blockBodies as Body[]);
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
+    return Promise.resolve(
+      txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex'))),
+    );
   }
 
   /**
@@ -447,6 +444,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
+      blockBodiesSynchedTo: this.lastL1BlockNewBlockBodies,
     });
   }
 

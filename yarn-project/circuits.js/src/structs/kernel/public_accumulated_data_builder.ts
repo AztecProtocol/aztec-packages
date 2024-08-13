@@ -1,5 +1,4 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
 
 import {
   MAX_ENCRYPTED_LOGS_PER_TX,
@@ -12,8 +11,9 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
+import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { LogHash, ScopedLogHash } from '../log_hash.js';
-import { NoteHash } from '../note_hash.js';
+import { ScopedNoteHash } from '../note_hash.js';
 import { Nullifier } from '../nullifier.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
@@ -26,22 +26,22 @@ import { PublicAccumulatedData } from './public_accumulated_data.js';
  *
  */
 export class PublicAccumulatedDataBuilder {
-  private noteHashes: NoteHash[] = [];
+  private noteHashes: ScopedNoteHash[] = [];
   private nullifiers: Nullifier[] = [];
-  private l2ToL1Msgs: Fr[] = [];
+  private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
   private noteEncryptedLogsHashes: LogHash[] = [];
-  private encryptedLogsHashes: LogHash[] = [];
+  private encryptedLogsHashes: ScopedLogHash[] = [];
   private unencryptedLogsHashes: ScopedLogHash[] = [];
   private publicDataUpdateRequests: PublicDataUpdateRequest[] = [];
   private publicCallStack: PublicCallRequest[] = [];
   private gasUsed: Gas = Gas.empty();
 
-  pushNoteHash(newNoteHash: NoteHash) {
+  pushNoteHash(newNoteHash: ScopedNoteHash) {
     this.noteHashes.push(newNoteHash);
     return this;
   }
 
-  withNoteHashes(noteHashes: NoteHash[]) {
+  withNoteHashes(noteHashes: ScopedNoteHash[]) {
     this.noteHashes = noteHashes;
     return this;
   }
@@ -56,12 +56,12 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushL2ToL1Msg(newL2ToL1Msg: Fr) {
+  pushL2ToL1Msg(newL2ToL1Msg: ScopedL2ToL1Message) {
     this.l2ToL1Msgs.push(newL2ToL1Msg);
     return this;
   }
 
-  withL2ToL1Msgs(l2ToL1Msgs: Fr[]) {
+  withL2ToL1Msgs(l2ToL1Msgs: ScopedL2ToL1Message[]) {
     this.l2ToL1Msgs = l2ToL1Msgs;
     return this;
   }
@@ -76,12 +76,12 @@ export class PublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushEncryptedLogsHash(encryptedLogsHash: LogHash) {
+  pushEncryptedLogsHash(encryptedLogsHash: ScopedLogHash) {
     this.encryptedLogsHashes.push(encryptedLogsHash);
     return this;
   }
 
-  withEncryptedLogsHashes(encryptedLogsHashes: LogHash[]) {
+  withEncryptedLogsHashes(encryptedLogsHashes: ScopedLogHash[]) {
     this.encryptedLogsHashes = encryptedLogsHashes;
     return this;
   }
@@ -123,11 +123,11 @@ export class PublicAccumulatedDataBuilder {
 
   build(): PublicAccumulatedData {
     return new PublicAccumulatedData(
-      padArrayEnd(this.noteHashes, NoteHash.empty(), MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(this.noteHashes, ScopedNoteHash.empty(), MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(this.nullifiers, Nullifier.empty(), MAX_NULLIFIERS_PER_TX),
-      padArrayEnd(this.l2ToL1Msgs, Fr.ZERO, MAX_L2_TO_L1_MSGS_PER_TX),
+      padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(this.noteEncryptedLogsHashes, LogHash.empty(), MAX_NOTE_ENCRYPTED_LOGS_PER_TX),
-      padArrayEnd(this.encryptedLogsHashes, LogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
+      padArrayEnd(this.encryptedLogsHashes, ScopedLogHash.empty(), MAX_ENCRYPTED_LOGS_PER_TX),
       padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
       padArrayEnd(
         this.publicDataUpdateRequests,
