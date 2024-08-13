@@ -1,20 +1,20 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { InvalidOptionArgumentError } from 'commander';
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 import solc from 'solc';
 import { getContract } from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export async function deployUltraHonkVerifier(
   ethRpcUrl: string,
-  privateKey: string,
+  l1ChainId: string,
+  privateKey: string | undefined,
   mnemonic: string,
   pxeRpcUrl: string,
-  bbBinaryPath = process.env.BB_BINARY_PATH,
-  bbWorkingDirectory = process.env.BB_WORKING_DIRECTORY,
+  bbBinaryPath: string,
+  bbWorkingDirectory: string,
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
@@ -57,10 +57,11 @@ export async function deployUltraHonkVerifier(
   const abi = output.contracts['UltraHonkVerifier.sol']['UltraHonkVerifier'].abi;
   const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
-  const account = !privateKey
-    ? mnemonicToAccount(mnemonic!)
-    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  const { publicClient, walletClient } = createL1Clients(ethRpcUrl, account);
+  const { publicClient, walletClient } = createL1Clients(
+    ethRpcUrl,
+    privateKey ?? mnemonic,
+    createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
+  );
 
   const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
   log(`Deployed HonkVerifier at ${verifierAddress.toString()}`);
@@ -82,16 +83,18 @@ export async function deployUltraHonkVerifier(
 
 export async function deployMockVerifier(
   ethRpcUrl: string,
-  privateKey: string,
+  l1ChainId: string,
+  privateKey: string | undefined,
   mnemonic: string,
   pxeRpcUrl: string,
   log: LogFn,
   debugLogger: DebugLogger,
 ) {
-  const account = !privateKey
-    ? mnemonicToAccount(mnemonic!)
-    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  const { publicClient, walletClient } = createL1Clients(ethRpcUrl, account);
+  const { publicClient, walletClient } = createL1Clients(
+    ethRpcUrl,
+    privateKey ?? mnemonic,
+    createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
+  );
   const { MockVerifierAbi, MockVerifierBytecode, RollupAbi } = await import('@aztec/l1-artifacts');
 
   const mockVerifierAddress = await deployL1Contract(walletClient, publicClient, MockVerifierAbi, MockVerifierBytecode);
