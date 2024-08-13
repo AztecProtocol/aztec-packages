@@ -90,6 +90,7 @@ export interface ServerCircuitProver {
   getBlockRootRollupProof(
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
 
   /**
@@ -99,6 +100,7 @@ export interface ServerCircuitProver {
   getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
 
   /**

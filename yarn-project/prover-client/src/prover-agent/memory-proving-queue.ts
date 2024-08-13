@@ -340,14 +340,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getBlockRootRollupProof(
     input: BlockRootRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    return this.enqueue(
-      {
-        type: ProvingRequestType.BLOCK_ROOT_ROLLUP,
-        inputs: input,
-      },
-      signal,
-    );
+    return this.enqueue({ type: ProvingRequestType.BLOCK_ROOT_ROLLUP, inputs: input }, signal, epochNumber);
   }
 
   /**
@@ -357,14 +352,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
     signal?: AbortSignal,
+    epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    return this.enqueue(
-      {
-        type: ProvingRequestType.BLOCK_MERGE_ROLLUP,
-        inputs: input,
-      },
-      signal,
-    );
+    return this.enqueue({ type: ProvingRequestType.BLOCK_MERGE_ROLLUP, inputs: input }, signal, epochNumber);
   }
 
   /**
