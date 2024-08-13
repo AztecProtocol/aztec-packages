@@ -571,12 +571,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
-    const skipCleanup =
-      ['1', 'true'].includes(process.env.AVM_PROVING_PRESERVE_WORKING_DIR ?? '') || !!this.config.bbSkipCleanup;
     const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey> => {
-      if (skipCleanup) {
-        logger.info(`Preserving working directory ${bbWorkingDirectory}`);
-      }
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       const rawProof = await fs.readFile(provingResult.proofPath!);
@@ -609,7 +604,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { proof, verificationKey };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation, skipCleanup);
+    return await this.runInDirectory(operation);
   }
 
   public async getTubeProof(
