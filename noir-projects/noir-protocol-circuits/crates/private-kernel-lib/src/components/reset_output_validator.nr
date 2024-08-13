@@ -1,21 +1,19 @@
 use crate::components::{reset_output_composer::{PrivateKernelResetOutputs, ResetOutputHints}};
-use dep::reset_kernel_lib::verify_squashed_transient_data;
+use dep::reset_kernel_lib::{TransientDataIndexHint, verify_squashed_transient_data};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
     nullifier::ScopedNullifier
 },
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
     hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, traits::is_empty,
     utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
 };
 
-struct ResetOutputValidator {
+struct ResetOutputValidator<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {
     output: PrivateKernelResetOutputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
-    transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
+    transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
     split_counter: u32,
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
@@ -23,12 +21,11 @@ struct ResetOutputValidator {
     hints: ResetOutputHints,
 }
 
-impl ResetOutputValidator {
+impl<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> ResetOutputValidator<NUM_TRANSIENT_DATA_INDEX_HINTS> {
     pub fn new(
         output: PrivateKernelResetOutputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
+        transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
         split_counter: u32,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
@@ -38,8 +35,7 @@ impl ResetOutputValidator {
         ResetOutputValidator {
             output,
             previous_kernel,
-            transient_nullifier_indexes_for_note_hashes,
-            transient_note_hash_indexes_for_nullifiers,
+            transient_data_index_hints,
             split_counter,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
@@ -56,8 +52,7 @@ impl ResetOutputValidator {
             self.hints.kept_note_hashes,
             self.hints.kept_nullifiers,
             self.hints.kept_note_encrypted_log_hashes,
-            self.transient_nullifier_indexes_for_note_hashes,
-            self.transient_note_hash_indexes_for_nullifiers,
+            self.transient_data_index_hints,
             self.hints.transient_or_propagated_note_hash_indexes_for_logs,
             self.split_counter
         );

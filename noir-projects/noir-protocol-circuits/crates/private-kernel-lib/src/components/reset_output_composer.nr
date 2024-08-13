@@ -1,6 +1,7 @@
 mod reset_output_hints;
 
 use crate::components::reset_output_composer::{reset_output_hints::{generate_reset_output_hints, ResetOutputHints}};
+use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -31,19 +32,14 @@ struct ResetOutputComposer {
 }
 
 impl ResetOutputComposer {
-    pub fn new(
+    pub fn new<let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
-        transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
+        transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
         encrypted_log_siloing_amount: u32
     ) -> Self {
-        let hints = generate_reset_output_hints(
-            previous_kernel,
-            transient_nullifier_indexes_for_note_hashes,
-            transient_note_hash_indexes_for_nullifiers
-        );
+        let hints = generate_reset_output_hints(previous_kernel, transient_data_index_hints);
         ResetOutputComposer { previous_kernel, note_hash_siloing_amount, nullifier_siloing_amount, encrypted_log_siloing_amount, hints }
     }
 

@@ -5,13 +5,15 @@ use crate::components::{
     reset_output_composer::{PrivateKernelResetOutputs, reset_output_hints::{generate_reset_output_hints, ResetOutputHints}},
     reset_output_validator::ResetOutputValidator
 };
+use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::{constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, tests::fixture_builder::FixtureBuilder};
+
+global NUM_INDEX_HINTS = 5;
 
 struct ResetOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder,
-    transient_nullifier_indexes_for_note_hashes: [u32; MAX_NOTE_HASHES_PER_TX],
-    transient_note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
+    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
     split_counter: u32,
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
@@ -25,14 +27,12 @@ impl ResetOutputValidatorBuilder {
         output.set_first_nullifier();
         previous_kernel.set_first_nullifier();
 
-        let transient_nullifier_indexes_for_note_hashes = [MAX_NULLIFIERS_PER_TX; MAX_NOTE_HASHES_PER_TX];
-        let transient_note_hash_indexes_for_nullifiers = [MAX_NOTE_HASHES_PER_TX; MAX_NULLIFIERS_PER_TX];
+        let transient_data_index_hints = [TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX); NUM_INDEX_HINTS];
 
         ResetOutputValidatorBuilder {
             output,
             previous_kernel,
-            transient_nullifier_indexes_for_note_hashes,
-            transient_note_hash_indexes_for_nullifiers,
+            transient_data_index_hints,
             split_counter: 0,
             note_hash_siloing_amount: 0,
             nullifier_siloing_amount: 0,
@@ -42,11 +42,7 @@ impl ResetOutputValidatorBuilder {
 
     pub fn get_hints(self) -> ResetOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        generate_reset_output_hints(
-            previous_kernel,
-            self.transient_nullifier_indexes_for_note_hashes,
-            self.transient_note_hash_indexes_for_nullifiers
-        )
+        generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
     }
 
     pub fn get_output(self) -> PrivateKernelResetOutputs {
@@ -65,8 +61,7 @@ impl ResetOutputValidatorBuilder {
         ResetOutputValidator::new(
             output,
             previous_kernel,
-            self.transient_nullifier_indexes_for_note_hashes,
-            self.transient_note_hash_indexes_for_nullifiers,
+            self.transient_data_index_hints,
             self.split_counter,
             self.note_hash_siloing_amount,
             self.nullifier_siloing_amount,
