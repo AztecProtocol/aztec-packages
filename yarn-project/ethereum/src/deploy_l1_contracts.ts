@@ -1,3 +1,4 @@
+import { FEE_JUICE_INITIAL_MINT } from '@aztec/circuits.js/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -250,6 +251,16 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
 
+  // fund the portal contract with Fee Juice
+  const feeJuice = getContract({
+    address: feeJuiceAddress.toString(),
+    abi: contractsToDeploy.feeJuice.contractAbi,
+    client: walletClient,
+  });
+  const receipt = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
+  await publicClient.waitForTransactionReceipt({ hash: receipt });
+  logger.info(`Funded fee juice portal contract with Fee Juice`);
+
   await publicClient.waitForTransactionReceipt({
     hash: await feeJuicePortal.write.initialize([
       registryAddress.toString(),
@@ -261,16 +272,6 @@ export const deployL1Contracts = async (
   logger.info(
     `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
-
-  // fund the rollup contract with Fee Juice
-  const feeJuice = getContract({
-    address: feeJuiceAddress.toString(),
-    abi: contractsToDeploy.feeJuice.contractAbi,
-    client: walletClient,
-  });
-  const receipt = await feeJuice.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
-  await publicClient.waitForTransactionReceipt({ hash: receipt });
-  logger.info(`Funded rollup contract with Fee Juice`);
 
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
