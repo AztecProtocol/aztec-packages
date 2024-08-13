@@ -23,16 +23,15 @@ services:
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
       DEPLOY_AZTEC_CONTRACTS: 1
-      ARCHIVER_POLLING_INTERVAL: 10000
+      ARCHIVER_POLLING_INTERVAL: 1000
       SEQ_MAX_TX_PER_BLOCK: 4
       SEQ_MIN_TX_PER_BLOCK: 1
       SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 3600
       SEQ_MIN_SECONDS_BETWEEN_BLOCKS: 0
       SEQ_RETRY_INTERVAL: 10000
       SEQ_PUBLISHER_PRIVATE_KEY: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
-      SEQ_SKIP_SUBMIT_PROOFS: true # Can be removed once #7860 is merged
-      PROVER_REAL_PROOFS: false    # Change to "${PROVER_REAL_PROOFS:-false}" once #7860 is merged, otherwise client proofs don't get verified when a tx is picked up
-      ASSUME_PROVEN_UNTIL_BLOCK_NUMBER: "${ASSUME_PROVEN_UNTIL_BLOCK_NUMBER:-8}" # Skip proving for the setup blocks (default should be lower than 8 once aztec-bootstrap is removed)
+      PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
+      ASSUME_PROVEN_UNTIL_BLOCK_NUMBER: "${ASSUME_PROVEN_UNTIL_BLOCK_NUMBER:-4}"
       P2P_ENABLED: false
       IS_DEV_NET: true
     volumes:
@@ -49,49 +48,6 @@ services:
       - "--node"
       - "--archiver"
       - "--sequencer"
-      - "--prover"
-
-  # Aztec PXE used for bootstrapping and for the bot to send txs 
-  aztec-pxe:
-    image: "aztecprotocol/aztec:${VERSION:-master}"
-    ports: 
-      - "8081:80"
-    environment:
-      LOG_LEVEL: info
-      ETHEREUM_HOST: http://ethereum:8545
-      AZTEC_NODE_URL: http://aztec-node
-      AZTEC_PORT: 80
-      L1_CHAIN_ID: 31337
-      PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
-    depends_on:
-      aztec-node:
-        condition: service_healthy
-    command: [ "start", "--pxe" ]
-    restart: on-failure:5
-    stop_grace_period: 1s
-    volumes:
-      - ./log/aztec-pxe/:/usr/src/yarn-project/aztec/log:rw
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/status" ]
-      interval: 3s
-      timeout: 30s
-      start_period: 10s
-
-  # Short-lived container that deploys protocol contracts and exits
-  # Can be removed once https://github.com/AztecProtocol/aztec-packages/pull/7928 is merged to speed up setup
-  aztec-bootstrap:
-    image: "aztecprotocol/aztec:${VERSION:-master}"
-    environment:
-      ETHEREUM_HOST: http://ethereum:8545
-      L1_CHAIN_ID: 31337
-      AZTEC_NODE_URL: http://aztec-node
-      PXE_URL: http://aztec-pxe
-    depends_on:
-      aztec-pxe:
-        condition: service_healthy
-    command: [ "deploy-protocol-contracts" ]
-    restart: on-failure:5
-    stop_grace_period: 1s
 
   # Bot for keeping a steady flow of txs into the network
   # Requires bootstrapping to be completed successfully
@@ -111,12 +67,17 @@ services:
       BOT_PUBLIC_TRANSFERS_PER_TX: 0
       BOT_NO_WAIT_FOR_TRANSFERS: true
       BOT_NO_START: false
+      PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
+      PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
+      BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
       IS_DEV_NET: true
     volumes:
       - ./log/aztec-bot/:/usr/src/yarn-project/aztec/log:rw
+      - ./cache/bb-crs/:/root/.bb-crs:rw
+      - ./workdir/bb-bot/:/usr/src/yarn-project/bb:rw
     depends_on:
-      aztec-bootstrap:
-        condition: service_completed_successfully
+      aztec-node:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost/status" ]
       interval: 3s
@@ -138,10 +99,11 @@ services:
       TX_PROVIDER_NODE_URL: http://aztec-node
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
+      ARCHIVER_POLLING_INTERVAL: 1000
       PROVER_AGENT_ENABLED: false
       PROVER_PUBLISHER_PRIVATE_KEY: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
-      ASSUME_PROVEN_UNTIL_BLOCK_NUMBER: "${ASSUME_PROVEN_UNTIL_BLOCK_NUMBER:-}"
+      ASSUME_PROVEN_UNTIL_BLOCK_NUMBER: "${ASSUME_PROVEN_UNTIL_BLOCK_NUMBER:-4}"
       IS_DEV_NET: true
     volumes:
       - ./log/aztec-prover/:/usr/src/yarn-project/aztec/log:rw
@@ -171,26 +133,29 @@ services:
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       PROVER_TEST_DELAY_MS: "${PROVER_TEST_DELAY_MS:-0}"
       PROVER_AGENT_CONCURRENCY: 2
+      BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
       IS_DEV_NET: true
     volumes:
       - ./log/aztec-prover-agent/:/usr/src/yarn-project/aztec/log:rw
+      - ./cache/bb-crs/:/root/.bb-crs:rw
+      - ./workdir/bb-prover/:/usr/src/yarn-project/bb:rw
     depends_on:
       aztec-prover:
         condition: service_healthy
     command: [ "start", "--prover" ]
     restart: on-failure:5
 
-  # Simple watcher that logs the latest block numbers every few seconds using the CLI and the PXE
+  # Simple watcher that logs the latest block numbers every few seconds using the CLI and the bot's PXE
   aztec-block-watcher:
     image: "aztecprotocol/aztec:${VERSION:-master}"
     environment:
       ETHEREUM_HOST: http://ethereum:8545
       L1_CHAIN_ID: 31337
     depends_on:
-      aztec-pxe:
+      aztec-bot:
         condition: service_healthy
     entrypoint: '/bin/bash -c'
     command: >
-      'while true; do node --no-warnings ./node_modules/.bin/aztec block-number -u http://aztec-pxe | head -n2; sleep 10; done'
+      'while true; do node --no-warnings ./node_modules/.bin/aztec block-number -u http://aztec-bot | head -n2; sleep 10; done'
     restart: on-failure:5
     stop_grace_period: 1s
