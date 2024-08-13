@@ -61,7 +61,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceAddress, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
@@ -220,18 +219,18 @@ async function setupWithRemoteEnvironment(
   const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
     account,
     chain: foundry,
-    transport: http(config.rpcUrl),
+    transport: http(config.l1RpcUrl),
   });
   const publicClient = createPublicClient({
     chain: foundry,
-    transport: http(config.rpcUrl),
+    transport: http(config.l1RpcUrl),
   });
   const deployL1ContractsValues: DeployL1Contracts = {
     l1ContractAddresses: l1Contracts,
     walletClient,
     publicClient,
   };
-  const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
+  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
   const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
@@ -281,6 +280,8 @@ type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
+  /** Whether to skip deployment of protocol contracts (auth registry, etc) */
+  skipProtocolContracts?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -303,8 +304,6 @@ export type EndToEndContext = {
   logger: DebugLogger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** Proving jobs */
-  prover: ProverClient | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -326,7 +325,7 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
-  if (!config.rpcUrl) {
+  if (!config.l1RpcUrl) {
     if (PXE_URL) {
       throw new Error(
         `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
@@ -335,7 +334,7 @@ export async function setup(
 
     const res = await startAnvil();
     anvil = res.anvil;
-    config.rpcUrl = res.rpcUrl;
+    config.l1RpcUrl = res.rpcUrl;
   }
 
   // Enable logging metrics to a local file named after the test suite
@@ -346,7 +345,7 @@ export async function setup(
   }
 
   if (opts.stateLoad) {
-    const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
+    const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
@@ -360,7 +359,7 @@ export async function setup(
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.rpcUrl, hdAccount, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, hdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
@@ -381,31 +380,32 @@ export async function setup(
   config.l1PublishRetryIntervalMS = 100;
   const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
-  const prover = aztecNode.getProver();
 
   logger.verbose('Creating a pxe...');
 
   const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-  logger.verbose('Deploying key registry...');
-  await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
-  );
-
-  logger.verbose('Deploying auth registry...');
-  await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
-  );
-
-  if (enableGas) {
-    logger.verbose('Deploying Fee Juice...');
-    await deployCanonicalFeeJuice(
+  if (!config.skipProtocolContracts) {
+    logger.verbose('Deploying key registry...');
+    await deployCanonicalKeyRegistry(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
+
+    logger.verbose('Deploying auth registry...');
+    await deployCanonicalAuthRegistry(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+    );
+
+    if (enableGas) {
+      logger.verbose('Deploying Fee Juice...');
+      await deployCanonicalFeeJuice(
+        new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+      );
+    }
   }
 
-  const wallets = await createAccounts(pxe, numberOfAccounts);
-  const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
+  const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
+  const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {
@@ -434,7 +434,6 @@ export async function setup(
     logger,
     cheatCodes,
     sequencer,
-    prover,
     teardown,
   };
 }

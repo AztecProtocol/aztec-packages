@@ -1,62 +1,45 @@
 import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { getProverEnvVars } from '@aztec/prover-client';
+import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
 import { ProverAgent, createProvingJobSourceClient } from '@aztec/prover-client/prover-agent';
 import {
+  type TelemetryClientConfig,
   createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
+  telemetryClientConfigMappings,
 } from '@aztec/telemetry-client/start';
 
-import { type ServiceStarter, parseModuleOptions } from '../util.js';
+import { type ServiceStarter, extractRelevantOptions } from '../util.js';
 
 export const startProverAgent: ServiceStarter = async (options, signalHandlers, logger) => {
-  const proverOptions = {
-    ...getProverEnvVars(),
-    ...parseModuleOptions(options.prover),
-  };
+  const proverConfig = extractRelevantOptions<ProverClientConfig>(options, proverClientConfigMappings);
 
-  if (!proverOptions.nodeUrl) {
+  if (!proverConfig.nodeUrl) {
     throw new Error('Starting prover without an orchestrator is not supported');
   }
 
-  logger(`Connecting to prover at ${proverOptions.nodeUrl}`);
-  const source = createProvingJobSourceClient(proverOptions.nodeUrl, 'provingJobSource');
+  logger(`Connecting to prover at ${proverConfig.nodeUrl}`);
+  const source = createProvingJobSourceClient(proverConfig.nodeUrl, 'provingJobSource');
 
-  const agentConcurrency =
-    // string if it was set as a CLI option, ie start --prover proverAgentConcurrency=10
-    typeof proverOptions.proverAgentConcurrency === 'string'
-      ? parseInt(proverOptions.proverAgentConcurrency, 10)
-      : proverOptions.proverAgentConcurrency;
+  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
+  const telemetry = createAndStartTelemetryClient(telemetryConfig);
 
-  const pollInterval =
-    // string if it was set as a CLI option, ie start --prover proverAgentPollInterval=10
-    typeof proverOptions.proverAgentPollInterval === 'string'
-      ? parseInt(proverOptions.proverAgentPollInterval, 10)
-      : proverOptions.proverAgentPollInterval;
-
-  const telemetry = createAndStartTelemetryClient(getTelemetryClientConfig());
   let circuitProver: ServerCircuitProver;
-  if (proverOptions.realProofs) {
-    if (!proverOptions.acvmBinaryPath || !proverOptions.bbBinaryPath) {
+  if (proverConfig.realProofs) {
+    if (!proverConfig.acvmBinaryPath || !proverConfig.bbBinaryPath) {
       throw new Error('Cannot start prover without simulation or native prover options');
     }
-
-    circuitProver = await BBNativeRollupProver.new(
-      {
-        acvmBinaryPath: proverOptions.acvmBinaryPath,
-        bbBinaryPath: proverOptions.bbBinaryPath,
-        acvmWorkingDirectory: proverOptions.acvmWorkingDirectory,
-        bbWorkingDirectory: proverOptions.bbWorkingDirectory,
-      },
-      telemetry,
-    );
+    circuitProver = await BBNativeRollupProver.new(proverConfig, telemetry);
   } else {
-    circuitProver = new TestCircuitProver(telemetry);
+    circuitProver = new TestCircuitProver(telemetry, undefined, proverConfig);
   }
 
-  const agent = new ProverAgent(circuitProver, agentConcurrency, pollInterval);
+  const agent = new ProverAgent(
+    circuitProver,
+    proverConfig.proverAgentConcurrency,
+    proverConfig.proverAgentPollInterval,
+  );
   agent.start(source);
-  logger(`Started prover agent with concurrency limit of ${agentConcurrency}`);
+  logger(`Started prover agent with concurrency limit of ${proverConfig.proverAgentConcurrency}`);
 
   signalHandlers.push(() => agent.stop());
 

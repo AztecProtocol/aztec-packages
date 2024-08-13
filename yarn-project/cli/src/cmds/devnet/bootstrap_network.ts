@@ -13,7 +13,7 @@ import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { FeeJuicePortalManager } from '../../portal_manager.js';
+import { FeeJuicePortalManager } from '../../utils/portal_manager.js';
 
 type ContractDeploymentInfo = {
   address: AztecAddress;
@@ -52,7 +52,6 @@ export async function bootstrapNetwork(
   const fpc = await deployFPC(wallet, token.address);
 
   const counter = await deployCounter(wallet);
-
   await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
 
   if (json) {

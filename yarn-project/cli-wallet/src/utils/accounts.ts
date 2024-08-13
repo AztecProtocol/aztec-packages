@@ -1,30 +1,69 @@
+import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { getIdentities } from '@aztec/accounts/utils';
+import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
 import { type WalletDB } from '../storage/wallet_db.js';
+import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
-export enum AccountType {
-  SCHNORR = 'schnorr',
-  ECDSASECP256R1 = 'ecdsasecp256r1',
-  ECDSASECP256K1 = 'ecdsasecp256k1',
-}
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
+export type AccountType = (typeof AccountTypes)[number];
 
-export async function createOrRetrieveWallet(
-  type: AccountType,
+export async function createOrRetrieveAccount(
   pxe: PXE,
-  privateKey: Fr | undefined,
-  aliasOrAddress: string | undefined,
+  address?: AztecAddress,
   db?: WalletDB,
+  type: AccountType = 'schnorr',
+  secretKey?: Fr,
+  salt?: Fr,
+  publicKey?: string | undefined,
 ) {
-  let wallet;
-  if (db && aliasOrAddress) {
-    const { salt, privateKey } = db.retrieveAccount(aliasOrAddress);
-    wallet = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), salt).getWallet();
-  } else if (privateKey) {
-    wallet = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO).getWallet();
-  } else {
-    throw new Error('Either a private key or an account address/alias must be provided');
+  let account;
+
+  salt ??= Fr.ZERO;
+
+  if (db && address) {
+    ({ type, secretKey, salt } = db.retrieveAccount(address));
   }
-  return wallet;
+
+  if (!salt) {
+    throw new Error('Cannot retrieve/create wallet without salt');
+  }
+
+  if (!secretKey) {
+    throw new Error('Cannot retrieve/create wallet without secret key');
+  }
+
+  switch (type) {
+    case 'schnorr': {
+      account = getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
+      break;
+    }
+    case 'ecdsasecp256r1ssh': {
+      let publicSigningKey;
+      if (db && address) {
+        publicSigningKey = db.retrieveAccountMetadata(address, 'publicSigningKey');
+      } else if (publicKey) {
+        const identities = await getIdentities();
+        const foundIdentity = identities.find(
+          identity => identity.type === 'ecdsa-sha2-nistp256' && identity.publicKey === publicKey,
+        );
+        if (!foundIdentity) {
+          throw new Error(`Identity for public key ${publicKey} not found in the SSH agent`);
+        }
+        publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
+      } else {
+        throw new Error('Public key must be provided for ECDSA SSH account');
+      }
+
+      account = getEcdsaRSSHAccount(pxe, secretKey, publicSigningKey, salt);
+      break;
+    }
+    default: {
+      throw new Error(`Unsupported account type: ${type}`);
+    }
+  }
+
+  return account;
 }

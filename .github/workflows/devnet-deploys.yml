@@ -3,7 +3,11 @@ on:
   # push:
   #   branches: [devnet, provernet, alphanet]
   workflow_dispatch:
-    inputs: {}
+    inputs:
+      no_rebuild_images:
+        description: "Don't rebuild images"
+        required: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -77,7 +81,7 @@ jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: master
+      username: ${{ github.actor }}
       runner_type: builder-x86
     secrets: inherit
 
@@ -125,7 +129,7 @@ jobs:
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
-              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=4" >> $GITHUB_OUTPUT
               echo "bot_interval=300" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
@@ -174,46 +178,11 @@ jobs:
           concurrency_key: build-mainnet-fork-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
 
-      - name: Check if mainnet fork needs deployment
-        id: check_fork_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
-            const fileChanged = changedFiles.some(file => file.startsWith('iac/mainnet-fork'));
-            return fileChanged
-
       - name: Build & push mainnet fork image
-        if: steps.check_fork_changes.outputs.result == 'true'
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
         run: |
-          earthly-ci \
-          --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
-
-  build-aztec-nargo:
-    needs: set-network
-    env:
-      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
-      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
-    runs-on: ${{ github.actor }}-x86
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: build-aztec-nargo-${{ github.actor }}
-          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
-      - name: Build & push aztec nargo image
-        run: |
-          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }}
-          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }}
+          earthly-ci --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ github.sha }}
 
   build-aztec:
     needs: set-network
@@ -234,42 +203,50 @@ jobs:
         with:
           concurrency_key: build-aztec-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: Check if only workflow flows have changed
-        id: check_only_workflow_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
-              .toString()
-              .split('\n')
-              .filter(line => line);
-            const prefixesToIgnore = ['.github', 'iac'];
-            const suffixesToIgnore = ['.tf'];
-            return changedFiles.every(file => (
-              prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
-              suffixesToIgnore.some(suffix => file.endsWith(suffix))
-            ));
       - name: "Build & Push aztec images"
         timeout-minutes: 40
-        if: steps.check_only_workflow_changes.outputs.result == 'false'
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
         run: |
           env
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
 
       - name: "Re-tag Aztec image"
-        if: steps.check_only_workflow_changes.outputs.result == 'true'
+        if: ${{ github.event.inputs.no_rebuild_images == 'true' }}
         run: |
           env
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
-
           docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }} aztecprotocol/aztec:${{ github.sha }}
-
           docker push aztecprotocol/aztec:${{ github.sha }}
 
+  build-aztec-nargo:
+    needs: [set-network, build-aztec]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-nargo-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+
+      - name: Build & push aztec nargo image
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
+        run: |
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }}
+
   build-faucet:
-    needs: set-network
+    needs: [set-network, build-aztec]
     env:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
@@ -287,99 +264,56 @@ jobs:
         with:
           concurrency_key: build-faucet-${{ github.actor }}
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: Check if only workflow flows have changed
-        id: check_only_workflow_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
-              .toString()
-              .split('\n')
-              .filter(line => line);
-            const prefixesToIgnore = ['.github', 'iac'];
-            const suffixesToIgnore = ['.tf'];
-            return changedFiles.every(file => (
-              prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
-              suffixesToIgnore.some(suffix => file.endsWith(suffix))
-            ));
       - name: "Build & Push aztec images"
         timeout-minutes: 40
-        if: steps.check_only_workflow_changes.outputs.result == 'false'
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
         run: |
           env
           earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ env.DEPLOY_TAG }}
           earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ github.sha }}
 
       - name: "Re-tag Aztec image"
-        if: steps.check_only_workflow_changes.outputs.result == 'true'
+        if: ${{ github.event.inputs.no_rebuild_images == 'true' }}
         run: |
           env
           docker pull aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }}
-
           docker tag aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }} aztecprotocol/aztec-faucet:${{ github.sha }}
-
           docker push aztecprotocol/aztec-faucet:${{ github.sha }}
 
-  # build-cli-wallet:
-  #   needs: set-network
-  #   env:
-  #     BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
-  #     DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-  #     TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-  #     API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-  #     TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-  #     API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
-  #   runs-on: ${{ github.actor }}-x86
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         ref: "${{ env.GIT_COMMIT }}"
-  #         fetch-depth: 0
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: build-cli-wallet-${{ github.actor }}
-  #         dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-  #     - name: Check if only workflow flows have changed
-  #       id: check_only_workflow_changes
-  #       uses: actions/github-script@v7
-  #       with:
-  #         script: |
-  #           const { execSync } = require('child_process');
-  #           const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
-  #             .toString()
-  #             .split('\n')
-  #             .filter(line => line);
-  #           const prefixesToIgnore = ['.github', 'iac'];
-  #           const suffixesToIgnore = ['.tf'];
-  #           return changedFiles.every(file => (
-  #             prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
-  #             suffixesToIgnore.some(suffix => file.endsWith(suffix))
-  #           ));
-  #     - name: "Build & Push aztec images"
-  #       timeout-minutes: 40
-  #       if: steps.check_only_workflow_changes.outputs.result == 'false'
-  #       run: |
-  #         env
-  #         earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }}
-  #         earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }}
-
-  #     - name: "Re-tag Aztec image"
-  #       if: steps.check_only_workflow_changes.outputs.result == 'true'
-  #       run: |
-  #         env
-  #         docker pull aztecprotocol/cli-wallet:${{ env.DEPLOY_TAG }}
-
-  #         docker tag aztecprotocol/cli-wallet:${{ env.DEPLOY_TAG }} aztecprotocol/cli-wallet:${{ github.sha }}
-
-  #         docker push aztecprotocol/cli-wallet:${{ github.sha }}
+  build-cli-wallet:
+    needs: [set-network, build-aztec]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-cli-wallet-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: "Build & Push aztec images"
+        timeout-minutes: 40
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
+        run: |
+          env
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }}
 
   build-end:
     runs-on: ubuntu-latest
-    needs: [
+    needs:
+      [
         build-aztec,
         build-faucet,
-        #build-cli-wallet,
+        build-cli-wallet,
         build-mainnet-fork,
         build-aztec-nargo,
         set-network,
@@ -657,6 +591,16 @@ jobs:
       - name: Wait for PXE to be available
         run: |
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
+
+      - name: Deploy verifier
+        working-directory: ./yarn-project/aztec/terraform/pxe
+        run: |
+          set -eo pipefail
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-verifier \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
+            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+            --l1-chain-id ${{ env.L1_CHAIN_ID }} \
+            --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }}
 
       - name: Enable transactions bot
         working-directory: ./yarn-project/aztec/terraform/bot
