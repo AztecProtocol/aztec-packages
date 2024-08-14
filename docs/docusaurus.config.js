@@ -360,7 +360,7 @@ const config = {
               },
               {
                 label: "X (Twitter)",
-                href: "https://twitter.com/aztecnetwork",
+                href: "https://x.com/aztecnetwork",
               },
               {
                 label: "Plonk Cafe",

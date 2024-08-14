@@ -1,4 +1,16 @@
 [[redirects]]
+    from = "/guides/smart_contracts/writing_contracts/initializers"
+    to = "/guides/developer_guides/smart_contracts/writing_contracts/initializers"
+
+[[redirects]]
+    from = "/reference/aztecjs/accounts"
+    to = "/reference/developer_references/aztecjs/accounts"
+
+[[redirects]]
+    from = "/getting_started"
+    to = "/guides/developer_guides/getting_started/quickstart"
+
+[[redirects]]
     from = "/tutorials/simple_dapp/*
     to = "tutorials/codealong/simple_dapp
 
