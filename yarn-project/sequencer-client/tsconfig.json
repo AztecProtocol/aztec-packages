@@ -49,10 +49,10 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../validator-client"
+      "path": "../types"
     },
     {
-      "path": "../types"
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"
