@@ -20,7 +20,7 @@ describe('AztecLmdbStore', () => {
   };
 
   it('forks a persistent store', async () => {
-    const path = join(await mkdtemp(join(tmpdir(), 'aztec-store-test-')), 'main.mdb');
+    const path = await mkdtemp(join(tmpdir(), 'aztec-store-test-'));
     const store = AztecLmdbStore.open(path, false);
     await itForks(store);
   });
