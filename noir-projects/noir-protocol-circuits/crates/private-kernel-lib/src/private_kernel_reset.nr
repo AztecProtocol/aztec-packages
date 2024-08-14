@@ -244,7 +244,7 @@ mod tests {
             let hints = PrivateKernelResetHints {
                 note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                key_validation_hints: [KeyValidationHint::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX],
+                key_validation_hints: [KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); 2],
                 transient_data_index_hints: self.transient_data_index_hints,
                 validation_requests_split_counter: self.validation_requests_split_counter
             };

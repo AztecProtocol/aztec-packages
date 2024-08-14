@@ -9,7 +9,10 @@ use dep::reset_kernel_lib::{
     KeyValidationHint, PrivateValidationRequestProcessor,
     tests::{NoteHashReadRequestHintsBuilder, NullifierReadRequestHintsBuilder}, TransientDataIndexHint
 };
-use dep::types::{constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX}, tests::fixture_builder::FixtureBuilder};
+use dep::types::{
+    constants::{MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
+    tests::fixture_builder::FixtureBuilder
+};
 
 struct ResetOutputValidatorBuilder {
     output: FixtureBuilder,
@@ -34,7 +37,7 @@ impl ResetOutputValidatorBuilder {
 
         let note_hash_read_request_hints_builder = NoteHashReadRequestHintsBuilder::new();
         let nullifier_read_request_hints_builder = NullifierReadRequestHintsBuilder::new();
-        let key_validation_hints = [KeyValidationHint::empty(); 2];
+        let key_validation_hints = [KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); 2];
         let transient_data_index_hints = [TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX); 5];
 
         ResetOutputValidatorBuilder {

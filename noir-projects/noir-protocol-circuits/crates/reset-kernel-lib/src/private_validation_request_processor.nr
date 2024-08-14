@@ -2,7 +2,7 @@ use crate::{
     note_hash_read_request_reset::NoteHashReadRequestHints,
     nullifier_read_request_reset::NullifierReadRequestHints,
     reset::read_request::{get_unverified_read_requests, verify_reset_read_requests},
-    reset::key_validation_hint::{KeyValidationHint, reset_key_validation_requests}
+    reset::key_validation_hint::{get_unverified_key_validation_requests, KeyValidationHint, verify_reset_key_validation_requests}
 };
 use dep::types::{
     abis::{note_hash::ScopedNoteHash, nullifier::ScopedNullifier, validation_requests::PrivateValidationRequests},
@@ -39,10 +39,10 @@ impl<
             self.nullifier_read_request_hints.read_request_statuses
         );
 
-        let scoped_key_validation_requests_and_generators = reset_key_validation_requests(
+        let scoped_key_validation_requests_and_generators = get_unverified_key_validation_requests(
             self.validation_requests.scoped_key_validation_requests_and_generators,
             self.key_validation_hints
-        ).storage;
+        );
 
         PrivateValidationRequests {
             for_rollup: self.validation_requests.for_rollup,
@@ -81,12 +81,11 @@ impl<
         );
 
         // key_validation_requests
-        // TODO: verify
-        let unverified_key_validation_requests = reset_key_validation_requests(
+        verify_reset_key_validation_requests(
             self.validation_requests.scoped_key_validation_requests_and_generators,
-            self.key_validation_hints
-        ).storage;
-        assert_eq(output.scoped_key_validation_requests_and_generators, unverified_key_validation_requests);
+            self.key_validation_hints,
+            output.scoped_key_validation_requests_and_generators
+        );
 
         // split_counter
         assert_eq(

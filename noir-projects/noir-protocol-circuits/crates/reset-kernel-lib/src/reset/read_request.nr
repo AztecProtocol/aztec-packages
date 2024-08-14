@@ -1,8 +1,7 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
-    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::Empty,
-    utils::arrays::array_length
+    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::Empty
 };
 
 struct ReadRequestStateEnum {
@@ -65,10 +64,11 @@ fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALU
     hints: [PendingReadHint; NUM_PENDING_READS]
 ) where T: Readable {
     for i in 0..NUM_PENDING_READS {
-        let read_request_index = hints[i].read_request_index;
+        let hint = hints[i];
+        let read_request_index = hint.read_request_index;
         if read_request_index != READ_REQUEST_LEN {
             let read_request = read_requests[read_request_index];
-            let pending_value = pending_values[hints[i].pending_value_index];
+            let pending_value = pending_values[hint.pending_value_index];
             pending_value.assert_match_read_request(read_request);
         }
     }
@@ -84,14 +84,15 @@ fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let NUM_SETTLED_REA
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint, 
     LEAF_PREIMAGE: LeafPreimage + Readable {
     for i in 0..NUM_SETTLED_READS {
-        let read_request_index = hints[i].read_request_index();
+        let hint = hints[i];
+        let read_request_index = hint.read_request_index();
         if read_request_index != READ_REQUEST_LEN {
             let read_request = read_requests[read_request_index];
-            let leaf_preimage = hints[i].leaf_preimage();
+            let leaf_preimage = hint.leaf_preimage();
             leaf_preimage.assert_match_read_request(read_request);
 
             let leaf = leaf_preimage.as_leaf();
-            let witness = hints[i].membership_witness();
+            let witness = hint.membership_witness();
             assert_check_membership(leaf, witness.leaf_index, witness.sibling_path, tree_root);
         }
     }
@@ -105,28 +106,22 @@ fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, T, let NUM_PENDING
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN]
 ) where T: ReadValueHint, S: ReadValueHint {
     let mut num_propagated = 0;
-    let num_non_empty_requests = array_length(read_requests);
     for i in 0..READ_REQUEST_LEN {
-        if i < num_non_empty_requests {
-            let read_request = read_requests[i];
-            let status = read_request_statuses[i];
-            if status.state == ReadRequestState.PENDING {
-                assert_eq(
-                    pending_read_hints[status.hint_index].read_request_index(), i, "Hinted pending read request does not match status"
-                );
-            } else if status.state == ReadRequestState.SETTLED {
-                assert_eq(
-                    settled_read_hints[status.hint_index].read_request_index(), i, "Hinted settled read request does not match status"
-                );
-            } else {
-                assert_eq(
-                    propagated_read_requests[num_propagated], read_request, "mismatch propagated read request"
-                );
-                num_propagated += 1;
-            }
+        let read_request = read_requests[i];
+        let status = read_request_statuses[i];
+        if status.state == ReadRequestState.PENDING {
+            assert_eq(
+                pending_read_hints[status.hint_index].read_request_index(), i, "Hinted pending read request does not match status"
+            );
+        } else if status.state == ReadRequestState.SETTLED {
+            assert_eq(
+                settled_read_hints[status.hint_index].read_request_index(), i, "Hinted settled read request does not match status"
+            );
         } else {
-            // It doesn't hurt anyone but the user themselves if they manipulate the output to add extra read requests to the propagated_read_requests.
-            // assert(is_empty(propagated_read_requests[i]), "array must be padded with empty read requests");
+            assert_eq(
+                propagated_read_requests[num_propagated], read_request, "mismatch propagated read request"
+            );
+            num_propagated += 1;
         }
     }
 }
@@ -165,7 +160,7 @@ pub fn verify_reset_read_requests<
     );
 }
 
-pub fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
+unconstrained pub fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN]
 ) -> [ScopedReadRequest; READ_REQUEST_LEN] {
