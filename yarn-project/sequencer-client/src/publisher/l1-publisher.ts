@@ -10,7 +10,6 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 
-import { type L2BlockReceiver } from '../receiver.js';
 import { type PublisherConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
 
@@ -144,7 +143,7 @@ export type L1SubmitProofArgs = {
  *
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
-export class L1Publisher implements L2BlockReceiver {
+export class L1Publisher {
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
