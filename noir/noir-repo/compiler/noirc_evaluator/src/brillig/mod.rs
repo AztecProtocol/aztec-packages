@@ -4,7 +4,7 @@ pub(crate) mod brillig_ir;
 use acvm::FieldElement;
 
 use self::{
-    brillig_gen::{brillig_fn::FunctionContext, convert_ssa_function},
+    brillig_gen::convert_ssa_function,
     brillig_ir::artifact::{BrilligArtifact, Label},
 };
 use crate::ssa::{
@@ -33,13 +33,12 @@ impl Brillig {
         &self,
         function_label: Label,
     ) -> Option<&BrilligArtifact<FieldElement>> {
-        self.ssa_function_to_brillig.iter().find_map(|(function_id, obj)| {
-            if FunctionContext::function_id_to_function_label(*function_id) == function_label {
-                Some(obj)
-            } else {
-                None
-            }
-        })
+        let function_id = if let Label::Function(function_id) = function_label {
+            function_id
+        } else {
+            unreachable!("ICE: Expected a function label");
+        };
+        self.ssa_function_to_brillig.get(&function_id)
     }
 }
 

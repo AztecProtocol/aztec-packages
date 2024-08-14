@@ -23,6 +23,7 @@ mod codegen_stack;
 mod entry_point;
 mod instructions;
 
+use artifact::Label;
 pub(crate) use instructions::BrilligBinaryOp;
 
 use self::{
@@ -84,9 +85,9 @@ pub(crate) struct BrilligContext<F> {
     registers: BrilligRegistersContext,
     /// Context label, must be unique with respect to the function
     /// being linked.
-    context_label: String,
+    context_label: Label,
     /// Section label, used to separate sections of code
-    section_label: usize,
+    current_section: usize,
     /// Stores the next available section
     next_section: usize,
     /// IR printer
@@ -99,8 +100,8 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         BrilligContext {
             obj: BrilligArtifact::default(),
             registers: BrilligRegistersContext::new(),
-            context_label: String::default(),
-            section_label: 0,
+            context_label: Label::EntryPoint,
+            current_section: 0,
             next_section: 1,
             debug_show: DebugShow::new(enable_debug_trace),
         }
@@ -135,8 +136,9 @@ pub(crate) mod tests {
     use acvm::{BlackBoxFunctionSolver, BlackBoxResolutionError, FieldElement};
 
     use crate::brillig::brillig_ir::{BrilligBinaryOp, BrilligContext};
+    use crate::ssa::ir::function::FunctionId;
 
-    use super::artifact::{BrilligParameter, GeneratedBrillig};
+    use super::artifact::{BrilligParameter, GeneratedBrillig, Label};
     use super::{BrilligOpcode, ReservedRegisters};
 
     pub(crate) struct DummyBlackBoxSolver;
@@ -195,9 +197,9 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn create_context() -> BrilligContext<FieldElement> {
+    pub(crate) fn create_context(id: FunctionId) -> BrilligContext<FieldElement> {
         let mut context = BrilligContext::new(true);
-        context.enter_context("test");
+        context.enter_context(Label::Function(id));
         context
     }
 
@@ -208,7 +210,7 @@ pub(crate) mod tests {
     ) -> GeneratedBrillig<FieldElement> {
         let artifact = context.artifact();
         let mut entry_point_artifact =
-            BrilligContext::new_entry_point_artifact(arguments, returns, "test".to_string());
+            BrilligContext::new_entry_point_artifact(arguments, returns, FunctionId::test_new(0));
         entry_point_artifact.link_with(&artifact);
         entry_point_artifact.finish()
     }

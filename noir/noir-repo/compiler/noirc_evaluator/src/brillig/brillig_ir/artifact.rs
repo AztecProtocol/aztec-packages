@@ -1,7 +1,7 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::ssa::ir::dfg::CallStack;
+use crate::ssa::ir::{basic_block::BasicBlockId, dfg::CallStack, function::FunctionId};
 
 /// Represents a parameter or a return value of an entry point function.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -57,7 +57,47 @@ pub(crate) type OpcodeLocation = usize;
 ///
 /// It is assumed that an entity will keep a map
 /// of labels to Opcode locations.
-pub(crate) type Label = String;
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub(crate) enum Label {
+    /// Used to mark the start of functions, to make them callable.
+    Function(FunctionId),
+    /// Used to mark the start of blocks, to make them jumpable.
+    Block(FunctionId, BasicBlockId),
+    /// Used to mark sections inside blocks, to implement intra-block jumps.
+    BlockSection(FunctionId, BasicBlockId, usize),
+    /// Used to mark the start of the entrypoint code.
+    EntryPoint,
+    /// Used to mark the start of a section in the entrypoint code, to implement jumps in the entrypoint.
+    EntryPointSection(usize),
+}
+
+impl Label {
+    pub(crate) fn can_add_section(&self) -> bool {
+        matches!(self, Label::Block(_, _) | Label::EntryPoint)
+    }
+
+    pub(crate) fn add_section(&self, section: usize) -> Label {
+        match self {
+            Label::Block(func_id, block_id) => Label::BlockSection(*func_id, *block_id, section),
+            Label::EntryPoint => Label::EntryPointSection(section),
+            _ => unreachable!("cannot add section to label {self}"),
+        }
+    }
+}
+
+impl std::fmt::Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Label::Function(id) => write!(f, "Function({})", id),
+            Label::Block(func_id, block_id) => write!(f, "Block({}, {})", func_id, block_id),
+            Label::BlockSection(func_id, block_id, section_id) => {
+                write!(f, "BlockSection({}, {}, {})", func_id, block_id, section_id)
+            }
+            Label::EntryPoint => write!(f, "EntryPoint"),
+            Label::EntryPointSection(section_id) => write!(f, "EntryPointSection({})", section_id),
+        }
+    }
+}
 /// Pointer to a unresolved Jump instruction in
 /// the bytecode.
 pub(crate) type JumpInstructionPosition = OpcodeLocation;
@@ -86,7 +126,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
 
     /// Gets the first unresolved function call of this artifact.
     pub(crate) fn first_unresolved_function_call(&self) -> Option<Label> {
-        self.unresolved_external_call_labels.first().map(|(_, label)| label.clone())
+        self.unresolved_external_call_labels.first().map(|(_, label)| *label)
     }
 
     /// Link with an external brillig artifact called from this artifact.
@@ -131,17 +171,16 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
     fn add_unresolved_jumps_and_calls(&mut self, obj: &BrilligArtifact<F>) {
         let offset = self.index_of_next_opcode();
         for (jump_label, jump_location) in &obj.unresolved_jumps {
-            self.unresolved_jumps.push((jump_label + offset, jump_location.clone()));
+            self.unresolved_jumps.push((jump_label + offset, *jump_location));
         }
 
         for (label_id, position_in_bytecode) in &obj.labels {
-            let old_value = self.labels.insert(label_id.clone(), position_in_bytecode + offset);
+            let old_value = self.labels.insert(*label_id, position_in_bytecode + offset);
             assert!(old_value.is_none(), "overwriting label {label_id} {old_value:?}");
         }
 
         for (position_in_bytecode, label_id) in &obj.unresolved_external_call_labels {
-            self.unresolved_external_call_labels
-                .push((position_in_bytecode + offset, label_id.clone()));
+            self.unresolved_external_call_labels.push((position_in_bytecode + offset, *label_id));
         }
 
         for (position_in_bytecode, message) in &obj.assert_messages {
@@ -199,8 +238,8 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
 
     /// Adds a label in the bytecode to specify where this block's
     /// opcodes will start.
-    pub(crate) fn add_label_at_position(&mut self, label: String, position: OpcodeLocation) {
-        let old_value = self.labels.insert(label.clone(), position);
+    pub(crate) fn add_label_at_position(&mut self, label: Label, position: OpcodeLocation) {
+        let old_value = self.labels.insert(label, position);
         assert!(
             old_value.is_none(),
             "overwriting label {label}. old_value = {old_value:?}, new_value = {position}"

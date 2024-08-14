@@ -371,7 +371,7 @@ mod tests {
     use crate::brillig::brillig_gen::brillig_block::BrilligBlock;
     use crate::brillig::brillig_gen::brillig_block_variables::BlockVariables;
     use crate::brillig::brillig_gen::brillig_fn::FunctionContext;
-    use crate::brillig::brillig_ir::artifact::BrilligParameter;
+    use crate::brillig::brillig_ir::artifact::{BrilligParameter, Label};
     use crate::brillig::brillig_ir::brillig_variable::{
         BrilligArray, BrilligVariable, BrilligVector, SingleAddrVariable,
     };
@@ -389,7 +389,8 @@ mod tests {
         builder.set_runtime(RuntimeType::Brillig);
 
         let ssa = builder.finish();
-        let brillig_context = create_context();
+        let mut brillig_context = create_context(ssa.main_id);
+        brillig_context.enter_context(Label::Block(ssa.main_id, Id::test_new(0)));
 
         let function_context = FunctionContext::new(ssa.main());
         (ssa, function_context, brillig_context)

@@ -1,3 +1,4 @@
+use crate::brillig::brillig_ir::artifact::Label;
 use crate::brillig::brillig_ir::brillig_variable::{
     type_to_heap_value_type, BrilligArray, BrilligVariable, BrilligVector, SingleAddrVariable,
 };
@@ -93,7 +94,7 @@ impl<'block> BrilligBlock<'block> {
     /// This uses the current functions's function ID and the block ID
     /// Making the assumption that the block ID passed in belongs to this
     /// function.
-    fn create_block_label_for_current_function(&self, block_id: BasicBlockId) -> String {
+    fn create_block_label_for_current_function(&self, block_id: BasicBlockId) -> Label {
         Self::create_block_label(self.function_context.function_id, block_id)
     }
     /// Creates a unique label for a block using the function Id and the block ID.
@@ -102,8 +103,8 @@ impl<'block> BrilligBlock<'block> {
     /// for us to create a unique label across functions and blocks.
     ///
     /// This is so that during linking there are no duplicates or labels being overwritten.
-    fn create_block_label(function_id: FunctionId, block_id: BasicBlockId) -> String {
-        format!("{function_id}-{block_id}")
+    fn create_block_label(function_id: FunctionId, block_id: BasicBlockId) -> Label {
+        Label::Block(function_id, block_id)
     }
 
     /// Converts an SSA terminator instruction into the necessary opcodes.
@@ -761,9 +762,6 @@ impl<'block> BrilligBlock<'block> {
             .flat_map(|argument_id| self.convert_ssa_value(*argument_id, dfg).extract_registers())
             .collect();
 
-        // Create label for the function that will be called
-        let label_of_function_to_call = FunctionContext::function_id_to_function_label(func_id);
-
         let variables_to_save = self.variables.get_available_variables(self.function_context);
 
         let saved_registers = self
@@ -774,7 +772,7 @@ impl<'block> BrilligBlock<'block> {
         self.variables.dump_constants();
 
         // Call instruction, which will interpret above registers 0..num args
-        self.brillig_context.add_external_call_instruction(label_of_function_to_call);
+        self.brillig_context.add_external_call_instruction(func_id);
 
         // Important: resolve after pre_call_save_registers_prep_args
         // This ensures we don't save the results to registers unnecessarily.

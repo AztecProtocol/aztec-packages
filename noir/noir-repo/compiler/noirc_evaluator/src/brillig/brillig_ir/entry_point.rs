@@ -1,5 +1,7 @@
+use crate::ssa::ir::function::FunctionId;
+
 use super::{
-    artifact::{BrilligArtifact, BrilligParameter},
+    artifact::{BrilligArtifact, BrilligParameter, Label},
     brillig_variable::{BrilligArray, BrilligVariable, BrilligVector, SingleAddrVariable},
     debug_show::{DebugShow, DebugToString},
     registers::BrilligRegistersContext,
@@ -11,16 +13,16 @@ pub(crate) const MAX_STACK_SIZE: usize = 2048;
 
 impl<F: AcirField + DebugToString> BrilligContext<F> {
     /// Creates an entry point artifact that will jump to the function label provided.
-    pub(crate) fn new_entry_point_artifact<T: ToString>(
+    pub(crate) fn new_entry_point_artifact(
         arguments: Vec<BrilligParameter>,
         return_parameters: Vec<BrilligParameter>,
-        target_function: T,
+        target_function: FunctionId,
     ) -> BrilligArtifact<F> {
         let mut context = BrilligContext {
             obj: BrilligArtifact::default(),
             registers: BrilligRegistersContext::new(),
-            context_label: String::default(),
-            section_label: 0,
+            context_label: Label::EntryPoint,
+            current_section: 0,
             next_section: 1,
             debug_show: DebugShow::new(false),
         };
@@ -485,10 +487,13 @@ mod tests {
 
     use acvm::FieldElement;
 
-    use crate::brillig::brillig_ir::{
-        brillig_variable::BrilligArray,
-        entry_point::BrilligParameter,
-        tests::{create_and_run_vm, create_context, create_entry_point_bytecode},
+    use crate::{
+        brillig::brillig_ir::{
+            brillig_variable::BrilligArray,
+            entry_point::BrilligParameter,
+            tests::{create_and_run_vm, create_context, create_entry_point_bytecode},
+        },
+        ssa::ir::function::FunctionId,
     };
 
     #[test]
@@ -510,7 +515,7 @@ mod tests {
         )];
         let returns = vec![BrilligParameter::SingleAddr(8)];
 
-        let mut context = create_context();
+        let mut context = create_context(FunctionId::test_new(0));
 
         // Allocate the parameter
         let array_pointer = context.allocate_register();
@@ -549,7 +554,7 @@ mod tests {
         let arguments = vec![array_param.clone()];
         let returns = vec![array_param];
 
-        let mut context = create_context();
+        let mut context = create_context(FunctionId::test_new(0));
 
         // Allocate the parameter
         let brillig_array = BrilligArray {

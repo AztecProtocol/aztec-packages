@@ -132,16 +132,16 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         let (otherwise_section, otherwise_label) = self.reserve_next_section_label();
         let (end_section, end_label) = self.reserve_next_section_label();
 
-        self.jump_if_instruction(condition, then_label.clone());
-        self.jump_instruction(otherwise_label.clone());
+        self.jump_if_instruction(condition, then_label);
+        self.jump_instruction(otherwise_label);
 
         self.enter_section(then_section);
         f(self, true);
-        self.jump_instruction(end_label.clone());
+        self.jump_instruction(end_label);
 
         self.enter_section(otherwise_section);
         f(self, false);
-        self.jump_instruction(end_label.clone());
+        self.jump_instruction(end_label);
 
         self.enter_section(end_section);
     }
@@ -155,8 +155,8 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         let (end_section, end_label) = self.reserve_next_section_label();
         let (then_section, then_label) = self.reserve_next_section_label();
 
-        self.jump_if_instruction(condition, then_label.clone());
-        self.jump_instruction(end_label.clone());
+        self.jump_if_instruction(condition, then_label);
+        self.jump_instruction(end_label);
 
         self.enter_section(then_section);
         f(self);
@@ -172,7 +172,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
     ) {
         let (end_section, end_label) = self.reserve_next_section_label();
 
-        self.jump_if_instruction(condition, end_label.clone());
+        self.jump_if_instruction(condition, end_label);
 
         f(self);
 
