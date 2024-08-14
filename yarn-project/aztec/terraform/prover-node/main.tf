@@ -338,42 +338,42 @@ resource "aws_lb_listener_rule" "api" {
   }
 }
 
-resource "aws_security_group_rule" "allow-node-tcp-in" {
-  count             = local.node_count
-  type              = "ingress"
-  from_port         = var.NODE_P2P_TCP_PORT + count.index
-  to_port           = var.NODE_P2P_TCP_PORT + count.index
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
-}
+# resource "aws_security_group_rule" "allow-node-tcp-in" {
+#   count             = local.node_count
+#   type              = "ingress"
+#   from_port         = var.NODE_P2P_TCP_PORT + count.index
+#   to_port           = var.NODE_P2P_TCP_PORT + count.index
+#   protocol          = "tcp"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+# }
 
-resource "aws_security_group_rule" "allow-node-tcp-out" {
-  count             = local.node_count
-  type              = "egress"
-  from_port         = var.NODE_P2P_TCP_PORT + count.index
-  to_port           = var.NODE_P2P_TCP_PORT + count.index
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
-}
+# resource "aws_security_group_rule" "allow-node-tcp-out" {
+#   count             = local.node_count
+#   type              = "egress"
+#   from_port         = var.NODE_P2P_TCP_PORT + count.index
+#   to_port           = var.NODE_P2P_TCP_PORT + count.index
+#   protocol          = "tcp"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+# }
 
-resource "aws_security_group_rule" "allow-node-udp-in" {
-  count             = local.node_count
-  type              = "ingress"
-  from_port         = var.NODE_P2P_UDP_PORT
-  to_port           = var.NODE_P2P_UDP_PORT + count.index
-  protocol          = "udp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
-}
+# resource "aws_security_group_rule" "allow-node-udp-in" {
+#   count             = local.node_count
+#   type              = "ingress"
+#   from_port         = var.NODE_P2P_UDP_PORT
+#   to_port           = var.NODE_P2P_UDP_PORT + count.index
+#   protocol          = "udp"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+# }
 
-resource "aws_security_group_rule" "allow-node-udp-out" {
-  count             = local.node_count
-  type              = "egress"
-  from_port         = var.NODE_P2P_UDP_PORT
-  to_port           = var.NODE_P2P_UDP_PORT + count.index
-  protocol          = "udp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
-}
+# resource "aws_security_group_rule" "allow-node-udp-out" {
+#   count             = local.node_count
+#   type              = "egress"
+#   from_port         = var.NODE_P2P_UDP_PORT
+#   to_port           = var.NODE_P2P_UDP_PORT + count.index
+#   protocol          = "udp"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
+# }
