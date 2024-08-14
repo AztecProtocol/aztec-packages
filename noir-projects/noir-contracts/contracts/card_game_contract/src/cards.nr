@@ -103,9 +103,10 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let owner_npk_m_hash = get_current_public_keys(self.set.context, owner).npk_m.hash();
+        let owner_keys = get_current_public_keys(self.set.context, owner);
+        let owner_ivpk_m = owner_keys.ivpk_m;
+        let owner_npk_m_hash = owner_keys.npk_m.hash();
         let msg_sender_ovpk_m = get_current_public_keys(self.set.context, self.set.context.msg_sender()).ovpk_m;
-        let owner_ivpk_m = get_current_public_keys(self.set.context, owner).ivpk_m;
 
         let mut inserted_cards = &[];
         for card in cards {
