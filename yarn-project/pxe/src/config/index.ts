@@ -1,5 +1,10 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type Network } from '@aztec/types/network';
 
 import { readFileSync } from 'fs';
@@ -12,6 +17,7 @@ import { fileURLToPath } from 'url';
 export interface BBProverConfig {
   bbWorkingDirectory?: string;
   bbBinaryPath?: string;
+  bbSkipCleanup?: boolean;
 }
 
 /**
@@ -67,11 +73,15 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
     env: 'BB_WORKING_DIRECTORY',
     description: 'Working directory for the BB binary',
   },
+  bbSkipCleanup: {
+    env: 'BB_SKIP_CLEANUP',
+    description: 'True to skip cleanup of temporary files for debugging purposes',
+    ...booleanConfigHelper(),
+  },
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
     description: 'Enable real proofs',
-    isBoolean: true,
+    ...booleanConfigHelper(),
   },
 };
 
@@ -103,7 +113,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
   ...pxeCliConfigMappings,
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val) || !!process.env.NETWORK,
+    parseEnv: (val: string) => ['1', 'true', 'TRUE'].includes(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
   },

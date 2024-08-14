@@ -101,7 +101,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlockBodies(blockBodies: Body[]): Promise<boolean> {
+  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean> {
     return this.#blockBodyStore.addBlockBodies(blockBodies);
   }
 
@@ -111,7 +111,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]> {
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
     return this.#blockBodyStore.getBlockBodies(txsEffectsHashes);
   }
 
@@ -260,6 +260,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
       blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
+      blockBodiesSynchedTo: this.#blockBodyStore.getSynchedL1BlockNumber(),
       messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
     });
   }

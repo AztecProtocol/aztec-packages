@@ -1,15 +1,16 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type DeployAccountOptions, createCompatibleClient } from '@aztec/aztec.js';
-import { deriveSigningKey } from '@aztec/circuits.js';
+import { type DeployAccountOptions, type PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { type IFeeOpts, printGasEstimates } from '../utils/fees.js';
+import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
+import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
 export async function createAccount(
-  rpcUrl: string,
-  privateKey: Fr | undefined,
+  client: PXE,
+  accountType: AccountType,
+  secretKey: Fr | undefined,
+  publicKey: string | undefined,
   alias: string | undefined,
   registerOnly: boolean,
   publicDeploy: boolean,
@@ -20,21 +21,26 @@ export async function createAccount(
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const printPK = typeof privateKey === 'undefined';
-  privateKey ??= Fr.random();
+  secretKey ??= Fr.random();
 
-  const salt = Fr.ZERO;
-
-  const account = getSchnorrAccount(client, privateKey, deriveSigningKey(privateKey), salt);
+  const account = await createOrRetrieveAccount(
+    client,
+    undefined /* address, we don't have it yet */,
+    undefined /* db, as we want to create from scratch */,
+    accountType,
+    secretKey,
+    Fr.ZERO,
+    publicKey,
+  );
+  const salt = account.getInstance().salt;
   const { address, publicKeys, partialAddress } = account.getCompleteAddress();
 
   const out: Record<string, any> = {};
   if (json) {
     out.address = address;
     out.publicKey = publicKeys;
-    if (printPK) {
-      out.privateKey = privateKey;
+    if (secretKey) {
+      out.secretKey = secretKey;
     }
     out.partialAddress = partialAddress;
     out.salt = salt;
@@ -44,8 +50,8 @@ export async function createAccount(
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
     log(`Public key:      0x${publicKeys.toString()}`);
-    if (printPK) {
-      log(`Private key:     ${privateKey.toString()}`);
+    if (secretKey) {
+      log(`Secret key:     ${secretKey.toString()}`);
     }
     log(`Partial address: ${partialAddress.toString()}`);
     log(`Salt:            ${salt.toString()}`);
@@ -110,5 +116,5 @@ export async function createAccount(
     }
   }
 
-  return { alias, address, privateKey, salt };
+  return { alias, address, secretKey, salt };
 }

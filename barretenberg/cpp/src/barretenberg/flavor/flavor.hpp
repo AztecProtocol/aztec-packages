@@ -48,7 +48,7 @@
  * @note It would be ideal to codify more structure in these base class template and to have it imposed on the actual
  * flavors, but our inheritance model is complicated as it is, and we saw no reasonable way to fix this.
  *
- * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish betwen prover/verifier
+ * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish between prover/verifier
  * circuit data, and "keys" that consist of such data augmented with witness data (whether, raw, blinded, or polynomial
  * commitments). Currently the proving key contains witness data, while the verification key does not.
  * TODO(Cody): It would be nice to resolve this but it's not essential.
@@ -262,28 +262,21 @@ auto get_unshifted_then_shifted(const auto& all_entities)
     return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
-template <typename Tuple, size_t... I>
-static constexpr auto _compute_max_partial_relation_length_internal([[maybe_unused]] std::index_sequence<I...>)
-{
-    constexpr std::array<size_t, sizeof...(I)> lengths = { std::tuple_element_t<I, Tuple>::RELATION_LENGTH... };
-    return *std::max_element(lengths.begin(), lengths.end());
-}
-
 /**
  * @brief Utility function to find max PARTIAL_RELATION_LENGTH tuples of Relations.
  * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are as constants, not as variables..
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_partial_relation_length()
+template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_relation_length()
 {
-    return _compute_max_partial_relation_length_internal<Tuple>(std::make_index_sequence<std::tuple_size_v<Tuple>>());
-}
-
-template <typename Tuple, size_t... I>
-static constexpr auto _compute_max_total_relation_length_internal([[maybe_unused]] std::index_sequence<I...>)
-{
-    constexpr std::array<size_t, sizeof...(I)> lengths = { std::tuple_element_t<I, Tuple>::TOTAL_RELATION_LENGTH... };
-    return *std::max_element(lengths.begin(), lengths.end());
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        if constexpr (ZK) {
+            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_RELATION_LENGTH... });
+        } else {
+            return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
+        }
+    }(seq);
 }
 
 /**
@@ -291,41 +284,27 @@ static constexpr auto _compute_max_total_relation_length_internal([[maybe_unused
  * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are regarded as variables.
  */
-template <typename Tuple> static constexpr size_t compute_max_total_relation_length()
+template <typename Tuple, bool ZK = false> constexpr size_t compute_max_total_relation_length()
 {
-    return _compute_max_total_relation_length_internal<Tuple>(std::make_index_sequence<std::tuple_size_v<Tuple>>());
-}
-
-template <typename Tuple, size_t... I>
-static constexpr auto _compute_number_of_subrelations_internal([[maybe_unused]] std::index_sequence<I...>)
-{
-    constexpr std::array<size_t, sizeof...(I)> lengths = {
-        std::tuple_element_t<I, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size()...
-    };
-    return std::accumulate(lengths.begin(), lengths.end(), 0);
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        if constexpr (ZK) {
+            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_TOTAL_RELATION_LENGTH... });
+        } else {
+            return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
+        }
+    }(seq);
 }
 
 /**
  * @brief Utility function to find the number of subrelations.
  */
-template <typename Tuple> static constexpr size_t compute_number_of_subrelations()
+template <typename Tuple> constexpr size_t compute_number_of_subrelations()
 {
-    return _compute_number_of_subrelations_internal<Tuple>(std::make_index_sequence<std::tuple_size_v<Tuple>>());
-}
-
-template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false, size_t... I>
-static constexpr auto _create_protogalaxy_tuple_of_tuples_of_univariates_internal(
-    [[maybe_unused]] std::index_sequence<I...>)
-{
-    if constexpr (optimised) {
-        return std::make_tuple(
-            typename std::tuple_element_t<I, Tuple>::template OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations<
-                NUM_INSTANCES>{}...);
-    } else {
-        return std::make_tuple(
-            typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                NUM_INSTANCES>{}...);
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<std::size_t... I>(std::index_sequence<I...>) {
+        return (0 + ... + std::tuple_element_t<I, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size());
+    }(seq);
 }
 
 /**
@@ -336,17 +315,20 @@ static constexpr auto _create_protogalaxy_tuple_of_tuples_of_univariates_interna
  * @tparam optimised Enable optimised version with skipping some of the computation
  */
 template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false>
-static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
+constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
-    return _create_protogalaxy_tuple_of_tuples_of_univariates_internal<Tuple, NUM_INSTANCES, optimised>(
-        std::make_index_sequence<std::tuple_size_v<Tuple>>());
-}
-
-template <typename Tuple, size_t... I>
-static constexpr auto _create_sumcheck_tuple_of_tuples_of_univariates_internal(
-    [[maybe_unused]] std::index_sequence<I...>)
-{
-    return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        if constexpr (optimised) {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::
+                    template OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>{}...);
+        } else {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
+                    NUM_INSTANCES>{}...);
+        }
+    }(seq);
 }
 
 /**
@@ -355,16 +337,18 @@ static constexpr auto _create_sumcheck_tuple_of_tuples_of_univariates_internal(
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
  * tuple is determined by the corresponding subrelation length.
  */
-template <typename Tuple> static constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
+template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {
-    return _create_sumcheck_tuple_of_tuples_of_univariates_internal<Tuple>(
-        std::make_index_sequence<std::tuple_size_v<Tuple>>());
-}
-
-template <typename Tuple, size_t... I>
-static constexpr auto _create_tuple_of_arrays_of_values_internal([[maybe_unused]] std::index_sequence<I...>)
-{
-    return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckArrayOfValuesOverSubrelations{}...);
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        if constexpr (ZK) {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::ZKSumcheckTupleOfUnivariatesOverSubrelations{}...);
+        } else {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
+        }
+    }(seq);
 }
 
 /**
@@ -372,9 +356,12 @@ static constexpr auto _create_tuple_of_arrays_of_values_internal([[maybe_unused]
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple> static constexpr auto create_tuple_of_arrays_of_values()
+template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 {
-    return _create_tuple_of_arrays_of_values_internal<Tuple>(std::make_index_sequence<std::tuple_size_v<Tuple>>());
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckArrayOfValuesOverSubrelations{}...);
+    }(seq);
 }
 
 } // namespace bb
@@ -382,6 +369,7 @@ template <typename Tuple> static constexpr auto create_tuple_of_arrays_of_values
 // Forward declare honk flavors
 namespace bb {
 class UltraFlavor;
+class UltraFlavorWithZK;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
@@ -415,13 +403,13 @@ template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T> 
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
@@ -448,6 +436,7 @@ template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
+                                                           UltraFlavorWithZK,
                                                            MegaFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>, 

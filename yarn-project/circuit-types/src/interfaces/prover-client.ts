@@ -1,6 +1,6 @@
 import { type TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
 import { type BlockProver } from './block-prover.js';
 import { type MerkleTreeOperations } from './merkle_tree_operations.js';
@@ -24,6 +24,8 @@ export type ProverConfig = {
   proverJobTimeoutMs: number;
   /** The interval to check job health status */
   proverJobPollIntervalMs: number;
+  /** Artificial delay to introduce to all operations to the test prover. */
+  proverTestDelayMs: number;
   /** Identifier of the prover */
   proverId?: Fr;
 };
@@ -35,15 +37,13 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   },
   realProofs: {
     env: 'PROVER_REAL_PROOFS',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: false,
     description: 'Whether to construct real proofs',
+    ...booleanConfigHelper(),
   },
   proverAgentEnabled: {
     env: 'PROVER_AGENT_ENABLED',
-    parseEnv: (val: string) => ['1', 'true'].includes(val),
-    default: true,
     description: 'Whether this prover has a local prover agent',
+    ...booleanConfigHelper(true),
   },
   proverAgentPollInterval: {
     env: 'PROVER_AGENT_POLL_INTERVAL_MS',
@@ -69,6 +69,11 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     env: 'PROVER_ID',
     parseEnv: (val: string) => parseProverId(val),
     description: 'Identifier of the prover',
+  },
+  proverTestDelayMs: {
+    env: 'PROVER_TEST_DELAY_MS',
+    description: 'Artificial delay to introduce to all operations to the test prover.',
+    ...numberConfigHelper(0),
   },
 };
 

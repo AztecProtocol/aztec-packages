@@ -145,8 +145,19 @@ export class Archiver implements ArchiveSource {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.safeSync(), this.pollingIntervalMs);
     this.runningPromise.start();
+  }
+
+  /**
+   * Syncs and catches exceptions.
+   */
+  private async safeSync() {
+    try {
+      await this.sync(false);
+    } catch (error) {
+      this.log.error('Error syncing archiver', error);
+    }
   }
 
   /**
@@ -166,10 +177,14 @@ export class Archiver implements ArchiveSource {
      *
      * This code does not handle reorgs.
      */
-    const { blocksSynchedTo, messagesSynchedTo } = await this.store.getSynchPoint();
+    const { blockBodiesSynchedTo, blocksSynchedTo, messagesSynchedTo } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
-    if (currentL1BlockNumber <= blocksSynchedTo && currentL1BlockNumber <= messagesSynchedTo) {
+    if (
+      currentL1BlockNumber <= blocksSynchedTo &&
+      currentL1BlockNumber <= messagesSynchedTo &&
+      currentL1BlockNumber <= blockBodiesSynchedTo
+    ) {
       // chain hasn't moved forward
       // or it's been rolled back
       this.log.debug(`Nothing to sync`, { currentL1BlockNumber, blocksSynchedTo, messagesSynchedTo });
@@ -220,21 +235,27 @@ export class Archiver implements ArchiveSource {
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getSynchedL2BlockNumber()) + 1);
 
+    this.log.debug(`Retrieving block bodies from ${blockBodiesSynchedTo + 1n} to ${currentL1BlockNumber}`);
     const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
       this.publicClient,
       this.availabilityOracleAddress,
       blockUntilSynced,
-      blocksSynchedTo + 1n,
+      blockBodiesSynchedTo + 1n,
       currentL1BlockNumber,
     );
 
-    const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);
-    await this.store.addBlockBodies(blockBodies);
+    this.log.debug(
+      `Retrieved ${retrievedBlockBodies.retrievedData.length} block bodies up to L1 block ${retrievedBlockBodies.lastProcessedL1BlockNumber}`,
+    );
+    await this.store.addBlockBodies(retrievedBlockBodies);
 
     // Now that we have block bodies we will retrieve block metadata and build L2 blocks from the bodies and
     // the metadata
     let retrievedBlocks: DataRetrieval<L2Block>;
     {
+      // @todo @LHerskind Investigate how necessary that nextExpectedL2BlockNum really is.
+      //                  Also, I would expect it to break horribly if we have a reorg.
+      this.log.debug(`Retrieving block metadata from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
       const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
         this.publicClient,
         this.rollupAddress,
@@ -248,15 +269,27 @@ export class Archiver implements ArchiveSource {
         ([header]) => header.contentCommitment.txsEffectsHash,
       );
 
+      // @note @LHerskind   We will occasionally be hitting this point BEFORE, we have actually retrieved the bodies.
+      //                    The main reason this have not been an issue earlier is because:
+      //                    i) the design previously published the body in one tx and the header in another,
+      //                       which in an anvil auto mine world mean that they are separate blocks.
+      //                    ii) We have been lucky that latency have been small enough to not matter.
       const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
 
       if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
-        throw new Error('Block headers length does not equal block bodies length');
+        this.log.warn('Block headers length does not equal block bodies length');
       }
 
-      const blocks = retrievedBlockMetadata.retrievedData.map(
-        (blockMetadata, i) => new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i]),
-      );
+      const blocks: L2Block[] = [];
+      for (let i = 0; i < retrievedBlockMetadata.retrievedData.length; i++) {
+        const [header, archive] = retrievedBlockMetadata.retrievedData[i];
+        const blockBody = blockBodiesFromStore[i];
+        if (blockBody) {
+          blocks.push(new L2Block(archive, header, blockBody));
+        } else {
+          this.log.warn(`Block body not found for block ${header.globalVariables.blockNumber.toBigInt()}.`);
+        }
+      }
 
       (blocks.length ? this.log.verbose : this.log.debug)(
         `Retrieved ${blocks.length || 'no'} new L2 blocks between L1 blocks ${
@@ -269,6 +302,12 @@ export class Archiver implements ArchiveSource {
         retrievedData: blocks,
       };
     }
+
+    this.log.debug(
+      `Processing retrieved blocks ${retrievedBlocks.retrievedData
+        .map(b => b.number)
+        .join(',')} with last processed L1 block ${retrievedBlocks.lastProcessedL1BlockNumber}`,
+    );
 
     await Promise.all(
       retrievedBlocks.retrievedData.map(block => {

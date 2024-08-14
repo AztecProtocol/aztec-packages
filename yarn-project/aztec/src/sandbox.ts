@@ -90,6 +90,7 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
+  opts: { assumeProvenUntilBlockNumber?: number } = {},
 ) {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -122,10 +123,15 @@ export async function deployContractsToL1(
     },
   };
 
+  const chain = aztecNodeConfig.l1RpcUrl
+    ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
+    : { chainInfo: localAnvil };
+
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
+    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, l1Artifacts, {
       l2FeeJuiceAddress: FeeJuiceAddress,
       vkTreeRoot: getVKTreeRoot(),
+      assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
     }),
   );
 
