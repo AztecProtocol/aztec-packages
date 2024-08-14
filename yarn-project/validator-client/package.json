@@ -59,6 +59,7 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/types": "workspace:^",
     "koa": "^2.14.2",
