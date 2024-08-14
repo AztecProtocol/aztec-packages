@@ -3,7 +3,7 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHe
 use dep::aztec::{
     context::UnconstrainedContext,
     protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys, keys::getters::get_current_public_keys,
     note::note_getter::view_notes, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::value_note::{value_note::{ValueNote, VALUE_NOTE_LEN}};
@@ -103,10 +103,9 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let header = self.set.context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(self.set.context, owner);
-        let msg_sender_ovpk_m = header.get_ovpk_m(self.set.context, self.set.context.msg_sender());
-        let owner_ivpk_m = header.get_ivpk_m(self.set.context, owner);
+        let owner_npk_m_hash = get_current_public_keys(self.set.context, owner).npk_m.hash();
+        let msg_sender_ovpk_m = get_current_public_keys(self.set.context, self.set.context.msg_sender()).ovpk_m;
+        let owner_ivpk_m = get_current_public_keys(self.set.context, owner).ivpk_m;
 
         let mut inserted_cards = &[];
         for card in cards {

@@ -21,35 +21,7 @@ global DELAY = 5;
 mod test;
 
 // docs:start:key-getters
-trait KeyGetters {
-  fn get_npk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
-  fn get_ivpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
-  fn get_ovpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
-  fn get_tpk_m(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Point;
-  fn get_npk_m_hash(header: Header, context: &mut PrivateContext, address: AztecAddress) -> Field;
-}
 
-impl KeyGetters for Header {
-    fn get_npk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(self, address).npk_m
-    }
-
-    fn get_ivpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(self, address).ivpk_m
-    }
-
-    fn get_ovpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(self, address).ovpk_m
-    }
-
-    fn get_tpk_m(self, _context: &mut PrivateContext, address: AztecAddress) -> Point {
-        get_historical_public_keys(self, address).tpk_m
-    }
-
-    fn get_npk_m_hash(self, context: &mut PrivateContext, address: AztecAddress) -> Field {
-        self.get_npk_m(context, address).hash()
-    }
-}
 // docs:end:key-getters
 
 // A helper function since requesting nsk_app is very common
