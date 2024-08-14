@@ -3,6 +3,7 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fcntl.h>
@@ -22,7 +23,22 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
     return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
 }
 
-template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size)
+template <typename Fr>
+SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray<Fr>& array, size_t target_size)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    ASSERT(target_size >= array.size());
+    std::shared_ptr<Fr[]> backing_clone = _allocate_aligned_memory<Fr>(target_size);
+    memcpy(static_cast<void*>(backing_clone.get()),
+           static_cast<const void*>(array.backing_memory_.get()),
+           sizeof(Fr) * array.size());
+    // zero any extensions to the array
+    memset(static_cast<void*>(backing_clone.get()), 0, sizeof(Fr) * (target_size - array.size()));
+    return { array.start_, array.end_, array.virtual_size_, backing_clone };
+}
+
+template <typename Fr>
+void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, std::ptrdiff_t start_index)
 {
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         0,            /* start index, initially 0 */
@@ -39,6 +55,8 @@ template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size,
     for (size_t i = 0; i < MAXIMUM_COEFFICIENT_SHIFT; i++) {
         data()[size + i] = Fr{};
     }
+    // used to perform a shift or offset an 'island' of non-zero elements
+    coefficients_.start_ = start_index;
 }
 
 /**
@@ -50,10 +68,10 @@ template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size,
  *
  * @param size The size of the polynomial.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size)
+template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index)
 {
-    allocate_backing_memory(size, virtual_size);
-    memset(static_cast<void*>(coefficients_.data()), 0, sizeof(Fr) * size);
+    allocate_backing_memory(size, virtual_size, start_index);
+    memset(static_cast<void*>(coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
 }
 
 /**
@@ -63,11 +81,13 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
  * @param size The initial size of the polynomial.
  * @param flag Signals that we do not zero memory.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
+template <typename Fr>
+Polynomial<Fr>::Polynomial(size_t size,
+                           size_t virtual_size,
+                           std::ptrdiff_t start_index,
+                           [[maybe_unused]] DontZeroMemory flag)
 {
-    // Flag is unused, but we don't memset 0 if passed.
-    (void)flag;
-    allocate_backing_memory(size, virtual_size);
+    allocate_backing_memory(size, virtual_size, start_index);
 }
 
 template <typename Fr>
@@ -78,7 +98,7 @@ Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
 // fully copying "expensive" constructor
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
-    allocate_backing_memory(std::max(target_size, other.size()), other.virtual_size());
+    allocate_backing_memory(std::max(target_size, other.size()), other.virtual_size(), other.coefficients_.start_);
 
     memcpy(static_cast<void*>(coefficients_.data()),
            static_cast<const void*>(other.coefficients_.data()),
@@ -101,7 +121,7 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
 
 template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
 {
-    allocate_backing_memory(coefficients.size(), virtual_size);
+    allocate_backing_memory(coefficients.size(), virtual_size, 0);
 
     memcpy(static_cast<void*>(data()), static_cast<const void*>(coefficients.data()), sizeof(Fr) * coefficients.size());
 }
@@ -114,10 +134,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     if (this == &other) {
         return *this;
     }
-    allocate_backing_memory(other.coefficients_.size(), other.coefficients_.virtual_size());
-    memcpy(static_cast<void*>(coefficients_.data()),
-           static_cast<const void*>(other.coefficients_.data()),
-           sizeof(Fr) * other.coefficients_.size());
+    coefficients_ = _clone(other.coefficients_, other.size());
     return *this;
 }
 

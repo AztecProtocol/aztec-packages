@@ -5,6 +5,7 @@
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
+#include <cstddef>
 #include <fstream>
 
 namespace bb {
@@ -28,13 +29,19 @@ template <typename Fr> class Polynomial {
     using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
-    Polynomial(size_t size, size_t virtual_size);
+    Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
         : Polynomial(size, size)
     {}
     // Constructor that does not initialize values, use with caution to save time.
-    Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag);
+    Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index, DontZeroMemory flag);
+    Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
+        : Polynomial(size, virtual_size, 0, flag)
+    {}
+    Polynomial(size_t size, DontZeroMemory flag)
+        : Polynomial(size, size, flag)
+    {}
     Polynomial(const Polynomial& other);
     Polynomial(const Polynomial& other, size_t target_size);
 
@@ -217,7 +224,7 @@ template <typename Fr> class Polynomial {
   private:
     // allocate a fresh memory pointer for backing memory
     // DOES NOT initialize memory
-    void allocate_backing_memory(size_t size, size_t virtual_size);
+    void allocate_backing_memory(size_t size, size_t virtual_size, std::ptrdiff_t start_index);
 
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size = 0) { return (size() >= domain_size); }

@@ -82,7 +82,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * @brief The total logical size of the array.
      *
      * This is the size of the array as it would appear to a user, including both the memory-backed
-     * range and the conceptual zero-filled range beyond `end_`.
+     * range and the conceptual zero-filled range beyond `end_` and before `start_` (if a positive value).
      */
     size_t virtual_size_ = 0;
 
