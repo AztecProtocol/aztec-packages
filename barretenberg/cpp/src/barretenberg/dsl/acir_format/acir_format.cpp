@@ -343,15 +343,14 @@ void process_honk_recursion_constraints(Builder& builder,
         // nested aggregation object attached to the proof as public inputs.
         for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
             // Adding the nested aggregation object to the constraint's public inputs
-            constraint.public_inputs.emplace_back(
-                constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
+            constraint.public_inputs.emplace_back(constraint.proof[HONK_RECURSION_PUBLIC_INPUT_OFFSET + i]);
         }
         // Remove the aggregation object so that they can be handled as normal public inputs
         // in they way that the recursion constraint expects
-        constraint.proof.erase(constraint.proof.begin() + HonkRecursionConstraint::inner_public_input_offset,
-                               constraint.proof.begin() +
-                                   static_cast<std::ptrdiff_t>(HonkRecursionConstraint::inner_public_input_offset +
-                                                               bb::AGGREGATION_OBJECT_SIZE));
+        constraint.proof.erase(
+            constraint.proof.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET,
+            constraint.proof.begin() +
+                static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + bb::AGGREGATION_OBJECT_SIZE));
         current_aggregation_object = create_honk_recursion_constraints(
             builder, constraint, current_aggregation_object, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
