@@ -1,7 +1,7 @@
 use dep::protocol_types::{
-    header::Header, abis::validation_requests::KeyValidationRequest, address::{AztecAddress, PartialAddress},
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map,
-    traits::is_empty
+    header::Header, abis::validation_requests::KeyValidationRequest,
+    address::{AztecAddress, PartialAddress}, constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point,
+    storage::map::derive_storage_slot_in_map, traits::is_empty
 };
 use crate::{
     context::{PrivateContext, UnconstrainedContext},
