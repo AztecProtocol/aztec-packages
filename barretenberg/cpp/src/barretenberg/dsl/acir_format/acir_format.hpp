@@ -210,8 +210,8 @@ void build_constraints(
  */
 template <typename Builder> class GateCounter {
   public:
-    GateCounter(Builder& builder, bool collect_gates_per_opcode)
-        : builder(std::make_shared<Builder>(builder))
+    GateCounter(Builder* builder, bool collect_gates_per_opcode)
+        : builder(builder)
         , collect_gates_per_opcode(collect_gates_per_opcode)
     {}
 
@@ -234,7 +234,7 @@ template <typename Builder> class GateCounter {
     }
 
   private:
-    std::shared_ptr<Builder> builder;
+    Builder* builder;
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };

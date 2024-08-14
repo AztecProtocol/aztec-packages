@@ -25,7 +25,7 @@ void build_constraints(Builder& builder,
         constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
     }
 
-    GateCounter gate_counter{ builder, collect_gates_per_opcode };
+    GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
     // Add arithmetic gates
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
@@ -226,7 +226,8 @@ void build_constraints(Builder& builder,
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
 
-        // WORKTODO: this used to check honk_recursion && builder.is_recursive_circuit. necessary?
+        // If the circuit does not itself contain honk recursion constraints but is going to be proven with honk then
+        // recursively verified, add a default aggregation object
         if (constraint_system.honk_recursion_constraints.empty() && honk_recursion &&
             builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
             AggregationObjectIndices current_aggregation_object =
