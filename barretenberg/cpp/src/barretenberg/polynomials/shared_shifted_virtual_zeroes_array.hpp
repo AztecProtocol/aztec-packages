@@ -4,49 +4,94 @@
 #include <cstddef>
 #include <memory>
 
-// Shared pointer array of a type (in our case, a field) that is
-// conceptually filled with 0's until 'virtual_size_', but with actual memory usage
-// proportional to 'size'.
-// As well, there is a 'shift_' member that can be used when we want to share the underlying array.
-// Everything is public as this is intended to be wrapped by another class, namely Polynomial
-// The name is a mouthful, but again as an internal bundling of details it is intended to be wrapped by
-// something more ergonomic.
+/**
+ * @brief A shared pointer array template that represents a virtual array filled with zeros up to `virtual_size_`,
+ * but with actual memory usage proportional to the region between `start_` and `end_`.
+ *
+ * This structure is designed to optimize memory usage by only allocating memory for a specific subrange
+ * of the array. The `start_` and `end_` members define the range of indices that are backed by actual memory.
+ * The rest of the indices, up to `virtual_size_`, are conceptually filled with zero values.
+ *
+ * The class allows for sharing the underlying array with potential offset adjustments, making it possible
+ * to represent shifted arrays where the actual memory-backed range starts from a non-zero index.
+ * It is designed to be wrapped by another class, namely `Polynomial`, and is not intended to be used directly.
+ *
+ * @tparam T The type of the elements in the array.
+ */
 template <typename T> struct SharedShiftedVirtualZeroesArray {
-    // Method to set the value at a specific index
+
+    /**
+     * @brief Sets the value at the specified index.
+     *
+     * @param index The index at which the value should be set.
+     * @param value The value to set.
+     * @throws Fails in assert mode if the index is not within the memory-backed range [start_, end_).
+     */
     void set(size_t index, const T& value)
     {
-        ASSERT(index < size_);
+        ASSERT(index >= start_ && index < end_);
         data()[index] = value;
     }
 
-    // Method to get the value at a specific index
+    /**
+     * @brief Retrieves the value at the specified index.
+     *
+     * @param index The index from which to retrieve the value.
+     * @return The value at the specified index, or a default value (e.g. a field zero) of T if the index is outside the
+     * memory-backed range.
+     * @throws Fails in assert mode if the index is greater than or equal to `virtual_size_`.
+     */
     T get(size_t index) const
     {
         ASSERT(index < virtual_size_);
-        if (index < size_) {
+        if (static_cast<std::ptrdiff_t>(index) >= start_ && index < end_) {
             return data()[index];
         }
         return T{}; // Return default element when index is out of the actual filled size
     }
 
-    T* data() { return backing_memory_.get() + shift_; }
-    const T* data() const { return backing_memory_.get() + shift_; }
+    /**
+     * @brief Returns a pointer to the underlying memory array, adjusted by `start_`.
+     * NOTE: we can only index data in [start_index, start_index + size_)
+     *
+     * @return A pointer to the beginning of the memory-backed range.
+     */
+    T* data() { return backing_memory_.get() - start_; }
+    const T* data() const { return backing_memory_.get() - start_; }
+    size_t size() const { return static_cast<size_t>(static_cast<std::ptrdiff_t>(end_) - start_); }
+    // Getter for consistency with size();
+    size_t virtual_size() const { return virtual_size_; }
 
     // MEMBERS:
-    // The actual size of the array allocation
-    // Memory-backed size such that we can set index 0..size()-1.
-    // Note: We DO NOT reduce our size or virtual size by shift_. This is because
-    // only support a shift by values that are included in backing_memory_.
-    // This guarantee is to be upheld by the class that uses SharedShiftedVirtualZeroesArray.
-    size_t size_ = 0;
-    // The logical size of the vector, indices size_ to virtual_size - 1 return T{} when indexed.
-    // This is really mainly used for a debug check that we never index >= virtual_size_;
-    // Virtual size such that we can get index 0..virtual_size()-1.
-    size_t virtual_size_ = 0;
-    // An offset into the array, used to implement shifted polynomials.
-    size_t shift_ = 0;
+    /**
+     * @brief The starting index of the memory-backed range.
+     *
+     * Represents the first index in the array that is backed by actual memory.
+     * Negative values are used to represent shifts in the underlying array when sharing memory.
+     */
+    std::ptrdiff_t start_ = 0;
 
-    // The memory
+    /**
+     * @brief The ending index of the memory-backed range.
+     *
+     * Represents the first index after `start_` that is not backed by actual memory.
+     */
+    size_t end_ = 0;
+
+    /**
+     * @brief The total logical size of the array.
+     *
+     * This is the size of the array as it would appear to a user, including both the memory-backed
+     * range and the conceptual zero-filled range beyond `end_`.
+     */
+    size_t virtual_size_ = 0;
+
+    /**
+     * @brief Shared pointer to the underlying memory array.
+     *
+     * The memory is allocated for the range [start_, end_). It is shared across instances to allow
+     * for efficient memory use when arrays are shifted or otherwise manipulated.
+     */
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     std::shared_ptr<T[]> backing_memory_;
 };

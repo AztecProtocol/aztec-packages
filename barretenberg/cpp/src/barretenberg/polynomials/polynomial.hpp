@@ -93,7 +93,7 @@ template <typename Fr> class Polynomial {
     void set(size_t i, const Fr& value) { coefficients_.set(i, value); };
     Fr get(size_t i) const { return coefficients_.get(i); };
 
-    bool is_empty() const { return coefficients_.size_ == 0; }
+    bool is_empty() const { return coefficients_.size() == 0; }
 
     Fr* begin() { return data(); }
     Fr* end() { return data() + size(); }
@@ -189,9 +189,7 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
-    std::span<const Fr> as_span() const { return { coefficients_.data(), coefficients_.data() + coefficients_.size_ }; }
-    std::span<Fr> as_span() { return { coefficients_.data(), coefficients_.data() + coefficients_.size_ }; }
-    std::size_t size() const { return coefficients_.size_; }
+    std::size_t size() const { return coefficients_.end_; }
     std::size_t virtual_size() const { return coefficients_.virtual_size_; }
 
     Fr* data() { return coefficients_.data(); }

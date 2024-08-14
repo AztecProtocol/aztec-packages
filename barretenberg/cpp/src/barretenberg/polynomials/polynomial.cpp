@@ -25,13 +25,14 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
 template <typename Fr> void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size)
 {
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
-        size,         /* actual memory size */
+        0,            /* start index, initially 0 */
+        size,         /* end index, actual memory size */
         virtual_size, /* virtual size, i.e. until what size do we conceptually have zeroes */
-        0,            /* shift, initially 0 */
         _allocate_aligned_memory<Fr>(size + MAXIMUM_COEFFICIENT_SHIFT)
         /* Our backing memory, since shift is 0 it is equal to our memory size.
          * We add one to the size here to allow for an efficient shift by 1 that retains size. */
     };
+    // WORKTODO(sparse) remove padding
     // We need to zero the extra padding memory that we reserve for shifts.
     // We do this here as generally code that does not zero memory and then
     // later initializes it won't generally also initialize the padding.
@@ -92,10 +93,10 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
                            size_t virtual_size)
     : Polynomial(interpolation_points.size(), virtual_size)
 {
-    ASSERT(coefficients_.size_ > 0);
+    ASSERT(coefficients_.size() > 0);
 
     polynomial_arithmetic::compute_efficient_interpolation(
-        evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size_);
+        evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
 }
 
 template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
@@ -113,10 +114,10 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     if (this == &other) {
         return *this;
     }
-    allocate_backing_memory(other.coefficients_.size_, other.coefficients_.virtual_size_);
+    allocate_backing_memory(other.coefficients_.size(), other.coefficients_.virtual_size());
     memcpy(static_cast<void*>(coefficients_.data()),
            static_cast<const void*>(other.coefficients_.data()),
-           sizeof(Fr) * other.coefficients_.size_);
+           sizeof(Fr) * other.coefficients_.size());
     return *this;
 }
 
@@ -340,9 +341,9 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     ASSERT(data()[size()].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
     Polynomial result;
     result.coefficients_ = coefficients_;
-    result.coefficients_.shift_ += 1;
+    result.coefficients_.start_ -= 1;
     // We only expect to shift by MAXIMUM_COEFFICIENT_SHIFT
-    ASSERT(result.coefficients_.shift_ <= MAXIMUM_COEFFICIENT_SHIFT);
+    ASSERT(result.coefficients_.start_ >= -static_cast<std::ptrdiff_t>(MAXIMUM_COEFFICIENT_SHIFT));
     return result;
 }
 
