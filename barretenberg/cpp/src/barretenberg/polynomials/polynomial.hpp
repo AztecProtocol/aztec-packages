@@ -15,6 +15,7 @@ namespace bb {
  * a finite field polynomial equation of degree that is at most the size of some zk circuit.
  * Past 'n' it has a virtual size where it conceptually has coefficients all equal to 0.
  * Notably, we allow indexing past 'n' up to our virtual size (checked only in a debug build, however).
+ * As well, we have a start index that means coefficients before start_index are also considered to be 0.
  * The polynomial is used to represent the gates of our arithmetized zk programs.
  * Polynomials use the majority of the memory in proving, so caution should be used in making sure
  * unnecessary copies are avoided, both for avoiding unnecessary memory usage and performance
@@ -201,8 +202,8 @@ template <typename Fr> class Polynomial {
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
-    Fr& operator[](size_t i) { return coefficients_[i]; }
-    const Fr& operator[](size_t i) const { return coefficients_[i]; }
+    // Fr& operator[](size_t i) { return coefficients_[i]; }
+    Fr operator[](size_t i) const { return get(i); }
 
     static Polynomial random(size_t size) { return random(size, size); }
 

@@ -41,9 +41,10 @@ template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, std::ptrdiff_t start_index)
 {
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
-        start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
-        size + start_index, /* end index, actual memory used is (end - start) */
-        virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
+        start_index, /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
+        static_cast<size_t>(static_cast<std::ptrdiff_t>(size) +
+                            start_index), /* end index, actual memory used is (end - start) */
+        virtual_size,                     /* virtual size, i.e. until what size do we conceptually have zeroes */
         _allocate_aligned_memory<Fr>(size + MAXIMUM_COEFFICIENT_SHIFT)
         /* Our backing memory, since shift is 0 it is equal to our memory size.
          * We add one to the size here to allow for an efficient shift by 1 that retains size. */
@@ -53,7 +54,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
     // We do this here as generally code that does not zero memory and then
     // later initializes it won't generally also initialize the padding.
     for (size_t i = 0; i < MAXIMUM_COEFFICIENT_SHIFT; i++) {
-        data()[size + i] = Fr{};
+        coefficients_.backing_memory_.get()[size + i] = Fr{};
     }
 }
 

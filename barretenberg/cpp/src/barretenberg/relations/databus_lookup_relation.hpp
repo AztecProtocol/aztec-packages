@@ -235,7 +235,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         bool nonzero_read_count = false;
         for (size_t i = 0; i < circuit_size; ++i) {
             // Determine if the present row contains a databus operation
-            auto& q_busread = polynomials.q_busread[i];
+            auto q_busread = polynomials.q_busread[i];
             if constexpr (bus_idx == 0) { // calldata
                 is_read = q_busread == 1 && polynomials.q_l[i] == 1;
                 nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
