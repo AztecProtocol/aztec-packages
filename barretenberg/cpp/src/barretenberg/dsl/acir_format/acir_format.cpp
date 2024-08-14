@@ -14,14 +14,6 @@ using namespace bb;
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
-// WORKTODO: generate from Noir constants? see constaints.in.ts and aztec_constants.hpp
-enum class IVC_TYPE : uint32_t {
-    HONK_RECURSION,
-    PRIVATE_CLIENT_ACCUMULATION,
-    PRIVATE_CLIENT_VERIFICATION,
-    PLONK_RECURSION
-};
-
 template <typename Builder>
 void build_constraints(Builder& builder,
                        AcirFormat& constraint_system,
@@ -243,7 +235,7 @@ void build_constraints(Builder& builder,
         // Plonk recursive verifier
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since
         // we're not yet dealing with proper recursion
-        if (constraint.proof_type == IVC_TYPE::PLONK_RECURSION) {
+        if (constraint.proof_type == AcirFormat::IVC_TYPE::PLONK_RECURSION) {
             if constexpr (std::same_as<Builder, bb::UltraCircuitBuilder>) {
                 // These are set and modified whenever we encounter a recursion opcode
                 //
@@ -331,14 +323,14 @@ void build_constraints(Builder& builder,
                     builder.set_recursive_proof(current_output_aggregation_object);
                 }
             } else {
-                info("IVC contraint type not handled by circuit builder");
+                info("Plonk recursion IVC not provided by circuit builder");
             }
         }
 
         // Honk recursive verifier
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since
         // we're not yet dealing with proper recursion
-        else if (constraint.proof_type == IVC_TYPE::HONK_RECURSION) {
+        else if (constraint.proof_type == AcirFormat::IVC_TYPE::HONK_RECURSION) {
             if constexpr (std::same_as<Builder, bb::UltraCircuitBuilder>) { // These are set and modified whenever we
                 AggregationObjectIndices current_aggregation_object =
                     stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
@@ -397,24 +389,24 @@ void build_constraints(Builder& builder,
                     builder.add_recursive_proof(current_aggregation_object);
                 }
             } else {
-                info("IVC contraint type not handled by circuit builder");
+                info("Honk recursion IVC not provided by circuit builder");
             }
         }
 
         // ClientIVC recursaive verifier
-        else if (constraint.proof_type == IVC_TYPE::PRIVATE_CLIENT_ACCUMULATION) {
+        else if (constraint.proof_type == AcirFormat::IVC_TYPE::PRIVATE_CLIENT_ACCUMULATION) {
             if constexpr (std::same_as<bb::MegaCircuitBuilder, Builder>) {
                 create_client_ivc_accumulation_constraints(builder, constraint, ivc);
                 track_gate_diff(
                     constraint_system.gates_per_opcode,
                     constraint_system.original_opcode_indices.client_ivc_accumulation_constraints.at(constraint_idx));
             } else {
-                info("IVC contraint type not handled by circuit builder");
+                info("Private client IVC not provided by circuit builder");
             }
         }
 
         // // TODO(WORKTODO: ref issue): add IVC:
-        // else if (constraint.proof_type == IVC_TYPE::PRIVATE_CLIENT_VERIFICATION) {
+        // else if (constraint.proof_type == AcirFormat::IVC_TYPE::PRIVATE_CLIENT_VERIFICATION) {
         //     // do stuff
         // }
 

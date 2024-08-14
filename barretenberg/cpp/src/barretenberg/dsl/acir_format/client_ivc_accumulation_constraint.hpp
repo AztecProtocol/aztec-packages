@@ -4,7 +4,7 @@
 
 namespace acir_format {
 
-void create_client_ivc_accumulation_constraints(bb::MegaCircuitBuilder&,
-                                                const RecursionConstraint&,
-                                                const bb::ClientIVC&);
+void create_client_ivc_accumulation_constraints([[maybe_unused]] bb::MegaCircuitBuilder&,
+                                                [[maybe_unused]] const RecursionConstraint&,
+                                                [[maybe_unused]] const bb::ClientIVC&);
 } // namespace acir_format

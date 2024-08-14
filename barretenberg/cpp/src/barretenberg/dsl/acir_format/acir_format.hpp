@@ -78,6 +78,9 @@ struct AcirFormat {
 
     std::vector<uint32_t> public_inputs;
 
+    // WORKTODO: generate from Noir constants? see constaints.in.ts and aztec_constants.hpp
+    enum IVC_TYPE { HONK_RECURSION, PRIVATE_CLIENT_ACCUMULATION, PRIVATE_CLIENT_VERIFICATION, PLONK_RECURSION };
+
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
@@ -208,6 +211,5 @@ void build_constraints(Builder& builder,
                                                      * aggregation object when we're not using the honk RV.
                                                      */
                        bool collect_gates_per_opcode = false,
-                       std::optional<ClientIVC> = std::nullopt);
-
+                       std::optional<ClientIVC> = std::nullopt); // WORKTODO: make generic using parent class
 } // namespace acir_format

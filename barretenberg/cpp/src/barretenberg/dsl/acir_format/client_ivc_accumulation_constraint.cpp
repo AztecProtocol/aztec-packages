@@ -27,17 +27,17 @@ void create_client_ivc_accumulation_constraints(Builder& builder,
                                                 const RecursionConstraint& input,
                                                 const ClientIVC& ivc)
 {
-    // take a native folding proof and instantiate as witnesses
-    stdlib::FoldingProof proof_ct = feed_proof_to_builder(builder, ivc.proof);
-    // assert that the public inputs used in the business logic agree with the public inputs that will be consumed by
-    // the folding verifier, linking the current kernel iteration with the previous one
-    rewire_public_inputs(builder, proof_ct, input.proof, inputs.public_inputs);
-    // take a native verification key and instantiate as witnesses
-    stdlib::VerificationKey key_ct = feed_vk_to_builder(builder, ivc.key);
-    // assert that the key used in the business logic agrees with the real key
-    rewire_key(builder, key_ct, input.verification_key);
-    // append folding verifier(s), merge verifier(s) and databus consistency checks
-    ivc.complete_trace(builder, proof_ct, key_ct);
+    // // take a native folding proof and instantiate as witnesses
+    // stdlib::FoldingProof proof_ct = feed_proof_to_builder(builder, ivc.proof);
+    // // assert that the public inputs used in the business logic agree with the public inputs that will be consumed by
+    // // the folding verifier, linking the current kernel iteration with the previous one
+    // rewire_public_inputs(builder, proof_ct, input.proof, inputs.public_inputs);
+    // // take a native verification key and instantiate as witnesses
+    // stdlib::VerificationKey key_ct = feed_vk_to_builder(builder, ivc.key);
+    // // assert that the key used in the business logic agrees with the real key
+    // rewire_key(builder, key_ct, input.verification_key);
+    // // append folding verifier(s), merge verifier(s) and databus consistency checks
+    // ivc.complete_trace(builder, proof_ct, key_ct);
 }
 
 } // namespace acir_format
