@@ -17,6 +17,7 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  type UniqueNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
@@ -108,8 +109,13 @@ export abstract class BaseWallet implements Wallet {
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.pxe.proveTx(txRequest, simulatePublic, this.scopes);
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, this.scopes);
+  simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender?: AztecAddress,
+    skipTxValidation?: boolean,
+  ): Promise<SimulatedTx> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -120,15 +126,11 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getOutgoingNotes(filter);
-  }
-  // TODO(#4956): Un-expose this
-  getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    return this.pxe.getNoteNonces(note);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);

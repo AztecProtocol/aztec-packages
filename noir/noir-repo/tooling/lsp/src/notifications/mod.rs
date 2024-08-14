@@ -30,7 +30,7 @@ pub(super) fn on_did_change_configuration(
     ControlFlow::Continue(())
 }
 
-pub(super) fn on_did_open_text_document(
+pub(crate) fn on_did_open_text_document(
     state: &mut LspState,
     params: DidOpenTextDocumentParams,
 ) -> ControlFlow<Result<(), async_lsp::Error>> {
@@ -132,7 +132,7 @@ pub(crate) fn process_workspace_for_noir_document(
             let (mut context, crate_id) =
                 crate::prepare_package(&workspace_file_manager, &parsed_files, package);
 
-            let file_diagnostics = match check_crate(&mut context, crate_id, false, false, None) {
+            let file_diagnostics = match check_crate(&mut context, crate_id, &Default::default()) {
                 Ok(((), warnings)) => warnings,
                 Err(errors_and_warnings) => errors_and_warnings,
             };
@@ -153,8 +153,8 @@ pub(crate) fn process_workspace_for_noir_document(
                 Some(&file_path),
             );
             state.cached_lenses.insert(document_uri.to_string(), collected_lenses);
-
-            state.cached_definitions.insert(package_root_dir, context.def_interner);
+            state.cached_definitions.insert(package_root_dir.clone(), context.def_interner);
+            state.cached_def_maps.insert(package_root_dir.clone(), context.def_maps);
 
             let fm = &context.file_manager;
             let files = fm.as_file_map();
