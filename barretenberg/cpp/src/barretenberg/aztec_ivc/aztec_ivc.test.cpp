@@ -52,6 +52,10 @@ class AztecIVCTests : public ::testing::Test {
         return circuit;
     }
 
+    /**
+     * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
+     *
+     */
     class MockCircuitProducer {
         using ClientCircuit = AztecIVC::ClientCircuit;
 
@@ -130,9 +134,9 @@ TEST_F(AztecIVCTests, Basic)
 
 /**
  * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
- * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied
- * and the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC
- * will fail to verify.
+ * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied and
+ * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will fail
+ * to verify.
  *
  */
 TEST_F(AztecIVCTests, BadProofFailure)
@@ -144,7 +148,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
         MockCircuitProducer circuit_producer;
 
-        // Construct a set of arbitrary circuits
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
@@ -160,7 +164,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
         MockCircuitProducer circuit_producer;
 
-        // Construct a set of arbitrary circuits
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
@@ -182,7 +186,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
         MockCircuitProducer circuit_producer;
 
-        // Construct a set of arbitrary circuits
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
@@ -204,7 +208,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
         MockCircuitProducer circuit_producer;
 
-        // Construct a set of arbitrary circuits
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
@@ -231,7 +235,7 @@ TEST_F(AztecIVCTests, BasicLarge)
 
     MockCircuitProducer circuit_producer;
 
-    // Construct and accumulate set of arbitrary circuits
+    // Construct and accumulate a set of mocked private function execution circuits
     size_t NUM_CIRCUITS = 6;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -280,7 +284,7 @@ TEST_F(AztecIVCTests, PrecomputedVerificationKeys)
 
     auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceStructure::NONE);
 
-    // Construct and accumulate set of arbitrary circuits using the precomputed vkeys
+    // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit, precomputed_vks[idx]);
@@ -306,7 +310,7 @@ TEST_F(AztecIVCTests, StructuredPrecomputedVKs)
     auto precomputed_vks =
         circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_structure, log2_num_gates);
 
-    // Construct and accumulate set of arbitrary circuits using the precomputed vkeys
+    // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
         ivc.accumulate(circuit, precomputed_vks[idx]);

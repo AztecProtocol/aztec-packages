@@ -92,8 +92,6 @@ class AztecIVC {
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    bool is_kernel = false; // is the present circuit a kernel
-
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
