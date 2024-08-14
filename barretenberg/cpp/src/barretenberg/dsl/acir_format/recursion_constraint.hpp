@@ -6,6 +6,8 @@
 
 namespace acir_format {
 
+enum PROOF_TYPE { PLONK_RECURSION, HONK_RECURSION };
+
 using namespace bb::plonk;
 using Builder = bb::UltraCircuitBuilder;
 

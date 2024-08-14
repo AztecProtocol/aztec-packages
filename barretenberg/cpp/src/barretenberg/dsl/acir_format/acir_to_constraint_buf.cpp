@@ -415,6 +415,19 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
+                // auto input_key = get_witness_from_function_input(arg.key_hash);
+
+                // // WORKTODO: this ultimately needs to come directly from noir in arg.proof_type
+                // PROOF_TYPE proof_type_in = honk_recursion ? HONK_RECURSION : PLONK_RECURSION;
+
+                // auto c = RecursionConstraint{
+                //     .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
+                //     .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
+                //     .public_inputs = map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e);
+                //     }), .key_hash = input_key, .proof_type = proof_type_in,
+                // };
+                // af.recursion_constraints.push_back(c);
+                // af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
                 if (honk_recursion) { // if we're using the honk recursive verifier
                     auto c = HonkRecursionConstraint{
                         .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
