@@ -85,7 +85,7 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
 // Returns historical public keys for a given account at some block determined by a block header. We read all keys at
 // once since the constraints for reading them all are actually fewer than if we read them one at a time - any read keys
 // that are not required by the caller can simply be discarded.
-// WARNING: if called with a historical header created from a fixed block this function will explictly ignores key
+// WARNING: if called with a historical header created from a fixed block this function will explicitly ignore key
 // rotation! This means that callers of this may force a user to use old keys, potentially leaking privacy (e.g. if the
 // old keys were leaked). Only call this function with a header from a fixed block if you understand the implications of
 // breaking key rotation very well.
