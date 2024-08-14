@@ -53,11 +53,6 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t offset = dyadic_circuit_size - circuit.get_tables_size();
-    // read_counts =
-    //     typename Flavor::Polynomial(circuit.get_tables_size(), dyadic_circuit_size, /*start index*/ offset);
-    // read_tags =
-    //     typename Flavor::Polynomial(circuit.get_tables_size(), dyadic_circuit_size, /*start index*/ offset);
-    // WORKTODO(sparse) circuit.get_tables_size() is the actual size of our structured polynomial;
 
     size_t table_offset = offset; // offset of the present table in the table polynomials
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
