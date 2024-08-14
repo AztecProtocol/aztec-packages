@@ -90,31 +90,28 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
 // old keys were leaked). Only call this function with a header from a fixed block if you understand the implications of
 // breaking key rotation very well.
 pub fn get_historical_public_keys(historical_header: Header, account: AztecAddress) -> PublicKeys {
-    // TODO: improve this so that we always hint the correct set of keys (either registry or canonical) and hash them
-    // once instead of having two different hints and twice as many constraints due to the double hashing.
+    let hinted_keys = get_public_keys_hint(
+        account,
+        historical_header.global_variables.block_number as u32
+    );
+    let hinted_keys_hash = hinted_keys.hash();
 
     // The key registry is the primary source of information for keys, as that's where accounts store their new keys
     // when they perform rotation. The key registry conveniently stores a hash of each user's keys, so we can read that
     // single field and then prove that we know its preimage (i.e. the current set of keys).
     let key_registry_hash = key_registry_hash_public_historical_read(historical_header, account);
     if key_registry_hash != 0 {
-        let hinted_registry_public_keys = key_registry_get_stored_keys_hint(
-            account,
-            historical_header.global_variables.block_number as u32
-        );
-        assert_eq(hinted_registry_public_keys.hash().to_field(), key_registry_hash);
-
-        hinted_registry_public_keys
+        assert_eq(hinted_keys_hash.to_field(), key_registry_hash);
     } else {
         // If nothing was written to the registry, we may still be able to produce the correct keys if we happen to know
         // the canonical set (i.e. the ones that are part of the account's preimage).
-        let (hinted_canonical_public_keys, partial_address) = get_public_keys_and_partial_address(account);
+        let (_, partial_address) = get_public_keys_and_partial_address(account);
         assert_eq(
-            account, AztecAddress::compute(hinted_canonical_public_keys.hash(), partial_address), "Invalid public keys hint for address"
+            account, AztecAddress::compute(hinted_keys_hash, partial_address), "Invalid public keys hint for address"
         );
-
-        hinted_canonical_public_keys
     }
+
+    hinted_keys
 }
 
 fn key_registry_hash_public_historical_read(historical_header: Header, account: AztecAddress) -> Field {
@@ -132,7 +129,7 @@ fn key_registry_hash_public_historical_read(historical_header: Header, account: 
     )
 }
 
-unconstrained fn key_registry_get_stored_keys_hint(account: AztecAddress, block_number: u32) -> PublicKeys {
+unconstrained fn get_public_keys_hint(account: AztecAddress, block_number: u32) -> PublicKeys {
     // This is equivalent to the key registry contract having an unconstrained getter that we call from an oracle, but
     // PXE does not yet support that functionality so we do this manually instad. Note that this would be a *historical*
     // call!
