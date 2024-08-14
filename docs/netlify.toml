@@ -59,5 +59,13 @@
     to = "/"
 
 [[redirects]]
+    from = "/aztec/roadmap/engineering_roadmap"
+    to = "/"
+
+[[redirects]]
+    from = "/aztec/roadmap/cryptography_roadmap"
+    to = "/"
+
+[[redirects]]
     from = "/protocol-specs/gas-and-fees/fee-payment-asset"
     to = "/protocol-specs/gas-and-fees/fee-juice"
