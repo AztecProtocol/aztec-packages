@@ -49,6 +49,14 @@ export function injectCommands(program: Command, log: LogFn) {
     });
 
   program
+    .command('generate-secret')
+    .description('Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)')
+    .action(async () => {
+      const { generateSecret } = await import('./generate_secret.js');
+      generateSecret(log);
+    });
+
+  program
     .command('update')
     .description('Updates Nodejs and Noir dependencies')
     .argument('[projectPath]', 'Path to the project directory', process.cwd())
