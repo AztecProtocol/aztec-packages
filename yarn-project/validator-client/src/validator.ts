@@ -19,7 +19,7 @@ export interface Validator {
   attestToProposal(proposal: BlockProposal): void;
 
   // TODO(md): possible abstraction leak
-  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
+  broadcastBlockProposal(proposal: BlockProposal): void;
   collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
 }
 
@@ -68,8 +68,8 @@ export class ValidatorClient implements Validator {
     return this.validationService.createBlockProposal(header, archive, txs);
   }
 
-  broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
-    return this.p2pClient.broadcastProposal(proposal);
+  broadcastBlockProposal(proposal: BlockProposal): void {
+    this.p2pClient.broadcastProposal(proposal);
   }
 
   // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
