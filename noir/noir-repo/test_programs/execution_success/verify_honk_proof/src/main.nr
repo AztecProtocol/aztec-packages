@@ -12,10 +12,5 @@ fn main(
     // I believe we want to eventually make it public too though.
     key_hash: Field
 ) {
-    std::verify_proof(
-        verification_key,
-        proof,
-        public_inputs,
-        key_hash
-    );
+    std::verify_proof(verification_key, proof, public_inputs, key_hash);
 }
