@@ -6,5 +6,4 @@ import { Signature } from '@aztec/circuit-types';
  */
 export interface ValidatorKeyStore {
   sign(message: Buffer): Promise<Signature>;
-  // validateSignature(signature: Buffer, message?: Buffer ): Promise<boolean>;
 }

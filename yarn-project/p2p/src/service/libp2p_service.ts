@@ -271,19 +271,19 @@ export class LibP2PService implements P2PService {
     await this.attestationPool.addAttestations([attestation]);
   }
 
-  // TODO: I do not quite like this callback design, i think a bit of re-arch is required
   /**Process block from peer
    *
    * Pass the received block to the validator client
    *
    * @param block - The block to process.
    */
+  // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
   private async processBlockFromPeer(block: BlockProposal): Promise<void> {
     this.logger.verbose(`Received block ${block.p2pMessageIdentifier()} from external peer.`);
     const attestation = await this.blockReceivedCallback(block);
 
     // TODO: fix up this pattern - the abstraction is not nice
-    // The attestation can be undefiend if no handler is registered / the validator deems the block invalid
+    // The attestation can be undefined if no handler is registered / the validator deems the block invalid
     if (attestation != undefined) {
       this.propagate(attestation);
     }

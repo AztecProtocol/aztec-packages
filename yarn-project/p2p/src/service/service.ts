@@ -31,7 +31,7 @@ export interface P2PService {
    */
   propagate<T extends Gossipable>(message: T): void;
 
-  // Leaky abstraction: fix
+  // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation>): void;
 }
 

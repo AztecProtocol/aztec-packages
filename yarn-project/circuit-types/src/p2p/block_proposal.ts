@@ -49,10 +49,12 @@ export class BlockProposal extends Gossipable {
     return BlockProposalHash.fromField(this.archive);
   }
 
+  /**Get Sender
+   * Lazily evaluate the sender of the proposal; result is cached
+   */
   async getSender() {
     if (!this.sender) {
-      // Recover the sender from the attestation
-      // TODO: perf: this does another hash behind the scenes
+      // performance note(): this signature method requires another hash behind the scenes
       const address = await recoverMessageAddress({
         message: { raw: this.p2pMessageIdentifier().to0xString() },
         signature: this.signature.to0xString(),

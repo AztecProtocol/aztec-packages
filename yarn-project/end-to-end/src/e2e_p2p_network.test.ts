@@ -66,11 +66,7 @@ describe('e2e_p2p_network', () => {
       await rollup.write.addValidator([account.address]);
       logger.info(`Adding sequencer ${account.address}`);
     } else {
-      // @todo  Should be updated when we have attestations to add all the sequencers
-      //        Since it is currently a mess because sequencer selection needs attestations for
-      //        validity, but we currently have no way to collect them.
-      //        When attestations works, add all 4, and lets ROLL!
-
+      // Add all nodes as validators - they will all sign attestations of each other's proposals
       for (let i = 0; i < NUM_NODES; i++) {
         const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
         const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
@@ -90,7 +86,6 @@ describe('e2e_p2p_network', () => {
     bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
-    // TODO: refactor? Config settings
     config.minTxsPerBlock = NUM_TXS_PER_BLOCK;
     config.maxTxsPerBlock = NUM_TXS_PER_BLOCK;
   });
@@ -148,7 +143,7 @@ describe('e2e_p2p_network', () => {
     await bootstrapNode.stop();
   });
 
-  it.skip('should re-discover stored peers without bootstrap node', async () => {
+  it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = await createNodes(
       config,
@@ -185,8 +180,6 @@ describe('e2e_p2p_network', () => {
       );
       logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
-      // const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
-      // contexts.push(context);
     }
 
     // wait a bit for peers to discover each other

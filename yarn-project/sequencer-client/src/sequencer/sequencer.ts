@@ -56,9 +56,6 @@ export class Sequencer {
 
   constructor(
     private publisher: L1Publisher,
-    // TODO(md): for the sake of this pr, the sequencer owns the sequencer client owns
-    // the validator - but think of changing this in the future
-    // It should be the other way around
     private validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
@@ -283,7 +280,6 @@ export class Sequencer {
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
   }))
 
-  // TODO(md): rename to build Block and send to peers
   private async buildBlockAndPublish(
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
@@ -412,17 +408,22 @@ export class Sequencer {
       return undefined;
     }
 
-    // TODO(md): inefficient to have a round trip in here - this should be cached
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
-    // TODO(md): we do not have transaction[] lists in the block for now
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
 
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
-    const attestations = await this.validatorClient.broadcastAndCollectAttestations(
-      proposal,
-      numberOfRequiredAttestations,
+
+    this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
+    this.validatorClient.broadcastBlockProposal(proposal);
+
+    this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
+    const attestations = await this.validatorClient.collectAttestations(
+      proposal.header.globalVariables.slotNumber.toBigInt(), 
+      numberOfRequiredAttestations
     );
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
@@ -436,7 +437,6 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  // TODO: change to block with attestations???
   protected async publishL2Block(block: L2Block, attestations?: Signature[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
@@ -527,18 +527,12 @@ export enum SequencerState {
    * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
   CREATING_BLOCK,
+  PUBLISHING_BLOCK_TO_PEERS,
+  WAITING_FOR_ATTESTATIONS,
   /**
    * Sending the tx to L1 with encrypted logs and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
    */
   PUBLISHING_CONTRACT_DATA,
-  /**
-   *
-   */
-  PUBLISHING_BLOCK_TO_PEERS,
-  /**
-   *
-   */
-  COLLECTING_ATTESTATIONS,
   /**
    * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to IDLE.
    */

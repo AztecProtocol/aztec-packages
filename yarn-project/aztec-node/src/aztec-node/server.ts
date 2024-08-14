@@ -173,8 +173,6 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    // TODO: likely that the sequencer will consume a validator client and use it
-    // to broadcast the blocks
     const validatorClient = createValidatorClient(config, p2pClient);
 
     // now create the sequencer

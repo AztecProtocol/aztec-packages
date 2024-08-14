@@ -168,7 +168,7 @@ export class ViemTxSender implements L1PublisherTxSender {
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
     if (encodedData.attestations) {
-      // Temp mapping to viem types
+      // Get `0x${string}` encodings
       const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
 
       const args = [

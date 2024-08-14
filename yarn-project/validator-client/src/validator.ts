@@ -10,26 +10,35 @@ import { ValidationService } from './duties/validation_service.js';
 import { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 
-/** Validator
- *
- *
+export interface Validator {
+
+  start(): Promise<void>;
+  registerBlockProposalHandler(): void;
+
+  // Block validation responsiblities
+  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
+  attestToProposal(proposal: BlockProposal): void;
+  
+  // TODO(md): possible abstraction leak
+  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
+  collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
+}
+
+/** Validator Client
  */
-export class ValidatorClient {
+export class ValidatorClient implements Validator {
   private attestationPoolingIntervalMs: number = 1000;
 
   private validationService: ValidationService;
 
   constructor(keyStore: ValidatorKeyStore, private p2pClient: P2P, private log = createDebugLogger('aztec:validator')) {
-    // We need to setup and store all of the currently active validators
-    // This can likely be done from the smart contract
+    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
     this.validationService = new ValidationService(keyStore);
-
     this.log.verbose('Initialized validator');
   }
 
   static new(config: ValidatorClientConfig, p2pClient: P2P) {
-    // TODO(md); Only support the local key store for now
     const localKeyStore = new LocalKeyStore(config.validatorPrivateKey);
 
     const validator = new ValidatorClient(localKeyStore, p2pClient);
@@ -41,15 +50,10 @@ export class ValidatorClient {
     // Sync the committee from the smart contract
 
     // await this.syncSmartContract();
+    // https://github.com/AztecProtocol/aztec-packages/issues/7962
     this.log.info('Validator started');
   }
 
-  /**
-   * TODO: read the current committee and epoch information from the smart contract
-   */
-  // private syncSmartContract(){
-
-  // }
 
   public registerBlockProposalHandler() {
     const handler = (block: BlockProposal): Promise<BlockAttestation> => {
@@ -63,22 +67,22 @@ export class ValidatorClient {
   }
 
   async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    return this.validationService.attestToBlock(header, archive, txs);
+    return this.validationService.createBlockProposal(header, archive, txs);
   }
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
     return this.p2pClient.broadcastProposal(proposal);
   }
 
-  // TODO: should the validator client know about the slot it will be receiving from
-  private async collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]> {
+    // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7976): require suitable timeouts
+  async collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClients attestation pool for this block
     // until we have enough attestations
 
-    // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
-    // TODO: this will need to come from the smart contract
-    // as when setting up the tests the committee has one validator in it :(
-    // TODO(md): WE DO NOT WANT TO WAIT ON THIS WITHOUT A TIMEOUT
+    this.log.info(`Waiting for attestations for slot, ${slot}`);
+
     let attestations: BlockAttestation[] = [];
     while (attestations.length < numberOfRequiredAttestations) {
       attestations = await this.p2pClient.getAttestationsForSlot(slot);
@@ -88,21 +92,8 @@ export class ValidatorClient {
         await sleep(this.attestationPoolingIntervalMs);
       }
     }
+    this.log.info(`Collected all attestations for slot, ${slot}`);
 
-    return attestations;
-  }
-
-  public async broadcastAndCollectAttestations(
-    proposal: BlockProposal,
-    numberOfRequiredAttestations: number,
-  ): Promise<BlockAttestation[]> {
-    this.broadcastBlockProposal(proposal);
-
-    const attestations = await this.collectAttestations(
-      proposal.header.globalVariables.slotNumber.toBigInt(),
-      numberOfRequiredAttestations,
-    );
-    this.log.info(`Collected all attestations for block proposal, ${proposal.p2pMessageIdentifier()}`);
     return attestations;
   }
 }

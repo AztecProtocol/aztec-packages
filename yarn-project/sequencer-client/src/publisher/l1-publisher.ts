@@ -52,7 +52,7 @@ export interface L1PublisherTxSender {
   /** Returns the address of the L2 proposer at the NEXT Ethereum block zero if anyone can submit. */
   getProposerAtNextEthBlock(): Promise<EthAddress>;
 
-  /** TODO(md): should this be on the tx sender (same with above?) */
+  /** Returns the current epoch committee */
   getCurrentEpochCommittee(): Promise<EthAddress[]>;
 
   /**

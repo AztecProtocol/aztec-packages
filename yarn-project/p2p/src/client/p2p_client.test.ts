@@ -43,7 +43,6 @@ describe('In-Memory P2P Client', () => {
       start: jest.fn(),
       stop: jest.fn(),
       propagate: jest.fn(),
-      // TODO(md): leaky
       registerBlockReceivedCallback: jest.fn(),
     };
 
@@ -53,9 +52,6 @@ describe('In-Memory P2P Client', () => {
       deleteAttestationsForSlot: jest.fn(),
       getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
     };
-
-    // TODO: come back to
-    // let attestationCallback = async (block: BlockProposal) => undefined;
 
     blockSource = new MockBlockSource();
 
@@ -149,5 +145,5 @@ describe('In-Memory P2P Client', () => {
     await client.stop();
   });
 
-  // TODO(md): tests to show the attestation pool working and pruning after a given period of time
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7971): tests for attestation pool pruning
 });

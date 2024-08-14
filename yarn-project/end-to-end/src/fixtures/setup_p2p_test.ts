@@ -66,7 +66,6 @@ export async function createNode(
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
 
   if (activateValidators) {
-    // NOTE(md): this is the same as the publisher for now - but probably shoudl be diff
     const validatorPrivKey = getPrivateKeyFromIndex(1 + publisherAddressIndex);
     config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
     config.disableValidator = false;

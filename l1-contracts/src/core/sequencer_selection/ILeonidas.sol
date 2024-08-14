@@ -22,7 +22,8 @@ interface ILeonidas {
   function getTimestampForSlot(uint256 _slotNumber) external view returns (uint256);
 
   // Likely removal of these to replace with a size and indiviual getter
-  // TODO: no view temporarily
+  // Note: This function is not view - as it makes a call to setupEpoch under the hood, but it should only be 
+  // used as a view function
   function getCurrentEpochCommittee() external returns (address[] memory);
   function getEpochCommittee(uint256 _epoch) external view returns (address[] memory);
   function getValidators() external view returns (address[] memory);

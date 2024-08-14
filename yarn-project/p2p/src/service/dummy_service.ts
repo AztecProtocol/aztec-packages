@@ -37,7 +37,9 @@ export class DummyP2PService implements P2PService {
    */
   public settledTxs(_: TxHash[]) {}
 
-  // TODO(md): Leak
+  /**
+   * Register a callback into the validator client for when a block proposal is received
+   */
   public registerBlockReceivedCallback(_: (block: BlockProposal) => Promise<BlockAttestation>) {}
 }
 
