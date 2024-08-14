@@ -1,24 +1,23 @@
-import { BlockAttestation, BlockProposal, TxHash } from '@aztec/circuit-types';
-import { Header } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
+import { type Header } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { P2P } from '@aztec/p2p';
+import { type P2P } from '@aztec/p2p';
 
-import { ValidatorClientConfig } from './config.js';
+import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
-import { ValidatorKeyStore } from './key_store/interface.js';
+import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 
 export interface Validator {
-
   start(): Promise<void>;
   registerBlockProposalHandler(): void;
 
   // Block validation responsiblities
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
   attestToProposal(proposal: BlockProposal): void;
-  
+
   // TODO(md): possible abstraction leak
   broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
@@ -46,14 +45,13 @@ export class ValidatorClient implements Validator {
     return validator;
   }
 
-  public async start() {
+  public start() {
     // Sync the committee from the smart contract
-
-    // await this.syncSmartContract();
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
-    this.log.info('Validator started');
-  }
 
+    this.log.info('Validator started');
+    return Promise.resolve();
+  }
 
   public registerBlockProposalHandler() {
     const handler = (block: BlockProposal): Promise<BlockAttestation> => {
@@ -66,17 +64,17 @@ export class ValidatorClient implements Validator {
     return this.validationService.attestToProposal(proposal);
   }
 
-  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     return this.validationService.createBlockProposal(header, archive, txs);
   }
 
-  async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
+  broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
     return this.p2pClient.broadcastProposal(proposal);
   }
 
-    // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7976): require suitable timeouts
+  // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7976): require suitable timeouts
   async collectAttestations(slot: bigint, numberOfRequiredAttestations: number): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClients attestation pool for this block
     // until we have enough attestations

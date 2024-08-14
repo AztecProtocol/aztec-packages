@@ -54,12 +54,15 @@ export class InMemoryAttestationPool implements AttestationPool {
   }
 }
 
-/** 
+/**
  * Get Slot or Default
- * 
+ *
  * Fetch the slot mapping, if it does not exist, then create a mapping and return it
  */
-function getSlotOrDefault(map: Map<bigint, Map<string, BlockAttestation>>, slot: bigint): Map<string, BlockAttestation> {
+function getSlotOrDefault(
+  map: Map<bigint, Map<string, BlockAttestation>>,
+  slot: bigint,
+): Map<string, BlockAttestation> {
   if (!map.has(slot)) {
     map.set(slot, new Map<string, BlockAttestation>());
   }

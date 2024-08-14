@@ -1,6 +1,6 @@
 import { type P2P } from '@aztec/p2p';
 
-import { ValidatorClientConfig } from './config.js';
+import { type ValidatorClientConfig } from './config.js';
 import { ValidatorClient } from './validator.js';
 
 export function createValidatorClient(config: ValidatorClientConfig, p2pClient: P2P) {

@@ -279,7 +279,6 @@ export class Sequencer {
   @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, newGlobalVariables, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
   }))
-
   private async buildBlockAndPublish(
     validTxs: Tx[],
     newGlobalVariables: GlobalVariables,
@@ -418,12 +417,12 @@ export class Sequencer {
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
-    this.validatorClient.broadcastBlockProposal(proposal);
+    await this.validatorClient.broadcastBlockProposal(proposal);
 
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(
-      proposal.header.globalVariables.slotNumber.toBigInt(), 
-      numberOfRequiredAttestations
+      proposal.header.globalVariables.slotNumber.toBigInt(),
+      numberOfRequiredAttestations,
     );
 
     // note: the smart contract requires that the signatures are provided in the order of the committee

@@ -132,7 +132,7 @@ contract Leonidas is Ownable, ILeonidas {
 
   /**
    * @notice  Get the validator set for the current epoch
-   * 
+   *
    * @dev Makes a call to setupEpoch under the hood, this should ONLY be called as a view function, and not from within
    *      this contract.
    * @return The validator set for the current epoch

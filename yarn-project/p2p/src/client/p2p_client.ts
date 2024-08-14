@@ -44,16 +44,16 @@ export interface P2PSyncState {
  * Interface of a P2P client.
  **/
 export interface P2P {
-  /** 
+  /**
    * Broadcasts a block proposal to other peers.
-   * 
+   *
    * @param proposal - the block proposal
    */
   broadcastProposal(proposal: BlockProposal): void;
 
   /**
    * Queries the Attestation pool for attestations for the given slot
-   * 
+   *
    * @param slot - the slot to query
    * @returns BlockAttestations
    */
@@ -62,7 +62,7 @@ export interface P2P {
   /**
    * Registers a callback from the validator client that determines how to behave when
    * foreign block proposals are received
-   * 
+   *
    * @param handler - A function taking a received block proposal and producing an attestation
    */
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963

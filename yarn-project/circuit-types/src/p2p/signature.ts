@@ -15,7 +15,7 @@ export type ViemSignature = {
 
 /**
  * Signature
- * 
+ *
  * Contains a signature split into it's primary components (r,s,v)
  */
 export class Signature {
@@ -55,7 +55,7 @@ export class Signature {
 
   /**
    * A seperate method exists for this as when signing locally with viem, as when
-   * parsing from viem, we can expect the v value to be a u8, rather than our 
+   * parsing from viem, we can expect the v value to be a u8, rather than our
    * default serialization of u32
    */
   static from0xString(sig: `0x${string}`): Signature {
