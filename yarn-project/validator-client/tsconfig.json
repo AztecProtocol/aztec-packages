@@ -13,40 +13,13 @@
       "path": "../circuits.js"
     },
     {
-      "path": "../ethereum"
-    },
-    {
       "path": "../foundation"
-    },
-    {
-      "path": "../kv-store"
-    },
-    {
-      "path": "../l1-artifacts"
-    },
-    {
-      "path": "../merkle-tree"
     },
     {
       "path": "../p2p"
     },
     {
-      "path": "../protocol-contracts"
-    },
-    {
-      "path": "../sequencer-client"
-    },
-    {
-      "path": "../simulator"
-    },
-    {
-      "path": "../telemetry-client"
-    },
-    {
       "path": "../types"
-    },
-    {
-      "path": "../world-state"
     }
   ],
   "include": ["src"]
