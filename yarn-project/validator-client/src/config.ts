@@ -1,3 +1,4 @@
+import { NULL_KEY } from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 /**
@@ -14,6 +15,7 @@ export interface ValidatorClientConfig {
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
   validatorPrivateKey: {
     env: 'VALIDATOR_PRIVATE_KEY',
+    parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
     description: 'The private key of the validator participating in attestation duties',
   },
   disableValidator: {
