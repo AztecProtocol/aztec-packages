@@ -7,7 +7,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
@@ -376,6 +375,7 @@ class MegaFlavor {
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+            BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };
             }
