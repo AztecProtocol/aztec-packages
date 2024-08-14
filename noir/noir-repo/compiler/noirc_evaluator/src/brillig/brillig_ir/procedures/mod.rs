@@ -1,4 +1,7 @@
+mod array_copy;
 mod mem_copy;
+
+use array_copy::compile_array_copy_procedure;
 use mem_copy::compile_mem_copy_procedure;
 
 use crate::brillig::brillig_ir::AcirField;
@@ -11,6 +14,7 @@ use super::{
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub(crate) enum ProcedureId {
+    ArrayCopy,
     MemCopy,
 }
 
@@ -22,6 +26,7 @@ pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
 
     match procedure_id {
         ProcedureId::MemCopy => compile_mem_copy_procedure(&mut brillig_context),
+        ProcedureId::ArrayCopy => compile_array_copy_procedure(&mut brillig_context),
     };
 
     brillig_context.stop_instruction();

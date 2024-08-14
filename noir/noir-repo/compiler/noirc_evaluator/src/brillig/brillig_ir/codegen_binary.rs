@@ -2,7 +2,7 @@ use acvm::{acir::brillig::MemoryAddress, AcirField};
 
 use super::{
     debug_show::DebugToString, instructions::BrilligBinaryOp, registers::RegisterAllocator,
-    BrilligContext,
+    BrilligContext, ReservedRegisters,
 };
 
 impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
@@ -24,9 +24,13 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         op: BrilligBinaryOp,
         constant: usize,
     ) {
+        // if constant == 1 {
+        //     self.memory_op_instruction(operand, ReservedRegisters::usize_one(), destination, op);
+        // } else {
         let const_register = self.make_usize_constant_instruction(F::from(constant));
         self.memory_op_instruction(operand, const_register.address, destination, op);
         // Mark as no longer used for this purpose, frees for reuse
         self.deallocate_single_addr(const_register);
+        // }
     }
 }

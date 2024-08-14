@@ -47,6 +47,8 @@ pub(crate) enum ReservedRegisters {
     FreeMemoryPointer = 0,
     /// This register stores the previous stack pointer. The registers of the caller are stored here.
     PreviousStackPointer = 1,
+    /// This register stores a 1_usize constant.
+    UsizeOne = 2,
 }
 
 impl ReservedRegisters {
@@ -54,7 +56,7 @@ impl ReservedRegisters {
     ///
     /// This is used to offset the general registers
     /// which should not overwrite the special register
-    const NUM_RESERVED_REGISTERS: usize = 2;
+    const NUM_RESERVED_REGISTERS: usize = 3;
 
     /// Returns the length of the reserved registers
     pub(crate) fn len() -> usize {
@@ -69,6 +71,11 @@ impl ReservedRegisters {
     /// Returns the previous stack pointer register. This will be used to restore the registers after a fn call.
     pub(crate) fn previous_stack_pointer() -> MemoryAddress {
         MemoryAddress::from(ReservedRegisters::PreviousStackPointer as usize)
+    }
+
+    /// Returns the usize one register. This will be used to perform arithmetic operations.
+    pub(crate) fn usize_one() -> MemoryAddress {
+        MemoryAddress::from(ReservedRegisters::UsizeOne as usize)
     }
 }
 

@@ -171,7 +171,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             self.call_mem_copy_procedure(
                 source_pointer,
                 destination_pointer,
-                num_elements_variable,
+                num_elements_variable.address,
             );
         } else {
             let value_register = self.allocate_register();

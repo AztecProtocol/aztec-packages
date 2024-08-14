@@ -82,8 +82,9 @@ impl RegisterAllocator for Stack {
 
     fn from_preallocated_registers(preallocated_registers: Vec<MemoryAddress>) -> Self {
         let next_free_register_index = preallocated_registers.iter().fold(
-            ReservedRegisters::len(),
+            Self::start(),
             |free_register_index, preallocated_register| {
+                assert!(free_register_index >= Self::start());
                 if preallocated_register.to_usize() < free_register_index {
                     free_register_index
                 } else {
@@ -92,7 +93,7 @@ impl RegisterAllocator for Stack {
             },
         );
         let mut deallocated_registers = Vec::new();
-        for i in ReservedRegisters::len()..next_free_register_index {
+        for i in Self::start()..next_free_register_index {
             if !preallocated_registers.contains(&MemoryAddress::from(i)) {
                 deallocated_registers.push(MemoryAddress::from(i));
             }
@@ -163,8 +164,9 @@ impl RegisterAllocator for ScratchSpace {
 
     fn from_preallocated_registers(preallocated_registers: Vec<MemoryAddress>) -> Self {
         let next_free_register_index = preallocated_registers.iter().fold(
-            ReservedRegisters::len(),
+            Self::start(),
             |free_register_index, preallocated_register| {
+                assert!(free_register_index >= Self::start());
                 if preallocated_register.to_usize() < free_register_index {
                     free_register_index
                 } else {
@@ -173,7 +175,7 @@ impl RegisterAllocator for ScratchSpace {
             },
         );
         let mut deallocated_registers = Vec::new();
-        for i in ReservedRegisters::len()..next_free_register_index {
+        for i in Self::start()..next_free_register_index {
             if !preallocated_registers.contains(&MemoryAddress::from(i)) {
                 deallocated_registers.push(MemoryAddress::from(i));
             }
