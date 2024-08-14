@@ -1,5 +1,5 @@
 use crate::components::{
-    reset_output_composer::{PrivateKernelResetOutputs, ResetOutputComposer, ResetOutputHints},
+    reset_output_composer::{ResetOutputComposer, ResetOutputHints},
     reset_output_validator::ResetOutputValidator
 };
 use dep::reset_kernel_lib::{
@@ -17,7 +17,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_INNER_INDEX,
 ];
 
-struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
+struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
@@ -25,20 +25,29 @@ struct PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL
     validation_requests_split_counter: u32,
 }
 
-struct PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> {
+struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let TRANSIENT_DATA_AMOUNT: u32> {
     previous_kernel: PrivateKernelData,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT>,
 }
 
-impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> {
+impl<
+    let NH_RR_PENDING: u32, 
+    let NH_RR_SETTLED: u32, 
+    let NLL_RR_PENDING: u32, 
+    let NLL_RR_SETTLED: u32,
+    let KEY_VALIDATION_REQUESTS: u32,
+    let TRANSIENT_DATA_AMOUNT: u32
+> PrivateKernelResetCircuitPrivateInputs<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS, TRANSIENT_DATA_AMOUNT> {
     unconstrained fn generate_output(
         self,
+        validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
         encrypted_log_siloing_amount: u32
-    ) -> (PrivateKernelResetOutputs, ResetOutputHints) {
+    ) -> (PrivateKernelCircuitPublicInputs, ResetOutputHints) {
         let composer = ResetOutputComposer::new(
             self.previous_kernel.public_inputs,
+            validation_request_processor,
             self.hints.transient_data_index_hints,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
@@ -53,8 +62,22 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
         nullifier_siloing_amount: u32,
         encrypted_log_siloing_amount: u32
     ) -> PrivateKernelCircuitPublicInputs {
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+        let validation_request_processor = PrivateValidationRequestProcessor {
+            validation_requests: previous_public_inputs.validation_requests,
+            note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
+            pending_note_hashes: previous_public_inputs.end.note_hashes,
+            note_hash_tree_root: previous_public_inputs.constants.historical_header.state.partial.note_hash_tree.root,
+            nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
+            pending_nullifiers: previous_public_inputs.end.nullifiers,
+            nullifier_tree_root: previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root,
+            key_validation_hints: self.hints.key_validation_hints,
+            validation_requests_split_counter: self.hints.validation_requests_split_counter
+        };
+
         // Generate output.
         let (output, output_hints) = self.generate_output(
+            validation_request_processor,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
             encrypted_log_siloing_amount
@@ -66,26 +89,13 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             // self.previous_kernel.validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
-        let previous_public_inputs = self.previous_kernel.public_inputs;
-        let updated_validation_requests = PrivateValidationRequestProcessor {
-            validation_requests: previous_public_inputs.validation_requests,
-            note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
-            pending_note_hashes: previous_public_inputs.end.note_hashes,
-            note_hash_tree_root: previous_public_inputs.constants.historical_header.state.partial.note_hash_tree.root,
-            nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
-            pending_nullifiers: previous_public_inputs.end.nullifiers,
-            nullifier_tree_root: previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root,
-            key_validation_hints: self.hints.key_validation_hints,
-            validation_requests_split_counter: self.hints.validation_requests_split_counter
-        }.validate();
-
         // Validate output.
         if dep::types::validate::should_validate_output() {
             ResetOutputValidator::new(
                 output,
                 previous_public_inputs,
+                validation_request_processor,
                 self.hints.transient_data_index_hints,
-                updated_validation_requests.split_counter.unwrap_unchecked(),
                 note_hash_siloing_amount,
                 nullifier_siloing_amount,
                 encrypted_log_siloing_amount,
@@ -93,15 +103,7 @@ impl<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATIO
             ).validate();
         }
 
-        // Generate output.
-        let mut updated_output = self.previous_kernel.public_inputs;
-        updated_output.validation_requests = updated_validation_requests;
-        updated_output.end.note_hashes = output.note_hashes;
-        updated_output.end.nullifiers = output.nullifiers;
-        updated_output.end.note_encrypted_logs_hashes = output.note_encrypted_log_hashes;
-        updated_output.end.encrypted_logs_hashes = output.encrypted_log_hashes;
-
-        updated_output
+        output
     }
 }
 
@@ -139,8 +141,8 @@ mod tests {
     struct PrivateKernelResetInputsBuilder<let NUM_INDEX_HINTS: u32> {
         previous_kernel: FixtureBuilder,
         transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
-        note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
+        note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<6, 3>,
+        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<5, 2>,
         validation_requests_split_counter: u32,
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
@@ -155,8 +157,8 @@ mod tests {
             PrivateKernelResetInputsBuilder {
                 previous_kernel,
                 transient_data_index_hints: [TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX); 6],
-                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
-                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX),
+                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
+                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
                 validation_requests_split_counter: 0,
                 note_hash_siloing_amount: 0,
                 nullifier_siloing_amount: 0,
