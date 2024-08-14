@@ -21,23 +21,23 @@ class range_check_da_gas_hi_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_gas_accounting_active == 1 || in.main_sel_rng_16 == 1);
+        return (in.main_sel_execution_row == 1 || in.main_sel_rng_16 == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.main_sel_gas_accounting_active);
+        const auto is_operation = View(in.main_sel_execution_row);
         const auto is_table_entry = View(in.main_sel_rng_16);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.range_check_da_gas_hi,
+        return std::forward_as_tuple(in.range_check_da_gas_hi_inv,
                                      in.range_check_da_gas_hi_counts,
-                                     in.main_sel_gas_accounting_active,
+                                     in.main_sel_execution_row,
                                      in.main_sel_rng_16,
                                      in.main_abs_da_rem_gas_hi,
                                      in.main_clk);
@@ -45,9 +45,9 @@ class range_check_da_gas_hi_lookup_settings {
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.range_check_da_gas_hi,
+        return std::forward_as_tuple(in.range_check_da_gas_hi_inv,
                                      in.range_check_da_gas_hi_counts,
-                                     in.main_sel_gas_accounting_active,
+                                     in.main_sel_execution_row,
                                      in.main_sel_rng_16,
                                      in.main_abs_da_rem_gas_hi,
                                      in.main_clk);

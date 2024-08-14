@@ -5,7 +5,6 @@ pragma solidity >=0.8.18;
 // Libraries
 import {Errors} from "./Errors.sol";
 import {Constants} from "./ConstantsGen.sol";
-import {Hash} from "./Hash.sol";
 
 /**
  * @title Header Library
@@ -45,14 +44,15 @@ import {Hash} from "./Hash.sol";
  *  | 0x0134                                                                           | 0x20         |     chainId
  *  | 0x0154                                                                           | 0x20         |     version
  *  | 0x0174                                                                           | 0x20         |     blockNumber
- *  | 0x0194                                                                           | 0x20         |     timestamp
- *  | 0x01b4                                                                           | 0x14         |     coinbase
- *  | 0x01c8                                                                           | 0x20         |     feeRecipient
- *  | 0x01e8                                                                           | 0x20         |     gasFees.feePerDaGas
- *  | 0x0208                                                                           | 0x20         |     gasFees.feePerL2Gas
+ *  | 0x0194                                                                           | 0x20         |     slotNumber
+ *  | 0x01b4                                                                           | 0x20         |     timestamp
+ *  | 0x01d4                                                                           | 0x14         |     coinbase
+ *  | 0x01e8                                                                           | 0x20         |     feeRecipient
+ *  | 0x0208                                                                           | 0x20         |     gasFees.feePerDaGas
+ *  | 0x0228                                                                           | 0x20         |     gasFees.feePerL2Gas
  *  |                                                                                  |              |   }
  *  |                                                                                  |              | }
- *  | 0x0228                                                                           | 0x20         | total_fees
+ *  | 0x0248                                                                           | 0x20         | total_fees
  *  | ---                                                                              | ---          | ---
  */
 library HeaderLib {
@@ -83,6 +83,7 @@ library HeaderLib {
     uint256 chainId;
     uint256 version;
     uint256 blockNumber;
+    uint256 slotNumber;
     uint256 timestamp;
     address coinbase;
     bytes32 feeRecipient;
@@ -104,46 +105,7 @@ library HeaderLib {
     uint256 totalFees;
   }
 
-  uint256 private constant HEADER_LENGTH = 0x248; // Header byte length
-
-  /**
-   * @notice Validates the header
-   * @param _header - The decoded header
-   * @param _version - The expected version
-   * @param _lastBlockTs - The timestamp of the last block
-   * @param _archive - The expected archive root
-   */
-  function validate(Header memory _header, uint256 _version, uint256 _lastBlockTs, bytes32 _archive)
-    internal
-    view
-  {
-    if (block.chainid != _header.globalVariables.chainId) {
-      revert Errors.Rollup__InvalidChainId(block.chainid, _header.globalVariables.chainId);
-    }
-
-    if (_header.globalVariables.version != _version) {
-      revert Errors.Rollup__InvalidVersion(_version, _header.globalVariables.version);
-    }
-
-    // block number already constrained by archive root check
-
-    if (_header.globalVariables.timestamp > block.timestamp) {
-      revert Errors.Rollup__TimestampInFuture();
-    }
-
-    // @todo @LHerskind consider if this is too strict
-    // This will make multiple l2 blocks in the same l1 block impractical.
-    // e.g., the first block will update timestamp which will make the second fail.
-    // Could possibly allow multiple blocks if in same l1 block
-    if (_header.globalVariables.timestamp < _lastBlockTs) {
-      revert Errors.Rollup__TimestampTooOld();
-    }
-
-    // TODO(#4148) Proper genesis state. If the state is empty, we allow anything for now.
-    if (_archive != bytes32(0) && _archive != _header.lastArchive.root) {
-      revert Errors.Rollup__InvalidArchive(_archive, _header.lastArchive.root);
-    }
-  }
+  uint256 private constant HEADER_LENGTH = 0x268; // Header byte length
 
   /**
    * @notice Decodes the header
@@ -186,20 +148,21 @@ library HeaderLib {
     header.globalVariables.chainId = uint256(bytes32(_header[0x0134:0x0154]));
     header.globalVariables.version = uint256(bytes32(_header[0x0154:0x0174]));
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x0194:0x01b4]));
-    header.globalVariables.coinbase = address(bytes20(_header[0x01b4:0x01c8]));
-    header.globalVariables.feeRecipient = bytes32(_header[0x01c8:0x01e8]);
-    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x01e8:0x0208]));
-    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0208:0x0228]));
+    header.globalVariables.slotNumber = uint256(bytes32(_header[0x0194:0x01b4]));
+    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b4:0x01d4]));
+    header.globalVariables.coinbase = address(bytes20(_header[0x01d4:0x01e8]));
+    header.globalVariables.feeRecipient = bytes32(_header[0x01e8:0x0208]);
+    header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x0208:0x0228]));
+    header.globalVariables.gasFees.feePerL2Gas = uint256(bytes32(_header[0x0228:0x0248]));
 
     // Reading totalFees
-    header.totalFees = uint256(bytes32(_header[0x0228:0x0248]));
+    header.totalFees = uint256(bytes32(_header[0x0248:0x0268]));
 
     return header;
   }
 
   function toFields(Header memory _header) internal pure returns (bytes32[] memory) {
-    bytes32[] memory fields = new bytes32[](23);
+    bytes32[] memory fields = new bytes32[](24);
 
     // must match the order in the Header.getFields
     fields[0] = _header.lastArchive.root;
@@ -225,15 +188,18 @@ library HeaderLib {
     fields[14] = bytes32(_header.globalVariables.chainId);
     fields[15] = bytes32(_header.globalVariables.version);
     fields[16] = bytes32(_header.globalVariables.blockNumber);
-    fields[17] = bytes32(_header.globalVariables.timestamp);
-    fields[18] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
-    fields[19] = bytes32(_header.globalVariables.feeRecipient);
-    fields[20] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
-    fields[21] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
-    fields[22] = bytes32(_header.totalFees);
+    fields[17] = bytes32(_header.globalVariables.slotNumber);
+    fields[18] = bytes32(_header.globalVariables.timestamp);
+    fields[19] = bytes32(uint256(uint160(_header.globalVariables.coinbase)));
+    fields[20] = bytes32(_header.globalVariables.feeRecipient);
+    fields[21] = bytes32(_header.globalVariables.gasFees.feePerDaGas);
+    fields[22] = bytes32(_header.globalVariables.gasFees.feePerL2Gas);
+    fields[23] = bytes32(_header.totalFees);
 
     // fail if the header structure has changed without updating this function
-    assert(fields.length == Constants.HEADER_LENGTH);
+    if (fields.length != Constants.HEADER_LENGTH) {
+      revert Errors.HeaderLib__InvalidHeaderSize(Constants.HEADER_LENGTH, fields.length);
+    }
 
     return fields;
   }

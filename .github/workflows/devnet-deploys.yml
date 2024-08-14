@@ -1,45 +1,187 @@
-name: Deploy to devnet
+name: Deploy to network
 on:
-  push:
-    branches: [devnet]
+  # push:
+  #   branches: [devnet, provernet, alphanet]
+  workflow_dispatch:
+    inputs:
+      no_rebuild_images:
+        description: "Don't rebuild images"
+        required: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# We only reference secret variables here where we put them into the environment so as to not create confusion
+
+# Anvil Accounts. Anvil provides 10 pre-funded accounts for the mnemonic we have specified in FORK_MNEMONIC. We are using:
+# 1. The first account (index 0) is used in SEQ_1_PUBLISHER_PRIVATE_KEY
+# 2. The 3rd account (index 2) is used in PROVER_1_PUBLISHER_PRIVATE_KEY
+# 3. The 9th account (index 8) is used in this workflow for deploying contracts etc
+# 4. The 10th account (index 9) is used by the deployed faucet
+# TODO: Convert all this so we take the provided mnemonic and derive the keys from the above indices
 env:
   DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
   GIT_COMMIT: ${{ github.sha }}
-  DEPLOY_TAG: devnet
+  DEPLOY_TAG: none
   L1_CHAIN_ID: 677692
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  API_KEY: ${{ secrets.DEVNET_API_KEY }}
+  FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
+  CONTRACT_PUBLISHER_PRIVATE_KEY: ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }}
   CONTRACT_S3_BUCKET: s3://static.aztec.network
+
   # TF Vars
   TF_VAR_DOCKERHUB_ACCOUNT: aztecprotocol
   TF_VAR_L1_CHAIN_ID: 677692
-  TF_VAR_BOOTNODE_1_PRIVATE_KEY: ${{ secrets.BOOTNODE_1_PRIVATE_KEY }}
-  TF_VAR_BOOTNODE_2_PRIVATE_KEY: ${{ secrets.BOOTNODE_2_PRIVATE_KEY }}
+  TF_VAR_DEPLOY_TAG: none
+  TF_VAR_IMAGE_TAG: ${{ github.sha }}
+  TF_VAR_API_KEY: ${{ secrets.DEVNET_API_KEY }}
+
+  # Node / Sequencer
+  TF_VAR_BOOTSTRAP_NODES: ""
+  TF_VAR_P2P_ENABLED: "false"
   TF_VAR_SEQUENCER_PRIVATE_KEYS: '["${{ secrets.SEQ_1_PUBLISHER_PRIVATE_KEY }}"]'
   TF_VAR_NODE_P2P_PRIVATE_KEYS: '[""]'
-  TF_VAR_DEPLOY_TAG: devnet
-  TF_VAR_IMAGE_TAG: ${{ github.sha }}
-  TF_VAR_API_KEY: ${{ secrets.FORK_API_KEY }}
+  TF_VAR_SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 0 # disable auto block building
+  TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
+  TF_VAR_SEQ_MAX_TX_PER_BLOCK: 64
+  TF_VAR_NODE_P2P_TCP_PORT: 40000
+  TF_VAR_NODE_P2P_UDP_PORT: 45000
+  TF_VAR_NODE_LB_RULE_PRIORITY: 500
+
+  # Prover Node
+  TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: 6000
+  TF_VAR_PROVER_PRIVATE_KEYS: '["${{ secrets.PROVER_1_PUBLISHER_PRIVATE_KEY }}"]'
+
+  # Anvil
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+
+  # Faucet
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
+  TF_VAR_FAUCET_LB_RULE_PRIORITY: 600
+
+  # Prover
+  TF_VAR_AGENTS_PER_PROVER: 1
+  TF_VAR_PROVING_ENABLED: false
+
+  # Transaction Bot
   TF_VAR_BOT_API_KEY: ${{ secrets.BOT_API_KEY }}
-  TF_VAR_BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
+  TF_VAR_BOT_PRIVATE_KEY: ""
+  TF_VAR_BOT_NO_START: true
+  TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 0 # no private transfers
+  TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
+  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 2400
+  TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: true
+  TF_VAR_BOT_TX_INTERVAL_SECONDS: 180
+  TF_VAR_BOT_COUNT: 1
+
+  # PXE
+  TF_VAR_PXE_LB_RULE_PRIORITY: 4000
 
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: master
+      username: ${{ github.actor }}
       runner_type: builder-x86
     secrets: inherit
-  build:
+
+  # Set network specific variables as outputs from this job to be referenced in later jobs
+  set-network:
     needs: setup
+    runs-on: ${{ github.actor }}-x86
+    outputs:
+      deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
+      branch_name: ${{ steps.set_network_vars.outputs.branch_name }}
+      network_api_key: ${{ steps.set_network_vars.outputs.network_api_key }}
+      agents_per_prover: ${{ steps.set_network_vars.outputs.agents_per_prover }}
+      bot_interval: ${{ steps.set_network_vars.outputs.bot_interval }}
+      node_tcp_range_start: ${{ steps.set_network_vars.outputs.node_tcp_range_start }}
+      node_udp_range_start: ${{ steps.set_network_vars.outputs.node_udp_range_start }}
+      prover_node_tcp_range_start: ${{ steps.set_network_vars.outputs.prover_node_tcp_range_start }}
+      prover_node_udp_range_start: ${{ steps.set_network_vars.outputs.prover_node_udp_range_start }}
+      node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.node_lb_priority_range_start }}
+      pxe_lb_priority_range_start: ${{ steps.set_network_vars.outputs.pxe_lb_priority_range_start }}
+      prover_node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.prover_node_lb_priority_range_start }}
+      faucet_lb_priority: ${{ steps.set_network_vars.outputs.faucet_lb_priority }}
+      bot_no_wait: ${{ steps.set_network_vars.outputs.bot_no_wait }}
+      max_txs_per_block: ${{ steps.set_network_vars.outputs.max_txs_per_block }}
+    steps:
+      - name: Set network vars
+        shell: bash
+        run: |
+          env
+          export BRANCH_NAME=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+          if [ "$BRANCH_NAME" = "devnet" ]
+          then
+              echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
+              echo "branch_name=devnet" >> $GITHUB_OUTPUT
+              echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=4" >> $GITHUB_OUTPUT
+              echo "bot_interval=30" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40100" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
+              echo "prover_node_tcp_range_start=41100" >> $GITHUB_OUTPUT
+              echo "prover_node_udp_range_start=46100" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4100" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5100" >> $GITHUB_OUTPUT
+              echo "prover_node_lb_priority_range_start=6100" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=601" >> $GITHUB_OUTPUT
+              echo "bot_no_wait=false" >> $GITHUB_OUTPUT
+              echo "max_txs_per_block=64" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH_NAME" = "provernet" ]
+          then
+              echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
+              echo "branch_name=provernet" >> $GITHUB_OUTPUT
+              echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=4" >> $GITHUB_OUTPUT
+              echo "bot_interval=300" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
+              echo "prover_node_tcp_range_start=41200" >> $GITHUB_OUTPUT
+              echo "prover_node_udp_range_start=46200" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4200" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5200" >> $GITHUB_OUTPUT
+              echo "prover_node_lb_priority_range_start=6200" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=602" >> $GITHUB_OUTPUT
+              echo "bot_no_wait=true" >> $GITHUB_OUTPUT
+              echo "max_txs_per_block=4" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH_NAME" = "alphanet" ]
+          then
+              echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
+              echo "branch_name=alphanet" >> $GITHUB_OUTPUT
+              echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=1" >> $GITHUB_OUTPUT
+              echo "bot_interval=30" >> $GITHUB_OUTPUT
+              echo "node_tcp_range_start=40000" >> $GITHUB_OUTPUT
+              echo "node_udp_range_start=45000" >> $GITHUB_OUTPUT
+              echo "prover_node_tcp_range_start=41000" >> $GITHUB_OUTPUT
+              echo "prover_node_udp_range_start=46000" >> $GITHUB_OUTPUT
+              echo "node_lb_priority_range_start=4000" >> $GITHUB_OUTPUT
+              echo "pxe_lb_priority_range_start=5000" >> $GITHUB_OUTPUT
+              echo "prover_node_lb_priority_range_start=6000" >> $GITHUB_OUTPUT
+              echo "faucet_lb_priority=600" >> $GITHUB_OUTPUT
+              echo "bot_no_wait=false" >> $GITHUB_OUTPUT
+              echo "max_txs_per_block=64" >> $GITHUB_OUTPUT
+          else
+              echo "Unrecognized Branch!!"
+              exit 1
+          fi
+        id: set_network_vars
+
+  build-mainnet-fork:
+    needs: set-network
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
     runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
@@ -48,55 +190,184 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-release-artifacts-${{ github.actor }}
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-      - name: Check if only workflow flows have changed
-        id: check_only_workflow_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}')
-              .toString()
-              .split('\n')
-              .filter(line => line);
-            const prefixesToIgnore = ['.github', 'iac'];
-            const suffixesToIgnore = ['.tf'];
-            return changedFiles.every(file => (
-              prefixesToIgnore.some(prefix => file.startsWith(prefix)) ||
-              suffixesToIgnore.some(suffix => file.endsWith(suffix))
-            ));
-      - name: "Build & Push aztec images"
-        timeout-minutes: 40
-        if: steps.check_only_workflow_changes.outputs.result == 'false'
-        run: |
-          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
-          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
-
-      - name: Check if mainnet fork needs deployment
-        id: check_fork_changes
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            const changedFiles = execSync('git diff --name-only ${{ github.event.before }} ${{ github.sha }}').toString().split('\n');
-            const fileChanged = changedFiles.some(file => file.startsWith('iac/mainnet-fork'));
-            return fileChanged
+          concurrency_key: build-mainnet-fork-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
 
       - name: Build & push mainnet fork image
-        if: steps.check_fork_changes.outputs.result == 'true'
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
         run: |
-          earthly-ci \
-          --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./iac/mainnet-fork+export-mainnet-fork --DIST_TAG=${{ github.sha }}
 
-  terraform_deploy:
-    runs-on: ubuntu-latest
-    needs: build
+  build-aztec:
+    needs: set-network
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
           fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: "Build & Push aztec images"
+        timeout-minutes: 40
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
+        run: |
+          env
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }}
+
+      - name: "Re-tag Aztec image"
+        if: ${{ github.event.inputs.no_rebuild_images == 'true' }}
+        run: |
+          env
+          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
+          docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }} aztecprotocol/aztec:${{ github.sha }}
+          docker push aztecprotocol/aztec:${{ github.sha }}
+
+  build-aztec-nargo:
+    needs: [set-network, build-aztec]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-aztec-nargo-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+
+      - name: Build & push aztec nargo image
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
+        run: |
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }}
+
+  build-faucet:
+    needs: [set-network, build-aztec]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-faucet-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: "Build & Push aztec images"
+        timeout-minutes: 40
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
+        run: |
+          env
+          earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-aztec-faucet --DIST_TAG=${{ github.sha }}
+
+      - name: "Re-tag Aztec image"
+        if: ${{ github.event.inputs.no_rebuild_images == 'true' }}
+        run: |
+          env
+          docker pull aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }}
+          docker tag aztecprotocol/aztec-faucet:${{ env.DEPLOY_TAG }} aztecprotocol/aztec-faucet:${{ github.sha }}
+          docker push aztecprotocol/aztec-faucet:${{ github.sha }}
+
+  build-cli-wallet:
+    needs: [set-network, build-aztec]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
+    runs-on: ${{ github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: build-cli-wallet-${{ github.actor }}
+          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
+      - name: "Build & Push aztec images"
+        timeout-minutes: 40
+        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
+        run: |
+          env
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }}
+          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }}
+
+  build-end:
+    runs-on: ubuntu-latest
+    needs:
+      [
+        build-aztec,
+        build-faucet,
+        build-cli-wallet,
+        build-mainnet-fork,
+        build-aztec-nargo,
+        set-network,
+      ]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+      - uses: ./.github/ci-setup-action
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+  terraform-deploy:
+    runs-on: ubuntu-latest
+    needs: [build-end, set-network]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
+      TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
+      TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
+      TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
+      TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
+      TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
+      TF_VAR_SEQ_MAX_TX_PER_BLOCK: ${{ needs.set-network.outputs.max_txs_per_block }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
       - uses: ./.github/ci-setup-action
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -105,19 +376,20 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
       - name: Deploy mainnet fork
         working-directory: ./iac/mainnet-fork/terraform
         run: |
+          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
 
       - name: Wait for mainnet fork deployment
         run: |
-          ./.github/scripts/wait_for_infra.sh mainnet-fork ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
+          ./.github/scripts/wait_for_infra.sh mainnet-fork ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
       - name: Deploy L1 Contracts
         run: |
@@ -126,8 +398,8 @@ jobs:
 
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
-            --private-key ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
-            --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
+            --private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
+            --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --json | tee ./l1_contracts.json
 
@@ -144,24 +416,33 @@ jobs:
           echo "TF_VAR_INBOX_CONTRACT_ADDRESS=$(extract inboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$(extract outboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$(extract availabilityOracleAddress)" >>$GITHUB_ENV
-          echo "TF_VAR_GAS_TOKEN_CONTRACT_ADDRESS=$(extract gasTokenAddress)" >>$GITHUB_ENV
-          echo "TF_VAR_GAS_PORTAL_CONTRACT_ADDRESS=$(extract gasPortalAddress)" >>$GITHUB_ENV
+          echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(extract feeJuiceAddress)" >>$GITHUB_ENV
+          echo "TF_VAR_FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(extract feeJuicePortalAddress)" >>$GITHUB_ENV
 
       - name: Apply l1-contracts Terraform
         working-directory: ./l1-contracts/terraform
         run: |
+          env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/l1-contracts"
           terraform apply -input=false -auto-approve
 
-      - name: Init Aztec Node Terraform
-        working-directory: ./yarn-project/aztec/terraform/node
+      - name: Disable transactions bot
+        working-directory: ./yarn-project/aztec/terraform/bot
         run: |
-          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"
+          terraform apply -input=false -auto-approve
 
       - name: Deploy Aztec Nodes
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store"
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.node_udp_range_start }}"
+
+      - name: Deploy Aztec Prover Nodes
+        working-directory: ./yarn-project/aztec/terraform/prover-node
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
@@ -173,35 +454,35 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
-          terraform apply -input=false -auto-approve
-
-      - name: Deploy P2P Bootstrap Nodes
-        working-directory: ./yarn-project/p2p-bootstrap/terraform
-        run: |
-          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/p2p-bootstrap"
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.pxe_data_store"
 
   bootstrap:
     runs-on: ubuntu-latest
-    needs: terraform_deploy
+    needs: [terraform-deploy, set-network]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
 
       - uses: ./.github/ci-setup-action
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
       - name: Wait for PXE to be available
         run: |
-          ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ secrets.FORK_API_KEY }}
+          env
+          ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
       - name: Deploy protocol contracts
         run: |
@@ -209,7 +490,7 @@ jobs:
           set -o pipefail
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-protocol-contracts \
-            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --json | tee ./protocol_contracts.json
 
@@ -220,22 +501,28 @@ jobs:
           set -e
           set -o pipefail
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap-network \
-            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ secrets.FORK_API_KEY }} \
-            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ secrets.FORK_API_KEY }} \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
+            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
-            --l1-private-key ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
+            --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
             --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/basic_contracts.json
 
   deploy-faucet:
     runs-on: ubuntu-latest
-    needs: [terraform_deploy, bootstrap]
+    needs: [terraform-deploy, bootstrap, set-network]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_FAUCET_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.faucet_lb_priority }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
       - uses: ./.github/ci-setup-action
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -244,8 +531,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
       - name: Retrieve contract addresses
@@ -254,23 +541,37 @@ jobs:
           aws s3 cp ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/l1_contracts.json ./l1_contracts.json
           aws s3 cp ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/basic_contracts.json ./basic_contracts.json
 
-          echo "TF_VAR_GAS_TOKEN_CONTRACT_ADDRESS=$(jq -r '.gasTokenAddress' ./l1_contracts.json)" >>$GITHUB_ENV
+          echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(jq -r '.feeJuiceAddress' ./l1_contracts.json)" >>$GITHUB_ENV
           echo "TF_VAR_DEV_COIN_CONTRACT_ADDRESS=$(jq -r '.devCoinL1' ./basic_contracts.json)" >>$GITHUB_ENV
 
       - name: Deploy Faucet
-        working-directory: ./yarn-project/aztec-faucet
+        working-directory: ./yarn-project/aztec-faucet/terraform
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-faucet"
           terraform apply -input=false -auto-approve
 
-  deploy-bot:
+  enable-proving:
     runs-on: ubuntu-latest
-    needs: [terraform_deploy, bootstrap]
+    needs: [deploy-faucet, set-network]
+    env:
+      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
+      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
+      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
+      TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
+      TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
+      TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
+      TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
+      TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
+      TF_VAR_SEQ_MAX_TX_PER_BLOCK: ${{ needs.set-network.outputs.max_txs_per_block }}
+      TF_VAR_PROVING_ENABLED: true
+      TF_VAR_BOT_NO_START: false
     steps:
       - uses: actions/checkout@v4
         with:
           ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
       - uses: ./.github/ci-setup-action
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -279,11 +580,50 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Deploy transactions bot
+      - name: Deploy PXE
+        working-directory: ./yarn-project/aztec/terraform/pxe
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
+          terraform apply -input=false -auto-approve
+
+      - name: Deploy Aztec Nodes
+        working-directory: ./yarn-project/aztec/terraform/node
+        run: |
+          env
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.node_udp_range_start }}"
+
+      - name: Deploy Aztec Prover Nodes
+        working-directory: ./yarn-project/aztec/terraform/prover-node
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
+
+      - name: Deploy Provers
+        working-directory: ./yarn-project/aztec/terraform/prover
+        run: |
+          terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/prover"
+          terraform apply -input=false -auto-approve
+
+      - name: Wait for PXE to be available
+        run: |
+          ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
+
+      - name: Deploy verifier
+        working-directory: ./yarn-project/aztec/terraform/pxe
+        run: |
+          set -eo pipefail
+          docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-verifier \
+            --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
+            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+            --l1-chain-id ${{ env.L1_CHAIN_ID }} \
+            --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }}
+
+      - name: Enable transactions bot
         working-directory: ./yarn-project/aztec/terraform/bot
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/bot"

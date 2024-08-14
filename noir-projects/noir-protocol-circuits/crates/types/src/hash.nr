@@ -10,14 +10,14 @@ use crate::{
     GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
     MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
-    merkle_tree::root::root_from_sibling_path, messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    recursion::verification_key::VerificationKey, traits::is_empty,
-    utils::field::field_from_bytes_32_trunc
+    merkle_tree::root::root_from_sibling_path,
+    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
+    utils::field::field_from_bytes_32_trunc, point::Point
 };
-use std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
-    let sha256_hashed = sha256(bytes_to_hash);
+    let sha256_hashed = std::hash::sha256(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
@@ -36,7 +36,7 @@ pub fn private_functions_root_from_siblings(
 
 fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     // Hashing tx hash with note index in tx is guaranteed to be unique
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         tx_hash,
         note_index_in_tx as Field
@@ -45,13 +45,13 @@ fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, slotted_note_hash: Field) -> Field {
-    let inputs = [nonce, slotted_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+pub fn compute_unique_note_hash(nonce: Field, note_hash: Field) -> Field {
+    let inputs = [nonce, note_hash];
+    poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         app.to_field(),
         unique_note_hash
@@ -60,6 +60,8 @@ pub fn compute_siloed_note_hash(app: AztecAddress, unique_note_hash: Field) -> F
     )
 }
 
+/// Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
+/// the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.
 pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_tx: u32) -> Field {
     if note_hash.contract_address.is_zero() {
         0
@@ -71,7 +73,7 @@ pub fn silo_note_hash(note_hash: ScopedNoteHash, tx_hash: Field, note_index_in_t
 }
 
 pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [
         app.to_field(),
         nullifier
@@ -88,27 +90,26 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     }
 }
 
-pub fn compute_siloed_encrypted_log_hash(address: AztecAddress, randomness: Field, log_hash: Field) -> Field {
-    // TODO: Using 0 GENERATOR_INDEX here as interim before we move to posiedon
-    // NB: A unique separator will be needed for masked_contract_address
-    let mut masked_contract_address = pedersen_hash([address.to_field(), randomness], 0);
-    if randomness == 0 {
-        // In some cases, we actually want to reveal the contract address we are siloing with:
-        // e.g. 'handshaking' contract w/ known address
-        // An app providing randomness = 0 signals to not mask the address.
-        masked_contract_address = address.to_field();
-    }
-    accumulate_sha256([masked_contract_address, log_hash])
-}
-
-pub fn silo_encrypted_log_hash(log_hash: ScopedEncryptedLogHash) -> Field {
+pub fn silo_encrypted_log_hash(log_hash: ScopedLogHash) -> Field {
+    // We assume contract address has already been masked
     if log_hash.contract_address.is_zero() {
         0
     } else {
-        compute_siloed_encrypted_log_hash(
-            log_hash.contract_address,
-            log_hash.log_hash.randomness,
-            log_hash.log_hash.value
+        accumulate_sha256([log_hash.contract_address.to_field(), log_hash.log_hash.value])
+    }
+}
+
+pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddress {
+    if scoped_log.contract_address.is_zero() {
+        AztecAddress::from_field(0)
+    } else if (scoped_log.log_hash.randomness == 0) {
+        scoped_log.contract_address
+    } else {
+        AztecAddress::from_field(
+            poseidon2_hash_with_separator(
+                [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
+                0
+            )
         )
     }
 }
@@ -126,7 +127,7 @@ pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
-    pedersen_hash([left, right], 0)
+    poseidon2_hash([left, right])
 }
 
 pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey) -> Field {
@@ -256,6 +257,29 @@ pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
     std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 
+#[no_predicates]
+pub fn poseidon2_hash_with_separator<let N: u32, T>(
+    inputs: [Field; N],
+    separator: T
+) -> Field where T: ToField {
+    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of N + 1
+    let in_len = N + 1;
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs[i]);
+    }
+
+    sponge.squeeze()
+}
+
+pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
+    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
+}
+
 #[test]
 fn smoke_sha256_to_field() {
     let full_buffer = [
@@ -273,7 +297,7 @@ fn smoke_sha256_to_field() {
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
-    let result_bytes = sha256(full_buffer);
+    let result_bytes = std::hash::sha256(full_buffer);
     let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
     assert(truncated_field == result);
     let mod_res = result + (result_bytes[31] as Field);
@@ -289,4 +313,24 @@ fn compute_l2_l1_hash() {
     // Non-zero case
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), EthAddress::from_field(3), 5, 2, 4);
     assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
+}
+
+#[test]
+fn silo_l2_to_l1_message_matches_typescript() {
+    let version = 4;
+    let chainId = 5;
+
+    let hash = silo_l2_to_l1_message(
+        ScopedL2ToL1Message {
+        message: L2ToL1Message { recipient: EthAddress::from_field(1), content: 2, counter: 0 },
+        contract_address: AztecAddress::from_field(3)
+    },
+        version,
+        chainId
+    );
+
+    // The following value was generated by `l2_to_l1_message.test.ts`
+    let hash_from_typescript = 0x00c6155d69febb9d5039b374dd4f77bf57b7c881709aa524a18acaa0bd57476a;
+
+    assert_eq(hash, hash_from_typescript);
 }

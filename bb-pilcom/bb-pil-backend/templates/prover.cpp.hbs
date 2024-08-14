@@ -8,7 +8,6 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -69,7 +68,7 @@ void {{name}}Prover::execute_wire_commitments_round()
     }
 }
 
-void AvmProver::execute_log_derivative_inverse_round()
+void {{name}}Prover::execute_log_derivative_inverse_round()
 {
     auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;

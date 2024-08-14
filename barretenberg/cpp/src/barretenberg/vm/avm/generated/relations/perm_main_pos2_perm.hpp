@@ -20,30 +20,30 @@ class perm_main_pos2_perm_permutation_settings {
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_pos2_perm,
+        return std::forward_as_tuple(in.perm_main_pos2_perm_inv,
                                      in.main_sel_op_poseidon2,
                                      in.main_sel_op_poseidon2,
                                      in.poseidon2_sel_poseidon_perm,
                                      in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
+                                     in.main_mem_addr_a,
+                                     in.main_mem_addr_b,
                                      in.poseidon2_clk,
-                                     in.poseidon2_input,
-                                     in.poseidon2_output);
+                                     in.poseidon2_input_addr,
+                                     in.poseidon2_output_addr);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.perm_main_pos2_perm,
+        return std::forward_as_tuple(in.perm_main_pos2_perm_inv,
                                      in.main_sel_op_poseidon2,
                                      in.main_sel_op_poseidon2,
                                      in.poseidon2_sel_poseidon_perm,
                                      in.main_clk,
-                                     in.main_ia,
-                                     in.main_ib,
+                                     in.main_mem_addr_a,
+                                     in.main_mem_addr_b,
                                      in.poseidon2_clk,
-                                     in.poseidon2_input,
-                                     in.poseidon2_output);
+                                     in.poseidon2_input_addr,
+                                     in.poseidon2_output_addr);
     }
 };
 

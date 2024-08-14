@@ -12,6 +12,7 @@ import {
   PackedValues,
   TxExecutionRequest,
   type TxHash,
+  type UniqueNote,
   computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
@@ -180,27 +181,22 @@ describe('e2e_crowdfunding_and_claim', () => {
     ]);
   };
 
-  // Processes extended note such that it can be passed to a claim function of Claim contract
-  const processExtendedNote = async (extendedNote: ExtendedNote) => {
-    // TODO(#4956): Make fetching the nonce manually unnecessary
-    // To be able to perform the inclusion proof we need to fetch the nonce of the value note
-    const noteNonces = await pxe.getNoteNonces(extendedNote);
-    expect(noteNonces?.length).toEqual(1);
-
+  // Processes unique note such that it can be passed to a claim function of Claim contract
+  const processUniqueNote = (uniqueNote: UniqueNote) => {
     return {
       header: {
         // eslint-disable-next-line camelcase
-        contract_address: extendedNote.contractAddress,
+        contract_address: uniqueNote.contractAddress,
         // eslint-disable-next-line camelcase
-        storage_slot: extendedNote.storageSlot,
+        storage_slot: uniqueNote.storageSlot,
         // eslint-disable-next-line camelcase
         note_hash_counter: 0, // set as 0 as note is not transient
-        nonce: noteNonces[0],
+        nonce: uniqueNote.nonce,
       },
-      value: extendedNote.note.items[0],
+      value: uniqueNote.note.items[0],
       // eslint-disable-next-line camelcase
-      npk_m_hash: extendedNote.note.items[1],
-      randomness: extendedNote.note.items[2],
+      npk_m_hash: uniqueNote.note.items[1],
+      randomness: uniqueNote.note.items[2],
     };
   };
 
@@ -233,11 +229,14 @@ describe('e2e_crowdfunding_and_claim', () => {
       expect(notes!.length).toEqual(1);
 
       // Set the value note in a format which can be passed to claim function
-      valueNote = await processExtendedNote(notes![0]);
+      valueNote = processUniqueNote(notes![0]);
     }
 
     // 3) We claim the reward token via the Claim contract
     {
+      // We allow the donor wallet to use the crowdfunding contract's notes
+      donorWallets[0].setScopes([donorWallets[0].getAddress(), crowdfundingContract.address]);
+
       await claimContract
         .withWallet(donorWallets[0])
         .methods.claim(valueNote, donorWallets[0].getAddress())
@@ -254,6 +253,8 @@ describe('e2e_crowdfunding_and_claim', () => {
       .simulate();
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
+    // We allow the operator wallet to use the crowdfunding contract's notes
+    operatorWallet.setScopes([operatorWallet.getAddress(), crowdfundingContract.address]);
     // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods.withdraw(donationAmount).send().wait();
 
@@ -299,7 +300,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(notes!.length).toEqual(1);
 
     // Set the value note in a format which can be passed to claim function
-    const anotherDonationNote = await processExtendedNote(notes![0]);
+    const anotherDonationNote = processUniqueNote(notes![0]);
 
     // We create an unrelated pxe and wallet without access to the nsk_app that correlates to the npk_m specified in the proof note.
     let unrelatedWallet: AccountWallet;
@@ -351,7 +352,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
       const { visibleIncomingNotes } = receipt.debugInfo!;
       expect(visibleIncomingNotes.length).toEqual(1);
-      note = await processExtendedNote(visibleIncomingNotes![0]);
+      note = processUniqueNote(visibleIncomingNotes![0]);
     }
 
     // 3) Test the note was included
@@ -399,6 +400,10 @@ describe('e2e_crowdfunding_and_claim', () => {
     // a non-entrypoint function (withdraw never calls context.end_setup()), meaning the min revertible counter will remain 0.
     // This does not protect fully against impersonation as the contract could just call context.end_setup() and the below would pass.
     // => the private_init msg_sender assertion is required (#7190, #7404)
+
+    // We allow the donor wallet to use the crowdfunding contract's notes
+    donorWallets[1].setScopes([donorWallets[1].getAddress(), crowdfundingContract.address]);
+
     await expect(donorWallets[1].simulateTx(request, true, operatorWallet.getAddress())).rejects.toThrow(
       'Assertion failed: Users cannot set msg_sender in first call',
     );
@@ -417,7 +422,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // 2) We set next block timestamp to be after the deadline
-    await cheatCodes.aztec.warp(deadline + 1);
+    await cheatCodes.eth.warp(deadline + 1);
 
     // 3) We donate to the crowdfunding contract
     await expect(

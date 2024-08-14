@@ -68,10 +68,9 @@ unconstrained fn setup_refund_success() {
     utils::check_private_balance(token_contract_address, fee_payer, 1)
 }
 
-// TODO(#7694): Ideally we would check the error message here but it's currently not possible because TXE does not
-// support checking messages of errors thrown in a public teardown function. Once this is supported, check the message
-// here and delete the e2e test checking it.
-// #[test(should_fail_with = "tx fee is higher than funded amount")]
+// TODO(#7694): Ideally we would check the error message here but it's currently not supported by TXE. Once this
+// is supported, check the message here and delete try deleting the corresponding e2e test.
+// #[test(should_fail_with = "funded amount not enough to cover tx fee")]
 #[test(should_fail)]
 unconstrained fn setup_refund_insufficient_funded_amount() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(true);
@@ -98,6 +97,6 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
 
     env.impersonate(fee_payer);
 
-    // The following should fail with "tx fee is higher than funded amount" because funded amount is 0
+    // The following should fail with "funded amount not enough to cover tx fee" because funded amount is 0
     env.call_private_void(setup_refund_from_call_interface);
 }

@@ -1,6 +1,6 @@
 import { Fq, Fr, GeneratorIndex, Point } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenCommit } from '@aztec/foundation/crypto';
 
 // Copied over from `noir-projects/aztec-nr/aztec/src/generators.nr`
 const G_SLOT = new Point(
@@ -11,25 +11,20 @@ const G_SLOT = new Point(
 
 /**
  * Computes a note hiding point as is done by the default implementation injected by macros.
+ * @param storageSlot - The slot to which the note was inserted.
  * @param noteContent - The note content (e.g. note.items).
- * @returns A note hiding point.
+ * @returns A note hash.
  */
-export function computeNoteHidingPoint(noteContent: Fr[]): Point {
-  // TODO(#7551): how this is computed will need to be updated
-  const h = pedersenHash(noteContent, GeneratorIndex.NOTE_HIDING_POINT);
-  const grumpkin = new Grumpkin();
-  return grumpkin.mul(G_SLOT, new Fq(h.toBigInt()));
-}
+export function computeNoteHash(storageSlot: Fr, noteContent: Fr[]): Fr {
+  // TODO(#7771): update this to do only 1 MSM call
+  const c = pedersenCommit(
+    noteContent.map(f => f.toBuffer()),
+    GeneratorIndex.NOTE_HIDING_POINT,
+  );
+  const noteHidingPointBeforeSlotting = new Point(new Fr(c[0]), new Fr(c[1]), false);
 
-/**
- * Computes an slotted note hash, given a storage slot and a note hiding point.
- * @param storageSlot - The storage slot.
- * @param noteHidingPoint - The note hiding point.
- * @returns A slotted note hash.
- */
-export function computeSlottedNoteHash(storageSlot: Fr, noteHidingPoint: Point): Fr {
   const grumpkin = new Grumpkin();
-  const storageSlotPoint = grumpkin.mul(G_SLOT, new Fq(storageSlot.toBigInt()));
-  const slottedNoteHidingPoint = grumpkin.add(storageSlotPoint, noteHidingPoint);
-  return slottedNoteHidingPoint.x;
+  const slotPoint = grumpkin.mul(G_SLOT, new Fq(storageSlot.toBigInt()));
+  const noteHidingPoint = grumpkin.add(noteHidingPointBeforeSlotting, slotPoint);
+  return noteHidingPoint.x;
 }

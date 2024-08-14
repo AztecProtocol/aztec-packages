@@ -28,6 +28,19 @@ enum class AddressingMode {
 struct AddressWithMode {
     AddressingMode mode;
     uint32_t offset;
+
+    AddressWithMode() = default;
+    AddressWithMode(uint32_t offset)
+        : mode(AddressingMode::DIRECT)
+        , offset(offset)
+    {}
+    AddressWithMode(AddressingMode mode, uint32_t offset)
+        : mode(mode)
+        , offset(offset)
+    {}
+
+    // Dont mutate
+    AddressWithMode operator+(uint val) const noexcept { return { mode, offset + val }; }
 };
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
@@ -99,6 +112,8 @@ class AvmTraceBuilder {
 
     // Machine State - Memory
     void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // TODO: only used for write_slice_to_memory. Remove.
+    void op_set_internal(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
@@ -164,11 +179,9 @@ class AvmTraceBuilder {
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
     void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
 
-    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = ENABLE_PROVING);
+    std::vector<Row> finalize(bool range_check_required = ENABLE_PROVING);
     void reset();
 
-    // (not an opcode) Halt -> stop program execution.
-    void halt();
     struct MemOp {
         bool is_indirect;
         uint32_t indirect_address;
@@ -242,32 +255,22 @@ class AvmTraceBuilder {
                                        AddressWithMode addr,
                                        AvmMemoryTag read_tag,
                                        AvmMemoryTag write_tag,
-                                       IntermRegister reg);
+                                       IntermRegister reg,
+                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
     MemOp constrained_write_to_memory(uint8_t space_id,
                                       uint32_t clk,
                                       AddressWithMode addr,
                                       FF const& value,
                                       AvmMemoryTag read_tag,
                                       AvmMemoryTag write_tag,
-                                      IntermRegister reg);
+                                      IntermRegister reg,
+                                      AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
 
-    // TODO(ilyas: #6383): Temporary way to bulk read slices
-    template <typename MEM>
-    uint32_t read_slice_to_memory(uint8_t space_id,
-                                  uint32_t clk,
-                                  AddressWithMode addr,
-                                  AvmMemoryTag r_tag,
-                                  AvmMemoryTag w_tag,
-                                  FF internal_return_ptr,
-                                  size_t slice_len,
-                                  std::vector<MEM>& slice);
-    uint32_t write_slice_to_memory(uint8_t space_id,
-                                   uint32_t clk,
-                                   AddressWithMode addr,
-                                   AvmMemoryTag r_tag,
-                                   AvmMemoryTag w_tag,
-                                   FF internal_return_ptr,
-                                   std::vector<FF> const& slice);
+    // TODO: remove these once everything is constrained.
+    FF unconstrained_read_from_memory(AddressWithMode addr);
+    template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
+    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);
+    template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
 };
 
 } // namespace bb::avm_trace

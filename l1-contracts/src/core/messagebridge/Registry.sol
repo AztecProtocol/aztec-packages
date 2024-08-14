@@ -2,11 +2,11 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {Ownable} from "@oz/access/Ownable.sol";
+
 // Interfaces
 import {IRegistry} from "../interfaces/messagebridge/IRegistry.sol";
 import {IRollup} from "../interfaces/IRollup.sol";
-import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
 
 // Libraries
 import {DataStructures} from "../libraries/DataStructures.sol";
@@ -15,21 +15,19 @@ import {Errors} from "../libraries/Errors.sol";
 /**
  * @title Registry
  * @author Aztec Labs
- * @notice Keeps track of addresses of rollup, inbox and outbox as well as historical addresses.
- * Used as the source of truth for finding the "head" of the rollup chain. Very important information
- * for L1<->L2 communication.
+ * @notice Keeps track of addresses of current rollup and historical addresses.
  */
-contract Registry is IRegistry {
+contract Registry is IRegistry, Ownable {
   uint256 public override(IRegistry) numberOfVersions;
 
   DataStructures.RegistrySnapshot internal currentSnapshot;
   mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) internal snapshots;
   mapping(address rollup => uint256 version) internal rollupToVersion;
 
-  constructor() {
-    // Inserts a "dead" rollup and message boxes at version 0
+  constructor() Ownable(msg.sender) {
+    // Inserts a "dead" rollup at version 0
     // This is simply done to make first version 1, which fits better with the rest of the system
-    upgrade(address(0xdead), address(0xdead), address(0xdead));
+    upgrade(address(0xdead));
   }
 
   /**
@@ -49,22 +47,6 @@ contract Registry is IRegistry {
     (uint256 version, bool exists) = _getVersionFor(_rollup);
     if (!exists) revert Errors.Registry__RollupNotRegistered(_rollup);
     return version;
-  }
-
-  /**
-   * @notice Returns the inbox contract
-   * @return The inbox contract (of type IInbox)
-   */
-  function getInbox() external view override(IRegistry) returns (IInbox) {
-    return IInbox(currentSnapshot.inbox);
-  }
-
-  /**
-   * @notice Returns the outbox contract
-   * @return The outbox contract (of type IOutbox)
-   */
-  function getOutbox() external view override(IRegistry) returns (IOutbox) {
-    return IOutbox(currentSnapshot.outbox);
   }
 
   /**
@@ -97,23 +79,19 @@ contract Registry is IRegistry {
 
   /**
    * @notice Creates a new snapshot of the registry
+   *
+   * @dev Only callable by the owner
    * @dev Reverts if the rollup is already registered
-   * todo: this function must be permissioned with some kind of governance/voting/authority
+   *
    * @param _rollup - The address of the rollup contract
-   * @param _inbox - The address of the inbox contract
-   * @param _outbox - The address of the outbox contract
    * @return The version of the new snapshot
    */
-  function upgrade(address _rollup, address _inbox, address _outbox)
-    public
-    override(IRegistry)
-    returns (uint256)
-  {
+  function upgrade(address _rollup) public override(IRegistry) onlyOwner returns (uint256) {
     (, bool exists) = _getVersionFor(_rollup);
     if (exists) revert Errors.Registry__RollupAlreadyRegistered(_rollup);
 
     DataStructures.RegistrySnapshot memory newSnapshot =
-      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
+      DataStructures.RegistrySnapshot(_rollup, block.number);
     currentSnapshot = newSnapshot;
     uint256 version = numberOfVersions++;
     snapshots[version] = newSnapshot;

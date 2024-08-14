@@ -37,7 +37,6 @@ import {
   type RootRollupPublicInputs,
   StateDiffHints,
   type StateReference,
-  type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
@@ -61,7 +60,7 @@ export type TreeNames = BaseTreeNames | 'L1ToL2MessageTree' | 'Archive';
 // Builds the base rollup inputs, updating the contract, nullifier, and data trees in the process
 export async function buildBaseRollupInput(
   tx: ProcessedTx,
-  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>,
+  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
   kernelVk: VerificationKeyData,
@@ -84,13 +83,13 @@ export async function buildBaseRollupInput(
     i < noteHashSubtreeSiblingPathArray.length ? noteHashSubtreeSiblingPathArray[i] : Fr.ZERO,
   );
 
-  // Create data hint for reading fee payer initial balance in gas tokens
+  // Create data hint for reading fee payer initial balance in Fee Juice
   // If no fee payer is set, read hint should be empty
   // If there is already a public data write for this slot, also skip the read hint
   const hintsBuilder = new HintsBuilder(db);
   const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
   const existingBalanceWrite = tx.data.end.publicDataUpdateRequests.find(write => write.leafSlot.equals(leafSlot));
-  const feePayerGasTokenBalanceReadHint =
+  const feePayerFeeJuiceBalanceReadHint =
     leafSlot.isZero() || existingBalanceWrite
       ? PublicDataHint.empty()
       : await hintsBuilder.getPublicDataHint(leafSlot.toBigInt());
@@ -163,7 +162,7 @@ export async function buildBaseRollupInput(
     kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
     stateDiffHints,
-    feePayerGasTokenBalanceReadHint,
+    feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
     sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,

@@ -48,7 +48,7 @@
  * @note It would be ideal to codify more structure in these base class template and to have it imposed on the actual
  * flavors, but our inheritance model is complicated as it is, and we saw no reasonable way to fix this.
  *
- * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish betwen prover/verifier
+ * @note One asymmetry to note is in the use of the term "key". It is worthwhile to distinguish between prover/verifier
  * circuit data, and "keys" that consist of such data augmented with witness data (whether, raw, blinded, or polynomial
  * commitments). Currently the proving key contains witness data, while the verification key does not.
  * TODO(Cody): It would be nice to resolve this but it's not essential.
@@ -76,9 +76,13 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/srs/global_crs.hpp"
+
 #include <array>
-#include <barretenberg/srs/global_crs.hpp>
 #include <concepts>
+#include <cstddef>
+#include <numeric>
+#include <utility>
 #include <vector>
 
 namespace bb {
@@ -252,115 +256,112 @@ class VerificationKey_ : public PrecomputedCommitments {
     }
 };
 
-// Because of how Gemini is written, is importat to put the polynomials out in this order.
+// Because of how Gemini is written, it is important to put the polynomials out in this order.
 auto get_unshifted_then_shifted(const auto& all_entities)
 {
     return concatenate(all_entities.get_unshifted(), all_entities.get_shifted());
 };
 
 /**
- * @brief Recursive utility function to find max PARTIAL_RELATION_LENGTH tuples of Relations.
+ * @brief Utility function to find max PARTIAL_RELATION_LENGTH tuples of Relations.
  * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are as constants, not as variables..
- *
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_partial_relation_length()
+template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_relation_length()
 {
-    if constexpr (Index >= std::tuple_size<Tuple>::value) {
-        return 0; // Return 0 when reach end of the tuple
-    } else {
-        constexpr size_t current_length = std::tuple_element<Index, Tuple>::type::RELATION_LENGTH;
-        constexpr size_t next_length = compute_max_partial_relation_length<Tuple, Index + 1>();
-        return (current_length > next_length) ? current_length : next_length;
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        if constexpr (ZK) {
+            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_RELATION_LENGTH... });
+        } else {
+            return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
+        }
+    }(seq);
 }
 
 /**
- * @brief Recursive utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
+ * @brief Utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
  * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are regarded as variables.
- *
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_max_total_relation_length()
+template <typename Tuple, bool ZK = false> constexpr size_t compute_max_total_relation_length()
 {
-    if constexpr (Index >= std::tuple_size<Tuple>::value) {
-        return 0; // Return 0 when reach end of the tuple
-    } else {
-        constexpr size_t current_length = std::tuple_element<Index, Tuple>::type::TOTAL_RELATION_LENGTH;
-        constexpr size_t next_length = compute_max_total_relation_length<Tuple, Index + 1>();
-        return (current_length > next_length) ? current_length : next_length;
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        if constexpr (ZK) {
+            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_TOTAL_RELATION_LENGTH... });
+        } else {
+            return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
+        }
+    }(seq);
 }
 
 /**
- * @brief Recursive utility function to find the number of subrelations.
- *
+ * @brief Utility function to find the number of subrelations.
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr size_t compute_number_of_subrelations()
+template <typename Tuple> constexpr size_t compute_number_of_subrelations()
 {
-    if constexpr (Index >= std::tuple_size<Tuple>::value) {
-        return 0;
-    } else {
-        constexpr size_t subrelations_in_relation =
-            std::tuple_element_t<Index, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size();
-        return subrelations_in_relation + compute_number_of_subrelations<Tuple, Index + 1>();
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<std::size_t... I>(std::index_sequence<I...>) {
+        return (0 + ... + std::tuple_element_t<I, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size());
+    }(seq);
 }
+
 /**
- * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
+ * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
  * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
  * @tparam optimised Enable optimised version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false, size_t Index = 0>
-static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
+template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false>
+constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
-    if constexpr (Index >= std::tuple_size<Tuple>::value) {
-        return std::tuple<>{}; // Return empty when reach end of the tuple
-    } else {
-        using UnivariateTuple =
-            std::conditional_t<optimised,
-                               typename std::tuple_element_t<Index, Tuple>::
-                                   template OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>,
-                               typename std::tuple_element_t<Index, Tuple>::
-                                   template ProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>>;
-        return std::tuple_cat(
-            std::tuple<UnivariateTuple>{},
-            create_protogalaxy_tuple_of_tuples_of_univariates<Tuple, NUM_INSTANCES, optimised, Index + 1>());
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        if constexpr (optimised) {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::
+                    template OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>{}...);
+        } else {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
+                    NUM_INSTANCES>{}...);
+        }
+    }(seq);
 }
 
 /**
- * @brief Recursive utility function to construct a container for the subrelation accumulators of sumcheck proving.
+ * @brief Utility function to construct a container for the subrelation accumulators of sumcheck proving.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
  * tuple is determined by the corresponding subrelation length.
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
+template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {
-    if constexpr (Index >= std::tuple_size<Tuple>::value) {
-        return std::tuple<>{}; // Return empty when reach end of the tuple
-    } else {
-        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations;
-        return std::tuple_cat(std::tuple<UnivariateTuple>{},
-                              create_sumcheck_tuple_of_tuples_of_univariates<Tuple, Index + 1>());
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        if constexpr (ZK) {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::ZKSumcheckTupleOfUnivariatesOverSubrelations{}...);
+        } else {
+            return std::make_tuple(
+                typename std::tuple_element_t<I, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
+        }
+    }(seq);
 }
 
 /**
- * @brief Recursive utility function to construct tuple of arrays
+ * @brief Construct tuple of arrays
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tuple_of_arrays_of_values()
+template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 {
-    if constexpr (Index >= std::tuple_size<Tuple>::value) {
-        return std::tuple<>{}; // Return empty when reach end of the tuple
-    } else {
-        using Values = typename std::tuple_element_t<Index, Tuple>::SumcheckArrayOfValuesOverSubrelations;
-        return std::tuple_cat(std::tuple<Values>{}, create_tuple_of_arrays_of_values<Tuple, Index + 1>());
-    }
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    return []<size_t... I>(std::index_sequence<I...>) {
+        return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckArrayOfValuesOverSubrelations{}...);
+    }(seq);
 }
 
 } // namespace bb
@@ -368,6 +369,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_tu
 // Forward declare honk flavors
 namespace bb {
 class UltraFlavor;
+class UltraFlavorWithZK;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
@@ -401,28 +403,28 @@ template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T> 
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
-template <typename T> 
-concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                       UltraRecursiveFlavor_<MegaCircuitBuilder>, 
+template <typename T>
+concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                       UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-MegaRecursiveFlavor_<CircuitSimulatorBN254>, 
-TranslatorRecursiveFlavor_<UltraCircuitBuilder>, 
-TranslatorRecursiveFlavor_<MegaCircuitBuilder>, 
+MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
 TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
 ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -431,14 +433,15 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
+                                                           UltraFlavorWithZK,
                                                            MegaFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>, 
+                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename Container, typename Element>

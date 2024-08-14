@@ -1296,15 +1296,15 @@ export function mapPublicAccumulatedDataFromNoir(
   publicAccumulatedData: PublicAccumulatedDataNoir,
 ): PublicAccumulatedData {
   return new PublicAccumulatedData(
-    mapTupleFromNoir(publicAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapNoteHashFromNoir),
+    mapTupleFromNoir(publicAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapScopedNoteHashFromNoir),
     mapTupleFromNoir(publicAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapNullifierFromNoir),
-    mapTupleFromNoir(publicAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(publicAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
     mapTupleFromNoir(
       publicAccumulatedData.note_encrypted_logs_hashes,
       MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
       mapLogHashFromNoir,
     ),
-    mapTupleFromNoir(publicAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapLogHashFromNoir),
+    mapTupleFromNoir(publicAccumulatedData.encrypted_logs_hashes, MAX_ENCRYPTED_LOGS_PER_TX, mapScopedLogHashFromNoir),
     mapTupleFromNoir(
       publicAccumulatedData.unencrypted_logs_hashes,
       MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -1328,11 +1328,11 @@ export function mapPublicAccumulatedDataToNoir(
   publicAccumulatedData: PublicAccumulatedData,
 ): PublicAccumulatedDataNoir {
   return {
-    note_hashes: mapTuple(publicAccumulatedData.noteHashes, mapNoteHashToNoir),
+    note_hashes: mapTuple(publicAccumulatedData.noteHashes, mapScopedNoteHashToNoir),
     nullifiers: mapTuple(publicAccumulatedData.nullifiers, mapNullifierToNoir),
-    l2_to_l1_msgs: mapTuple(publicAccumulatedData.l2ToL1Msgs, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(publicAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
     note_encrypted_logs_hashes: mapTuple(publicAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
-    encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapLogHashToNoir),
+    encrypted_logs_hashes: mapTuple(publicAccumulatedData.encryptedLogsHashes, mapScopedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(publicAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
     public_data_update_requests: mapTuple(
       publicAccumulatedData.publicDataUpdateRequests,
@@ -1395,9 +1395,17 @@ export function mapCombinedAccumulatedDataFromNoir(
   return new CombinedAccumulatedData(
     mapTupleFromNoir(combinedAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
-    mapFieldFromNoir(combinedAccumulatedData.note_encrypted_logs_hash),
-    mapFieldFromNoir(combinedAccumulatedData.encrypted_logs_hash),
+    mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
+    mapTupleFromNoir(
+      combinedAccumulatedData.note_encrypted_logs_hashes,
+      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+      mapLogHashFromNoir,
+    ),
+    mapTupleFromNoir(
+      combinedAccumulatedData.encrypted_logs_hashes,
+      MAX_ENCRYPTED_LOGS_PER_TX,
+      mapScopedLogHashFromNoir,
+    ),
     mapTupleFromNoir(
       combinedAccumulatedData.unencrypted_logs_hashes,
       MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -1421,9 +1429,9 @@ export function mapCombinedAccumulatedDataToNoir(
   return {
     note_hashes: mapTuple(combinedAccumulatedData.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(combinedAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapFieldToNoir),
-    note_encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogsHash),
-    encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.encryptedLogsHash),
+    l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    note_encrypted_logs_hashes: mapTuple(combinedAccumulatedData.noteEncryptedLogsHashes, mapLogHashToNoir),
+    encrypted_logs_hashes: mapTuple(combinedAccumulatedData.encryptedLogsHashes, mapScopedLogHashToNoir),
     unencrypted_logs_hashes: mapTuple(combinedAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
     note_encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.noteEncryptedLogPreimagesLength),
     encrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.encryptedLogPreimagesLength),
@@ -1711,8 +1719,15 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
 
 export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsNoir {
   return {
-    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapNoteHashToNoir),
+    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapScopedNoteHashToNoir),
     sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
+    sorted_note_encrypted_logs_hashes: mapTuple(combineHints.sortedNoteEncryptedLogsHashes, mapLogHashToNoir),
+    sorted_note_encrypted_logs_hashes_indexes: mapTuple(
+      combineHints.sortedNoteEncryptedLogsHashesIndexes,
+      mapNumberToNoir,
+    ),
+    sorted_encrypted_logs_hashes: mapTuple(combineHints.sortedEncryptedLogsHashes, mapScopedLogHashToNoir),
+    sorted_encrypted_logs_hashes_indexes: mapTuple(combineHints.sortedEncryptedLogsHashesIndexes, mapNumberToNoir),
     sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapScopedLogHashToNoir),
     sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
     sorted_public_data_update_requests: mapTuple(
@@ -1792,6 +1807,7 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
     chain_id: mapFieldToNoir(globalVariables.chainId),
     version: mapFieldToNoir(globalVariables.version),
     block_number: mapFieldToNoir(globalVariables.blockNumber),
+    slot_number: mapFieldToNoir(globalVariables.slotNumber),
     timestamp: mapFieldToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
     fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
@@ -1821,6 +1837,7 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
     mapFieldFromNoir(globalVariables.chain_id),
     mapFieldFromNoir(globalVariables.version),
     mapFieldFromNoir(globalVariables.block_number),
+    mapFieldFromNoir(globalVariables.slot_number),
     mapFieldFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),
     mapAztecAddressFromNoir(globalVariables.fee_recipient),
@@ -2338,7 +2355,7 @@ export function mapBaseRollupInputsToNoir(inputs: BaseRollupInputs): BaseRollupI
 
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.archiveRootMembershipWitness),
     constants: mapConstantRollupDataToNoir(inputs.constants),
-    fee_payer_gas_token_balance_read_hint: mapPublicDataHintToNoir(inputs.feePayerGasTokenBalanceReadHint),
+    fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.feePayerFeeJuiceBalanceReadHint),
   };
 }
 

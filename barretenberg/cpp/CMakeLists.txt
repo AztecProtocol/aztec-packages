@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.47.1 # x-release-please-version
+    VERSION 0.48.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -95,7 +95,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-fbracket-depth=512)
+    add_compile_options(-fbracket-depth=1024)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
     endif()

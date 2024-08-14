@@ -957,26 +957,31 @@ TEST_F(AvmExecutionTests, poseidon2PermutationOpCode)
     std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALL DATA COPY
                                "00"                           // Indirect Flag
                                "00000000"                     // cd_offset
-                               "00000004"                     // copy_size
+                               "00000002"                     // copy_size
                                "00000001"                     // dst_offset 1
-                               + to_hex(OpCode::SET) +        // opcode SET for indirect src (input)
-                               "00"                           // Indirect flag
-                               "03"                           // U32
-                               "00000001"                     // value 1 (i.e. where the src will be read from)
-                               "00000024"                     // dst_offset 36
-                               + to_hex(OpCode::SET) +        // opcode SET for indirect dst (output)
-                               "00"                           // Indirect flag
-                               "03"                           // U32
-                               "00000009"                     // value 9 (i.e. where the ouput will be written to)
-                               "00000023"                     // dst_offset 35
-                               + to_hex(OpCode::POSEIDON2) +  // opcode POSEIDON2
-                               "03"                           // Indirect flag (first 2 operands indirect)
-                               "00000024"                     // input offset (indirect 36)
-                               "00000023"                     // output offset (indirect 35)
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "00000009"                     // ret offset 256
-                               "00000004";                    // ret size 8
+                               + to_hex(OpCode::CALLDATACOPY) +
+                               "00"
+                               "00000002"
+                               "00000002"
+                               "00000003" +
+                               to_hex(OpCode::SET) +         // opcode SET for indirect src (input)
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000001"                    // value 1 (i.e. where the src will be read from)
+                               "00000024"                    // dst_offset 36
+                               + to_hex(OpCode::SET) +       // opcode SET for indirect dst (output)
+                               "00"                          // Indirect flag
+                               "03"                          // U32
+                               "00000009"                    // value 9 (i.e. where the ouput will be written to)
+                               "00000023"                    // dst_offset 35
+                               + to_hex(OpCode::POSEIDON2) + // opcode POSEIDON2
+                               "03"                          // Indirect flag (first 2 operands indirect)
+                               "00000024"                    // input offset (indirect 36)
+                               "00000023"                    // output offset (indirect 35)
+                               + to_hex(OpCode::RETURN) +    // opcode RETURN
+                               "00"                          // Indirect flag
+                               "00000009"                    // ret offset 256
+                               "00000004";                   // ret size 8
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1643,8 +1648,8 @@ TEST_F(AvmExecutionTests, l2GasLeft)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l2gasleft == 1; });
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::SET).gas_l2_gas_fixed_table) -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::L2GASLEFT).gas_l2_gas_fixed_table);
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::SET).base_l2_gas_fixed_table) -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::L2GASLEFT).base_l2_gas_fixed_table);
 
     EXPECT_EQ(row->main_ia, expected_rem_gas);
     EXPECT_EQ(row->main_mem_addr_a, 257); // Resolved direct address: 257
@@ -1685,8 +1690,8 @@ TEST_F(AvmExecutionTests, daGasLeft)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_dagasleft == 1; });
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD).gas_da_gas_fixed_table) -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::DAGASLEFT).gas_da_gas_fixed_table);
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD).base_da_gas_fixed_table) -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::DAGASLEFT).base_da_gas_fixed_table);
 
     EXPECT_EQ(row->main_ia, expected_rem_gas);
     EXPECT_EQ(row->main_mem_addr_a, 39);

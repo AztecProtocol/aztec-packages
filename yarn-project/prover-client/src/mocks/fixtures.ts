@@ -12,6 +12,7 @@ import {
   GasFees,
   GlobalVariables,
   KernelCircuitPublicInputs,
+  LogHash,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -20,8 +21,9 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
+  ScopedLogHash,
 } from '@aztec/circuits.js';
-import { fr } from '@aztec/circuits.js/testing';
+import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -120,9 +122,16 @@ export const makeBloatedProcessedTx = (builderDb: MerkleTreeOperations, seed = 0
 
   processedTx.data.end.nullifiers[tx.data.forPublic!.end.nullifiers.length - 1] = Fr.zero();
 
-  processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
-  processedTx.data.end.noteEncryptedLogsHash = Fr.fromBuffer(processedTx.noteEncryptedLogs.hash());
-  processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
+  processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x300);
+  processedTx.noteEncryptedLogs.unrollLogs().forEach((log, i) => {
+    processedTx.data.end.noteEncryptedLogsHashes[i] = new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length));
+  });
+  processedTx.encryptedLogs.unrollLogs().forEach((log, i) => {
+    processedTx.data.end.encryptedLogsHashes[i] = new ScopedLogHash(
+      new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
+      log.maskedContractAddress,
+    );
+  });
 
   return processedTx;
 };
@@ -171,6 +180,7 @@ export const makeGlobals = (blockNumber: number) => {
     Fr.ZERO,
     Fr.ZERO,
     new Fr(blockNumber),
+    new Fr(blockNumber) /** slot number */,
     Fr.ZERO,
     EthAddress.ZERO,
     AztecAddress.ZERO,

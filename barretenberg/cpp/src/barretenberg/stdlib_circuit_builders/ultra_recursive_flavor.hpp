@@ -6,7 +6,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -57,7 +56,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -95,7 +95,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
   public:
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
