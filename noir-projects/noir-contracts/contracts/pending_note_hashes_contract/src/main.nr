@@ -334,7 +334,7 @@ contract PendingNoteHashes {
         let owner_npk_m_hash = owner_keys.npk_m.hash();
         let owner_ivpk_m = owner_keys.ivpk_m;
         let outgoing_viewer_ovpk_m = get_current_public_keys(&mut context, outgoing_viewer).ovpk_m;
-        
+
         let mut good_note = ValueNote::new(10, owner_npk_m_hash);
         // Insert good note with real log
         owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));

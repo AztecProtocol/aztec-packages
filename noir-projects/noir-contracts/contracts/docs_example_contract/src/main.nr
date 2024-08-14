@@ -207,7 +207,7 @@ contract DocsExample {
     #[aztec(private)]
     fn insert_note(amount: u8, randomness: Field) {
         let sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
-        
+
         let mut note = CardNote::new(amount, randomness, sender_npk_m_hash);
         storage.set.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), context.msg_sender()));
     }

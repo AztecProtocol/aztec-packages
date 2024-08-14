@@ -2,7 +2,7 @@ use dep::aztec::{
     context::PrivateContext, protocol_types::{address::AztecAddress},
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
     encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-    keys::getters::get_current_public_keys,
+    keys::getters::get_current_public_keys
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 

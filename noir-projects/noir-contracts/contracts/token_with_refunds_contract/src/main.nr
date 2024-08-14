@@ -331,7 +331,7 @@ contract TokenWithRefunds {
     #[aztec(private)]
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        
+
         let from_keys = get_current_public_keys(&mut context, from);
         let to_keys = get_current_public_keys(&mut context, to);
 
@@ -351,15 +351,21 @@ contract TokenWithRefunds {
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
 
-        storage.balances.add(from, change).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.add(from, change).emit(
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
+        );
 
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.add(to, amount).emit(
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
+        );
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        Transfer2 { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        Transfer2 { from, to, amount: amount.to_field() }.emit(
+            encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
+        );
     }
     // docs:end:transfer
 
@@ -439,7 +445,7 @@ contract TokenWithRefunds {
             assert(nonce == 0, "invalid nonce");
         }
         // docs:end:assert_current_call_valid_authwit
-        
+
         let from_keys = get_current_public_keys(&mut context, from);
         let to_keys = get_current_public_keys(&mut context, to);
 
@@ -545,7 +551,9 @@ contract TokenWithRefunds {
             U128::from_integer(funded_amount),
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
-        storage.balances.add(user, change).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user));
+        storage.balances.add(user, change).emit(
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
+        );
 
         // 4. We create the partial notes for the fee payer and the user.
         // --> Called "partial" because they don't have the amount set yet (that will be done in `complete_refund(...)`).

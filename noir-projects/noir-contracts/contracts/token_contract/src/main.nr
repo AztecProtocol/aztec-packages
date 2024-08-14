@@ -25,7 +25,7 @@ contract Token {
     },
         encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
     },
-        keys::getters::get_current_public_keys,
+        keys::getters::get_current_public_keys
     };
 
     // docs:start:import_authwit
@@ -335,7 +335,7 @@ contract Token {
     #[aztec(private)]
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        
+
         let from_keys = get_current_public_keys(&mut context, from);
         let to_keys = get_current_public_keys(&mut context, to);
 
@@ -355,15 +355,21 @@ contract Token {
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
 
-        storage.balances.add(from, change).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ivpk_m, from_keys.ovpk_m, from));
+        storage.balances.add(from, change).emit(
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ivpk_m, from_keys.ovpk_m, from)
+        );
 
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ivpk_m, to_keys.ivpk_m, to));
+        storage.balances.add(to, amount).emit(
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ivpk_m, to_keys.ivpk_m, to)
+        );
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ivpk_m, to_keys.ivpk_m, to));
+        Transfer { from, to, amount: amount.to_field() }.emit(
+            encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ivpk_m, to_keys.ivpk_m, to)
+        );
     }
     // docs:end:transfer
 
@@ -443,7 +449,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         // docs:end:assert_current_call_valid_authwit
-        
+
         let from_keys = get_current_public_keys(&mut context, from);
         let to_keys = get_current_public_keys(&mut context, to);
 

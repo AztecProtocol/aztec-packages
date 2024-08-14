@@ -11,10 +11,7 @@ contract SchnorrAccount {
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_authwit_message_hash}
     };
-    use dep::aztec::{
-        hash::compute_siloed_nullifier,
-        keys::getters::get_current_public_keys
-    };
+    use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_current_public_keys};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
 
     use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};

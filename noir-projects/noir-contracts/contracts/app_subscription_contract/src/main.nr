@@ -10,8 +10,7 @@ contract AppSubscription {
         SharedImmutable
     },
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_current_public_keys,
-        protocol_types::constants::MAX_FIELD_VALUE
+        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE
     };
     use authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
     use token::Token;

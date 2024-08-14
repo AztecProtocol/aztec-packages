@@ -4,7 +4,7 @@ use dep::aztec::{
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{
     note_getter::view_notes, note_getter_options::SortOrder,
-    note_emission::{NoteEmission, OuterNoteEmission},
+    note_emission::{NoteEmission, OuterNoteEmission}
 },
     keys::getters::get_current_public_keys
 };

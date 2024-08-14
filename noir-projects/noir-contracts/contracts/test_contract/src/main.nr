@@ -65,7 +65,7 @@ contract Test {
     #[aztec(private)]
     fn get_master_incoming_viewing_public_key(address: AztecAddress) -> [Field; 2] {
         let ivpk_m = get_current_public_keys(&mut context, address).ivpk_m;
-        
+
         [ivpk_m.x, ivpk_m.y]
     }
 
