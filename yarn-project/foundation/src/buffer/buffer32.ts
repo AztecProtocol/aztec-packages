@@ -1,7 +1,6 @@
 import { randomBytes } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
-
-import { type Fr } from '../fields/fields.js';
 
 /**
  * A class representing a 32 byte Buffer.

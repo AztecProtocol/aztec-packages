@@ -1,4 +1,4 @@
-import { Buffer32 } from '../../../foundation/src/buffer/index.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 
 /**
  * A class representing hash of Aztec transaction.
