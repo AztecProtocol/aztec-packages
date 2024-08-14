@@ -367,7 +367,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       // @note  This will currently fail if there are insufficient funds in the bridge
       //        which WILL happen for the old version after an upgrade where the bridge follow.
       //        Consider allowing a failure. See #7938.
-      FEE_JUICE_PORTAL.payTheMan(header.globalVariables.coinbase, header.totalFees);
+      FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
     }
 
     emit L2BlockProcessed(header.globalVariables.blockNumber);

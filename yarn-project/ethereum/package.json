@@ -24,7 +24,6 @@
     "../package.common.json"
   ],
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0",

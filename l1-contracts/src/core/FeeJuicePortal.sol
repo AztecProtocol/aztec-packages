@@ -92,7 +92,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
   }
 
   /**
-   * @notice  Let the rollup pay the MAN (sequencer) for his troubles
+   * @notice  Let the rollup distribute fees to an account
    *
    *          Since the assets cannot be exited the usual way, but only paid as fees to sequencers
    *          we include this function to allow the rollup to do just that, bypassing the usual
@@ -101,7 +101,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
    * @param _to - The address to receive the payment
    * @param _amount - The amount to pay them
    */
-  function payTheMan(address _to, uint256 _amount) external override(IFeeJuicePortal) {
+  function distributeFees(address _to, uint256 _amount) external override(IFeeJuicePortal) {
     if (msg.sender != address(registry.getRollup())) {
       revert Errors.FeeJuicePortal__Unauthorized();
     }

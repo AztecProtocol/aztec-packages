@@ -1,4 +1,3 @@
-import { FEE_JUICE_INITIAL_MINT } from '@aztec/circuits.js/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -257,6 +256,10 @@ export const deployL1Contracts = async (
     abi: contractsToDeploy.feeJuice.contractAbi,
     client: walletClient,
   });
+
+  // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
+  //        because there is circular dependency hell. This is a temporary solution. #3342
+  const FEE_JUICE_INITIAL_MINT = 20000000000;
   const receipt = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
   await publicClient.waitForTransactionReceipt({ hash: receipt });
   logger.info(`Funded fee juice portal contract with Fee Juice`);
