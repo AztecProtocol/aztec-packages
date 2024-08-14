@@ -29,7 +29,7 @@ contract Test {
         context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
-        lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
+        lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
@@ -117,7 +117,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         notes.get(0).value
     }
@@ -133,7 +133,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         [notes.get(0).value, notes.get(1).value]
     }
@@ -175,11 +175,12 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, note_hashes): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         let note = notes.get(0);
+        let note_hash = note_hashes.get(0);
 
-        destroy_note(&mut context, note);
+        destroy_note_unsafe(&mut context, note, note_hash);
     }
 
     #[aztec(private)]
@@ -501,25 +502,6 @@ contract Test {
         ret.to_field()
     }
 
-    // This function is used for testing the registry contract and fresh public key getters. If nothing exists in the registry, but we have added public
-    // keys to the pxe, this function will return nothing, but the public key getters will return the correct value
-    #[aztec(private)]
-    fn test_shared_mutable_private_getter_for_registry_contract(
-        storage_slot_of_shared_mutable: Field,
-        address_to_get_in_registry: AztecAddress
-    ) -> Field {
-        // We have to derive this slot to get the location of the shared mutable inside the Map
-        let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
-
-        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(
-            &mut context,
-            AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
-            derived_slot
-        );
-        registry_private_getter.get_value_in_private(context.get_header())
-    }
-
     #[aztec(private)]
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(context.get_header().get_npk_m(&mut context, address), public_nullifying_key);
@@ -558,7 +540,7 @@ contract Test {
         many_notes: [DummyNote; 3],
     }
 
-    // Serializing using "canonical" form. 
+    // Serializing using "canonical" form.
     // 1. Everything that fits in a field, *becomes* a Field
     // 2. Strings become arrays of bytes (no strings here)
     // 4. Arrays become arrays of Fields following rules 2 and 3 (no arrays here)
