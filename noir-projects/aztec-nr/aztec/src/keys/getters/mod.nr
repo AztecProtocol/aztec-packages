@@ -86,8 +86,9 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
 // once since the constraints for reading them all are actually fewer than if we read them one at a time - any read keys
 // that are not required by the caller can simply be discarded.
 // WARNING: if called with a historical header created from a fixed block this function will explictly ignores key
-// rotation! This means that callers of this may force a user to use old keys, potentially leaking privacy. Only call
-// this function with a header from a fixed block if you understand the implications of breaking key rotation very well.
+// rotation! This means that callers of this may force a user to use old keys, potentially leaking privacy (e.g. if the
+// old keys were leaked). Only call this function with a header from a fixed block if you understand the implications of
+// breaking key rotation very well.
 pub fn get_historical_public_keys(historical_header: Header, account: AztecAddress) -> PublicKeys {
     // TODO: improve this so that we always hint the correct set of keys (either registry or canonical) and hash them
     // once instead of having two different hints and twice as many constraints due to the double hashing.
