@@ -255,11 +255,11 @@ async function setupFromFresh(
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
-  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
+  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
-  const validatorAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 2 });
+  const validatorAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
   const validatorPrivKeyRaw = validatorAccount.getHdKey().privateKey;
   const validatorPrivKey = validatorPrivKeyRaw === null ? null : Buffer.from(validatorPrivKeyRaw);
 

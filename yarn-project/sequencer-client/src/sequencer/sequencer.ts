@@ -417,7 +417,7 @@ export class Sequencer {
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
-    await this.validatorClient.broadcastBlockProposal(proposal);
+    this.validatorClient.broadcastBlockProposal(proposal);
 
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(
