@@ -227,7 +227,7 @@ WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
-                               bool honk_recursion,
+                               bool honk_recursion, // WORKTODO: this should go away
                                size_t opcode_index)
 {
     std::visit(
@@ -415,6 +415,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
+                // WORKTODO: check arg.proof_type instead
                 if (honk_recursion) { // if we're using the honk recursive verifier
                     auto c = RecursionConstraint{
                         .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
@@ -425,7 +426,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     };
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
-                } else {
+                } else if { // plonk recursion
                     auto input_key = get_witness_from_function_input(arg.key_hash);
 
                     auto c = RecursionConstraint{
@@ -438,6 +439,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     };
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
+                } else { // WORKTODO: client ivc recursion
                 }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
