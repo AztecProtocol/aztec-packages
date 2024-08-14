@@ -1,6 +1,6 @@
 use dep::types::{
-    traits::{Empty, is_empty}, abis::{validation_requests::ScopedKeyValidationRequestAndGenerator},
-    scalar::Scalar, hash::poseidon2_hash_with_separator, utils::arrays::filter_array_to_bounded_vec
+    traits::Empty, abis::{validation_requests::ScopedKeyValidationRequestAndGenerator}, scalar::Scalar,
+    hash::poseidon2_hash_with_separator
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 

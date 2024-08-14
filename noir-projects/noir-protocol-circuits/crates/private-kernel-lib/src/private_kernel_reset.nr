@@ -133,9 +133,9 @@ mod tests {
         read_request::ScopedReadRequest
     },
         address::AztecAddress, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
-        scalar::Scalar, tests::{fixture_builder::FixtureBuilder, utils::swap_items},
-        utils::{arrays::{array_eq, array_length, find_index}},
-        traits::{Empty, is_empty, is_empty_array}, point::Point
+        scalar::Scalar, tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
+        utils::{arrays::{array_length, find_index_hint}}, traits::{Empty, is_empty, is_empty_array},
+        point::Point
     };
 
     struct PrivateKernelResetInputsBuilder<let NUM_INDEX_HINTS: u32> {
@@ -193,7 +193,7 @@ mod tests {
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
             let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).note_hash;
             self.previous_kernel.nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash.value;
-            let num_hints = find_index(
+            let num_hints = find_index_hint(
                 self.transient_data_index_hints,
                 |hint: TransientDataIndexHint| hint.nullifier_index == MAX_NULLIFIERS_PER_TX
             );
@@ -399,7 +399,7 @@ mod tests {
         assert(is_empty_array(public_inputs.end.note_hashes));
 
         // The nullifier at index 1 is chopped.
-        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]));
+        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]);
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
@@ -416,13 +416,13 @@ mod tests {
         let public_inputs = builder.execute();
 
         // The 0th hash is chopped.
-        assert(array_eq(public_inputs.end.note_hashes, [note_hashes[1]]));
+        assert_array_eq(public_inputs.end.note_hashes, [note_hashes[1]]);
 
         // The nullifier at index 1 is chopped.
-        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]));
+        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]);
 
         // The 0th note log is chopped.
-        assert(array_eq(public_inputs.end.note_encrypted_logs_hashes, [note_logs[1]]));
+        assert_array_eq(public_inputs.end.note_encrypted_logs_hashes, [note_logs[1]]);
     }
 
     #[test]
@@ -440,7 +440,7 @@ mod tests {
         assert(is_empty_array(public_inputs.end.note_hashes));
 
         // Only the first nullifier is left after squashing.
-        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0]]));
+        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0]]);
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
@@ -475,7 +475,7 @@ mod tests {
         assert(is_empty_array(public_inputs.end.note_hashes));
 
         // Only the first nullifier is left after squashing.
-        assert(array_eq(public_inputs.end.nullifiers, [nullifiers[0]]));
+        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0]]);
         assert(is_empty_array(public_inputs.end.note_encrypted_logs_hashes));
     }
 
@@ -542,23 +542,21 @@ mod tests {
 
         // The note hash at index 2 is chopped.
         let output_note_hashes = builder.compute_output_note_hashes([note_hashes[0], note_hashes[1], note_hashes[3]]);
-        assert(array_eq(public_inputs.end.note_hashes, output_note_hashes));
+        assert_array_eq(public_inputs.end.note_hashes, output_note_hashes);
 
         // The nullifier at index 1 is chopped.
         let output_nullifiers = builder.compute_output_nullifiers([nullifiers[0], nullifiers[2], nullifiers[3]]);
-        assert(array_eq(public_inputs.end.nullifiers, output_nullifiers));
+        assert_array_eq(public_inputs.end.nullifiers, output_nullifiers);
 
         // The note log at index 2 is chopped.
         let output_note_logs = builder.compute_output_note_logs([note_logs[0], note_logs[1], note_logs[3]]);
-        assert(
-            array_eq(
-                public_inputs.end.note_encrypted_logs_hashes,
-                output_note_logs
-            )
+        assert_array_eq(
+            public_inputs.end.note_encrypted_logs_hashes,
+            output_note_logs
         );
 
         let output_logs = builder.compute_output_encrypted_logs([encrypted_logs[0], encrypted_logs[1], encrypted_logs[2]]);
-        assert(array_eq(public_inputs.end.encrypted_logs_hashes, output_logs));
+        assert_array_eq(public_inputs.end.encrypted_logs_hashes, output_logs);
     }
 
     #[test(should_fail_with="note hashes have been siloed in a previous reset")]
