@@ -29,7 +29,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      */
     void set(size_t index, const T& value)
     {
-        ASSERT(index >= start_ && index < end_);
+        ASSERT(static_cast<std::ptrdiff_t>(index) >= start_ && index < end_);
         data()[index] = value;
     }
 
