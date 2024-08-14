@@ -95,7 +95,7 @@ namespace bb {
 template <typename BuilderType> class AvmRecursiveFlavor_ {
 
   public:
-    // much of the types end up being the same but derived from the circuit builer types
+    // much of the types end up being the same but derived from the circuit builder types
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
@@ -105,7 +105,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     using BF = typename Curve::BaseField;
 
     using NativeFlavor = AvmFlavor;
-    using NativeVerificationKey = typename NativeFlavor::VerificationKey;
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
@@ -161,7 +161,6 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             // this->num_public_inputs = native_key->num_public_inputs;
             // this->pub_inputs_offset = native_key->pub_inputs_offset;
-
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
