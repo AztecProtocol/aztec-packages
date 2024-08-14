@@ -62,6 +62,18 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     // Getter for consistency with size();
     size_t virtual_size() const { return virtual_size_; }
 
+    T& operator[](size_t index)
+    {
+        ASSERT(static_cast<std::ptrdiff_t>(index) >= start_ && index < end_);
+        return data()[index];
+    }
+    // get() is more useful, but for completeness with the non-const operator[]
+    const T& operator[](size_t index) const
+    {
+        ASSERT(static_cast<std::ptrdiff_t>(index) >= start_ && index < end_);
+        return data()[index];
+    }
+
     // MEMBERS:
     /**
      * @brief The starting index of the memory-backed range.

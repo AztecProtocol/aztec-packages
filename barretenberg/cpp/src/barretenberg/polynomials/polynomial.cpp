@@ -98,12 +98,7 @@ Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
 // fully copying "expensive" constructor
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
-    allocate_backing_memory(std::max(target_size, other.size()), other.virtual_size(), other.coefficients_.start_);
-
-    memcpy(static_cast<void*>(coefficients_.data()),
-           static_cast<const void*>(other.coefficients_.data()),
-           sizeof(Fr) * other.size());
-    zero_memory_beyond(other.size());
+    coefficients_ = _clone(other.coefficients_, target_size);
 }
 
 // interpolation constructor
@@ -362,21 +357,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     // We only expect to shift by MAXIMUM_COEFFICIENT_SHIFT
     ASSERT(result.coefficients_.start_ >= -static_cast<std::ptrdiff_t>(MAXIMUM_COEFFICIENT_SHIFT));
     return result;
-}
-
-/**
- * @brief sets a block of memory to all zeroes
- * Used, for example, when one Polynomioal is instantiated from another one with size_>= other.size_.
- */
-template <typename Fr> void Polynomial<Fr>::zero_memory_beyond(const size_t start_position)
-{
-    size_t end = size();
-    ASSERT(end >= start_position);
-
-    size_t delta = end - start_position;
-    if (delta > 0) {
-        memset(static_cast<void*>(&data()[start_position]), 0, sizeof(Fr) * delta);
-    }
 }
 
 template class Polynomial<bb::fr>;

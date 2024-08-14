@@ -201,16 +201,8 @@ template <typename Fr> class Polynomial {
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
-    Fr& operator[](size_t i)
-    {
-        ASSERT(i < size());
-        return coefficients_.data()[i];
-    }
-    const Fr& operator[](size_t i) const
-    {
-        ASSERT(i < size());
-        return coefficients_.data()[i];
-    }
+    Fr& operator[](size_t i) { return coefficients_[i]; }
+    const Fr& operator[](size_t i) const { return coefficients_[i]; }
 
     static Polynomial random(size_t size) { return random(size, size); }
 
@@ -229,7 +221,6 @@ template <typename Fr> class Polynomial {
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size = 0) { return (size() >= domain_size); }
 
-    void zero_memory_beyond(size_t start_position);
     // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
     // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
     const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
