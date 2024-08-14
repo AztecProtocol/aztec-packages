@@ -150,8 +150,7 @@ pub fn get_pack_cards(
     owner: AztecAddress,
     context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
-    let header = context.get_header();
-    let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
+    let owner_npk_m_hash = get_current_public_keys(context, owner).npk_m.hash();
 
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nsk_app(owner_npk_m_hash);

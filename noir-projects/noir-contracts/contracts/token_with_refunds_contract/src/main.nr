@@ -20,7 +20,7 @@ contract TokenWithRefunds {
     },
         encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
     },
-        keys::getters::get_current_public_keys,
+        keys::getters::get_current_public_keys
     };
 
     // docs:start:import_authwit

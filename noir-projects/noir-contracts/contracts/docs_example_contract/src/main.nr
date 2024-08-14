@@ -169,8 +169,7 @@ contract DocsExample {
     // docs:start:initialize-private-mutable
     #[aztec(private)]
     fn initialize_private_immutable(randomness: Field, points: u8) {
-        let header = context.get_header();
-        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
 
         let mut new_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
         storage.private_immutable.initialize(&mut new_card).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), context.msg_sender()));
@@ -180,8 +179,7 @@ contract DocsExample {
     #[aztec(private)]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
-        let header = context.get_header();
-        let msg_sender_npk_m_hash = header.get_npk_m_hash(&mut context, context.msg_sender());
+        let msg_sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
 
         let mut legendary_card = CardNote::new(points, randomness, msg_sender_npk_m_hash);
         // create and broadcast note
