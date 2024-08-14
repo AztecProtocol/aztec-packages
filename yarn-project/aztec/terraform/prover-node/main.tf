@@ -300,7 +300,7 @@ resource "aws_ecs_service" "aztec-prover-node" {
 # Configure ALB to route /aztec-prover-node to server.
 resource "aws_alb_target_group" "aztec-prover-node-http" {
   count                = local.node_count
-  name                 = "${var.DEPLOY_TAG}-node-${count.index + 1}-http-target"
+  name                 = "${var.DEPLOY_TAG}-prover-node-${count.index + 1}-http-target"
   port                 = 80
   protocol             = "HTTP"
   target_type          = "ip"
