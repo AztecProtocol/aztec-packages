@@ -3,7 +3,7 @@ use dep::aztec::oracle::logs::emit_unencrypted_log_private_internal;
 use dep::aztec::hash::compute_unencrypted_log_hash;
 use dep::aztec::context::PrivateContext;
 
-fn emit_randomness_as_unencrypted_log(context: &mut PrivateContext, randomness: Field) {
+pub fn emit_randomness_as_unencrypted_log(context: &mut PrivateContext, randomness: Field) {
     let counter = context.next_counter();
     let log_slice = randomness.to_be_bytes_arr();
     let log_hash = compute_unencrypted_log_hash(context.this_address(), randomness);
