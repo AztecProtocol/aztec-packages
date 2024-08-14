@@ -56,7 +56,7 @@ template <typename FF_> class MegaArith {
             this->lookup = FIXED_SIZE;
             this->busread = FIXED_SIZE;
             this->poseidon_external = FIXED_SIZE;
-            this->poseidon_internal = FIXED_SIZE;
+            this->poseidon_internal = 1 << 15;
         }
     };
 
@@ -74,6 +74,23 @@ template <typename FF_> class MegaArith {
             this->busread = 1 << 7;
             this->poseidon_external = 1 << 11;
             this->poseidon_internal = 1 << 14;
+        }
+    };
+
+    // A minimal structuring specifically tailored to the medium complexity transaction for the AztecIvc benchmark
+    struct AztecIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        AztecIvcBenchStructuredBlockSizes()
+        {
+            this->ecc_op = 1 << 10;
+            this->pub_inputs = 1 << 7;
+            this->arithmetic = 187000;
+            this->delta_range = 90000;
+            this->elliptic = 9000;
+            this->aux = 137000;
+            this->lookup = 72000;
+            this->busread = 1 << 7;
+            this->poseidon_external = 3000;
+            this->poseidon_internal = 17000;
         }
     };
 
@@ -177,6 +194,9 @@ template <typename FF_> class MegaArith {
                 break;
             case TraceStructure::CLIENT_IVC_BENCH:
                 fixed_block_sizes = ClientIvcBenchStructuredBlockSizes();
+                break;
+            case TraceStructure::AZTEC_IVC_BENCH:
+                fixed_block_sizes = AztecIvcBenchStructuredBlockSizes();
                 break;
             case TraceStructure::E2E_FULL_TEST:
                 fixed_block_sizes = E2eStructuredBlockSizes();

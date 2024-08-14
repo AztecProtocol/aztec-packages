@@ -141,8 +141,27 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr },
+  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr; assumeProvenUntil?: number },
 ): Promise<DeployL1Contracts> => {
+  // We are assuming that you are running this on a local anvil node which have 1s block times
+  // To align better with actual deployment, we update the block interval to 12s
+  // The code is same as `setBlockInterval` in `cheat_codes.ts`
+  const rpcCall = async (rpcUrl: string, method: string, params: any[]) => {
+    const paramsString = JSON.stringify(params);
+    const content = {
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    return await (await fetch(rpcUrl, content)).json();
+  };
+  const interval = 12;
+  const res = await rpcCall(rpcUrl, 'anvil_setBlockTimestampInterval', [interval]);
+  if (res.error) {
+    throw new Error(`Error setting block interval: ${res.error.message}`);
+  }
+  logger.info(`Set block interval to ${interval}`);
+
   logger.debug('Deploying contracts...');
 
   const walletClient = createWalletClient({
@@ -194,6 +213,17 @@ export const deployL1Contracts = async (
   );
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 
+  // Set initial blocks as proven if requested
+  if (args.assumeProvenUntil && args.assumeProvenUntil > 0) {
+    const rollup = getContract({
+      address: getAddress(rollupAddress.toString()),
+      abi: contractsToDeploy.rollup.contractAbi,
+      client: walletClient,
+    });
+    await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(args.assumeProvenUntil)], { account });
+    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenUntil}`);
+  }
+
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
   let inboxAddress!: EthAddress;
   {
@@ -223,10 +253,7 @@ export const deployL1Contracts = async (
     abi: contractsToDeploy.registry.contractAbi,
     client: walletClient,
   });
-  await registryContract.write.upgrade(
-    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
-    { account },
-  );
+  await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
 
   // this contract remains uninitialized because at this point we don't know the address of the Fee Juice on L2
   const feeJuicePortalAddress = await deployL1Contract(

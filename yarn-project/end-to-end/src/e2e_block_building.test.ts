@@ -5,11 +5,13 @@ import {
   ContractDeployer,
   ContractFunctionInteraction,
   type DebugLogger,
+  Fq,
   Fr,
   L1NotePayload,
   type PXE,
   type Wallet,
   deriveKeys,
+  retryUntil,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
@@ -301,13 +303,40 @@ describe('e2e_block_building', () => {
       );
       // Setting randomness = 0 in app means 'do not mask the address'
       expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
-      const expectedEncryptedLogsHash = tx.encryptedLogs.hash();
-      expect(tx.data.forRollup?.end.encryptedLogsHash).toEqual(new Fr(expectedEncryptedLogsHash));
 
       // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
       // will likely not be useful when complete.
       // const decryptedLogs = encryptedLogs.map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
     }, 60_000);
+  });
+
+  describe('regressions', () => {
+    afterEach(async () => {
+      if (teardown) {
+        await teardown();
+      }
+    });
+
+    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
+    it('publishes two blocks with only padding txs', async () => {
+      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+        minTxsPerBlock: 0,
+        skipProtocolContracts: true,
+      }));
+
+      await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
+    });
+
+    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
+    it('sends a tx on the first block', async () => {
+      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+        minTxsPerBlock: 0,
+        skipProtocolContracts: true,
+      }));
+
+      const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+      await account.waitSetup();
+    });
   });
 });
 

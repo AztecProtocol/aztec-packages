@@ -30,8 +30,8 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import {
@@ -187,6 +187,10 @@ export class MerkleTrees implements MerkleTreeDb {
     // to open separate stores for merkle trees and other components.
     const forked = await this.store.fork();
     return MerkleTrees.new(forked, this.log);
+  }
+
+  public async delete() {
+    await this.store.delete();
   }
 
   public getInitialHeader(): Header {

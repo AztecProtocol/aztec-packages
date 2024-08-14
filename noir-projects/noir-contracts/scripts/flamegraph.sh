@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -eu
 
+# Function to clean up and exit
+cleanup_and_exit() {
+    echo "Cleaning up..."
+    rm -f "$SCRIPT_DIR/../target/$FUNCTION_ARTIFACT"
+    exit 0
+}
+
+# Trap SIGINT (Ctrl+C) and call cleanup_and_exit
+trap cleanup_and_exit SIGINT
+
 # If first  arg is -h or --help, print usage
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
     echo "Usage: $0 <contract> <function>"
@@ -41,6 +51,7 @@ function sed_wrapper() {
 
 # convert contract name to following format: token_bridge_contract-TokenBridge.json
 ARTIFACT=$(echo "$CONTRACT" | sed_wrapper -r 's/^([A-Z])/\L\1/; s/([a-z0-9])([A-Z])/\1_\L\2/g')
+ARTIFACT=$(echo "$ARTIFACT" | tr '[:upper:]' '[:lower:]')
 ARTIFACT_NAME="${ARTIFACT}_contract-${CONTRACT}"
 
 # Extract artifact for the specific function
@@ -57,3 +68,6 @@ $PROFILER gates-flamegraph --artifact-path "$SCRIPT_DIR/../target/$FUNCTION_ARTI
 # serve the file over http
 echo "Serving flamegraph at http://0.0.0.0:8000/main_gates.svg"
 python3 -m http.server --directory "$SCRIPT_DIR/../dest" 8000
+
+# Clean up before exiting
+cleanup_and_exit

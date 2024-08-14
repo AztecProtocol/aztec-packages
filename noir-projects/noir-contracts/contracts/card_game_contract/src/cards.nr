@@ -120,43 +120,10 @@ impl Deck<&mut PrivateContext> {
         inserted_cards
     }
 
-    pub fn get_cards<N>(&mut self, cards: [Card; N]) -> [CardNote; N] {
-        let options = NoteGetterOptions::with_filter(filter_cards, cards);
-        let notes = self.set.get_notes(options);
-
-        // This array will hold the notes that correspond to each of the requested cards. It begins empty (with all the
-        // options being none) and we gradually fill it up as we find the matching notes.
-        let mut found_cards = [Option::none(); N];
-
-        for i in 0..options.limit {
-            if i < notes.len() {
-                let card_note = CardNote::from_note(notes.get_unchecked(i));
-
-                // For each note that we read, we search for a matching card that we have not already marked as found.
-                for j in 0..cards.len() {
-                    if found_cards[j].is_none()
-                        & (cards[j].strength == card_note.card.strength)
-                        & (cards[j].points == card_note.card.points) {
-                        found_cards[j] = Option::some(card_note);
-                    }
-                }
-            }
-        }
-
-        // And then we assert that we did indeed find all cards, since found_cards and cards have the same length.
-        found_cards.map(
-            |card_note: Option<CardNote>| {
-            assert(card_note.is_some(), "Card not found");
-            card_note.unwrap_unchecked()
-        }
-        )
-    }
-
     pub fn remove_cards<N>(&mut self, cards: [Card; N]) {
-        let card_notes = self.get_cards(cards);
-        for card_note in card_notes {
-            self.set.remove(card_note.note);
-        }
+        let options = NoteGetterOptions::with_filter(filter_cards, cards);
+        let notes = self.set.pop_notes(options);
+        assert(notes.len() == N, "Not all cards were removed");
     }
 }
 
