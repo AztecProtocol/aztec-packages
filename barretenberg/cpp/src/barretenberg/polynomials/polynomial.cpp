@@ -259,104 +259,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     return result;
 }
 
-/**
- * FFTs
- **/
-
-template <typename Fr>
-void Polynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::fft(data(), domain);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::partial_fft(data(), domain, constant, is_coset);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::coset_fft(data(), domain);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
-                               const EvaluationDomain<Fr>& large_domain,
-                               const size_t domain_extension)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    size_t extended_size = domain.size * domain_extension;
-
-    ASSERT(in_place_operation_viable(extended_size));
-    zero_memory_beyond(extended_size);
-
-    polynomial_arithmetic::coset_fft(data(), domain, large_domain, domain_extension);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::coset_fft_with_constant(data(), domain, constant);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::coset_fft_with_generator_shift(data(), domain, constant);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::ifft(data(), domain);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::ifft_with_constant(data(), domain, constant);
-}
-
-template <typename Fr>
-void Polynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    ASSERT(in_place_operation_viable(domain.size));
-    zero_memory_beyond(domain.size);
-
-    polynomial_arithmetic::coset_ifft(data(), domain);
-}
-
 template <typename Fr>
 Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
     requires polynomial_arithmetic::SupportsFFT<Fr>
@@ -369,16 +271,6 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
-}
-
-template <typename Fr>
-Fr Polynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_domain,
-                                     const Fr& z,
-                                     const EvaluationDomain<Fr>& small_domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-
-{
-    return polynomial_arithmetic::evaluate_from_fft(data(), large_domain, z, small_domain);
 }
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<const Fr> other)

@@ -8,7 +8,6 @@
 
 namespace bb {
 
-// TODO temporary fork WORKTODO(sparse)
 template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit,

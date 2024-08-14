@@ -278,7 +278,6 @@ class UltraFlavor {
           // shifted polys
             ZoneScopedN("creating empty prover polys");
             for (auto& poly : get_unshifted()) {
-                // WORKTODO(sparse): proper lower bound on size
                 poly = Polynomial{ circuit_size };
             }
             set_shifted();
