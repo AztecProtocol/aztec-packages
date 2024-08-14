@@ -16,6 +16,7 @@ contract NewKeyRegistry {
             Storage {
                 // Ideally we'd do KEY_REGISTRY_STORAGE_SLOT instead of hardcoding the 1 here, but that is currently
                 // causing compilation errors.
+                // TODO(#7829): fix this
                 current_keys: Map::new(
                     context,
                     1,
