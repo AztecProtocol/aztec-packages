@@ -1,8 +1,11 @@
 use acvm::{acir::brillig::MemoryAddress, AcirField};
 
-use super::{debug_show::DebugToString, instructions::BrilligBinaryOp, BrilligContext};
+use super::{
+    debug_show::DebugToString, instructions::BrilligBinaryOp, registers::RegisterAllocator,
+    BrilligContext,
+};
 
-impl<F: AcirField + DebugToString> BrilligContext<F> {
+impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
     /// Utility method to perform a binary instruction with a constant value in place
     pub(crate) fn codegen_usize_op_in_place(
         &mut self,

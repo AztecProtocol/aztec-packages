@@ -5,10 +5,11 @@ use crate::brillig::brillig_ir::BrilligBinaryOp;
 use super::{
     brillig_variable::{BrilligArray, BrilligVariable, BrilligVector, SingleAddrVariable},
     debug_show::DebugToString,
+    registers::RegisterAllocator,
     BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 
-impl<F: AcirField + DebugToString> BrilligContext<F> {
+impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
     /// Allocates an array of size `size` and stores the pointer to the array
     /// in `pointer_register`
     pub(crate) fn codegen_allocate_fixed_length_array(
@@ -156,9 +157,9 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         }
     }
 
-    /// Copies the values of an array pointed by source with length stored in `num_elements_register`
-    /// Into the array pointed by destination
-    pub(crate) fn codegen_copy_array(
+    /// Copies the values of memory pointed by source with length stored in `num_elements_register`
+    /// After the address pointed by destination
+    pub(crate) fn codegen_mem_copy(
         &mut self,
         source_pointer: MemoryAddress,
         destination_pointer: MemoryAddress,
@@ -166,14 +167,22 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
     ) {
         assert!(num_elements_variable.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
 
-        let value_register = self.allocate_register();
+        if self.can_call_procedures {
+            self.call_mem_copy_procedure(
+                source_pointer,
+                destination_pointer,
+                num_elements_variable,
+            );
+        } else {
+            let value_register = self.allocate_register();
 
-        self.codegen_loop(num_elements_variable.address, |ctx, iterator| {
-            ctx.codegen_array_get(source_pointer, iterator, value_register);
-            ctx.codegen_array_set(destination_pointer, iterator, value_register);
-        });
+            self.codegen_loop(num_elements_variable.address, |ctx, iterator| {
+                ctx.codegen_array_get(source_pointer, iterator, value_register);
+                ctx.codegen_array_set(destination_pointer, iterator, value_register);
+            });
 
-        self.deallocate_register(value_register);
+            self.deallocate_register(value_register);
+        }
     }
 
     /// Loads a variable stored previously

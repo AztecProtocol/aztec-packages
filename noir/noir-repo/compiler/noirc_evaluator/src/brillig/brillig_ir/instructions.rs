@@ -15,12 +15,14 @@ use super::{
     artifact::{Label, UnresolvedJumpLocation},
     brillig_variable::{BrilligArray, BrilligVector, SingleAddrVariable},
     debug_show::DebugToString,
+    procedures::ProcedureId,
+    registers::RegisterAllocator,
     BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 
 /// Low level instructions of the brillig IR, used by the brillig ir codegens and brillig_gen
 /// Printed using debug_slow
-impl<F: AcirField + DebugToString> BrilligContext<F> {
+impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
     /// Processes a binary instruction according `operation`.
     ///
     /// This method will compute lhs <operation> rhs
@@ -190,6 +192,12 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
         let func_label = Label::Function(func_id);
         self.debug_show.add_external_call_instruction(func_label.to_string());
         self.obj.add_unresolved_external_call(BrilligOpcode::Call { location: 0 }, func_label);
+    }
+
+    pub(super) fn add_procedure_call_instruction(&mut self, procedure_id: ProcedureId) {
+        let proc_label = Label::Procedure(procedure_id);
+        self.debug_show.add_external_call_instruction(proc_label.to_string());
+        self.obj.add_unresolved_external_call(BrilligOpcode::Call { location: 0 }, proc_label);
     }
 
     /// Adds a unresolved `Jump` instruction to the bytecode.

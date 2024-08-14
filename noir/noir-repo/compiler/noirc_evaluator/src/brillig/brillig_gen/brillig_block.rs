@@ -2,6 +2,7 @@ use crate::brillig::brillig_ir::artifact::Label;
 use crate::brillig::brillig_ir::brillig_variable::{
     type_to_heap_value_type, BrilligArray, BrilligVariable, BrilligVector, SingleAddrVariable,
 };
+use crate::brillig::brillig_ir::registers::Stack;
 use crate::brillig::brillig_ir::{
     BrilligBinaryOp, BrilligContext, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
@@ -35,7 +36,7 @@ pub(crate) struct BrilligBlock<'block> {
     /// The basic block that is being converted
     pub(crate) block_id: BasicBlockId,
     /// Context for creating brillig opcodes
-    pub(crate) brillig_context: &'block mut BrilligContext<FieldElement>,
+    pub(crate) brillig_context: &'block mut BrilligContext<FieldElement, Stack>,
     /// Tracks the available variable during the codegen of the block
     pub(crate) variables: BlockVariables,
     /// For each instruction, the set of values that are not used anymore after it.
@@ -46,7 +47,7 @@ impl<'block> BrilligBlock<'block> {
     /// Converts an SSA Basic block into a sequence of Brillig opcodes
     pub(crate) fn compile(
         function_context: &'block mut FunctionContext,
-        brillig_context: &'block mut BrilligContext<FieldElement>,
+        brillig_context: &'block mut BrilligContext<FieldElement, Stack>,
         block_id: BasicBlockId,
         dfg: &DataFlowGraph,
     ) {
@@ -913,7 +914,7 @@ impl<'block> BrilligBlock<'block> {
                 // First issue a array copy to the destination
                 ctx.codegen_allocate_array(destination_pointer, source_size_as_register);
 
-                ctx.codegen_copy_array(
+                ctx.codegen_mem_copy(
                     source_pointer,
                     destination_pointer,
                     SingleAddrVariable::new(
@@ -1735,7 +1736,7 @@ impl<'block> BrilligBlock<'block> {
 
             // Initializes a single subitem
             let initializer_fn =
-                |ctx: &mut BrilligContext<_>, subitem_start_pointer: SingleAddrVariable| {
+                |ctx: &mut BrilligContext<_, _>, subitem_start_pointer: SingleAddrVariable| {
                     ctx.mov_instruction(subitem_pointer.address, subitem_start_pointer.address);
                     for (subitem_index, subitem) in
                         subitem_to_repeat_variables.into_iter().enumerate()
@@ -1766,9 +1767,10 @@ impl<'block> BrilligBlock<'block> {
         } else {
             let subitem = subitem_to_repeat_variables.into_iter().next().unwrap();
 
-            let initializer_fn = |ctx: &mut BrilligContext<_>, item_pointer: SingleAddrVariable| {
-                ctx.codegen_store_variable_in_pointer(item_pointer.address, subitem);
-            };
+            let initializer_fn =
+                |ctx: &mut BrilligContext<_, _>, item_pointer: SingleAddrVariable| {
+                    ctx.codegen_store_variable_in_pointer(item_pointer.address, subitem);
+                };
 
             // for (let item_pointer = pointer; item_pointer < pointer + data_length; item_pointer += 1) { initializer_fn(iterator) }
             self.brillig_context.codegen_for_loop(

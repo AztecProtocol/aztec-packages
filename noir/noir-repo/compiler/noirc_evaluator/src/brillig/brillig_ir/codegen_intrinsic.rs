@@ -8,10 +8,11 @@ use crate::brillig::brillig_ir::BrilligBinaryOp;
 use super::{
     brillig_variable::{BrilligVector, SingleAddrVariable},
     debug_show::DebugToString,
+    registers::RegisterAllocator,
     BrilligContext,
 };
 
-impl<F: AcirField + DebugToString> BrilligContext<F> {
+impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
     /// Codegens a truncation of a value to the given bit size
     pub(crate) fn codegen_truncate(
         &mut self,

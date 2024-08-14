@@ -12,6 +12,7 @@
 pub(crate) mod artifact;
 pub(crate) mod brillig_variable;
 pub(crate) mod debug_show;
+pub(crate) mod procedures;
 pub(crate) mod registers;
 
 mod codegen_binary;
@@ -25,10 +26,9 @@ mod instructions;
 
 use artifact::Label;
 pub(crate) use instructions::BrilligBinaryOp;
+use registers::{RegisterAllocator, ScratchSpace};
 
-use self::{
-    artifact::BrilligArtifact, debug_show::DebugToString, registers::BrilligRegistersContext,
-};
+use self::{artifact::BrilligArtifact, debug_show::DebugToString, registers::Stack};
 use crate::ssa::ir::dfg::CallStack;
 use acvm::{
     acir::brillig::{MemoryAddress, Opcode as BrilligOpcode},
@@ -70,19 +70,14 @@ impl ReservedRegisters {
     pub(crate) fn previous_stack_pointer() -> MemoryAddress {
         MemoryAddress::from(ReservedRegisters::PreviousStackPointer as usize)
     }
-
-    /// Returns a user defined (non-reserved) register index.
-    fn user_register_index(index: usize) -> MemoryAddress {
-        MemoryAddress::from(index + ReservedRegisters::len())
-    }
 }
 
 /// Brillig context object that is used while constructing the
 /// Brillig bytecode.
-pub(crate) struct BrilligContext<F> {
+pub(crate) struct BrilligContext<F, Registers> {
     obj: BrilligArtifact<F>,
     /// Tracks register allocations
-    registers: BrilligRegistersContext,
+    registers: Registers,
     /// Context label, must be unique with respect to the function
     /// being linked.
     context_label: Label,
@@ -92,21 +87,46 @@ pub(crate) struct BrilligContext<F> {
     next_section: usize,
     /// IR printer
     debug_show: DebugShow,
+    /// Wether this context can call procedures or not.
+    /// This is used to prevent a procedure from calling another procedure.
+    can_call_procedures: bool,
 }
 
-impl<F: AcirField + DebugToString> BrilligContext<F> {
-    /// Initial context state
-    pub(crate) fn new(enable_debug_trace: bool) -> BrilligContext<F> {
+// Regular brillig context to codegen user defined functions
+impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
+    pub(crate) fn new(enable_debug_trace: bool) -> BrilligContext<F, Stack> {
         BrilligContext {
             obj: BrilligArtifact::default(),
-            registers: BrilligRegistersContext::new(),
+            registers: Stack::new(),
             context_label: Label::EntryPoint,
             current_section: 0,
             next_section: 1,
             debug_show: DebugShow::new(enable_debug_trace),
+            can_call_procedures: true,
         }
     }
+    /// Allows disabling procedures so tests don't need a linking pass
+    pub(crate) fn disable_procedures(&mut self) {
+        self.can_call_procedures = false;
+    }
+}
 
+/// Special brillig context to codegen compiler intrinsic shared procedures
+impl<F: AcirField + DebugToString> BrilligContext<F, ScratchSpace> {
+    pub(crate) fn new_for_procedure(enable_debug_trace: bool) -> BrilligContext<F, ScratchSpace> {
+        BrilligContext {
+            obj: BrilligArtifact::default(),
+            registers: ScratchSpace::new(),
+            context_label: Label::EntryPoint,
+            current_section: 0,
+            next_section: 1,
+            debug_show: DebugShow::new(enable_debug_trace),
+            can_call_procedures: false,
+        }
+    }
+}
+
+impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
     /// Adds a brillig instruction to the brillig byte code
     fn push_opcode(&mut self, opcode: BrilligOpcode<F>) {
         self.obj.push_opcode(opcode);
@@ -139,6 +159,7 @@ pub(crate) mod tests {
     use crate::ssa::ir::function::FunctionId;
 
     use super::artifact::{BrilligParameter, GeneratedBrillig, Label};
+    use super::registers::Stack;
     use super::{BrilligOpcode, ReservedRegisters};
 
     pub(crate) struct DummyBlackBoxSolver;
@@ -197,14 +218,14 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn create_context(id: FunctionId) -> BrilligContext<FieldElement> {
+    pub(crate) fn create_context(id: FunctionId) -> BrilligContext<FieldElement, Stack> {
         let mut context = BrilligContext::new(true);
         context.enter_context(Label::Function(id));
         context
     }
 
     pub(crate) fn create_entry_point_bytecode(
-        context: BrilligContext<FieldElement>,
+        context: BrilligContext<FieldElement, Stack>,
         arguments: Vec<BrilligParameter>,
         returns: Vec<BrilligParameter>,
     ) -> GeneratedBrillig<FieldElement> {

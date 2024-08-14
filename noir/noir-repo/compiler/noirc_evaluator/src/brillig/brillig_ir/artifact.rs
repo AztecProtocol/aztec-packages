@@ -1,6 +1,7 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use std::collections::{BTreeMap, HashMap};
 
+use crate::brillig::brillig_ir::procedures::ProcedureId;
 use crate::ssa::ir::{basic_block::BasicBlockId, dfg::CallStack, function::FunctionId};
 
 /// Represents a parameter or a return value of an entry point function.
@@ -44,7 +45,7 @@ pub(crate) struct BrilligArtifact<F> {
     /// which are defined in other bytecode, that this bytecode has called.
     /// TODO: perhaps we should combine this with the `unresolved_jumps` field
     /// TODO: and have an enum which indicates whether the jump is internal or external
-    unresolved_external_call_labels: Vec<(JumpInstructionPosition, UnresolvedJumpLocation)>,
+    unresolved_external_call_labels: Vec<(JumpInstructionPosition, Label)>,
     /// Maps the opcodes that are associated with a callstack to it.
     locations: BTreeMap<OpcodeLocation, CallStack>,
     /// The current call stack. All opcodes that are pushed will be associated with this call stack.
@@ -69,17 +70,22 @@ pub(crate) enum Label {
     EntryPoint,
     /// Used to mark the start of a section in the entrypoint code, to implement jumps in the entrypoint.
     EntryPointSection(usize),
+    /// Used to mark the start of a procedure code.
+    Procedure(ProcedureId),
+    /// Used to mark the start of a section in the procedure code, to implement jumps in the procedure.
+    ProcedureSection(ProcedureId, usize),
 }
 
 impl Label {
     pub(crate) fn can_add_section(&self) -> bool {
-        matches!(self, Label::Block(_, _) | Label::EntryPoint)
+        matches!(self, Label::Block(_, _) | Label::EntryPoint | Label::Procedure(_))
     }
 
     pub(crate) fn add_section(&self, section: usize) -> Label {
         match self {
             Label::Block(func_id, block_id) => Label::BlockSection(*func_id, *block_id, section),
             Label::EntryPoint => Label::EntryPointSection(section),
+            Label::Procedure(id) => Label::ProcedureSection(*id, section),
             _ => unreachable!("cannot add section to label {self}"),
         }
     }
@@ -95,6 +101,10 @@ impl std::fmt::Display for Label {
             }
             Label::EntryPoint => write!(f, "EntryPoint"),
             Label::EntryPointSection(section_id) => write!(f, "EntryPointSection({})", section_id),
+            Label::Procedure(id) => write!(f, "Procedure({:?})", id),
+            Label::ProcedureSection(id, section_id) => {
+                write!(f, "ProcedureSection({:?}, {})", id, section_id)
+            }
         }
     }
 }
