@@ -2,6 +2,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/polynomials/polynomial_iter.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
@@ -28,6 +29,11 @@ namespace bb {
 template <typename Fr> class Polynomial {
   public:
     using FF = Fr;
+    using iterator = PolynomialIterator<Fr>;
+    using const_iterator = const PolynomialIterator<Fr>;
+    using reference = PolynomialReference<Fr>;
+    using const_reference = Fr;
+
     enum class DontZeroMemory { FLAG };
 
     Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index = 0);
@@ -102,11 +108,6 @@ template <typename Fr> class Polynomial {
     Fr get(size_t i) const { return coefficients_.get(i); };
 
     bool is_empty() const { return coefficients_.size() == 0; }
-
-    Fr* begin() { return data(); }
-    Fr* end() { return data() + size(); }
-    const Fr* begin() const { return data(); }
-    const Fr* end() const { return data() + size(); }
 
     /**
      * @brief Returns a Polynomial the left-shift of self.
@@ -202,8 +203,17 @@ template <typename Fr> class Polynomial {
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
-    // Fr& operator[](size_t i) { return coefficients_[i]; }
-    Fr operator[](size_t i) const { return get(i); }
+
+    iterator begin() { return iterator(this, 0); }
+    iterator end() { return iterator(this, size()); }
+    const_iterator begin() const { return const_iterator(this, 0); }
+    const_iterator end() const { return const_iterator(this, size()); }
+
+    iterator at(size_t index) { return iterator(this, index); }
+    const_iterator at(size_t index) const { return const_iterator(this, index); }
+
+    reference operator[](size_t i) { return reference(this, i); }
+    const_reference operator[](size_t i) const { return get(i); }
 
     static Polynomial random(size_t size) { return random(size, size); }
 
@@ -213,6 +223,23 @@ template <typename Fr> class Polynomial {
         std::generate_n(p.coefficients_.data(), size, []() { return Fr::random_element(); });
         return p;
     }
+
+    /**
+     * @brief Creates a PolynomialSpan over a specified range.
+     * @param start_index The starting index of the span.
+     * @param span_size The number of elements in the span.
+     * @return PolynomialSpan<Fr> The created span.
+     */
+    PolynomialSpan<Fr> subspan(size_type start_index, size_type span_size)
+    {
+        return PolynomialSpan<Fr>(this, start_index, span_size);
+    }
+
+    /**
+     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * @return PolynomialSpan<Fr> A span covering the entire polynomial.
+     */
+    operator PolynomialSpan<Fr>() { return PolynomialSpan<Fr>(this, 0, size()); }
 
   private:
     // allocate a fresh memory pointer for backing memory
