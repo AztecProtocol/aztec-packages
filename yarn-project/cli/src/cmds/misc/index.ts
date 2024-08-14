@@ -49,11 +49,11 @@ export function injectCommands(program: Command, log: LogFn) {
     });
 
   program
-    .command('generate-secret')
+    .command('generate-secret-and-hash')
     .description('Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)')
     .action(async () => {
-      const { generateSecret } = await import('./generate_secret.js');
-      generateSecret(log);
+      const { generateSecretAndHash } = await import('./generate_secret_and_hash.js');
+      generateSecretAndHash(log);
     });
 
   program
