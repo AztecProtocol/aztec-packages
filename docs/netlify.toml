@@ -11,24 +11,24 @@
     to = "/guides/developer_guides/getting_started/quickstart"
 
 [[redirects]]
-    from = "/tutorials/simple_dapp/*
-    to = "tutorials/codealong/simple_dapp
+    from = "/tutorials/simple_dapp/*"
+    to = "tutorials/codealong/simple_dapp"
 
 [[redirects]]
-    from = "/tutorials/simple_dapp
-    to = "tutorials/codealong/simple_dapp
+    from = "/tutorials/simple_dapp"
+    to = "tutorials/codealong/simple_dapp"
 
 [[redirects]]
-    from = "/tutorials/contract_tutorials/advanced/token_bridge/typescript_glue_code
-    to = "tutorials/codealong/contract_tutorials/advanced/token_bridge/typescript_glue_code
+    from = "/tutorials/contract_tutorials/advanced/token_bridge/typescript_glue_code"
+    to = "tutorials/codealong/contract_tutorials/advanced/token_bridge/typescript_glue_code"
 
 [[redirects]]
-    from = "/tutorials/contract_tutorials/advanced/token_bridge/withdrawing_to_l1
-    to = "tutorials/codealong/contract_tutorials/advanced/token_bridge/withdrawing_to_l1
+    from = "/tutorials/contract_tutorials/advanced/token_bridge/withdrawing_to_l1"
+    to = "tutorials/codealong/contract_tutorials/advanced/token_bridge/withdrawing_to_l1"
 
 [[redirects]]
-    from = "/tutorials/contract_tutorials/advanced/token_bridge/minting_on_aztec
-    to = "tutorials/codealong/contract_tutorials/advanced/token_bridge/minting_on_aztec
+    from = "/tutorials/contract_tutorials/advanced/token_bridge/minting_on_aztec"
+    to = "tutorials/codealong/contract_tutorials/advanced/token_bridge/minting_on_aztec"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/advanced/token_bridge/depositing_to_aztec"
