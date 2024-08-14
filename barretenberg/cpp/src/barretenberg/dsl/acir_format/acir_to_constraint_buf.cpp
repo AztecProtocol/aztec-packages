@@ -416,7 +416,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
 
-                // WORKTODO: this ultimately needs to come directly from noir in arg.proof_type
+                // WORKTODO: this ultimately needs to come directly from noir in arg.proof_type.
                 PROOF_TYPE proof_type = honk_recursion ? HONK_RECURSION : PLONK_RECURSION;
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
