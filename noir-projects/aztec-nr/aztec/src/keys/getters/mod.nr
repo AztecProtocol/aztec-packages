@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
+    header::Header, abis::validation_requests::KeyValidationRequest, address::{AztecAddress, PartialAddress},
     constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map,
     traits::is_empty
 };
@@ -90,22 +90,29 @@ pub fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddre
 // old keys were leaked). Only call this function with a header from a fixed block if you understand the implications of
 // breaking key rotation very well.
 pub fn get_historical_public_keys(historical_header: Header, account: AztecAddress) -> PublicKeys {
+    // If keys were registered in the registry, then we must read them from there and prove we got the current value.
+    // Alternatively, we must prove the registry is empty and return the canonical public keys (i.e. the ones that are
+    // part of the address's preimage).
+    // The unconstrained hint we get with the public keys already knows about these variants and returns the correct set
+    // of keys (registry or canonical) depending on the scenario. This is so that we only hash this single set of keys
+    // and keep the circuit gate count low.
     let hinted_keys = get_public_keys_hint(
         account,
         historical_header.global_variables.block_number as u32
     );
     let hinted_keys_hash = hinted_keys.hash();
 
-    // The key registry is the primary source of information for keys, as that's where accounts store their new keys
-    // when they perform rotation. The key registry conveniently stores a hash of each user's keys, so we can read that
-    // single field and then prove that we know its preimage (i.e. the current set of keys).
+    // The key registry conveniently stores a hash of each user's keys, so we can read that single field, and then prove
+    // either that it's empty, or that we know its preimage (i.e. the current set of keys).
     let key_registry_hash = key_registry_hash_public_historical_read(historical_header, account);
     if key_registry_hash != 0 {
         assert_eq(hinted_keys_hash.to_field(), key_registry_hash);
     } else {
-        // If nothing was written to the registry, we may still be able to produce the correct keys if we happen to know
-        // the canonical set (i.e. the ones that are part of the account's preimage).
-        let (_, partial_address) = get_public_keys_and_partial_address(account);
+        // If nothing was written to the registry, we must then prove that the keys we're returning are the canonical
+        // keys by deriving the account's address. Note that neither the canonical keys nor the partial address required
+        // for the proof are stored in any of the network's trees - it's up to the individuals involved to make sure
+        // that these keys are distributed via some side channel.
+        let partial_address = get_partial_address(account);
         assert_eq(
             account, AztecAddress::compute(hinted_keys_hash, partial_address), "Invalid public keys hint for address"
         );
@@ -129,13 +136,13 @@ fn key_registry_hash_public_historical_read(historical_header: Header, account: 
     )
 }
 
+// Returns an account's public keys at a given block. These may originate from either the key registry, or be the
+// canonical keys if the registry was empty.
 unconstrained fn get_public_keys_hint(account: AztecAddress, block_number: u32) -> PublicKeys {
     // This is equivalent to the key registry contract having an unconstrained getter that we call from an oracle, but
     // PXE does not yet support that functionality so we do this manually instad. Note that this would be a *historical*
     // call!
-
     // TODO (#7524): call the unconstrained KeyRegistry.get_current_keys() function instead
-
     let context = UnconstrainedContext::at_historical(
         AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
         block_number
@@ -147,5 +154,23 @@ unconstrained fn get_public_keys_hint(account: AztecAddress, block_number: u32) 
     );
 
     let stored_keys: StoredKeys = keys_storage.at(account).read();
-    stored_keys.public_keys
+
+    if stored_keys.hash != 0 {
+        stored_keys.public_keys
+    } else {
+        // We could change this function to also return the partial address we're discarding here and avoid a duplicate
+        // oracle call to getPublicKeysAndPartialAddress in get_partial_address, but that'd make the body of
+        // get_historical_public_keys more complicated, and we'd rather keep that simple and easy to follow than save a
+        // redundant oracle call, which is cheap.
+        let (canonical_public_keys, _) = get_public_keys_and_partial_address(account);
+        canonical_public_keys
+    }
+}
+
+unconstrained fn get_partial_address(account: AztecAddress) -> PartialAddress {
+    // The only reason to return the partial address is to show the correct derivation from the public keys into the
+    // address, which means we've likely already called the getPublicKeysAndPartialAddress oracle we're about to call
+    // here. Ultimately though this duplicate call is not a huge issue. 
+    let (_, partial_address) = get_public_keys_and_partial_address(account);
+    partial_address
 }
