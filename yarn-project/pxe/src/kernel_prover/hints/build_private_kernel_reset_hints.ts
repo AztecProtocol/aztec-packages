@@ -69,7 +69,9 @@ async function getMasterSecretKeysAndAppKeyGenerators(
   keyValidationRequests: Tuple<ScopedKeyValidationRequestAndGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
-  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, KeyValidationHint.empty);
+  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () =>
+    KeyValidationHint.nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX),
+  );
 
   let keyIndex = 0;
   for (let i = 0; i < keyValidationRequests.length; ++i) {
