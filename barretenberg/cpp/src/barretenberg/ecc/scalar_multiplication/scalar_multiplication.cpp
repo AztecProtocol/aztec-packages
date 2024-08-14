@@ -18,22 +18,6 @@
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, google-readability-casting)
 
 #define BBERG_SCALAR_MULTIPLICATION_FETCH_BLOCK                                                                        \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 16] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 17] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 18] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 19] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 20] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 21] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 22] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 23] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 24] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 25] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 26] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 27] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 28] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 29] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 30] >> 32ULL));                              \
-    // __builtin_prefetch(state.points + (state.point_schedule[schedule_it + 31] >> 32ULL));                              \
                                                                                                                        \
     uint64_t schedule_a = state.point_schedule[schedule_it];                                                           \
     uint64_t schedule_b = state.point_schedule[schedule_it + 1];                                                       \

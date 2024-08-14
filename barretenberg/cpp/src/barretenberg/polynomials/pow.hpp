@@ -9,7 +9,6 @@
 namespace bb {
 
 template <typename FF> struct PowPolynomial {
-
     /**
      * @brief The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$
      *
@@ -44,6 +43,7 @@ template <typename FF> struct PowPolynomial {
 
     explicit PowPolynomial(const std::vector<FF>& betas)
         : betas(betas)
+
     {}
     /**
      * @brief Retruns the element in #pow_betas at place #idx.
@@ -117,6 +117,7 @@ template <typename FF> struct PowPolynomial {
     BB_PROFILE void compute_values()
     {
         size_t pow_size = 1 << betas.size();
+        info("size of pow", pow_size);
         pow_betas = std::vector<FF>(pow_size);
 
         // Determine number of threads for multithreading.
