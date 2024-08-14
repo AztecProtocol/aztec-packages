@@ -532,12 +532,12 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
  * @param outputPath Path to the folder where the proof and verification data are goingt obe wr itten (in practice this
  * going to be specified when bb main is called, i.e. as the working directory in typescript).
  */
-void client_ivc_prove_redux(const std::string& bytecodePath,
-                            const std::string& witnessPath,
-                            const std::string& outputPath)
+void client_ivc_prove_output_all_redux(const std::string& bytecodePath,
+                                       const std::string& witnessPath,
+                                       const std::string& outputPath)
 {
-    using Flavor = MegaFlavor; // This is the only option
-    using Builder = Flavor::CircuitBuilder;
+    // using Flavor = MegaFlavor; // This is the only option
+    // using Builder = Flavor::CircuitBuilder;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
 
@@ -545,23 +545,23 @@ void client_ivc_prove_redux(const std::string& bytecodePath,
     init_grumpkin_crs(1 << 14);
 
     // this class stores an accumulator
-    ivc.structured_flag = true;
+    ClientIVC ivc;
+    ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
         bytecodePath, witnessPath, false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): this
                                            // assumes that folding is never done with ultrahonk.
 
     // Accumulate the entire program stack into the IVC
-    ClientIVCProver ivc;
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation, handling merge and databus ivc steps also
-        auto circuit =
-            acir_format::create_circuit_with_accumulation_witnesses(stack_item.constraints, stack_item.witness, ivc);
+        auto circuit = acir_format::create_circuit_with_accumulation_witnesses(
+            ivc, stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
 
         // call fold and merge to get the next proof
-        accumulation_proof = ivc.accumulate(circuit);
+        ivc.accumulate(circuit);
 
         program_stack.pop_back();
     }
@@ -1429,7 +1429,7 @@ int main(int argc, char* argv[])
             client_ivc_prove_output_all_msgpack(bytecode_path, witness_path, output_dir);
             return 0;
         }
-        if (command == "client_ivc_prove_redux") {
+        if (command == "client_ivc_prove_output_all_redux") {
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
             client_ivc_prove_output_all_redux(bytecode_path, witness_path, output_dir);
             return 0;

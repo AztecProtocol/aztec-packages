@@ -27,7 +27,7 @@ using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
  * @param proof_fields
  */
 void create_dummy_vkey_and_proof(Builder& builder,
-                                 const RecursionConstraint& input,
+                                 const HonkRecursionConstraint& input,
                                  std::vector<field_ct>& key_fields,
                                  std::vector<field_ct>& proof_fields)
 {
@@ -150,7 +150,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * non-witness data to be provided as metadata in the ACIR opcode
  */
 AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
-                                                           const RecursionConstraint& input,
+                                                           const HonkRecursionConstraint& input,
                                                            AggregationObjectIndices input_aggregation_object_indices,
                                                            bool has_valid_witness_assignments)
 {

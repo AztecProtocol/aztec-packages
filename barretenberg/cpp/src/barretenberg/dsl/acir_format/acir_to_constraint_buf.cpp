@@ -417,7 +417,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
                 // WORKTODO: check arg.proof_type instead
                 if (honk_recursion) { // if we're using the honk recursive verifier
-                    auto c = RecursionConstraint{
+                                      // WORKTODO: becomes simply RecursionConstraint
+                    auto c = HonkRecursionConstraint{
                         .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
                         .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
                         .public_inputs =
@@ -426,7 +427,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     };
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
-                } else if { // plonk recursion
+                } else { // plonk recursion
                     auto input_key = get_witness_from_function_input(arg.key_hash);
 
                     auto c = RecursionConstraint{
@@ -439,8 +440,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     };
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                } else { // WORKTODO: client ivc recursion
                 }
+                // else { // WORKTODO: client ivc recursion
+                // }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
                     .inputs = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),

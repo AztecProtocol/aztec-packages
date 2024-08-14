@@ -91,9 +91,9 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); i++) {
         constraint_system.original_opcode_indices.honk_recursion_constraints.push_back(current_opcode++);
     }
-    for (size_t i = 0; i < constraint_system.client_ivc_recursion_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.client_ivc_recursion_constraints.push_back(current_opcode++);
-    }
+    // for (size_t i = 0; i < constraint_system.client_ivc_recursion_constraints.size(); i++) {
+    //     constraint_system.original_opcode_indices.client_ivc_recursion_constraints.push_back(current_opcode++);
+    // }
     for (size_t i = 0; i < constraint_system.bigint_from_le_bytes_constraints.size(); i++) {
         constraint_system.original_opcode_indices.bigint_from_le_bytes_constraints.push_back(current_opcode++);
     }

@@ -28,7 +28,7 @@ void build_constraints(Builder& builder,
                        bool has_valid_witness_assignments,
                        bool honk_recursion, // WORKTODO: can get rid of this
                        bool collect_gates_per_opcode,
-                       std::optional<ClientIVC> ivc)
+                       [[maybe_unused]] std::optional<ClientIVC> ivc)
 {
     if (collect_gates_per_opcode) {
         constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
@@ -237,190 +237,149 @@ void build_constraints(Builder& builder,
     }
 
     // RecursionConstraints
-    for (size_t constraint_idx = 0; constraint_idx < constraint_system.recursion_constraints.size(); ++constraint_idx) {
-        auto constraint = constraint_system.recursion_constraints[constraint_idx];
+    // WORKTODO: base all recursion off of RecursionConstraints and proof_type
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
+    // not yet dealing with proper recursion
+    if constexpr (IsMegaBuilder<Builder>) {
+        if (!constraint_system.recursion_constraints.empty()) {
+            info("WARNING: this circuit contains recursion_constraints!");
+        }
+    } else {
+        // These are set and modified whenever we encounter a recursion opcode
+        //
+        // These should not be set by the caller
+        // TODO(maxim): Check if this is always the case. ie I won't receive a proof that will set the first
+        // TODO(maxim): input_aggregation_object to be non-zero.
+        // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
+        // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
+        AggregationObjectIndices current_input_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        AggregationObjectIndices current_output_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-        // Plonk recursive verifier
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since
-        // we're not yet dealing with proper recursion
-        if (constraint.proof_type == IVC_TYPE::PLONK_RECURSION) {
-            if constexpr (std::same_as<Builder, bb::UltraCircuitBuilder>) {
-                // These are set and modified whenever we encounter a recursion opcode
-                //
-                // These should not be set by the caller
-                // TODO(maxim): Check if this is always the case. ie I won't receive a proof that will set the first
-                // TODO(maxim): input_aggregation_object to be non-zero.
-                // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
-                // TODO(maxim): This might be the case for proof trees where the proofs are created on different
-                // machines
-                AggregationObjectIndices current_input_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                              0, 0, 0, 0, 0, 0, 0, 0 };
-                AggregationObjectIndices current_output_aggregation_object = { 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                               0, 0, 0, 0, 0, 0, 0, 0 };
+        // Get the size of proof with no public inputs prepended to it
+        // This is used while processing recursion constraints to determine whether
+        // the proof we are verifying contains a recursive proof itself
+        auto proof_size_no_pub_inputs = recursion_proof_size_without_public_inputs();
 
-                // Get the size of proof with no public inputs prepended to it
-                // This is used while processing recursion constraints to determine whether
-                // the proof we are verifying contains a recursive proof itself
-                auto proof_size_no_pub_inputs = recursion_proof_size_without_public_inputs();
-
-                // Add recursion constraints
-                // process constraint
-                {
-                    std::cout << "recursion_constraint with proof type: " << constraint.proof_type << std::endl;
-
-                    // A proof passed into the constraint should be stripped of its public inputs, except in the case
-                    // where a proof contains an aggregation object itself. We refer to this as the
-                    // `nested_aggregation_object`. The verifier circuit requires that the indices to a nested proof
-                    // aggregation state are a circuit constant. The user tells us they how they want these constants
-                    // set by keeping the nested aggregation object attached to the proof as public inputs. As this is
-                    // the only object that can prepended to the proof if the proof is above the expected size (with
-                    // public inputs stripped)
-                    AggregationObjectPubInputIndices nested_aggregation_object = {};
-                    // If the proof has public inputs attached to it, we should handle setting the nested aggregation
-                    // object
-                    if (constraint.proof.size() > proof_size_no_pub_inputs) {
-                        // The public inputs attached to a proof should match the aggregation object in size
-                        if (constraint.proof.size() - proof_size_no_pub_inputs != bb::AGGREGATION_OBJECT_SIZE) {
-                            auto error_string = format(
-                                "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
-                                "Thus, public inputs attached to a proof must match the recursive aggregation "
-                                "object in size "
-                                "which is ",
-                                bb::AGGREGATION_OBJECT_SIZE);
-                            throw_or_abort(error_string);
-                        }
-                        for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                            // Set the nested aggregation object indices to the current size of the public inputs
-                            // This way we know that the nested aggregation object indices will always be the last
-                            // indices of the public inputs
-                            nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
-                            // Attach the nested aggregation object to the end of the public inputs to fill in
-                            // the slot where the nested aggregation object index will point into
-                            constraint.public_inputs.emplace_back(constraint.proof[i]);
-                        }
-                        // Remove the aggregation object so that they can be handled as normal public inputs
-                        // in they way taht the recursion constraint expects
-                        constraint.proof.erase(constraint.proof.begin(),
-                                               constraint.proof.begin() +
-                                                   static_cast<std::ptrdiff_t>(bb::AGGREGATION_OBJECT_SIZE));
-                    }
-
-                    current_output_aggregation_object = create_recursion_constraints(builder,
-                                                                                     constraint,
-                                                                                     current_input_aggregation_object,
-                                                                                     nested_aggregation_object,
-                                                                                     has_valid_witness_assignments);
-                    current_input_aggregation_object = current_output_aggregation_object;
-                    track_gate_diff(constraint_system.gates_per_opcode,
-                                    constraint_system.original_opcode_indices.recursion_constraints[constraint_idx]);
+        // Add recursion constraints
+        for (size_t constraint_idx = 0; constraint_idx < constraint_system.recursion_constraints.size();
+             ++constraint_idx) {
+            auto constraint = constraint_system.recursion_constraints[constraint_idx];
+            // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
+            // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
+            // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
+            // The user tells us they how they want these constants set by keeping the nested aggregation object
+            // attached to the proof as public inputs. As this is the only object that can prepended to the proof if the
+            // proof is above the expected size (with public inputs stripped)
+            AggregationObjectPubInputIndices nested_aggregation_object = {};
+            // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
+            if (constraint.proof.size() > proof_size_no_pub_inputs) {
+                // The public inputs attached to a proof should match the aggregation object in size
+                if (constraint.proof.size() - proof_size_no_pub_inputs != bb::AGGREGATION_OBJECT_SIZE) {
+                    auto error_string = format(
+                        "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
+                        "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
+                        "which is ",
+                        bb::AGGREGATION_OBJECT_SIZE);
+                    throw_or_abort(error_string);
                 }
-
-                // Now that the circuit has been completely built, we add the output aggregation as public
-                // inputs.
-                if (!constraint_system.recursion_constraints.empty()) {
-
-                    // First add the output aggregation object as public inputs
-                    // Set the indices as public inputs because they are no longer being
-                    // created in ACIR
-                    for (const auto& idx : current_output_aggregation_object) {
-                        builder.set_public_input(idx);
-                    }
-
-                    // Make sure the verification key records the public input indices of the
-                    // final recursion output.
-                    builder.set_recursive_proof(current_output_aggregation_object);
+                for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                    // Set the nested aggregation object indices to the current size of the public inputs
+                    // This way we know that the nested aggregation object indices will always be the last
+                    // indices of the public inputs
+                    nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
+                    // Attach the nested aggregation object to the end of the public inputs to fill in
+                    // the slot where the nested aggregation object index will point into
+                    constraint.public_inputs.emplace_back(constraint.proof[i]);
                 }
-            } else {
-                info("IVC contraint type not handled by circuit builder");
+                // Remove the aggregation object so that they can be handled as normal public inputs
+                // in they way taht the recursion constraint expects
+                constraint.proof.erase(constraint.proof.begin(),
+                                       constraint.proof.begin() +
+                                           static_cast<std::ptrdiff_t>(bb::AGGREGATION_OBJECT_SIZE));
             }
+
+            current_output_aggregation_object = create_recursion_constraints(builder,
+                                                                             constraint,
+                                                                             current_input_aggregation_object,
+                                                                             nested_aggregation_object,
+                                                                             has_valid_witness_assignments);
+            current_input_aggregation_object = current_output_aggregation_object;
+            track_gate_diff(constraint_system.gates_per_opcode,
+                            constraint_system.original_opcode_indices.recursion_constraints[constraint_idx]);
         }
 
-        // Honk recursive verifier
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since
-        // we're not yet dealing with proper recursion
-        else if (constraint.proof_type == IVC_TYPE::HONK_RECURSION) {
-            if constexpr (std::same_as<Builder, bb::UltraCircuitBuilder>) { // These are set and modified whenever we
-                AggregationObjectIndices current_aggregation_object =
-                    stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+        // Now that the circuit has been completely built, we add the output aggregation as public
+        // inputs.
+        if (!constraint_system.recursion_constraints.empty()) {
 
-                // Add recursion constraints
-                // process constraint
-                {
-                    std::cout << "honk_recursion_constraint with proof type: " << constraint.proof_type << std::endl;
-                    // A proof passed into the constraint should be stripped of its inner public inputs, but not the
-                    // nested aggregation object itself. The verifier circuit requires that the indices to a nested
-                    // proof aggregation state are a circuit constant. The user tells us they how they want these
-                    // constants set by keeping the nested aggregation object attached to the proof as public inputs.
-                    AggregationObjectIndices nested_aggregation_object = {};
-                    for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                        // Set the nested aggregation object indices to witness indices from the proof
-                        nested_aggregation_object[i] =
-                            static_cast<uint32_t>(constraint.proof[HONK_INNER_PUBLIC_INPUT_OFFSET + i]);
-                        // Adding the nested aggregation object to the constraint's public inputs
-                        constraint.public_inputs.emplace_back(
-                            constraint.proof[HonkRecursionConstraint::inner_public_input_offset + i]);
-                    }
-                    // Remove the aggregation object so that they can be handled as normal public inputs
-                    // in they way that the recursion constraint expects
-                    constraint.proof.erase(
-                        constraint.proof.begin() + HONK_INNER_PUBLIC_INPUT_OFFSET,
-                        constraint.proof.begin() +
-                            static_cast<std::ptrdiff_t>(HONK_INNER_PUBLIC_INPUT_OFFSET + bb::AGGREGATION_OBJECT_SIZE));
-                    current_aggregation_object = create_honk_recursion_constraints(
-                        builder, constraint, current_aggregation_object, has_valid_witness_assignments);
-                    track_gate_diff(
-                        constraint_system.gates_per_opcode,
-                        constraint_system.original_opcode_indices.honk_recursion_constraints.at(constraint_idx));
-                }
-
-                // Now that the circuit has been completely built, we add the output aggregation as public
-                // inputs.
-                if (!constraint_system.honk_recursion_constraints.empty()) {
-
-                    // First add the output aggregation object as public inputs
-                    // Set the indices as public inputs because they are no longer being
-                    // created in ACIR
-                    for (const auto& idx : current_aggregation_object) {
-                        builder.set_public_input(idx);
-                    }
-
-                    // Make sure the verification key records the public input indices of the
-                    // final recursion output.
-                    builder.set_recursive_proof(current_aggregation_object);
-                } else if (honk_recursion &&
-                           builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
-                    AggregationObjectIndices current_aggregation_object =
-                        stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-
-                    // Make sure the verification key records the public input indices of the
-                    // final recursion output.
-                    builder.add_recursive_proof(current_aggregation_object);
-                }
-            } else {
-                info("IVC contraint type not handled by circuit builder");
+            // First add the output aggregation object as public inputs
+            // Set the indices as public inputs because they are no longer being
+            // created in ACIR
+            for (const auto& idx : current_output_aggregation_object) {
+                builder.set_public_input(idx);
             }
+
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            builder.set_recursive_proof(current_output_aggregation_object);
+        }
+    }
+
+    // HonkRecursionConstraint
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
+    // not yet dealing with proper recursion
+    if constexpr (IsMegaBuilder<Builder>) {
+        if (!constraint_system.honk_recursion_constraints.empty()) {
+            info("WARNING: this circuit contains honk_recursion_constraints!");
+        }
+    } else {
+        AggregationObjectIndices current_aggregation_object =
+            stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+
+        // Add recursion constraints
+        for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); ++i) {
+            auto& constraint = constraint_system.honk_recursion_constraints.at(i);
+            // A proof passed into the constraint should be stripped of its inner public inputs, but not the nested
+            // aggregation object itself. The verifier circuit requires that the indices to a nested proof aggregation
+            // state are a circuit constant. The user tells us they how they want these constants set by keeping the
+            // nested aggregation object attached to the proof as public inputs.
+            for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                // Adding the nested aggregation object to the constraint's public inputs
+                constraint.public_inputs.emplace_back(constraint.proof[HONK_INNER_PUBLIC_INPUT_OFFSET + i]);
+            }
+            // Remove the aggregation object so that they can be handled as normal public inputs
+            // in they way that the recursion constraint expects
+            constraint.proof.erase(
+                constraint.proof.begin() + HONK_INNER_PUBLIC_INPUT_OFFSET,
+                constraint.proof.begin() +
+                    static_cast<std::ptrdiff_t>(HONK_INNER_PUBLIC_INPUT_OFFSET + bb::AGGREGATION_OBJECT_SIZE));
+            current_aggregation_object = create_honk_recursion_constraints(
+                builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+            track_gate_diff(constraint_system.gates_per_opcode,
+                            constraint_system.original_opcode_indices.honk_recursion_constraints.at(i));
         }
 
-        // ClientIVC recursaive verifier
-        else if (constraint.proof_type == IVC_TYPE::PRIVATE_CLIENT_ACCUMULATION) {
-            if constexpr (std::same_as<bb::MegaCircuitBuilder, Builder>) {
-                create_client_ivc_accumulation_constraints(builder, constraint, ivc);
-                track_gate_diff(
-                    constraint_system.gates_per_opcode,
-                    constraint_system.original_opcode_indices.client_ivc_accumulation_constraints.at(constraint_idx));
-            } else {
-                info("IVC contraint type not handled by circuit builder");
+        // Now that the circuit has been completely built, we add the output aggregation as public
+        // inputs.
+        if (!constraint_system.honk_recursion_constraints.empty()) {
+
+            // First add the output aggregation object as public inputs
+            // Set the indices as public inputs because they are no longer being
+            // created in ACIR
+            for (const auto& idx : current_aggregation_object) {
+                builder.set_public_input(idx);
             }
-        }
 
-        // // TODO(WORKTODO: ref issue): add IVC:
-        // else if (constraint.proof_type == IVC_TYPE::PRIVATE_CLIENT_VERIFICATION) {
-        //     // do stuff
-        // }
-
-        // Invalid type supplied
-        else {
-            throw_or_abort("IVC contraint type not handled in ACIR format");
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            builder.set_recursive_proof(current_aggregation_object);
+        } else if (honk_recursion &&
+                   builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
+            AggregationObjectIndices current_aggregation_object =
+                stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            builder.add_recursive_proof(current_aggregation_object);
         }
     }
 }
@@ -489,22 +448,35 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
  * @param ivc
  * @return MegaCircuitBuilder
  */
-MegaCircuitBuilder create_circuit_with_accumulation_witnesses(AcirFormat& constraint_system,
+MegaCircuitBuilder create_circuit_with_accumulation_witnesses(ClientIVC& ivc,
+                                                              AcirFormat& constraint_system,
+                                                              [[maybe_unused]] size_t size_hint,
                                                               WitnessVector const& witness,
-                                                              ClientIVC const& ivc)
+                                                              [[maybe_unused]] bool honk_recursion,
+                                                              [[maybe_unused]] std::shared_ptr<ECCOpQueue> op_queue,
+                                                              bool collect_gates_per_opcode)
 {
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    ivc.builder = MegaCircuitBuilder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
+    auto builder =
+        MegaCircuitBuilder{ ivc.goblin.op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
+
+    // std::optional<ClientIVC> optional_ivc(std::move(ivc));
 
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
-    acir_format::build_constraints(
-        builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode, ivc);
+    acir_format::build_constraints(builder,
+                                   constraint_system,
+                                   has_valid_witness_assignments,
+                                   /*honk_recursion=*/false,
+                                   collect_gates_per_opcode,
+                                   std::make_optional<ClientIVC>(std::move(ivc)));
 
     return builder;
 };
 
-template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool, bool);
-template void build_constraints<UltraCircuitBuilder>(UltraCircuitBuilder&, AcirFormat&, bool, bool, bool);
+template void build_constraints<MegaCircuitBuilder>(
+    MegaCircuitBuilder&, AcirFormat&, bool, bool, bool, std::optional<ClientIVC>);
+template void build_constraints<UltraCircuitBuilder>(
+    UltraCircuitBuilder&, AcirFormat&, bool, bool, bool, std::optional<ClientIVC>);
 
 } // namespace acir_format

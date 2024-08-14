@@ -96,6 +96,7 @@ struct AcirFormat {
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
+    std::vector<HonkRecursionConstraint> honk_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -140,7 +141,7 @@ struct AcirFormat {
                    ec_add_constraints,
                    recursion_constraints,
                    honk_recursion_constraints,
-                   client_ivc_accumulation_constraints,
+                   //    client_ivc_accumulation_constraints,
                    poly_triple_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
@@ -196,7 +197,14 @@ Builder create_circuit(AcirFormat& constraint_system,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
-MegaCircuitBuilder create_circuit_with_accumulation_witnesses(AcirFormat&, WitnessVector const&, ClientIVC const&);
+MegaCircuitBuilder create_circuit_with_accumulation_witnesses(
+    ClientIVC&,
+    AcirFormat& constraint_system,
+    size_t size_hint = 0,
+    WitnessVector const& witness = {},
+    bool honk_recursion = false,
+    std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
+    bool collect_gates_per_opcode = false);
 
 // WORKTODO: break this function up or assure that we're not copying anything when we pass ClientIVC via a std::optional
 template <typename Builder>
