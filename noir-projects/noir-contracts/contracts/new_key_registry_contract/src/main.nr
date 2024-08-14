@@ -8,7 +8,7 @@ contract NewKeyRegistry {
 
     #[aztec(storage)]
     struct Storage {
-		current_keys: Map<AztecAddress, PublicMutable<StoredKeys>>,
+        current_keys: Map<AztecAddress, PublicMutable<StoredKeys>>,
     }
 
     impl<Context> Storage<Context> {
