@@ -42,14 +42,19 @@ unconstrained pub fn println<T>(input: T) {
     print_oracle(true, input);
 }
 
-pub fn verify_proof<N>(verification_key: [Field], proof: [Field], public_inputs: [Field], key_hash: Field) {
+pub fn verify_proof<let N: u32, let M: u32, let K: u32>(
+    verification_key: [Field; N],
+    proof: [Field; M],
+    public_inputs: [Field; K],
+    key_hash: Field
+) {
     verify_proof_internal(verification_key, proof, public_inputs, key_hash, 0);
 }
 
-pub fn verify_proof_with_type<N>(
-    verification_key: [Field],
-    proof: [Field],
-    public_inputs: [Field],
+pub fn verify_proof_with_type<let N: u32, let M: u32, let K: u32>(
+    verification_key: [Field; N],
+    proof: [Field; M],
+    public_inputs: [Field; K],
     key_hash: Field,
     proof_type: u32
 ) {
@@ -58,7 +63,7 @@ pub fn verify_proof_with_type<N>(
 }
 
 #[foreign(recursive_aggregation)]
-pub fn verify_proof<let N: u32, let M: u32, let K: u32>(
+fn verify_proof_internal<let N: u32, let M: u32, let K: u32>(
     verification_key: [Field; N],
     proof: [Field; M],
     public_inputs: [Field; K],

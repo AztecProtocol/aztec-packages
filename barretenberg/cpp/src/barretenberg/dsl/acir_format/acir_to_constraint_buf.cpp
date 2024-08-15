@@ -227,7 +227,7 @@ WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
-                               bool honk_recursion,
+                               [[maybe_unused]] bool honk_recursion,
                                size_t opcode_index)
 {
     std::visit(
@@ -417,7 +417,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
 
                 // WORKTODO: this ultimately needs to come directly from noir in arg.proof_type.
-                PROOF_TYPE proof_type = honk_recursion ? HONK_RECURSION : PLONK_RECURSION;
+                // PROOF_TYPE proof_type = honk_recursion ? HONK_RECURSION : PLONK_RECURSION;
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
                 auto c = RecursionConstraint{
@@ -425,13 +425,13 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
                     .key_hash = input_key,
-                    .proof_type = proof_type,
+                    .proof_type = arg.proof_type, // WORKTODO: from maxim: need to use parse_input?
                 };
                 // Add the recursion constraint to the appropriate container based on proof type
-                if (proof_type == PLONK_RECURSION) {
+                if (c.proof_type == PLONK_RECURSION) {
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                } else if (proof_type == PLONK_RECURSION) {
+                } else if (c.proof_type == HONK_RECURSION) {
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                 } else {
