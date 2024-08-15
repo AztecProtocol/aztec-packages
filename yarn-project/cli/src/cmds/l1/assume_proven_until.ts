@@ -20,6 +20,6 @@ export async function assumeProvenUntil(
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
   const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
 
-  await setAssumeProvenUntil(blockNumber, rollupAddress, walletClient);
+  await setAssumeProvenUntil(blockNumber + 1, rollupAddress, walletClient);
   log(`Assumed proven until block ${blockNumber}`);
 }
