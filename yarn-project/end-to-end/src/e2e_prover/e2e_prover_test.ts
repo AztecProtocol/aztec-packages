@@ -1,10 +1,11 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type Archiver } from '@aztec/archiver';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   type CompleteAddress,
   type DebugLogger,
+  type DeployL1Contracts,
   ExtendedNote,
   type Fq,
   Fr,
@@ -16,10 +17,12 @@ import {
   deployL1Contract,
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
+import { createStore } from '@aztec/kv-store/utils';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
@@ -76,6 +79,7 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
+  private l1Contracts!: DeployL1Contracts;
 
   constructor(testName: string, private minNumberOfTxsPerBlock: number) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
@@ -137,7 +141,12 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode, proverNode: this.simulatedProverNode } = this.context);
+    ({
+      pxe: this.pxe,
+      aztecNode: this.aztecNode,
+      proverNode: this.simulatedProverNode,
+      deployL1ContractsValues: this.l1Contracts,
+    } = this.context);
 
     // Configure a full prover PXE
 
@@ -209,22 +218,23 @@ export class FullProverTest {
 
     this.logger.info(`Full prover PXE started`);
 
-    const blockNumber = await this.context.pxe.getBlockNumber();
-    await this.context.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await getContract({
-        abi: RollupAbi,
-        address: this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        client: this.context.deployL1ContractsValues.walletClient,
-      }).write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber + 1)]),
-    });
-    this.logger.verbose(`Rollup contract set to assume proven until block ${blockNumber + 1}`);
-
     // Shutdown the current, simulated prover node
     this.logger.verbose('Shutting down simulated prover node');
     await this.simulatedProverNode.stop();
 
-    this.logger.verbose('Starting fully proven prover node');
+    // Creating temp store and archiver for fully proven prover node
 
+    this.logger.verbose('Starting archiver for new prover node');
+    const store = await createStore({ dataDirectory: undefined }, this.l1Contracts.l1ContractAddresses.rollupAddress);
+
+    const archiver = await createArchiver(
+      { ...this.context.aztecNodeConfig, dataDirectory: undefined },
+      store,
+      new NoopTelemetryClient(),
+      { blockUntilSync: true },
+    );
+
+    this.logger.verbose('Starting fully proven prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
       txProviderNodeUrl: undefined,
@@ -233,8 +243,10 @@ export class FullProverTest {
       realProofs: true,
       proverAgentConcurrency: 2,
     };
-    const archiver = this.context.aztecNode.getBlockSource() as Archiver;
-    this.proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: this.aztecNode, archiver });
+    this.proverNode = await createProverNode(proverConfig, {
+      aztecNodeTxProvider: this.aztecNode,
+      archiver: archiver as Archiver,
+    });
     this.proverNode.start();
 
     this.logger.info('Prover node started');

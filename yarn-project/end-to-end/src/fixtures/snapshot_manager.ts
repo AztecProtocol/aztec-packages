@@ -1,5 +1,5 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type Archiver } from '@aztec/archiver';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AztecAddress,
@@ -20,8 +20,10 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { createStore } from '@aztec/kv-store/utils';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -282,6 +284,21 @@ async function setupFromFresh(
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
+  // Creating temp store and archiver for simulated prover node
+
+  const store = await createStore(
+    { dataDirectory: undefined },
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+  );
+
+  const archiver = await createArchiver(
+    { ...aztecNodeConfig, dataDirectory: undefined },
+    store,
+    new NoopTelemetryClient(),
+    { blockUntilSync: true },
+  );
+
+  // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
     ...aztecNodeConfig,
     txProviderNodeUrl: undefined,
@@ -290,8 +307,10 @@ async function setupFromFresh(
     realProofs: false,
     proverAgentConcurrency: 2,
   };
-  const archiver = aztecNode.getBlockSource() as Archiver;
-  const proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: aztecNode, archiver });
+  const proverNode = await createProverNode(proverConfig, {
+    aztecNodeTxProvider: aztecNode,
+    archiver: archiver as Archiver,
+  });
   proverNode.start();
 
   logger.verbose('Prover node started');
@@ -370,6 +389,18 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
+  // Creating temp store and archiver for simulated prover node
+
+  const store = await createStore({ dataDirectory: undefined }, aztecNodeConfig.l1Contracts.rollupAddress);
+
+  const archiver = await createArchiver(
+    { ...aztecNodeConfig, dataDirectory: undefined },
+    store,
+    new NoopTelemetryClient(),
+    { blockUntilSync: true },
+  );
+
+  // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
     ...aztecNodeConfig,
     txProviderNodeUrl: undefined,
@@ -378,8 +409,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     realProofs: false,
     proverAgentConcurrency: 2,
   };
-  const archiver = aztecNode.getBlockSource() as Archiver;
-  const proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: aztecNode, archiver });
+  const proverNode = await createProverNode(proverConfig, {
+    aztecNodeTxProvider: aztecNode,
+    archiver: archiver as Archiver,
+  });
   proverNode.start();
 
   logger.verbose('Prover node started');
