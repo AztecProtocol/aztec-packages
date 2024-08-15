@@ -419,9 +419,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
                 auto proof_type_in = arg.proof_type;
-                // WORKTODO: This will not be needed once the protocol circuits are updated to explicitly specify honk
-                // recursion but for now they use verify_proof() which defaults to using plonk recursion (so as not to
-                // break things)
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
+                // the only means for setting the proof type. use of honk_recursion flag in this context can go away
+                // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
                 if (honk_recursion && proof_type_in != HONK_RECURSION) {
                     // info("WARNING: Recursion type is not being specified correctly via noir verify_proof()!");
                     proof_type_in = HONK_RECURSION;
