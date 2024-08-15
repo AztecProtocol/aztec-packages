@@ -44,8 +44,7 @@ variable "BOT_TX_MINED_WAIT_SECONDS" {
 }
 
 variable "BOT_FOLLOW_CHAIN" {
-  type    = string
-  default = true
+  type = string
 }
 
 variable "PROVING_ENABLED" {
