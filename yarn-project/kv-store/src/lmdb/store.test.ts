@@ -25,6 +25,11 @@ describe('AztecLmdbStore', () => {
     await itForks(store);
   });
 
+  it('forks a persistent store with no path', async () => {
+    const store = AztecLmdbStore.open(undefined, false);
+    await itForks(store);
+  });
+
   it('forks an ephemeral store', async () => {
     const store = AztecLmdbStore.open(undefined, true);
     await itForks(store);
