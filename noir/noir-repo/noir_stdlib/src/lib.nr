@@ -67,7 +67,7 @@ fn verify_proof_internal<let N: u32, let M: u32, let K: u32>(
     verification_key: [Field; N],
     proof: [Field; M],
     public_inputs: [Field; K],
-    key_hash: Field
+    key_hash: Field,
     proof_type: u32
 ) {}
 
