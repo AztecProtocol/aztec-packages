@@ -45,6 +45,7 @@ export async function deployAztecContracts(
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
+  salt: number | undefined,
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
   const {
@@ -105,6 +106,7 @@ export async function deployAztecContracts(
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
+    salt,
   });
 }
 
