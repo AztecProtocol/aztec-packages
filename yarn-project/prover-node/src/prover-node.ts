@@ -141,6 +141,7 @@ export class ProverNode {
       this.l2BlockSource,
       this.l1ToL2MessageSource,
       this.txProvider,
+      () => db.delete(),
     );
   }
 }
