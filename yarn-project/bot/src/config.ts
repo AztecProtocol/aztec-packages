@@ -7,7 +7,7 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 
-const botFollowChain = ['none', 'pending_chain', 'proven_chain'] as const;
+const botFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
 type BotFollowChain = (typeof botFollowChain)[number];
 
 export type BotConfig = {

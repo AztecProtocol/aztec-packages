@@ -71,7 +71,7 @@ export class Bot {
 
     const txHash = await tx.getTxHash();
 
-    if (this.config.followChain === 'none') {
+    if (this.config.followChain === 'NONE') {
       this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
       return;
     }
@@ -83,7 +83,7 @@ export class Bot {
     const receipt = await tx.wait({
       timeout: this.config.txMinedWaitSeconds,
       provenTimeout: this.config.txMinedWaitSeconds,
-      proven: this.config.followChain === 'proven_chain',
+      proven: this.config.followChain === 'PROVEN',
     });
     this.log.info(`Tx ${receipt.txHash} mined in block ${receipt.blockNumber}`, logCtx);
   }
