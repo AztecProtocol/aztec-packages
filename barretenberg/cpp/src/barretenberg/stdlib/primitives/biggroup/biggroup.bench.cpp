@@ -17,12 +17,6 @@ void mul_bench(State& state) noexcept
         for (int64_t i = 0; i < state.range(0); ++i) {
             element = element * FF::from_witness_index(&builder, builder.add_variable(bb::fr::random_element()));
         }
-        info("Prefinalized gate count for doing ",
-             state.range(0),
-             " biggroup muls is: ",
-             builder.num_gates,
-             " and finalized prediction is: ",
-             builder.get_num_gates());
         builder.finalize_circuit();
         info("Finalized gate count for doing ", state.range(0), " biggroup muls is: ", builder.num_gates);
     }
@@ -39,12 +33,6 @@ void add_bench(State& state) noexcept
         for (int64_t i = 0; i < state.range(0); ++i) {
             element += element * bb::fr::random_element();
         }
-        info("Prefinalized gate count for doing ",
-             state.range(0),
-             " biggroup adds is: ",
-             builder.num_gates,
-             " and finalized prediction is: ",
-             builder.get_num_gates());
         builder.finalize_circuit();
         info("Finalized gate count for doing ", state.range(0), " biggroup adds is: ", builder.num_gates);
     }
@@ -62,12 +50,6 @@ void mul_add_bench(State& state) noexcept
         for (int64_t i = 0; i < state.range(0); ++i) {
             element += element * FF::from_witness_index(&builder, builder.add_variable(bb::fr::random_element()));
         }
-        info("Prefinalized gate count for doing ",
-             state.range(0),
-             " biggroup mul-adds is: ",
-             builder.num_gates,
-             " and finalized prediction is: ",
-             builder.get_num_gates());
         builder.finalize_circuit();
         info("Finalized gate count for doing ", state.range(0), " biggroup mul-adds is: ", builder.num_gates);
     }
@@ -90,13 +72,7 @@ void batch_mul_bench(State& state) noexcept
             points.push_back(Group::one(&builder));
             scalars.push_back(FF::from_witness_index(&builder, builder.add_variable(bb::fr::random_element())));
         }
-        Group::batch_mul(points, scalars);
-        // info("Prefinalized gate count for doing ",
-        //      state.range(0) + 1,
-        //      " length batchmul is: ",
-        //      builder.num_gates,
-        //      " and finalized prediction is: ",
-        //      builder.get_num_gates());
+        Group::batch_mul(points, scalars, 128, true);
         builder.finalize_circuit();
         info(
             "Finalized gate count for doing length ", state.range(0) + 1, " biggroup batchmul is: ", builder.num_gates);
@@ -121,12 +97,6 @@ void wnaf_batch_mul_bench(State& state) noexcept
             scalars.push_back(FF::from_witness_index(&builder, builder.add_variable(bb::fr::random_element())));
         }
         Group::wnaf_batch_mul(points, scalars);
-        // info("Prefinalized gate count for doing length ",
-        //      state.range(0) + 1,
-        //      " wnaf batchmul is: ",
-        //      builder.num_gates,
-        //      " and finalized prediction is: ",
-        //      builder.get_num_gates());
         builder.finalize_circuit();
         info("Finalized gate count for doing length ",
              state.range(0) + 1,
