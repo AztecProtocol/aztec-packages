@@ -442,7 +442,7 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/prover-node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
-          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.prover_node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
