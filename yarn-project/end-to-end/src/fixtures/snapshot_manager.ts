@@ -221,6 +221,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
+  await context.proverNode.stop();
   await context.aztecNode.stop();
   await context.pxe.stop();
   await context.acvmConfig?.cleanup();
