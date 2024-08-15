@@ -423,7 +423,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // the only means for setting the proof type. use of honk_recursion flag in this context can go away
                 // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
                 if (honk_recursion && proof_type_in != HONK_RECURSION) {
-                    // info("WARNING: Recursion type is not being specified correctly via noir verify_proof()!");
                     proof_type_in = HONK_RECURSION;
                 }
 
