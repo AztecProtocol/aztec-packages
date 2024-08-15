@@ -416,16 +416,23 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
 
-                // WORKTODO: this ultimately needs to come directly from noir in arg.proof_type.
-                // PROOF_TYPE proof_type = honk_recursion ? HONK_RECURSION : PLONK_RECURSION;
                 auto input_key = get_witness_from_function_input(arg.key_hash);
+
+                auto proof_type_in = arg.proof_type;
+                // WORKTODO: This will not be needed once the protocol circuits are updated to explicitly specify honk
+                // recursion but for now they use verify_proof() which defaults to using plonk recursion (so as not to
+                // break things)
+                if (honk_recursion && proof_type_in != HONK_RECURSION) {
+                    info("WARNING: Recursion type is not being specified correctly via noir verify_proof()!");
+                    proof_type_in = HONK_RECURSION;
+                }
 
                 auto c = RecursionConstraint{
                     .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
                     .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
                     .key_hash = input_key,
-                    .proof_type = arg.proof_type, // WORKTODO: from maxim: need to use parse_input?
+                    .proof_type = proof_type_in, // WORKTODO: from maxim: need to use parse_input?
                 };
                 // Add the recursion constraint to the appropriate container based on proof type
                 if (c.proof_type == PLONK_RECURSION) {
