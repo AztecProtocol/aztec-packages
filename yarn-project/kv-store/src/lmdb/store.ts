@@ -72,7 +72,7 @@ export class AztecLmdbStore implements AztecKVStore {
   async fork() {
     const baseDir = this.path ? dirname(this.path) : tmpdir();
     this.#log.debug(`Forking store with basedir ${baseDir}`);
-    const forkPath = (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral ? '/data.mdb' : '');
+    const forkPath = (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + '/data.mdb';
     this.#log.verbose(`Forking store to ${forkPath}`);
     await this.#rootDb.backup(forkPath, false);
     const forkDb = open(forkPath, { noSync: this.isEphemeral });
