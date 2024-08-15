@@ -292,7 +292,7 @@ void process_plonk_recursion_constraints(Builder& builder,
                 constraint.public_inputs.emplace_back(constraint.proof[i]);
             }
             // Remove the aggregation object so that they can be handled as normal public inputs
-            // in they way taht the recursion constraint expects
+            // in the way that the recursion constraint expects
             constraint.proof.erase(constraint.proof.begin(),
                                    constraint.proof.begin() + static_cast<std::ptrdiff_t>(bb::AGGREGATION_OBJECT_SIZE));
         }
