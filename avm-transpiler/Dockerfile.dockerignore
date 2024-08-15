@@ -1,4 +1,5 @@
 *
 !noir
 !avm-transpiler
-noir/noir-repo/target
+**/target
+**/node_modules
