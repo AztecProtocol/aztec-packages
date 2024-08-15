@@ -39,6 +39,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   // @note  The number of slots within which a block must be proven
   //        This number is currently pulled out of thin air and should be replaced when we are not blind
+  // @todo  #8018
   uint256 public constant TIMELINESS_PROVING_IN_SLOTS = 100;
 
   IRegistry public immutable REGISTRY;
