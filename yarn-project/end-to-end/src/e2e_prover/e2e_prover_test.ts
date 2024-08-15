@@ -75,6 +75,7 @@ export class FullProverTest {
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
+  private simulatedProverNode!: ProverNode;
 
   constructor(testName: string, private minNumberOfTxsPerBlock: number) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
@@ -112,7 +113,7 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send()
-          .deployed();
+          .deployed({ proven: true });
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         return { tokenContractAddress: asset.address };
@@ -136,7 +137,7 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = this.context);
+    ({ pxe: this.pxe, aztecNode: this.aztecNode, proverNode: this.simulatedProverNode } = this.context);
 
     // Configure a full prover PXE
 
@@ -214,15 +215,21 @@ export class FullProverTest {
         abi: RollupAbi,
         address: this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         client: this.context.deployL1ContractsValues.walletClient,
-      }).write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber)]),
+      }).write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber + 1)]),
     });
-    this.logger.verbose(`Rollup contract set to assume proven until block ${blockNumber}`);
+    this.logger.verbose(`Rollup contract set to assume proven until block ${blockNumber + 1}`);
+
+    // Shutdown the current, simulated prover node
+    this.logger.verbose('Shutting down simulated prover node');
+    await this.simulatedProverNode.stop();
+
+    this.logger.verbose('Starting fully proven prover node');
 
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
       txProviderNodeUrl: undefined,
       dataDirectory: undefined,
-      proverId: new Fr(42),
+      proverId: new Fr(81),
       realProofs: true,
       proverAgentConcurrency: 2,
     };
@@ -249,6 +256,9 @@ export class FullProverTest {
       await this.provenComponents[i].teardown();
     }
 
+    // clean up the full prover node
+    await this.proverNode.stop();
+
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
   }
@@ -273,17 +283,19 @@ export class FullProverTest {
         const { fakeProofsAsset: asset, accounts } = this;
         const amount = 10000n;
 
+        const waitOpts = { proven: true };
+
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
         const secretHash = computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
+        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait(waitOpts);
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true });
+        await txClaim.wait({ debug: true, proven: true });
         this.logger.verbose(`Minting complete.`);
 
         return { amount };
