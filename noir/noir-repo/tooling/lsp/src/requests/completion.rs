@@ -4,12 +4,10 @@ use std::{
 };
 
 use async_lsp::ResponseError;
-use builtins::{builtin_integer_types, keyword_builtin_function, keyword_builtin_type};
+use completion_items::{crate_completion_item, simple_completion_item};
 use fm::{FileId, PathString};
-use lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
-    CompletionResponse, InsertTextFormat,
-};
+use kinds::{FunctionCompletionKind, FunctionKind, ModuleCompletionKind, RequestedItems};
+use lsp_types::{CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse};
 use noirc_errors::{Location, Span};
 use noirc_frontend::{
     ast::{
@@ -26,52 +24,22 @@ use noirc_frontend::{
         def_map::{CrateDefMap, LocalModuleId, ModuleId},
         resolution::path_resolver::{PathResolver, StandardPathResolver},
     },
-    hir_def::{function::FuncMeta, stmt::HirPattern},
-    macros_api::{ModuleDefId, NodeInterner, StructId},
-    node_interner::{FuncId, GlobalId, ReferenceId, TraitId, TypeAliasId},
+    macros_api::{ModuleDefId, NodeInterner},
+    node_interner::ReferenceId,
     parser::{Item, ItemKind},
-    token::Keyword,
-    ParsedModule, Type,
+    ParsedModule, StructType, Type,
 };
-use strum::IntoEnumIterator;
+use sort_text::underscore_sort_text;
 
 use crate::{utils, LspState};
 
 use super::process_request;
 
 mod builtins;
-
-/// When finding items in a module, whether to show only direct children or all visible items.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum ModuleCompletionKind {
-    // Only show a module's direct children. This is used when completing a use statement
-    // or a path after the first segment.
-    DirectChildren,
-    // Show all of a module's visible items. This is used when completing a path outside
-    // of a use statement (in regular code) when the path is just a single segment:
-    // we want to find items exposed in the current module.
-    AllVisibleItems,
-}
-
-/// When suggest a function as a result of completion, whether to autocomplete its name or its name and parameters.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum FunctionCompleteKind {
-    // Only complete a function's name. This is used in use statement.
-    Name,
-    // Complete a function's name and parameters (as a snippet). This is used in regular code.
-    NameAndParameters,
-}
-
-/// When requesting completions, whether to list all items or just types.
-/// For example, when writing `let x: S` we only want to suggest types at this
-/// point (modules too, because they might include types too).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum RequestedItems {
-    // Suggest any items (types, functions, etc.).
-    AnyItems,
-    // Only suggest types.
-    OnlyTypes,
-}
+mod completion_items;
+mod kinds;
+mod sort_text;
+mod tests;
 
 pub(crate) fn on_completion_request(
     state: &mut LspState,
@@ -173,7 +141,16 @@ impl<'a> NodeFinder<'a> {
         if self.completion_items.is_empty() {
             None
         } else {
-            Some(CompletionResponse::Array(std::mem::take(&mut self.completion_items)))
+            let mut items = std::mem::take(&mut self.completion_items);
+
+            // Show items that start with underscore last in the list
+            for item in items.iter_mut() {
+                if item.label.starts_with('_') {
+                    item.sort_text = Some(underscore_sort_text());
+                }
+            }
+
+            Some(CompletionResponse::Array(items))
         }
     }
 
@@ -432,7 +409,18 @@ impl<'a> NodeFinder<'a> {
 
     fn find_in_lvalue(&mut self, lvalue: &LValue) {
         match lvalue {
-            LValue::Ident(_) => (),
+            LValue::Ident(ident) => {
+                if self.byte == Some(b'.') && ident.span().end() as usize == self.byte_index - 1 {
+                    let location = Location::new(ident.span(), self.file);
+                    if let Some(ReferenceId::Local(definition_id)) =
+                        self.interner.find_referenced(location)
+                    {
+                        let typ = self.interner.definition_type(definition_id);
+                        let prefix = "";
+                        self.complete_type_fields_and_methods(&typ, prefix);
+                    }
+                }
+            }
             LValue::MemberAccess { object, field_name: _, span: _ } => self.find_in_lvalue(object),
             LValue::Index { array, index, span: _ } => {
                 self.find_in_lvalue(array);
@@ -513,12 +501,32 @@ impl<'a> NodeFinder<'a> {
 
                 self.local_variables = old_local_variables;
             }
+            noirc_frontend::ast::ExpressionKind::Unsafe(block_expression, _) => {
+                self.find_in_block_expression(block_expression);
+            }
             noirc_frontend::ast::ExpressionKind::AsTraitPath(as_trait_path) => {
                 self.find_in_as_trait_path(as_trait_path);
             }
             noirc_frontend::ast::ExpressionKind::Quote(_)
             | noirc_frontend::ast::ExpressionKind::Resolved(_)
             | noirc_frontend::ast::ExpressionKind::Error => (),
+        }
+
+        // "foo." (no identifier afterwards) is parsed as the expression on the left hand-side of the dot.
+        // Here we check if there's a dot at the completion position, and if the expression
+        // ends right before the dot. If so, it means we want to complete the expression's type fields and methods.
+        // We only do this after visiting nested expressions, because in an expression like `foo & bar.` we want
+        // to complete for `bar`, not for `foo & bar`.
+        if self.completion_items.is_empty()
+            && self.byte == Some(b'.')
+            && expression.span.end() as usize == self.byte_index - 1
+        {
+            let location = Location::new(expression.span, self.file);
+            if let Some(typ) = self.interner.type_at_location(location) {
+                let typ = typ.follow_bindings();
+                let prefix = "";
+                self.complete_type_fields_and_methods(&typ, prefix);
+            }
         }
     }
 
@@ -572,6 +580,19 @@ impl<'a> NodeFinder<'a> {
         &mut self,
         member_access_expression: &MemberAccessExpression,
     ) {
+        let ident = &member_access_expression.rhs;
+
+        if self.byte_index == ident.span().end() as usize {
+            // Assuming member_access_expression is of the form `foo.bar`, we are right after `bar`
+            let location = Location::new(member_access_expression.lhs.span, self.file);
+            if let Some(typ) = self.interner.type_at_location(location) {
+                let typ = typ.follow_bindings();
+                let prefix = ident.to_string();
+                self.complete_type_fields_and_methods(&typ, &prefix);
+                return;
+            }
+        }
+
         self.find_in_expression(&member_access_expression.lhs);
     }
 
@@ -663,7 +684,7 @@ impl<'a> NodeFinder<'a> {
             noirc_frontend::ast::UnresolvedTypeData::Tuple(unresolved_types) => {
                 self.find_in_unresolved_types(unresolved_types);
             }
-            noirc_frontend::ast::UnresolvedTypeData::Function(args, ret, env) => {
+            noirc_frontend::ast::UnresolvedTypeData::Function(args, ret, env, _) => {
                 self.find_in_unresolved_types(args);
                 self.find_in_unresolved_type(ret);
                 self.find_in_unresolved_type(env);
@@ -707,19 +728,50 @@ impl<'a> NodeFinder<'a> {
         }
 
         let is_single_segment = !after_colons && idents.is_empty() && path.kind == PathKind::Plain;
+        let module_id;
 
-        let module_id =
-            if idents.is_empty() { Some(self.module_id) } else { self.resolve_module(idents) };
-        let Some(module_id) = module_id else {
-            return;
-        };
+        if idents.is_empty() {
+            module_id = self.module_id;
+        } else {
+            let Some(module_def_id) = self.resolve_path(idents) else {
+                return;
+            };
+
+            match module_def_id {
+                ModuleDefId::ModuleId(id) => module_id = id,
+                ModuleDefId::TypeId(struct_id) => {
+                    let struct_type = self.interner.get_struct(struct_id);
+                    self.complete_type_methods(
+                        &Type::Struct(struct_type, vec![]),
+                        &prefix,
+                        FunctionKind::Any,
+                    );
+                    return;
+                }
+                ModuleDefId::FunctionId(_) => {
+                    // There's nothing inside a function
+                    return;
+                }
+                ModuleDefId::TypeAliasId(type_alias_id) => {
+                    let type_alias = self.interner.get_type_alias(type_alias_id);
+                    let type_alias = type_alias.borrow();
+                    self.complete_type_methods(&type_alias.typ, &prefix, FunctionKind::Any);
+                    return;
+                }
+                ModuleDefId::TraitId(_) => {
+                    // For now we don't suggest trait methods
+                    return;
+                }
+                ModuleDefId::GlobalId(_) => return,
+            }
+        }
 
         let module_completion_kind = if after_colons {
             ModuleCompletionKind::DirectChildren
         } else {
             ModuleCompletionKind::AllVisibleItems
         };
-        let function_completion_kind = FunctionCompleteKind::NameAndParameters;
+        let function_completion_kind = FunctionCompletionKind::NameAndParameters;
 
         self.complete_in_module(
             module_id,
@@ -827,7 +879,7 @@ impl<'a> NodeFinder<'a> {
         }
 
         let module_completion_kind = ModuleCompletionKind::DirectChildren;
-        let function_completion_kind = FunctionCompleteKind::Name;
+        let function_completion_kind = FunctionCompletionKind::Name;
         let requested_items = RequestedItems::AnyItems;
 
         if after_colons {
@@ -913,6 +965,78 @@ impl<'a> NodeFinder<'a> {
         };
     }
 
+    fn complete_type_fields_and_methods(&mut self, typ: &Type, prefix: &str) {
+        match typ {
+            Type::Struct(struct_type, generics) => {
+                self.complete_struct_fields(&struct_type.borrow(), generics, prefix);
+            }
+            Type::MutableReference(typ) => {
+                return self.complete_type_fields_and_methods(typ, prefix);
+            }
+            Type::Alias(type_alias, _) => {
+                let type_alias = type_alias.borrow();
+                return self.complete_type_fields_and_methods(&type_alias.typ, prefix);
+            }
+            Type::FieldElement
+            | Type::Array(_, _)
+            | Type::Slice(_)
+            | Type::Integer(_, _)
+            | Type::Bool
+            | Type::String(_)
+            | Type::FmtString(_, _)
+            | Type::Unit
+            | Type::Tuple(_)
+            | Type::TypeVariable(_, _)
+            | Type::TraitAsType(_, _, _)
+            | Type::NamedGeneric(_, _, _)
+            | Type::Function(..)
+            | Type::Forall(_, _)
+            | Type::Constant(_)
+            | Type::Quoted(_)
+            | Type::InfixExpr(_, _, _)
+            | Type::Error => (),
+        }
+
+        self.complete_type_methods(typ, prefix, FunctionKind::SelfType(typ));
+    }
+
+    fn complete_type_methods(&mut self, typ: &Type, prefix: &str, function_kind: FunctionKind) {
+        let Some(methods_by_name) = self.interner.get_type_methods(typ) else {
+            return;
+        };
+
+        for (name, methods) in methods_by_name {
+            for func_id in methods.iter() {
+                if name_matches(name, prefix) {
+                    if let Some(completion_item) = self.function_completion_item(
+                        func_id,
+                        FunctionCompletionKind::NameAndParameters,
+                        function_kind,
+                    ) {
+                        self.completion_items.push(completion_item);
+                    }
+                }
+            }
+        }
+    }
+
+    fn complete_struct_fields(
+        &mut self,
+        struct_type: &StructType,
+        generics: &[Type],
+        prefix: &str,
+    ) {
+        for (name, typ) in struct_type.get_fields(generics) {
+            if name_matches(&name, prefix) {
+                self.completion_items.push(simple_completion_item(
+                    name,
+                    CompletionItemKind::FIELD,
+                    Some(typ.to_string()),
+                ));
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn complete_in_module(
         &mut self,
@@ -921,7 +1045,7 @@ impl<'a> NodeFinder<'a> {
         path_kind: PathKind,
         at_root: bool,
         module_completion_kind: ModuleCompletionKind,
-        function_completion_kind: FunctionCompleteKind,
+        function_completion_kind: FunctionCompletionKind,
         requested_items: RequestedItems,
     ) {
         let def_map = &self.def_maps[&module_id.krate];
@@ -951,6 +1075,8 @@ impl<'a> NodeFinder<'a> {
             }
         }
 
+        let function_kind = FunctionKind::Any;
+
         let items = match module_completion_kind {
             ModuleCompletionKind::DirectChildren => module_data.definitions(),
             ModuleCompletionKind::AllVisibleItems => module_data.scope(),
@@ -966,6 +1092,7 @@ impl<'a> NodeFinder<'a> {
                         module_def_id,
                         name.clone(),
                         function_completion_kind,
+                        function_kind,
                         requested_items,
                     ) {
                         self.completion_items.push(completion_item);
@@ -977,6 +1104,7 @@ impl<'a> NodeFinder<'a> {
                         module_def_id,
                         name.clone(),
                         function_completion_kind,
+                        function_kind,
                         requested_items,
                     ) {
                         self.completion_items.push(completion_item);
@@ -1011,131 +1139,6 @@ impl<'a> NodeFinder<'a> {
         }
     }
 
-    fn module_def_id_completion_item(
-        &self,
-        module_def_id: ModuleDefId,
-        name: String,
-        function_completion_kind: FunctionCompleteKind,
-        requested_items: RequestedItems,
-    ) -> Option<CompletionItem> {
-        match requested_items {
-            RequestedItems::OnlyTypes => match module_def_id {
-                ModuleDefId::FunctionId(_) | ModuleDefId::GlobalId(_) => return None,
-                ModuleDefId::ModuleId(_)
-                | ModuleDefId::TypeId(_)
-                | ModuleDefId::TypeAliasId(_)
-                | ModuleDefId::TraitId(_) => (),
-            },
-            RequestedItems::AnyItems => (),
-        }
-
-        let completion_item = match module_def_id {
-            ModuleDefId::ModuleId(_) => module_completion_item(name),
-            ModuleDefId::FunctionId(func_id) => {
-                self.function_completion_item(func_id, function_completion_kind)
-            }
-            ModuleDefId::TypeId(struct_id) => self.struct_completion_item(struct_id),
-            ModuleDefId::TypeAliasId(type_alias_id) => {
-                self.type_alias_completion_item(type_alias_id)
-            }
-            ModuleDefId::TraitId(trait_id) => self.trait_completion_item(trait_id),
-            ModuleDefId::GlobalId(global_id) => self.global_completion_item(global_id),
-        };
-        Some(completion_item)
-    }
-
-    fn function_completion_item(
-        &self,
-        func_id: FuncId,
-        function_completion_kind: FunctionCompleteKind,
-    ) -> CompletionItem {
-        let func_meta = self.interner.function_meta(&func_id);
-        let name = self.interner.function_name(&func_id).to_string();
-
-        let mut typ = &func_meta.typ;
-        if let Type::Forall(_, typ_) = typ {
-            typ = typ_;
-        }
-        let description = typ.to_string();
-        let description = description.strip_suffix(" -> ()").unwrap_or(&description).to_string();
-
-        match function_completion_kind {
-            FunctionCompleteKind::Name => {
-                simple_completion_item(name, CompletionItemKind::FUNCTION, Some(description))
-            }
-            FunctionCompleteKind::NameAndParameters => {
-                let label = format!("{}(…)", name);
-                let kind = CompletionItemKind::FUNCTION;
-                let insert_text = self.compute_function_insert_text(func_meta, &name);
-
-                snippet_completion_item(label, kind, insert_text, Some(description))
-            }
-        }
-    }
-
-    fn compute_function_insert_text(&self, func_meta: &FuncMeta, name: &str) -> String {
-        let mut text = String::new();
-        text.push_str(name);
-        text.push('(');
-        for (index, (pattern, _, _)) in func_meta.parameters.0.iter().enumerate() {
-            if index > 0 {
-                text.push_str(", ");
-            }
-
-            text.push_str("${");
-            text.push_str(&(index + 1).to_string());
-            text.push(':');
-            self.hir_pattern_to_argument(pattern, &mut text);
-            text.push('}');
-        }
-        text.push(')');
-        text
-    }
-
-    fn hir_pattern_to_argument(&self, pattern: &HirPattern, text: &mut String) {
-        match pattern {
-            HirPattern::Identifier(hir_ident) => {
-                text.push_str(self.interner.definition_name(hir_ident.id));
-            }
-            HirPattern::Mutable(pattern, _) => self.hir_pattern_to_argument(pattern, text),
-            HirPattern::Tuple(_, _) | HirPattern::Struct(_, _, _) => text.push('_'),
-        }
-    }
-
-    fn struct_completion_item(&self, struct_id: StructId) -> CompletionItem {
-        let struct_type = self.interner.get_struct(struct_id);
-        let struct_type = struct_type.borrow();
-        let name = struct_type.name.to_string();
-
-        simple_completion_item(name.clone(), CompletionItemKind::STRUCT, Some(name))
-    }
-
-    fn type_alias_completion_item(&self, type_alias_id: TypeAliasId) -> CompletionItem {
-        let type_alias = self.interner.get_type_alias(type_alias_id);
-        let type_alias = type_alias.borrow();
-        let name = type_alias.name.to_string();
-
-        simple_completion_item(name.clone(), CompletionItemKind::STRUCT, Some(name))
-    }
-
-    fn trait_completion_item(&self, trait_id: TraitId) -> CompletionItem {
-        let trait_ = self.interner.get_trait(trait_id);
-        let name = trait_.name.to_string();
-
-        simple_completion_item(name.clone(), CompletionItemKind::INTERFACE, Some(name))
-    }
-
-    fn global_completion_item(&self, global_id: GlobalId) -> CompletionItem {
-        let global_definition = self.interner.get_global_definition(global_id);
-        let name = global_definition.name.clone();
-
-        let global = self.interner.get_global(global_id);
-        let typ = self.interner.definition_type(global.definition_id);
-        let description = typ.to_string();
-
-        simple_completion_item(name, CompletionItemKind::CONSTANT, Some(description))
-    }
-
     fn resolve_module(&self, segments: Vec<Ident>) -> Option<ModuleId> {
         if let Some(ModuleDefId::ModuleId(module_id)) = self.resolve_path(segments) {
             Some(module_id)
@@ -1145,65 +1148,25 @@ impl<'a> NodeFinder<'a> {
     }
 
     fn resolve_path(&self, segments: Vec<Ident>) -> Option<ModuleDefId> {
+        let last_segment = segments.last().unwrap().clone();
+
         let path_segments = segments.into_iter().map(PathSegment::from).collect();
         let path = Path { segments: path_segments, kind: PathKind::Plain, span: Span::default() };
 
         let path_resolver = StandardPathResolver::new(self.root_module_id);
-        match path_resolver.resolve(self.def_maps, path, &mut None) {
-            Ok(path_resolution) => Some(path_resolution.module_def_id),
-            Err(_) => None,
+        if let Ok(path_resolution) = path_resolver.resolve(self.def_maps, path, &mut None) {
+            return Some(path_resolution.module_def_id);
         }
-    }
 
-    fn builtin_functions_completion(&mut self, prefix: &str) {
-        for keyword in Keyword::iter() {
-            if let Some(func) = keyword_builtin_function(&keyword) {
-                if name_matches(func.name, prefix) {
-                    self.completion_items.push(snippet_completion_item(
-                        format!("{}(…)", func.name),
-                        CompletionItemKind::FUNCTION,
-                        format!("{}({})", func.name, func.parameters),
-                        Some(func.description.to_string()),
-                    ));
-                }
-            }
-        }
-    }
-
-    fn builtin_values_completion(&mut self, prefix: &str) {
-        for keyword in ["false", "true"] {
-            if name_matches(keyword, prefix) {
-                self.completion_items.push(simple_completion_item(
-                    keyword,
-                    CompletionItemKind::KEYWORD,
-                    Some("bool".to_string()),
-                ));
-            }
-        }
-    }
-
-    fn builtin_types_completion(&mut self, prefix: &str) {
-        for keyword in Keyword::iter() {
-            if let Some(typ) = keyword_builtin_type(&keyword) {
-                if name_matches(typ, prefix) {
-                    self.completion_items.push(simple_completion_item(
-                        typ,
-                        CompletionItemKind::STRUCT,
-                        Some(typ.to_string()),
-                    ));
-                }
+        // If we can't resolve a path trough lookup, let's see if the last segment is bound to a type
+        let location = Location::new(last_segment.span(), self.file);
+        if let Some(reference_id) = self.interner.find_referenced(location) {
+            if let Some(id) = module_def_id_from_reference_id(reference_id) {
+                return Some(id);
             }
         }
 
-        for typ in builtin_integer_types() {
-            if name_matches(typ, prefix) {
-                self.completion_items.push(simple_completion_item(
-                    typ,
-                    CompletionItemKind::STRUCT,
-                    Some(typ.to_string()),
-                ));
-            }
-        }
+        None
     }
 
     fn includes_span(&self, span: Span) -> bool {
@@ -1215,990 +1178,16 @@ fn name_matches(name: &str, prefix: &str) -> bool {
     name.starts_with(prefix)
 }
 
-fn module_completion_item(name: impl Into<String>) -> CompletionItem {
-    simple_completion_item(name, CompletionItemKind::MODULE, None)
-}
-
-fn crate_completion_item(name: impl Into<String>) -> CompletionItem {
-    simple_completion_item(name, CompletionItemKind::MODULE, None)
-}
-
-fn simple_completion_item(
-    label: impl Into<String>,
-    kind: CompletionItemKind,
-    description: Option<String>,
-) -> CompletionItem {
-    CompletionItem {
-        label: label.into(),
-        label_details: Some(CompletionItemLabelDetails { detail: None, description }),
-        kind: Some(kind),
-        detail: None,
-        documentation: None,
-        deprecated: None,
-        preselect: None,
-        sort_text: None,
-        filter_text: None,
-        insert_text: None,
-        insert_text_format: None,
-        insert_text_mode: None,
-        text_edit: None,
-        additional_text_edits: None,
-        command: None,
-        commit_characters: None,
-        data: None,
-        tags: None,
-    }
-}
-
-fn snippet_completion_item(
-    label: impl Into<String>,
-    kind: CompletionItemKind,
-    insert_text: impl Into<String>,
-    description: Option<String>,
-) -> CompletionItem {
-    CompletionItem {
-        label: label.into(),
-        label_details: Some(CompletionItemLabelDetails { detail: None, description }),
-        kind: Some(kind),
-        insert_text_format: Some(InsertTextFormat::SNIPPET),
-        insert_text: Some(insert_text.into()),
-        detail: None,
-        documentation: None,
-        deprecated: None,
-        preselect: None,
-        sort_text: None,
-        filter_text: None,
-        insert_text_mode: None,
-        text_edit: None,
-        additional_text_edits: None,
-        command: None,
-        commit_characters: None,
-        data: None,
-        tags: None,
-    }
-}
-
-#[cfg(test)]
-mod completion_tests {
-    use crate::{notifications::on_did_open_text_document, test_utils};
-
-    use super::*;
-    use lsp_types::{
-        DidOpenTextDocumentParams, PartialResultParams, Position, TextDocumentIdentifier,
-        TextDocumentItem, TextDocumentPositionParams, WorkDoneProgressParams,
-    };
-    use tokio::test;
-
-    async fn assert_completion(src: &str, expected: Vec<CompletionItem>) {
-        let (mut state, noir_text_document) = test_utils::init_lsp_server("document_symbol").await;
-
-        let (line, column) = src
-            .lines()
-            .enumerate()
-            .filter_map(|(line_index, line)| {
-                line.find(">|<").map(|char_index| (line_index, char_index))
-            })
-            .next()
-            .expect("Expected to find one >|< in the source code");
-
-        let src = src.replace(">|<", "");
-
-        on_did_open_text_document(
-            &mut state,
-            DidOpenTextDocumentParams {
-                text_document: TextDocumentItem {
-                    uri: noir_text_document.clone(),
-                    language_id: "noir".to_string(),
-                    version: 0,
-                    text: src.to_string(),
-                },
-            },
-        );
-
-        // Get inlay hints. These should now be relative to the changed text,
-        // not the saved file's text.
-        let response = on_completion_request(
-            &mut state,
-            CompletionParams {
-                text_document_position: TextDocumentPositionParams {
-                    text_document: TextDocumentIdentifier { uri: noir_text_document },
-                    position: Position { line: line as u32, character: column as u32 },
-                },
-                work_done_progress_params: WorkDoneProgressParams { work_done_token: None },
-                partial_result_params: PartialResultParams { partial_result_token: None },
-                context: None,
-            },
-        )
-        .await
-        .expect("Could not execute on_completion_request")
-        .unwrap();
-
-        let CompletionResponse::Array(items) = response else {
-            panic!("Expected response to be CompletionResponse::Array");
-        };
-
-        let mut items = items.clone();
-        items.sort_by_key(|item| item.label.clone());
-
-        let mut expected = expected.clone();
-        expected.sort_by_key(|item| item.label.clone());
-
-        if items != expected {
-            println!(
-                "Items: {:?}",
-                items.iter().map(|item| item.label.clone()).collect::<Vec<_>>()
-            );
-            println!(
-                "Expected: {:?}",
-                expected.iter().map(|item| item.label.clone()).collect::<Vec<_>>()
-            );
-        }
-
-        assert_eq!(items, expected);
-    }
-
-    #[test]
-    async fn test_use_first_segment() {
-        let src = r#"
-            mod foo {}
-            mod foobar {}
-            use f>|<
-        "#;
-
-        assert_completion(
-            src,
-            vec![module_completion_item("foo"), module_completion_item("foobar")],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_use_second_segment() {
-        let src = r#"
-            mod foo {
-                mod bar {}
-                mod baz {}
-            }
-            use foo::>|<
-        "#;
-
-        assert_completion(src, vec![module_completion_item("bar"), module_completion_item("baz")])
-            .await;
-    }
-
-    #[test]
-    async fn test_use_second_segment_after_typing() {
-        let src = r#"
-            mod foo {
-                mod bar {}
-                mod brave {}
-            }
-            use foo::ba>|<
-        "#;
-
-        assert_completion(src, vec![module_completion_item("bar")]).await;
-    }
-
-    #[test]
-    async fn test_use_struct() {
-        let src = r#"
-            mod foo {
-                struct Foo {}
-            }
-            use foo::>|<
-        "#;
-
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Foo",
-                CompletionItemKind::STRUCT,
-                Some("Foo".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_use_function() {
-        let src = r#"
-            mod foo {
-                fn bar(x: i32) -> u64 { 0 }
-            }
-            use foo::>|<
-        "#;
-
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn(i32) -> u64".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_use_after_crate_and_letter() {
-        // Prove that "std" shows up
-        let src = r#"
-            use s>|<
-        "#;
-        assert_completion(src, vec![crate_completion_item("std")]).await;
-
-        // "std" doesn't show up anymore because of the "crate::" prefix
-        let src = r#"
-            mod something {}
-            use crate::s>|<
-        "#;
-        assert_completion(src, vec![module_completion_item("something")]).await;
-    }
-
-    #[test]
-    async fn test_use_suggests_hardcoded_crate() {
-        let src = r#"
-            use c>|<
-        "#;
-
-        assert_completion(
-            src,
-            vec![simple_completion_item("crate::", CompletionItemKind::KEYWORD, None)],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_use_in_tree_after_letter() {
-        let src = r#"
-            mod foo {
-                mod bar {}
-            }
-            use foo::{b>|<}
-        "#;
-
-        assert_completion(src, vec![module_completion_item("bar")]).await;
-    }
-
-    #[test]
-    async fn test_use_in_tree_after_colons() {
-        let src = r#"
-            mod foo {
-                mod bar {
-                    mod baz {}
-                }
-            }
-            use foo::{bar::>|<}
-        "#;
-
-        assert_completion(src, vec![module_completion_item("baz")]).await;
-    }
-
-    #[test]
-    async fn test_use_in_tree_after_colons_after_another_segment() {
-        let src = r#"
-            mod foo {
-                mod bar {}
-                mod qux {}
-            }
-            use foo::{bar, q>|<}
-        "#;
-
-        assert_completion(src, vec![module_completion_item("qux")]).await;
-    }
-
-    #[test]
-    async fn test_use_in_nested_module() {
-        let src = r#"
-            mod foo {
-                mod something {}
-
-                use s>|<
-            }
-        "#;
-
-        assert_completion(
-            src,
-            vec![
-                module_completion_item("something"),
-                crate_completion_item("std"),
-                simple_completion_item("super::", CompletionItemKind::KEYWORD, None),
-            ],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_use_after_super() {
-        let src = r#"
-            mod foo {}
-
-            mod bar {
-                mod something {}
-
-                use super::f>|<
-            }
-        "#;
-
-        assert_completion(src, vec![module_completion_item("foo")]).await;
-    }
-
-    #[test]
-    async fn test_use_after_crate_and_letter_nested_in_module() {
-        let src = r#"
-            mod something {
-                mod something_else {}
-                use crate::s>|<
-            }
-            
-        "#;
-        assert_completion(src, vec![module_completion_item("something")]).await;
-    }
-
-    #[test]
-    async fn test_use_after_crate_segment_and_letter_nested_in_module() {
-        let src = r#"
-            mod something {
-                mod something_else {}
-                use crate::something::s>|<
-            }
-            
-        "#;
-        assert_completion(src, vec![module_completion_item("something_else")]).await;
-    }
-
-    #[test]
-    async fn test_complete_path_shows_module() {
-        let src = r#"
-          mod foobar {}
-
-          fn main() {
-            fo>|<
-          }
-        "#;
-        assert_completion(src, vec![module_completion_item("foobar")]).await;
-    }
-
-    #[test]
-    async fn test_complete_path_after_colons_shows_submodule() {
-        let src = r#"
-          mod foo {
-            mod bar {}
-          }
-
-          fn main() {
-            foo::>|<
-          }
-        "#;
-        assert_completion(src, vec![module_completion_item("bar")]).await;
-    }
-
-    #[test]
-    async fn test_complete_path_after_colons_and_letter_shows_submodule() {
-        let src = r#"
-          mod foo {
-            mod bar {}
-          }
-
-          fn main() {
-            foo::b>|<
-          }
-        "#;
-        assert_completion(src, vec![module_completion_item("bar")]).await;
-    }
-
-    #[test]
-    async fn test_complete_path_with_local_variable() {
-        let src = r#"
-          fn main() {
-            let local = 1;
-            l>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "local",
-                CompletionItemKind::VARIABLE,
-                Some("Field".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_path_with_shadowed_local_variable() {
-        let src = r#"
-          fn main() {
-            let local = 1;
-            let local = true;
-            l>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "local",
-                CompletionItemKind::VARIABLE,
-                Some("bool".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_path_with_function_argument() {
-        let src = r#"
-          fn main(local: Field) {
-            l>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "local",
-                CompletionItemKind::VARIABLE,
-                Some("Field".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_function() {
-        let src = r#"
-          fn hello(x: i32, y: Field) { }
-
-          fn main() {
-            h>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![snippet_completion_item(
-                "hello(…)",
-                CompletionItemKind::FUNCTION,
-                "hello(${1:x}, ${2:y})",
-                Some("fn(i32, Field)".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_builtin_functions() {
-        let src = r#"
-          fn main() {
-            a>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![
-                snippet_completion_item(
-                    "assert(…)",
-                    CompletionItemKind::FUNCTION,
-                    "assert(${1:predicate})",
-                    Some("fn(T)".to_string()),
-                ),
-                snippet_completion_item(
-                    "assert_constant(…)",
-                    CompletionItemKind::FUNCTION,
-                    "assert_constant(${1:x})",
-                    Some("fn(T)".to_string()),
-                ),
-                snippet_completion_item(
-                    "assert_eq(…)",
-                    CompletionItemKind::FUNCTION,
-                    "assert_eq(${1:lhs}, ${2:rhs})",
-                    Some("fn(T, T)".to_string()),
-                ),
-            ],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_path_in_impl() {
-        let src = r#"
-          struct SomeStruct {}
-
-          impl SomeStruct {
-            fn foo() {
-                S>|<
-            }
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "SomeStruct",
-                CompletionItemKind::STRUCT,
-                Some("SomeStruct".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_path_in_trait_impl() {
-        let src = r#"
-          struct SomeStruct {}
-          trait Trait {}
-
-          impl Trait for SomeStruct {
-            fn foo() {
-                S>|<
-            }
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "SomeStruct",
-                CompletionItemKind::STRUCT,
-                Some("SomeStruct".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_path_with_for_argument() {
-        let src = r#"
-          fn main() {
-            for index in 0..10 {
-                i>|<
-            }
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "index",
-                CompletionItemKind::VARIABLE,
-                Some("u32".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_complete_path_with_lambda_argument() {
-        let src = r#"
-          fn lambda(f: fn(i32)) { }
-
-          fn main() {
-            lambda(|var| v>|<)
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "var",
-                CompletionItemKind::VARIABLE,
-                Some("_".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_struct_field_type() {
-        let src = r#"
-          struct Something {}
-
-          fn SomeFunction() {}
-
-          struct Another {
-            some: So>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_function_parameter() {
-        let src = r#"
-          struct Something {}
-
-          fn foo(x: So>|<) {}
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_function_return_type() {
-        let src = r#"
-          struct Something {}
-
-          fn foo() -> So>|< {}
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_type_alias() {
-        let src = r#"
-          struct Something {}
-
-          type Foo = So>|<
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_trait_function() {
-        let src = r#"
-          struct Something {}
-
-          trait Trait {
-            fn foo(s: So>|<);
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_trait_function_return_type() {
-        let src = r#"
-          struct Something {}
-
-          trait Trait {
-            fn foo() -> So>|<;
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_let_type() {
-        let src = r#"
-          struct Something {}
-
-          fn main() {
-            let x: So>|<
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_type_in_lambda_parameter() {
-        let src = r#"
-          struct Something {}
-
-          fn main() {
-            foo(|s: So>|<| s)
-          }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "Something",
-                CompletionItemKind::STRUCT,
-                Some("Something".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_builtin_types() {
-        let src = r#"
-            fn foo(x: i>|<) {}
-        "#;
-        assert_completion(
-            src,
-            vec![
-                simple_completion_item("i8", CompletionItemKind::STRUCT, Some("i8".to_string())),
-                simple_completion_item("i16", CompletionItemKind::STRUCT, Some("i16".to_string())),
-                simple_completion_item("i32", CompletionItemKind::STRUCT, Some("i32".to_string())),
-                simple_completion_item("i64", CompletionItemKind::STRUCT, Some("i64".to_string())),
-            ],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_true() {
-        let src = r#"
-            fn main() {
-                let x = t>|<
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "true",
-                CompletionItemKind::KEYWORD,
-                Some("bool".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_regarding_if_scope() {
-        let src = r#"
-            fn main() {
-                let good = 1;
-                if true {
-                    let great = 2;
-                    g>|<
-                } else {
-                    let greater = 3;
-                }
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![
-                simple_completion_item(
-                    "good",
-                    CompletionItemKind::VARIABLE,
-                    Some("Field".to_string()),
-                ),
-                simple_completion_item(
-                    "great",
-                    CompletionItemKind::VARIABLE,
-                    Some("Field".to_string()),
-                ),
-            ],
-        )
-        .await;
-
-        let src = r#"
-            fn main() {
-                let good = 1;
-                if true {
-                    let great = 2;
-                } else {
-                    let greater = 3;
-                    g>|<
-                }
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![
-                simple_completion_item(
-                    "good",
-                    CompletionItemKind::VARIABLE,
-                    Some("Field".to_string()),
-                ),
-                simple_completion_item(
-                    "greater",
-                    CompletionItemKind::VARIABLE,
-                    Some("Field".to_string()),
-                ),
-            ],
-        )
-        .await;
-
-        let src = r#"
-            fn main() {
-                let good = 1;
-                if true {
-                    let great = 2;
-                } else {
-                    let greater = 3;
-                }
-                g>|<
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "good",
-                CompletionItemKind::VARIABLE,
-                Some("Field".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_regarding_block_scope() {
-        let src = r#"
-            fn main() {
-                let good = 1;
-                {
-                    let great = 2;
-                    g>|<
-                }
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![
-                simple_completion_item(
-                    "good",
-                    CompletionItemKind::VARIABLE,
-                    Some("Field".to_string()),
-                ),
-                simple_completion_item(
-                    "great",
-                    CompletionItemKind::VARIABLE,
-                    Some("Field".to_string()),
-                ),
-            ],
-        )
-        .await;
-
-        let src = r#"
-            fn main() {
-                let good = 1;
-                {
-                    let great = 2;
-                }
-                g>|<
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "good",
-                CompletionItemKind::VARIABLE,
-                Some("Field".to_string()),
-            )],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_struct_type_parameter() {
-        let src = r#"
-            struct Foo<Context> {
-                context: C>|<
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item("Context", CompletionItemKind::TYPE_PARAMETER, None)],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_impl_type_parameter() {
-        let src = r#"
-            struct Foo<Context> {}
-
-            impl <TypeParam> Foo<TypeParam> {
-                fn foo() {
-                    let x: TypeP>|<
-                }
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item("TypeParam", CompletionItemKind::TYPE_PARAMETER, None)],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_trait_impl_type_parameter() {
-        let src = r#"
-            struct Foo {}
-            trait Trait<Context> {}
-
-            impl <TypeParam> Trait<TypeParam> for Foo {
-                fn foo() {
-                    let x: TypeP>|<
-                }
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item("TypeParam", CompletionItemKind::TYPE_PARAMETER, None)],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_trait_function_type_parameter() {
-        let src = r#"
-            struct Foo {}
-            trait Trait {
-                fn foo<TypeParam>() {
-                    let x: TypeP>|<
-                }
-            }
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item("TypeParam", CompletionItemKind::TYPE_PARAMETER, None)],
-        )
-        .await;
-    }
-
-    #[test]
-    async fn test_suggest_function_type_parameters() {
-        let src = r#"
-            fn foo<Context>(x: C>|<) {}
-        "#;
-        assert_completion(
-            src,
-            vec![simple_completion_item("Context", CompletionItemKind::TYPE_PARAMETER, None)],
-        )
-        .await;
+fn module_def_id_from_reference_id(reference_id: ReferenceId) -> Option<ModuleDefId> {
+    match reference_id {
+        ReferenceId::Module(module_id) => Some(ModuleDefId::ModuleId(module_id)),
+        ReferenceId::Struct(struct_id) => Some(ModuleDefId::TypeId(struct_id)),
+        ReferenceId::Trait(trait_id) => Some(ModuleDefId::TraitId(trait_id)),
+        ReferenceId::Function(func_id) => Some(ModuleDefId::FunctionId(func_id)),
+        ReferenceId::Alias(type_alias_id) => Some(ModuleDefId::TypeAliasId(type_alias_id)),
+        ReferenceId::StructMember(_, _)
+        | ReferenceId::Global(_)
+        | ReferenceId::Local(_)
+        | ReferenceId::Reference(_, _) => None,
     }
 }
