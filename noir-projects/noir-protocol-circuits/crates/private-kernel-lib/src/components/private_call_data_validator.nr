@@ -128,7 +128,7 @@ impl PrivateCallDataValidator {
             tx_request.origin, call_stack_item.contract_address, "origin address does not match call stack items contract address"
         );
         assert_eq(
-            tx_request.function_data.hash(), call_stack_item.function_data.hash(), "tx_request function_data must match call_stack_item function_data"
+            tx_request.function_data, call_stack_item.function_data, "tx_request function_data must match call_stack_item function_data"
         );
         assert_eq(
             tx_request.args_hash, call_stack_item.public_inputs.args_hash, "noir function args passed to tx_request must match args in the call_stack_item"
