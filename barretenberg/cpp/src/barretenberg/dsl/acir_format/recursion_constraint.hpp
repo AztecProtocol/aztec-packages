@@ -6,6 +6,7 @@
 
 namespace acir_format {
 
+// Used to specify the type of recursive verifier via the proof_type specified by verify_proof() from noir
 enum PROOF_TYPE { PLONK_RECURSION, HONK_RECURSION };
 
 using namespace bb::plonk;

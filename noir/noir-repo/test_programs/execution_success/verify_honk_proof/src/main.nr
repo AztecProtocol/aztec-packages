@@ -12,5 +12,6 @@ fn main(
     // I believe we want to eventually make it public too though.
     key_hash: Field
 ) {
+    // Proof type input specified as 1 to indicate honk
     std::verify_proof_with_type(verification_key, proof, public_inputs, key_hash, 1);
 }

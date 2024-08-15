@@ -210,7 +210,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                 .key = key_indices,
                 .proof = proof_indices,
                 .public_inputs = inner_public_inputs,
-                .key_hash = 0, // WORKTODO: what to do here? not used
+                .key_hash = 0, // not used
                 .proof_type = HONK_RECURSION,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);

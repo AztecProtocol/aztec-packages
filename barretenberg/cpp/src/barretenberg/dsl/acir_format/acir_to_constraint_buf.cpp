@@ -227,7 +227,7 @@ WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
-                               [[maybe_unused]] bool honk_recursion,
+                               bool honk_recursion,
                                size_t opcode_index)
 {
     std::visit(
@@ -423,7 +423,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // recursion but for now they use verify_proof() which defaults to using plonk recursion (so as not to
                 // break things)
                 if (honk_recursion && proof_type_in != HONK_RECURSION) {
-                    info("WARNING: Recursion type is not being specified correctly via noir verify_proof()!");
+                    // info("WARNING: Recursion type is not being specified correctly via noir verify_proof()!");
                     proof_type_in = HONK_RECURSION;
                 }
 
@@ -432,7 +432,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
                     .public_inputs = map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
                     .key_hash = input_key,
-                    .proof_type = proof_type_in, // WORKTODO: from maxim: need to use parse_input?
+                    .proof_type = proof_type_in,
                 };
                 // Add the recursion constraint to the appropriate container based on proof type
                 if (c.proof_type == PLONK_RECURSION) {
