@@ -3,13 +3,11 @@
 
 #include "barretenberg/polynomials/polynomial.hpp"
 
-using namespace bb;
-
 // Simple test/demonstration of shifted functionality
 TEST(Polynomial, Shifted)
 {
     using FF = bb::fr;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     const size_t SIZE = 10;
     auto poly = Polynomial::random(SIZE);
     poly[0] = 0; // make it shiftable
@@ -21,13 +19,13 @@ TEST(Polynomial, Shifted)
 
     // The shift is indeed the shift
     for (size_t i = 0; i < poly_shifted.size(); ++i) {
-        EXPECT_EQ(poly_shifted.at(i), poly.at(i + 1));
+        EXPECT_EQ(poly_shifted.get(i), poly.get(i + 1));
     }
 
     // If I change the original polynomial, the shift is updated accordingly
     poly[3] = 25;
     for (size_t i = 0; i < poly_shifted.size(); ++i) {
-        EXPECT_EQ(poly_shifted.at(i), poly.at(i + 1));
+        EXPECT_EQ(poly_shifted.get(i), poly.get(i + 1));
     }
 }
 
@@ -35,7 +33,7 @@ TEST(Polynomial, Shifted)
 TEST(Polynomial, Share)
 {
     using FF = bb::fr;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     const size_t SIZE = 10;
     auto poly = Polynomial::random(SIZE);
 

@@ -375,6 +375,9 @@ class MegaFlavor {
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
+            // of these polys (in aztec_ivc_bench only).
+            BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };
             }
