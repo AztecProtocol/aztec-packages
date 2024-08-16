@@ -105,7 +105,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
         BrilligContext {
             obj: BrilligArtifact::default(),
             registers: Stack::new(),
-            context_label: Label::EntryPoint,
+            context_label: Label::entrypoint(),
             current_section: 0,
             next_section: 1,
             debug_show: DebugShow::new(enable_debug_trace),
@@ -124,7 +124,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F, ScratchSpace> {
         BrilligContext {
             obj: BrilligArtifact::default(),
             registers: ScratchSpace::new(),
-            context_label: Label::EntryPoint,
+            context_label: Label::entrypoint(),
             current_section: 0,
             next_section: 1,
             debug_show: DebugShow::new(enable_debug_trace),
@@ -227,7 +227,7 @@ pub(crate) mod tests {
 
     pub(crate) fn create_context(id: FunctionId) -> BrilligContext<FieldElement, Stack> {
         let mut context = BrilligContext::new(true);
-        context.enter_context(Label::Function(id));
+        context.enter_context(Label::function(id));
         context
     }
 

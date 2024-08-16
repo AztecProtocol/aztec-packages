@@ -28,7 +28,7 @@ pub(crate) fn compile_procedure<F: AcirField + DebugToString>(
     procedure_id: ProcedureId,
 ) -> BrilligArtifact<F> {
     let mut brillig_context = BrilligContext::new_for_procedure(false);
-    brillig_context.enter_context(Label::Procedure(procedure_id));
+    brillig_context.enter_context(Label::procedure(procedure_id));
 
     match procedure_id {
         ProcedureId::MemCopy => compile_mem_copy_procedure(&mut brillig_context),

@@ -189,13 +189,13 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     /// Adds a unresolved external `Call` instruction to the bytecode.
     /// This calls into another function compiled into this brillig artifact.
     pub(crate) fn add_external_call_instruction(&mut self, func_id: FunctionId) {
-        let func_label = Label::Function(func_id);
+        let func_label = Label::function(func_id);
         self.debug_show.add_external_call_instruction(func_label.to_string());
         self.obj.add_unresolved_external_call(BrilligOpcode::Call { location: 0 }, func_label);
     }
 
     pub(super) fn add_procedure_call_instruction(&mut self, procedure_id: ProcedureId) {
-        let proc_label = Label::Procedure(procedure_id);
+        let proc_label = Label::procedure(procedure_id);
         self.debug_show.add_external_call_instruction(proc_label.to_string());
         self.obj.add_unresolved_external_call(BrilligOpcode::Call { location: 0 }, proc_label);
     }
@@ -229,12 +229,8 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         // Add a context label to the next opcode
         self.obj.add_label_at_position(label, self.obj.index_of_next_opcode());
         // Add a section label to the next opcode
-        if self.context_label.can_add_section() {
-            self.obj.add_label_at_position(
-                self.current_section_label(),
-                self.obj.index_of_next_opcode(),
-            );
-        }
+        self.obj
+            .add_label_at_position(self.current_section_label(), self.obj.index_of_next_opcode());
     }
 
     /// Enter the given section within a basic block
@@ -253,11 +249,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
 
     /// Internal function used to compute the section labels
     fn compute_section_label(&self, section: usize) -> Label {
-        if self.context_label.can_add_section() {
-            self.context_label.add_section(section)
-        } else {
-            unreachable!("Can't add a section to the label: {}", self.context_label)
-        }
+        self.context_label.add_section(section)
     }
 
     /// Returns the current section label

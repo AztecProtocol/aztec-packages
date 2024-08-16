@@ -24,7 +24,7 @@ pub(crate) fn convert_ssa_function(
 
     let mut function_context = FunctionContext::new(func);
 
-    brillig_context.enter_context(Label::Function(func.id()));
+    brillig_context.enter_context(Label::function(func.id()));
 
     for block in function_context.blocks.clone() {
         BrilligBlock::compile(&mut function_context, &mut brillig_context, block, &func.dfg);

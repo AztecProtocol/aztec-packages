@@ -54,57 +54,71 @@ pub(crate) struct BrilligArtifact<F> {
 
 /// A pointer to a location in the opcode.
 pub(crate) type OpcodeLocation = usize;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub(crate) enum LabelType {
+    /// Labels for the entry point bytecode
+    Entrypoint,
+    /// Labels for user defined functions
+    Function(FunctionId, Option<BasicBlockId>),
+    /// Labels for intrinsic procedures
+    Procedure(ProcedureId),
+}
+
+impl std::fmt::Display for LabelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LabelType::Function(function_id, block_id) => {
+                if let Some(block_id) = block_id {
+                    write!(f, "Function({:?}, {:?})", function_id, block_id)
+                } else {
+                    write!(f, "Function({:?})", function_id)
+                }
+            }
+            LabelType::Entrypoint => write!(f, "Entrypoint"),
+            LabelType::Procedure(procedure_id) => write!(f, "Procedure({:?})", procedure_id),
+        }
+    }
+}
+
 /// An identifier for a location in the code.
 ///
 /// It is assumed that an entity will keep a map
 /// of labels to Opcode locations.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub(crate) enum Label {
-    /// Used to mark the start of functions, to make them callable.
-    Function(FunctionId),
-    /// Used to mark the start of blocks, to make them jumpable.
-    Block(FunctionId, BasicBlockId),
-    /// Used to mark sections inside blocks, to implement intra-block jumps.
-    BlockSection(FunctionId, BasicBlockId, usize),
-    /// Used to mark the start of the entrypoint code.
-    EntryPoint,
-    /// Used to mark the start of a section in the entrypoint code, to implement jumps in the entrypoint.
-    EntryPointSection(usize),
-    /// Used to mark the start of a procedure code.
-    Procedure(ProcedureId),
-    /// Used to mark the start of a section in the procedure code, to implement jumps in the procedure.
-    ProcedureSection(ProcedureId, usize),
+pub(crate) struct Label {
+    pub(crate) label_type: LabelType,
+    pub(crate) section: Option<usize>,
 }
 
 impl Label {
-    pub(crate) fn can_add_section(&self) -> bool {
-        matches!(self, Label::Block(_, _) | Label::EntryPoint | Label::Procedure(_))
+    pub(crate) fn add_section(&self, section: usize) -> Self {
+        Label { label_type: self.label_type, section: Some(section) }
     }
 
-    pub(crate) fn add_section(&self, section: usize) -> Label {
-        match self {
-            Label::Block(func_id, block_id) => Label::BlockSection(*func_id, *block_id, section),
-            Label::EntryPoint => Label::EntryPointSection(section),
-            Label::Procedure(id) => Label::ProcedureSection(*id, section),
-            _ => unreachable!("cannot add section to label {self}"),
-        }
+    pub(crate) fn function(func_id: FunctionId) -> Self {
+        Label { label_type: LabelType::Function(func_id, None), section: None }
+    }
+
+    pub(crate) fn block(func_id: FunctionId, block_id: BasicBlockId) -> Self {
+        Label { label_type: LabelType::Function(func_id, Some(block_id)), section: None }
+    }
+
+    pub(crate) fn entrypoint() -> Self {
+        Label { label_type: LabelType::Entrypoint, section: None }
+    }
+
+    pub(crate) fn procedure(procedure_id: ProcedureId) -> Self {
+        Label { label_type: LabelType::Procedure(procedure_id), section: None }
     }
 }
 
 impl std::fmt::Display for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Label::Function(id) => write!(f, "Function({})", id),
-            Label::Block(func_id, block_id) => write!(f, "Block({}, {})", func_id, block_id),
-            Label::BlockSection(func_id, block_id, section_id) => {
-                write!(f, "BlockSection({}, {}, {})", func_id, block_id, section_id)
-            }
-            Label::EntryPoint => write!(f, "EntryPoint"),
-            Label::EntryPointSection(section_id) => write!(f, "EntryPointSection({})", section_id),
-            Label::Procedure(id) => write!(f, "Procedure({:?})", id),
-            Label::ProcedureSection(id, section_id) => {
-                write!(f, "ProcedureSection({:?}, {})", id, section_id)
-            }
+        if let Some(section) = self.section {
+            write!(f, "{:?} - {}", self.label_type, section)
+        } else {
+            write!(f, "{:?}", self.label_type)
         }
     }
 }

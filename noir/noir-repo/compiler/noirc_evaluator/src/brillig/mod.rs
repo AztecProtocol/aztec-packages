@@ -2,6 +2,7 @@ pub(crate) mod brillig_gen;
 pub(crate) mod brillig_ir;
 
 use acvm::FieldElement;
+use brillig_ir::artifact::LabelType;
 
 use self::{
     brillig_gen::convert_ssa_function,
@@ -37,12 +38,12 @@ impl Brillig {
         &self,
         function_label: Label,
     ) -> Option<Cow<BrilligArtifact<FieldElement>>> {
-        match function_label {
-            Label::Function(function_id) => {
+        match function_label.label_type {
+            LabelType::Function(function_id, _) => {
                 self.ssa_function_to_brillig.get(&function_id).map(Cow::Borrowed)
             }
             // Procedures are compiled as needed
-            Label::Procedure(procedure_id) => Some(Cow::Owned(compile_procedure(procedure_id))),
+            LabelType::Procedure(procedure_id) => Some(Cow::Owned(compile_procedure(procedure_id))),
             _ => unreachable!("ICE: Expected a function or procedure label"),
         }
     }

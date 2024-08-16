@@ -383,7 +383,7 @@ mod tests {
 
         let ssa = builder.finish();
         let mut brillig_context = create_context(ssa.main_id);
-        brillig_context.enter_context(Label::Block(ssa.main_id, Id::test_new(0)));
+        brillig_context.enter_context(Label::block(ssa.main_id, Id::test_new(0)));
         brillig_context.disable_procedures();
 
         let function_context = FunctionContext::new(ssa.main());
