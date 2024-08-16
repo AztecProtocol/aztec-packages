@@ -241,6 +241,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = local.sequencer_private_keys[count.index]
         },
         {
+          name  = "VALIDATOR_PRIVATE_KEY"
+          value = local.sequencer_private_keys[count.index]
+        },
+        {
           name  = "ROLLUP_CONTRACT_ADDRESS"
           value = data.terraform_remote_state.l1_contracts.outputs.rollup_contract_address
         },
@@ -402,6 +406,7 @@ resource "aws_ecs_service" "aztec-node" {
   deployment_minimum_healthy_percent = 0
   platform_version                   = "1.4.0"
   force_new_deployment               = true
+  enable_execute_command             = true
 
 
   network_configuration {
