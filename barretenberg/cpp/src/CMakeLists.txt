@@ -146,6 +146,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_primitives_objects>
     $<TARGET_OBJECTS:stdlib_honk_recursion_objects>
     $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_protogalaxy_verifier_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:sumcheck_objects>

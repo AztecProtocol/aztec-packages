@@ -5,7 +5,6 @@ barretenberg_module(
     stdlib_blake3s
     ultra_honk
     stdlib_poseidon2
-    protogalaxy
     goblin
     translator_vm_recursion
     eccvm_recursion
