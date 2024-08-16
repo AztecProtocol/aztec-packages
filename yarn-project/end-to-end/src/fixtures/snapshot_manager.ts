@@ -266,6 +266,7 @@ async function setupFromFresh(
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
   const validatorPrivKey = getPrivateKeyFromIndex(1);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
@@ -312,6 +313,7 @@ async function setupFromFresh(
     proverId: new Fr(42),
     realProofs: false,
     proverAgentConcurrency: 2,
+    publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,

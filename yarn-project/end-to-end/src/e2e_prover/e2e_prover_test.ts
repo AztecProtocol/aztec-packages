@@ -39,7 +39,7 @@ import {
   createSnapshotManager,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { setupPXEService } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -234,6 +234,9 @@ export class FullProverTest {
       { blockUntilSync: true },
     );
 
+    // The simulated prover node (now shutdown) used private key index 2
+    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+
     this.logger.verbose('Starting fully proven prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
@@ -242,6 +245,7 @@ export class FullProverTest {
       proverId: new Fr(81),
       realProofs: true,
       proverAgentConcurrency: 2,
+      publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
