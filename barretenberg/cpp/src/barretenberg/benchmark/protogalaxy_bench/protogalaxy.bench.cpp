@@ -44,7 +44,6 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 }
 
 // We stick to just k=1 for compile-time reasons.
-BENCHMARK(fold_k<UltraFlavor, 1>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 BENCHMARK(fold_k<MegaFlavor, 1>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 
 } // namespace bb

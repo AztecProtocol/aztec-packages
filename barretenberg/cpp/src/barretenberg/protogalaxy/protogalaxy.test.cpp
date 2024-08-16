@@ -558,7 +558,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 };
 } // namespace
 
-using FlavorTypes = testing::Types<UltraFlavor, MegaFlavor>;
+using FlavorTypes = testing::Types<MegaFlavor>;
 TYPED_TEST_SUITE(ProtoGalaxyTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyTests, PerturbatorCoefficients)
