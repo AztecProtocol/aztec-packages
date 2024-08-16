@@ -542,7 +542,7 @@ contract TokenWithRefunds {
         let user_npk_m_hash = user_keys.npk_m.hash();
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
-        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
+        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
         // to the user in the `complete_refund(...)` function.
         let change = subtract_balance(
             &mut context,
