@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib/honk_recursion/verifier/goblin_recursive_verifier.hpp"
+#include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
