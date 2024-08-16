@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm_recursion/translator_recursive_flavor.hpp"
