@@ -267,9 +267,20 @@ export class KeyStore {
    * @throws If the provided public key is not associated with any of the registered accounts.
    * @param pkM - The master public key to get secret key for.
    * @returns A Promise that resolves to sk_m.
-   * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
+    return this.getMasterSecretKeyAndPrefix(pkM).then(([skM]) => skM);
+  }
+
+  /**
+   * Retrieves the sk_m corresponding to the pk_m and the key prefix.
+   * @throws If the provided public key is not associated with any of the registered accounts.
+   * @param pkM - The master public key to get secret key for.
+   * @returns A Promise that resolves to sk_m and the key prefix.
+   * @dev Used when feeding the sk_m to the kernel circuit for keys verification. We are returning the key prefix here
+   * to be able to check what keys were returned.
+   */
+  public getMasterSecretKeyAndPrefix(pkM: PublicKey): Promise<[GrumpkinScalar, KeyPrefix]> {
     const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkM);
 
     // We get the secret keys buffer and iterate over the values in the buffer to find the one that matches pkM
@@ -298,7 +309,7 @@ export class KeyStore {
       }
     }
 
-    return Promise.resolve(skM);
+    return Promise.resolve([skM, keyPrefix]);
   }
 
   /**

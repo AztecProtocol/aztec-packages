@@ -79,8 +79,15 @@ async function getMasterSecretKeysAndAppKeyGenerators(
     if (request.isEmpty()) {
       break;
     }
-    const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
-    keysHints[keyIndex] = new KeyValidationHint(secretKeys, i);
+    const [secretKey, prefix] = await oracle.getMasterSecretKeyAndPrefix(request.request.pkM);
+    if (prefix === 'iv' || prefix !== 't') {
+      const keyTypeName = prefix === 'iv' ? 'incoming viewing' : 'tagging';
+      throw new Error(
+        `Requesting key validation request for ${keyTypeName} keys is currently not supported. You have probably made a mistake in your contract.`,
+      );
+    }
+
+    keysHints[keyIndex] = new KeyValidationHint(secretKey, i);
     keyIndex++;
   }
   return {

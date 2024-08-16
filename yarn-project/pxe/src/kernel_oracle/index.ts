@@ -4,9 +4,10 @@ import {
   type Fr,
   type FunctionSelector,
   type GrumpkinScalar,
+  type KeyPrefix,
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
-  type Point,
+  type PublicKey,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
@@ -73,8 +74,8 @@ export class KernelOracle implements ProvingDataOracle {
     return header.state.partial.noteHashTree.root;
   }
 
-  public getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinScalar> {
-    return this.keyStore.getMasterSecretKey(masterPublicKey);
+  public getMasterSecretKeyAndPrefix(pkM: PublicKey): Promise<[GrumpkinScalar, KeyPrefix]> {
+    return this.keyStore.getMasterSecretKeyAndPrefix(pkM);
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {

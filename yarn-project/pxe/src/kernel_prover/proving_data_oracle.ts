@@ -4,9 +4,10 @@ import {
   type Fr,
   type FunctionSelector,
   type GrumpkinScalar,
+  type KeyPrefix,
   type MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
-  type Point,
+  type PublicKey,
   type VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
@@ -76,7 +77,7 @@ export interface ProvingDataOracle {
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinScalar>;
+  getMasterSecretKeyAndPrefix(pkM: PublicKey): Promise<[GrumpkinScalar, KeyPrefix]>;
 
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
