@@ -192,11 +192,7 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.usize_const_instruction(target_vector.rc, 1_usize.into());
 
         // Copy the elements to the left of the index
-        self.brillig_context.codegen_mem_copy(
-            source_vector.pointer,
-            target_vector.pointer,
-            index,
-        );
+        self.brillig_context.codegen_mem_copy(source_vector.pointer, target_vector.pointer, index);
 
         // Compute the source pointer just at the index
         let source_pointer_at_index = self.brillig_context.allocate_register();
@@ -279,11 +275,7 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.usize_const_instruction(target_vector.rc, 1_usize.into());
 
         // Copy the elements to the left of the index
-        self.brillig_context.codegen_mem_copy(
-            source_vector.pointer,
-            target_vector.pointer,
-            index,
-        );
+        self.brillig_context.codegen_mem_copy(source_vector.pointer, target_vector.pointer, index);
 
         // Compute the source pointer after the removed items
         let source_pointer_after_index = self.brillig_context.allocate_register();
