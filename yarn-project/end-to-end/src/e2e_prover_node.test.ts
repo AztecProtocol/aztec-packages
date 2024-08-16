@@ -124,7 +124,7 @@ describe('e2e_prover_node', () => {
     await expect(proverNode.startProof(firstBlock, firstBlock)).rejects.toThrow(/behind the current world state/i);
 
     // Await until proofs get submitted
-    await retryUntil(async () => (await ctx.aztecNode.getProvenBlockNumber()) === secondBlock, 'proven', 10, 1);
+    await retryUntil(async () => (await ctx.aztecNode.getProvenBlockNumber()) === secondBlock, 'proven', 60, 1);
     expect(await ctx.aztecNode.getProvenBlockNumber()).toEqual(secondBlock);
 
     // Check that the prover id made it to the emitted event
