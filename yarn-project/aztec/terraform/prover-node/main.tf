@@ -198,7 +198,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "PROVER_REAL_PROOFS", value = tostring(var.PROVING_ENABLED) },
         { name = "BB_WORKING_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/temp" },
         { name = "ACVM_WORKING_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/temp" },
-        { name = "PROVER_NODE_MAX_PENDING_JOBS", value = tostring(var.PROVER_NODE_MAX_PENDING_JOBS) }
+        { name = "PROVER_NODE_MAX_PENDING_JOBS", value = tostring(var.PROVER_NODE_MAX_PENDING_JOBS) },
 
         // Metrics
         { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://aztec-otel.local:4318" },
