@@ -526,7 +526,13 @@ export enum SequencerState {
    * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
   CREATING_BLOCK,
+  /**
+   * Publishing blocks to validator peers. Will move to WAITING_FOR_ATTESTATIONS.
+   */
   PUBLISHING_BLOCK_TO_PEERS,
+  /**
+   * The block has been published to peers, and we are waiting for attestations. Will move to PUBLISHING_CONTRACT_DATA.
+   */
   WAITING_FOR_ATTESTATIONS,
   /**
    * Sending the tx to L1 with encrypted logs and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.

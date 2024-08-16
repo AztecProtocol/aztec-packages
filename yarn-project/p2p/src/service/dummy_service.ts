@@ -26,8 +26,8 @@ export class DummyP2PService implements P2PService {
   }
 
   /**
-   * Called to have the given transaction propagated through the P2P network.
-   * @param _ - The transaction to be propagated.
+   * Called to have the given message propagated through the P2P network.
+   * @param _ - The message to be propagated.
    */
   public propagate<T extends Gossipable>(_: T) {}
 

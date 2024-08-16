@@ -374,12 +374,9 @@ export async function setup(
   // Run the test with validators enabled
   if (enableValidators) {
     const validatorPrivKey = getPrivateKeyFromIndex(1);
-
     config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
-    config.disableValidator = false;
-  } else {
-    config.disableValidator = true;
   }
+  config.disableValidator = !enableValidators;
 
   logger.verbose('Creating and synching an aztec node...');
 

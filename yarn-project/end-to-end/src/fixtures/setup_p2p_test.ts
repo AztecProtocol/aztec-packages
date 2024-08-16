@@ -22,6 +22,7 @@ export interface NodeContext {
 export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   const peerIdPrivateKeys = [];
   for (let i = 0; i < numberOfPeers; i++) {
+    // magic number is multiaddr prefix: https://multiformats.io/multiaddr/
     peerIdPrivateKeys.push('08021220' + generatePrivateKey().substr(2, 66));
   }
   return peerIdPrivateKeys;

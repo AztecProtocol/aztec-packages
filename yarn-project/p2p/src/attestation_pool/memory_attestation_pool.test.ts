@@ -11,7 +11,7 @@ describe('MemoryAttestationPool', () => {
 
   beforeEach(() => {
     ap = new InMemoryAttestationPool();
-    signers = new Array(NUMBER_OF_SIGNERS_PER_TEST).fill(0).map(() => generateAccount());
+    signers = Array.from({ length: NUMBER_OF_SIGNERS_PER_TEST }, generateAccount);
   });
 
   it('should add attestation to pool', async () => {

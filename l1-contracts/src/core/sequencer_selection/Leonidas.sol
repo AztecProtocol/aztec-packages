@@ -130,6 +130,32 @@ contract Leonidas is Ownable, ILeonidas {
     return epochs[_epoch].committee;
   }
 
+  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
+    uint256 epochNumber = getEpochAt(_ts);
+    if (epochNumber == 0) {
+      return new address[](0);
+    }
+
+    Epoch storage epoch = epochs[epochNumber];
+
+    if (epoch.sampleSeed != 0) {
+      uint256 committeeSize = epoch.committee.length;
+      if (committeeSize == 0) {
+        return new address[](0);
+      }
+      return epoch.committee;
+    }
+
+    // Allow anyone if there is no validator set
+    if (validatorSet.length() == 0) {
+      return new address[](0);
+    }
+
+    // Emulate a sampling of the validators
+    uint256 sampleSeed = _getSampleSeed(epochNumber);
+    return _sampleValidators(epochNumber, sampleSeed);
+  }
+
   /**
    * @notice  Get the validator set for the current epoch
    *
@@ -137,9 +163,8 @@ contract Leonidas is Ownable, ILeonidas {
    *      this contract.
    * @return The validator set for the current epoch
    */
-  function getCurrentEpochCommittee() external override(ILeonidas) returns (address[] memory) {
-    setupEpoch();
-    return epochs[getCurrentEpoch()].committee;
+  function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
+    return getCommitteeAt(block.timestamp);
   }
 
   /**

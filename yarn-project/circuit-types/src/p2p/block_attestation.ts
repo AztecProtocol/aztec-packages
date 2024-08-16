@@ -29,7 +29,7 @@ export class BlockAttestation extends Gossipable {
   constructor(
     /** The block header the attestation is made over */
     public readonly header: Header,
-    // TODO: temp?
+    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
     /** The signature of the block attester */
     public readonly signature: Signature,

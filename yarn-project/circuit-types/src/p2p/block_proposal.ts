@@ -31,7 +31,7 @@ export class BlockProposal extends Gossipable {
     /** The block header, after execution of the below sequence of transactions */
     public readonly header: Header,
 
-    // TODO: temp?
+    // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
     /** The sequence of transactions in the block */
     public readonly txs: TxHash[],

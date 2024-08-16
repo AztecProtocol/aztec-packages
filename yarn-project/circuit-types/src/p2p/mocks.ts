@@ -15,19 +15,18 @@ export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<Blo
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
   const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const digest = `0x${archive.toBuffer().toString('hex')}` as `0x${string}`;
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: digest } }));
+  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
 
   return new BlockProposal(blockHeader, archive, txs, signature);
 };
 
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = async (signer?: PrivateKeyAccount): Promise<BlockAttestation> => {
   signer = signer || randomSigner();
 
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
-  const digest = `0x${archive.toBuffer().toString('hex')}` as `0x${string}`;
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: digest } }));
+  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
 
   return new BlockAttestation(blockHeader, archive, signature);
 };

@@ -33,7 +33,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry } from './utils.js';
+import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, getPrivateKeyFromIndex } from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -259,9 +259,7 @@ async function setupFromFresh(
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
-  const validatorAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
-  const validatorPrivKeyRaw = validatorAccount.getHdKey().privateKey;
-  const validatorPrivKey = validatorPrivKeyRaw === null ? null : Buffer.from(validatorPrivKeyRaw);
+  const validatorPrivKey = getPrivateKeyFromIndex(1);
 
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
