@@ -356,11 +356,11 @@ contract Token {
         );
 
         storage.balances.add(from, change).emit(
-            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ivpk_m, from_keys.ovpk_m, from)
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
         );
 
         storage.balances.add(to, amount).emit(
-            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ivpk_m, to_keys.ivpk_m, to)
+            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
         );
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
@@ -368,7 +368,7 @@ contract Token {
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         Transfer { from, to, amount: amount.to_field() }.emit(
-            encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ivpk_m, to_keys.ivpk_m, to)
+            encode_and_encrypt_event_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
         );
     }
     // docs:end:transfer
