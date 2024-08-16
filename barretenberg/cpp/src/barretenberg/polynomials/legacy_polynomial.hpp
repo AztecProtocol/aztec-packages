@@ -2,6 +2,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/polynomials/polynomial_iter.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <fstream>
@@ -267,6 +268,20 @@ template <typename Fr> class LegacyPolynomial {
         std::generate_n(p.begin(), num_coeffs, []() { return Fr::random_element(); });
         return p;
     }
+
+    /**
+     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * NOTE: For LegacyPolynomial, unlike Polynomial, start index is always 0.
+     * @return PolynomialSpan<Fr> A span covering the entire polynomial.
+     */
+    operator PolynomialSpan<Fr>() { return { 0, { coefficients_, coefficients_ + size() } }; }
+
+    /**
+     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * NOTE: For LegacyPolynomial, unlike Polynomial, start index is always 0.
+     * @return PolynomialSpan<Fr> A span covering the entire polynomial.
+     */
+    operator PolynomialSpan<const Fr>() const { return { 0, { coefficients_, coefficients_ + size() } }; }
 
   private:
     // allocate a fresh memory pointer for backing memory

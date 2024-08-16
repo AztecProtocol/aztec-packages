@@ -337,62 +337,14 @@ template <typename Fr> class PolynomialIterator {
     size_t index_;               ///< Current index within the Polynomial.
 };
 
-template <typename Fr> class PolynomialSpan {
-  public:
-    using reference = PolynomialReference<Fr>;
-    using iterator = PolynomialIterator<Fr>;
-    using const_iterator = const PolynomialIterator<Fr>;
-    using const_reference = Fr;
-
-    /**
-     * @brief Constructor for PolynomialSpan.
-     * @param polynomial Pointer to the Polynomial object.
-     * @param start_index The starting index of the span.
-     * @param span_size The number of elements in the span.
-     */
-    PolynomialSpan(Polynomial<Fr>* polynomial, size_t start_index, size_t span_size)
-        : polynomial_(polynomial)
-        , start_index_(start_index)
-        , span_size_(span_size)
-    {
-        ASSERT(start_index_ + span_size_ <= polynomial_->size());
-    }
-
-    /**
-     * @brief Accesses the element at the specified index within the span.
-     * @param index The index within the span.
-     * @return reference Proxy reference to the element.
-     */
-    reference operator[](size_t index)
-    {
-        ASSERT(index < span_size_);
-        return (*polynomial_)[start_index_ + index];
-    }
-
-    /**
-     * @brief Accesses the element at the specified index within the span (const version).
-     * @param index The index within the span.
-     * @return const_reference The value of the element.
-     */
-    const_reference operator[](size_t index) const
-    {
-        ASSERT(index < span_size_);
-        return (*polynomial_)[start_index_ + index];
-    }
-
-    /**
-     * @brief Returns the number of elements in the span.
-     * @return size_t The size of the span.
-     */
-    size_t size() const { return span_size_; }
-
-    iterator begin() { return iterator(polynomial_, start_index_); }
-    iterator end() { return iterator(polynomial_, start_index_ + span_size_); }
-
-  private:
-    Polynomial<Fr>* polynomial_;
-    size_t start_index_;
-    size_t span_size_;
+template <typename Fr> struct PolynomialSpan {
+    size_t start_index;
+    std::span<Fr> span;
+    size_t end_index() const { return start_index + size(); }
+    Fr* data() { return span.data(); }
+    size_t size() const { return span.size(); }
+    Fr& operator[](size_t index) { return span[index]; }
+    const Fr& operator[](size_t index) const { return span[index]; }
 };
 
 } // namespace bb

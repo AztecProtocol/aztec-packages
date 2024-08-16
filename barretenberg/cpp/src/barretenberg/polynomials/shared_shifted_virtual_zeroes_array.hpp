@@ -29,8 +29,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      */
     void set(size_t index, const T& value)
     {
-        ASSERT(static_cast<std::ptrdiff_t>(index) >= start_ && index < end_);
-        data()[index] = value;
+        ASSERT(index >= start_ && index < end_);
+        data()[index - start_] = value;
     }
 
     /**
@@ -44,34 +44,36 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     T get(size_t index) const
     {
         ASSERT(index < virtual_size_);
-        if (static_cast<std::ptrdiff_t>(index) >= start_ && index < end_) {
-            return data()[index];
+        if (index >= start_ && index < end_) {
+            return data()[index] - start_;
         }
         return T{}; // Return default element when index is out of the actual filled size
     }
 
     /**
-     * @brief Returns a pointer to the underlying memory array, adjusted by `start_`.
-     * NOTE: we can only index data in [start_index, start_index + size_)
+     * @brief Returns a pointer to the underlying memory array.
+     * NOTE: This should be used with care, as index 0 corresponds to virtual index `start_`.
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_.get() - start_; }
-    const T* data() const { return backing_memory_.get() - start_; }
-    size_t size() const { return static_cast<size_t>(static_cast<std::ptrdiff_t>(end_) - start_); }
+    T* data() { return backing_memory_.get(); }
+    const T* data() const { return backing_memory_.get(); }
+    // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
+    // correctly maintain the size.
+    size_t size() const { return end_ - start_; }
     // Getter for consistency with size();
     size_t virtual_size() const { return virtual_size_; }
 
     T& operator[](size_t index)
     {
-        ASSERT(static_cast<std::ptrdiff_t>(index) >= start_ && index < end_);
-        return data()[index];
+        ASSERT(index >= start_ && index < end_);
+        return data()[index - start_];
     }
     // get() is more useful, but for completeness with the non-const operator[]
     const T& operator[](size_t index) const
     {
-        ASSERT(static_cast<std::ptrdiff_t>(index) >= start_ && index < end_);
-        return data()[index];
+        ASSERT(index >= start_ && index < end_);
+        return data()[index - start_];
     }
 
     // MEMBERS:
@@ -79,9 +81,10 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * @brief The starting index of the memory-backed range.
      *
      * Represents the first index in the array that is backed by actual memory.
-     * Negative values are used to represent shifts in the underlying array when sharing memory.
+     * This is used to represent polynomial shifts by representing the unshfited polynomials
+     * with index >= 1 and reducing this by one to divide by x / left shift one.
      */
-    std::ptrdiff_t start_ = 0;
+    size_t start_ = 0;
 
     /**
      * @brief The ending index of the memory-backed range.

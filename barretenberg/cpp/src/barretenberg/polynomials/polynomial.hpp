@@ -36,13 +36,13 @@ template <typename Fr> class Polynomial {
 
     enum class DontZeroMemory { FLAG };
 
-    Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index = 0);
+    Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
         : Polynomial(size, size)
     {}
     // Constructor that does not initialize values, use with caution to save time.
-    Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index, DontZeroMemory flag);
+    Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
         : Polynomial(size, virtual_size, 0, flag)
     {}
@@ -153,18 +153,18 @@ template <typename Fr> class Polynomial {
     Fr compute_kate_opening_coefficients(const Fr& z)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
 
-    /**
-     * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
-     * Assumes that p(rⱼ)=0 for all j
-     *
-     * @details we specialize the method when only a single root is given.
-     * if one of the roots is 0, then we first factor all other roots.
-     * dividing by X requires only a left shift of all coefficient.
-     *
-     * @param roots list of roots (r₁,…,rₘ)
-     */
-    void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
-    void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(std::span{ *this }, root); };
+    // /**
+    //  * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
+    //  * Assumes that p(rⱼ)=0 for all j
+    //  *
+    //  * @details we specialize the method when only a single root is given.
+    //  * if one of the roots is 0, then we first factor all other roots.
+    //  * dividing by X requires only a left shift of all coefficient.
+    //  *
+    //  * @param roots list of roots (r₁,…,rₘ)
+    //  */
+    // void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
+    // void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(std::span{ *this }, root); };
 
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
@@ -175,21 +175,21 @@ template <typename Fr> class Polynomial {
      * @param other q(X)
      * @param scaling_factor scaling factor by which all coefficients of q(X) are multiplied
      */
-    void add_scaled(std::span<const Fr> other, Fr scaling_factor);
+    void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor);
 
     /**
      * @brief adds the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    Polynomial& operator+=(std::span<const Fr> other);
+    Polynomial& operator+=(PolynomialSpan<const Fr> other);
 
     /**
      * @brief subtracts the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    Polynomial& operator-=(std::span<const Fr> other);
+    Polynomial& operator-=(PolynomialSpan<const Fr> other);
 
     /**
      * @brief sets this = p(X) to s⋅p(X)
@@ -224,27 +224,40 @@ template <typename Fr> class Polynomial {
         return p;
     }
 
+    // WORKTODO(sparse) needed?
+    // /**
+    //  * @brief Creates a PolynomialSpan over a specified range.
+    //  * @param start_index The starting index of the span.
+    //  * @param span_size The number of elements in the span.
+    //  * @return PolynomialSpan<Fr> The created span.
+    //  */
+    // PolynomialSpan<Fr> subspan(size_t start_index, size_t span_size)
+    // {
+    //     ASSERT(start_index + span_size <= size());
+    //     return { coefficients_.start_ + start_index,
+    //              { coefficients_.backing_memory_.get() + start_index,
+    //                coefficients_.backing_memory_.get() + start_index + span_size } };
+    // }
+
+    // The extents of the actual memory-backed polynomial region
+    size_t start_index() const { return coefficients_.start_; }
+    size_t end_index() const { return coefficients_.end_; }
     /**
-     * @brief Creates a PolynomialSpan over a specified range.
-     * @param start_index The starting index of the span.
-     * @param span_size The number of elements in the span.
-     * @return PolynomialSpan<Fr> The created span.
+     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    PolynomialSpan<Fr> subspan(size_t start_index, size_t span_size)
-    {
-        return PolynomialSpan<Fr>(this, start_index, span_size);
-    }
+    operator PolynomialSpan<Fr>() { return { start_index(), { data(), data() + size() } }; }
 
     /**
      * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<Fr>() { return PolynomialSpan<Fr>(this, 0, size()); }
+    operator PolynomialSpan<Fr>() const { return { start_index(), { data(), data() + size() } }; }
 
   private:
     // allocate a fresh memory pointer for backing memory
     // DOES NOT initialize memory
-    void allocate_backing_memory(size_t size, size_t virtual_size, std::ptrdiff_t start_index);
+    void allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index);
 
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size = 0) { return (size() >= domain_size); }

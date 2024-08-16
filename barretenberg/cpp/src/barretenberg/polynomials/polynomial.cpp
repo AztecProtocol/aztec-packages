@@ -38,13 +38,12 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
 }
 
 template <typename Fr>
-void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, std::ptrdiff_t start_index)
+void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
-        start_index, /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
-        static_cast<size_t>(static_cast<std::ptrdiff_t>(size) +
-                            start_index), /* end index, actual memory used is (end - start) */
-        virtual_size,                     /* virtual size, i.e. until what size do we conceptually have zeroes */
+        start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
+        size + start_index, /* end index, actual memory used is (end - start) */
+        virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
         _allocate_aligned_memory<Fr>(size + MAXIMUM_COEFFICIENT_SHIFT)
         /* Our backing memory, since shift is 0 it is equal to our memory size.
          * We add one to the size here to allow for an efficient shift by 1 that retains size. */
@@ -67,7 +66,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  *
  * @param size The size of the polynomial.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, std::ptrdiff_t start_index)
+template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
     allocate_backing_memory(size, virtual_size, start_index);
     memset(static_cast<void*>(coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
@@ -81,10 +80,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
  * @param flag Signals that we do not zero memory.
  */
 template <typename Fr>
-Polynomial<Fr>::Polynomial(size_t size,
-                           size_t virtual_size,
-                           std::ptrdiff_t start_index,
-                           [[maybe_unused]] DontZeroMemory flag)
+Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index, [[maybe_unused]] DontZeroMemory flag)
 {
     allocate_backing_memory(size, virtual_size, start_index);
 }
@@ -150,7 +146,9 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
         return false;
     }
     // Each coefficient must agree
-    for (size_t i = 0; i < std::max(size(), rhs.size()); i++) {
+    for (size_t i = std::min(coefficients_.start_, rhs.coefficients_.start_);
+         i < std::max(coefficients_.end_, rhs.coefficients_.end_);
+         i++) {
         if (coefficients_.get(i) != rhs.coefficients_.get(i)) {
             return false;
         }
@@ -158,11 +156,12 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
     return true;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(std::span<const Fr> other)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
     const size_t other_size = other.size();
-    ASSERT(in_place_operation_viable(other_size));
+    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
 
+    size_t start_index_offset = other.start_index - start_index();
     size_t num_threads = calculate_num_threads(other_size);
     size_t range_per_thread = other_size / num_threads;
     size_t leftovers = other_size - (range_per_thread * num_threads);
@@ -170,7 +169,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(std::span<cons
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            coefficients_.data()[i] += other[i];
+            data()[i - start_index_offset] += other[i];
         }
     });
 
@@ -285,11 +284,13 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
     return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<const Fr> other)
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
     const size_t other_size = other.size();
-    ASSERT(in_place_operation_viable(other_size));
+    ASSERT(coefficients_.size)
+    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
 
+    size_t start_index_offset = other.start_index - start_index();
     size_t num_threads = calculate_num_threads(other_size);
     size_t range_per_thread = other_size / num_threads;
     size_t leftovers = other_size - (range_per_thread * num_threads);
@@ -297,10 +298,9 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(std::span<cons
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            coefficients_.data()[i] -= other[i];
+            coefficients_.data()[i - start_index_offset] -= other[i];
         }
     });
-
     return *this;
 }
 
@@ -315,18 +315,19 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            coefficients_.data()[i] *= scaling_factor;
+            data()[i] *= scaling_factor;
         }
     });
 
     return *this;
 }
 
-template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other, Fr scaling_factor)
+template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor)
 {
     const size_t other_size = other.size();
-    ASSERT(in_place_operation_viable(other_size));
+    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
 
+    size_t start_index_offset = other.start_index - start_index();
     size_t num_threads = calculate_num_threads(other_size);
     size_t range_per_thread = other_size / num_threads;
     size_t leftovers = other_size - (range_per_thread * num_threads);
@@ -334,9 +335,10 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            data()[i] += scaling_factor * other[i];
+            data()[i - start_index_offset] += scaling_factor * other[i];
         }
     });
+    return *this;
 }
 
 /**
@@ -347,14 +349,11 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(std::span<const Fr> other
  */
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
-    ASSERT(data()[0].is_zero());
-    ASSERT(size() > 0);
-    ASSERT(data()[size()].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
+    ASSERT(coefficients_.start_ >= 1);
     Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
-    // We only expect to shift by MAXIMUM_COEFFICIENT_SHIFT
-    ASSERT(result.coefficients_.start_ >= -static_cast<std::ptrdiff_t>(MAXIMUM_COEFFICIENT_SHIFT));
+    result.coefficients_.end_ -= 1;
     return result;
 }
 

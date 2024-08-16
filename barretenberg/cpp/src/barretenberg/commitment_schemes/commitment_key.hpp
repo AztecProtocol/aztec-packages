@@ -11,6 +11,7 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include "barretenberg/polynomials/polynomial_iter.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -67,7 +68,7 @@ template <class Curve> class CommitmentKey {
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(std::span<const Fr> polynomial)
+    Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
         const size_t degree = polynomial.size();
@@ -79,7 +80,7 @@ template <class Curve> class CommitmentKey {
             ASSERT(false);
         }
         return scalar_multiplication::pippenger_unsafe<Curve>(
-            const_cast<Fr*>(polynomial.data()), srs->get_monomial_points(), degree, pippenger_runtime_state);
+            polynomial.data(), srs->get_monomial_points() + polynomial.start_index, degree, pippenger_runtime_state);
     };
 
     /**
