@@ -157,7 +157,7 @@ export class ProverNode {
 
   private async createProvingJob(fromBlock: number) {
     if (!this.checkMaximumPendingJobs()) {
-      throw new Error(`Maximum pending proving jobs reached. Cannot create new job.`);
+      throw new Error(`Maximum pending proving jobs ${this.options.maxPendingJobs} reached. Cannot create new job.`);
     }
 
     if ((await this.worldState.status()).syncedToL2Block >= fromBlock) {

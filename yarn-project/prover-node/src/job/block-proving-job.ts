@@ -14,6 +14,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 
+import * as crypto from 'node:crypto';
+
 /**
  * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,
  * re-executes their public calls, generates a rollup proof, and submits it to L1. This job will update the
