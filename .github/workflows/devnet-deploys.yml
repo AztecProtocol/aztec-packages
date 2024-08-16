@@ -459,7 +459,7 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/pxe"
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.pxe_data_store"
 
   bootstrap:
     runs-on: ubuntu-latest
