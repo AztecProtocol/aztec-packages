@@ -187,13 +187,8 @@ template <typename Flavor> class SumcheckProver {
         info(multivariate_n);
         info(gate_challenges.size());
 
-        std::vector<FF> gate_challenges_subspan;
-        for (size_t i = 0; i < multivariate_d; i++) {
-            gate_challenges_subspan.emplace_back(gate_challenges[i]);
-        }
-
-        bb::PowPolynomial<FF> pow_univariate(gate_challenges_subspan);
-        pow_univariate.compute_values();
+        bb::PowPolynomial<FF> pow_univariate(gate_challenges);
+        pow_univariate.compute_values(multivariate_d);
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -392,11 +387,7 @@ template <typename Flavor> class SumcheckVerifier {
     {
         bool verified(true);
 
-        std::vector<FF> gate_challenges_subspan;
-        for (size_t i = 0; i < multivariate_d; i++) {
-            gate_challenges_subspan.emplace_back(gate_challenges[i]);
-        }
-        bb::PowPolynomial<FF> pow_univariate(gate_challenges_subspan);
+        bb::PowPolynomial<FF> pow_univariate(gate_challenges);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 

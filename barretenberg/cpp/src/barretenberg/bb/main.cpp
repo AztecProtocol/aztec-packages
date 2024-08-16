@@ -196,7 +196,14 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
+    info("Printing VK from actual instance");
+
     auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    typename Flavor::CommitmentLabels commitment_labels;
+    info("PRINTING THE VKEY IN PROVE AND VERIFY FLOW");
+    for (auto [label, key] : zip_view(commitment_labels.get_precomputed(), verification_key->get_all())) {
+        info("label: ", label, " value: ", key);
+    }
     Verifier verifier{ verification_key };
 
     return verifier.verify_proof(proof);
@@ -1093,6 +1100,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
     Verifier verifier{ vk };
+    typename Flavor::CommitmentLabels commitment_labels;
+    info("PRINTING THE VKEY IN  VERIFY ULTRA HONK FLOW");
+    for (auto [label, key] : zip_view(commitment_labels.get_precomputed(), vk->get_all())) {
+        info("label: ", label, " value: ", key);
+    }
 
     bool verified = verifier.verify_proof(proof);
 

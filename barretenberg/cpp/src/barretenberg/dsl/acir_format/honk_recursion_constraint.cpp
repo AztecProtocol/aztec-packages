@@ -36,6 +36,12 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
     size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
+    info("is the first assert true: ",
+         (input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
+          UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
+          2 * num_frs_comm) %
+                 (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
+             0);
     assert((input.proof.size() - HonkRecursionConstraint::inner_public_input_offset -
             UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm - UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr -
             2 * num_frs_comm) %
@@ -102,6 +108,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
+    info("here ", Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
     // now the univariates, which can just be 0s (7*CONST_PROOF_SIZE_LOG_N Frs)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
@@ -135,6 +142,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
         offset += 4;
     }
+    info("is the last assert true: ", offset == input.proof.size() + input.public_inputs.size());
     ASSERT(offset == input.proof.size() + input.public_inputs.size());
 }
 
@@ -191,8 +199,10 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     if (!has_valid_witness_assignments) {
         create_dummy_vkey_and_proof(builder, input, key_fields, proof_fields);
     }
+
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
+    Flavor::CommitmentLabels commitment_labels;
     RecursiveVerifier verifier(&builder, vkey);
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);

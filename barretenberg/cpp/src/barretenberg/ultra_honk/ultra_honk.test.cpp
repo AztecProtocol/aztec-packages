@@ -8,6 +8,7 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -16,8 +17,8 @@
 
 using namespace bb;
 
-using ProverInstance = ProverInstance_<UltraFlavor>;
-using VerificationKey = UltraFlavor::VerificationKey;
+using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
+using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
 std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
 {
@@ -31,9 +32,9 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 void prove_and_verify(auto& circuit_builder, bool expected_result)
 {
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
-    UltraProver prover(instance);
+    UltraKeccakProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    UltraVerifier verifier(verification_key);
+    UltraKeccakVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
@@ -65,7 +66,7 @@ TEST_F(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto circuit_builder = UltraCircuitBuilder();
 
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
-    UltraProver prover(instance);
+    UltraKeccakProver prover(instance);
     auto proof = prover.construct_proof();
     auto& polynomials = instance->proving_key.polynomials;
 
@@ -97,9 +98,9 @@ TEST_F(UltraHonkTests, StructuredTrace)
     // Construct an instance with a structured execution trace
     TraceStructure trace_structure = TraceStructure::SMALL_TEST;
     auto instance = std::make_shared<ProverInstance>(builder, trace_structure);
-    UltraProver prover(instance);
+    UltraKeccakProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-    UltraVerifier verifier(verification_key);
+    UltraKeccakVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));
 }
@@ -223,9 +224,9 @@ TEST_F(UltraHonkTests, LookupFailure)
     };
 
     auto prove_and_verify = [](auto& instance) {
-        UltraProver prover(instance);
+        UltraKeccakProver prover(instance);
         auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
-        UltraVerifier verifier(verification_key);
+        UltraKeccakVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         return verifier.verify_proof(proof);
     };
