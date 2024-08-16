@@ -170,7 +170,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
       environment = [
         // General
         { name = "NODE_ENV", value = "production" },
-        { name = "LOG_LEVEL", value = "debug" },
+        { name = "LOG_LEVEL", value = "verbose" },
         { name = "DEBUG", value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*" },
         { name = "DEPLOY_TAG", value = var.DEPLOY_TAG },
         { name = "NETWORK_NAME", value = "${var.DEPLOY_TAG}" },
