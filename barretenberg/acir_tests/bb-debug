@@ -1,1 +1,0 @@
-lldb-16 -o run ~/aztec-packages/barretenberg/cpp/build-debug/bin/bb -- $@
