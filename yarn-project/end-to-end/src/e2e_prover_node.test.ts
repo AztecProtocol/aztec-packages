@@ -5,10 +5,8 @@ import {
   type AztecAddress,
   type DebugLogger,
   EthAddress,
-  type FieldsOf,
   Fr,
   SignerlessWallet,
-  type TxReceipt,
   computeSecretHash,
   createDebugLogger,
   retryUntil,
@@ -35,7 +33,6 @@ describe('e2e_prover_node', () => {
   let recipient: AztecAddress;
   let contract: StatefulTestContract;
   let msgTestContract: TestContract;
-  let txReceipts: FieldsOf<TxReceipt>[];
 
   let logger: DebugLogger;
   let snapshotManager: ISnapshotManager;
