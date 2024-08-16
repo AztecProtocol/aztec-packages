@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog,
-    keys::getters::get_ovsk_app
+    keys::getters::{get_current_public_keys, get_ovsk_app},
+    encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog
 };
 use dep::protocol_types::{hash::sha256_to_field, address::AztecAddress, abis::note_hash::NoteHash};
 
