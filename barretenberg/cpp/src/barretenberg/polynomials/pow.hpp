@@ -114,9 +114,9 @@ template <typename FF> struct PowPolynomial {
      * \ell)\f$ for \f$ \ell =0,\ldots,2^{d}-1\f$.
      *
      */
-    BB_PROFILE void compute_values()
+    BB_PROFILE void compute_values() // WORKTODO: rename to "compute products"
     {
-        size_t pow_size = 1 << betas.size();
+        const size_t pow_size = 1 << betas.size();
         pow_betas = std::vector<FF>(pow_size);
 
         // Determine number of threads for multithreading.

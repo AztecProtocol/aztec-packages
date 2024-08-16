@@ -18,13 +18,13 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationSeparator = typename Flavor::RelationSeparator;
-
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     VerifierInstances instances;
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
+    // WORKTODO: why here? Can't these be static?
     CommitmentLabels commitment_labels;
 
     ProtoGalaxyVerifier_(const std::vector<std::shared_ptr<Instance>>& insts)
@@ -66,12 +66,14 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
      */
     void prepare_for_folding(const std::vector<FF>&);
 
+    // WORKTODO: can't tell what this does
     /**
      * @brief Process the public data ϕ for the Instances to be folded.
      *
      */
     void receive_and_finalise_instance(const std::shared_ptr<Instance>&, const std::string&);
 
+    // WORKTODO: this should be the only state
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
      * accumulator, received from the prover is the same as that produced by the verifier.

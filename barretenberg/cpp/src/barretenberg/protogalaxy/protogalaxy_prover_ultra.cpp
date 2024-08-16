@@ -2,5 +2,6 @@
 #include "protogalaxy_prover_impl.hpp"
 
 namespace bb {
+// WORKTODO: delete?
 template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
 } // namespace bb
