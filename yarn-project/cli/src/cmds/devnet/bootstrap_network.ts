@@ -35,7 +35,7 @@ export async function bootstrapNetwork(
 
   // setup a one-off account contract
   const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
-  const wallet = await account.deploy().getWallet();
+  const wallet = await account.deploy().getWallet({ proven: true, provenTimeout: 600 });
 
   const l1Clients = createL1Clients(
     l1Url,
@@ -143,19 +143,19 @@ async function deployToken(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenContract, TokenBridgeContract } = await import('@aztec/noir-contracts.js');
-  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18).send({
-    universalDeploy: true,
-  }).deployed();
-  const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal).send({
-    universalDeploy: true,
-  }).deployed();
+  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
+    .send({ universalDeploy: true })
+    .deployed({ proven: true, provenTimeout: 600 });
+  const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal)
+    .send({ universalDeploy: true })
+    .deployed({ proven: true, provenTimeout: 600 });
 
   await new BatchCall(wallet, [
     devCoin.methods.set_minter(bridge.address, true).request(),
     devCoin.methods.set_admin(bridge.address).request(),
   ])
     .send()
-    .wait();
+    .wait({ proven: true, provenTimeout: 600 });
 
   return {
     token: {
@@ -201,9 +201,9 @@ async function deployFPC(wallet: Wallet, tokenAddress: AztecAddress): Promise<Co
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js');
-  const fpc = await FPCContract.deploy(wallet, tokenAddress).send({
-    universalDeploy: true,
-  }).deployed();
+  const fpc = await FPCContract.deploy(wallet, tokenAddress)
+    .send({ universalDeploy: true })
+    .deployed({ proven: true, provenTimeout: 600 });
   const info: ContractDeploymentInfo = {
     address: fpc.address,
     initHash: fpc.instance.initializationHash,
@@ -216,9 +216,9 @@ async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-contracts.js');
-  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress()).send({
-    universalDeploy: true,
-  }).deployed();
+  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress(), wallet.getAddress())
+    .send({ universalDeploy: true })
+    .deployed({ proven: true, provenTimeout: 600 });
   const info: ContractDeploymentInfo = {
     address: counter.address,
     initHash: counter.instance.initializationHash,
@@ -257,8 +257,14 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
+  await counter.methods
+    .increment(wallet.getAddress(), wallet.getAddress())
+    .send()
+    .wait({ proven: true, provenTimeout: 600 });
+  await counter.methods
+    .increment(wallet.getAddress(), wallet.getAddress())
+    .send()
+    .wait({ proven: true, provenTimeout: 600 });
 
-  await feeJuiceContract.methods.claim(fpcAddress, amount, secret).send().wait();
+  await feeJuiceContract.methods.claim(fpcAddress, amount, secret).send().wait({ proven: true, provenTimeout: 600 });
 }

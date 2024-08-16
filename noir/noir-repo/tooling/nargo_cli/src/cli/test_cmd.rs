@@ -10,8 +10,7 @@ use nargo::{
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_driver::{
-    check_crate, compile_no_check, file_manager_with_stdlib, CompileOptions,
-    NOIR_ARTIFACT_VERSION_STRING,
+    check_crate, file_manager_with_stdlib, CompileOptions, NOIR_ARTIFACT_VERSION_STRING,
 };
 use noirc_frontend::{
     graph::CrateName,
@@ -181,14 +180,8 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     // We then need to construct a separate copy for each test.
 
     let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
-    check_crate(
-        &mut context,
-        crate_id,
-        compile_options.deny_warnings,
-        compile_options.disable_macros,
-        compile_options.debug_comptime_in_file.as_deref(),
-    )
-    .expect("Any errors should have occurred when collecting test functions");
+    check_crate(&mut context, crate_id, compile_options)
+        .expect("Any errors should have occurred when collecting test functions");
 
     let test_functions = context
         .get_all_test_functions_in_crate_matching(&crate_id, FunctionNameMatch::Exact(fn_name));
@@ -196,49 +189,16 @@ fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
 
     let blackbox_solver = S::default();
 
-    let test_function_has_no_arguments = context
-        .def_interner
-        .function_meta(&test_function.get_id())
-        .function_signature()
-        .0
-        .is_empty();
-
-    if test_function_has_no_arguments {
-        nargo::ops::run_test(
-            &blackbox_solver,
-            &mut context,
-            test_function,
-            show_output,
-            foreign_call_resolver_url,
-            root_path,
-            package_name,
-            compile_options,
-        )
-    } else {
-        use noir_fuzzer::FuzzedExecutor;
-        use proptest::test_runner::TestRunner;
-
-        let compiled_program =
-            compile_no_check(&mut context, compile_options, test_function.get_id(), None, false);
-        match compiled_program {
-            Ok(compiled_program) => {
-                let runner = TestRunner::default();
-
-                let fuzzer = FuzzedExecutor::new(compiled_program.into(), runner);
-
-                let result = fuzzer.fuzz();
-                if result.success {
-                    TestStatus::Pass
-                } else {
-                    TestStatus::Fail {
-                        message: result.reason.unwrap_or_default(),
-                        error_diagnostic: None,
-                    }
-                }
-            }
-            Err(err) => TestStatus::CompileError(err.into()),
-        }
-    }
+    nargo::ops::run_test(
+        &blackbox_solver,
+        &mut context,
+        test_function,
+        show_output,
+        foreign_call_resolver_url,
+        root_path,
+        package_name,
+        compile_options,
+    )
 }
 
 fn get_tests_in_package(
@@ -249,14 +209,7 @@ fn get_tests_in_package(
     compile_options: &CompileOptions,
 ) -> Result<Vec<String>, CliError> {
     let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
-    check_crate_and_report_errors(
-        &mut context,
-        crate_id,
-        compile_options.deny_warnings,
-        compile_options.disable_macros,
-        compile_options.silence_warnings,
-        compile_options.debug_comptime_in_file.as_deref(),
-    )?;
+    check_crate_and_report_errors(&mut context, crate_id, compile_options)?;
 
     Ok(context
         .get_all_test_functions_in_crate_matching(&crate_id, fn_name)

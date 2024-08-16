@@ -163,7 +163,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
     {
       name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
       image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
-      command           = ["start", "--node", "--archiver", "--sequencer", "--prover"]
+      command           = ["start", "--node", "--archiver", "--sequencer"]
       essential         = true
       memoryReservation = 3776
       portMappings = [
@@ -209,6 +209,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "${local.data_dir}/node_${count.index + 1}/data"
         },
         {
+          name  = "IS_DEV_NET"
+          value = "true"
+        },
+        {
           name  = "ARCHIVER_POLLING_INTERVAL"
           value = "10000"
         },
@@ -234,6 +238,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
+          value = local.sequencer_private_keys[count.index]
+        },
+        {
+          name  = "VALIDATOR_PRIVATE_KEY"
           value = local.sequencer_private_keys[count.index]
         },
         {
@@ -398,6 +406,7 @@ resource "aws_ecs_service" "aztec-node" {
   deployment_minimum_healthy_percent = 0
   platform_version                   = "1.4.0"
   force_new_deployment               = true
+  enable_execute_command             = true
 
 
   network_configuration {
