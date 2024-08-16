@@ -46,6 +46,13 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
         : builder(builder)
         , instances(VerifierInstances(builder, input_data.accumulator, input_data.instance_vks)){};
 
+    // Constructor from stdlib verifier input
+    ProtoGalaxyRecursiveVerifier_(Builder* builder,
+                                  std::shared_ptr<Instance> accumulator,
+                                  std::vector<std::shared_ptr<VerificationKey>> instance_vks)
+        : builder(builder)
+        , instances(VerifierInstances(builder, accumulator, instance_vks)){};
+
     /**
      * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
      * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.

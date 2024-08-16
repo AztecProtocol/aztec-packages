@@ -39,5 +39,24 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
             idx++;
         }
     }
+
+    // Constructor from stdlib types
+    RecursiveVerifierInstances_(Builder* builder,
+                                const std::shared_ptr<Instance>& accumulator,
+                                const std::vector<std::shared_ptr<VerificationKey>>& vks)
+        : builder(builder)
+    {
+        ASSERT(vks.size() == NUM - 1);
+        if (accumulator->is_accumulator) {
+            _data[0] = accumulator;
+        } else {
+            _data[0] = std::make_shared<Instance>(builder, accumulator->verification_key);
+        }
+        size_t idx = 1;
+        for (auto& vk : vks) {
+            _data[idx] = std::make_shared<Instance>(builder, vk);
+            idx++;
+        }
+    }
 };
 } // namespace bb::stdlib::recursion::honk
