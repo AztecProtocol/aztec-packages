@@ -76,8 +76,7 @@ std::shared_ptr<Flavor::VerificationKey> AvmComposer::compute_verification_key(C
         compute_proving_key(circuit_constructor);
     }
 
-    verification_key =
-        std::make_shared<Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
+    verification_key = std::make_shared<Flavor::VerificationKey>(proving_key);
 
     return verification_key;
 }

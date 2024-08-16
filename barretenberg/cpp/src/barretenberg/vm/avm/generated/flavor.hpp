@@ -308,7 +308,25 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
     };
 
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
+    // Note(md): required for instantiation from the proving key - im sure there are other ways to construct this
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+      public:
+        VerificationKey() = default;
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {}
+
+        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+            : VerificationKey_(proving_key->circuit_size, proving_key->num_public_inputs)
+        {
+            // TODO(md): will likely need more information from this - circuit_size etc???
+
+            for (auto [polynomial, commitment] :
+                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+                commitment = proving_key->commitment_key->commit(polynomial);
+            }
+        }
+    };
 
     class AllValues : public AllEntities<FF> {
       public:
