@@ -160,6 +160,27 @@ template <typename Fr> Fr operator/(const Fr& lhs, const PolynomialReference<Fr>
     return lhs / static_cast<Fr>(rhs);
 }
 
+// Non-member arithmetic operators for two PolynomialReferences
+template <typename Fr> Fr operator+(const PolynomialReference<Fr>& lhs, const PolynomialReference<Fr>& rhs)
+{
+    return static_cast<Fr>(lhs) + static_cast<Fr>(rhs);
+}
+
+template <typename Fr> Fr operator-(const PolynomialReference<Fr>& lhs, const PolynomialReference<Fr>& rhs)
+{
+    return static_cast<Fr>(lhs) - static_cast<Fr>(rhs);
+}
+
+template <typename Fr> Fr operator*(const PolynomialReference<Fr>& lhs, const PolynomialReference<Fr>& rhs)
+{
+    return static_cast<Fr>(lhs) * static_cast<Fr>(rhs);
+}
+
+template <typename Fr> Fr operator/(const PolynomialReference<Fr>& lhs, const PolynomialReference<Fr>& rhs)
+{
+    return static_cast<Fr>(lhs) / static_cast<Fr>(rhs);
+}
+
 /**
  * @brief An iterator class for the Polynomial, designed to work with std::span.
  *

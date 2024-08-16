@@ -230,7 +230,7 @@ template <typename Fr> class Polynomial {
      * @param span_size The number of elements in the span.
      * @return PolynomialSpan<Fr> The created span.
      */
-    PolynomialSpan<Fr> subspan(size_type start_index, size_type span_size)
+    PolynomialSpan<Fr> subspan(size_t start_index, size_t span_size)
     {
         return PolynomialSpan<Fr>(this, start_index, span_size);
     }
