@@ -40,6 +40,7 @@
     { "path": "noir-contracts.js/tsconfig.json" },
     { "path": "builder/tsconfig.json" },
     { "path": "noir-protocol-circuits-types/tsconfig.json" },
+    { "path": "ivc-integration/tsconfig.json" },
     { "path": "p2p/tsconfig.json" },
     { "path": "p2p-bootstrap/tsconfig.json" },
     { "path": "protocol-contracts/tsconfig.json" },
@@ -50,7 +51,8 @@
     { "path": "world-state/tsconfig.json" },
     { "path": "scripts/tsconfig.json" },
     { "path": "entrypoints/tsconfig.json" },
-    { "path": "cli/tsconfig.json" }
+    { "path": "cli/tsconfig.json" },
+    { "path": "cli-wallet/tsconfig.json" }
   ],
   "files": ["./@types/jest/index.d.ts"],
   "exclude": ["node_modules", "**/node_modules", "**/.*/"]

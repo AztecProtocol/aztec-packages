@@ -1,5 +1,6 @@
 #include "sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -170,7 +171,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
         std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
         for (auto& poly : zero_polynomials) {
-            poly = Polynomial<FF>(multivariate_n);
+            poly = bb::Polynomial<FF>(multivariate_n);
         }
         auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
@@ -190,16 +191,16 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
         // Setting all of these to 0 ensures the GrandProductRelation is satisfied
 
-        full_polynomials.w_l = w_l;
-        full_polynomials.w_r = w_r;
-        full_polynomials.w_o = w_o;
-        full_polynomials.w_4 = w_4;
-        full_polynomials.q_m = q_m;
-        full_polynomials.q_l = q_l;
-        full_polynomials.q_r = q_r;
-        full_polynomials.q_o = q_o;
-        full_polynomials.q_c = q_c;
-        full_polynomials.q_arith = q_arith;
+        full_polynomials.w_l = bb::Polynomial<FF>(w_l);
+        full_polynomials.w_r = bb::Polynomial<FF>(w_r);
+        full_polynomials.w_o = bb::Polynomial<FF>(w_o);
+        full_polynomials.w_4 = bb::Polynomial<FF>(w_4);
+        full_polynomials.q_m = bb::Polynomial<FF>(q_m);
+        full_polynomials.q_l = bb::Polynomial<FF>(q_l);
+        full_polynomials.q_r = bb::Polynomial<FF>(q_r);
+        full_polynomials.q_o = bb::Polynomial<FF>(q_o);
+        full_polynomials.q_c = bb::Polynomial<FF>(q_c);
+        full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
 
         // Set aribitrary random relation parameters
         RelationParameters<FF> relation_parameters{
@@ -251,7 +252,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         // Note: ProverPolynomials are defined as spans so the polynomials they point to need to exist in memory.
         std::vector<Polynomial<FF>> zero_polynomials(NUM_POLYNOMIALS);
         for (auto& poly : zero_polynomials) {
-            poly = Polynomial<FF>(multivariate_n);
+            poly = bb::Polynomial<FF>(multivariate_n);
         }
         auto full_polynomials = construct_ultra_full_polynomials(zero_polynomials);
 
@@ -271,16 +272,16 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
         // Setting all of these to 0 ensures the GrandProductRelation is satisfied
 
-        full_polynomials.w_l = w_l;
-        full_polynomials.w_r = w_r;
-        full_polynomials.w_o = w_o;
-        full_polynomials.w_4 = w_4;
-        full_polynomials.q_m = q_m;
-        full_polynomials.q_l = q_l;
-        full_polynomials.q_r = q_r;
-        full_polynomials.q_o = q_o;
-        full_polynomials.q_c = q_c;
-        full_polynomials.q_arith = q_arith;
+        full_polynomials.w_l = bb::Polynomial<FF>(w_l);
+        full_polynomials.w_r = bb::Polynomial<FF>(w_r);
+        full_polynomials.w_o = bb::Polynomial<FF>(w_o);
+        full_polynomials.w_4 = bb::Polynomial<FF>(w_4);
+        full_polynomials.q_m = bb::Polynomial<FF>(q_m);
+        full_polynomials.q_l = bb::Polynomial<FF>(q_l);
+        full_polynomials.q_r = bb::Polynomial<FF>(q_r);
+        full_polynomials.q_o = bb::Polynomial<FF>(q_o);
+        full_polynomials.q_c = bb::Polynomial<FF>(q_c);
+        full_polynomials.q_arith = bb::Polynomial<FF>(q_arith);
 
         // Set aribitrary random relation parameters
         RelationParameters<FF> relation_parameters{

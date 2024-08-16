@@ -8,7 +8,10 @@ use crate::components::{
     split_to_public::split_to_public
 }
 };
-use dep::types::abis::{kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs}};
+use dep::types::abis::{
+    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
+    validation_requests::PublicValidationRequests
+};
 
 struct TailToPublicOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
@@ -17,15 +20,19 @@ struct TailToPublicOutputComposer {
 impl TailToPublicOutputComposer {
     pub fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
         let mut output_composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
-        output_composer.sort_and_silo();
+        output_composer.sort_ordered_values();
 
         TailToPublicOutputComposer { output_composer }
     }
 
     pub fn finish(self) -> PublicKernelCircuitPublicInputs {
         let source = self.output_composer.public_inputs;
+
+        let mut validation_requests = PublicValidationRequests::empty();
+        validation_requests.for_rollup = source.validation_requests.for_rollup();
+
         let mut output = PublicKernelCircuitPublicInputs::empty();
-        output.validation_requests = source.validation_requests.finish();
+        output.validation_requests = validation_requests;
         output.constants = source.constants;
         output.public_teardown_call_stack[0] = source.public_teardown_call_request.expose_to_public();
         output.fee_payer = source.fee_payer;

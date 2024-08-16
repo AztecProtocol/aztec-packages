@@ -8,7 +8,6 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -45,7 +44,7 @@ class UltraKeccakFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
-    // The total number of witnesses including shifts and derived entities. [to be confirmed]
+    // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
@@ -356,7 +355,7 @@ class UltraKeccakFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve

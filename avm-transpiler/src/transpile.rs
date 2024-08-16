@@ -888,6 +888,24 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
+        // Temporary while we dont have efficient noir implementations (again)
+        BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
+            let input_offset = inputs.pointer.0;
+            let input_size_offset = inputs.size.0;
+            let index_offset = domain_separator.0;
+            let output_offset = output.pointer.0;
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::PEDERSENCOMMITMENT,
+                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                operands: vec![
+                    AvmOperand::U32 { value: input_offset as u32 },
+                    AvmOperand::U32 { value: output_offset as u32 },
+                    AvmOperand::U32 { value: input_size_offset as u32 },
+                    AvmOperand::U32 { value: index_offset as u32 },
+                ],
+                ..Default::default()
+            });
+        }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }
 }
@@ -1042,23 +1060,31 @@ pub fn patch_debug_info_pcs(
     brillig_pcs_to_avm_pcs: &[usize],
 ) -> Vec<DebugInfo> {
     for patched_debug_info in debug_infos.iter_mut() {
-        // create a new map with all of its keys (OpcodeLocations) patched
-        let mut patched_locations: BTreeMap<OpcodeLocation, Vec<Location>> = BTreeMap::new();
-        for (original_opcode_location, source_locations) in patched_debug_info.locations.iter() {
-            match original_opcode_location {
-                OpcodeLocation::Brillig { acir_index, brillig_index } => {
-                    let avm_opcode_location = OpcodeLocation::Brillig {
-                        acir_index: *acir_index,
-                        // patch the PC
-                        brillig_index: brillig_pcs_to_avm_pcs[*brillig_index],
-                    };
-                    patched_locations.insert(avm_opcode_location, source_locations.clone());
+        let mut patched_brillig_locations = BTreeMap::new();
+        for (brillig_function_id, opcode_locations_map) in
+            patched_debug_info.brillig_locations.iter()
+        {
+            // create a new map with all of its keys (OpcodeLocations) patched
+            let mut patched_locations: BTreeMap<OpcodeLocation, Vec<Location>> = BTreeMap::new();
+            for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
+                match original_opcode_location {
+                    OpcodeLocation::Brillig { acir_index, brillig_index } => {
+                        let avm_opcode_location = OpcodeLocation::Brillig {
+                            acir_index: *acir_index,
+                            // patch the PC
+                            brillig_index: brillig_pcs_to_avm_pcs[*brillig_index],
+                        };
+                        patched_locations.insert(avm_opcode_location, source_locations.clone());
+                    }
+                    OpcodeLocation::Acir(_) => (),
                 }
-                OpcodeLocation::Acir(_) => (),
             }
+            // insert the new map as a brillig locations map for the current function id
+            patched_brillig_locations.insert(*brillig_function_id, patched_locations);
         }
-        // patch debug_info entry
-        patched_debug_info.locations = patched_locations;
+
+        // patch the `DebugInfo` entry
+        patched_debug_info.brillig_locations = patched_brillig_locations;
     }
     debug_infos
 }

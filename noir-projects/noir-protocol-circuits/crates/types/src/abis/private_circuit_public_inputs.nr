@@ -9,13 +9,11 @@ use crate::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_L2_TO_L1_MSGS_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS, MAX_ENCRYPTED_LOGS_PER_CALL,
+    MAX_L2_TO_L1_MSGS_PER_CALL, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, MAX_ENCRYPTED_LOGS_PER_CALL,
     MAX_UNENCRYPTED_LOGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL
 },
-    header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
-    transaction::tx_context::TxContext, utils::arrays::validate_array
+    header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::{Deserialize, Serialize, Empty},
+    utils::reader::Reader, transaction::tx_context::TxContext, utils::arrays::validate_array
 };
 
 struct PrivateCircuitPublicInputsArrayLengths {
@@ -204,12 +202,6 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
     }
 }
 
-impl Hash for PrivateCircuitPublicInputs {
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
-    }
-}
-
 impl Empty for PrivateCircuitPublicInputs {
     fn empty() -> Self {
         PrivateCircuitPublicInputs {
@@ -245,14 +237,4 @@ fn serialization_of_empty() {
     let serialized = pcpi.serialize();
     let deserialized = PrivateCircuitPublicInputs::deserialize(serialized);
     assert(pcpi.eq(deserialized));
-}
-
-#[test]
-fn empty_hash() {
-    let inputs = PrivateCircuitPublicInputs::empty();
-    let hash = inputs.hash();
-
-    // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x2f5d0ff52163d6b688be54324d50d173d9433658bb40e7c5140876df4eb95406;
-    assert_eq(hash, test_data_empty_hash);
 }

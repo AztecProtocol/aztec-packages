@@ -1,5 +1,13 @@
 import { type L2Block, MerkleTreeId, PublicDataWrite, type SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
+  type BatchInsertionResult,
+  type HandleL2BlockAndMessagesResult,
+  type IndexedTreeId,
+  type MerkleTreeLeafType,
+  type MerkleTreeOperations,
+  type TreeInfo,
+} from '@aztec/circuit-types/interfaces';
+import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   Fr,
@@ -22,15 +30,14 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import {
   type AppendOnlyTree,
-  type BatchInsertionResult,
   type IndexedTree,
-  Pedersen,
+  Poseidon,
   StandardIndexedTree,
   StandardTree,
   type UpdateOnlyTree,
@@ -46,14 +53,7 @@ import {
   type MerkleTreeDb,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
-import {
-  type HandleL2BlockAndMessagesResult,
-  type IndexedTreeId,
-  type MerkleTreeLeafType,
-  type MerkleTreeMap,
-  type MerkleTreeOperations,
-  type TreeInfo,
-} from './merkle_tree_operations.js';
+import { type MerkleTreeMap } from './merkle_tree_map.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
 
 /**
@@ -121,7 +121,7 @@ export class MerkleTrees implements MerkleTreeDb {
     const fromDb = this.#isDbPopulated();
     const initializeTree = fromDb ? loadTree : newTree;
 
-    const hasher = new Pedersen();
+    const hasher = new Poseidon();
 
     const nullifierTree = await initializeTree(
       NullifierTree,
@@ -178,6 +178,19 @@ export class MerkleTrees implements MerkleTreeDb {
     }
 
     await this.#commit();
+  }
+
+  public async fork(): Promise<MerkleTrees> {
+    // TODO(palla/prover-node): If the underlying store is being shared with other components, we're unnecessarily
+    // copying a lot of data unrelated to merkle trees. This may be fine for now, and we may be able to ditch backup-based
+    // forking in favor of a more elegant proposal. But if we see this operation starts taking a lot of time, we may want
+    // to open separate stores for merkle trees and other components.
+    const forked = await this.store.fork();
+    return MerkleTrees.new(forked, this.log);
+  }
+
+  public async delete() {
+    await this.store.delete();
   }
 
   public getInitialHeader(): Header {

@@ -7,6 +7,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
@@ -854,7 +855,7 @@ class TranslatorFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to

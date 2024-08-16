@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{
+    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator
+};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
@@ -32,7 +35,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     // This is especially dangerous for initial assignment to elements of a `Map<AztecAddress, PrivateImmutable>` type (for example), because the storage slot often also identifies an actor. 
     // e.g. the initial assignment to `my_map.at(msg.sender)` will leak: `msg.sender`, the fact that an element of `my_map` was assigned-to for the first time, and the contract_address.
     pub fn compute_initialization_nullifier(self) -> Field {
-        pedersen_hash(
+        poseidon2_hash_with_separator(
             [self.storage_slot],
             GENERATOR_INDEX__INITIALIZATION_NULLIFIER
         )
@@ -47,7 +50,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     ) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
-        self.context.push_nullifier(nullifier, 0);
+        self.context.push_nullifier(nullifier);
 
         create_note(self.context, self.storage_slot, note)
     }
@@ -56,7 +59,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<N, M>(self) -> Note where Note: NoteInterface<N, M> {
         let storage_slot = self.storage_slot;
-        get_note(self.context, storage_slot)
+        get_note(self.context, storage_slot).0
     }
     // docs:end:get_note
 }

@@ -68,8 +68,8 @@ export function computeArtifactMetadataHash(artifact: ContractArtifact) {
 
   const exceptions: string[] = [
     'AuthRegistry',
-    'KeyRegistry',
-    'GasToken',
+    'NewKeyRegistry',
+    'FeeJuice',
     'ContractInstanceDeployer',
     'ContractClassRegisterer',
   ];

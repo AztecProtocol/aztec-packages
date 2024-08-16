@@ -6,7 +6,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -89,7 +88,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         using Base::Base;
     };
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -100,6 +99,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        // Data pertaining to transfer of databus return data via public inputs of the proof
+        DatabusPropagationData databus_propagation_data;
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
@@ -116,11 +118,15 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
+
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
+            this->contains_recursive_proof = native_key->contains_recursive_proof;
+            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
+            this->databus_propagation_data = native_key->databus_propagation_data;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -179,6 +185,18 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                                                    builder, elements.subspan(num_frs_read, num_frs_FF))
                                                    .get_value());
             num_frs_read += num_frs_FF;
+            this->contains_recursive_proof = bool(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                                      builder, elements.subspan(num_frs_read, num_frs_FF))
+                                                      .get_value());
+            num_frs_read += num_frs_FF;
+
+            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                this->recursive_proof_public_input_indices[i] =
+                    uint32_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                 builder, elements.subspan(num_frs_read, num_frs_FF))
+                                 .get_value());
+                num_frs_read += num_frs_FF;
+            }
 
             for (Commitment& comm : this->get_all()) {
                 comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(

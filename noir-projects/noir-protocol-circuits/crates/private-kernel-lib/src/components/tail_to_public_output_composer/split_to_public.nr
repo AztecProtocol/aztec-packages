@@ -10,8 +10,6 @@ pub fn split_to_public(
     data: PrivateAccumulatedDataBuilder,
     min_revertible_side_effect_counter: u32
 ) -> (PublicAccumulatedData, PublicAccumulatedData) {
-    assert(min_revertible_side_effect_counter != 0, "min_revertible_side_effect_counter must not be 0");
-
     let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
     let mut revertible_builder = PublicAccumulatedDataBuilder::empty();
 
@@ -46,9 +44,9 @@ pub fn split_to_public(
         if i < l2_to_l1_msgs.len() {
             let msg = l2_to_l1_msgs.get_unchecked(i);
             if msg.counter() < min_revertible_side_effect_counter {
-                non_revertible_builder.l2_to_l1_msgs.push(msg.message.content);
+                non_revertible_builder.l2_to_l1_msgs.push(msg.expose_to_public());
             } else {
-                revertible_builder.l2_to_l1_msgs.push(msg.message.content);
+                revertible_builder.l2_to_l1_msgs.push(msg.expose_to_public());
             }
         }
     }

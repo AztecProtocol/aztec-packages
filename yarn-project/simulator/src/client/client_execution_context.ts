@@ -30,7 +30,7 @@ import {
   countArgumentsSize,
 } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
@@ -71,7 +71,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
-  private nullifiedNoteHashCounters: Map<number, number> = new Map();
+  private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private noteEncryptedLogs: CountedNoteLog[] = [];
   private encryptedLogs: CountedLog<EncryptedL2Log>[] = [];
   private unencryptedLogs: CountedLog<UnencryptedL2Log>[] = [];
@@ -94,8 +94,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
     log = createDebugLogger('aztec:simulator:client_execution_context'),
+    scopes?: AztecAddress[],
   ) {
-    super(contractAddress, authWitnesses, db, node, log);
+    super(contractAddress, authWitnesses, db, node, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -135,14 +136,13 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   /**
    * Get the data for the newly created notes.
-   * @param innerNoteHashes - Inner note hashes for the notes.
    */
   public getNewNotes(): NoteAndSlot[] {
     return this.newNotes;
   }
 
-  public getNullifiedNoteHashCounters() {
-    return this.nullifiedNoteHashCounters;
+  public getNoteHashNullifierCounterMap() {
+    return this.noteHashNullifierCounterMap;
   }
 
   /**
@@ -251,7 +251,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const pendingNotes = this.noteCache.getNotes(this.callContext.storageContractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.storageContractAddress);
-    const dbNotes = await this.db.getNotes(this.callContext.storageContractAddress, storageSlot, status);
+    const dbNotes = await this.db.getNotes(this.callContext.storageContractAddress, storageSlot, status, this.scopes);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -276,12 +276,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     notes.forEach(n => {
       if (n.index !== undefined) {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
-        // Should always call computeUniqueNoteHash when publicly created notes include nonces.
-        const uniqueNoteHash = n.nonce.isZero() ? n.innerNoteHash : computeUniqueNoteHash(n.nonce, n.innerNoteHash);
+        const uniqueNoteHash = computeUniqueNoteHash(n.nonce, n.noteHash);
         const siloedNoteHash = siloNoteHash(n.contractAddress, uniqueNoteHash);
-        const noteHashForReadRequest = siloedNoteHash;
-        this.noteHashLeafIndexMap.set(noteHashForReadRequest.toBigInt(), n.index);
+        this.noteHashLeafIndexMap.set(siloedNoteHash.toBigInt(), n.index);
       }
     });
 
@@ -295,14 +292,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The type ID of the note.
    * @param noteItems - The items to be included in a Note.
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param noteHash - A hash of the new note.
    * @returns
    */
   public override notifyCreatedNote(
     storageSlot: Fr,
     noteTypeId: NoteSelector,
     noteItems: Fr[],
-    innerNoteHash: Fr,
+    noteHash: Fr,
     counter: number,
   ) {
     const note = new Note(noteItems);
@@ -313,7 +310,7 @@ export class ClientExecutionContext extends ViewDataOracle {
         nonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
-        innerNoteHash,
+        noteHash,
       },
       counter,
     );
@@ -328,16 +325,16 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Adding a siloed nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
-   * @param innerNoteHash - The inner note hash of the new note.
+   * @param noteHash - A hash of the new note.
    */
-  public override notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr, counter: number) {
+  public override notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = this.noteCache.nullifyNote(
       this.callContext.storageContractAddress,
       innerNullifier,
-      innerNoteHash,
+      noteHash,
     );
     if (nullifiedNoteHashCounter !== undefined) {
-      this.nullifiedNoteHashCounters.set(nullifiedNoteHashCounter, counter);
+      this.noteHashNullifierCounterMap.set(nullifiedNoteHashCounter, counter);
     }
     return Promise.resolve();
   }
@@ -360,7 +357,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // An app providing randomness = 0 signals to not mask the address.
     const maskedContractAddress = randomness.isZero()
       ? contractAddress.toField()
-      : pedersenHash([contractAddress, randomness], 0);
+      : poseidon2HashWithSeparator([contractAddress, randomness], 0);
     const encryptedLog = new CountedLog(new EncryptedL2Log(encryptedEvent, maskedContractAddress), counter);
     this.encryptedLogs.push(encryptedLog);
   }
@@ -519,6 +516,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.db,
       this.node,
       sideEffectCounter,
+      this.log,
+      this.scopes,
     );
 
     const childExecutionResult = await executePrivateFunction(
@@ -643,6 +642,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       isStaticCall,
       isDelegateCall,
     );
+  }
+
+  public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): void {
+    this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   /**

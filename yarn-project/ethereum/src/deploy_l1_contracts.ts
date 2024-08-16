@@ -79,13 +79,13 @@ export interface L1ContractArtifactsForDeployment {
    */
   rollup: ContractArtifacts;
   /**
-   * The token to pay for gas. This will be bridged to L2 via the gasPortal below
+   * The token to pay for gas. This will be bridged to L2 via the feeJuicePortal below
    */
-  gasToken: ContractArtifacts;
+  feeJuice: ContractArtifacts;
   /**
    * Gas portal contract artifacts. Optional for now as gas is not strictly enforced
    */
-  gasPortal: ContractArtifacts;
+  feeJuicePortal: ContractArtifacts;
 }
 
 export type L1Clients = {
@@ -141,8 +141,27 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2GasTokenAddress: AztecAddress; vkTreeRoot: Fr },
+  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr; assumeProvenUntil?: number },
 ): Promise<DeployL1Contracts> => {
+  // We are assuming that you are running this on a local anvil node which have 1s block times
+  // To align better with actual deployment, we update the block interval to 12s
+  // The code is same as `setBlockInterval` in `cheat_codes.ts`
+  const rpcCall = async (rpcUrl: string, method: string, params: any[]) => {
+    const paramsString = JSON.stringify(params);
+    const content = {
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    return await (await fetch(rpcUrl, content)).json();
+  };
+  const interval = 12;
+  const res = await rpcCall(rpcUrl, 'anvil_setBlockTimestampInterval', [interval]);
+  if (res.error) {
+    throw new Error(`Error setting block interval: ${res.error.message}`);
+  }
+  logger.info(`Set block interval to ${interval}`);
+
   logger.debug('Deploying contracts...');
 
   const walletClient = createWalletClient({
@@ -171,14 +190,14 @@ export const deployL1Contracts = async (
   );
   logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
 
-  const gasTokenAddress = await deployL1Contract(
+  const feeJuiceAddress = await deployL1Contract(
     walletClient,
     publicClient,
-    contractsToDeploy.gasToken.contractAbi,
-    contractsToDeploy.gasToken.contractBytecode,
+    contractsToDeploy.feeJuice.contractAbi,
+    contractsToDeploy.feeJuice.contractBytecode,
   );
 
-  logger.info(`Deployed Gas Token at ${gasTokenAddress}`);
+  logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
   const rollupAddress = await deployL1Contract(
     walletClient,
@@ -188,11 +207,22 @@ export const deployL1Contracts = async (
     [
       getAddress(registryAddress.toString()),
       getAddress(availabilityOracleAddress.toString()),
-      getAddress(gasTokenAddress.toString()),
+      getAddress(feeJuiceAddress.toString()),
       args.vkTreeRoot.toString(),
     ],
   );
   logger.info(`Deployed Rollup at ${rollupAddress}`);
+
+  // Set initial blocks as proven if requested
+  if (args.assumeProvenUntil && args.assumeProvenUntil > 0) {
+    const rollup = getContract({
+      address: getAddress(rollupAddress.toString()),
+      abi: contractsToDeploy.rollup.contractAbi,
+      client: walletClient,
+    });
+    await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(args.assumeProvenUntil)], { account });
+    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenUntil}`);
+  }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
   let inboxAddress!: EthAddress;
@@ -223,48 +253,45 @@ export const deployL1Contracts = async (
     abi: contractsToDeploy.registry.contractAbi,
     client: walletClient,
   });
-  await registryContract.write.upgrade(
-    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
-    { account },
-  );
+  await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
 
-  // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
-  const gasPortalAddress = await deployL1Contract(
+  // this contract remains uninitialized because at this point we don't know the address of the Fee Juice on L2
+  const feeJuicePortalAddress = await deployL1Contract(
     walletClient,
     publicClient,
-    contractsToDeploy.gasPortal.contractAbi,
-    contractsToDeploy.gasPortal.contractBytecode,
+    contractsToDeploy.feeJuicePortal.contractAbi,
+    contractsToDeploy.feeJuicePortal.contractBytecode,
   );
 
-  logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
+  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
 
-  const gasPortal = getContract({
-    address: gasPortalAddress.toString(),
-    abi: contractsToDeploy.gasPortal.contractAbi,
+  const feeJuicePortal = getContract({
+    address: feeJuicePortalAddress.toString(),
+    abi: contractsToDeploy.feeJuicePortal.contractAbi,
     client: walletClient,
   });
 
   await publicClient.waitForTransactionReceipt({
-    hash: await gasPortal.write.initialize([
+    hash: await feeJuicePortal.write.initialize([
       registryAddress.toString(),
-      gasTokenAddress.toString(),
-      args.l2GasTokenAddress.toString(),
+      feeJuiceAddress.toString(),
+      args.l2FeeJuiceAddress.toString(),
     ]),
   });
 
   logger.info(
-    `Initialized Gas Portal at ${gasPortalAddress} to bridge between L1 ${gasTokenAddress} to L2 ${args.l2GasTokenAddress}`,
+    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  // fund the rollup contract with gas tokens
-  const gasToken = getContract({
-    address: gasTokenAddress.toString(),
-    abi: contractsToDeploy.gasToken.contractAbi,
+  // fund the rollup contract with Fee Juice
+  const feeJuice = getContract({
+    address: feeJuiceAddress.toString(),
+    abi: contractsToDeploy.feeJuice.contractAbi,
     client: walletClient,
   });
-  const receipt = await gasToken.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
+  const receipt = await feeJuice.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
   await publicClient.waitForTransactionReceipt({ hash: receipt });
-  logger.info(`Funded rollup contract with gas tokens`);
+  logger.info(`Funded rollup contract with Fee Juice`);
 
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
@@ -272,8 +299,8 @@ export const deployL1Contracts = async (
     registryAddress,
     inboxAddress,
     outboxAddress,
-    gasTokenAddress,
-    gasPortalAddress,
+    feeJuiceAddress,
+    feeJuicePortalAddress,
   };
 
   return {

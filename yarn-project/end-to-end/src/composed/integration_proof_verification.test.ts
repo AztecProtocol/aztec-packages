@@ -33,6 +33,7 @@ import { getLogger, setupL1Contracts, startAnvil } from '../fixtures/utils.js';
  */
 describe('proof_verification', () => {
   let proof: Proof;
+  let proverId: Fr;
   let block: L2Block;
   let aggregationObject: Fr[];
   let anvil: Anvil | undefined;
@@ -73,8 +74,8 @@ describe('proof_verification', () => {
     const input = {
       language: 'Solidity',
       sources: {
-        'UltraVerifier.sol': {
-          content: await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraVerifier.sol'),
+        'UltraHonkVerifier.sol': {
+          content: await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraHonkVerifier.sol'),
         },
       },
       settings: {
@@ -94,8 +95,8 @@ describe('proof_verification', () => {
 
     const output = JSON.parse(solc.compile(JSON.stringify(input)));
 
-    const abi = output.contracts['UltraVerifier.sol']['UltraVerifier'].abi;
-    const bytecode: string = output.contracts['UltraVerifier.sol']['UltraVerifier'].evm.bytecode.object;
+    const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
+    const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
     const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
     verifierContract = getContract({
@@ -121,6 +122,7 @@ describe('proof_verification', () => {
 
     block = L2Block.fromString(blockResult.block);
     proof = Proof.fromString(blockResult.proof);
+    proverId = Fr.ZERO;
     aggregationObject = blockResult.aggregationObject.map((x: string) => Fr.fromString(x));
   });
 
@@ -130,7 +132,7 @@ describe('proof_verification', () => {
     });
   });
 
-  describe('UltraVerifier', () => {
+  describe('HonkVerifier', () => {
     it('verifies full proof', async () => {
       const reader = BufferReader.asReader(proof.buffer);
       // +2 fields for archive
@@ -183,6 +185,7 @@ describe('proof_verification', () => {
       const args = [
         `0x${block.header.toBuffer().toString('hex')}`,
         `0x${block.archive.root.toBuffer().toString('hex')}`,
+        `0x${proverId.toBuffer().toString('hex')}`,
         `0x${serializeToBuffer(aggregationObject).toString('hex')}`,
         `0x${proof.withoutPublicInputs().toString('hex')}`,
       ] as const;

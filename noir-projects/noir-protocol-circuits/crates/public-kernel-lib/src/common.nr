@@ -2,7 +2,7 @@ use dep::types::{
     abis::{
     public_call_stack_item::PublicCallStackItem,
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder,
-    public_kernel_data::PublicKernelData, note_hash::NoteHash, nullifier::Nullifier,
+    public_kernel_data::PublicKernelData, note_hash::ScopedNoteHash, nullifier::Nullifier,
     public_call_data::PublicCallData, public_call_request::PublicCallRequest,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     log_hash::{ScopedLogHash, LogHash}, global_variables::GlobalVariables,
@@ -10,13 +10,14 @@ use dep::types::{
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
     MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
-    hash::{compute_siloed_note_hash, compute_siloed_nullifier, compute_l2_to_l1_hash},
+    hash::{compute_siloed_nullifier, compute_l2_to_l1_hash},
     utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
 };
 
@@ -397,15 +398,14 @@ fn propagate_note_hashes_non_revertible(
     let note_hashes = public_call.call_stack_item.public_inputs.note_hashes;
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    let mut siloed_note_hashes : BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL> = BoundedVec::new();
+    let mut scoped_note_hashes : BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NOTE_HASHES_PER_CALL {
-        let new_note_hash = note_hashes[i].value;
-        if new_note_hash != 0 {
-            let siloed_new_note_hash = compute_siloed_note_hash(storage_contract_address, new_note_hash);
-            siloed_note_hashes.push(NoteHash { value: siloed_new_note_hash, counter: note_hashes[i].counter });
+        let note_hash = note_hashes[i];
+        if note_hash.value != 0 {
+            scoped_note_hashes.push(note_hash.scope(storage_contract_address));
         }
     }
-    circuit_outputs.end_non_revertible.note_hashes.extend_from_bounded_vec(siloed_note_hashes);
+    circuit_outputs.end_non_revertible.note_hashes.extend_from_bounded_vec(scoped_note_hashes);
 }
 
 fn propagate_note_hashes(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
@@ -414,15 +414,14 @@ fn propagate_note_hashes(public_call: PublicCallData, circuit_outputs: &mut Publ
     let note_hashes = public_call.call_stack_item.public_inputs.note_hashes;
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    let mut siloed_note_hashes : BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL> = BoundedVec::new();
+    let mut scoped_note_hashes : BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NOTE_HASHES_PER_CALL {
-        let new_note_hash = note_hashes[i].value;
-        if new_note_hash != 0 {
-            let siloed_new_note_hash = compute_siloed_note_hash(storage_contract_address, new_note_hash);
-            siloed_note_hashes.push(NoteHash { value: siloed_new_note_hash, counter: note_hashes[i].counter });
+        let note_hash = note_hashes[i];
+        if note_hash.value != 0 {
+            scoped_note_hashes.push(note_hash.scope(storage_contract_address));
         }
     }
-    circuit_outputs.end.note_hashes.extend_from_bounded_vec(siloed_note_hashes);
+    circuit_outputs.end.note_hashes.extend_from_bounded_vec(scoped_note_hashes);
 }
 
 fn propagate_nullifiers_non_revertible(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
@@ -472,18 +471,11 @@ fn propagate_new_l2_to_l1_messages_non_revertible(
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
     let l2_to_l1_msgs = public_call_public_inputs.l2_to_l1_msgs;
-    let mut l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
+    let mut l2_to_l1_msgs_to_insert : BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_L2_TO_L1_MSGS_PER_CALL {
         let msg = l2_to_l1_msgs[i];
         if !is_empty(msg) {
-            let l2_to_l1_msgs = compute_l2_to_l1_hash(
-                storage_contract_address,
-                msg.recipient,
-                msg.content,
-                public_inputs.constants.tx_context.version,
-                public_inputs.constants.tx_context.chain_id
-            );
-            l2_to_l1_msgs_to_insert.push(l2_to_l1_msgs)
+            l2_to_l1_msgs_to_insert.push(msg.scope(storage_contract_address));
         }
     }
     public_inputs.end_non_revertible.l2_to_l1_msgs.extend_from_bounded_vec(l2_to_l1_msgs_to_insert);
@@ -495,18 +487,11 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
     let l2_to_l1_msgs = public_call_public_inputs.l2_to_l1_msgs;
-    let mut l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
+    let mut l2_to_l1_msgs_to_insert : BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_L2_TO_L1_MSGS_PER_CALL {
         let msg = l2_to_l1_msgs[i];
         if !is_empty(msg) {
-            let l2_to_l1_msgs = compute_l2_to_l1_hash(
-                storage_contract_address,
-                msg.recipient,
-                msg.content,
-                public_inputs.constants.tx_context.version,
-                public_inputs.constants.tx_context.chain_id
-            );
-            l2_to_l1_msgs_to_insert.push(l2_to_l1_msgs)
+            l2_to_l1_msgs_to_insert.push(msg.scope(storage_contract_address));
         }
     }
     public_inputs.end.l2_to_l1_msgs.extend_from_bounded_vec(l2_to_l1_msgs_to_insert);

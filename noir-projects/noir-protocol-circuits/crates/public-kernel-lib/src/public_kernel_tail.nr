@@ -115,7 +115,7 @@ mod tests {
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
         nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage,
         accumulated_data::{CombinedAccumulatedData, CombineHints},
-        public_data_update_request::PublicDataUpdateRequest, note_hash::NoteHash,
+        public_data_update_request::PublicDataUpdateRequest, note_hash::ScopedNoteHash,
         log_hash::{ScopedLogHash, LogHash}
     },
         address::AztecAddress,
@@ -169,7 +169,7 @@ mod tests {
     struct PublicKernelTailCircuitPrivateInputsBuilder {
         previous_kernel: FixtureBuilder,
         previous_revertible: FixtureBuilder,
-        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
+        nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints_builder: NullifierNonExistentReadRequestHintsBuilder,
         public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder,
         public_data_hints: BoundedVec<PublicDataHint, MAX_PUBLIC_DATA_HINTS>,
@@ -186,7 +186,7 @@ mod tests {
             let mut builder = PublicKernelTailCircuitPrivateInputsBuilder {
                 previous_kernel,
                 previous_revertible,
-                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX),
+                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
                 nullifier_non_existent_read_request_hints_builder,
                 public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder::new(MAX_PUBLIC_DATA_READS_PER_TX),
                 public_data_hints: BoundedVec::new(),
@@ -319,7 +319,10 @@ mod tests {
                 previous_kernel.public_inputs.end_non_revertible.note_hashes,
                 previous_kernel.public_inputs.end.note_hashes
             );
-            let sorted = sort_get_sorted_hints(merged, |a: NoteHash, b: NoteHash| a.counter() < b.counter());
+            let sorted = sort_get_sorted_hints(
+                merged,
+                |a: ScopedNoteHash, b: ScopedNoteHash| a.counter() < b.counter()
+            );
             let sorted_note_hashes = sorted.sorted_array;
             let sorted_note_hashes_indexes = sorted.sorted_index_hints;
 
@@ -333,6 +336,25 @@ mod tests {
             );
             let sorted_unencrypted_logs_hashes = sorted.sorted_array;
             let sorted_unencrypted_logs_hashes_indexes = sorted.sorted_index_hints;
+
+            let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.encrypted_logs_hashes,
+                previous_kernel.public_inputs.end.encrypted_logs_hashes
+            );
+            let sorted = sort_get_sorted_hints(
+                merged,
+                |a: ScopedLogHash, b: ScopedLogHash| a.counter() < b.counter()
+            );
+            let sorted_encrypted_logs_hashes = sorted.sorted_array;
+            let sorted_encrypted_logs_hashes_indexes = sorted.sorted_index_hints;
+
+            let merged = array_merge(
+                previous_kernel.public_inputs.end_non_revertible.note_encrypted_logs_hashes,
+                previous_kernel.public_inputs.end.note_encrypted_logs_hashes
+            );
+            let sorted = sort_get_sorted_hints(merged, |a: LogHash, b: LogHash| a.counter() < b.counter());
+            let sorted_note_encrypted_logs_hashes = sorted.sorted_array;
+            let sorted_note_encrypted_logs_hashes_indexes = sorted.sorted_index_hints;
 
             let merged = array_merge(
                 previous_kernel.public_inputs.end_non_revertible.public_data_update_requests,
@@ -354,6 +376,10 @@ mod tests {
                 sorted_note_hashes_indexes,
                 sorted_unencrypted_logs_hashes,
                 sorted_unencrypted_logs_hashes_indexes,
+                sorted_encrypted_logs_hashes,
+                sorted_encrypted_logs_hashes_indexes,
+                sorted_note_encrypted_logs_hashes,
+                sorted_note_encrypted_logs_hashes_indexes,
                 sorted_public_data_update_requests: merged,
                 sorted_public_data_update_requests_indexes,
                 deduped_public_data_update_requests: merged,
@@ -390,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn logs_are_handled_as_expected() {
+    fn measuring_of_log_lengths() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
@@ -413,10 +439,6 @@ mod tests {
         assert_eq(
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
-
-        let hash_bytes: [u8; MAX_ENCRYPTED_LOGS_PER_TX * 32] = prev_encrypted_logs_hash.to_be_bytes(32).append(&[0; MAX_ENCRYPTED_LOGS_PER_TX * 32 - 32]).as_array();
-        let expected_encrypted_logs_hash = sha256_to_field(hash_bytes);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
         assert_eq(
             public_inputs.end.unencrypted_logs_hashes, builder.previous_revertible.unencrypted_logs_hashes.storage

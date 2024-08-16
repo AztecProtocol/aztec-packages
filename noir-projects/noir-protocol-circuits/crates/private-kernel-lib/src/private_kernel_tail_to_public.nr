@@ -43,7 +43,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         }
 
         // Validate output.
-        if !dep::std::runtime::is_unconstrained() {
+        if dep::types::validate::should_validate_output() {
             TailToPublicOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
         }
 
@@ -63,8 +63,8 @@ mod tests {
         note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
         log_hash::{LogHash, NoteLogHash}
     },
-        address::{AztecAddress, EthAddress}, hash::{silo_note_hash, silo_nullifier},
-        tests::fixture_builder::FixtureBuilder, utils::{arrays::array_eq}, point::Point,
+        address::{AztecAddress, EthAddress},
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, point::Point,
         constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INNER_INDEX}
     };
 
@@ -86,29 +86,23 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_output_note_hashes<N>(self, note_hashes: [ScopedNoteHash; N]) -> [NoteHash; N] {
-            // First nullifier is tx hash.
-            let tx_hash = self.previous_kernel.nullifiers.get_unchecked(0).value();
-            let mut output = [NoteHash::empty(); N];
+        pub fn compute_output_note_hashes<let N: u32>(_self: Self, note_hashes: [ScopedNoteHash; N]) -> [ScopedNoteHash; N] {
+            let mut output = [ScopedNoteHash::empty(); N];
             for i in 0..N {
-                output[i] = NoteHash {
-                    value: silo_note_hash(note_hashes[i], tx_hash, i),
-                    counter: 0, // Counter is cleared so it's not exposed to the public.
-                };
+                output[i].note_hash.value = note_hashes[i].value();
             }
             output
         }
 
-        pub fn compute_output_nullifiers<N>(_self: Self, nullifiers: [ScopedNullifier; N]) -> [Nullifier; N] {
+        pub fn compute_output_nullifiers<let N: u32>(_self: Self, nullifiers: [ScopedNullifier; N]) -> [Nullifier; N] {
             let mut output = [Nullifier::empty(); N];
-            output[0].value = nullifiers[0].value();
-            for i in 1..N {
-                output[i] = Nullifier { value: silo_nullifier(nullifiers[i]), counter: 0, note_hash: 0 };
+            for i in 0..N {
+                output[i].value = nullifiers[i].value();
             }
             output
         }
 
-        pub fn compute_output_note_logs<N>(_self: Self, logs: [NoteLogHash; N]) -> [LogHash; N] {
+        pub fn compute_output_note_logs<let N: u32>(_self: Self, logs: [NoteLogHash; N]) -> [LogHash; N] {
             let mut output = [LogHash::empty(); N];
             for i in 0..N {
                 if logs[i].value != 0 {
@@ -132,39 +126,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn ordering_of_note_hashes_and_nullifiers() {
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-
-        builder.previous_kernel.append_note_hashes(10);
-        builder.previous_kernel.append_nullifiers(10);
-
-        let sorted_note_hashes = builder.previous_kernel.note_hashes.storage;
-        let sorted_nullifiers = builder.previous_kernel.nullifiers.storage;
-
-        let mut reversed_note_hashes = [ScopedNoteHash::empty(); 10];
-        let mut reversed_nullifiers = [ScopedNullifier::empty(); 10];
-
-        for i in 0..10 {
-            reversed_note_hashes[9 - i] = builder.previous_kernel.note_hashes.pop();
-            reversed_nullifiers[9 - i] = builder.previous_kernel.nullifiers.pop();
-        }
-
-        builder.previous_kernel.note_hashes.extend_from_array(reversed_note_hashes);
-        builder.previous_kernel.nullifiers.extend_from_array(reversed_nullifiers);
-
-        let public_inputs = builder.execute();
-
-        let first_nullifier = builder.previous_kernel.nullifiers.get(0);
-        assert_eq(public_inputs.end_non_revertible.nullifiers[0], first_nullifier.nullifier);
-        let output_note_hashes = builder.compute_output_note_hashes(sorted_note_hashes);
-        let output_nullifiers = builder.compute_output_nullifiers(sorted_nullifiers);
-        for i in 0..10 {
-            assert(public_inputs.end.note_hashes[i].eq(output_note_hashes[i]));
-            assert(public_inputs.end.nullifiers[i].eq(output_nullifiers[i + 1]));
-        }
-    }
-
     #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
@@ -176,6 +137,16 @@ mod tests {
     fn zero_min_revertible_side_effect_counter_fails() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.min_revertible_side_effect_counter = 0;
+        builder.failed();
+    }
+
+    #[test(should_fail_with="split_counter does not match min_revertible_side_effect_counter")]
+    fn mismatch_validation_requests_split_counter_fail() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+        builder.previous_kernel.min_revertible_side_effect_counter = 123;
+        builder.previous_kernel.validation_requests_split_counter = Option::some(4567);
+
         builder.failed();
     }
 
@@ -199,29 +170,25 @@ mod tests {
     fn split_nullifiers_into_non_revertible() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
-        builder.previous_kernel.append_nullifiers(2);
+        builder.previous_kernel.append_siloed_nullifiers(2);
         builder.previous_kernel.end_setup();
 
         // expect 2 revertible nullifiers
-        builder.previous_kernel.append_nullifiers(2);
+        builder.previous_kernel.append_siloed_nullifiers(2);
 
         let nullifiers = builder.previous_kernel.nullifiers.storage;
         let public_inputs = builder.execute();
 
         let output_nullifiers = builder.compute_output_nullifiers(nullifiers);
 
-        assert(
-            array_eq(
-                public_inputs.end_non_revertible.nullifiers,
-                [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]]
-            )
+        assert_array_eq(
+            public_inputs.end_non_revertible.nullifiers,
+            [output_nullifiers[0], output_nullifiers[1], output_nullifiers[2]]
         );
 
-        assert(
-            array_eq(
-                public_inputs.end.nullifiers,
-                [output_nullifiers[3], output_nullifiers[4]]
-            )
+        assert_array_eq(
+            public_inputs.end.nullifiers,
+            [output_nullifiers[3], output_nullifiers[4]]
         );
 
         assert_eq(
@@ -244,63 +211,37 @@ mod tests {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
 
         // expect 2 non-revertible note hashes
-        builder.previous_kernel.append_note_hashes_with_logs(2);
+        builder.previous_kernel.append_siloed_note_hashes(2);
         builder.previous_kernel.end_setup();
 
         // expect 2 revertible note hashes
-        builder.previous_kernel.append_note_hashes_with_logs(2);
+        builder.previous_kernel.append_siloed_note_hashes(2);
 
         let note_hashes = builder.previous_kernel.note_hashes.storage;
-        let note_logs = builder.previous_kernel.note_encrypted_logs_hashes.storage;
         let public_inputs = builder.execute();
 
-        let siloed_note_hashes = builder.compute_output_note_hashes(note_hashes);
-        let public_note_logs = builder.compute_output_note_logs(note_logs);
+        let exposed_note_hashes = builder.compute_output_note_hashes(note_hashes);
 
-        assert(
-            array_eq(
-                public_inputs.end_non_revertible.note_hashes,
-                [siloed_note_hashes[0], siloed_note_hashes[1]]
-            )
+        assert_array_eq(
+            public_inputs.end_non_revertible.note_hashes,
+            [exposed_note_hashes[0], exposed_note_hashes[1]]
         );
 
-        assert(
-            array_eq(
-                public_inputs.end_non_revertible.note_encrypted_logs_hashes,
-                [public_note_logs[0], public_note_logs[1]]
-            )
+        assert_array_eq(
+            public_inputs.end.note_hashes,
+            [exposed_note_hashes[2], exposed_note_hashes[3]]
         );
-
-        assert(
-            array_eq(
-                public_inputs.end.note_hashes,
-                [siloed_note_hashes[2], siloed_note_hashes[3]]
-            )
-        );
-
-        assert(
-            array_eq(
-                public_inputs.end.note_encrypted_logs_hashes,
-                [public_note_logs[2], public_note_logs[3]]
-            )
-        );
-
-        let revertible_logs_len = (note_logs[2].length + note_logs[3].length) as u32;
-        let non_revertible_logs_len = (note_logs[0].length + note_logs[1].length) as u32;
 
         assert_eq(
             public_inputs.end.gas_used, Gas::new(
-                (2 * DA_BYTES_PER_FIELD + revertible_logs_len) * DA_GAS_PER_BYTE,
-                2 * L2_GAS_PER_NOTE_HASH + revertible_logs_len * L2_GAS_PER_LOG_BYTE
+                (2 * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE,
+                2 * L2_GAS_PER_NOTE_HASH
             )
         );
         assert_eq(
             public_inputs.end_non_revertible.gas_used, Gas::new(
-            (3 * DA_BYTES_PER_FIELD + non_revertible_logs_len) * DA_GAS_PER_BYTE,
-            FIXED_AVM_STARTUP_L2_GAS
-            + L2_GAS_PER_NULLIFIER
-            + 2 * L2_GAS_PER_NOTE_HASH
-            + non_revertible_logs_len * L2_GAS_PER_LOG_BYTE
+            (3 * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE,
+            FIXED_AVM_STARTUP_L2_GAS + L2_GAS_PER_NULLIFIER + 2 * L2_GAS_PER_NOTE_HASH
         )
             + Gas::tx_overhead()
         );
@@ -328,7 +269,7 @@ mod tests {
         let _void = builder.previous_kernel.add_request_for_key_validation(
             Point { x: 1, y: 2, is_infinite: false },
             27,
-            GENERATOR_INDEX__TSK_M
+            GENERATOR_INDEX__TSK_M as Field
         );
         builder.failed();
     }
@@ -395,11 +336,11 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.add_encrypted_log_hash(42, 3);
-        builder.previous_kernel.add_encrypted_log_hash(42, 4);
+        builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
+        builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
         builder.previous_kernel.add_unencrypted_log_hash(42, 5);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.add_encrypted_log_hash(42, 6);
+        builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
         builder.previous_kernel.add_unencrypted_log_hash(42, 7);
 
         let public_inputs = builder.execute();
