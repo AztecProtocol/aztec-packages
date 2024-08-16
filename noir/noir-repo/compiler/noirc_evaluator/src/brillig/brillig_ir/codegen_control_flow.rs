@@ -8,7 +8,7 @@ use super::{
     brillig_variable::{BrilligArray, BrilligVariable, SingleAddrVariable},
     debug_show::DebugToString,
     registers::{RegisterAllocator, Stack},
-    BrilligBinaryOp, BrilligContext,
+    BrilligBinaryOp, BrilligContext, ReservedRegisters,
 };
 
 impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
@@ -29,11 +29,8 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             self.make_usize_constant_instruction(0_usize.into())
         };
 
-        let step_register = if let Some(step) = step {
-            step
-        } else {
-            self.make_usize_constant_instruction(1_usize.into()).address
-        };
+        let step_register =
+            if let Some(step) = step { step } else { ReservedRegisters::usize_one() };
 
         let (loop_section, loop_label) = self.reserve_next_section_label();
         self.enter_section(loop_section);
@@ -76,10 +73,6 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         // Deallocate our temporary registers
         self.deallocate_single_addr(iterator_less_than_iterations);
         self.deallocate_single_addr(iterator_register);
-        // Only deallocate step if we allocated it
-        if step.is_none() {
-            self.deallocate_register(step_register);
-        }
     }
 
     /// This codegen will issue a loop that will iterate from 0 to iteration_count

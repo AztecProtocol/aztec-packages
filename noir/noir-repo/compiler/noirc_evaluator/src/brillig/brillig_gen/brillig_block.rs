@@ -4,7 +4,7 @@ use crate::brillig::brillig_ir::brillig_variable::{
 };
 use crate::brillig::brillig_ir::registers::Stack;
 use crate::brillig::brillig_ir::{
-    BrilligBinaryOp, BrilligContext, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
+    BrilligBinaryOp, BrilligContext, ReservedRegisters, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::instruction::ConstrainError;
@@ -1675,8 +1675,6 @@ impl<'block> BrilligBlock<'block> {
             let subitem_pointer =
                 SingleAddrVariable::new_usize(self.brillig_context.allocate_register());
 
-            let one = self.brillig_context.make_usize_constant_instruction(1_usize.into());
-
             // Initializes a single subitem
             let initializer_fn =
                 |ctx: &mut BrilligContext<_, _>, subitem_start_pointer: SingleAddrVariable| {
@@ -1688,7 +1686,7 @@ impl<'block> BrilligBlock<'block> {
                         if subitem_index != item_types.len() - 1 {
                             ctx.memory_op_instruction(
                                 subitem_pointer.address,
-                                one.address,
+                                ReservedRegisters::usize_one(),
                                 subitem_pointer.address,
                                 BrilligBinaryOp::Add,
                             );
@@ -1706,7 +1704,6 @@ impl<'block> BrilligBlock<'block> {
 
             self.brillig_context.deallocate_single_addr(step_variable);
             self.brillig_context.deallocate_single_addr(subitem_pointer);
-            self.brillig_context.deallocate_single_addr(one);
         } else {
             let subitem = subitem_to_repeat_variables.into_iter().next().unwrap();
 
@@ -1734,7 +1731,6 @@ impl<'block> BrilligBlock<'block> {
     ) {
         // Allocate a register for the iterator
         let write_pointer_register = self.brillig_context.allocate_register();
-        let one = self.brillig_context.make_usize_constant_instruction(1_usize.into());
 
         self.brillig_context.mov_instruction(write_pointer_register, pointer);
 
@@ -1747,7 +1743,7 @@ impl<'block> BrilligBlock<'block> {
                 // Increment the write_pointer_register
                 self.brillig_context.memory_op_instruction(
                     write_pointer_register,
-                    one.address,
+                    ReservedRegisters::usize_one(),
                     write_pointer_register,
                     BrilligBinaryOp::Add,
                 );
@@ -1755,7 +1751,6 @@ impl<'block> BrilligBlock<'block> {
         }
 
         self.brillig_context.deallocate_register(write_pointer_register);
-        self.brillig_context.deallocate_single_addr(one);
     }
 
     /// Converts an SSA `ValueId` into a `MemoryAddress`. Initializes if necessary.

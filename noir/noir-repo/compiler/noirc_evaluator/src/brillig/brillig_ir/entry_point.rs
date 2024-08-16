@@ -49,6 +49,12 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
         let calldata_size = Self::flattened_tuple_size(arguments);
         let return_data_size = Self::flattened_tuple_size(return_parameters);
 
+        // Set reserved registers constants
+        self.const_instruction(
+            SingleAddrVariable::new_usize(ReservedRegisters::usize_one()),
+            1_usize.into(),
+        );
+
         // Set initial value of stack pointer: calldata_start_offset + calldata_size + return_data_size
         self.const_instruction(
             SingleAddrVariable::new_usize(ReservedRegisters::free_memory_pointer()),
