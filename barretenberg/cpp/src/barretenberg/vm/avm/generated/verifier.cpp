@@ -145,11 +145,19 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
                                            claimed_evaluations.get_unshifted(),
                                            claimed_evaluations.get_shifted(),
                                            multivariate_challenge,
+<<<<<<< HEAD
                                            pcs_verification_key.get_g1_identity(),
                                            transcript);
 
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
     auto verified = pcs_verification_key.pairing_check(pairing_points[0], pairing_points[1]);
+=======
+                                           pcs_verification_key->get_g1_identity(),
+                                           transcript);
+
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+>>>>>>> d0b2110807 (7790: Fix for zeromorph verification issue)
     return sumcheck_verified.value() && verified;
 }
 
