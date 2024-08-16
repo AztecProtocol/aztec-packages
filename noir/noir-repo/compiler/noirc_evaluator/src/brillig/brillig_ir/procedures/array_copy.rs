@@ -11,7 +11,8 @@ use crate::brillig::brillig_ir::{
 };
 
 impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
-    /// Conditionally copies a source array/vector to a destination array/vector if the source rc is one
+    /// Conditionally copies a source array/vector to a destination array/vector.
+    /// If the reference count of the source array/vector is 1, then we can directly copy the pointer of the source array/vector to the destination array/vector.
     pub(crate) fn call_array_copy_procedure(
         &mut self,
         source_variable: BrilligVariable,

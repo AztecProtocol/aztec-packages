@@ -263,10 +263,14 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         }
     }
 
-    /// This instruction will reverse the order of the elements in a vector.
-    pub(crate) fn codegen_reverse_vector_in_place(&mut self, vector: BrilligVector) {
+    /// This instruction will reverse the order of the `size` elements pointed by `pointer`.
+    pub(crate) fn codegen_array_reverse(&mut self, pointer: MemoryAddress, size: MemoryAddress) {
+        if self.can_call_procedures {
+            self.call_array_reverse_procedure(pointer, size);
+            return;
+        }
         let iteration_count = self.allocate_register();
-        self.codegen_usize_op(vector.size, iteration_count, BrilligBinaryOp::UnsignedDiv, 2);
+        self.codegen_usize_op(size, iteration_count, BrilligBinaryOp::UnsignedDiv, 2);
 
         let start_value_register = self.allocate_register();
         let index_at_end_of_array = self.allocate_register();
@@ -274,10 +278,10 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
 
         self.codegen_loop(iteration_count, |ctx, iterator_register| {
             // Load both values
-            ctx.codegen_array_get(vector.pointer, iterator_register, start_value_register);
+            ctx.codegen_array_get(pointer, iterator_register, start_value_register);
 
             // The index at the end of array is size - 1 - iterator
-            ctx.mov_instruction(index_at_end_of_array, vector.size);
+            ctx.mov_instruction(index_at_end_of_array, size);
             ctx.codegen_usize_op_in_place(index_at_end_of_array, BrilligBinaryOp::Sub, 1);
             ctx.memory_op_instruction(
                 index_at_end_of_array,
@@ -287,15 +291,15 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             );
 
             ctx.codegen_array_get(
-                vector.pointer,
+                pointer,
                 SingleAddrVariable::new_usize(index_at_end_of_array),
                 end_value_register,
             );
 
             // Write both values
-            ctx.codegen_array_set(vector.pointer, iterator_register, end_value_register);
+            ctx.codegen_array_set(pointer, iterator_register, end_value_register);
             ctx.codegen_array_set(
-                vector.pointer,
+                pointer,
                 SingleAddrVariable::new_usize(index_at_end_of_array),
                 start_value_register,
             );

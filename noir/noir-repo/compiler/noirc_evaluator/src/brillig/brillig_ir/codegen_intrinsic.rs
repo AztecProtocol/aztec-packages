@@ -108,7 +108,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.deallocate_single_addr(limb_casted);
 
         if big_endian {
-            self.codegen_reverse_vector_in_place(target_vector);
+            self.codegen_array_reverse(target_vector.pointer, target_vector.size);
         }
     }
 }
