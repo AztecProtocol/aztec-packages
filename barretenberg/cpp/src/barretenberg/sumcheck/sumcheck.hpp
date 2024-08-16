@@ -1,4 +1,3 @@
-
 #pragma once
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
@@ -136,7 +135,7 @@ template <typename Flavor> class SumcheckProver {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
     // Specify the number of all witnesses including shifts and derived witnesses from flavors that have ZK,
     // otherwise, set this constant to 0
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::NUM_ALL_WITNESS_ENTITIES;
     /**
      * @brief The size of the hypercube, i.e. \f$ 2^d\f$.
      *
@@ -158,6 +157,8 @@ template <typename Flavor> class SumcheckProver {
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
+    // Declare a container for ZK Sumcheck data
+    ZKSumcheckData<Flavor> zk_sumcheck_data;
 
     /**
     *
@@ -204,8 +205,6 @@ template <typename Flavor> class SumcheckProver {
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges)
     {
-        // Declare a container for ZK Sumcheck data
-        ZKSumcheckData<Flavor> zk_sumcheck_data;
         // In case the Flavor has ZK, we populate sumcheck data structure with randomness, compute correcting term for
         // the total sum, etc.
         if constexpr (Flavor::HasZK) {
@@ -279,21 +278,15 @@ template <typename Flavor> class SumcheckProver {
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations;
-        if constexpr (Flavor::HasZK) {
-            extract_claimed_evaluations(
-                partially_evaluated_polynomials, multivariate_evaluations, zk_sumcheck_data.masking_terms_evaluations);
-        } else {
-            extract_claimed_evaluations(partially_evaluated_polynomials, multivariate_evaluations);
-        };
-
+        multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         if constexpr (!Flavor::HasZK) {
             return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations };
         } else {
-            return SumcheckOutput<Flavor>{
-                multivariate_challenge, multivariate_evaluations, zk_sumcheck_data.libra_evaluations, {}
-            };
+            return SumcheckOutput<Flavor>{ multivariate_challenge,
+                                           multivariate_evaluations,
+                                           zk_sumcheck_data.libra_evaluations };
         }
     };
 
@@ -369,10 +362,9 @@ polynomials that are sent in clear.
     * @param partially_evaluated_polynomials
     * @param multivariate_evaluations
     */
-    void extract_claimed_evaluations(PartiallyEvaluatedMultivariates partially_evaluated_polynomials,
-                                     ClaimedEvaluations& multivariate_evaluations,
-                                     std::optional<EvaluationMaskingTable> masking_terms_evaluations = std::nullopt)
+    ClaimedEvaluations extract_claimed_evaluations(PartiallyEvaluatedMultivariates& partially_evaluated_polynomials)
     {
+        ClaimedEvaluations multivariate_evaluations;
         if constexpr (!Flavor::HasZK) {
             for (auto [eval, poly] :
                  zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
@@ -387,10 +379,11 @@ polynomials that are sent in clear.
             // Extract claimed evaluations of all witness polynomials
             for (auto [eval, poly, masking_term] : zip_view(multivariate_evaluations.get_all_witnesses(),
                                                             partially_evaluated_polynomials.get_all_witnesses(),
-                                                            masking_terms_evaluations.value())) {
+                                                            zk_sumcheck_data.masking_terms_evaluations)) {
                 eval = poly[0] + masking_term.value_at(0);
             }
         }
+        return multivariate_evaluations;
     };
 
     /**
@@ -421,7 +414,7 @@ polynomials that are sent in clear.
         // have to commit to libra_univariates here
         auto libra_scaling_factor = FF(1);
         FF libra_total_sum = compute_libra_total_sum(libra_univariates, libra_scaling_factor);
-        transcript->send_to_verifier("Libra:Sum", libra_total_sum); // take care of this in ultra transcript!
+        transcript->send_to_verifier("Libra:Sum", libra_total_sum);
         // get the challenge for the zk-sumcheck claim \sigma + \rho \cdot libra_total_sum
         FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
         // Initialize Libra running sum by multiplpying it by Libra challenge \f$\rho\f$;
@@ -449,12 +442,10 @@ polynomials that are sent in clear.
      */
     static LibraUnivariates generate_libra_polynomials(size_t number_of_polynomials)
     {
-        LibraUnivariates libra_full_polynomials;
-        for (size_t k = 0; k < number_of_polynomials; ++k) {
-            auto libra_polynomial =
-                bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>::get_random(); // generate random polynomial of
-                                                                            // required size
-            libra_full_polynomials.emplace_back(libra_polynomial);          // place random polynomial into the vector
+        LibraUnivariates libra_full_polynomials(number_of_polynomials);
+        for (auto& libra_polynomial : libra_full_polynomials) {
+            // generate random polynomial of required size
+            libra_polynomial = bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH>::get_random();
         };
 
         return libra_full_polynomials;

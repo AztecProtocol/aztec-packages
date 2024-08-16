@@ -7,7 +7,7 @@
 namespace bb {
 
 /**
- * @brief This structure is created for contain various polynomials and constants required by ZK Sumcheck.
+ * @brief This structure is created to contain various polynomials and constants required by ZK Sumcheck.
  *
  */
 template <typename Flavor> struct ZKSumcheckData {
@@ -25,14 +25,14 @@ template <typename Flavor> struct ZKSumcheckData {
      * "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
+    // Initialize the length of the array of evaluation masking scalars as 0 for non-ZK Flavors and as
+    // NUM_ALL_WITNESS_ENTITIES for ZK FLavors
+    static constexpr size_t MASKING_SCALARS_LENGTH = Flavor::HasZK ? Flavor::NUM_ALL_WITNESS_ENTITIES : 0;
     // Array of random scalars used to hide the witness info from leaking through the claimed evaluations
-    using EvalMaskingScalars = std::array<FF, NUM_ALL_WITNESS_ENTITIES>;
+    using EvalMaskingScalars = std::array<FF, MASKING_SCALARS_LENGTH>;
     // Auxiliary table that represents the evaluations of quadratic polynomials r_j * X(1-X) at 0,...,
     // MAX_PARTIAL_RELATION_LENGTH - 1
-    using EvaluationMaskingTable =
-        std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, NUM_ALL_WITNESS_ENTITIES>;
+    using EvaluationMaskingTable = std::array<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>, MASKING_SCALARS_LENGTH>;
     // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK
     // Sumcheck.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::HasZK ? Flavor::BATCHED_RELATION_PARTIAL_LENGTH : 0;

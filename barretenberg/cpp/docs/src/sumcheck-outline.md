@@ -171,7 +171,7 @@ To prevent the witness information leakage through the Round Univariates determi
 \f{align}{
 	G \gets \sum_{i=0}^{d-1} g_{i}(X_i),
 \f}
-where the <b>Libra univariates</b> are given by the formula 
+where \f$ d \f$ is the number of Sumcheck rounds, and the <b>Libra univariates</b> are given by the formula 
 \f{align}{
 	g_{i} = \sum_{j=0}^{\tilde{D}} g_{i,j} \cdot L_{j,\{0,\ldots, \tilde{D}\}}(X_i) \quad  \text{for } (g_{i,j}) \gets_{\$} \mathbb{F}^{d\cdot (\tilde{D}+1)}
 \f}
@@ -195,8 +195,10 @@ Observe that \f$ G \f$ has several important properties
 - The coefficients of \f$ G \f$ are independent and uniformly distributed.
 - Evaluations of \f$ G \f$ at \f$ \vec \ell \in \{0,1\}^d\f$ and related Sumcheck Round Univariates are efficiently computable.
 
-The first two properties imply that the evaluations over the domain \f$ \{0,\ldots, \tilde{D}\}\f$ defining <b>Libra Round Univariates </b>, i.e. round univariates for \f$ G \f$,  are independent and uniformly distributed. 
-Moreover, since Round Univariates for \f$ \tilde{F} + \texttt{libra_challenge}\cdot G\f$ are the sums of respective unvariates, the second property and the condition \f$ \tilde{D}\geq D \f$ ensure that the evaluations \f$ \tilde{S}^i(0),\ldots,\tilde{S}^i(\tilde D)\f$ defined in [Compute Round Univariates](#ComputeRoundUnivariates) are hidden by random scalars obtained as evaluations of Libra Round Univariates, which are described explicitly [below](#LibraRoundUnivariates).
+The first two properties imply that the evaluations of Sumcheck Round Univariates for \f$G\f$  are independent and uniformly distributed. We call them Libra Round Univarites.
+
+Consider Round Univariates for \f$ \tilde{F} + \texttt{libra_challenge}\cdot G\f$ which are the sums of the Sumcheck Round Univariates for \f$ \tilde{F} \f$ and Libra Round Univarites multiplied by the challenge. 
+The fact that the degrees of Libra Round Univariates are big enough (i.e. \f$ \tilde{D}\geq D \f$) and that their evaluations are random imply that the evaluations \f$ \tilde{S}^i(0),\ldots,\tilde{S}^i(\tilde D)\f$ defined in [Compute Round Univariates](#ComputeRoundUnivariates) are now masked by the evaluations of Libra Round Univariates. These evaluations are described explicitly [below](#LibraRoundUnivariates).
 
 ### Example {#LibraPolynomialExample}
 

@@ -214,8 +214,7 @@ template <typename Flavor> class SumcheckProverRound {
             auto round_univariate =
                 batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, pow_polynomial);
             // Mask the round univariate
-            auto masked_round_univariate = round_univariate + libra_round_univariate;
-            return masked_round_univariate;
+            return round_univariate + libra_round_univariate;
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         else {
