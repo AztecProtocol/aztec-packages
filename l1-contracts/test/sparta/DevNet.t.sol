@@ -57,10 +57,12 @@ contract DevNetTest is DecoderBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry();
+    registry = new Registry(address(this));
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0));
+    rollup = new Rollup(
+      registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0), address(this)
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
@@ -156,7 +158,6 @@ contract DevNetTest is DecoderBase {
 
     availabilityOracle.publish(body);
 
-    uint256 toConsume = inbox.toConsume();
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
@@ -179,8 +180,6 @@ contract DevNetTest is DecoderBase {
     if (ree.shouldRevert) {
       return;
     }
-
-    assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
     bytes32 l2ToL1MessageTreeRoot;
     {
@@ -211,9 +210,13 @@ contract DevNetTest is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
-    assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+      assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    } else {
+      assertEq(root, bytes32(0), "Invalid outbox root");
+    }
 
     assertEq(rollup.archive(), archive, "Invalid archive");
   }
@@ -225,9 +228,5 @@ contract DevNetTest is DecoderBase {
         DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
       );
     }
-  }
-
-  function max(uint256 a, uint256 b) internal pure returns (uint256) {
-    return a > b ? a : b;
   }
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.49.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.1...aztec-package-v0.49.2) (2024-08-15)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.49.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.0...aztec-package-v0.49.1) (2024-08-15)
+
+
+### Miscellaneous
+
+* Sync alphanet back to master ([#7970](https://github.com/AztecProtocol/aztec-packages/issues/7970)) ([523724d](https://github.com/AztecProtocol/aztec-packages/commit/523724d35a874eea8355e9f7b080a9d84985808d))
+
 ## [0.49.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.48.0...aztec-package-v0.49.0) (2024-08-15)
 
 
