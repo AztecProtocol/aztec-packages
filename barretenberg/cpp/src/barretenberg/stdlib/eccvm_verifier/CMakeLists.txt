@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_eccvm_verifier eccvm stdlib_honk_verifier)
+barretenberg_module(stdlib_eccvm_verifier eccvm stdlib_transcript)

@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_translator_vm_verifier translator_vm stdlib_honk_verifier)
+barretenberg_module(stdlib_translator_vm_verifier translator_vm stdlib_transcript)
