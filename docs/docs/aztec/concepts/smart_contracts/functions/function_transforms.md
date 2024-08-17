@@ -9,7 +9,7 @@ Below, we go more into depth of what is happening under the hood when you create
 
 ## Function transformation
 
-When you define a function in an Aztec contract, it undergoes several transformations under the hood. These transformations prepare the function for execution. These transformations include:
+When you define a function in an Aztec contract, it undergoes several transformations when it is compiled. These transformations prepare the function for execution. These transformations include:
 
 - [Creating a context for the function](#context-creation)
 - [Handling function inputs](#input-handling)
@@ -48,6 +48,8 @@ For public functions, context creation is simpler:
 let mut context = PublicContext::new(inputs);
 ```
 
+These `inputs` are explained in the [private and public input injection](#private-and-public-input-injection) further down on this page.
+
 ### Using the context in functions
 
 Once created, the context object provides various useful methods. Here are some common use cases:
@@ -76,36 +78,27 @@ Under the hood, this creates a new instance of the contract interface with the s
 
 An additional parameter is automatically added to every function.
 
-The injected input is always the first parameter of the transformed function and is of type `PrivateContextInputs` for private functions or `PublicContextInputs` for public functions. Here's how it works:
+The injected input is always the first parameter of the transformed function and is of type `PrivateContextInputs` for private functions or `PublicContextInputs` for public functions.
 
-1. Original function definition:
+Original function definition
    ```rust
    fn my_function(param1: Type1, param2: Type2) { ... }
    ```
 
-2. Transformed function with injected input:
+Transformed function with injected input
    ```rust
    fn my_function(inputs: PrivateContextInputs, param1: Type1, param2: Type2) { ... }
    ```
 
-The `inputs` parameter is created using this code:
+The `inputs` parameter includes:
 
-```rust
-fn create_inputs(ty: &str) -> Param {
-    let context_ident = ident("inputs");
-    let context_pattern = Pattern::Identifier(context_ident);
+- msg sender, ie the address of the account calling the function
+- contract address
+- chain ID
+- block context, eg the block number & timestamp
+- function selector of the function being called
 
-    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context_inputs
-    let type_path = chained_dep!("aztec", "context", "inputs", &path_snippet, ty);
-
-    let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![], true));
-    let visibility = Visibility::Private;
-
-    Param { pattern: context_pattern, typ: context_type, visibility, span: Span::default() }
-}
-```
-
-This makes these inputs such as `msg_sender()` available to be consumed within private annotated functions.
+This makes these inputs available to be consumed within private annotated functions.
 
 ## Return value handling
 
@@ -214,7 +207,7 @@ The computed function signatures are integrated into the contract interface like
    - The signature hash is computed using `compute_fn_signature_hash`
    - The placeholder in the contract interface is replaced with the computed hash
      
-This process ensures that each function in the contract has a unique, deterministic signature based on its name and parameter types. They are compatible with Ethereum's function selector mechanism.
+This process ensures that each function in the contract has a unique, deterministic signature based on its name and parameter types. They are inspired by Solidity's function selector mechanism.
 
 ## Contract artifacts
 
@@ -222,7 +215,7 @@ Contract artifacts in Aztec are automatically generated structures that describe
 
 ### Contract artifact generation process
 
-For each function in the contract, an artifact is generated like this"
+For each function in the contract, an artifact is generated like this:
 
 - A struct is created to represent the function's parameters:
 
@@ -281,4 +274,4 @@ Contract artifacts are important because:
 - They help decode function return values in the simulator
 
 ## Further reading
-- [How do macros work](./attributes.md)
+- [Function attributes and macros](./attributes.md)
