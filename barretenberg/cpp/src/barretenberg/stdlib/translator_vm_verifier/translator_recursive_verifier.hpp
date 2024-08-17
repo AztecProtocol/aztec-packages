@@ -2,9 +2,9 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
+#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
-#include "barretenberg/translator_vm_recursion/translator_recursive_flavor.hpp"
 
 namespace bb {
 template <typename Flavor> class TranslatorRecursiveVerifier_ {

@@ -2,7 +2,7 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
-#include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
+#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifier {

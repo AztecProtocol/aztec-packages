@@ -4,5 +4,5 @@ barretenberg_module(
     stdlib_circuit_builders
     stdlib_honk_verifier
     stdlib_eccvm_verifier
-    translator_vm_recursion
+    stdlib_translator_vm_verifier
 )

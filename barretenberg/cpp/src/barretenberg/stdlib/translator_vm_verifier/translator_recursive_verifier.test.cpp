@@ -1,4 +1,4 @@
-#include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
+#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"

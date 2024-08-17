@@ -1,6 +1,6 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/translator_vm_recursion/translator_recursive_flavor.hpp"
+#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 
 namespace bb {
 template class TranslatorNonNativeFieldRelationImpl<stdlib::field_t<UltraCircuitBuilder>>;
