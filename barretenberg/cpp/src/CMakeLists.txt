@@ -139,7 +139,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_client_ivc_verifier_objects>
-    $<TARGET_OBJECTS:stdlib_honk_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
     $<TARGET_OBJECTS:crypto_merkle_tree_objects>

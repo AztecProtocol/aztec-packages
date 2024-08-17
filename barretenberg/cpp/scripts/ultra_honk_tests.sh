@@ -17,9 +17,9 @@ cd build/
 ./bin/translator_vm_tests
 ./bin/protogalaxy_tests
 ./bin/ultra_honk_tests
-./bin/stdlib_honk_recursion_tests --gtest_filter=Goblin*
-./bin/stdlib_honk_recursion_tests --gtest_filter=Honk*
-./bin/stdlib_honk_recursion_tests --gtest_filter=Proto*
-./bin/stdlib_honk_recursion_tests --gtest_filter=RecursiveMerge*
+./bin/stdlib_honk_verifier_tests --gtest_filter=Goblin*
+./bin/stdlib_honk_verifier_tests --gtest_filter=Honk*
+./bin/stdlib_honk_verifier_tests --gtest_filter=Proto*
+./bin/stdlib_honk_verifier_tests --gtest_filter=RecursiveMerge*
 ./bin/goblin_tests
 ./bin/client_ivc_tests

@@ -6,7 +6,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
-#include "barretenberg/stdlib/honk_recursion/verifier/decider_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"

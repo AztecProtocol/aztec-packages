@@ -1,1 +1,1 @@
-barretenberg_module(translator_vm_recursion translator_vm stdlib_honk_recursion)
+barretenberg_module(translator_vm_recursion translator_vm stdlib_honk_verifier)
