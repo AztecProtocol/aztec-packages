@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/translator_vm_recursion/translator_recursive_verifier.hpp"
 

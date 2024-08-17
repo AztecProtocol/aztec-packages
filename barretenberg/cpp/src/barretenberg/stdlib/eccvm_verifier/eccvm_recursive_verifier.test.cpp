@@ -1,4 +1,4 @@
-#include "barretenberg/eccvm_recursion/eccvm_recursive_verifier.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"

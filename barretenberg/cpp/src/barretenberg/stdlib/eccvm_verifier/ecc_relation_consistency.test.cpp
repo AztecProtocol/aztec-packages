@@ -1,7 +1,7 @@
-#include "barretenberg/eccvm_recursion/eccvm_recursive_flavor.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include <gtest/gtest.h>
 namespace bb {

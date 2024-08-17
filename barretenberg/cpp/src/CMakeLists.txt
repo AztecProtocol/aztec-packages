@@ -63,7 +63,6 @@ add_subdirectory(barretenberg/crypto)
 add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
-add_subdirectory(barretenberg/eccvm_recursion)
 add_subdirectory(barretenberg/env)
 add_subdirectory(barretenberg/execution_trace)
 add_subdirectory(barretenberg/examples)
@@ -122,7 +121,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-     $<TARGET_OBJECTS:eccvm_recursion_objects>
     $<TARGET_OBJECTS:execution_trace_objects>
     $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
@@ -139,6 +137,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_client_ivc_verifier_objects>
+    $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>

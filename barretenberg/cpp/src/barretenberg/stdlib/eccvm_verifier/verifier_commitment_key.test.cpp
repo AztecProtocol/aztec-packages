@@ -1,5 +1,5 @@
 
-#include "barretenberg/eccvm_recursion/verifier_commitment_key.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include <gtest/gtest.h>
 namespace bb {

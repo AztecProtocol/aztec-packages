@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/eccvm_recursion/eccvm_recursive_flavor.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 
 namespace bb {
 template <typename Flavor> class ECCVMRecursiveVerifier_ {
