@@ -39,5 +39,17 @@ impl PreviousKernelValidator {
             assert_eq(needs_app_logic, false, "Cannot run teardown circuit before app logic circuit");
             assert_eq(needs_teardown, true, "Cannot run unnecessary teardown circuit");
         }
+
+        if phase == PublicKernelPhase.TAIL {
+            assert_eq(
+                needs_setup, false, "Revertible call stack must be empty when executing the tail circuit"
+            );
+            assert_eq(
+                needs_app_logic, false, "Non-revertible call stack must be empty when executing the tail circuit"
+            );
+            assert_eq(
+                needs_teardown, false, "Teardown call stack must be empty when executing the tail circuit"
+            );
+        }
     }
 }
