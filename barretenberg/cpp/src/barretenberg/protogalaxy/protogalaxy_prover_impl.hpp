@@ -10,6 +10,7 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     OinkProver<Flavor> oink_prover(instance->proving_key, transcript, domain_separator + '_');
 
     auto [proving_key, relation_params, alphas] = oink_prover.prove();
+    // WORKTODO: can't the prover just mutate these? It just acts on a shared ptr?
     instance->proving_key = std::move(proving_key);
     instance->relation_parameters = std::move(relation_params);
     instance->alphas = std::move(alphas);
@@ -18,8 +19,9 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
 {
     auto idx = 0;
-    auto instance = instances[0];
+    auto& instance = instances[0];
     auto domain_separator = std::to_string(idx);
+    // WORKTODO: get rid of this flag. Just let it be 0 to start
     if (!instance->is_accumulator) {
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
@@ -29,7 +31,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     idx++;
 
     for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
-        auto instance = *it;
+        auto& instance = *it;
         auto domain_separator = std::to_string(idx);
         finalise_and_send_instance(instance, domain_separator);
     }
@@ -69,6 +71,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     static_assert(ProverInstances::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
+    // WORKTODO: fix
     auto next_accumulator = std::move(instances[0]);
     next_accumulator->is_accumulator = true;
 
@@ -128,6 +131,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     return next_accumulator;
 }
 
+// WORKTODO get rid of this shell function?
+// WORKTODO: rename to commitmemnts rounds
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::preparation_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::preparation_round");
@@ -137,12 +142,13 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::perturbator_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::perturbator_round");
+    // WORKTODO: why is this extracted here? clarify state
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
     state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
     state.perturbator =
         LegacyPolynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
-    // compute perturbator only if this is not the first round and has an accumulator
+    // compute perturbator only if this is not the first IVC step round and has an accumulator
     if (state.accumulator->is_accumulator) {
         state.perturbator = compute_perturbator(state.accumulator, state.deltas);
         // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
@@ -156,14 +162,15 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
-    auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
+    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
     combine_relation_parameters(instances);
     combine_alpha(instances);
-    auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
-    auto combiner = compute_combiner(instances, pow_polynomial);
+    PowPolynomial<FF> pow_polynomial{ instances.next_gate_challenges };
+    ExtendedUnivariateWithRandomization combiner = compute_combiner(instances, pow_polynomial);
 
+    // WORKTODO: this state is needed to update the accumulator?
     state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
     state.combiner_quotient = compute_combiner_quotient(state.compressed_perturbator, combiner);
 
@@ -176,12 +183,14 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accum
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::accumulator_update_round");
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    // WORKTODO: why a shared pointer to an instance?
     std::shared_ptr<Instance> next_accumulator =
         compute_next_accumulator(instances, state.combiner_quotient, combiner_challenge, state.compressed_perturbator);
     state.result.proof = transcript->proof_data;
     state.result.accumulator = next_accumulator;
 };
 
+// WORKTODO: rename to "prove"
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::fold_instances()
 {

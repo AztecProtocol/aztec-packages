@@ -10,6 +10,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(cons
     auto& key = inst->verification_key;
     OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
     auto [relation_parameters, witness_commitments, public_inputs, alphas] = oink_verifier.verify();
+    // WORKTODO: make a function or a constructor
     inst->relation_parameters = std::move(relation_parameters);
     inst->witness_commitments = std::move(witness_commitments);
     inst->public_inputs = std::move(public_inputs);
@@ -20,11 +21,14 @@ template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<FF>& fold_data)
 {
     transcript = std::make_shared<Transcript>(fold_data);
-    auto index = 0;
+    uint32_t index = 0;
+    // WORKTODO: instances should be an accumulator and an incoming instance
     auto inst = instances[0];
+    // WORKTODO: rename this
     auto domain_separator = std::to_string(index);
     if (!inst->is_accumulator) {
         receive_and_finalise_instance(inst, domain_separator);
+        // WORKTODO: again, why is this set here?
         inst->target_sum = 0;
         inst->gate_challenges = std::vector<FF>(static_cast<size_t>(inst->verification_key->log_circuit_size), 0);
     }
@@ -43,12 +47,13 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 {
     prepare_for_folding(fold_data);
 
-    auto delta = transcript->template get_challenge<FF>("delta");
+    FF delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
-    auto deltas =
+    std::vector<FF> deltas =
         compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
 
     std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
+
     if (accumulator->is_accumulator) {
         for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
             perturbator_coeffs[idx] =
@@ -57,9 +62,9 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;
-    auto perturbator = LegacyPolynomial<FF>(perturbator_coeffs);
+    LegacyPolynomial<FF> perturbator{ perturbator_coeffs };
     FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-    auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
+    FF perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
@@ -70,7 +75,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
         combiner_quotient_evals);
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+    FF combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     constexpr FF inverse_two = FF(2).invert();
     FF vanishing_polynomial_at_challenge;
@@ -96,6 +101,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     }
     static_assert(VerifierInstances::NUM < 5);
 
+    // WORKTODO
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>(accumulator->verification_key);
     next_accumulator->verification_key = std::make_shared<VerificationKey>(
@@ -103,7 +109,10 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
     size_t vk_idx = 0;
-    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
+    d
+        // WORKTODO: what is this doing
+        for (auto& expected_vk : next_accumulator->verification_key->get_all())
+    {
         size_t inst = 0;
         expected_vk = Commitment::infinity();
         for (auto& instance : instances) {
@@ -127,6 +136,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     // Compute ϕ
     auto& acc_witness_commitments = next_accumulator->witness_commitments;
     size_t comm_idx = 0;
+    // WORKTODO: what is this doing?
     for (auto& comm : acc_witness_commitments.get_all()) {
         comm = Commitment::infinity();
         size_t inst = 0;
