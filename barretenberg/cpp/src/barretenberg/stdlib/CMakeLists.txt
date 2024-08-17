@@ -1,4 +1,5 @@
 add_subdirectory(hash)
+add_subdirectory(client_ivc_verifier)
 add_subdirectory(commitment)
 add_subdirectory(encryption)
 add_subdirectory(goblin_verifier)
