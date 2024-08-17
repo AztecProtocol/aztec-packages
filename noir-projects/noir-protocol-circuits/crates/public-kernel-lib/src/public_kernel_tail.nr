@@ -1,4 +1,3 @@
-use crate::common;
 use dep::reset_kernel_lib::{
     NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicDataReadRequestHints,
     PublicValidationRequestProcessor
@@ -38,14 +37,14 @@ struct PublicKernelTailCircuitPrivateInputs {
 impl PublicKernelTailCircuitPrivateInputs {
     fn validate_inputs(self) {
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        assert(previous_public_inputs.needs_setup() == false, "Previous kernel needs setup");
-        assert(previous_public_inputs.needs_app_logic() == false, "Previous kernel needs app logic");
-        assert(previous_public_inputs.needs_teardown() == false, "Previous kernel needs teardown");
-        assert_eq(
-            array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+        assert(
+            previous_public_inputs.end.public_call_stack[0].item.contract_address.is_zero(), "Revertible call stack must be empty when executing the tail circuit"
         );
-        assert_eq(
-            array_length(previous_public_inputs.end_non_revertible.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+        assert(
+            previous_public_inputs.end_non_revertible.public_call_stack[0].item.contract_address.is_zero(), "Non-revertible call stack must be empty when executing the tail circuit"
+        );
+        assert(
+            previous_public_inputs.public_teardown_call_stack[0].item.contract_address.is_zero(), "Teardown call stack must be empty when executing the tail circuit"
         );
     }
 
