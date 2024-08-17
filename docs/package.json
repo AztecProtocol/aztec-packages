@@ -16,10 +16,10 @@
     "rewrite": "node ./scripts/rewrite_paths.js"
   },
   "dependencies": {
-    "@docusaurus/core": "^3.0.1",
-    "@docusaurus/plugin-ideal-image": "^3.0.1",
-    "@docusaurus/preset-classic": "^3.0.1",
-    "@docusaurus/theme-mermaid": "^3.0.1",
+    "@docusaurus/core": "^3.4.0",
+    "@docusaurus/plugin-ideal-image": "^3.4.0",
+    "@docusaurus/preset-classic": "^3.4.0",
+    "@docusaurus/theme-mermaid": "^3.4.0",
     "@mdx-js/react": "^3.0.1",
     "axios": "^1.4.0",
     "clsx": "^1.1.1",
@@ -35,8 +35,8 @@
     "sharp": "^0.33.3"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.0.1",
-    "@docusaurus/types": "3.0.0",
+    "@docusaurus/module-type-aliases": "^3.4.0",
+    "@docusaurus/types": "3.4.0",
     "@tsconfig/docusaurus": "^1.0.5",
     "concurrently": "^8.0.1",
     "docusaurus-plugin-typedoc": "^0.20.2",
