@@ -4,7 +4,6 @@ use dep::protocol_types::{constants::HEADER_LENGTH, header::Header};
 use crate::{context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness};
 
 use crate::test::helpers::test_environment::TestEnvironment;
-use dep::std::test::OracleMock;
 
 #[oracle(getHeader)]
 unconstrained fn get_header_at_oracle(_block_number: u32) -> [Field; HEADER_LENGTH] {}
@@ -83,11 +82,12 @@ fn fetching_a_valid_but_different_header_should_fail() {
     // We get our current header for the last archive values.
     let current_header = env.private().historical_header;
 
-    let historical_header = get_header_at_internal(1);
+    let target_block_number = 2;
+    let bad_header = get_header_at_internal(target_block_number - 1);
 
     // We pass in a different block number than the header received
     constrain_get_header_at_internal(
-        historical_header,
+        bad_header,
         2,
         current_header.global_variables.block_number as u32 - 1,
         current_header.last_archive.root
