@@ -123,7 +123,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         InnerFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
         InnerFoldingVerifier folding_verifier({ verifier_instance_1, verifier_instance_2 });
 
-        auto [prover_accumulator, folding_proof] = folding_prover.fold_instances();
+        auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
         return { prover_accumulator, verifier_accumulator };
     }
@@ -189,7 +189,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier_instance_2 = std::make_shared<InnerVerifierInstance>(verification_key_2);
         // Generate a folding proof
         InnerFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
-        auto folding_proof = folding_prover.fold_instances();
+        auto folding_proof = folding_prover.prove();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder folding_circuit;
@@ -253,7 +253,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier_instance_2 = std::make_shared<InnerVerifierInstance>(verification_key_2);
         // Generate a folding proof
         InnerFoldingProver folding_prover({ prover_instance_1, prover_instance_2 });
-        auto folding_proof = folding_prover.fold_instances();
+        auto folding_proof = folding_prover.prove();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder folding_circuit;
@@ -351,7 +351,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum
         InnerFoldingProver folding_prover({ prover_accumulator, prover_inst });
-        auto folding_proof = folding_prover.fold_instances();
+        auto folding_proof = folding_prover.prove();
 
         // Create a recursive folding verifier circuit for the folding proof of the two instances with the untampered
         // commitments

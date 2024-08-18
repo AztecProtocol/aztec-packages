@@ -39,7 +39,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        auto proof = folding_prover.fold_instances();
+        auto proof = folding_prover.prove();
     }
 }
 
