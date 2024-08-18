@@ -1,8 +1,9 @@
 
 // This circuit aggregates a single Honk proof from `assert_statement_recursive`.
-global SIZE_OF_PROOF_IF_LOGN_IS_28 : u32 = 393;
+global SIZE_OF_PROOF_IF_LOGN_IS_28 : u32 = 409;
+global HONK_IDENTIFIER : u32 = 1;
 fn main(
-    verification_key: [Field; 103],
+    verification_key: [Field; 120],
     // This is the proof without public inputs attached.
     // 
     // This means: the size of this does not change with the number of public inputs.
@@ -12,10 +13,12 @@ fn main(
     // I believe we want to eventually make it public too though.
     key_hash: Field
 ) {
-    std::verify_proof(
-        verification_key.as_slice(),
-        proof.as_slice(),
-        public_inputs.as_slice(),
-        key_hash
+    // Proof type input specified as 1 to indicate honk
+    std::verify_proof_with_type(
+        verification_key,
+        proof,
+        public_inputs,
+        key_hash,
+        HONK_IDENTIFIER
     );
 }

@@ -1,15 +1,21 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { mkdirSync } from 'fs';
+import { mkdtemp } from 'fs/promises';
 import { type Database, type Key, type RootDatabase, open } from 'lmdb';
+import { tmpdir } from 'os';
+import { dirname, join } from 'path';
 
 import { type AztecArray } from '../interfaces/array.js';
 import { type AztecCounter } from '../interfaces/counter.js';
 import { type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
+import { type AztecSet } from '../interfaces/set.js';
 import { type AztecSingleton } from '../interfaces/singleton.js';
 import { type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap } from './map.js';
+import { LmdbAztecSet } from './set.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
 /**
@@ -19,8 +25,9 @@ export class AztecLmdbStore implements AztecKVStore {
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
+  #log = createDebugLogger('aztec:kv-store:lmdb');
 
-  constructor(rootDb: RootDatabase) {
+  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
     this.#rootDb = rootDb;
 
     // big bucket to store all the data
@@ -54,12 +61,28 @@ export class AztecLmdbStore implements AztecKVStore {
     ephemeral: boolean = false,
     log = createDebugLogger('aztec:kv-store:lmdb'),
   ): AztecLmdbStore {
-    log.info(`Opening LMDB database at ${path || 'temporary location'}`);
-    const rootDb = open({
-      path,
-      noSync: ephemeral,
-    });
-    return new AztecLmdbStore(rootDb);
+    log.debug(`Opening LMDB database at ${path || 'temporary location'}`);
+    if (path) {
+      mkdirSync(path, { recursive: true });
+    }
+    const rootDb = open({ path, noSync: ephemeral });
+    return new AztecLmdbStore(rootDb, ephemeral, path);
+  }
+
+  /**
+   * Forks the current DB into a new DB by backing it up to a temporary location and opening a new lmdb db.
+   * @returns A new AztecLmdbStore.
+   */
+  async fork() {
+    const baseDir = this.path ? dirname(this.path) : tmpdir();
+    this.#log.debug(`Forking store with basedir ${baseDir}`);
+    const forkPath =
+      (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+    this.#log.verbose(`Forking store to ${forkPath}`);
+    await this.#rootDb.backup(forkPath, false);
+    const forkDb = open(forkPath, { noSync: this.isEphemeral });
+    this.#log.debug(`Forked store at ${forkPath} opened successfully`);
+    return new AztecLmdbStore(forkDb, this.isEphemeral, forkPath);
   }
 
   /**
@@ -69,6 +92,15 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   openMap<K extends string | number, V>(name: string): AztecMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
+  }
+
+  /**
+   * Creates a new AztecSet in the store.
+   * @param name - Name of the set
+   * @returns A new AztecSet
+   */
+  openSet<K extends string | number>(name: string): AztecSet<K> {
+    return new LmdbAztecSet(this.#data, name);
   }
 
   /**
@@ -112,9 +144,14 @@ export class AztecLmdbStore implements AztecKVStore {
   }
 
   /**
-   * Clears the store
+   * Clears all entries in the store
    */
   async clear() {
     await this.#rootDb.clearAsync();
+  }
+
+  /** Deletes this store */
+  async delete() {
+    await this.#rootDb.drop();
   }
 }

@@ -11,13 +11,18 @@ import {
   type HttpTransport,
   type PublicClient,
   type WalletClient,
+  concatHex,
   createPublicClient,
   createWalletClient,
+  encodeDeployData,
   getAddress,
   getContract,
+  getContractAddress,
   http,
+  numberToHex,
+  padHex,
 } from 'viem';
-import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount } from 'viem/accounts';
+import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
@@ -79,29 +84,38 @@ export interface L1ContractArtifactsForDeployment {
    */
   rollup: ContractArtifacts;
   /**
-   * The token to pay for gas. This will be bridged to L2 via the gasPortal below
+   * The token to pay for gas. This will be bridged to L2 via the feeJuicePortal below
    */
-  gasToken: ContractArtifacts;
+  feeJuice: ContractArtifacts;
   /**
    * Gas portal contract artifacts. Optional for now as gas is not strictly enforced
    */
-  gasPortal: ContractArtifacts;
+  feeJuicePortal: ContractArtifacts;
 }
+
+export type L1Clients = {
+  publicClient: PublicClient<HttpTransport, Chain>;
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
+};
 
 /**
  * Creates a wallet and a public viem client for interacting with L1.
  * @param rpcUrl - RPC URL to connect to L1.
- * @param mnemonicOrHdAccount - Mnemonic or account for the wallet client.
+ * @param mnemonicOrPrivateKeyOrHdAccount - Mnemonic or account for the wallet client.
  * @param chain - Optional chain spec (defaults to local foundry).
  * @returns - A wallet and a public client.
  */
 export function createL1Clients(
   rpcUrl: string,
-  mnemonicOrHdAccount: string | HDAccount | PrivateKeyAccount,
+  mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
-): { publicClient: PublicClient<HttpTransport, Chain>; walletClient: WalletClient<HttpTransport, Chain, Account> } {
+): L1Clients {
   const hdAccount =
-    typeof mnemonicOrHdAccount === 'string' ? mnemonicToAccount(mnemonicOrHdAccount) : mnemonicOrHdAccount;
+    typeof mnemonicOrPrivateKeyOrHdAccount === 'string'
+      ? mnemonicOrPrivateKeyOrHdAccount.startsWith('0x')
+        ? privateKeyToAccount(mnemonicOrPrivateKeyOrHdAccount as `0x${string}`)
+        : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount)
+      : mnemonicOrPrivateKeyOrHdAccount;
 
   const walletClient = createWalletClient({
     account: hdAccount,
@@ -132,58 +146,62 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2GasTokenAddress: AztecAddress; vkTreeRoot: Fr },
+  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr; assumeProvenUntil?: number; salt: number | undefined },
 ): Promise<DeployL1Contracts> => {
-  logger.debug('Deploying contracts...');
+  // We are assuming that you are running this on a local anvil node which have 1s block times
+  // To align better with actual deployment, we update the block interval to 12s
+  // The code is same as `setBlockInterval` in `cheat_codes.ts`
+  const rpcCall = async (rpcUrl: string, method: string, params: any[]) => {
+    const paramsString = JSON.stringify(params);
+    const content = {
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    return await (await fetch(rpcUrl, content)).json();
+  };
+  const interval = 12;
+  const res = await rpcCall(rpcUrl, 'anvil_setBlockTimestampInterval', [interval]);
+  if (res.error) {
+    throw new Error(`Error setting block interval: ${res.error.message}`);
+  }
+  logger.info(`Set block interval to ${interval}`);
 
-  const walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(rpcUrl),
-  });
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcUrl),
-  });
+  logger.info(`Deploying contracts from ${account.address.toString()}...`);
 
-  const registryAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.registry.contractAbi,
-    contractsToDeploy.registry.contractBytecode,
-  );
+  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+
+  const registryAddress = await deployer.deploy(contractsToDeploy.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const availabilityOracleAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.availabilityOracle.contractAbi,
-    contractsToDeploy.availabilityOracle.contractBytecode,
-  );
+  const availabilityOracleAddress = await deployer.deploy(contractsToDeploy.availabilityOracle);
   logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
 
-  const gasTokenAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.gasToken.contractAbi,
-    contractsToDeploy.gasToken.contractBytecode,
-  );
+  const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
 
-  logger.info(`Deployed Gas Token at ${gasTokenAddress}`);
+  logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const rollupAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.rollup.contractAbi,
-    contractsToDeploy.rollup.contractBytecode,
-    [
-      getAddress(registryAddress.toString()),
-      getAddress(availabilityOracleAddress.toString()),
-      getAddress(gasTokenAddress.toString()),
-      args.vkTreeRoot.toString(),
-    ],
-  );
+  const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
+    getAddress(registryAddress.toString()),
+    getAddress(availabilityOracleAddress.toString()),
+    getAddress(feeJuiceAddress.toString()),
+    args.vkTreeRoot.toString(),
+    account.address.toString(),
+  ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
+
+  // Set initial blocks as proven if requested
+  if (args.assumeProvenUntil && args.assumeProvenUntil > 0) {
+    const rollup = getContract({
+      address: getAddress(rollupAddress.toString()),
+      abi: contractsToDeploy.rollup.contractAbi,
+      client: walletClient,
+    });
+    await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(args.assumeProvenUntil)], { account });
+    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenUntil}`);
+  }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
   let inboxAddress!: EthAddress;
@@ -214,48 +232,45 @@ export const deployL1Contracts = async (
     abi: contractsToDeploy.registry.contractAbi,
     client: walletClient,
   });
-  await registryContract.write.upgrade(
-    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
-    { account },
-  );
+  if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
+    await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
+    logger.verbose(`Upgraded registry contract at ${registryAddress} to rollup ${rollupAddress}`);
+  } else {
+    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
+  }
 
-  // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
-  const gasPortalAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.gasPortal.contractAbi,
-    contractsToDeploy.gasPortal.contractBytecode,
-  );
+  // this contract remains uninitialized because at this point we don't know the address of the Fee Juice on L2
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal);
 
-  logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
+  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
 
-  const gasPortal = getContract({
-    address: gasPortalAddress.toString(),
-    abi: contractsToDeploy.gasPortal.contractAbi,
+  const feeJuicePortal = getContract({
+    address: feeJuicePortalAddress.toString(),
+    abi: contractsToDeploy.feeJuicePortal.contractAbi,
     client: walletClient,
   });
 
   await publicClient.waitForTransactionReceipt({
-    hash: await gasPortal.write.initialize([
+    hash: await feeJuicePortal.write.initialize([
       registryAddress.toString(),
-      gasTokenAddress.toString(),
-      args.l2GasTokenAddress.toString(),
+      feeJuiceAddress.toString(),
+      args.l2FeeJuiceAddress.toString(),
     ]),
   });
 
   logger.info(
-    `Initialized Gas Portal at ${gasPortalAddress} to bridge between L1 ${gasTokenAddress} to L2 ${args.l2GasTokenAddress}`,
+    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  // fund the rollup contract with gas tokens
-  const gasToken = getContract({
-    address: gasTokenAddress.toString(),
-    abi: contractsToDeploy.gasToken.contractAbi,
+  // fund the rollup contract with Fee Juice
+  const feeJuice = getContract({
+    address: feeJuiceAddress.toString(),
+    abi: contractsToDeploy.feeJuice.contractAbi,
     client: walletClient,
   });
-  const receipt = await gasToken.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
+  const receipt = await feeJuice.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
   await publicClient.waitForTransactionReceipt({ hash: receipt });
-  logger.info(`Funded rollup contract with gas tokens`);
+  logger.info(`Funded rollup contract with Fee Juice`);
 
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
@@ -263,8 +278,8 @@ export const deployL1Contracts = async (
     registryAddress,
     inboxAddress,
     outboxAddress,
-    gasTokenAddress,
-    gasPortalAddress,
+    feeJuiceAddress,
+    feeJuicePortalAddress,
   };
 
   return {
@@ -273,6 +288,33 @@ export const deployL1Contracts = async (
     l1ContractAddresses: l1Contracts,
   };
 };
+
+class L1Deployer {
+  private salt: Hex | undefined;
+  constructor(
+    private walletClient: WalletClient<HttpTransport, Chain, Account>,
+    private publicClient: PublicClient<HttpTransport, Chain>,
+    maybeSalt: number | undefined,
+    private logger: DebugLogger,
+  ) {
+    this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
+  }
+
+  deploy(
+    params: { contractAbi: Narrow<Abi | readonly unknown[]>; contractBytecode: Hex },
+    args: readonly unknown[] = [],
+  ): Promise<EthAddress> {
+    return deployL1Contract(
+      this.walletClient,
+      this.publicClient,
+      params.contractAbi,
+      params.contractBytecode,
+      args,
+      this.salt,
+      this.logger,
+    );
+  }
+}
 
 // docs:start:deployL1Contract
 /**
@@ -290,23 +332,40 @@ export async function deployL1Contract(
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
+  maybeSalt?: Hex,
+  logger?: DebugLogger,
 ): Promise<EthAddress> {
-  const hash = await walletClient.deployContract({
-    abi,
-    bytecode,
-    args,
-  });
+  if (maybeSalt) {
+    const salt = padHex(maybeSalt, { size: 32 });
+    const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+    const calldata = encodeDeployData({ abi, bytecode, args });
+    const address = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const existing = await publicClient.getBytecode({ address });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
-  const contractAddress = receipt.contractAddress;
-  if (!contractAddress) {
-    throw new Error(
-      `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
-        typeof val === 'bigint' ? String(val) : val,
-      )}`,
-    );
+    if (existing === undefined || existing === '0x') {
+      const hash = await walletClient.sendTransaction({
+        to: deployer,
+        data: concatHex([salt, calldata]),
+      });
+      logger?.verbose(`Deploying contract with salt ${salt} to address ${address} in tx ${hash}`);
+      await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
+    } else {
+      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
+    }
+    return EthAddress.fromString(address);
+  } else {
+    const hash = await walletClient.deployContract({ abi, bytecode, args });
+    logger?.verbose(`Deploying contract in tx ${hash}`);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
+    const contractAddress = receipt.contractAddress;
+    if (!contractAddress) {
+      throw new Error(
+        `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
+          typeof val === 'bigint' ? String(val) : val,
+        )}`,
+      );
+    }
+    return EthAddress.fromString(contractAddress);
   }
-
-  return EthAddress.fromString(receipt.contractAddress!);
 }
 // docs:end:deployL1Contract

@@ -17,6 +17,7 @@ import {
 import { FunctionSelector, Header } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -40,6 +41,7 @@ export function createAztecNodeRpcServer(node: AztecNode) {
       TxEffect,
       LogId,
       TxHash,
+      Buffer32,
       PublicDataWitness,
       SiblingPath,
     },

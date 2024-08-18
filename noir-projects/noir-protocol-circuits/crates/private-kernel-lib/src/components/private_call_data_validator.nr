@@ -7,28 +7,16 @@ use crate::components::private_call_data_validator::{
 };
 use dep::types::{
     abis::{
-    call_context::CallContext, call_request::CallRequest, caller_context::CallerContext,
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::NoteLogHash,
-    note_hash::ScopedNoteHash, private_call_request::ScopedPrivateCallRequest,
-    private_call_stack_item::PrivateCallStackItem,
+    call_context::CallContext, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+    log_hash::NoteLogHash, note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
     private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths},
     private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered}
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
     constants::MAX_FIELD_VALUE,
     hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
-    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::find_index
+    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::find_index_hint
 };
-
-unconstrained fn match_log_to_note<N>(
-    note_log: NoteLogHash,
-    accumulated_note_hashes: [ScopedNoteHash; N]
-) -> u32 {
-    find_index(
-        accumulated_note_hashes,
-        |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
-    )
-}
 
 unconstrained fn find_first_revertible_private_call_request_index(public_inputs: PrivateCircuitPublicInputs) -> u32 {
     find_first_revertible_item_index(
@@ -37,26 +25,37 @@ unconstrained fn find_first_revertible_private_call_request_index(public_inputs:
     )
 }
 
-fn validate_caller_context(caller_context: CallerContext, this_context: CallContext) {
-    let matching_caller_context = caller_context.msg_sender.eq(this_context.msg_sender)
-        & caller_context.storage_contract_address.eq(this_context.storage_contract_address);
-    let hidden_caller_context = caller_context.is_hidden();
-    assert(matching_caller_context | hidden_caller_context, "invalid caller context");
-
-    assert_eq(caller_context.is_static_call, this_context.is_static_call, "mismatch is_static_call flag");
-}
-
-fn validate_call_request(request: CallRequest, hash: Field, caller: PrivateCallStackItem) {
-    if hash != 0 {
-        assert_eq(request.hash, hash, "call stack hash does not match call request hash");
-        assert_eq(request.caller_contract_address, caller.contract_address, "invalid caller contract address");
-        validate_caller_context(request.caller_context, caller.public_inputs.call_context)
+fn validate_call_context(
+    target_contract: AztecAddress,
+    target_context: CallContext,
+    this_context: CallContext
+) {
+    if target_context.is_delegate_call {
+        assert_eq(
+            target_context.msg_sender, this_context.msg_sender, "incorrect msg_sender for delegate call request"
+        );
+        assert_eq(
+            target_context.storage_contract_address, this_context.storage_contract_address, "incorrect storage_contract_address for delegate call request"
+        );
     } else {
-        assert(is_empty(request), "call requests length does not match the expected length");
+        assert_eq(
+            target_context.msg_sender, this_context.storage_contract_address, "incorrect msg_sender for call request"
+        );
+        assert_eq(
+            target_context.storage_contract_address, target_contract, "incorrect storage_contract_address for call request"
+        );
+    }
+    if !target_context.is_static_call {
+        assert(this_context.is_static_call == false, "static call cannot make non-static calls");
     }
 }
 
-fn validate_incrementing_counters_within_range<T, N>(counter_start: u32, counter_end: u32, items: [T; N], num_items: u32) where T: Ordered {
+fn validate_incrementing_counters_within_range<T, let N: u32>(
+    counter_start: u32,
+    counter_end: u32,
+    items: [T; N],
+    num_items: u32
+) where T: Ordered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {
@@ -72,12 +71,7 @@ fn validate_incrementing_counters_within_range<T, N>(counter_start: u32, counter
     assert(prev_counter < counter_end, "counter must be smaller than the end counter of the call");
 }
 
-fn validate_incrementing_counter_ranges_within_range<T, N>(
-    counter_start: u32,
-    counter_end: u32,
-    items: [T; N],
-    num_items: u32
-) where T: RangeOrdered {
+fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(counter_start: u32, counter_end: u32, items: [T; N], num_items: u32) where T: RangeOrdered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {
@@ -107,7 +101,7 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<N>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
+    pub fn validate<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
         self.validate_contract_address();
         self.validate_call();
         self.validate_private_call_requests();
@@ -134,7 +128,7 @@ impl PrivateCallDataValidator {
             tx_request.origin, call_stack_item.contract_address, "origin address does not match call stack items contract address"
         );
         assert_eq(
-            tx_request.function_data.hash(), call_stack_item.function_data.hash(), "tx_request function_data must match call_stack_item function_data"
+            tx_request.function_data, call_stack_item.function_data, "tx_request function_data must match call_stack_item function_data"
         );
         assert_eq(
             tx_request.args_hash, call_stack_item.public_inputs.args_hash, "noir function args passed to tx_request must match args in the call_stack_item"
@@ -144,37 +138,27 @@ impl PrivateCallDataValidator {
         );
     }
 
-    pub fn validate_against_call_request(self, scoped_call_request: ScopedPrivateCallRequest) {
+    pub fn validate_against_call_request(self, request: PrivateCallRequest) {
         let call_stack_item = self.data.call_stack_item;
-        let caller_contract_address = scoped_call_request.contract_address;
-        let request = scoped_call_request.call_request;
 
-        assert(
-            request.matches_stack_item(call_stack_item), "calculated private_call_hash does not match provided private_call_hash at the top of the call stack"
+        assert_eq(
+            request.contract_address, call_stack_item.contract_address, "contract_address does not match call request"
         );
-
-        let call_context = call_stack_item.public_inputs.call_context;
-        let caller_context = request.caller_context;
-        let is_caller_hidden = caller_context.is_hidden();
-
-        if call_context.is_delegate_call {
-            assert(!is_caller_hidden, "caller context cannot be hidden for delegate calls");
-            assert_eq(
-                call_context.msg_sender, caller_context.msg_sender, "call stack msg_sender does not match expected msg_sender for delegate calls"
-            );
-            assert_eq(
-                call_context.storage_contract_address, caller_context.storage_contract_address, "call stack storage address does not match expected contract address for delegate calls"
-            );
-        } else {
-            assert(is_caller_hidden, "caller context must be hidden for non-delegate calls");
-            assert_eq(
-                call_context.msg_sender, caller_contract_address, "call stack msg_sender does not match caller contract address"
-            );
-        }
-
-        if !call_context.is_static_call {
-            assert(caller_context.is_static_call == false, "static call cannot make non-static calls");
-        }
+        assert_eq(
+            request.call_context, call_stack_item.public_inputs.call_context, "call_context does not match call request"
+        );
+        assert_eq(
+            request.args_hash, call_stack_item.public_inputs.args_hash, "args_hash does not match call request"
+        );
+        assert_eq(
+            request.returns_hash, call_stack_item.public_inputs.returns_hash, "returns_hash does not match call request"
+        );
+        assert_eq(
+            request.start_side_effect_counter, call_stack_item.public_inputs.start_side_effect_counter, "start_side_effect_counter does not match call request"
+        );
+        assert_eq(
+            request.end_side_effect_counter, call_stack_item.public_inputs.end_side_effect_counter, "end_side_effect_counter does not match call request"
+        );
     }
 
     pub fn validate_against_previous_kernel(self, previous_kernel: PrivateKernelCircuitPublicInputs) {
@@ -238,6 +222,10 @@ impl PrivateCallDataValidator {
             assert(is_own_storage, "call stack storage address does not match expected contract address");
         }
 
+        assert_eq(
+            call_context.function_selector, self.data.call_stack_item.function_data.selector, "function selector in call context does not match call stack item"
+        );
+
         if call_context.is_static_call {
             // No state changes are allowed for static calls:
             assert_eq(self.array_lengths.note_hashes, 0, "note_hashes must be empty for static calls");
@@ -263,7 +251,11 @@ impl PrivateCallDataValidator {
         for i in 0..call_requests.len() {
             should_check &= i != num_requests;
             if should_check {
-                validate_caller_context(call_requests[i].caller_context, public_inputs.call_context);
+                validate_call_context(
+                    call_requests[i].contract_address,
+                    call_requests[i].call_context,
+                    public_inputs.call_context
+                );
             }
         }
 
@@ -287,19 +279,32 @@ impl PrivateCallDataValidator {
     }
 
     fn validate_public_call_requests(self) {
-        let call_requests = self.data.public_call_stack;
-        let hashes = self.data.call_stack_item.public_inputs.public_call_stack_hashes;
+        let public_inputs = self.data.call_stack_item.public_inputs;
+        let call_requests = self.data.call_stack_item.public_inputs.public_call_requests;
+        let num_requests = self.array_lengths.public_call_requests;
+        let mut should_check = true;
         for i in 0..call_requests.len() {
-            validate_call_request(call_requests[i], hashes[i], self.data.call_stack_item);
+            should_check &= i != num_requests;
+            if should_check {
+                validate_call_context(
+                    call_requests[i].item.contract_address,
+                    call_requests[i].item.call_context,
+                    public_inputs.call_context
+                );
+            }
         }
     }
 
     fn validate_teardown_call_request(self) {
-        validate_call_request(
-            self.data.public_teardown_call_request,
-            self.data.call_stack_item.public_inputs.public_teardown_function_hash,
-            self.data.call_stack_item
-        );
+        let public_inputs = self.data.call_stack_item.public_inputs;
+        let request = self.data.call_stack_item.public_inputs.public_teardown_call_request;
+        if request.counter != 0 {
+            validate_call_context(
+                request.item.contract_address,
+                request.item.call_context,
+                public_inputs.call_context
+            );
+        }
     }
 
     fn validate_counters(self) {
@@ -362,11 +367,11 @@ impl PrivateCallDataValidator {
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            self.data.public_call_stack,
-            self.array_lengths.public_call_stack_hashes
+            public_inputs.public_call_requests,
+            self.array_lengths.public_call_requests
         );
 
-        let teardown_call_request_count = if self.data.public_teardown_call_request.hash == 0 {
+        let teardown_call_request_count = if public_inputs.public_teardown_call_request.counter == 0 {
             0
         } else {
             1
@@ -374,12 +379,12 @@ impl PrivateCallDataValidator {
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            [self.data.public_teardown_call_request],
+            [public_inputs.public_teardown_call_request],
             teardown_call_request_count
         );
     }
 
-    fn validate_note_logs<N>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
+    fn validate_note_logs<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
         let note_logs = self.data.call_stack_item.public_inputs.note_encrypted_logs_hashes;
         let num_logs = self.array_lengths.note_encrypted_logs_hashes;
         let storage_contract_address = self.data.call_stack_item.public_inputs.call_context.storage_contract_address;
@@ -387,10 +392,14 @@ impl PrivateCallDataValidator {
         for i in 0..note_logs.len() {
             should_check &= i != num_logs;
             if should_check {
-                let note_index = match_log_to_note(note_logs[i], accumulated_note_hashes);
+                let note_log = note_logs[i];
+                let note_index = find_index_hint(
+                    accumulated_note_hashes,
+                    |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
+                );
                 assert(note_index != N, "could not find note hash linked to note log");
                 assert_eq(
-                    note_logs[i].note_hash_counter, accumulated_note_hashes[note_index].counter(), "could not find note hash linked to note log"
+                    note_log.note_hash_counter, accumulated_note_hashes[note_index].counter(), "could not find note hash linked to note log"
                 );
                 // If the note_index points to an empty note hash, the following check will fail.
                 assert_eq(

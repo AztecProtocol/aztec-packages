@@ -195,19 +195,19 @@ uint32_t get_witness_from_function_input(Program::FunctionInput input)
     return input_witness.value.value;
 }
 
-WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
+WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 {
-    WitnessConstant result = std::visit(
+    WitnessOrConstant result = std::visit(
         [&](auto&& e) {
             using T = std::decay_t<decltype(e)>;
             if constexpr (std::is_same_v<T, Program::ConstantOrWitnessEnum::Witness>) {
-                return WitnessConstant<bb::fr>{
+                return WitnessOrConstant<bb::fr>{
                     .index = e.value.value,
                     .value = bb::fr::zero(),
                     .is_constant = false,
                 };
             } else if constexpr (std::is_same_v<T, Program::ConstantOrWitnessEnum::Constant>) {
-                return WitnessConstant<bb::fr>{
+                return WitnessOrConstant<bb::fr>{
                     .index = 0,
                     .value = uint256_t(e.value),
                     .is_constant = true,
@@ -215,7 +215,7 @@ WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
             } else {
                 ASSERT(false);
             }
-            return WitnessConstant<bb::fr>{
+            return WitnessOrConstant<bb::fr>{
                 .index = 0,
                 .value = bb::fr::zero(),
                 .is_constant = true,
@@ -223,33 +223,6 @@ WitnessConstant<bb::fr> parse_input(Program::FunctionInput input)
         },
         input.input.value);
     return result;
-
-    // WitnessConstant result = std::visit(
-    //     [&](auto&& e) {
-    //         using T = std::decay_t<decltype(e)>;
-    //         if constexpr (std::is_same_v<T, Program::FunctionInput::Witness>) {
-    //             return WitnessConstant<bb::fr>{
-    //                 .index = e.value.witness.value,
-    //                 .value = bb::fr::zero(),
-    //                 .is_constant = false,
-    //             };
-    //         } else if constexpr (std::is_same_v<T, Program::FunctionInput::Constant>) {
-    //             return WitnessConstant<bb::fr>{
-    //                 .index = 0,
-    //                 .value = uint256_t(e.value.constant),
-    //                 .is_constant = true,
-    //             };
-    //         } else {
-    //             ASSERT(false);
-    //         }
-    //         return WitnessConstant<bb::fr>{
-    //             .index = 0,
-    //             .value = bb::fr::zero(),
-    //             .is_constant = true,
-    //         };
-    //     },
-    //     input.value);
-    // return result;
 }
 
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
@@ -261,8 +234,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
         [&](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AND>) {
-                auto lhs_input = get_witness_from_function_input(arg.lhs);
-                auto rhs_input = get_witness_from_function_input(arg.rhs);
+                auto lhs_input = parse_input(arg.lhs);
+                auto rhs_input = parse_input(arg.rhs);
                 af.logic_constraints.push_back(LogicConstraint{
                     .a = lhs_input,
                     .b = rhs_input,
@@ -272,8 +245,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 });
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::XOR>) {
-                auto lhs_input = get_witness_from_function_input(arg.lhs);
-                auto rhs_input = get_witness_from_function_input(arg.rhs);
+                auto lhs_input = parse_input(arg.lhs);
+                auto rhs_input = parse_input(arg.rhs);
                 af.logic_constraints.push_back(LogicConstraint{
                     .a = lhs_input,
                     .b = rhs_input,
@@ -292,29 +265,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
 
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      return AES128Input{
-                                          .witness = get_witness_from_function_input(e),
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .iv = map(arg.iv,
-                              [](auto& e) {
-                                  auto witness = get_witness_from_function_input(e);
-                                  return AES128Input{
-                                      .witness = witness,
-                                      .num_bits = e.num_bits,
-                                  };
-                              }),
-                    .key = map(arg.key,
-                               [](auto& e) {
-                                   auto input_witness = get_witness_from_function_input(e);
-                                   return AES128Input{
-                                       .witness = input_witness,
-                                       .num_bits = e.num_bits,
-                                   };
-                               }),
+                    .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .iv = map(arg.iv, [](auto& e) { return parse_input(e); }),
+                    .key = map(arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
@@ -335,22 +288,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
 
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
-                    .inputs = map(arg.inputs,
-                                  [](auto& e) {
-                                      auto input_witness = get_witness_from_function_input(e);
-                                      return Sha256Input{
-                                          .witness = input_witness,
-                                          .num_bits = e.num_bits,
-                                      };
-                                  }),
-                    .hash_values = map(arg.hash_values,
-                                       [](auto& e) {
-                                           auto input_witness = get_witness_from_function_input(e);
-                                           return Sha256Input{
-                                               .witness = input_witness,
-                                               .num_bits = e.num_bits,
-                                           };
-                                       }),
+                    .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .hash_values = map(arg.hash_values, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
@@ -358,9 +297,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.blake2s_constraints.push_back(Blake2sConstraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
-                                      auto input_witness = get_witness_from_function_input(e);
                                       return Blake2sInput{
-                                          .witness = input_witness,
+                                          .blackbox_input = parse_input(e),
                                           .num_bits = e.num_bits,
                                       };
                                   }),
@@ -371,9 +309,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.blake3_constraints.push_back(Blake3Constraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
-                                      auto input_witness = get_witness_from_function_input(e);
                                       return Blake3Input{
-                                          .witness = input_witness,
+                                          .blackbox_input = parse_input(e),
                                           .num_bits = e.num_bits,
                                       };
                                   }),
@@ -437,12 +374,12 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 });
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
-                auto input_1_x = get_witness_from_function_input(arg.input1[0]);
-                auto input_1_y = get_witness_from_function_input(arg.input1[1]);
-                auto input_1_infinite = get_witness_from_function_input(arg.input1[2]);
-                auto input_2_x = get_witness_from_function_input(arg.input2[0]);
-                auto input_2_y = get_witness_from_function_input(arg.input2[1]);
-                auto input_2_infinite = get_witness_from_function_input(arg.input2[2]);
+                auto input_1_x = parse_input(arg.input1[0]);
+                auto input_1_y = parse_input(arg.input1[1]);
+                auto input_1_infinite = parse_input(arg.input1[2]);
+                auto input_2_x = parse_input(arg.input2[0]);
+                auto input_2_y = parse_input(arg.input2[1]);
+                auto input_2_infinite = parse_input(arg.input2[2]);
 
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = input_1_x,
@@ -473,36 +410,39 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.keccak_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
-                    .state = map(arg.inputs,
-                                 [](auto& e) {
-                                     auto input_witness = get_witness_from_function_input(e);
-                                     return input_witness;
-                                 }),
+                    .state = map(arg.inputs, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
-                if (honk_recursion) { // if we're using the honk recursive verifier
-                    auto c = HonkRecursionConstraint{
-                        .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
-                        .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
-                        .public_inputs =
-                            map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                    };
+
+                auto input_key = get_witness_from_function_input(arg.key_hash);
+
+                auto proof_type_in = arg.proof_type;
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
+                // the only means for setting the proof type. use of honk_recursion flag in this context can go away
+                // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
+                if (honk_recursion && proof_type_in != HONK_RECURSION) {
+                    proof_type_in = HONK_RECURSION;
+                }
+
+                auto c = RecursionConstraint{
+                    .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .public_inputs = map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .key_hash = input_key,
+                    .proof_type = proof_type_in,
+                };
+                // Add the recursion constraint to the appropriate container based on proof type
+                if (c.proof_type == PLONK_RECURSION) {
+                    af.recursion_constraints.push_back(c);
+                    af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
+                } else if (c.proof_type == HONK_RECURSION) {
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                 } else {
-                    auto input_key = get_witness_from_function_input(arg.key_hash);
-
-                    auto c = RecursionConstraint{
-                        .key = map(arg.verification_key, [](auto& e) { return get_witness_from_function_input(e); }),
-                        .proof = map(arg.proof, [](auto& e) { return get_witness_from_function_input(e); }),
-                        .public_inputs =
-                            map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
-                        .key_hash = input_key,
-                    };
-                    af.recursion_constraints.push_back(c);
-                    af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
+                    info("Invalid PROOF_TYPE in RecursionConstraint!");
+                    ASSERT(false);
                 }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{
@@ -551,11 +491,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 af.original_opcode_indices.bigint_operations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Poseidon2Permutation>) {
                 af.poseidon2_constraints.push_back(Poseidon2Constraint{
-                    .state = map(arg.inputs,
-                                 [](auto& e) {
-                                     auto input_witness = get_witness_from_function_input(e);
-                                     return input_witness;
-                                 }),
+                    .state = map(arg.inputs, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .len = arg.len,
                 });
@@ -589,6 +525,7 @@ BlockConstraint handle_memory_init(Program::Opcode::MemoryInit const& mem_init)
     // array.
     if (std::holds_alternative<Program::BlockType::CallData>(mem_init.block_type.value)) {
         block.type = BlockType::CallData;
+        block.calldata_id = std::get<Program::BlockType::CallData>(mem_init.block_type.value).value;
     } else if (std::holds_alternative<Program::BlockType::ReturnData>(mem_init.block_type.value)) {
         block.type = BlockType::ReturnData;
     }

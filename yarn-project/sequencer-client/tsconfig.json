@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../bb-prover"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -37,6 +40,9 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../prover-client"
+    },
+    {
       "path": "../simulator"
     },
     {
@@ -44,6 +50,9 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

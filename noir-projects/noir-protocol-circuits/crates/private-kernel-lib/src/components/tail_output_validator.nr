@@ -1,29 +1,22 @@
-mod kernel_circuit_output_hints;
-mod validate_value_transformation;
+mod tail_output_hints;
 
 use crate::components::{
     tail_output_composer::meter_gas_used::meter_gas_used,
-    tail_output_validator::{
-    kernel_circuit_output_hints::{generate_kernel_circuit_output_hints, Hints},
-    validate_value_transformation::{validate_transformed_values, validate_value_transformation}
-}
+    tail_output_validator::{tail_output_hints::{generate_tail_output_hints, TailOutputHints}}
 };
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
     log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
-    hash::{
-    compute_tx_logs_hash, compute_tx_note_logs_hash, silo_encrypted_log_hash, silo_l2_to_l1_message,
-    silo_note_hash, silo_nullifier
-},
-    traits::is_empty,
-    utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_array_with_order_hints}
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
+    utils::arrays::assert_exposed_sorted_transformed_value_array
 };
 
 struct TailOutputValidator {
     output: KernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
+    hints: TailOutputHints,
 }
 
 impl TailOutputValidator {
@@ -31,15 +24,14 @@ impl TailOutputValidator {
         output: KernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs
     ) -> Self {
-        TailOutputValidator { output, previous_kernel }
+        let hints = generate_tail_output_hints(previous_kernel);
+        TailOutputValidator { output, previous_kernel, hints }
     }
 
-    pub fn validate<N>(self) {
-        let hints = generate_kernel_circuit_output_hints(self.previous_kernel);
+    pub fn validate(self) {
         self.validate_empty_values();
         self.validate_propagated_values();
-        self.validate_propagated_sorted_siloed_values(hints);
-        self.validate_accumulated_values(hints);
+        self.validate_propagated_sorted_values();
         self.validate_gas_used();
     }
 
@@ -56,99 +48,45 @@ impl TailOutputValidator {
         );
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
-    }
 
-    fn validate_propagated_sorted_siloed_values(self, hints: Hints) {
-        // First nullifier is tx hash.
-        let tx_hash = self.output.end.nullifiers[0];
-        let unsiloed_note_hashes = self.previous_kernel.end.note_hashes;
-        for i in 0..unsiloed_note_hashes.len() {
-            let siloed_note_hash = silo_note_hash(unsiloed_note_hashes[i], tx_hash, i);
-            assert_eq(hints.siloed_note_hashes[i], siloed_note_hash, "mismatch siloed note hashes");
+        // note_hashes
+        let note_hashes = self.previous_kernel.end.note_hashes;
+        for i in 0..note_hashes.len() {
+            assert_eq(note_hashes[i].value(), self.output.end.note_hashes[i], "mismatch note_hashes");
         }
 
-        assert_sorted_transformed_value_array(
-            self.previous_kernel.end.note_hashes,
-            hints.siloed_note_hashes,
-            self.output.end.note_hashes,
-            hints.sorted_note_hash_hints
-        );
-
         // nullifiers
-        validate_transformed_values(
-            self.previous_kernel.end.nullifiers,
-            hints.siloed_nullifiers,
-            silo_nullifier
+        let nullifiers = self.previous_kernel.end.nullifiers;
+        for i in 0..nullifiers.len() {
+            assert_eq(nullifiers[i].value(), self.output.end.nullifiers[i], "mismatch nullifiers");
+        }
+
+        // note_encrypted_logs_hashes
+        assert_eq(
+            self.previous_kernel.end.note_encrypted_logs_hashes.map(|log: NoteLogHash| log.expose_to_public()), self.output.end.note_encrypted_logs_hashes, "mismatch note_encrypted_logs_hashes"
         );
 
-        assert_sorted_transformed_value_array(
-            self.previous_kernel.end.nullifiers,
-            hints.siloed_nullifiers,
-            self.output.end.nullifiers,
-            hints.sorted_nullifier_hints
-        );
-
-        // l2_to_l1_msgs
-        let tx_context = self.previous_kernel.constants.tx_context;
-        validate_transformed_values(
-            self.previous_kernel.end.l2_to_l1_msgs,
-            hints.siloed_l2_to_l1_msgs,
-            |msg| silo_l2_to_l1_message(msg, tx_context.version, tx_context.chain_id)
-        );
-
-        assert_sorted_transformed_value_array(
-            self.previous_kernel.end.l2_to_l1_msgs,
-            hints.siloed_l2_to_l1_msgs,
-            self.output.end.l2_to_l1_msgs,
-            hints.sorted_l2_to_l1_msg_hints
+        // encrypted_logs_hashes
+        assert_eq(
+            self.previous_kernel.end.encrypted_logs_hashes.map(|log: ScopedEncryptedLogHash| log.expose_to_public()), self.output.end.encrypted_logs_hashes, "mismatch encrypted_logs_hashes"
         );
     }
 
-    fn validate_accumulated_values(self, hints: Hints) {
-        // note_encrypted_log_hashes
-        validate_value_transformation(
-            self.previous_kernel.end.note_encrypted_logs_hashes,
-            hints.note_encrypted_log_hashes,
-            |nlh: NoteLogHash, lh: LogHash| (nlh.value == lh.value) & (nlh.length == lh.length)
+    fn validate_propagated_sorted_values(self) {
+        // l2_to_l1_msgs
+        assert_exposed_sorted_transformed_value_array(
+            self.previous_kernel.end.l2_to_l1_msgs,
+            self.output.end.l2_to_l1_msgs,
+            |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| out == prev.expose_to_public(),
+            self.hints.sorted_l2_to_l1_msg_hints
         );
-
-        assert_sorted_transformed_value_array(
-            self.previous_kernel.end.note_encrypted_logs_hashes,
-            hints.note_encrypted_log_hashes,
-            hints.sorted_note_encrypted_log_hashes,
-            hints.sorted_note_encrypted_log_hash_hints
-        );
-
-        let hash = compute_tx_note_logs_hash(hints.sorted_note_encrypted_log_hashes);
-        assert_eq(hash, self.output.end.note_encrypted_logs_hash, "mismatch note_encrypted_logs_hash");
-
-        // encrypted_log_hashes
-        validate_value_transformation(
-            self.previous_kernel.end.encrypted_logs_hashes,
-            hints.siloed_encrypted_log_hashes,
-            |slh: ScopedEncryptedLogHash, lh: LogHash| (lh.value == silo_encrypted_log_hash(slh)) & (lh.length == slh.log_hash.length)
-        );
-
-        assert_sorted_transformed_value_array(
-            self.previous_kernel.end.encrypted_logs_hashes,
-            hints.siloed_encrypted_log_hashes,
-            hints.sorted_siloed_encrypted_log_hashes,
-            hints.sorted_encrypted_log_hash_hints
-        );
-
-        let hash = compute_tx_logs_hash(hints.sorted_siloed_encrypted_log_hashes);
-        assert_eq(hash, self.output.end.encrypted_logs_hash, "mismatch encrypted_logs_hash");
 
         // unencrypted_log_hashes
-
-        assert_sorted_array_with_order_hints(
+        assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.unencrypted_logs_hashes,
-            hints.sorted_unencrypted_log_hashes,
-            hints.sorted_unencrypted_log_hash_hints
-        );
-
-        assert_eq(
-            hints.sorted_unencrypted_log_hashes.map(|log: ScopedLogHash| log.expose_to_public()), self.output.end.unencrypted_logs_hashes, "mismatch unencrypted_logs_hashes"
+            self.output.end.unencrypted_logs_hashes,
+            |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
+            self.hints.sorted_unencrypted_log_hash_hints
         );
     }
 

@@ -1,8 +1,9 @@
 use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map};
 use dep::aztec::{
-    context::{PrivateContext, UnconstrainedContext}, hash::pedersen_hash,
+    context::{PrivateContext, UnconstrainedContext},
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder, note_emission::OuterNoteEmission}
+    note::{note_getter::view_notes, note_getter_options::SortOrder, note_emission::OuterNoteEmission},
+    keys::getters::get_current_public_keys
 };
 use crate::types::{token_note::{TokenNote, OwnedNote}};
 
@@ -64,10 +65,9 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
             OuterNoteEmission::new(Option::none())
         } else {
             let context = self.map.context;
-            let header = context.get_header();
 
             // We fetch the nullifier public key hash from the registry / from our PXE
-            let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
+            let owner_npk_m_hash = get_current_public_keys(context, owner).npk_m.hash();
             let mut addend_note = T::new(addend, owner_npk_m_hash);
 
             // docs:start:insert
@@ -81,24 +81,13 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         owner: AztecAddress,
         subtrahend: U128
     ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
-        // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
-        let notes = self.map.at(owner).get_notes(options);
-        // docs:end:get_notes
+        let notes = self.map.at(owner).pop_notes(options);
 
         let mut minuend: U128 = U128::from_integer(0);
         for i in 0..options.limit {
             if i < notes.len() {
-                let note = notes.get_unchecked(i);
-
-                // Removes the note from the owner's set of notes.
-                // This will call the the `compute_nullifer` function of the `token_note`
-                // which require knowledge of the secret key (currently the users encryption key).
-                // The contract logic must ensure that the spending key is used as well.
-                // docs:start:remove
-                self.map.at(owner).remove(note);
-                // docs:end:remove
-
+                let note: T = notes.get_unchecked(i);
                 minuend = minuend + note.get_amount();
             }
         }

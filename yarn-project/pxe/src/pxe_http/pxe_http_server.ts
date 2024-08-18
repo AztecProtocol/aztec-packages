@@ -16,10 +16,12 @@ import {
   TxHash,
   TxReceipt,
   UnencryptedL2BlockL2Logs,
+  UniqueNote,
 } from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { JsonRpcServer, createNamespacedJsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -40,12 +42,14 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       ExtendedUnencryptedL2Log,
       FunctionSelector,
       TxHash,
+      Buffer32,
       EthAddress,
       Point,
       Fr,
       GrumpkinScalar,
       Note,
       ExtendedNote,
+      UniqueNote,
       AuthWitness,
       L2Block,
       TxEffect,

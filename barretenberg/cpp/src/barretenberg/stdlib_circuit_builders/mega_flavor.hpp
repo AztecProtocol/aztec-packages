@@ -36,15 +36,17 @@ class MegaFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 59;
+    static constexpr size_t NUM_ALL_ENTITIES = 63;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 20;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -74,6 +76,8 @@ class MegaFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+    // The total number of witnesses including shifts and derived entities.
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 23;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This
@@ -176,22 +180,27 @@ class MegaFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              z_perm,                  // column 4
-                              lookup_inverses,         // column 5
-                              lookup_read_counts,      // column 6
-                              lookup_read_tags,        // column 7
-                              ecc_op_wire_1,           // column 8
-                              ecc_op_wire_2,           // column 9
-                              ecc_op_wire_3,           // column 10
-                              ecc_op_wire_4,           // column 11
-                              calldata,                // column 12
-                              calldata_read_counts,    // column 13
-                              calldata_read_tags,      // column 14
-                              calldata_inverses,       // column 15
-                              return_data,             // column 16
-                              return_data_read_counts, // column 17
-                              return_data_read_tags,   // column 18
-                              return_data_inverses);   // column 19
+                              z_perm,                         // column 4
+                              lookup_inverses,                // column 5
+                              lookup_read_counts,             // column 6
+                              lookup_read_tags,               // column 7
+                              ecc_op_wire_1,                  // column 8
+                              ecc_op_wire_2,                  // column 9
+                              ecc_op_wire_3,                  // column 10
+                              ecc_op_wire_4,                  // column 11
+                              calldata,                       // column 12
+                              calldata_read_counts,           // column 13
+                              calldata_read_tags,             // column 14
+                              calldata_inverses,              // column 15
+                              secondary_calldata,             // column 16
+                              secondary_calldata_read_counts, // column 17
+                              secondary_calldata_read_tags,   // column 18
+                              secondary_calldata_inverses,    // column 19
+                              return_data,                    // column 20
+                              return_data_read_counts,        // column 21
+                              return_data_read_tags,          // column 22
+                              return_data_inverses);          // column 23
+        auto get_to_be_shifted() { return RefArray{ z_perm }; };
     };
 
     /**
@@ -211,9 +220,22 @@ class MegaFlavor {
         }
         auto get_databus_entities() // Excludes the derived inverse polynomials
         {
-            return RefArray{ this->calldata,    this->calldata_read_counts,    this->calldata_read_tags,
-                             this->return_data, this->return_data_read_counts, this->return_data_read_tags };
+            return RefArray{
+                this->calldata,           this->calldata_read_counts,           this->calldata_read_tags,
+                this->secondary_calldata, this->secondary_calldata_read_counts, this->secondary_calldata_read_tags,
+                this->return_data,        this->return_data_read_counts,        this->return_data_read_tags
+            };
         }
+
+        auto get_databus_inverses()
+        {
+            return RefArray{
+                this->calldata_inverses,
+                this->secondary_calldata_inverses,
+                this->return_data_inverses,
+            };
+        }
+        auto get_to_be_shifted() { return DerivedEntities<DataType>::get_to_be_shifted(); }
 
         MSGPACK_FIELDS(this->w_l,
                        this->w_r,
@@ -231,24 +253,54 @@ class MegaFlavor {
                        this->calldata_read_counts,
                        this->calldata_read_tags,
                        this->calldata_inverses,
+                       this->secondary_calldata,
+                       this->secondary_calldata_read_counts,
+                       this->secondary_calldata_read_tags,
+                       this->secondary_calldata_inverses,
                        this->return_data,
                        this->return_data_read_counts,
                        this->return_data_read_tags,
                        this->return_data_inverses);
     };
 
-    template <typename DataType> class ShiftedEntities {
+    /**
+     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     */
+    template <typename DataType> class ShiftedWitnessEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              w_l_shift,    // column 0
+                              w_r_shift,    // column 1
+                              w_o_shift,    // column 2
+                              w_4_shift,    // column 3
+                              z_perm_shift) // column 4
+
+        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
+    };
+
+    /**
+     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
+     */
+    template <typename DataType> class ShiftedTables {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               table_1_shift, // column 0
                               table_2_shift, // column 1
                               table_3_shift, // column 2
-                              table_4_shift, // column 3
-                              w_l_shift,     // column 4
-                              w_r_shift,     // column 5
-                              w_o_shift,     // column 6
-                              w_4_shift,     // column 7
-                              z_perm_shift)  // column 8
+                              table_4_shift  // column 3
+        )
+    };
+
+    /**
+     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
+     */
+    template <typename DataType>
+    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
+      public:
+        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
+
+        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
+        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
     };
 
   public:
@@ -268,25 +320,40 @@ class MegaFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
+        auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
-        auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
-        auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };
-        auto get_tables() { return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4 }; };
-        // Gemini-specific getters.
+        auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
+        auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };
+        auto get_tables() { return PrecomputedEntities<DataType>::get_table_polynomials(); };
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
-
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted()
         {
-            return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4, this->w_l,
-                             this->w_r,     this->w_o,     this->w_4,     this->z_perm };
+            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
+                               WitnessEntities<DataType>::get_wires(),
+                               WitnessEntities<DataType>::get_to_be_shifted());
         };
-        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        // getter for shifted witnesses
+        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
+        // getter for shifted tables
+        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
+        // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
+        auto get_all_witnesses()
+        {
+            return concatenate(WitnessEntities<DataType>::get_all(),
+                               ShiftedEntities<DataType>::get_shifted_witnesses());
+        };
+        // getter for the complement of all witnesses inside all entities
+        auto get_non_witnesses()
+        {
+            return concatenate(PrecomputedEntities<DataType>::get_all(),
+                               ShiftedEntities<DataType>::get_shifted_tables());
+        };
     };
 
     /**
@@ -308,6 +375,9 @@ class MegaFlavor {
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
+            // of these polys (in aztec_ivc_bench only).
+            BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };
             }
@@ -353,6 +423,9 @@ class MegaFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+
+        // Data pertaining to transfer of databus return data via public inputs
+        DatabusPropagationData databus_propagation_data;
 
         /**
          * @brief Add plookup memory records to the fourth wire polynomial
@@ -403,8 +476,12 @@ class MegaFlavor {
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
                 this->polynomials, relation_parameters, this->circuit_size);
 
-            // Compute inverses for return data reads
+            // Compute inverses for secondary_calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
+                this->polynomials, relation_parameters, this->circuit_size);
+
+            // Compute inverses for return data reads
+            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/2>(
                 this->polynomials, relation_parameters, this->circuit_size);
         }
 
@@ -428,7 +505,7 @@ class MegaFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -439,6 +516,9 @@ class MegaFlavor {
     // using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
+        DatabusPropagationData databus_propagation_data;
+
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
@@ -453,6 +533,11 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
+            this->contains_recursive_proof = proving_key.contains_recursive_proof;
+            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
+
+            // Databus commitment propagation data
+            this->databus_propagation_data = proving_key.databus_propagation_data;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
@@ -462,6 +547,8 @@ class MegaFlavor {
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
+                        const bool contains_recursive_proof,
+                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -497,6 +584,8 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
+            this->contains_recursive_proof = contains_recursive_proof;
+            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -532,6 +621,8 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
+                       contains_recursive_proof,
+                       recursive_proof_public_input_indices,
                        q_m,
                        q_c,
                        q_l,
@@ -629,6 +720,10 @@ class MegaFlavor {
             calldata_read_counts = "CALLDATA_READ_COUNTS";
             calldata_read_tags = "CALLDATA_READ_TAGS";
             calldata_inverses = "CALLDATA_INVERSES";
+            secondary_calldata = "SECONDARY_CALLDATA";
+            secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
+            secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
+            secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_read_tags = "RETURN_DATA_READ_TAGS";
@@ -724,6 +819,10 @@ class MegaFlavor {
                 this->calldata_read_counts = commitments.calldata_read_counts;
                 this->calldata_read_tags = commitments.calldata_read_tags;
                 this->calldata_inverses = commitments.calldata_inverses;
+                this->secondary_calldata = commitments.secondary_calldata;
+                this->secondary_calldata_read_counts = commitments.secondary_calldata_read_counts;
+                this->secondary_calldata_read_tags = commitments.secondary_calldata_read_tags;
+                this->secondary_calldata_inverses = commitments.secondary_calldata_inverses;
                 this->return_data = commitments.return_data;
                 this->return_data_read_counts = commitments.return_data_read_counts;
                 this->return_data_read_tags = commitments.return_data_read_tags;
@@ -756,6 +855,10 @@ class MegaFlavor {
         Commitment calldata_read_counts_comm;
         Commitment calldata_read_tags_comm;
         Commitment calldata_inverses_comm;
+        Commitment secondary_calldata_comm;
+        Commitment secondary_calldata_read_counts_comm;
+        Commitment secondary_calldata_read_tags_comm;
+        Commitment secondary_calldata_inverses_comm;
         Commitment return_data_comm;
         Commitment return_data_read_counts_comm;
         Commitment return_data_read_tags_comm;
@@ -814,6 +917,10 @@ class MegaFlavor {
             calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            secondary_calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             return_data_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -857,6 +964,10 @@ class MegaFlavor {
             serialize_to_buffer(calldata_read_counts_comm, proof_data);
             serialize_to_buffer(calldata_read_tags_comm, proof_data);
             serialize_to_buffer(calldata_inverses_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_read_counts_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_read_tags_comm, proof_data);
+            serialize_to_buffer(secondary_calldata_inverses_comm, proof_data);
             serialize_to_buffer(return_data_comm, proof_data);
             serialize_to_buffer(return_data_read_counts_comm, proof_data);
             serialize_to_buffer(return_data_read_tags_comm, proof_data);

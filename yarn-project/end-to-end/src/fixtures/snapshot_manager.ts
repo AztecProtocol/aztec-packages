@@ -1,4 +1,5 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AztecAddress,
@@ -19,7 +20,10 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { createStore } from '@aztec/kv-store/utils';
+import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -33,7 +37,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry } from './utils.js';
+import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, getPrivateKeyFromIndex } from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -43,6 +47,7 @@ export type SubsystemsContext = {
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
   deployL1ContractsValues: DeployL1Contracts;
+  proverNode: ProverNode;
 };
 
 type SnapshotEntry = {
@@ -52,8 +57,8 @@ type SnapshotEntry = {
   snapshotPath: string;
 };
 
-export function createSnapshotManager(testName: string, dataPath?: string) {
-  return dataPath ? new SnapshotManager(testName, dataPath) : new MockSnapshotManager(testName);
+export function createSnapshotManager(testName: string, dataPath?: string, config: Partial<AztecNodeConfig> = {}) {
+  return dataPath ? new SnapshotManager(testName, dataPath, config) : new MockSnapshotManager(testName, config);
 }
 
 export interface ISnapshotManager {
@@ -73,7 +78,7 @@ class MockSnapshotManager implements ISnapshotManager {
   private context?: SubsystemsContext;
   private logger: DebugLogger;
 
-  constructor(testName: string) {
+  constructor(testName: string, private config: Partial<AztecNodeConfig> = {}) {
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
   }
@@ -95,7 +100,7 @@ class MockSnapshotManager implements ISnapshotManager {
 
   public async setup() {
     if (!this.context) {
-      this.context = await setupFromFresh(undefined, this.logger);
+      this.context = await setupFromFresh(undefined, this.logger, this.config);
     }
     return this.context;
   }
@@ -116,7 +121,7 @@ class SnapshotManager implements ISnapshotManager {
   private livePath: string;
   private logger: DebugLogger;
 
-  constructor(testName: string, private dataPath: string) {
+  constructor(testName: string, private dataPath: string, private config: Partial<AztecNodeConfig> = {}) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
   }
@@ -151,7 +156,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodes(context.aztecNodeConfig.rpcUrl);
+    const ethCheatCodes = new EthCheatCodes(context.aztecNodeConfig.l1RpcUrl);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -193,7 +198,7 @@ class SnapshotManager implements ISnapshotManager {
           this.logger.verbose(`Restoration of ${e.name} complete.`);
         });
       } else {
-        this.context = await setupFromFresh(this.livePath, this.logger);
+        this.context = await setupFromFresh(this.livePath, this.logger, this.config);
       }
     }
     return this.context;
@@ -216,6 +221,7 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
+  await context.proverNode.stop();
   await context.aztecNode.stop();
   await context.pxe.stop();
   await context.acvmConfig?.cleanup();
@@ -227,12 +233,16 @@ async function teardown(context: SubsystemsContext | undefined) {
  * If given a statePath, the state will be written to the path.
  * If there is no statePath, in-memory and temporary state locations will be used.
  */
-async function setupFromFresh(statePath: string | undefined, logger: Logger): Promise<SubsystemsContext> {
+async function setupFromFresh(
+  statePath: string | undefined,
+  logger: Logger,
+  config: Partial<AztecNodeConfig> = {},
+): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   aztecNodeConfig.dataDirectory = statePath;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
@@ -240,7 +250,7 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
   const anvil = await retry(
     async () => {
       const ethereumHostPort = await getPort();
-      aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+      aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
       const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
       await anvil.start();
       return anvil;
@@ -251,13 +261,19 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, logger);
+  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 0 });
+  const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+
+  const validatorPrivKey = getPrivateKeyFromIndex(1);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger);
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
-  aztecNodeConfig.l1BlockPublishRetryIntervalMS = 100;
+  aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
@@ -274,6 +290,38 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
   const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
+
+  // Creating temp store and archiver for simulated prover node
+
+  const store = await createStore(
+    { dataDirectory: undefined },
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+  );
+
+  const archiver = await createArchiver(
+    { ...aztecNodeConfig, dataDirectory: undefined },
+    store,
+    new NoopTelemetryClient(),
+    { blockUntilSync: true },
+  );
+
+  // Prover node config is for simulated proofs
+  const proverConfig: ProverNodeConfig = {
+    ...aztecNodeConfig,
+    txProviderNodeUrl: undefined,
+    dataDirectory: undefined,
+    proverId: new Fr(42),
+    realProofs: false,
+    proverAgentConcurrency: 2,
+    publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
+  };
+  const proverNode = await createProverNode(proverConfig, {
+    aztecNodeTxProvider: aztecNode,
+    archiver: archiver as Archiver,
+  });
+  proverNode.start();
+
+  logger.verbose('Prover node started');
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -301,6 +349,7 @@ async function setupFromFresh(statePath: string | undefined, logger: Logger): Pr
     acvmConfig,
     bbConfig,
     deployL1ContractsValues,
+    proverNode,
   };
 }
 
@@ -320,12 +369,12 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const ethereumHostPort = await getPort();
-  aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+  aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
   const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
   await anvil.start();
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.rpcUrl);
+  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -342,11 +391,39 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating ETH clients...');
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, mnemonicToAccount(MNEMONIC));
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
 
   logger.verbose('Creating aztec node...');
   const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
+
+  // Creating temp store and archiver for simulated prover node
+
+  const store = await createStore({ dataDirectory: undefined }, aztecNodeConfig.l1Contracts.rollupAddress);
+
+  const archiver = await createArchiver(
+    { ...aztecNodeConfig, dataDirectory: undefined },
+    store,
+    new NoopTelemetryClient(),
+    { blockUntilSync: true },
+  );
+
+  // Prover node config is for simulated proofs
+  const proverConfig: ProverNodeConfig = {
+    ...aztecNodeConfig,
+    txProviderNodeUrl: undefined,
+    dataDirectory: undefined,
+    proverId: new Fr(42),
+    realProofs: false,
+    proverAgentConcurrency: 2,
+  };
+  const proverNode = await createProverNode(proverConfig, {
+    aztecNodeTxProvider: aztecNode,
+    archiver: archiver as Archiver,
+  });
+  proverNode.start();
+
+  logger.verbose('Prover node started');
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -360,6 +437,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     pxe,
     acvmConfig,
     bbConfig,
+    proverNode,
     deployL1ContractsValues: {
       walletClient,
       publicClient,
@@ -400,7 +478,7 @@ export const addAccounts =
 
     logger.verbose('Deploying accounts...');
     const txs = await Promise.all(accountManagers.map(account => account.deploy()));
-    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
+    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: true })));
 
     return { accountKeys };
   };
@@ -418,5 +496,5 @@ export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (Co
     (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
     ...instances.map(instance => deployInstance(sender, instance!).request()),
   ]);
-  await batch.send().wait();
+  await batch.send().wait({ proven: true });
 }

@@ -6,7 +6,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -57,7 +56,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -95,7 +95,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
   public:
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -125,6 +125,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
+            this->contains_recursive_proof = native_key->contains_recursive_proof;
+            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
             this->q_m = Commitment::from_witness(builder, native_key->q_m);
             this->q_l = Commitment::from_witness(builder, native_key->q_l);
             this->q_r = Commitment::from_witness(builder, native_key->q_r);
@@ -178,6 +180,19 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                                                    builder, elements.subspan(num_frs_read, num_frs_FF))
                                                    .get_value());
             num_frs_read += num_frs_FF;
+
+            this->contains_recursive_proof = bool(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                                      builder, elements.subspan(num_frs_read, num_frs_FF))
+                                                      .get_value());
+            num_frs_read += num_frs_FF;
+
+            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
+                this->recursive_proof_public_input_indices[i] =
+                    uint32_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                 builder, elements.subspan(num_frs_read, num_frs_FF))
+                                 .get_value());
+                num_frs_read += num_frs_FF;
+            }
 
             for (Commitment& comm : this->get_all()) {
                 comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(

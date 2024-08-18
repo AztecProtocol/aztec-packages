@@ -7,10 +7,16 @@ import {
   VerificationKeyAsFields,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeBaseParityInputs, makeBaseRollupInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import {
+  makeBaseParityInputs,
+  makeBaseRollupInputs,
+  makeParityPublicInputs,
+  makeRootRollupInputs,
+} from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 
@@ -22,7 +28,7 @@ describe('MemoryProvingQueue', () => {
   beforeEach(() => {
     jobTimeoutMs = 100;
     pollingIntervalMs = 10;
-    queue = new MemoryProvingQueue(jobTimeoutMs, pollingIntervalMs);
+    queue = new MemoryProvingQueue(new NoopTelemetryClient(), jobTimeoutMs, pollingIntervalMs);
     queue.start();
   });
 
@@ -39,6 +45,32 @@ describe('MemoryProvingQueue', () => {
 
     const job2 = await queue.getProvingJob();
     expect(job2?.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+  });
+
+  it('returns jobs ordered by priority', async () => {
+    // We push base rollup proof requests for a first block
+    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 1);
+    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 1);
+
+    // The agent consumes one of them
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+
+    // A new block comes along with its base rollups, and the orchestrator then pushes a root request for the first one
+    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
+    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
+    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
+    void queue.getBaseRollupProof(makeBaseRollupInputs(), undefined, 2);
+    void queue.getRootRollupProof(makeRootRollupInputs(), undefined, 1);
+
+    // The next jobs for the agent should be the ones from block 1, skipping the ones for block 2
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.ROOT_ROLLUP);
+
+    // And the base rollups for block 2 should go next
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
+    expect((await queue.getProvingJob())!.request.type).toEqual(ProvingRequestType.BASE_ROLLUP);
   });
 
   it('returns undefined when no jobs are available', async () => {

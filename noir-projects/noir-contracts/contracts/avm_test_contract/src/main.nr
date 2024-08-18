@@ -24,13 +24,13 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use std::embedded_curve_ops::multi_scalar_mul;
+    use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH, point::Point, scalar::Scalar};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
-    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
     use dep::aztec::context::gas::GasOpts;
     use dep::compressed_string::CompressedString;
 
@@ -76,7 +76,7 @@ contract AvmTest {
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
-        std::hash::pedersen_hash([storage.map.storage_slot, to.to_field()])
+        derive_storage_slot_in_map(storage.map.storage_slot, to)
     }
 
     #[aztec(public)]
@@ -84,7 +84,7 @@ contract AvmTest {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
         // returns storage slot for key
-        std::hash::pedersen_hash([storage.map.storage_slot, to.to_field()])
+        derive_storage_slot_in_map(storage.map.storage_slot, to)
     }
 
     #[aztec(public)]
@@ -153,6 +153,12 @@ contract AvmTest {
         triple_g
     }
 
+    #[aztec(public)]
+    fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
+        let commitment = dep::std::hash::pedersen_commitment_with_separator([x, y], 20);
+        commitment
+    }
+
     /************************************************************************
      * Misc 
      ************************************************************************/
@@ -210,6 +216,11 @@ contract AvmTest {
     #[aztec(public)]
     fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
         std::hash::keccak256(data, data.len() as u32)
+    }
+
+    #[aztec(public)]
+    fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
+        std::hash::keccak::keccakf1600(data)
     }
 
     #[aztec(public)]
@@ -362,7 +373,7 @@ contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn new_nullifier(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     // Use the standard context interface to check for a nullifier
@@ -379,7 +390,7 @@ contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn emit_nullifier_and_check(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         let exists = context.nullifier_exists(nullifier, context.storage_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
@@ -387,9 +398,9 @@ contract AvmTest {
     // Create the same nullifier twice (shouldn't work!)
     #[aztec(public)]
     fn nullifier_collision(nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         // Can't do this twice!
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
     #[aztec(public)]
@@ -435,13 +446,13 @@ contract AvmTest {
 
     #[aztec(public)]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
     #[aztec(public)]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 

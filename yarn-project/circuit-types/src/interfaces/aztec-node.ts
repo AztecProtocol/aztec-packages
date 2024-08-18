@@ -176,6 +176,13 @@ export interface AztecNode {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Fetches the latest proven block number.
+   * @returns The block number.
+   */
+  getProvenBlockNumber(): Promise<number>;
+
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
@@ -281,7 +288,7 @@ export interface AztecNode {
    * @param txHash - The transaction hash to return.
    * @returns The pending tx if it exists.
    */
-  getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -308,6 +315,14 @@ export interface AztecNode {
    * @param tx - The transaction to simulate.
    **/
   simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput>;
+
+  /**
+   * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
+   * made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid
+   * due to e.g. the max_block_number property.
+   * @param tx - The transaction to validate for correctness.
+   */
+  isValidTx(tx: Tx): Promise<boolean>;
 
   /**
    * Updates the configuration of this node.

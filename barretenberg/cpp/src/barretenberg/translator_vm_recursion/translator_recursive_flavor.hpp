@@ -41,6 +41,8 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
@@ -110,7 +112,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
         using Base::Base;
     };
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to

@@ -1,14 +1,6 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
-  CallRequest,
   Fr,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -19,9 +11,7 @@ import {
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
-  getNonEmptyItems,
 } from '@aztec/circuits.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -30,11 +20,18 @@ import {
   PrivateResetTagToArtifactName,
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types';
-import { type ExecutionResult, collectNoteHashLeafIndexMap, collectNullifiedNoteHashCounters } from '@aztec/simulator';
+import {
+  type ExecutionResult,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/simulator';
 
 import { type WitnessMap } from '@noir-lang/types';
 
-import { buildPrivateKernelResetInputs } from './private_inputs_builders/index.js';
+import { buildPrivateKernelResetInputs, needsFinalReset, needsReset } from './hints/index.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -74,18 +71,24 @@ export class KernelProver {
     let output = NULL_PROVE_OUTPUT;
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
-    const noteHashNullifierCounterMap = collectNullifiedNoteHashCounters(executionResult);
+    const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+    const hasPublicCalls =
+      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(executionResult).isEmpty();
+    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(executionResult) : 0;
     // vector of gzipped bincode acirs
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
 
     while (executionStack.length) {
-      if (!firstIteration && this.needsReset(executionStack, output)) {
+      if (!firstIteration && needsReset(output.publicInputs, executionStack)) {
         const resetInputs = await this.getPrivateKernelResetInputs(
           executionStack,
           output,
           noteHashLeafIndexMap,
           noteHashNullifierCounterMap,
+          validationRequestsSplitCounter,
+          false,
         );
         output = await this.proofCreator.simulateProofReset(resetInputs);
         // TODO(#7368) consider refactoring this redundant bytecode pushing
@@ -96,11 +99,6 @@ export class KernelProver {
       }
       const currentExecution = executionStack.pop()!;
       executionStack.push(...[...currentExecution.nestedExecutions].reverse());
-
-      const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
-      const publicTeardownCallRequest = currentExecution.publicTeardownFunctionCall.isEmpty()
-        ? CallRequest.empty()
-        : currentExecution.publicTeardownFunctionCall.toCallRequest();
 
       const functionName = await this.oracle.getDebugFunctionName(
         currentExecution.callStackItem.contractAddress,
@@ -113,12 +111,7 @@ export class KernelProver {
       acirs.push(currentExecution.acir);
       witnessStack.push(currentExecution.partialWitness);
 
-      const privateCallData = await this.createPrivateCallData(
-        currentExecution,
-        publicCallRequests,
-        publicTeardownCallRequest,
-        appVk.verificationKey,
-      );
+      const privateCallData = await this.createPrivateCallData(currentExecution, appVk.verificationKey);
 
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(txRequest, getVKTreeRoot(), privateCallData);
@@ -143,12 +136,14 @@ export class KernelProver {
       firstIteration = false;
     }
 
-    if (this.somethingToReset(output)) {
+    if (needsFinalReset(output.publicInputs)) {
       const resetInputs = await this.getPrivateKernelResetInputs(
         executionStack,
         output,
         noteHashLeafIndexMap,
         noteHashNullifierCounterMap,
+        validationRequestsSplitCounter,
+        true,
       );
       output = await this.proofCreator.simulateProofReset(resetInputs);
       // TODO(#7368) consider refactoring this redundant bytecode pushing
@@ -189,47 +184,13 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private needsReset(
-    executionStack: ExecutionResult[],
-    output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
-  ) {
-    const nextIteration = executionStack[executionStack.length - 1];
-    return (
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashes).length +
-        getNonEmptyItems(output.publicInputs.end.noteHashes).length >
-        MAX_NOTE_HASHES_PER_TX ||
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.nullifiers).length +
-        getNonEmptyItems(output.publicInputs.end.nullifiers).length >
-        MAX_NULLIFIERS_PER_TX ||
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteEncryptedLogsHashes).length +
-        getNonEmptyItems(output.publicInputs.end.noteEncryptedLogsHashes).length >
-        MAX_NOTE_ENCRYPTED_LOGS_PER_TX ||
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.noteHashReadRequests).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length >
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX ||
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.nullifierReadRequests).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length >
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX ||
-      getNonEmptyItems(nextIteration.callStackItem.publicInputs.keyValidationRequestsAndGenerators).length +
-        getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length >
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX
-    );
-  }
-
-  private somethingToReset(output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>) {
-    return (
-      getNonEmptyItems(output.publicInputs.validationRequests.noteHashReadRequests).length > 0 ||
-      getNonEmptyItems(output.publicInputs.validationRequests.nullifierReadRequests).length > 0 ||
-      getNonEmptyItems(output.publicInputs.validationRequests.scopedKeyValidationRequestsAndGenerators).length > 0 ||
-      output.publicInputs.end.nullifiers.find(nullifier => !nullifier.nullifiedNoteHash.equals(Fr.zero()))
-    );
-  }
-
   private async getPrivateKernelResetInputs(
     executionStack: ExecutionResult[],
     output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
     noteHashLeafIndexMap: Map<bigint, bigint>,
     noteHashNullifierCounterMap: Map<number, number>,
+    validationRequestsSplitCounter: number,
+    shouldSilo: boolean,
   ) {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -244,19 +205,14 @@ export class KernelProver {
       previousKernelData,
       noteHashLeafIndexMap,
       noteHashNullifierCounterMap,
+      validationRequestsSplitCounter,
+      shouldSilo,
       this.oracle,
     );
   }
 
-  private async createPrivateCallData(
-    { callStackItem }: ExecutionResult,
-    publicCallRequests: CallRequest[],
-    publicTeardownCallRequest: CallRequest,
-    vk: VerificationKeyAsFields,
-  ) {
+  private async createPrivateCallData({ callStackItem }: ExecutionResult, vk: VerificationKeyAsFields) {
     const { contractAddress, functionData } = callStackItem;
-
-    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
@@ -274,8 +230,6 @@ export class KernelProver {
 
     return PrivateCallData.from({
       callStackItem,
-      publicCallStack,
-      publicTeardownCallRequest,
       vk,
       publicKeysHash,
       contractClassArtifactHash,

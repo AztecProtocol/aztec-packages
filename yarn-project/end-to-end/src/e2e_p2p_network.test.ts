@@ -1,24 +1,33 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AztecAddress,
   CompleteAddress,
   type DebugLogger,
+  type DeployL1Contracts,
+  EthCheatCodes,
   Fr,
   GrumpkinScalar,
   type SentTx,
   TxStatus,
-  createDebugLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { type BootNodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
+import { IS_DEV_NET } from '@aztec/circuits.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
+import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import fs from 'fs';
-import { mnemonicToAccount } from 'viem/accounts';
+import { getContract } from 'viem';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
+import {
+  type NodeContext,
+  createBootstrapNode,
+  createNode,
+  createNodes,
+  generatePeerIdPrivateKeys,
+} from './fixtures/setup_p2p_test.js';
 import { setup } from './fixtures/utils.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -27,19 +36,7 @@ const NUM_TXS_PER_BLOCK = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40400;
 
-interface NodeContext {
-  node: AztecNodeService;
-  pxeService: PXEService;
-  txs: SentTx[];
-  account: AztecAddress;
-}
-
-const PEER_ID_PRIVATE_KEYS = [
-  '0802122002f651fd8653925529e3baccb8489b3af4d7d9db440cbf5df4a63ff04ea69683',
-  '08021220c3bd886df5fe5b33376096ad0dab3d2dc86ed2a361d5fde70f24d979dc73da41',
-  '080212206b6567ac759db5434e79495ec7458e5e93fe479a5b80713446e0bce5439a5655',
-  '08021220366453668099bdacdf08fab476ee1fced6bf00ddc1223d6c2ee626e7236fb526',
-];
+const PEER_ID_PRIVATE_KEYS = generatePeerIdPrivateKeys(NUM_NODES);
 
 describe('e2e_p2p_network', () => {
   let config: AztecNodeConfig;
@@ -47,11 +44,50 @@ describe('e2e_p2p_network', () => {
   let teardown: () => Promise<void>;
   let bootstrapNode: BootstrapNode;
   let bootstrapNodeEnr: string;
+  let deployL1ContractsValues: DeployL1Contracts;
 
   beforeEach(async () => {
-    ({ teardown, config, logger } = await setup(0));
-    bootstrapNode = await createBootstrapNode();
+    ({ teardown, config, logger, deployL1ContractsValues } = await setup(0));
+    // It would likely be useful if we had the sequencers in such that they don't spam each other.
+    // However, even if they do, it should still work. Not sure what caused the failure
+    // Would be easier if I could see the errors from anvil as well, but those seem to be hidden.
+
+    const rollup = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
+
+    if (IS_DEV_NET) {
+      // Add just ONE of the peers as sequencer, he will be the proposer all blocks.
+      const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 1 });
+      const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
+      const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
+      await rollup.write.addValidator([account.address]);
+      logger.info(`Adding sequencer ${account.address}`);
+    } else {
+      // Add all nodes as validators - they will all sign attestations of each other's proposals
+      for (let i = 0; i < NUM_NODES; i++) {
+        const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
+        const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
+        const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
+        await rollup.write.addValidator([account.address]);
+        logger.info(`Adding sequencer ${account.address}`);
+      }
+    }
+
+    // Now we jump ahead to the next epoch, such that the next epoch begins
+    const timeToJump = (await rollup.read.EPOCH_DURATION()) * (await rollup.read.SLOT_DURATION());
+
+    const cheatCodes = new EthCheatCodes(config.l1RpcUrl);
+    const timestamp = (await cheatCodes.timestamp()) + Number(timeToJump);
+    await cheatCodes.warp(timestamp);
+
+    bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+
+    config.minTxsPerBlock = NUM_TXS_PER_BLOCK;
+    config.maxTxsPerBlock = NUM_TXS_PER_BLOCK;
   });
 
   afterEach(() => teardown());
@@ -72,11 +108,14 @@ describe('e2e_p2p_network', () => {
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = [];
-    for (let i = 0; i < NUM_NODES; i++) {
-      const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr, i);
-      nodes.push(node);
-    }
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+      /*activate validators=*/ !IS_DEV_NET,
+    );
 
     // wait a bit for peers to discover each other
     await sleep(2000);
@@ -106,11 +145,14 @@ describe('e2e_p2p_network', () => {
 
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
-    const nodes: AztecNodeService[] = [];
-    for (let i = 0; i < NUM_NODES; i++) {
-      const node = await createNode(i + 1 + BOOT_NODE_UDP_PORT, bootstrapNodeEnr, i, `./data-${i}`);
-      nodes.push(node);
-    }
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
+
     // wait a bit for peers to discover each other
     await sleep(3000);
 
@@ -126,11 +168,18 @@ describe('e2e_p2p_network', () => {
       await node.stop();
       logger.info(`Node ${i} stopped`);
       await sleep(1200);
-      const newNode = await createNode(i + 1 + BOOT_NODE_UDP_PORT, undefined, i, `./data-${i}`);
+      // TODO: make a restart nodes function
+      const newNode = await createNode(
+        config,
+        PEER_ID_PRIVATE_KEYS[i],
+        i + 1 + BOOT_NODE_UDP_PORT,
+        undefined,
+        i,
+        /*validators*/ false,
+        `./data-${i}`,
+      );
       logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
-      // const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
-      // contexts.push(context);
     }
 
     // wait a bit for peers to discover each other
@@ -158,58 +207,6 @@ describe('e2e_p2p_network', () => {
       await context.pxeService.stop();
     }
   });
-
-  const createBootstrapNode = async () => {
-    const peerId = await createLibP2PPeerId();
-    const bootstrapNode = new BootstrapNode();
-    const config: BootNodeConfig = {
-      udpListenAddress: `0.0.0.0:${BOOT_NODE_UDP_PORT}`,
-      udpAnnounceAddress: `127.0.0.1:${BOOT_NODE_UDP_PORT}`,
-      peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-      minPeerCount: 10,
-      maxPeerCount: 100,
-      p2pPeerCheckIntervalMS: 100,
-    };
-    await bootstrapNode.start(config);
-
-    return bootstrapNode;
-  };
-
-  // creates a P2P enabled instance of Aztec Node Service
-  const createNode = async (
-    tcpListenPort: number,
-    bootstrapNode: string | undefined,
-    publisherAddressIndex: number,
-    dataDirectory?: string,
-  ) => {
-    // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
-    // publisherAddressIndex + 1 because index 0 was already used during test environment setup.
-    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: publisherAddressIndex + 1 });
-    const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
-    config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-
-    const newConfig: AztecNodeConfig = {
-      ...config,
-      peerIdPrivateKey: PEER_ID_PRIVATE_KEYS[publisherAddressIndex],
-      udpListenAddress: `0.0.0.0:${tcpListenPort}`,
-      tcpListenAddress: `0.0.0.0:${tcpListenPort}`,
-      tcpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
-      udpAnnounceAddress: `127.0.0.1:${tcpListenPort}`,
-      minTxsPerBlock: NUM_TXS_PER_BLOCK,
-      maxTxsPerBlock: NUM_TXS_PER_BLOCK,
-      p2pEnabled: true,
-      p2pBlockCheckIntervalMS: 1000,
-      p2pL2QueueSize: 1,
-      transactionProtocol: '',
-      dataDirectory,
-      bootstrapNodes: bootstrapNode ? [bootstrapNode] : [],
-    };
-    return await AztecNodeService.createAndSync(
-      newConfig,
-      new NoopTelemetryClient(),
-      createDebugLogger(`aztec:node-${tcpListenPort}`),
-    );
-  };
 
   // creates an instance of the PXE and submit a given number of transactions to it.
   const createPXEServiceAndSubmitTransactions = async (

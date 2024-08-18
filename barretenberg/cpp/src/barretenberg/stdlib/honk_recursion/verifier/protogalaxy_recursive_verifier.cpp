@@ -1,6 +1,5 @@
 #include "protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/recursive_instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -69,10 +68,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
-        witness_commitments.calldata_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.calldata_inverses);
-        witness_commitments.return_data_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.return_data_inverses);
+        for (auto [commitment, label] :
+             zip_view(witness_commitments.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
+            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
+        }
     }
 
     witness_commitments.z_perm =

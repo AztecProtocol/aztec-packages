@@ -1,0 +1,35 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../cli"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    }
+  ],
+  "include": ["src"]
+}

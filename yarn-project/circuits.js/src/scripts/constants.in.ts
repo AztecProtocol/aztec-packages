@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/avm_trace/aztec_constants.hpp';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/avm/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
@@ -31,6 +31,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL',
   'CONTRACT_STORAGE_READ_LENGTH',
+  'PUBLIC_CALL_REQUEST_LENGTH',
   'MAX_PUBLIC_DATA_READS_PER_CALL',
   'MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL',
   'NOTE_HASH_LENGTH',
@@ -148,7 +149,7 @@ function processConstantsTS(constants: { [key: string]: string }): string {
 function processConstantsCpp(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key)) {
+    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
       code.push(`#define ${key} ${value}`);
     }
   });
@@ -202,7 +203,9 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
 function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    code.push(`  uint256 internal constant ${prefix}${key} = ${value};`);
+    if (!key.startsWith('AVM_')) {
+      code.push(`  uint256 internal constant ${prefix}${key} = ${value};`);
+    }
   });
   return code.join('\n');
 }
@@ -228,7 +231,7 @@ function generateCppConstants({ constants }: ParsedContent, targetPath: string) 
 #pragma once
 
 ${processConstantsCpp(constants)}
-\n`;
+`;
 
   fs.writeFileSync(targetPath, resultCpp);
 }
@@ -321,6 +324,9 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
   const prelude = expressions
     .map(([name, rhs]) => {
       const guardedRhs = rhs
+        // Remove 'as u8' and 'as u32' castings
+        .replaceAll(' as u8', '')
+        .replaceAll(' as u32', '')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')

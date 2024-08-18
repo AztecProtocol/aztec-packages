@@ -10,10 +10,9 @@ contract AppSubscription {
         SharedImmutable
     },
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        protocol_types::constants::MAX_FIELD_VALUE
+        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE
     };
     use authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
-    use gas_token::GasToken;
     use token::Token;
 
     #[aztec(storage)]
@@ -26,8 +25,7 @@ contract AppSubscription {
         subscription_recipient_address: SharedImmutable<AztecAddress>,
         subscription_price: SharedImmutable<Field>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
-        gas_token_address: SharedImmutable<AztecAddress>,
-        gas_token_limit_per_tx: SharedImmutable<Field>,
+        fee_juice_limit_per_tx: SharedImmutable<Field>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
@@ -50,8 +48,8 @@ contract AppSubscription {
 
         context.set_as_fee_payer();
 
-        // TODO(palla/gas) Assert gas_token_limit_per_tx is less than this tx gas_limit
-        let _gas_limit = storage.gas_token_limit_per_tx.read_private();
+        // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
+        let _gas_limit = storage.fee_juice_limit_per_tx.read_private();
 
         context.end_setup();
 
@@ -67,15 +65,13 @@ contract AppSubscription {
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
         subscription_price: Field,
-        gas_token_address: AztecAddress,
-        gas_token_limit_per_tx: Field
+        fee_juice_limit_per_tx: Field
     ) {
         storage.target_address.initialize(target_address);
         storage.subscription_token_address.initialize(subscription_token_address);
         storage.subscription_recipient_address.initialize(subscription_recipient_address);
         storage.subscription_price.initialize(subscription_price);
-        storage.gas_token_address.initialize(gas_token_address);
-        storage.gas_token_limit_per_tx.initialize(gas_token_limit_per_tx);
+        storage.fee_juice_limit_per_tx.initialize(fee_juice_limit_per_tx);
     }
 
     #[aztec(public)]
@@ -113,8 +109,7 @@ contract AppSubscription {
 
         // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
         AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
-        let header = context.get_header();
-        let subscriber_npk_m_hash = header.get_npk_m_hash(&mut context, subscriber_address);
+        let subscriber_npk_m_hash = get_current_public_keys(&mut context, subscriber_address).npk_m.hash();
 
         let mut subscription_note = SubscriptionNote::new(subscriber_npk_m_hash, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber_address).initialize_or_replace(&mut subscription_note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), subscriber_address));

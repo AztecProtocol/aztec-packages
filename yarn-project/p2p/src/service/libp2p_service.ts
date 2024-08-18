@@ -1,6 +1,14 @@
-import { type Tx } from '@aztec/circuit-types';
-import { SerialQueue } from '@aztec/foundation/fifo';
+import {
+  BlockAttestation,
+  BlockProposal,
+  type Gossipable,
+  type RawGossipMessage,
+  TopicType,
+  TopicTypeMap,
+  Tx,
+} from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
 
@@ -15,13 +23,13 @@ import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { type Libp2p, createLibp2p } from 'libp2p';
 
+import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { AztecTxMessageCreator, fromTxMessage } from './tx_messages.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -49,18 +57,27 @@ export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
  */
 export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
-  private messageCreator: AztecTxMessageCreator;
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
+
+  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
+
   constructor(
     private config: P2PConfig,
     private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
+    private attestationPool: AttestationPool,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    this.messageCreator = new AztecTxMessageCreator(config.txGossipVersion);
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
+
+    this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
+      this.logger.verbose(
+        `[WARNING] handler not yet registered: Block received callback not set. Received block ${block.p2pMessageIdentifier()} from peer.`,
+      );
+      return Promise.resolve(undefined);
+    };
   }
 
   /**
@@ -89,20 +106,22 @@ export class LibP2PService implements P2PService {
     this.logger.info(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
 
     // Subscribe to standard GossipSub topics by default
-    this.subscribeToTopic(this.messageCreator.getTopic());
+    for (const topic in TopicType) {
+      this.subscribeToTopic(TopicTypeMap[topic].p2pTopic);
+    }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
       const { msg } = e.detail;
       this.logger.debug(`Received PUBSUB message.`);
 
-      await this.jobQueue.put(() => this.handleNewGossipMessage(msg.topic, msg.data));
+      await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
     });
 
     // Start running promise for peer discovery
     this.discoveryRunningPromise = new RunningPromise(() => {
       this.peerManager.discover();
-    }, this.config.p2pPeerCheckIntervalMS);
+    }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
   }
 
@@ -133,6 +152,7 @@ export class LibP2PService implements P2PService {
     peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
     txPool: TxPool,
+    attestationPool: AttestationPool,
     store: AztecKVStore,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
@@ -141,20 +161,6 @@ export class LibP2PService implements P2PService {
     const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
 
     const datastore = new AztecDatastore(store);
-
-    // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
-    // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
-    // work as then you would have a permanent port to be dialled.
-    // Alas, I struggled to get this to work reliably either. I find there is a race between the
-    // service that reads our listener addresses and the uPnP service.
-    // The result being the uPnP service can't find an address to use for the port forward.
-    // Need to investigate further.
-    // if (enableNat) {
-    //   services.autoNAT = autoNATService({
-    //     protocolPrefix: 'aztec',
-    //   });
-    //   services.uPnPNAT = uPnPNATService();
-    // }
 
     const node = await createLibp2p({
       start: false,
@@ -199,7 +205,12 @@ export class LibP2PService implements P2PService {
       },
     });
 
-    return new LibP2PService(config, node, peerDiscoveryService, txPool);
+    return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool);
+  }
+
+  public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>) {
+    this.blockReceivedCallback = callback;
+    this.logger.verbose('Block received callback registered');
   }
 
   /**
@@ -233,22 +244,57 @@ export class LibP2PService implements P2PService {
    * @param topic - The message's topic.
    * @param data - The message data
    */
-  private async handleNewGossipMessage(topic: string, data: Uint8Array) {
-    if (topic !== this.messageCreator.getTopic()) {
-      // Invalid TX Topic, ignore
-      return;
+  private async handleNewGossipMessage(message: RawGossipMessage) {
+    if (message.topic === Tx.p2pTopic) {
+      const tx = Tx.fromBuffer(Buffer.from(message.data));
+      await this.processTxFromPeer(tx);
+    }
+    if (message.topic === BlockAttestation.p2pTopic) {
+      const attestation = BlockAttestation.fromBuffer(Buffer.from(message.data));
+      await this.processAttestationFromPeer(attestation);
+    }
+    if (message.topic == BlockProposal.p2pTopic) {
+      const block = BlockProposal.fromBuffer(Buffer.from(message.data));
+      await this.processBlockFromPeer(block);
     }
 
-    const tx = fromTxMessage(Buffer.from(data));
-    await this.processTxFromPeer(tx);
+    return;
+  }
+
+  /**Process Attestation From Peer
+   * When a proposal is received from a peer, we add it to the attestation pool, so it can be accessed by other services.
+   *
+   * @param attestation - The attestation to process.
+   */
+  private async processAttestationFromPeer(attestation: BlockAttestation): Promise<void> {
+    this.logger.verbose(`Received attestation ${attestation.p2pMessageIdentifier()} from external peer.`);
+    await this.attestationPool.addAttestations([attestation]);
+  }
+
+  /**Process block from peer
+   *
+   * Pass the received block to the validator client
+   *
+   * @param block - The block to process.
+   */
+  // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
+  private async processBlockFromPeer(block: BlockProposal): Promise<void> {
+    this.logger.verbose(`Received block ${block.p2pMessageIdentifier()} from external peer.`);
+    const attestation = await this.blockReceivedCallback(block);
+
+    // TODO: fix up this pattern - the abstraction is not nice
+    // The attestation can be undefined if no handler is registered / the validator deems the block invalid
+    if (attestation != undefined) {
+      this.propagate(attestation);
+    }
   }
 
   /**
-   * Propagates the provided transaction to peers.
-   * @param tx - The transaction to propagate.
+   * Propagates provided message to peers.
+   * @param message - The message to propagate.
    */
-  public propagateTx(tx: Tx): void {
-    void this.jobQueue.put(() => Promise.resolve(this.sendTxToPeers(tx)));
+  public propagate<T extends Gossipable>(message: T): void {
+    void this.jobQueue.put(() => Promise.resolve(this.sendToPeers(message)));
   }
 
   private async processTxFromPeer(tx: Tx): Promise<void> {
@@ -258,11 +304,14 @@ export class LibP2PService implements P2PService {
     await this.txPool.addTxs([tx]);
   }
 
-  private async sendTxToPeers(tx: Tx) {
-    const { data: txData } = this.messageCreator.createTxMessage(tx);
-    this.logger.verbose(`Sending tx ${tx.getTxHash().toString()} to peers`);
-    const recipientsNum = await this.publishToTopic(this.messageCreator.getTopic(), txData);
-    this.logger.verbose(`Sent tx ${tx.getTxHash().toString()} to ${recipientsNum} peers`);
+  private async sendToPeers<T extends Gossipable>(message: T) {
+    const parent = message.constructor as typeof Gossipable;
+
+    const identifier = message.p2pMessageIdentifier().toString();
+    this.logger.verbose(`Sending message ${identifier} to peers`);
+
+    const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
+    this.logger.verbose(`Sent tx ${identifier} to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

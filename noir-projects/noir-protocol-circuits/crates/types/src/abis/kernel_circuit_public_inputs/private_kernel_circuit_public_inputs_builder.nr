@@ -2,18 +2,17 @@ use crate::{
     abis::{
     accumulated_data::PrivateAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    validation_requests::validation_requests_builder::ValidationRequestsBuilder,
-    call_request::CallRequest
+    public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequestsBuilder
 },
     address::AztecAddress, traits::Empty
 };
 
 struct PrivateKernelCircuitPublicInputsBuilder {
     min_revertible_side_effect_counter: u32,
-    validation_requests: ValidationRequestsBuilder,
+    validation_requests: PrivateValidationRequestsBuilder,
     end: PrivateAccumulatedDataBuilder,
     constants: CombinedConstantData,
-    public_teardown_call_request: CallRequest,
+    public_teardown_call_request: PublicCallRequest,
     fee_payer: AztecAddress
 }
 
@@ -34,10 +33,10 @@ impl Empty for PrivateKernelCircuitPublicInputsBuilder {
     fn empty() -> Self {
         PrivateKernelCircuitPublicInputsBuilder {
             min_revertible_side_effect_counter: 0,
-            validation_requests: ValidationRequestsBuilder::empty(),
+            validation_requests: PrivateValidationRequestsBuilder::empty(),
             end: PrivateAccumulatedDataBuilder::empty(),
             constants: CombinedConstantData::empty(),
-            public_teardown_call_request: CallRequest::empty(),
+            public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty()
         }
     }
