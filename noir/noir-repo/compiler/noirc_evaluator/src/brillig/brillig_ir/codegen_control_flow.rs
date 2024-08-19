@@ -262,27 +262,37 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
 
             let current_revert_data_pointer = ctx.allocate_register();
             let current_item = ctx.allocate_register();
+
             ctx.mov_instruction(current_revert_data_pointer, revert_data.pointer);
             let revert_data_id = ctx.make_constant_instruction((error_selector as u128).into(), 64);
             ctx.store_instruction(current_revert_data_pointer, revert_data_id.address);
 
-            ctx.codegen_usize_op_in_place(current_revert_data_pointer, BrilligBinaryOp::Add, 1);
+            let one: SingleAddrVariable = ctx.make_usize_constant_instruction(1_usize.into());
+
+            ctx.memory_op_instruction(
+                current_revert_data_pointer,
+                one.address,
+                current_revert_data_pointer,
+                BrilligBinaryOp::Add,
+            );
             for (revert_data_constant, bit_size) in revert_data_items.iter() {
                 ctx.const_instruction(
                     SingleAddrVariable::new(current_item, *bit_size),
                     *revert_data_constant,
                 );
                 ctx.store_instruction(current_revert_data_pointer, current_item);
-                ctx.codegen_usize_op_in_place(
+                ctx.memory_op_instruction(
+                    current_revert_data_pointer,
+                    one.address,
                     current_revert_data_pointer,
                     BrilligBinaryOp::Add,
-                    1_usize,
                 );
             }
             ctx.trap_instruction(revert_data);
             ctx.deallocate_register(current_item);
             ctx.deallocate_register(current_revert_data_pointer);
             ctx.deallocate_register(revert_data.pointer);
+            ctx.deallocate_single_addr(one);
             ctx.deallocate_single_addr(revert_data_id);
         });
     }
