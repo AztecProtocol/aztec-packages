@@ -134,7 +134,12 @@ describe('L1Publisher', () => {
 
     expect(result).toEqual(true);
 
-    const args = [`0x${header.toString('hex')}`, `0x${archive.toString('hex')}`, `0x${blockHash.toString('hex')}`, `0x${body.toString('hex')}`] as const;
+    const args = [
+      `0x${header.toString('hex')}`,
+      `0x${archive.toString('hex')}`,
+      `0x${blockHash.toString('hex')}`,
+      `0x${body.toString('hex')}`,
+    ] as const;
     expect(rollupContractWrite.publishAndProcess).toHaveBeenCalledWith(args, { account: account });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: publishAndProcessTxHash });
   });
@@ -148,7 +153,11 @@ describe('L1Publisher', () => {
     const result = await publisher.processL2Block(l2Block);
 
     expect(result).toEqual(true);
-    const args = [`0x${header.toString('hex')}`, `0x${archive.toString('hex')}`, `0x${blockHash.toString('hex')}`] as const;
+    const args = [
+      `0x${header.toString('hex')}`,
+      `0x${archive.toString('hex')}`,
+      `0x${blockHash.toString('hex')}`,
+    ] as const;
     expect(rollupContractWrite.process).toHaveBeenCalledWith(args, { account });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: processTxHash });
   });

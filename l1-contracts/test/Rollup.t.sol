@@ -176,7 +176,7 @@ contract RollupTest is DecoderBase {
         feeAmount
       )
     );
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
 
     address coinbase = data.decodedHeader.globalVariables.coinbase;
     uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
@@ -184,7 +184,7 @@ contract RollupTest is DecoderBase {
 
     portalERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
 
-    rollup.process(header, archive);
+    rollup.process(header, archive, bytes32(0));
     assertEq(portalERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
   }
 
