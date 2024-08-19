@@ -58,8 +58,10 @@ export class BotFactory {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
       const sentTx = account.deploy();
       if (this.config.flushSetupTransactions && this.node) {
+        this.log.verbose('Flushing transactions');
         await this.node.flush();
       }
+      this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
       return account.getWallet();
     }
@@ -89,8 +91,10 @@ export class BotFactory {
       this.log.info(`Deploying token contract at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       if (this.config.flushSetupTransactions && this.node) {
+        this.log.verbose('Flushing transactions');
         await this.node.flush();
       }
+      this.log.verbose('Waiting for token setup to settle');
       return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
     }
   }
@@ -117,8 +121,10 @@ export class BotFactory {
     }
     const sentTx = new BatchCall(token.wallet, calls).send();
     if (this.config.flushSetupTransactions && this.node) {
+      this.log.verbose('Flushing transactions');
       await this.node.flush();
     }
+    this.log.verbose('Waiting for token mint to settle');
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
   }
 }
