@@ -426,6 +426,19 @@ impl<'a> NodeFinder<'a> {
     }
 
     fn find_in_expression(&mut self, expression: &Expression) {
+        // "foo." (no identifier afterwards) is parsed as the expression on the left hand-side of the dot.
+        // Here we check if there's a dot at the completion position, and if the expression
+        // ends right before the dot. If so, it means we want to complete the expression's type fields and methods.
+        if self.byte == Some(b'.') && expression.span.end() as usize == self.byte_index - 1 {
+            let location = Location::new(expression.span, self.file);
+            if let Some(typ) = self.interner.type_at_location(location) {
+                let typ = typ.follow_bindings();
+                let prefix = "";
+                self.complete_type_fields_and_methods(&typ, prefix);
+                return;
+            }
+        }
+
         match &expression.kind {
             ExpressionKind::Literal(literal) => self.find_in_literal(literal),
             ExpressionKind::Block(block_expression) => {
@@ -1170,5 +1183,316 @@ fn module_def_id_from_reference_id(reference_id: ReferenceId) -> Option<ModuleDe
         | ReferenceId::Global(_)
         | ReferenceId::Local(_)
         | ReferenceId::Reference(_, _) => None,
+    }
+
+    #[test]
+    async fn test_suggests_struct_field_after_dot_and_letter() {
+        let src = r#"
+            struct Some {
+                property: i32,
+            }
+
+            fn foo(s: Some) {
+                s.p>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "property",
+                CompletionItemKind::FIELD,
+                Some("i32".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_field_after_dot_and_letter_for_generic_type() {
+        let src = r#"
+            struct Some<T> {
+                property: T,
+            }
+
+            fn foo(s: Some<i32>) {
+                s.p>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "property",
+                CompletionItemKind::FIELD,
+                Some("i32".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_field_after_dot_followed_by_brace() {
+        let src = r#"
+            struct Some {
+                property: i32,
+            }
+
+            fn foo(s: Some) {
+                s.>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "property",
+                CompletionItemKind::FIELD,
+                Some("i32".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_field_after_dot_chain() {
+        let src = r#"
+            struct Some {
+                property: Other,
+            }
+
+            struct Other {
+                bar: i32,
+            }
+
+            fn foo(some: Some) {
+                some.property.>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![simple_completion_item("bar", CompletionItemKind::FIELD, Some("i32".to_string()))],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_impl_method() {
+        let src = r#"
+            struct Some {
+            }
+
+            impl Some {
+                fn foobar(self, x: i32) {}
+                fn foobar2(&mut self, x: i32) {}
+                fn foobar3(y: i32) {}
+            }
+
+            fn foo(some: Some) {
+                some.f>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![
+                snippet_completion_item(
+                    "foobar(…)",
+                    CompletionItemKind::FUNCTION,
+                    "foobar(${1:x})",
+                    Some("fn(self, i32)".to_string()),
+                ),
+                snippet_completion_item(
+                    "foobar2(…)",
+                    CompletionItemKind::FUNCTION,
+                    "foobar2(${1:x})",
+                    Some("fn(&mut self, i32)".to_string()),
+                ),
+            ],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_trait_impl_method() {
+        let src = r#"
+            struct Some {
+            }
+
+            trait SomeTrait {
+                fn foobar(self, x: i32);
+                fn foobar2(y: i32);
+            }
+
+            impl SomeTrait for Some {
+                fn foobar(self, x: i32) {}
+                fn foobar2(y: i32) {}
+            }
+
+            fn foo(some: Some) {
+                some.f>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![snippet_completion_item(
+                "foobar(…)",
+                CompletionItemKind::FUNCTION,
+                "foobar(${1:x})",
+                Some("fn(self, i32)".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_primitive_trait_impl_method() {
+        let src = r#"
+            trait SomeTrait {
+                fn foobar(self, x: i32);
+                fn foobar2(y: i32);
+            }
+
+            impl SomeTrait for Field {
+                fn foobar(self, x: i32) {}
+                fn foobar2(y: i32) {}
+            }
+
+            fn foo(field: Field) {
+                field.f>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![snippet_completion_item(
+                "foobar(…)",
+                CompletionItemKind::FUNCTION,
+                "foobar(${1:x})",
+                Some("fn(self, i32)".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_methods_after_colons() {
+        let src = r#"
+            struct Some {
+            }
+
+            impl Some {
+                fn foobar(self, x: i32) {}
+                fn foobar2(&mut self, x: i32) {}
+                fn foobar3(y: i32) {}
+            }
+
+            fn foo() {
+                Some::>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![
+                completion_item_with_sort_text(
+                    snippet_completion_item(
+                        "foobar(…)",
+                        CompletionItemKind::FUNCTION,
+                        "foobar(${1:self}, ${2:x})",
+                        Some("fn(self, i32)".to_string()),
+                    ),
+                    self_mismatch_sort_text(),
+                ),
+                completion_item_with_sort_text(
+                    snippet_completion_item(
+                        "foobar2(…)",
+                        CompletionItemKind::FUNCTION,
+                        "foobar2(${1:self}, ${2:x})",
+                        Some("fn(&mut self, i32)".to_string()),
+                    ),
+                    self_mismatch_sort_text(),
+                ),
+                snippet_completion_item(
+                    "foobar3(…)",
+                    CompletionItemKind::FUNCTION,
+                    "foobar3(${1:y})",
+                    Some("fn(i32)".to_string()),
+                ),
+            ],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_behind_alias_methods_after_dot() {
+        let src = r#"
+            struct Some {
+            }
+
+            type Alias = Some;
+
+            impl Some {
+                fn foobar(self, x: i32) {}
+            }
+
+            fn foo(some: Alias) {
+                some.>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![snippet_completion_item(
+                "foobar(…)",
+                CompletionItemKind::FUNCTION,
+                "foobar(${1:x})",
+                Some("fn(self, i32)".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_struct_behind_alias_methods_after_colons() {
+        let src = r#"
+            struct Some {
+            }
+
+            type Alias = Some;
+
+            impl Some {
+                fn foobar(self, x: i32) {}
+                fn foobar2(&mut self, x: i32) {}
+                fn foobar3(y: i32) {}
+            }
+
+            fn foo() {
+                Alias::>|<
+            }
+        "#;
+        assert_completion(
+            src,
+            vec![
+                completion_item_with_sort_text(
+                    snippet_completion_item(
+                        "foobar(…)",
+                        CompletionItemKind::FUNCTION,
+                        "foobar(${1:self}, ${2:x})",
+                        Some("fn(self, i32)".to_string()),
+                    ),
+                    self_mismatch_sort_text(),
+                ),
+                completion_item_with_sort_text(
+                    snippet_completion_item(
+                        "foobar2(…)",
+                        CompletionItemKind::FUNCTION,
+                        "foobar2(${1:self}, ${2:x})",
+                        Some("fn(&mut self, i32)".to_string()),
+                    ),
+                    self_mismatch_sort_text(),
+                ),
+                snippet_completion_item(
+                    "foobar3(…)",
+                    CompletionItemKind::FUNCTION,
+                    "foobar3(${1:y})",
+                    Some("fn(i32)".to_string()),
+                ),
+            ],
+        )
+        .await;
     }
 }

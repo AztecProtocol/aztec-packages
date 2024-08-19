@@ -7,7 +7,7 @@ import {
   type Wallet,
   createDebugLogger,
 } from '@aztec/aztec.js';
-import { type FunctionCall, type PXE } from '@aztec/circuit-types';
+import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { GasSettings } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { type TokenContract } from '@aztec/noir-contracts.js';
@@ -28,7 +28,7 @@ export class Bot {
     public readonly config: BotConfig,
   ) {}
 
-  static async create(config: BotConfig, dependencies: { pxe?: PXE } = {}): Promise<Bot> {
+  static async create(config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}): Promise<Bot> {
     const { wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
     return new Bot(wallet, token, recipient, config);
   }
@@ -71,13 +71,20 @@ export class Bot {
 
     const txHash = await tx.getTxHash();
 
-    if (this.config.noWaitForTransfers) {
+    if (this.config.followChain === 'NONE') {
       this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
       return;
     }
 
-    this.log.verbose(`Awaiting tx ${txHash} to be mined (timeout ${this.config.txMinedWaitSeconds}s)`, logCtx);
-    const receipt = await tx.wait({ timeout: this.config.txMinedWaitSeconds });
+    this.log.verbose(
+      `Awaiting tx ${txHash} to be on the ${this.config.followChain} (timeout ${this.config.txMinedWaitSeconds}s)`,
+      logCtx,
+    );
+    const receipt = await tx.wait({
+      timeout: this.config.txMinedWaitSeconds,
+      provenTimeout: this.config.txMinedWaitSeconds,
+      proven: this.config.followChain === 'PROVEN',
+    });
     this.log.info(`Tx ${receipt.txHash} mined in block ${receipt.blockNumber}`, logCtx);
   }
 
