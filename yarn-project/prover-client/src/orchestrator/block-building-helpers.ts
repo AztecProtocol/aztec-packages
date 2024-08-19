@@ -306,7 +306,6 @@ export function getRootRollupInput(
 
   return RootRollupInputs.from({
     previousRollupData,
-    // TODO(#7346): Inject proverId OR add to block root and carry up to root
     proverId,
   });
 }

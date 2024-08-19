@@ -339,6 +339,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getBlockRootRollupProof(
     input: BlockRootRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    // TODO(#7346): When batch rollups are integrated, we probably want the below to be this.createRecursiveProof
+    // since we will no longer be verifying it directly on L1
     const { circuitOutput, proof } = await this.createProof(
       input,
       'BlockRootRollupArtifact',
@@ -363,20 +365,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
-    const { circuitOutput, proof } = await this.createProof(
+    const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BlockMergeRollupArtifact',
+      NESTED_RECURSIVE_PROOF_LENGTH,
       convertBlockMergeRollupInputsToWitnessMap,
       convertBlockMergeRollupOutputsFromWitnessMap,
     );
 
-    const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
-
     const verificationKey = await this.getVerificationKeyDataForCircuit('BlockMergeRollupArtifact');
 
-    await this.verifyProof('BlockMergeRollupArtifact', proof);
+    await this.verifyProof('BlockMergeRollupArtifact', proof.binaryProof);
 
-    return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   /**

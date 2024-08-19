@@ -17,9 +17,9 @@ impl Verifiable for PreviousRollupBlockData {
   fn verify(self) {
     let inputs = BlockRootOrBlockMergePublicInputs::serialize(self.block_root_or_block_merge_public_inputs);
     std::verify_proof(
-        self.vk.key.as_slice(),
-        self.proof.fields.as_slice(),
-        inputs.as_slice(),
+        self.vk.key,
+        self.proof.fields,
+        inputs,
         self.vk.hash
     );
   }
