@@ -42,9 +42,9 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
 
         // noir-fmt:ignore
-        PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs, phase)
-            .remove_top_call_request()
-            .propagate_from_public_call(self.public_call.call_stack_item.public_inputs)
+        PublicKernelOutputComposer::new_from_previous_kernel(self.previous_kernel.public_inputs)
+            .remove_top_call_request(phase)
+            .propagate_from_public_call(self.public_call.call_stack_item.public_inputs, phase)
             .finish()
     }
 }

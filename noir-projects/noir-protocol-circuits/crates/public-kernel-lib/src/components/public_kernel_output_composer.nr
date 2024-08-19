@@ -16,34 +16,33 @@ use dep::types::{
 
 struct PublicKernelOutputComposer {
     output_builder: PublicKernelCircuitPublicInputsBuilder,
-    phase: u8,
 }
 
 impl PublicKernelOutputComposer {
-    pub fn new_from_previous_kernel(previous_kernel: PublicKernelCircuitPublicInputs, phase: u8) -> Self {
+    pub fn new_from_previous_kernel(previous_kernel: PublicKernelCircuitPublicInputs) -> Self {
         let output_builder = PublicKernelCircuitPublicInputsBuilder::new(previous_kernel);
-        PublicKernelOutputComposer { output_builder, phase }
+        PublicKernelOutputComposer { output_builder }
     }
 
-    pub fn remove_top_call_request(&mut self) -> Self {
-        if self.phase == PublicKernelPhase.SETUP {
+    pub fn remove_top_call_request(&mut self, phase: u8) -> Self {
+        if phase == PublicKernelPhase.SETUP {
             let _ = self.output_builder.end_non_revertible.public_call_stack.pop();
         }
-        if self.phase == PublicKernelPhase.APP_LOGIC {
+        if phase == PublicKernelPhase.APP_LOGIC {
             let _ = self.output_builder.end.public_call_stack.pop();
         }
-        if self.phase == PublicKernelPhase.TEARDOWN {
+        if phase == PublicKernelPhase.TEARDOWN {
             let _ = self.output_builder.public_teardown_call_stack.pop();
         }
         *self
     }
 
-    pub fn propagate_from_public_call(&mut self, public_call: PublicCircuitPublicInputs) -> Self {
+    pub fn propagate_from_public_call(&mut self, public_call: PublicCircuitPublicInputs, phase: u8) -> Self {
         self.output_builder.constants.global_variables = public_call.global_variables;
-        self.propagate_revert_code(public_call);
+        self.propagate_revert_code(public_call, phase);
         self.propagate_validation_requests(public_call);
-        self.propagate_accumulated_data(public_call);
-        self.update_gas_used(public_call);
+        self.propagate_accumulated_data(public_call, phase);
+        self.update_gas_used(public_call, phase);
         *self
     }
 
@@ -51,19 +50,19 @@ impl PublicKernelOutputComposer {
         self.output_builder.finish()
     }
 
-    fn propagate_revert_code(&mut self, public_call: PublicCircuitPublicInputs) {
+    fn propagate_revert_code(&mut self, public_call: PublicCircuitPublicInputs, phase: u8) {
         let prev_revert_code = self.output_builder.revert_code;
         let public_call_revert_code = public_call.revert_code;
-        if self.phase == PublicKernelPhase.SETUP {
+        if phase == PublicKernelPhase.SETUP {
             // Keep prev_revert_code.
             // public_call_revert_code should be 0. If not, PublicCallDataValidator > validate_revert_code will fail.
         }
-        if self.phase == PublicKernelPhase.APP_LOGIC {
+        if phase == PublicKernelPhase.APP_LOGIC {
             if prev_revert_code == 0 {
                 self.output_builder.revert_code = public_call_revert_code;
             }
         }
-        if self.phase == PublicKernelPhase.TEARDOWN {
+        if phase == PublicKernelPhase.TEARDOWN {
             // See https://docs.aztec.network/protocol-specs/gas-and-fees/kernel-tracking#handling-reverts
             if public_call_revert_code != 0 {
                 self.output_builder.revert_code = if prev_revert_code == 0 {
@@ -107,14 +106,14 @@ impl PublicKernelOutputComposer {
         }
     }
 
-    fn propagate_accumulated_data(&mut self, public_call: PublicCircuitPublicInputs) {
+    fn propagate_accumulated_data(&mut self, public_call: PublicCircuitPublicInputs, phase: u8) {
         let revert_in_phase = (self.output_builder.revert_code != 0)
-            & ((self.phase != PublicKernelPhase.TEARDOWN) | (self.output_builder.revert_code != 1)); // Revert in APP_LOGIC
+            & ((phase != PublicKernelPhase.TEARDOWN) | (self.output_builder.revert_code != 1)); // Revert in APP_LOGIC
 
-        if self.phase == PublicKernelPhase.SETUP {
+        if phase == PublicKernelPhase.SETUP {
             self.output_builder.end_non_revertible = propagate_accumulated_data(&mut self.output_builder.end_non_revertible, public_call);
         }
-        if (self.phase == PublicKernelPhase.APP_LOGIC) | (self.phase == PublicKernelPhase.TEARDOWN) {
+        if (phase == PublicKernelPhase.APP_LOGIC) | (phase == PublicKernelPhase.TEARDOWN) {
             self.output_builder.end = propagate_accumulated_data(&mut self.output_builder.end, public_call);
         }
 
@@ -123,41 +122,41 @@ impl PublicKernelOutputComposer {
         // revertible data.
         if revert_in_phase {
             self.output_builder.end = PublicAccumulatedDataBuilder::empty();
-            if self.phase == PublicKernelPhase.TEARDOWN {
+            if phase == PublicKernelPhase.TEARDOWN {
                 self.output_builder.public_teardown_call_stack = BoundedVec::new();
             }
         }
         if !revert_in_phase {
-            self.propagate_call_requests(public_call);
+            self.propagate_call_requests(public_call, phase);
         }
     }
 
-    fn propagate_call_requests(&mut self, public_call: PublicCircuitPublicInputs) {
+    fn propagate_call_requests(&mut self, public_call: PublicCircuitPublicInputs, phase: u8) {
         let call_requests = array_to_bounded_vec(public_call.public_call_requests);
 
         // TODO: Insert call requests in reversed order.
-        if self.phase == PublicKernelPhase.SETUP {
+        if phase == PublicKernelPhase.SETUP {
             self.output_builder.end_non_revertible.public_call_stack.extend_from_bounded_vec(call_requests);
         }
-        if self.phase == PublicKernelPhase.APP_LOGIC {
+        if phase == PublicKernelPhase.APP_LOGIC {
             self.output_builder.end.public_call_stack.extend_from_bounded_vec(call_requests);
         }
-        if self.phase == PublicKernelPhase.TEARDOWN {
+        if phase == PublicKernelPhase.TEARDOWN {
             self.output_builder.public_teardown_call_stack.extend_from_bounded_vec(call_requests);
         }
     }
 
-    fn update_gas_used(&mut self, public_call: PublicCircuitPublicInputs) {
+    fn update_gas_used(&mut self, public_call: PublicCircuitPublicInputs, phase: u8) {
         let tx_gas_limits = self.output_builder.constants.tx_context.gas_settings.gas_limits;
         let call_gas_left = public_call.end_gas_left;
-        if self.phase == PublicKernelPhase.SETUP {
+        if phase == PublicKernelPhase.SETUP {
             let accum_end_gas_used = self.output_builder.end.gas_used;
             self.output_builder.end_non_revertible.gas_used = tx_gas_limits
                 .sub(call_gas_left)
                 .sub(accum_end_gas_used);
         }
 
-        if self.phase == PublicKernelPhase.APP_LOGIC {
+        if phase == PublicKernelPhase.APP_LOGIC {
             let accum_end_non_revertible_gas_used = self.output_builder.end_non_revertible.gas_used;
             self.output_builder.end.gas_used = tx_gas_limits
                 .sub(call_gas_left)
