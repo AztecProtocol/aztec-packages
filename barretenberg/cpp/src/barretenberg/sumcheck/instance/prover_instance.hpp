@@ -93,12 +93,10 @@ template <class Flavor> class ProverInstance_ {
                                              circuit,
                                              dyadic_circuit_size);
 
-        std::span<FF> public_wires_source = proving_key.polynomials.w_r;
-
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
             size_t idx = i + proving_key.pub_inputs_offset;
-            proving_key.public_inputs.emplace_back(public_wires_source[idx]);
+            proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
         // Set the recursive proof indices

@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -129,186 +130,186 @@ template <typename Curve_> class IPA {
     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
     */
    template <typename Transcript>
-   static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
-                                              const ProverOpeningClaim<Curve>& opening_claim,
-                                              const std::shared_ptr<Transcript>& transcript)
+   static void compute_opening_proof_internal([[maybe_unused]] const std::shared_ptr<CK>& ck,
+                                              [[maybe_unused]] const ProverOpeningClaim<Curve>& opening_claim,
+                                              [[maybe_unused]] const std::shared_ptr<Transcript>& transcript)
    {
+//         BB_OP_COUNT_TIME();
+//         Polynomial& polynomial = opening_claim.polynomial;
 
-        Polynomial polynomial = opening_claim.polynomial;
+//         // clang-format on
+//         size_t poly_length = polynomial.size();
 
-        // clang-format on
-        auto poly_length = static_cast<size_t>(polynomial.size());
+//         // Step 1.
+//         // Send polynomial degree + 1 = d to the verifier
+//         transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_length));
 
-        // Step 1.
-        // Send polynomial degree + 1 = d to the verifier
-        transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_length));
+//         // Step 2.
+//         // Receive challenge for the auxiliary generator
+//         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
 
-        // Step 2.
-        // Receive challenge for the auxiliary generator
-        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+//         if (generator_challenge.is_zero()) {
+//             throw_or_abort("The generator challenge can't be zero");
+//         }
 
-        if (generator_challenge.is_zero()) {
-            throw_or_abort("The generator challenge can't be zero");
-        }
+//         // Step 3.
+//         // Compute auxiliary generator U
+//         auto aux_generator = Commitment::one() * generator_challenge;
 
-        // Step 3.
-        // Compute auxiliary generator U
-        auto aux_generator = Commitment::one() * generator_challenge;
+//         // Checks poly_degree is greater than zero and a power of two
+//         // In the future, we might want to consider if non-powers of two are needed
+//         ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
+//                "The polynomial degree plus 1 should be positive and a power of two");
 
-        // Checks poly_degree is greater than zero and a power of two
-        // In the future, we might want to consider if non-powers of two are needed
-        ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
-               "The polynomial degree plus 1 should be positive and a power of two");
+//         // Step 4.
+//         // Set initial vector a to the polynomial monomial coefficients and load vector G
+//         auto a_vec = polynomial;
+//         auto* srs_elements = ck->srs->get_monomial_points();
+//         std::vector<Commitment> G_vec_local(poly_length);
 
-        // Step 4.
-        // Set initial vector a to the polynomial monomial coefficients and load vector G
-        auto a_vec = polynomial;
-        auto* srs_elements = ck->srs->get_monomial_points();
-        std::vector<Commitment> G_vec_local(poly_length);
+//         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
+//         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
+//         // G_vec_local should use only the original SRS thus we extract only the even indices.
+//         run_loop_in_parallel_if_effective(
+//             poly_length,
+//             [&G_vec_local, srs_elements](size_t start, size_t end) {
+//                 for (size_t i = start * 2; i < end * 2; i += 2) {
+//                     G_vec_local[i >> 1] = srs_elements[i];
+//                 }
+//             },
+//             /*finite_field_additions_per_iteration=*/0,
+//             /*finite_field_multiplications_per_iteration=*/0,
+//             /*finite_field_inversions_per_iteration=*/0,
+//             /*group_element_additions_per_iteration=*/0,
+//             /*group_element_doublings_per_iteration=*/0,
+//             /*scalar_multiplications_per_iteration=*/0,
+//             /*sequential_copy_ops_per_iteration=*/1);
 
-        // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-        // G_vec_local should use only the original SRS thus we extract only the even indices.
-        run_loop_in_parallel_if_effective(
-            poly_length,
-            [&G_vec_local, srs_elements](size_t start, size_t end) {
-                for (size_t i = start * 2; i < end * 2; i += 2) {
-                    G_vec_local[i >> 1] = srs_elements[i];
-                }
-            },
-            /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/0,
-            /*finite_field_inversions_per_iteration=*/0,
-            /*group_element_additions_per_iteration=*/0,
-            /*group_element_doublings_per_iteration=*/0,
-            /*scalar_multiplications_per_iteration=*/0,
-            /*sequential_copy_ops_per_iteration=*/1);
+//         // Step 5.
+//         // Compute vector b (vector of the powers of the challenge)
+//         OpeningPair<Curve> opening_pair = opening_claim.opening_pair;
+//         std::vector<Fr> b_vec(poly_length);
+//         run_loop_in_parallel_if_effective(
+//             poly_length,
+//             [&b_vec, &opening_pair](size_t start, size_t end) {
+//                 Fr b_power = opening_pair.challenge.pow(start);
+//                 for (size_t i = start; i < end; i++) {
+//                     b_vec[i] = b_power;
+//                     b_power *= opening_pair.challenge;
+//                 }
+//             },
+//             /*finite_field_additions_per_iteration=*/0,
+//             /*finite_field_multiplications_per_iteration=*/1);
 
-        // Step 5.
-        // Compute vector b (vector of the powers of the challenge)
-        OpeningPair<Curve> opening_pair = opening_claim.opening_pair;
-        std::vector<Fr> b_vec(poly_length);
-        run_loop_in_parallel_if_effective(
-            poly_length,
-            [&b_vec, &opening_pair](size_t start, size_t end) {
-                Fr b_power = opening_pair.challenge.pow(start);
-                for (size_t i = start; i < end; i++) {
-                    b_vec[i] = b_power;
-                    b_power *= opening_pair.challenge;
-                }
-            },
-            /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/1);
+//         // Iterate for log(poly_degree) rounds to compute the round commitments.
+//         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
 
-        // Iterate for log(poly_degree) rounds to compute the round commitments.
-        auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
+//         // Allocate space for L_i and R_i elements
+//         GroupElement L_i;
+//         GroupElement R_i;
+//         std::size_t round_size = poly_length;
 
-        // Allocate space for L_i and R_i elements
-        GroupElement L_i;
-        GroupElement R_i;
-        std::size_t round_size = poly_length;
+// #ifndef NO_MULTITHREADING
+//         //  The inner products we'll be computing in parallel need a mutex to be thread-safe during the last
+//         //  accumulation
+//         std::mutex inner_product_accumulation_mutex;
+// #endif
+//         // Step 6.
+//         // Perform IPA reduction rounds
+//         for (size_t i = 0; i < log_poly_degree; i++) {
+//             round_size >>= 1;
+//             // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
+//             Fr inner_prod_L = Fr::zero();
+//             Fr inner_prod_R = Fr::zero();
+//             // Run scalar products in parallel
+//             run_loop_in_parallel_if_effective(
+//                 round_size,
+//                 [&a_vec,
+//                  &b_vec,
+//                  round_size,
+//                  &inner_prod_L,
+//                  &inner_prod_R
+// #ifndef NO_MULTITHREADING
+//                  ,
+//                  &inner_product_accumulation_mutex
+// #endif
+//             ](size_t start, size_t end) {
+//                     Fr current_inner_prod_L = Fr::zero();
+//                     Fr current_inner_prod_R = Fr::zero();
+//                     for (size_t j = start; j < end; j++) {
+//                         current_inner_prod_L += a_vec[j] * b_vec[round_size + j];
+//                         current_inner_prod_R += a_vec[round_size + j] * b_vec[j];
+//                     }
+//                     // Update the accumulated results thread-safely
+//                     {
+// #ifndef NO_MULTITHREADING
+//                         std::unique_lock<std::mutex> lock(inner_product_accumulation_mutex);
+// #endif
+//                         inner_prod_L += current_inner_prod_L;
+//                         inner_prod_R += current_inner_prod_R;
+//                     }
+//                 },
+//                 /*finite_field_additions_per_iteration=*/2,
+//                 /*finite_field_multiplications_per_iteration=*/2);
 
-#ifndef NO_MULTITHREADING
-        //  The inner products we'll be computing in parallel need a mutex to be thread-safe during the last
-        //  accumulation
-        std::mutex inner_product_accumulation_mutex;
-#endif
-        // Step 6.
-        // Perform IPA reduction rounds
-        for (size_t i = 0; i < log_poly_degree; i++) {
-            round_size >>= 1;
-            // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
-            Fr inner_prod_L = Fr::zero();
-            Fr inner_prod_R = Fr::zero();
-            // Run scalar products in parallel
-            run_loop_in_parallel_if_effective(
-                round_size,
-                [&a_vec,
-                 &b_vec,
-                 round_size,
-                 &inner_prod_L,
-                 &inner_prod_R
-#ifndef NO_MULTITHREADING
-                 ,
-                 &inner_product_accumulation_mutex
-#endif
-            ](size_t start, size_t end) {
-                    Fr current_inner_prod_L = Fr::zero();
-                    Fr current_inner_prod_R = Fr::zero();
-                    for (size_t j = start; j < end; j++) {
-                        current_inner_prod_L += a_vec[j] * b_vec[round_size + j];
-                        current_inner_prod_R += a_vec[round_size + j] * b_vec[j];
-                    }
-                    // Update the accumulated results thread-safely
-                    {
-#ifndef NO_MULTITHREADING
-                        std::unique_lock<std::mutex> lock(inner_product_accumulation_mutex);
-#endif
-                        inner_prod_L += current_inner_prod_L;
-                        inner_prod_R += current_inner_prod_R;
-                    }
-                },
-                /*finite_field_additions_per_iteration=*/2,
-                /*finite_field_multiplications_per_iteration=*/2);
+//             // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
+//             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
+//             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+//                 &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
+//             L_i += aux_generator * inner_prod_L;
 
-            // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
-            // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
-            L_i += aux_generator * inner_prod_L;
+//             // Step 6.b
+//             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
+//             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
+//                 &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
+//             R_i += aux_generator * inner_prod_R;
 
-            // Step 6.b
-            // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
-            R_i += aux_generator * inner_prod_R;
+//             // Step 6.c
+//             // Send commitments to the verifier
+//             std::string index = std::to_string(log_poly_degree - i - 1);
+//             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
+//             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
-            // Step 6.c
-            // Send commitments to the verifier
-            std::string index = std::to_string(log_poly_degree - i - 1);
-            transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
-            transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
+//             // Step 6.d
+//             // Receive the challenge from the verifier
+//             const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
 
-            // Step 6.d
-            // Receive the challenge from the verifier
-            const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+//             if (round_challenge.is_zero()) {
+//                 throw_or_abort("IPA round challenge is zero");
+//             }
+//             const Fr round_challenge_inv = round_challenge.invert();
 
-            if (round_challenge.is_zero()) {
-                throw_or_abort("IPA round challenge is zero");
-            }
-            const Fr round_challenge_inv = round_challenge.invert();
+//             // Step 6.e
+//             // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
+//             auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
+//                 std::span{ G_vec_local.begin() + static_cast<size_t>(round_size),
+//                            G_vec_local.begin() + static_cast<size_t>(round_size * 2) },
+//                 round_challenge_inv);
+//             GroupElement::batch_affine_add(
+//                 std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<size_t>(round_size) },
+//                 G_hi_by_inverse_challenge,
+//                 G_vec_local);
 
-            // Step 6.e
-            // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
-            auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
-                std::span{ G_vec_local.begin() + static_cast<long>(round_size),
-                           G_vec_local.begin() + static_cast<long>(round_size * 2) },
-                round_challenge_inv);
-            GroupElement::batch_affine_add(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
-                G_hi_by_inverse_challenge,
-                G_vec_local);
+//             // Steps 6.e and 6.f
+//             // Update the vectors a_vec, b_vec.
+//             // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
+//             // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
+//             run_loop_in_parallel_if_effective(
+//                 round_size,
+//                 [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
+//                     for (size_t j = start; j < end; j++) {
+//                         a_vec[j] += round_challenge * a_vec[round_size + j];
+//                         b_vec[j] += round_challenge_inv * b_vec[round_size + j];
+//                     }
+//                 },
+//                 /*finite_field_additions_per_iteration=*/4,
+//                 /*finite_field_multiplications_per_iteration=*/8,
+//                 /*finite_field_inversions_per_iteration=*/1);
+//         }
 
-            // Steps 6.e and 6.f
-            // Update the vectors a_vec, b_vec.
-            // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
-            // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
-            run_loop_in_parallel_if_effective(
-                round_size,
-                [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
-                    for (size_t j = start; j < end; j++) {
-                        a_vec[j] += round_challenge * a_vec[round_size + j];
-                        b_vec[j] += round_challenge_inv * b_vec[round_size + j];
-                    }
-                },
-                /*finite_field_additions_per_iteration=*/4,
-                /*finite_field_multiplications_per_iteration=*/8,
-                /*finite_field_inversions_per_iteration=*/1);
-        }
-
-        // Step 7
-        // Send a_0 to the verifier
-        transcript->send_to_verifier("IPA:a_0", a_vec[0]);
+//         // Step 7
+//         // Send a_0 to the verifier
+//         transcript->send_to_verifier("IPA:a_0", a_vec[0]);
     }
 
     /**

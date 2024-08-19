@@ -23,7 +23,7 @@ template <typename Fr> PolynomialReference<Fr>& PolynomialReference<Fr>::operato
     return *this;
 }
 
-PolynomialReference<Fr>::operator Fr() const
+template <typename Fr> PolynomialReference<Fr>::operator Fr() const
 {
     return polynomial_->get(index_);
 }

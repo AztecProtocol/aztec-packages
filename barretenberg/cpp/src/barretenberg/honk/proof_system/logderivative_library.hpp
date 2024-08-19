@@ -52,8 +52,9 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
         inverse_polynomial[i] = denominator;
     };
 
-    // todo might be inverting zero in field bleh bleh
-    FF::batch_invert(inverse_polynomial);
+    // Compute inverse polynomial I in place by inverting the product at each row
+    // Note: zeroes are ignored as they are not used anyway
+    FF::batch_invert(inverse_polynomial.as_span());
 }
 
 /**

@@ -40,7 +40,7 @@ template <typename Fr> class PolynomialReference {
      * @brief Implicit conversion operator to allow the proxy to be used as an Fr.
      * @return Fr The value of the element in the Polynomial.
      */
-    operator Fr() const { return polynomial_->get(index_); }
+    operator Fr() const;
 
     // WORKTODO(sparse) implement this?
     // /**
@@ -82,36 +82,36 @@ template <typename Fr> class PolynomialReference {
         return *this;
     }
 
-    // Unary operators
-    PolynomialReference& operator++()
-    { // Prefix increment
-        Fr value = polynomial_->get(index_);
-        ++value;
-        polynomial_->set(index_, value);
-        return *this;
-    }
+    // // Unary operators
+    // PolynomialReference& operator++()
+    // { // Prefix increment
+    //     Fr value = polynomial_->get(index_);
+    //     ++value;
+    //     polynomial_->set(index_, value);
+    //     return *this;
+    // }
 
-    PolynomialReference operator++(int)
-    { // Postfix increment
-        PolynomialReference temp = *this;
-        ++(*this);
-        return temp;
-    }
+    // PolynomialReference operator++(int)
+    // { // Postfix increment
+    //     PolynomialReference temp = *this;
+    //     ++(*this);
+    //     return temp;
+    // }
 
-    PolynomialReference& operator--()
-    { // Prefix decrement
-        Fr value = polynomial_->get(index_);
-        --value;
-        polynomial_->set(index_, value);
-        return *this;
-    }
+    // PolynomialReference& operator--()
+    // { // Prefix decrement
+    //     Fr value = polynomial_->get(index_);
+    //     --value;
+    //     polynomial_->set(index_, value);
+    //     return *this;
+    // }
 
-    PolynomialReference operator--(int)
-    { // Postfix decrement
-        PolynomialReference temp = *this;
-        --(*this);
-        return temp;
-    }
+    // PolynomialReference operator--(int)
+    // { // Postfix decrement
+    //     PolynomialReference temp = *this;
+    //     --(*this);
+    //     return temp;
+    // }
 
   private:
     Polynomial<Fr>* polynomial_; ///< Pointer to the Polynomial.
@@ -270,7 +270,7 @@ template <typename Fr> class PolynomialIterator {
      * @param n The number of steps to advance.
      * @return PolynomialIterator& Reference to the current iterator.
      */
-    PolynomialIterator& operator+=(difference_type n)
+    PolynomialIterator& operator+=(size_t n)
     {
         index_ += n;
         return *this;
@@ -281,7 +281,7 @@ template <typename Fr> class PolynomialIterator {
      * @param n The number of steps to advance.
      * @return PolynomialIterator The new iterator.
      */
-    PolynomialIterator operator+(difference_type n) const
+    PolynomialIterator operator+(size_t n) const
     {
         PolynomialIterator tmp = *this;
         tmp += n;

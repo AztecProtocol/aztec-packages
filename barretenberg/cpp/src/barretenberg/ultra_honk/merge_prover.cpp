@@ -49,7 +49,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     std::array<Polynomial, NUM_WIRES> t_shift;
     for (size_t i = 0; i < NUM_WIRES; ++i) {
         t_shift[i] = Polynomial(T_current[i]);
-        t_shift[i] -= T_prev[i];
+        t_shift[i] -= { 0, T_prev[i] };
     }
 
     // Compute/get commitments [t_i^{shift}], [T_{i-1}], and [T_i] and add to transcript

@@ -125,7 +125,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
 
         // Final step: invert denominator
-        FF::batch_invert(std::span{ &denominator[start], block_size });
+        FF::batch_invert(std::span{ &denominator.data()[start], block_size });
     });
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]

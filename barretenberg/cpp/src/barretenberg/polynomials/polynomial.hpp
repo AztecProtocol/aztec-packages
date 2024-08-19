@@ -164,7 +164,11 @@ template <typename Fr> class Polynomial {
     //  * @param roots list of roots (r₁,…,rₘ)
     //  */
     // void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
-    // void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(std::span{ *this }, root); };
+    void factor_roots(const Fr& root)
+    {
+        // WORKTODO(sparse) we can optimize the case root = 0 with just a simple shift (start_index +=1 , size -= 1)
+        polynomial_arithmetic::factor_roots(as_span(), root);
+    };
 
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
@@ -206,14 +210,14 @@ template <typename Fr> class Polynomial {
 
     iterator begin() { return iterator(this, 0); }
     iterator end() { return iterator(this, size()); }
-    const_iterator begin() const { return const_iterator(this, 0); }
-    const_iterator end() const { return const_iterator(this, size()); }
+    // const_iterator begin() const { return const_iterator(this, 0); }
+    // const_iterator end() const { return const_iterator(this, size()); }
 
     iterator at(size_t index) { return iterator(this, index); }
-    const_iterator at(size_t index) const { return const_iterator(this, index); }
+    // const_iterator at(size_t index) const { return const_iterator(this, index); }
 
-    reference operator[](size_t i) { return reference(this, i); }
-    const_reference operator[](size_t i) const { return get(i); }
+    Fr operator[](size_t i) { return get(i); }
+    Fr operator[](size_t i) const { return get(i); }
 
     static Polynomial random(size_t size) { return random(size, size); }
 
@@ -242,17 +246,23 @@ template <typename Fr> class Polynomial {
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }
     size_t end_index() const { return coefficients_.end_; }
+
+    // We keep this explicit, instead of having an implicit conversion to span.
+    // This is safer as it is more likely that we need to consider our start_index()
+    // along with the span, as in PolynomialSpan below.
+    std::span<Fr> as_span() { return { data(), data() + size() }; }
+    std::span<const Fr> as_span() const { return { data(), data() + size() }; }
     /**
-     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<Fr>() { return { start_index(), { data(), data() + size() } }; }
+    operator PolynomialSpan<Fr>() { return { start_index(), as_span() }; }
 
     /**
-     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<Fr>() const { return { start_index(), { data(), data() + size() } }; }
+    operator PolynomialSpan<const Fr>() const { return { start_index(), as_span() }; }
 
   private:
     // allocate a fresh memory pointer for backing memory

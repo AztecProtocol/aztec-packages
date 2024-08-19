@@ -287,7 +287,6 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
     const size_t other_size = other.size();
-    ASSERT(coefficients_.size)
     ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
 
     size_t start_index_offset = other.start_index - start_index();
@@ -338,7 +337,6 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
             data()[i - start_index_offset] += scaling_factor * other[i];
         }
     });
-    return *this;
 }
 
 /**

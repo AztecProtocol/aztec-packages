@@ -79,8 +79,13 @@ template <class Curve> class CommitmentKey {
                  srs->get_monomial_size());
             ASSERT(false);
         }
+
+        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
+        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
+        // with our polynomial spann.
+        G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
         return scalar_multiplication::pippenger_unsafe<Curve>(
-            polynomial.data(), srs->get_monomial_points() + polynomial.start_index, degree, pippenger_runtime_state);
+            polynomial.data(), point_table, degree, pippenger_runtime_state);
     };
 
     /**
@@ -93,19 +98,20 @@ template <class Curve> class CommitmentKey {
      * @param polynomial
      * @return Commitment
      */
-    Commitment commit_sparse(std::span<const Fr> polynomial)
+    Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        const size_t degree = polynomial.size();
-        ASSERT(degree <= srs->get_monomial_size());
+        const size_t poly_size = polynomial.size();
+        ASSERT(poly_size + polynomial.start_index * 2 <= srs->get_monomial_size());
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices).
-        G1* point_table = srs->get_monomial_points();
+        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
+        // with our polynomial spann.
+        G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
 
         // Define structures needed to multithread the extraction of non-zero inputs
-        const size_t num_threads = degree >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
-        const size_t block_size = degree / num_threads;
+        const size_t num_threads = poly_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
+        const size_t block_size = poly_size / num_threads;
         std::vector<std::vector<Fr>> thread_scalars(num_threads);
         std::vector<std::vector<G1>> thread_points(num_threads);
 

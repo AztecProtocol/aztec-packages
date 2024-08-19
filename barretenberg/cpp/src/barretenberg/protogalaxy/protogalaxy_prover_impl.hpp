@@ -84,7 +84,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
         for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
             auto& acc_poly = accumulator_polys[poly_idx];
-            for (auto& acc_el : acc_poly) {
+            for (auto& acc_el : acc_poly.as_span()) {
                 acc_el *= lagranges[0];
             }
         }
