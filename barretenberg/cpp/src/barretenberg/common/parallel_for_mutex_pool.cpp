@@ -125,21 +125,20 @@ namespace bb {
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
     static ThreadPool pool(get_num_cpus() - 1);
-#ifndef NDEBUG
     static std::atomic_bool nested = false;
     // Check if we are already in a nested parallel_for_mutex_pool call
     bool expected = false;
     if (!nested.compare_exchange_strong(expected, true)) {
-        throw_or_abort("Error: Nested parallel_for_mutex_pool calls are not allowed.");
+        for (size_t i = 0; i < num_iterations; i++) {
+            func(i);
+        }
+        // throw_or_abort("Error: Nested parallel_for_mutex_pool calls are not allowed.");
+    } else {
+        // info("starting job with iterations: ", num_iterations);
+        pool.start_tasks(num_iterations, func);
+        // info("done");
     }
-#endif
-    // info("starting job with iterations: ", num_iterations);
-    pool.start_tasks(num_iterations, func);
-
-#ifndef NDEBUG
-    // info("done");
     nested = false;
-#endif
 }
 } // namespace bb
 #endif
