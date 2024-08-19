@@ -52,19 +52,13 @@ import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { createStore, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { AztecKVTxPool, InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
-import {
-  AggregateTxValidator,
-  DataTxValidator,
-  type GlobalVariableBuilder,
-  SequencerClient,
-  getGlobalVariableBuilder,
-} from '@aztec/sequencer-client';
+import { AggregateTxValidator, DataTxValidator, GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -74,6 +68,7 @@ import {
   type ContractInstanceWithAddress,
   type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
+import { createValidatorClient } from '@aztec/validator-client';
 import { MerkleTrees, type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type AztecNodeConfig, getPackageInfo } from './config.js';
@@ -149,7 +144,13 @@ export class AztecNodeService implements AztecNode {
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), archiver);
+    const p2pClient = await createP2PClient(
+      config,
+      store,
+      new AztecKVTxPool(store, telemetry),
+      new InMemoryAttestationPool(),
+      archiver,
+    );
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
@@ -166,11 +167,14 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
+    const validatorClient = createValidatorClient(config, p2pClient);
+
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
       : await SequencerClient.new(
           config,
+          validatorClient,
           p2pClient,
           worldStateSynchronizer,
           archiver,
@@ -192,7 +196,7 @@ export class AztecNodeService implements AztecNode {
       sequencer,
       ethereumChain.chainInfo.id,
       config.version,
-      getGlobalVariableBuilder(config),
+      new GlobalVariableBuilder(config),
       store,
       txValidator,
       telemetry,
@@ -373,6 +377,10 @@ export class AztecNodeService implements AztecNode {
    */
   public getPendingTxs() {
     return Promise.resolve(this.p2pClient!.getTxs('pending'));
+  }
+
+  public getPendingTxCount() {
+    return Promise.resolve(this.p2pClient!.getTxs('pending').length);
   }
 
   /**
@@ -789,6 +797,14 @@ export class AztecNodeService implements AztecNode {
 
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
     return this.contractDataSource.addContractArtifact(address, artifact);
+  }
+
+  public flushTxs(): Promise<void> {
+    if (!this.sequencer) {
+      throw new Error(`Sequencer is not initialized`);
+    }
+    this.sequencer.flush();
+    return Promise.resolve();
   }
 
   /**

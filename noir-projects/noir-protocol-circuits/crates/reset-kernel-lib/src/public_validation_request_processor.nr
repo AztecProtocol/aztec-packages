@@ -1,7 +1,8 @@
 use crate::{
     reset::{
     non_existent_read_request::reset_non_existent_read_requests,
-    mutable_data_read_request::reset_mutable_data_read_requests, read_request::reset_read_requests
+    mutable_data_read_request::reset_mutable_data_read_requests,
+    read_request::verify_reset_read_requests
 },
     nullifier_read_request_reset::NullifierReadRequestHints,
     nullifier_non_existent_read_request_reset::NullifierNonExistentReadRequestHints,
@@ -10,7 +11,8 @@ use crate::{
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, nullifier::Nullifier,
-    public_data_update_request::PublicDataUpdateRequest, validation_requests::PublicValidationRequests
+    public_data_update_request::PublicDataUpdateRequest, read_request::ScopedReadRequest,
+    validation_requests::PublicValidationRequests
 },
     data::public_data_hint::PublicDataHint,
     constants::{MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
@@ -18,7 +20,7 @@ use dep::types::{
     utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
 };
 
-struct PublicValidationRequestProcessor<N> {
+struct PublicValidationRequestProcessor<let NUM_PUBLIC_DATA_HINTS: u32> {
     validation_requests: PublicValidationRequests,
     pending_nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
     pending_public_data_writes: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
@@ -26,17 +28,19 @@ struct PublicValidationRequestProcessor<N> {
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
     nullifier_tree_root: Field,
     public_data_read_request_hints: PublicDataReadRequestHints,
-    public_data_hints: [PublicDataHint; N],
+    public_data_hints: [PublicDataHint; NUM_PUBLIC_DATA_HINTS],
+    public_data_tree_root: Field,
 }
 
-impl<N> PublicValidationRequestProcessor<N> {
+impl<let NUM_PUBLIC_DATA_HINTS: u32> PublicValidationRequestProcessor<NUM_PUBLIC_DATA_HINTS> {
     pub fn new(
         public_inputs: PublicKernelCircuitPublicInputs,
         nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
         nullifier_tree_root: Field,
         public_data_read_request_hints: PublicDataReadRequestHints,
-        public_data_hints: [PublicDataHint; N]
+        public_data_hints: [PublicDataHint; NUM_PUBLIC_DATA_HINTS],
+        public_data_tree_root: Field
     ) -> Self {
         let end_non_revertible = public_inputs.end_non_revertible;
         let end = public_inputs.end;
@@ -56,7 +60,8 @@ impl<N> PublicValidationRequestProcessor<N> {
             nullifier_non_existent_read_request_hints,
             nullifier_tree_root,
             public_data_read_request_hints,
-            public_data_hints
+            public_data_hints,
+            public_data_tree_root
         }
     }
 
@@ -69,16 +74,15 @@ impl<N> PublicValidationRequestProcessor<N> {
     fn validate_nullifier_read_requests(self) {
         let requests = self.validation_requests.nullifier_read_requests;
         let hints = self.nullifier_read_request_hints;
-        let unverified_nullifier_read_requests = reset_read_requests(
+        let unverified_nullifier_read_requests = [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX]; // All nullifier read requests must be verified.
+        verify_reset_read_requests(
             requests,
             self.pending_nullifiers,
             hints.read_request_statuses,
             hints.pending_read_hints,
             hints.settled_read_hints,
-            self.nullifier_tree_root
-        );
-        assert(
-            unverified_nullifier_read_requests.len() == 0, "All nullifier read requests must be verified"
+            self.nullifier_tree_root,
+            unverified_nullifier_read_requests
         );
     }
 
@@ -113,8 +117,9 @@ impl<N> PublicValidationRequestProcessor<N> {
     }
 
     fn validate_public_data_read_requests(self) {
-        let hints = self.public_data_read_request_hints;
+        self.validate_public_data_hints();
 
+        let hints = self.public_data_read_request_hints;
         reset_mutable_data_read_requests(
             self.validation_requests.public_data_reads,
             hints.read_request_statuses,
@@ -123,5 +128,11 @@ impl<N> PublicValidationRequestProcessor<N> {
             hints.pending_read_hints,
             hints.leaf_data_read_hints
         );
+    }
+
+    fn validate_public_data_hints(self) {
+        for i in 0..self.public_data_hints.len() {
+            self.public_data_hints[i].validate(self.public_data_tree_root);
+        }
     }
 }
