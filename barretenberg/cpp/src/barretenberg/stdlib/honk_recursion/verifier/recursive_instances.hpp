@@ -8,9 +8,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     using Flavor = Flavor_;
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Instance = RecursiveVerifierInstance_<Flavor>;
-    using NativeInstance = bb::VerifierInstance_<typename Flavor::NativeFlavor>;
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
 
   public:
@@ -22,22 +20,6 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     typename ArrayType::iterator end() { return _data.end(); };
     Builder* builder;
 
-    RecursiveVerifierInstances_(Builder* builder,
-                                const std::shared_ptr<NativeInstance>& accumulator,
-                                const std::vector<std::shared_ptr<NativeVerificationKey>>& vks)
-        : builder(builder)
-    {
-        ASSERT(vks.size() == NUM - 1);
-
-        _data[0] = std::make_shared<Instance>(builder, accumulator);
-
-        size_t idx = 1;
-        for (auto& vk : vks) {
-            _data[idx] = std::make_shared<Instance>(builder, vk);
-            idx++;
-        }
-    }
-
     // Constructor from stdlib types
     RecursiveVerifierInstances_(Builder* builder,
                                 const std::shared_ptr<Instance>& accumulator,
@@ -45,6 +27,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
         : builder(builder)
     {
         ASSERT(vks.size() == NUM - 1);
+        // WORKTODO: I think this can just be _data[0] = accumulator; because accumulator should have already been
+        // constructed correctly..
         if (accumulator->is_accumulator) {
             _data[0] = accumulator;
         } else {

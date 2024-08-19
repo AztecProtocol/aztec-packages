@@ -19,7 +19,7 @@ void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 
     // Perform recursive folding verification
     FoldingVerifier folding_verifier{ builder.get(), stdlib_verifier_accum, { stdlib_instance_vk } };
-    auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof_(stdlib_proof);
+    auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     auto native_verifier_acc =
         std::make_shared<FoldVerifierInput::Instance>(recursive_verifier_accumulator->get_value());
 

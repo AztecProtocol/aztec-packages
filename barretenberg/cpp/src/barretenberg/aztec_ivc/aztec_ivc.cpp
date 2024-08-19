@@ -25,7 +25,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         // Perform folding recursive verification
         FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_vkey } };
-        auto verifier_accum = verifier.verify_folding_proof_(stdlib_proof);
+        auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
 
         // Perform databus commitment consistency checks and propagate return data commitments via public inputs

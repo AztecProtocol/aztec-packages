@@ -205,7 +205,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_verifier_instance_1,
                                                   { recursive_verification_key_2 } };
-        verifier.verify_folding_proof_(stdlib_proof);
+        verifier.verify_folding_proof(stdlib_proof);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
@@ -276,7 +276,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_verifier_instance_1,
                                                   { recursive_verification_key_2 } };
-        auto recursive_verifier_accumulator = verifier.verify_folding_proof_(stdlib_proof);
+        auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc = std::make_shared<InnerVerifierInstance>(recursive_verifier_accumulator->get_value());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
 
@@ -382,7 +382,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_verifier_instance_1,
                                                   { recursive_verification_key_2 } };
-        auto recursive_verifier_acc = verifier.verify_folding_proof_(stdlib_proof);
+        auto recursive_verifier_acc = verifier.verify_folding_proof(stdlib_proof);
 
         // Validate that the target sum between prover and verifier is now different
         EXPECT_FALSE(folding_proof.accumulator->target_sum == recursive_verifier_acc->target_sum.get_value());

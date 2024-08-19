@@ -116,7 +116,7 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
 
 template <class VerifierInstances>
 std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifier_<
-    VerifierInstances>::verify_folding_proof_(const StdlibProof<Builder>& proof)
+    VerifierInstances>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     using Transcript = typename Flavor::Transcript;
 

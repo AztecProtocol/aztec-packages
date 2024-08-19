@@ -42,10 +42,6 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     VerifierInstances instances;
 
-    ProtoGalaxyRecursiveVerifier_(Builder* builder, const VerifierInput& input_data)
-        : builder(builder)
-        , instances(VerifierInstances(builder, input_data.accumulator, input_data.instance_vks)){};
-
     // Constructor from stdlib verifier input
     ProtoGalaxyRecursiveVerifier_(Builder* builder,
                                   std::shared_ptr<Instance> accumulator,
@@ -108,9 +104,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * @details In the recursive setting this function doesn't return anything because the equality checks performed by
      * the recursive verifier, ensuring the folded ϕ*, e* and β* on the verifier side correspond to what has been sent
      * by the prover, are expressed as constraints.
-
+     *
      */
-    std::shared_ptr<Instance> verify_folding_proof_(const StdlibProof<Builder>&); // WORKTODO: becomes only version?
+    std::shared_ptr<Instance> verify_folding_proof(const StdlibProof<Builder>&); // WORKTODO: becomes only version?
 
     /**
      * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
