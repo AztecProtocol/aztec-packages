@@ -124,8 +124,9 @@ void ProtoGalaxyProver_<ProverInstances_>::deoptimise_univariates(
 }
 
 template <class ProverInstances_>
-ExtendedUnivariateWithRandomization ProtoGalaxyProver_<ProverInstances_>::batch_over_relations(
-    TupleOfTuplesOfUnivariates& univariate_accumulators, const CombinedRelationSeparator& alpha)
+ProtoGalaxyProver_<ProverInstances_>::ExtendedUnivariateWithRandomization ProtoGalaxyProver_<
+    ProverInstances_>::batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                            const CombinedRelationSeparator& alpha)
 {
     auto result = std::get<0>(std::get<0>(univariate_accumulators))
                       .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
