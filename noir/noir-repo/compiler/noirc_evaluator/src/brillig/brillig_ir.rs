@@ -94,12 +94,12 @@ pub(crate) struct BrilligContext<F, Registers> {
     next_section: usize,
     /// IR printer
     debug_show: DebugShow,
-    /// Wether this context can call procedures or not.
+    /// Whether this context can call procedures or not.
     /// This is used to prevent a procedure from calling another procedure.
     can_call_procedures: bool,
 }
 
-// Regular brillig context to codegen user defined functions
+/// Regular brillig context to codegen user defined functions
 impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
     pub(crate) fn new(enable_debug_trace: bool) -> BrilligContext<F, Stack> {
         BrilligContext {
