@@ -1197,6 +1197,34 @@ mod tests {
     }
 
     #[test]
+    fn iconst_opcode() {
+        let opcodes = &[
+            Opcode::Const {
+                destination: MemoryAddress(0),
+                bit_size: BitSize::Integer(MEMORY_ADDRESSING_BIT_SIZE),
+                value: FieldElement::from(8_usize),
+            },
+            Opcode::IndirectConst {
+                destination_pointer: MemoryAddress(0),
+                bit_size: BitSize::Integer(MEMORY_ADDRESSING_BIT_SIZE),
+                value: FieldElement::from(27_usize),
+            },
+        ];
+        let mut vm = VM::new(vec![], opcodes, vec![], &StubbedBlackBoxSolver);
+
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 0, return_data_size: 0 });
+
+        let VM { memory, .. } = vm;
+
+        let destination_value = memory.read(MemoryAddress::from(8));
+        assert_eq!(destination_value.to_field(), (27_usize).into());
+    }
+
+    #[test]
     fn load_opcode() {
         /// Brillig code for the following:
         ///     let mut sum = 0;
