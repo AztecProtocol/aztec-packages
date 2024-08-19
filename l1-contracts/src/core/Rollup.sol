@@ -37,6 +37,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bool isProven;
   }
 
+  // @note  The number of slots within which a block must be proven
+  //        This number is currently pulled out of thin air and should be replaced when we are not blind
+  // @todo  #8018
+  uint256 public constant TIMELINESS_PROVING_IN_SLOTS = 100;
+
   IRegistry public immutable REGISTRY;
   IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   IInbox public immutable INBOX;
@@ -62,12 +67,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //        timeliness requirements.
   bool public isDevNet = Constants.IS_DEV_NET == 1;
 
+  // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
+  //        Testing only. This should be removed eventually.
+  uint256 private assumeProvenUntilBlockNumber;
+
   constructor(
     IRegistry _registry,
     IAvailabilityOracle _availabilityOracle,
     IERC20 _fpcJuice,
-    bytes32 _vkTreeRoot
-  ) Leonidas(msg.sender) {
+    bytes32 _vkTreeRoot,
+    address _ares
+  ) Leonidas(_ares) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
     AVAILABILITY_ORACLE = _availabilityOracle;
@@ -81,6 +91,54 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     blocks[0] = BlockLog({archive: bytes32(0), slotNumber: 0, isProven: true});
     pendingBlockCount = 1;
     provenBlockCount = 1;
+  }
+
+  /**
+   * @notice  Prune the pending chain up to the last proven block
+   *
+   * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
+   */
+  function prune() external override(IRollup) {
+    if (pendingBlockCount == provenBlockCount) {
+      revert Errors.Rollup__NothingToPrune();
+    }
+
+    BlockLog storage firstPendingNotInProven = blocks[provenBlockCount];
+    uint256 prunableAtSlot =
+      uint256(firstPendingNotInProven.slotNumber) + TIMELINESS_PROVING_IN_SLOTS;
+    uint256 currentSlot = getCurrentSlot();
+
+    if (currentSlot < prunableAtSlot) {
+      revert Errors.Rollup__NotReadyToPrune(currentSlot, prunableAtSlot);
+    }
+
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingBlockCount
+    //        to the last block that was proven.
+    //        The reason we can do this, is that any new block proposed will overwrite a previous block
+    //        so no values should "survive". It it is however slightly odd for people reading
+    //        the chain separately from the contract without using pendingBlockCount as a boundary.
+    pendingBlockCount = provenBlockCount;
+
+    emit PrunedPending(provenBlockCount, pendingBlockCount);
+  }
+
+  /**
+   * Sets the assumeProvenUntilBlockNumber. Only the contract deployer can set it.
+   * @param blockNumber - New value.
+   */
+  function setAssumeProvenUntilBlockNumber(uint256 blockNumber)
+    external
+    override(ITestRollup)
+    onlyOwner
+  {
+    if (blockNumber > provenBlockCount && blockNumber <= pendingBlockCount) {
+      for (uint256 i = provenBlockCount; i < blockNumber; i++) {
+        blocks[i].isProven = true;
+        emit L2ProofVerified(i, "CHEAT");
+      }
+      _progressState();
+    }
+    assumeProvenUntilBlockNumber = blockNumber;
   }
 
   /**
@@ -289,7 +347,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       isProven: false
     });
 
-    bytes32 inHash = INBOX.consume();
+    // @note  The block number here will always be >=1 as the genesis block is at 0
+    bytes32 inHash = INBOX.consume(header.globalVariables.blockNumber);
     if (header.contentCommitment.inHash != inHash) {
       revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
     }
@@ -309,6 +368,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
 
     emit L2BlockProcessed(header.globalVariables.blockNumber);
+
+    // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
+    if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
+      blocks[header.globalVariables.blockNumber].isProven = true;
+      emit L2ProofVerified(header.globalVariables.blockNumber, "CHEAT");
+      _progressState();
+    }
   }
 
   /**

@@ -81,7 +81,7 @@ EOF
 resource "aws_launch_template" "bot_launch_template" {
   name                   = "${var.DEPLOY_TAG}-launch-template"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "m4.4xlarge"
+  instance_type          = "c6a.2xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -111,13 +111,13 @@ resource "aws_ec2_fleet" "bot_fleet" {
     override {
       subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az1_private_id
       availability_zone = "eu-west-2a"
-      max_price         = "0.4"
+      max_price         = "0.15"
     }
 
     override {
       subnet_id         = data.terraform_remote_state.setup_iac.outputs.subnet_az2_private_id
       availability_zone = "eu-west-2b"
-      max_price         = "0.4"
+      max_price         = "0.15"
     }
   }
 
@@ -150,7 +150,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
       command           = ["start", "--bot", "--pxe"]
       essential         = true
       cpu               = 8192
-      memoryReservation = 30720
+      memoryReservation = 14336
       portMappings = [
         {
           containerPort = 80
@@ -167,7 +167,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "BOT_PRIVATE_TRANSFERS_PER_TX", value = var.BOT_PRIVATE_TRANSFERS_PER_TX },
         { name = "BOT_PUBLIC_TRANSFERS_PER_TX", value = var.BOT_PUBLIC_TRANSFERS_PER_TX },
         { name = "BOT_TX_MINED_WAIT_SECONDS", value = var.BOT_TX_MINED_WAIT_SECONDS },
-        { name = "BOT_NO_WAIT_FOR_TRANSFERS", value = var.BOT_NO_WAIT_FOR_TRANSFERS },
+        { name = "BOT_FOLLOW_CHAIN", value = var.BOT_FOLLOW_CHAIN },
         { name = "AZTEC_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-1.local/${var.DEPLOY_TAG}/aztec-node-1/${var.API_KEY}" },
         { name = "PXE_PROVER_ENABLED", value = tostring(var.PROVING_ENABLED) },
         { name = "NETWORK", value = var.DEPLOY_TAG }
@@ -192,6 +192,7 @@ resource "aws_ecs_service" "aztec-bot" {
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
   force_new_deployment               = true
+  enable_execute_command             = true
 
   network_configuration {
     subnets = [

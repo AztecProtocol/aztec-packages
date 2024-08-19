@@ -14,7 +14,6 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
-  type ProverClient,
   type ProverConfig,
   PublicDataWitness,
   PublicSimulationOutput,
@@ -53,13 +52,12 @@ import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { createStore, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { AztecKVTxPool, InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
-import { createProverClient } from '@aztec/prover-client';
 import {
   AggregateTxValidator,
   DataTxValidator,
@@ -76,6 +74,7 @@ import {
   type ContractInstanceWithAddress,
   type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
+import { createValidatorClient } from '@aztec/validator-client';
 import { MerkleTrees, type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type AztecNodeConfig, getPackageInfo } from './config.js';
@@ -105,7 +104,6 @@ export class AztecNodeService implements AztecNode {
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: AztecKVStore,
-    private readonly prover: ProverClient | undefined,
     private txValidator: TxValidator,
     private telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:node'),
@@ -152,7 +150,13 @@ export class AztecNodeService implements AztecNode {
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), archiver);
+    const p2pClient = await createP2PClient(
+      config,
+      store,
+      new AztecKVTxPool(store, telemetry),
+      new InMemoryAttestationPool(),
+      archiver,
+    );
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
@@ -169,23 +173,19 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
-    const prover = await createProverClient(config, telemetry);
-
-    if (!prover && !config.disableSequencer) {
-      throw new Error("Can't start a sequencer without a prover");
-    }
+    const validatorClient = createValidatorClient(config, p2pClient);
 
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
       : await SequencerClient.new(
           config,
+          validatorClient,
           p2pClient,
           worldStateSynchronizer,
           archiver,
           archiver,
           archiver,
-          prover!,
           simulationProvider,
           telemetry,
         );
@@ -204,7 +204,6 @@ export class AztecNodeService implements AztecNode {
       config.version,
       getGlobalVariableBuilder(config),
       store,
-      prover,
       txValidator,
       telemetry,
       log,
@@ -217,10 +216,6 @@ export class AztecNodeService implements AztecNode {
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
-  }
-
-  public getProver(): ProverClient | undefined {
-    return this.prover;
   }
 
   public getBlockSource(): L2BlockSource {
@@ -339,9 +334,7 @@ export class AztecNodeService implements AztecNode {
     const timer = new Timer();
     this.log.info(`Received tx ${tx.getTxHash()}`);
 
-    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
-    if (invalidTxs.length > 0) {
-      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+    if (!(await this.isValidTx(tx))) {
       this.metrics.receivedTx(timer.ms(), false);
       return;
     }
@@ -381,7 +374,6 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
-    await this.prover?.stop();
     this.log.info(`Stopped`);
   }
 
@@ -768,10 +760,20 @@ export class AztecNodeService implements AztecNode {
     );
   }
 
+  public async isValidTx(tx: Tx): Promise<boolean> {
+    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
+    if (invalidTxs.length > 0) {
+      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+
+      return false;
+    }
+
+    return true;
+  }
+
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
     this.sequencer?.updateSequencerConfig(config);
-    await this.prover?.updateProverConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {
       const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
@@ -805,7 +807,7 @@ export class AztecNodeService implements AztecNode {
    * @returns An instance of a committed MerkleTreeOperations
    */
   async #getWorldState(blockNumber: L2BlockNumber) {
-    if (typeof blockNumber === 'number' && blockNumber < INITIAL_L2_BLOCK_NUM) {
+    if (typeof blockNumber === 'number' && blockNumber < INITIAL_L2_BLOCK_NUM - 1) {
       throw new Error('Invalid block number to get world state for: ' + blockNumber);
     }
 

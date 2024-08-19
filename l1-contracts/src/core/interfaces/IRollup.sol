@@ -2,18 +2,29 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+
 import {SignatureLib} from "../sequencer_selection/SignatureLib.sol";
 
 interface ITestRollup {
   function setDevNet(bool _devNet) external;
   function setVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
+  function setAssumeProvenUntilBlockNumber(uint256 blockNumber) external;
 }
 
 interface IRollup {
   event L2BlockProcessed(uint256 indexed blockNumber);
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event ProgressedState(uint256 provenBlockCount, uint256 pendingBlockCount);
+  event PrunedPending(uint256 provenBlockCount, uint256 pendingBlockCount);
+
+  function prune() external;
+
+  function INBOX() external view returns (IInbox);
+
+  function OUTBOX() external view returns (IOutbox);
 
   function publishAndProcess(
     bytes calldata _header,

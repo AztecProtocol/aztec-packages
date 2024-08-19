@@ -55,13 +55,12 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
+import { AuthRegistryContract, NewKeyRegistryContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceAddress, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-import { type ProverClient } from '@aztec/prover-client';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
@@ -100,6 +99,12 @@ if (typeof afterAll === 'function') {
 
 const getAztecUrl = () => {
   return PXE_URL;
+};
+
+export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
+  const privKeyRaw = hdAccount.getHdKey().privateKey;
+  return privKeyRaw === null ? null : Buffer.from(privKeyRaw);
 };
 
 export const setupL1Contracts = async (
@@ -141,6 +146,7 @@ export const setupL1Contracts = async (
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
+    salt: undefined,
   });
 
   return l1Data;
@@ -281,6 +287,8 @@ type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
+  /** Whether to skip deployment of protocol contracts (auth registry, etc) */
+  skipProtocolContracts?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -303,8 +311,6 @@ export type EndToEndContext = {
   logger: DebugLogger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** Proving jobs */
-  prover: ProverClient | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -320,6 +326,7 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
+  enableValidators = false,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
@@ -350,20 +357,27 @@ export async function setup(
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+  const publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+  const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, hdAccount, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  // Run the test with validators enabled
+  if (enableValidators) {
+    const validatorPrivKey = getPrivateKeyFromIndex(1);
+    config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+  }
+  config.disableValidator = !enableValidators;
 
   logger.verbose('Creating and synching an aztec node...');
 
@@ -379,32 +393,34 @@ export async function setup(
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1PublishRetryIntervalMS = 100;
+
   const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
-  const prover = aztecNode.getProver();
 
   logger.verbose('Creating a pxe...');
 
   const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-  logger.verbose('Deploying key registry...');
-  await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
-  );
-
-  logger.verbose('Deploying auth registry...');
-  await deployCanonicalAuthRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
-  );
-
-  if (enableGas) {
-    logger.verbose('Deploying Fee Juice...');
-    await deployCanonicalFeeJuice(
+  if (!config.skipProtocolContracts) {
+    logger.verbose('Deploying key registry...');
+    await deployCanonicalKeyRegistry(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
+
+    logger.verbose('Deploying auth registry...');
+    await deployCanonicalAuthRegistry(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+    );
+
+    if (enableGas) {
+      logger.verbose('Deploying Fee Juice...');
+      await deployCanonicalFeeJuice(
+        new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+      );
+    }
   }
 
-  const wallets = await createAccounts(pxe, numberOfAccounts);
+  const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
   const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
@@ -434,7 +450,6 @@ export async function setup(
     logger,
     cheatCodes,
     sequencer,
-    prover,
     teardown,
   };
 }
@@ -676,7 +691,7 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet) {
     return;
   }
 
-  const keyRegistry = await KeyRegistryContract.deploy(deployer)
+  const keyRegistry = await NewKeyRegistryContract.deploy(deployer)
     .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
     .deployed();
 

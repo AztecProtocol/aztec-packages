@@ -3,7 +3,6 @@ import { type PXE } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { createProvingJobSourceServer } from '@aztec/prover-client/prover-agent';
 import {
   type TelemetryClientConfig,
   createAndStartTelemetryClient,
@@ -33,9 +32,6 @@ export const startNode = async (
   };
 
   if (options.proverNode) {
-    // TODO(palla/prover-node) We need to tweak the semantics of disableProver so that it doesn't inject
-    // a null prover into the sequencer, but instead injects a circuit simulator, which is what the
-    // sequencer ultimately needs.
     userLog(`Running a Prover Node within a Node is not yet supported`);
     process.exit(1);
   }
@@ -50,7 +46,9 @@ export const startNode = async (
     } else {
       throw new Error('--node.publisherPrivateKey or --l1-mnemonic is required to deploy L1 contracts');
     }
-    await deployContractsToL1(nodeConfig, account!);
+    await deployContractsToL1(nodeConfig, account!, undefined, {
+      assumeProvenUntilBlockNumber: nodeSpecificOptions.assumeProvenUntilBlockNumber,
+    });
   }
 
   // if no publisher private key, then use l1Mnemonic
@@ -85,22 +83,11 @@ export const startNode = async (
     }
   }
 
-  if (!options.prover) {
-    userLog(`Prover is disabled, using mocked proofs`);
-    nodeConfig.disableProver = true;
-  }
-
   if (nodeConfig.p2pEnabled) {
     // ensure bootstrapNodes is an array
     if (nodeConfig.bootstrapNodes && typeof nodeConfig.bootstrapNodes === 'string') {
       nodeConfig.bootstrapNodes = (nodeConfig.bootstrapNodes as string).split(',');
     }
-  }
-
-  if (!nodeConfig.disableSequencer && nodeConfig.disableProver) {
-    // TODO(palla/prover-node) Sequencer should not need a prover unless we are running the prover
-    // within it, it should just need a circuit simulator. We need to refactor the sequencer so it can accept either.
-    throw new Error('Cannot run a sequencer without a prover');
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
@@ -112,11 +99,6 @@ export const startNode = async (
 
   // Add node to services list
   services.push({ node: nodeServer });
-
-  if (!nodeConfig.disableProver) {
-    const provingJobSource = createProvingJobSourceServer(node.getProver()!.getProvingJobSource());
-    services.push({ provingJobSource });
-  }
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop);

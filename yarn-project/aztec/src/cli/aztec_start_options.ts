@@ -1,7 +1,12 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node';
 import { botConfigMappings } from '@aztec/bot';
-import { type ConfigMapping, filterConfigMappings, isBooleanConfigValue } from '@aztec/foundation/config';
+import {
+  type ConfigMapping,
+  booleanConfigHelper,
+  filterConfigMappings,
+  isBooleanConfigValue,
+} from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
 import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
@@ -22,7 +27,7 @@ export interface AztecStartOption {
 
 export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
   const options: AztecStartOption[] = [];
-  for (const [key, { env, default: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
+  for (const [key, { env, defaultValue: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
     if (universalOptions.includes(key)) {
       continue;
     }
@@ -54,16 +59,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--sandbox.testAccounts',
       description: 'Deploy test accounts on sandbox start',
-      defaultValue: true,
       envVar: 'TEST_ACCOUNTS',
-      parseVal: val => ['1', true].includes(val),
+      ...booleanConfigHelper(true),
     },
     {
       flag: '--sandbox.enableGas',
       description: 'Enable gas on sandbox start',
-      defaultValue: false,
       envVar: 'ENABLE_GAS',
-      parseVal: val => ['1', true].includes(val),
+      ...booleanConfigHelper(),
     },
   ],
   API: [
@@ -135,13 +138,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--fee-juice-address <value>',
-      description: 'The deployed L1 gas token contract address',
+      description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
     },
     {
       flag: '--fee-juice-portal-address <value>',
-      description: 'The deployed L1 gas portal contract address',
+      description: 'The deployed L1 Fee Juice portal contract address',
       defaultValue: undefined,
       envVar: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
     },
@@ -169,8 +172,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--node.deployAztecContracts',
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
-      defaultValue: false,
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
+      ...booleanConfigHelper(),
+    },
+    {
+      flag: '--node.assumeProvenUntilBlockNumber',
+      description:
+        'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
+      envVar: 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER',
+      parseVal: (val: string) => parseInt(val, 10),
+      defaultValue: 0,
     },
     {
       flag: '--node.publisherPrivateKey <value>',
@@ -197,9 +208,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--p2p-enabled',
       description: 'Enable P2P subsystem',
-      defaultValue: false,
       envVar: 'P2P_ENABLED',
-      parseVal: val => ['1', true].includes(val),
+      ...booleanConfigHelper(),
     },
     ...getOptions('p2p', p2pConfigMappings),
   ],

@@ -1,17 +1,14 @@
 import {
+  type BlockAttestation,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
+  Signature,
   Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import {
-  type AllowedElement,
-  BlockProofError,
-  PROVING_STATUS,
-  type ProverClient,
-} from '@aztec/circuit-types/interfaces';
+import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, EthAddress, type GlobalVariables, type Header, IS_DEV_NET } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -21,10 +18,12 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
+import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type Attestation, type L1Publisher } from '../publisher/l1-publisher.js';
+import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -53,21 +52,21 @@ export class Sequencer {
   private allowedInSetup: AllowedElement[] = [];
   private allowedInTeardown: AllowedElement[] = [];
   private maxBlockSizeInBytes: number = 1024 * 1024;
-  private skipSubmitProofs: boolean = false;
   private metrics: SequencerMetrics;
 
   constructor(
     private publisher: L1Publisher,
+    private validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
-    private prover: ProverClient,
+    private blockBuilderFactory: BlockBuilderFactory,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
     private txValidatorFactory: TxValidatorFactory,
     telemetry: TelemetryClient,
-    config: SequencerConfig = {},
+    private config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.updateConfig(config);
@@ -115,10 +114,8 @@ export class Sequencer {
     if (config.allowedInTeardown) {
       this.allowedInTeardown = config.allowedInTeardown;
     }
-    // TODO(palla/prover) This flag should not be needed: the sequencer should be initialized with a blockprover
-    // that does not return proofs at all (just simulates circuits), and use that to determine whether to submit
-    // proofs or not.
-    this.skipSubmitProofs = !!config.sequencerSkipSubmitProofs;
+    // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
+    this.config = config;
   }
 
   /**
@@ -201,11 +198,14 @@ export class Sequencer {
       const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
       const currentTime = Math.floor(Date.now() / 1000);
       const elapsedSinceLastBlock = currentTime - lastBlockTime;
+      this.log.debug(
+        `Last block mined at ${lastBlockTime} current time is ${currentTime} (elapsed ${elapsedSinceLastBlock})`,
+      );
 
       // Do not go forward with new block if not enough time has passed since last block
       if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
         this.log.debug(
-          `Not creating block because not enough time has passed since last block (last block at ${lastBlockTime} current time ${currentTime})`,
+          `Not creating block because not enough time ${this.minSecondsBetweenBlocks} has passed since last block`,
         );
         return;
       }
@@ -318,11 +318,11 @@ export class Sequencer {
     const blockSize = Math.max(2, numRealTxs);
 
     const blockBuildingTimer = new Timer();
-    const prover = this.prover.createBlockProver(this.worldState.getLatest());
-    const blockTicket = await prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+    const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
+    const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-      processor.process(validTxs, blockSize, prover, this.txValidatorFactory.validatorForProcessedTxs()),
+      processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
     );
     if (failedTxs.length > 0) {
       const failedTxData = failedTxs.map(fail => fail.tx);
@@ -334,16 +334,16 @@ export class Sequencer {
     // less txs than the minimum. But that'd cause the entire block to be aborted and retried. Instead, we should
     // go back to the p2p pool and load more txs until we hit our minTxsPerBLock target. Only if there are no txs
     // we should bail.
-    if (processedTxs.length === 0 && !this.skipMinTxsPerBlockCheck(elapsedSinceLastBlock)) {
+    if (processedTxs.length === 0 && !this.skipMinTxsPerBlockCheck(elapsedSinceLastBlock) && this.minTxsPerBLock > 0) {
       this.log.verbose('No txs processed correctly to build block. Exiting');
-      prover.cancelBlock();
+      blockBuilder.cancelBlock();
       return;
     }
 
     await assertBlockHeight();
 
     // All real transactions have been added, set the block as full and complete the proving.
-    await prover.setBlockCompleted();
+    await blockBuilder.setBlockCompleted();
 
     // Here we are now waiting for the block to be proven.
     // TODO(@PhilWindle) We should probably periodically check for things like another
@@ -355,8 +355,8 @@ export class Sequencer {
 
     await assertBlockHeight();
 
-    // Block is proven, now finalise and publish!
-    const { block, aggregationObject, proof } = await prover.finaliseBlock();
+    // Block is ready, now finalise and publish!
+    const { block } = await blockBuilder.finaliseBlock();
 
     await assertBlockHeight();
 
@@ -387,23 +387,9 @@ export class Sequencer {
       this.metrics.recordFailedBlock();
       throw err;
     }
-
-    // Submit the proof if we have configured this sequencer to run with an actual prover.
-    // This is temporary while we submit one proof per block, but will have to change once we
-    // move onto proving batches of multiple blocks at a time.
-    if (aggregationObject && proof && !this.skipSubmitProofs) {
-      await this.publisher.submitProof(
-        block.header,
-        block.archive.root,
-        prover.getProverId(),
-        aggregationObject,
-        proof,
-      );
-      this.log.info(`Submitted proof for block ${block.number}`);
-    }
   }
 
-  protected async collectAttestations(block: L2Block): Promise<Attestation[] | undefined> {
+  protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
     // @todo  This should collect attestations properly and fix the ordering of them to make sense
     //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
     //        It is assuming that there will only be ONE (1) validator, so only one attestation
@@ -417,12 +403,30 @@ export class Sequencer {
     //                ;   ;
     //                /   \
     //  _____________/_ __ \_____________
-    if (IS_DEV_NET) {
+    if (IS_DEV_NET || !this.validatorClient) {
       return undefined;
     }
 
-    const myAttestation = await this.publisher.attest(block.archive.root.toString());
-    return [myAttestation];
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
+    const committee = await this.publisher.getCurrentEpochCommittee();
+    const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
+
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
+    // Dont do anything with the proposals for now - just collect them
+
+    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
+
+    this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
+    this.validatorClient.broadcastBlockProposal(proposal);
+
+    this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
+    const attestations = await this.validatorClient.collectAttestations(
+      proposal.header.globalVariables.slotNumber.toBigInt(),
+      numberOfRequiredAttestations,
+    );
+
+    // note: the smart contract requires that the signatures are provided in the order of the committee
+    return await orderAttestations(attestations, committee);
   }
 
   /**
@@ -432,9 +436,10 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: Attestation[]) {
+  protected async publishL2Block(block: L2Block, attestations?: Signature[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
+
     const publishedL2Block = await this.publisher.processL2Block(block, attestations);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
@@ -522,6 +527,14 @@ export enum SequencerState {
    */
   CREATING_BLOCK,
   /**
+   * Publishing blocks to validator peers. Will move to WAITING_FOR_ATTESTATIONS.
+   */
+  PUBLISHING_BLOCK_TO_PEERS,
+  /**
+   * The block has been published to peers, and we are waiting for attestations. Will move to PUBLISHING_CONTRACT_DATA.
+   */
+  WAITING_FOR_ATTESTATIONS,
+  /**
    * Sending the tx to L1 with encrypted logs and awaiting it to be mined. Will move back to PUBLISHING_BLOCK once finished.
    */
   PUBLISHING_CONTRACT_DATA,
@@ -533,4 +546,31 @@ export enum SequencerState {
    * Sequencer is stopped and not processing any txs from the pool.
    */
   STOPPED,
+}
+
+/** Order Attestations
+ *
+ * Returns attestation signatures in the order of a series of provided ethereum addresses
+ * The rollup smart contract expects attestations to appear in the order of the committee
+ *
+ * @todo: perform this logic within the memory attestation store instead?
+ */
+async function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Promise<Signature[]> {
+  // Create a map of sender addresses to BlockAttestations
+  const attestationMap = new Map<string, BlockAttestation>();
+
+  for (const attestation of attestations) {
+    const sender = await attestation.getSender();
+    if (sender) {
+      attestationMap.set(sender.toString(), attestation);
+    }
+  }
+
+  // Create the ordered array based on the orderAddresses, else return an empty signature
+  const orderedAttestations = orderAddresses.map(address => {
+    const addressString = address.toString();
+    return attestationMap.get(addressString)?.signature || Signature.empty();
+  });
+
+  return orderedAttestations;
 }

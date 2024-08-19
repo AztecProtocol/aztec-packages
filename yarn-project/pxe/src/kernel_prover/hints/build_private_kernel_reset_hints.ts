@@ -21,6 +21,7 @@ import {
   buildNoteHashReadRequestHints,
   buildNullifierReadRequestHints,
   buildTransientDataHints,
+  countAccumulatedItems,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -68,7 +69,9 @@ async function getMasterSecretKeysAndAppKeyGenerators(
   keyValidationRequests: Tuple<ScopedKeyValidationRequestAndGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
   oracle: ProvingDataOracle,
 ) {
-  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, KeyValidationHint.empty);
+  const keysHints = makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () =>
+    KeyValidationHint.nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX),
+  );
 
   let keyIndex = 0;
   for (let i = 0; i < keyValidationRequests.length; ++i) {
@@ -92,6 +95,7 @@ export async function buildPrivateKernelResetInputs(
   noteHashLeafIndexMap: Map<bigint, bigint>,
   noteHashNullifierCounterMap: Map<number, number>,
   validationRequestsSplitCounter: number,
+  shouldSilo: boolean,
   oracle: ProvingDataOracle,
 ) {
   const publicInputs = previousKernelData.publicInputs;
@@ -154,9 +158,11 @@ export async function buildPrivateKernelResetInputs(
     executionResult => executionResult.callStackItem.publicInputs.nullifierReadRequests,
   );
 
-  const [transientNullifierIndexesForNoteHashes, transientNoteHashIndexesForNullifiers] = buildTransientDataHints(
-    publicInputs.end.noteHashes,
-    publicInputs.end.nullifiers,
+  const noteHashes = publicInputs.end.noteHashes;
+  const nullifiers = publicInputs.end.nullifiers;
+  const { numTransientData, hints: transientDataIndexHints } = buildTransientDataHints(
+    noteHashes,
+    nullifiers,
     futureNoteHashReads,
     futureNullifierReads,
     noteHashNullifierCounterMap,
@@ -164,24 +170,39 @@ export async function buildPrivateKernelResetInputs(
     MAX_NULLIFIERS_PER_TX,
   );
 
+  const remainingNoteHashes = countAccumulatedItems(noteHashes) - numTransientData;
+
+  const remainingNullifiers = countAccumulatedItems(nullifiers) - numTransientData;
+
+  const numEncryptedLogHashes = countAccumulatedItems(publicInputs.end.encryptedLogsHashes);
+
   let privateInputs;
 
   for (const [sizeTag, hintSizes] of Object.entries(PRIVATE_RESET_VARIANTS)) {
+    const noSiloing =
+      !hintSizes.NOTE_HASH_SILOING_AMOUNT &&
+      !hintSizes.NULLIFIER_SILOING_AMOUNT &&
+      !hintSizes.ENCRYPTED_LOG_SILOING_AMOUNT;
+    const enoughSiloing =
+      hintSizes.NOTE_HASH_SILOING_AMOUNT >= remainingNoteHashes &&
+      hintSizes.NULLIFIER_SILOING_AMOUNT >= remainingNullifiers &&
+      hintSizes.ENCRYPTED_LOG_SILOING_AMOUNT >= numEncryptedLogHashes;
     if (
       hintSizes.NOTE_HASH_PENDING_AMOUNT >= noteHashPendingReadHints &&
       hintSizes.NOTE_HASH_SETTLED_AMOUNT >= noteHashSettledReadHints &&
       hintSizes.NULLIFIER_PENDING_AMOUNT >= nullifierPendingReadHints &&
       hintSizes.NULLIFIER_SETTLED_AMOUNT >= nullifierSettledReadHints &&
-      hintSizes.NULLIFIER_KEYS >= keysCount
+      hintSizes.NULLIFIER_KEYS >= keysCount &&
+      hintSizes.TRANSIENT_DATA_AMOUNT >= numTransientData &&
+      ((!shouldSilo && noSiloing) || (shouldSilo && enoughSiloing))
     ) {
       privateInputs = new PrivateKernelResetCircuitPrivateInputs(
         previousKernelData,
         new PrivateKernelResetHints(
-          transientNullifierIndexesForNoteHashes,
-          transientNoteHashIndexesForNullifiers,
           noteHashReadRequestHints,
           nullifierReadRequestHints,
           keysHints,
+          transientDataIndexHints,
           validationRequestsSplitCounter,
         ).trimToSizes(
           hintSizes.NOTE_HASH_PENDING_AMOUNT,
@@ -189,6 +210,7 @@ export async function buildPrivateKernelResetInputs(
           hintSizes.NULLIFIER_PENDING_AMOUNT,
           hintSizes.NULLIFIER_SETTLED_AMOUNT,
           hintSizes.NULLIFIER_KEYS,
+          hintSizes.TRANSIENT_DATA_AMOUNT,
         ),
         sizeTag,
       );

@@ -161,6 +161,7 @@ __metadata:
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -387,6 +388,7 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.5.0
     typescript: ^5.0.4
+    viem: ^2.7.15
   languageName: unknown
   linkType: soft
 
@@ -417,8 +419,10 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -665,6 +669,32 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/ivc-integration@workspace:ivc-integration":
+  version: 0.0.0-use.local
+  resolution: "@aztec/ivc-integration@workspace:ivc-integration"
+  dependencies:
+    "@aztec/bb-prover": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@msgpack/msgpack": ^3.0.0-beta2
+    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
+    "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
+    "@noir-lang/types": "portal:../../noir/packages/types"
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.7.23
+    change-case: ^5.4.4
+    jest: ^29.5.0
+    levelup: ^5.1.1
+    memdown: ^6.1.1
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
 "@aztec/key-store@workspace:^, @aztec/key-store@workspace:key-store":
   version: 0.0.0-use.local
   resolution: "@aztec/key-store@workspace:key-store"
@@ -836,6 +866,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     uint8arrays: ^5.0.3
+    viem: ^2.7.15
   languageName: unknown
   linkType: soft
 
@@ -903,6 +934,7 @@ __metadata:
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
@@ -986,6 +1018,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -997,9 +1030,11 @@ __metadata:
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
@@ -1136,6 +1171,31 @@ __metadata:
     supertest: ^6.3.3
     ts-node: ^10.9.1
     typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
+"@aztec/validator-client@workspace:^, @aztec/validator-client@workspace:validator-client":
+  version: 0.0.0-use.local
+  resolution: "@aztec/validator-client@workspace:validator-client"
+  dependencies:
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/p2p": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.7.23
+    jest: ^29.5.0
+    koa: ^2.14.2
+    koa-router: ^12.0.0
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^2.7.15
+  bin:
+    validator-client: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -3265,7 +3325,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.32.0
+    "@noir-lang/types": 0.33.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -3274,13 +3334,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.32.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=bd4828&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.33.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=e4c9c2&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.48.0
-    "@noir-lang/noirc_abi": 0.32.0
-    "@noir-lang/types": 0.32.0
-  checksum: fd5f51c35854f793f8ec20f8437a89a4cf87562f80adfd2870a56535f5faef4c75ce9a3f2f3daaa6ab3a77d125c18b55bd35247ff33d97c1d3f8d76f5b440749
+    "@noir-lang/acvm_js": 0.49.0
+    "@noir-lang/noirc_abi": 0.33.0
+    "@noir-lang/types": 0.33.0
+  checksum: 82d759db2487b4c2fd298ec989cb0f4547f5dfef4cc70bf37531e1d92e04bfecf425576497b8f63769a3249a584a1a31c2751615a2633a51b2dd815e296044b1
   languageName: node
   linkType: hard
 
@@ -3288,7 +3348,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.32.0
+    "@noir-lang/types": 0.33.0
   languageName: node
   linkType: soft
 
