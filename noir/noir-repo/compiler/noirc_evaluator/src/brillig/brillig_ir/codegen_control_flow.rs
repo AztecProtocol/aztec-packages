@@ -200,8 +200,11 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
 
             let current_revert_data_pointer = ctx.allocate_register();
             ctx.mov_instruction(current_revert_data_pointer, revert_data.pointer);
-            let revert_data_id = ctx.make_constant_instruction((error_selector as u128).into(), 64);
-            ctx.store_instruction(current_revert_data_pointer, revert_data_id.address);
+            ctx.indirect_const_instruction(
+                current_revert_data_pointer,
+                64,
+                (error_selector as u128).into(),
+            );
 
             ctx.codegen_usize_op_in_place(current_revert_data_pointer, BrilligBinaryOp::Add, 1);
             for (revert_variable, revert_param) in
@@ -238,7 +241,6 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
             ctx.trap_instruction(revert_data);
             ctx.deallocate_register(revert_data.pointer);
             ctx.deallocate_register(current_revert_data_pointer);
-            ctx.deallocate_single_addr(revert_data_id);
         });
     }
 

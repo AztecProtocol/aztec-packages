@@ -339,6 +339,13 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                 self.memory.write(*destination, MemoryValue::new_from_field(*value, *bit_size));
                 self.increment_program_counter()
             }
+            Opcode::IndirectConst { destination_pointer, bit_size, value } => {
+                // Convert our destination_pointer to an address
+                let destination = self.memory.read_ref(*destination_pointer);
+                // Use our usize destination index to set the value in memory
+                self.memory.write(destination, MemoryValue::new_from_field(*value, *bit_size));
+                self.increment_program_counter()
+            }
             Opcode::BlackBox(black_box_op) => {
                 match evaluate_black_box(
                     black_box_op,
