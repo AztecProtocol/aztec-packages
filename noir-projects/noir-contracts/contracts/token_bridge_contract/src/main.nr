@@ -17,7 +17,7 @@ contract TokenBridge {
     // Storage structure, containing all storage, and specifying what slots they use.
     #[aztec(storage)]
     struct Storage {
-        token: PublicMutable<AztecAddress>,
+        token: SharedImmutable<AztecAddress>,
         portal_address: SharedImmutable<EthAddress>,
     }
 
@@ -25,7 +25,7 @@ contract TokenBridge {
     #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(token: AztecAddress, portal_address: EthAddress) {
-        storage.token.write(token);
+        storage.token.initialize(token);
         storage.portal_address.initialize(portal_address);
     }
     // docs:end:token_bridge_storage_and_constructor
@@ -55,7 +55,7 @@ contract TokenBridge {
         );
 
         // Mint tokens
-        Token::at(storage.token.read()).mint_public(to, amount).call(&mut context);
+        Token::at(storage.token.read_public()).mint_public(to, amount).call(&mut context);
     }
     // docs:end:claim_public
 
@@ -74,7 +74,7 @@ contract TokenBridge {
         context.message_portal(storage.portal_address.read_public(), content);
 
         // Burn tokens
-        Token::at(storage.token.read()).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
+        Token::at(storage.token.read_public()).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
     }
     // docs:end:exit_to_l1_public
     // docs:start:claim_private
@@ -101,6 +101,22 @@ contract TokenBridge {
         TokenBridge::at(context.this_address())._call_mint_on_token(amount, secret_hash_for_redeeming_minted_notes).enqueue(&mut context);
     }
     // docs:end:claim_private
+
+    #[aztec(private)]
+    fn claim_private_for_caller(
+        amount: Field,
+        secret_for_L1_to_L2_message_consumption: Field // secret used to consume the L1 to L2 message
+    ) {
+        // Consume L1 to L2 message and emit nullifier
+        let content_hash = get_mint_private_content_hash(0, amount);
+        context.consume_l1_to_l2_message(
+            content_hash,
+            secret_for_L1_to_L2_message_consumption,
+            storage.portal_address.read_private()
+        );
+
+        Token::at(storage.token.read_private()).mint_private_for(context.msg_sender(), amount).call(&mut context);
+    }
 
     // docs:start:exit_to_l1_private
     // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
@@ -131,7 +147,7 @@ contract TokenBridge {
     #[aztec(public)]
     #[aztec(view)]
     fn get_token() -> AztecAddress {
-        storage.token.read()
+        storage.token.read_public()
     }
     // docs:end:get_token
 
@@ -142,7 +158,7 @@ contract TokenBridge {
     #[aztec(public)]
     #[aztec(internal)]
     fn _call_mint_on_token(amount: Field, secret_hash: Field) {
-        Token::at(storage.token.read()).mint_private(amount, secret_hash).call(&mut context);
+        Token::at(storage.token.read_public()).mint_private(amount, secret_hash).call(&mut context);
     }
     // docs:end:call_mint_on_token
 
@@ -150,7 +166,7 @@ contract TokenBridge {
     #[aztec(public)]
     #[aztec(internal)]
     fn _assert_token_is_same(token: AztecAddress) {
-        assert(storage.token.read().eq(token), "Token address is not the same as seen in storage");
+        assert(storage.token.read_public().eq(token), "Token address is not the same as seen in storage");
     }
     // docs:end:assert_token_is_same
 }

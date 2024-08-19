@@ -147,11 +147,16 @@ export class L1PortalManager {
   }
 
   public bridgeTokensPublic(to: AztecAddress, amount: bigint, mint = false): Promise<L2Claim> {
-    return this.bridgeTokens(to, amount, mint, /* privateTransfer */ false);
+    return this.bridgeTokens(to, amount, mint, /* privateTransfer */ false, false);
   }
 
-  public bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint = false): Promise<L2Claim> {
-    return this.bridgeTokens(to, amount, mint, /* privateTransfer */ true);
+  public bridgeTokensPrivate(
+    to: AztecAddress,
+    amount: bigint,
+    mint = false,
+    newPrivateTransfer = false,
+  ): Promise<L2Claim> {
+    return this.bridgeTokens(to, amount, mint, /* privateTransfer */ true, newPrivateTransfer);
   }
 
   private async bridgeTokens(
@@ -159,6 +164,7 @@ export class L1PortalManager {
     amount: bigint,
     mint: boolean,
     privateTransfer: boolean,
+    newPrivateTransfer: boolean,
   ): Promise<L2Claim> {
     const [claimSecret, claimSecretHash] = generateClaimSecret();
 
@@ -175,19 +181,23 @@ export class L1PortalManager {
       const secretHash = computeSecretHash(secret);
       this.logger.info('Sending L1 tokens to L2 to be claimed privately');
       ({ result: messageHash } = await this.contract.simulate.depositToAztecPrivate([
-        secretHash.toString(),
+        newPrivateTransfer ? Fr.ZERO.toString() : secretHash.toString(),
         amount,
         claimSecretHash.toString(),
       ]));
 
       await this.publicClient.waitForTransactionReceipt({
         hash: await this.contract.write.depositToAztecPrivate([
-          secretHash.toString(),
+          newPrivateTransfer ? Fr.ZERO.toString() : secretHash.toString(),
           amount,
           claimSecretHash.toString(),
         ]),
       });
-      this.logger.info(`Redeem shield secret: ${secret.toString()}, secret hash: ${secretHash.toString()}`);
+      this.logger.info(
+        newPrivateTransfer
+          ? `Redeem shield secret: ${secret.toString()}, secret hash: ${secretHash.toString()}`
+          : 'Redeem bridged tokens with claim_private_for.',
+      );
     } else {
       this.logger.info('Sending L1 tokens to L2 to be claimed publicly');
       ({ result: messageHash } = await this.contract.simulate.depositToAztecPublic([

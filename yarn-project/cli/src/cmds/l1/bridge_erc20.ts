@@ -15,6 +15,7 @@ export async function bridgeERC20(
   tokenAddress: EthAddress,
   portalAddress: EthAddress,
   privateTransfer: boolean,
+  newPrivateTransfer: boolean,
   mint: boolean,
   json: boolean,
   log: LogFn,
@@ -29,7 +30,7 @@ export async function bridgeERC20(
   let claimSecret: Fr;
   let messageHash: `0x${string}`;
   if (privateTransfer) {
-    ({ claimSecret, messageHash } = await manager.bridgeTokensPrivate(recipient, amount, mint));
+    ({ claimSecret, messageHash } = await manager.bridgeTokensPrivate(recipient, amount, mint, newPrivateTransfer));
   } else {
     ({ claimSecret, messageHash } = await manager.bridgeTokensPublic(recipient, amount, mint));
   }

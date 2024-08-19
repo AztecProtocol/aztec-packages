@@ -221,6 +221,13 @@ contract Token {
     }
     // docs:end:mint_private
 
+    #[aztec(private)]
+    fn mint_private_for(to: AztecAddress, amount: Field) {
+        let minter = context.msg_sender();
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, minter, to));
+        Token::at(context.this_address()).assert_minter_and_mint(minter, amount).enqueue(&mut context);
+    }
+
     // TODO: Nuke this - test functions do not belong to token contract!
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
