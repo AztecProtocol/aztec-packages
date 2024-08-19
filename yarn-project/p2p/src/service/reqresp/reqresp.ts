@@ -1,82 +1,143 @@
-// TODO: credit lodestar impl for inspiration
+// @attribution: lodestar impl for inspiration
+import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
-import {pipe} from 'it-pipe';
-import { Logger, createDebugLogger } from "@aztec/foundation/log";
-import { Libp2p } from "libp2p";
-import {Connection, IncomingStreamData, PeerId, Stream, StreamHandler} from "@libp2p/interface";
-// I think that I need an underlying up and req resp handler that will have the 
-// underlying logic to add listeners for certain protocol messages
+import { type IncomingStreamData, type PeerId } from '@libp2p/interface';
+import { pipe } from 'it-pipe';
+import { type Libp2p } from 'libp2p';
+import { type Uint8ArrayList } from 'uint8arraylist';
 
-// Whenever i receive a message, we need to switch the handler based on who has called it
+import { pingHandler, statusHandler } from './handlers.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL } from './interface.js';
 
-const PING_PROTOCOL = "/aztec/ping/0.1.0";
+/**
+ * A mapping from a protocol to a handler function
+ */
+const REQ_RESP_PROTOCOLS = {
+  [PING_PROTOCOL]: pingHandler,
+  [STATUS_PROTOCOL]: statusHandler,
+};
 
-// Start with just the ping
 export class ReqResp {
-    protected readonly logger: Logger;
+  protected readonly logger: Logger;
 
+  private abortController: AbortController = new AbortController();
 
-    // TOOD: rate limiters etc
-    private abortController: AbortController = new AbortController();
+  constructor(protected readonly libp2p: Libp2p) {
+    this.logger = createDebugLogger('aztec:p2p:reqresp');
+  }
 
-    constructor(
-        protected readonly libp2p: Libp2p,
-    ) {
-        this.logger = createDebugLogger('aztec:p2p:reqresp');
+  /**
+   * Start the reqresp service
+   */
+  async start() {
+    // Register all protocol handlers
+    for (const [protocol, _] of Object.entries(REQ_RESP_PROTOCOLS)) {
+      await this.libp2p.handle(protocol, streamHandler.bind(this));
     }
+  }
 
-    async start() {
-        await this.registerPing();
+  /**
+   * Stop the reqresp service
+   */
+  async stop() {
+    // Unregister all handlers
+    for (const [protocol, _] of Object.keys(REQ_RESP_PROTOCOLS)) {
+      this.libp2p.unhandle(protocol);
     }
+    await this.libp2p.stop();
+    this.abortController.abort();
+  }
 
-    async stop() {
-        await this.libp2p.stop();
-        this.abortController.abort();
+  /**
+   * Send a request to peers, returns the first response
+   *
+   * @param protocol - The protocol being requested
+   * @param payload - The payload to send
+   * @returns - The response from the peer, otherwise undefined
+   */
+  async sendRequest(protocol: string, payload: Buffer): Promise<Buffer | undefined> {
+    // Get active peers
+    const peers = this.libp2p.getPeers();
+
+    // Attempt to ask all of our peers
+    for (const peer of peers) {
+      const response = await this.sendRequestToPeer(peer, protocol, payload);
+
+      // If we get a response, return it, otherwise we iterate onto the next peer
+      if (response) {
+        return response;
+      }
     }
+    return undefined;
+  }
 
-    async registerPing(){ // todo types
-        return this.libp2p.handle(PING_PROTOCOL, handlePing.bind(this))
+  /**
+   * Sends a request to a specific peer
+   *
+   * @param peerId - The peer to send the request to
+   * @param protocol - The protocol to use to request
+   * @param payload - The payload to send
+   * @returns If the request is successful, the response is returned, otherwise undefined
+   */
+  async sendRequestToPeer(peerId: PeerId, protocol: string, payload: Buffer): Promise<Buffer | undefined> {
+    try {
+      const stream = await this.libp2p.dialProtocol(peerId, protocol);
+
+      const result = await pipe(
+        // Send message in two chunks - protocol && payload
+        [Buffer.from(protocol), Buffer.from(payload)],
+        stream,
+        this.readMessage,
+      );
+      return result;
+    } catch (e) {
+      this.logger.warn(`Failed to send request to peer ${peerId.publicKey}`);
+      return undefined;
     }
+  }
 
-    async performPing(peerId: PeerId) {
-        const stream = await this.libp2p.dialProtocol(peerId, PING_PROTOCOL);
-
-        const result = await pipe(
-            [Buffer.from("ping")],
-            stream,
-            async function(source) {
-                for await (const chunk of source) {
-                    return Buffer.from(chunk.subarray()).toString();
-                }
-            }
-        );
-        return result;
+  /**
+   * Read a message returned from a stream into a single buffer
+   */
+  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<Buffer> {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of source) {
+      chunks.push(chunk.subarray());
     }
+    const messageData = chunks.concat();
+    return Buffer.concat(messageData);
+  }
 }
 
-async function handlePing(streamData: IncomingStreamData) {
-    // ADD TIMEOUTS
-    
-    const { stream, connection } = streamData;
-    try {
-        await pipe(
-            // TODO: types
-            stream,
-            async function* (source: any) {
-              for await (const chunk of source) {
-                const msg = Buffer.from(chunk.subarray()).toString();
-                if (msg === 'ping') {
-                  yield Uint8Array.from(Buffer.from('pong'));
-                }
-              }
-            },
-            stream
-          );
+/**
+ * Stream Handler
+ * Reads the incoming stream, determines the protocol, then triggers the appropriate handler
+ *
+ * @param param0 - The incoming stream data
+ */
+async function streamHandler({ stream }: IncomingStreamData) {
+  try {
+    await pipe(
+      stream,
+      async function* (source: any) {
+        let protocol: string | undefined = undefined;
+        for await (const chunk of source) {
+          // The first message should contain the protocol, subsequent messages should contain the payload
 
-    } catch (e: any){
-        console.log(e)
-    }
-    finally {
-        await stream.close();
-    }
+          const msg = Buffer.from(chunk.subarray()).toString();
+          if (!protocol) {
+            protocol = msg.toString();
+          } else {
+            const handler: any = REQ_RESP_PROTOCOLS[protocol];
+            yield handler(msg);
+          }
+        }
+      },
+      stream,
+    );
+  } catch (e: any) {
+    console.log(e);
+  } finally {
+    await stream.close();
+  }
 }
