@@ -64,20 +64,20 @@ template <typename FF> struct PowPolynomial {
      */
     FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
 
-    // /**
-    //  * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
-    //  */
-    // template <typename Bool> FF univariate_eval(const FF& challenge, const Bool& dummy_round) const
-    // {
-    //     FF beta_or_dummy;
-    //     if (!dummy_round.get_value()) {
-    //         beta_or_dummy = betas[current_element_idx];
-    //     } else {
-    //         beta_or_dummy = FF::from_witness(challenge.get_context(), 1);
-    //     }
-    //     FF beta_val = FF::conditional_assign(dummy_round, FF::from_witness(challenge.get_context(), 1),
-    //     beta_or_dummy); return (FF(1) + (challenge * (beta_val - FF(1))));
-    // }
+    /**
+     * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
+     */
+    template <typename Bool> FF univariate_eval(const FF& challenge, const Bool& dummy_round) const
+    {
+        FF beta_or_dummy;
+        if (current_element_idx < betas.size()) {
+            beta_or_dummy = betas[current_element_idx];
+        } else {
+            beta_or_dummy = FF::from_witness(challenge.get_context(), 1);
+        }
+        FF beta_val = FF::conditional_assign(dummy_round, FF::from_witness(challenge.get_context(), 1), beta_or_dummy);
+        return (FF(1) + (challenge * (beta_val - FF(1))));
+    }
 
     /**
      * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
@@ -101,7 +101,7 @@ template <typename FF> struct PowPolynomial {
      */
     template <typename Builder> void partially_evaluate(const FF& challenge, const stdlib::bool_t<Builder>& dummy)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
+        FF current_univariate_eval = univariate_eval(challenge, dummy);
         // If dummy round, make no update to the partial_evaluation_result
         partial_evaluation_result = FF::conditional_assign(
             dummy, partial_evaluation_result, partial_evaluation_result * current_univariate_eval);

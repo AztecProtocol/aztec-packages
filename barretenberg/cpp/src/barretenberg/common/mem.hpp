@@ -47,7 +47,6 @@ inline void* protected_aligned_alloc(size_t alignment, size_t size)
     // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
     t = aligned_alloc(alignment, size);
     if (t == nullptr) {
-        info("allingment ", alignment);
         info("bad alloc of size: ", size);
         std::abort();
     }
