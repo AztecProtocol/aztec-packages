@@ -86,6 +86,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
                                            transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
     auto pcs_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    info("PCS verified: ", pcs_verified);
     return sumcheck_verified.value() && pcs_verified;
 }
 

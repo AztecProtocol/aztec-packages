@@ -828,7 +828,7 @@ void contract(const std::string& output_path, const std::string& vk_path)
  */
 void contract_honk(const std::string& output_path, const std::string& vk_path)
 {
-    using VerificationKey = UltraFlavor::VerificationKey;
+    using VerificationKey = UltraKeccakFlavor::VerificationKey;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
@@ -1157,6 +1157,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
 void proof_as_fields_honk(const std::string& proof_path, const std::string& output_path)
 {
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
+    info("proof length: ", proof.size());
     auto json = to_json(proof);
 
     if (output_path == "-") {
@@ -1468,6 +1469,9 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraFlavor>(bytecode_path, output_path);
+        } else if (command == "write_vk_ultra_keccak_honk") {
+            std::string output_path = get_option(args, "-o", "./target/vk");
+            write_vk_honk<UltraKeccakFlavor>(bytecode_path, output_path);
         } else if (command == "prove_mega_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<MegaFlavor>(bytecode_path, witness_path, output_path);
