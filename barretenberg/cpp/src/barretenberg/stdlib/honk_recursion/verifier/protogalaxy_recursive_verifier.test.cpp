@@ -256,11 +256,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         // Create a recursive folding verifier circuit for the folding proof of the two instances
         OuterBuilder folding_circuit;
 
-        // WORKTODO: this is kind of brittle because I need to pass in the instance->vk here instead of just the
-        // instance because the construcrtor otherwise will think the instance is an accumulatior and the constructor
-        // will break
         auto recursive_verifier_instance_1 =
-            std::make_shared<RecursiveVerifierInstance>(&folding_circuit, verifier_instance_1->verification_key);
+            std::make_shared<RecursiveVerifierInstance>(&folding_circuit, verifier_instance_1);
 
         auto recursive_verification_key_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, verifier_instance_2->verification_key);
