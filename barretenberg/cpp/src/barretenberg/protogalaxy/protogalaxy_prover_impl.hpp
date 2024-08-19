@@ -368,6 +368,21 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     }
 };
 
+template <class ProverInstances_>
+std::vector<typename bb::ProtoGalaxyProver_<ProverInstances_>::FF> bb::ProtoGalaxyProver_<
+    ProverInstances_>::update_gate_challenges(const FF perturbator_challenge,
+                                              const std::vector<FF>& gate_challenges,
+                                              const std::vector<FF>& round_challenges)
+{
+    auto log_instance_size = gate_challenges.size();
+    std::vector<FF> next_gate_challenges(log_instance_size);
+
+    for (size_t idx = 0; idx < log_instance_size; idx++) {
+        next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
+    }
+    return next_gate_challenges;
+}
+
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
