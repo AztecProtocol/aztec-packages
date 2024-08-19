@@ -289,8 +289,8 @@ function parseNoirFile(fileContent: string): ParsedContent {
     const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(.+?);/) || [];
 
     if (!name || !value) {
-      // eslint-disable-next-line no-console
       if (!line.includes('use crate')) {
+        // eslint-disable-next-line no-console
         console.warn(`Unknown content: ${line}`);
       }
       return;
