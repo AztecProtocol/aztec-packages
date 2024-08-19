@@ -262,10 +262,12 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto recursive_verification_key_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, verifier_instance_2->verification_key);
 
+        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&folding_circuit, folding_proof.proof);
+
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_verifier_instance_1,
                                                   { recursive_verification_key_2 } };
-        verifier.verify_folding_proof(folding_proof.proof);
+        verifier.verify_folding_proof_(stdlib_proof);
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
