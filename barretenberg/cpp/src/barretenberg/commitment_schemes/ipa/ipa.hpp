@@ -134,7 +134,7 @@ template <typename Curve_> class IPA {
                                               const std::shared_ptr<Transcript>& transcript)
    {
 
-        Polynomial polynomial = opening_claim.polynomial;
+        const Polynomial& polynomial = opening_claim.polynomial;
 
         // clang-format on
         auto poly_length = static_cast<size_t>(polynomial.size());
