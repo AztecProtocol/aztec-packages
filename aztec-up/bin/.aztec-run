@@ -11,6 +11,7 @@ DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
 INHERIT_USER=${INHERIT_USER:-1}
+SSH_AUTH_SOCK_WARNING_FILE="$(dirname $0)/ssh_auth_sock_warning.lock"
 
 if [[ -n "${NETWORK:-}" ]]; then
   VERSION=$NETWORK
@@ -27,6 +28,19 @@ r="\033[0m"
 
 function warn {
   echo -e "${y}$1${r}"
+}
+
+mac_ssh_auth_sock_warn() {
+    echo ""
+    warn "#####################################################################################"
+    warn "# WARNING: SSH_AUTH_SOCK is set to the default macOS ssh-agent in /private/tmp/...  #"
+    warn "# Unfortunately this is not supported in Docker and specially problematic if using  #"
+    warn "# VirtioFS (https://github.com/docker/for-mac/issues/6375)                          #"
+    warn "#                                                                                   #"
+    warn "# To get rid of this warning, either set SSH_AUTH_SOCK to a different value or run  #"
+    warn "# aztec ignore-mac-os-default-ssh-agent                                             #"
+    warn "#####################################################################################"
+    echo ""
 }
 
 if ! command -v docker &>/dev/null; then
@@ -105,7 +119,7 @@ done
 
 DOCKER_ENV="-e HOME=$HOME"
 for env in ${ENV_VARS_TO_INJECT:-}; do
-  if [ -n "${!env:-}" ]; then
+  if [[ $env != "SSH_AUTH_SOCK" ]] && [[ -n "${!env:-}" ]]; then
     # First substitute any reference to localhost with our host gateway.
     env=${env//localhost/host.docker.internal}
     # Inject into container.
@@ -119,16 +133,28 @@ if [[ -z "${SKIP_PORT_ASSIGNMENT:-}" ]]; then
   port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
 fi
 
+SSH_HACK=false
+
 ssh_agent_forwarding=""
-if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-  ssh_agent_forwarding="-v $(realpath $SSH_AUTH_SOCK):$SSH_AUTH_SOCK"
-  if [ "$UNAME" == "Darwin" ]; then
-    # Docker never fixed the issue with SSH_AUTH_SOCK on macOS, so we need to do this workaround if running a user other than root
-    # in case the user is running the default agent
-    # https://github.com/docker/for-mac/issues/4242#issuecomment-604890394
-    docker run -it --privileged --pid=host ubuntu:noble nsenter -t 1 -m -u -n -i sh -c 'chmod o+w /run/host-services/ssh-auth.sock'
+if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* ]]; then
+  if [[ "$UNAME" == "Darwin" ]]; then
+    if [[ "$SSH_AUTH_SOCK" == "/private/tmp/com.apple.launchd."* && ! -f "$SSH_AUTH_SOCK_WARNING_FILE" ]]; then
+        mac_ssh_auth_sock_warn
+    fi
+    .ssh-hack --load
+    SSH_HACK=true
+    SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock"
+    ssh_agent_forwarding="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
+  else
+    ssh_agent_forwarding="-v $(realpath $SSH_AUTH_SOCK):$SSH_AUTH_SOCK"
   fi
+  DOCKER_ENV+=" -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+  echo ""
+  echo "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK}. Enabling SSH agent forwarding."
+  echo ""
 fi
+
+echo $DOCKER_ENV
 
 docker run \
   -ti \
@@ -139,5 +165,9 @@ docker run \
   $port_assignment \
   ${DOCKER_ENV:-} \
   ${DOCKER_HOST_BINDS:-} \
-  ${DOCKER_USER:-} \
   $IMAGE:$VERSION ${preserved_args[@]:-}
+
+
+if [[ "$SSH_HACK" == "true" ]]; then
+  ./.ssh-hack --unload
+fi

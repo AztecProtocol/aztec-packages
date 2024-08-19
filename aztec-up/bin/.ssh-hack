@@ -1,0 +1,11 @@
+#!/bin/bash
+
+LINK_FILE="$HOME/Library/LaunchAgents/link-ssh-auth-sock.plist"
+
+if [ "${1:-}" == "--load" ]; then
+    cat ./link-ssh-auth-sock.plist.template | sed -e "s+NEW_SSH_AUTH_SOCK+$SSH_AUTH_SOCK+g" > "$LINK_FILE"
+    launchctl load -F "$LINK_FILE" || true
+elif [ -e "$LINK_FILE" ]; then
+    launchctl unload -F "$LINK_FILE" || true
+    rm -rf "$LINK_FILE"
+fi

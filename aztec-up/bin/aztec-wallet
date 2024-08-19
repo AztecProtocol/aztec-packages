@@ -3,8 +3,15 @@ set -euo pipefail
 
 export SKIP_PORT_ASSIGNMENT=1
 export WALLET_DATA_DIRECTORY=$(dirname $0)/wallet-data
-export ENV_VARS_TO_INJECT="SSH_AUTH_SOCK WALLET_DATA_DIRECTORY"
+
+ENV_VARS_TO_INJECT="WALLET_DATA_DIRECTORY"
 
 mkdir -p $WALLET_DATA_DIRECTORY
+
+if [[ "$*" == *"-t ecdsasecp256r1ssh"* ]]; then 
+    ENV_VARS_TO_INJECT="$ENV_VARS_TO_INJECT SSH_AUTH_SOCK" 
+fi
+
+export ENV_VARS_TO_INJECT
 
 $(dirname $0)/.aztec-run aztecprotocol/cli-wallet $@
