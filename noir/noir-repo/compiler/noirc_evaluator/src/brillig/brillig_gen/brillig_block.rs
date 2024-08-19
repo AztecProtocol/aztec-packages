@@ -265,18 +265,32 @@ impl<'block> BrilligBlock<'block> {
                 );
                 match assert_message {
                     Some(ConstrainError::UserDefined(selector, values)) => {
-                        let payload_values =
-                            vecmap(values, |value| self.convert_ssa_value(*value, dfg));
-                        let payload_as_params = vecmap(values, |value| {
-                            let value_type = dfg.type_of_value(*value);
-                            FunctionContext::ssa_type_to_parameter(&value_type)
-                        });
-                        self.brillig_context.codegen_constrain_with_revert_data(
-                            condition,
-                            payload_values,
-                            payload_as_params,
-                            selector.as_u64(),
-                        );
+                        if let Some(constants) =
+                            Self::flattened_constants(values.iter().copied(), dfg)
+                        {
+                            let constants_with_bit_sizes: Vec<_> = constants
+                                .into_iter()
+                                .map(|(value, typ)| (value, typ.bit_size()))
+                                .collect();
+                            self.brillig_context.codegen_constrain_with_immediate_revert_data(
+                                condition,
+                                &constants_with_bit_sizes,
+                                selector.as_u64(),
+                            );
+                        } else {
+                            let payload_values =
+                                vecmap(values, |value| self.convert_ssa_value(*value, dfg));
+                            let payload_as_params = vecmap(values, |value| {
+                                let value_type = dfg.type_of_value(*value);
+                                FunctionContext::ssa_type_to_parameter(&value_type)
+                            });
+                            self.brillig_context.codegen_constrain_with_revert_data(
+                                condition,
+                                payload_values,
+                                payload_as_params,
+                                selector.as_u64(),
+                            );
+                        }
                     }
                     Some(ConstrainError::Intrinsic(message)) => {
                         self.brillig_context.codegen_constrain(condition, Some(message.clone()));
@@ -1940,6 +1954,32 @@ impl<'block> BrilligBlock<'block> {
                 unreachable!("ICE: Cannot get length of {array_variable:?}")
             }
         }
+    }
+
+    fn flattened_constants(
+        value_ids: impl Iterator<Item = ValueId>,
+        dfg: &DataFlowGraph,
+    ) -> Option<Vec<(FieldElement, Type)>> {
+        let mut constants = vec![];
+        for value_id in value_ids {
+            let value: crate::ssa::ir::map::Id<Value> = dfg.resolve(value_id);
+            match &dfg[value] {
+                Value::NumericConstant { constant, typ } => {
+                    constants.push((*constant, typ.clone()));
+                }
+                Value::Array { array, .. } => {
+                    if let Some(sub_constants) =
+                        Self::flattened_constants(array.iter().copied(), dfg)
+                    {
+                        constants.extend(sub_constants);
+                    } else {
+                        return None;
+                    }
+                }
+                _ => return None,
+            }
+        }
+        Some(constants)
     }
 }
 
