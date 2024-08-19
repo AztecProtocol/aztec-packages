@@ -24,7 +24,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         auto stdlib_instance_vk = std::make_shared<RecursiveVerificationKey>(&circuit, instance_vk);
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, fold_output.proof);
 
-        FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { instance_vk } } };
+        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_instance_vk } };
         auto verifier_accum = verifier.verify_folding_proof_(stdlib_proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
     }
