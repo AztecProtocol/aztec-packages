@@ -29,7 +29,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             self.make_usize_constant_instruction(0_usize.into())
         };
 
-        let step_register = step.unwrap_or_else(ReservedRegisters::usize_one());
+        let step_register = step.unwrap_or(ReservedRegisters::usize_one());
 
         let (loop_section, loop_label) = self.reserve_next_section_label();
         self.enter_section(loop_section);
