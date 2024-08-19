@@ -500,7 +500,7 @@ export class ProvingOrchestrator implements BlockProver {
         );
       }
 
-      logger.info(`Successfully proven block ${l2Block.number}!`);
+      logger.info(`Orchestrator finalised block ${l2Block.number}`);
 
       this.provingState.block = l2Block;
 

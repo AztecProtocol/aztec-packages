@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.49.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.49.1...barretenberg.js-v0.49.2) (2024-08-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.49.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.49.0...barretenberg.js-v0.49.1) (2024-08-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.49.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.48.0...barretenberg.js-v0.49.0) (2024-08-15)
+
+
+### Miscellaneous
+
+* Pin yarn versions in noir-projects and bb/ts ([#7988](https://github.com/AztecProtocol/aztec-packages/issues/7988)) ([83f33a1](https://github.com/AztecProtocol/aztec-packages/commit/83f33a1c131c89c2113bea0527cfa5586529714c))
+
 ## [0.48.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.47.1...barretenberg.js-v0.48.0) (2024-08-12)
 
 

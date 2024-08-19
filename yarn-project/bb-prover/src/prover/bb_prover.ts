@@ -594,7 +594,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { circuitOutput: output, proof };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
@@ -627,11 +627,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async createAvmProof(input: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
-    const cleanupDir: boolean = !process.env.AVM_PROVING_PRESERVE_WORKING_DIR;
     const operation = async (bbWorkingDirectory: string): Promise<ProofAndVerificationKey> => {
-      if (!cleanupDir) {
-        logger.info(`Preserving working directory ${bbWorkingDirectory}`);
-      }
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       const rawProof = await fs.readFile(provingResult.proofPath!);
@@ -664,7 +660,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { proof, verificationKey };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation, cleanupDir);
+    return await this.runInDirectory(operation);
   }
 
   public async getTubeProof(
@@ -696,7 +692,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return { tubeVK, tubeProof };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -755,7 +751,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         proof,
       };
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -808,7 +804,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
     };
 
-    await runInDirectory(this.config.bbWorkingDirectory, operation);
+    await this.runInDirectory(operation);
   }
 
   /**
@@ -880,7 +876,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         true,
       );
     };
-    return await runInDirectory(this.config.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -1013,5 +1009,17 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     return proof;
+  }
+
+  private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
+    return runInDirectory(
+      this.config.bbWorkingDirectory,
+      (dir: string) =>
+        fn(dir).catch(err => {
+          logger.error(`Error running operation at ${dir}: ${err}`);
+          throw err;
+        }),
+      this.config.bbSkipCleanup,
+    );
   }
 }

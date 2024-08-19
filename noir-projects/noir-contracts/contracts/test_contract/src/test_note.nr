@@ -1,7 +1,4 @@
-use dep::aztec::{
-    note::{note_header::NoteHeader, note_interface::NoteInterface}, hash::pedersen_hash,
-    context::PrivateContext
-};
+use dep::aztec::{note::{note_header::NoteHeader, note_interface::NoteInterface}, context::PrivateContext};
 
 global TEST_NOTE_LEN: Field = 1;
 // TEST_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
@@ -18,14 +15,14 @@ struct TestNote {
 
 impl NoteInterface<TEST_NOTE_LEN, TEST_NOTE_BYTES_LENGTH> for TestNote {
 
-    fn compute_note_hash_and_nullifier(self, _context: &mut PrivateContext) -> (Field, Field) {
+    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
-        (0, 0)
+        0
     }
 
-    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
+    fn compute_nullifier_without_context(self) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
-        (0, 0)
+        0
     }
 }
 

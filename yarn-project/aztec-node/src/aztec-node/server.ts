@@ -52,7 +52,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { createStore, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { AztecKVTxPool, InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
@@ -74,6 +74,7 @@ import {
   type ContractInstanceWithAddress,
   type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
+import { createValidatorClient } from '@aztec/validator-client';
 import { MerkleTrees, type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type AztecNodeConfig, getPackageInfo } from './config.js';
@@ -149,7 +150,13 @@ export class AztecNodeService implements AztecNode {
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, store, new AztecKVTxPool(store, telemetry), archiver);
+    const p2pClient = await createP2PClient(
+      config,
+      store,
+      new AztecKVTxPool(store, telemetry),
+      new InMemoryAttestationPool(),
+      archiver,
+    );
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
@@ -166,11 +173,14 @@ export class AztecNodeService implements AztecNode {
 
     const simulationProvider = await createSimulationProvider(config, log);
 
+    const validatorClient = createValidatorClient(config, p2pClient);
+
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
       : await SequencerClient.new(
           config,
+          validatorClient,
           p2pClient,
           worldStateSynchronizer,
           archiver,
@@ -324,9 +334,7 @@ export class AztecNodeService implements AztecNode {
     const timer = new Timer();
     this.log.info(`Received tx ${tx.getTxHash()}`);
 
-    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
-    if (invalidTxs.length > 0) {
-      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+    if (!(await this.isValidTx(tx))) {
       this.metrics.receivedTx(timer.ms(), false);
       return;
     }
@@ -750,6 +758,17 @@ export class AztecNodeService implements AztecNode {
       returns,
       processedTx.gasUsed,
     );
+  }
+
+  public async isValidTx(tx: Tx): Promise<boolean> {
+    const [_, invalidTxs] = await this.txValidator.validateTxs([tx]);
+    if (invalidTxs.length > 0) {
+      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+
+      return false;
+    }
+
+    return true;
   }
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
