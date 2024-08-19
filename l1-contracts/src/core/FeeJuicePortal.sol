@@ -13,9 +13,7 @@ import {IFeeJuicePortal} from "./interfaces/IFeeJuicePortal.sol";
 import {DataStructures} from "./libraries/DataStructures.sol";
 import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
-// docs:start:content_hash_sol_import
 import {Hash} from "./libraries/Hash.sol";
-// docs:end:content_hash_sol_import
 
 contract FeeJuicePortal is IFeeJuicePortal, Ownable {
   using SafeERC20 for IERC20;
@@ -63,7 +61,6 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
     _transferOwnership(address(0));
   }
 
-  // docs:start:deposit_public
   /**
    * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
    * @param _to - The aztec address of the recipient
