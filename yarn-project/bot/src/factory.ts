@@ -16,7 +16,9 @@ export class BotFactory {
   private log = createDebugLogger('aztec:bot');
 
   constructor(private readonly config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}) {
-    this.node = dependencies.node;
+    if (config.flushSetupTransactions && !dependencies.node) {
+      throw new Error(`Either a node client or node url must be provided if transaction flushing is requested`);
+    }
     if (!dependencies.pxe && !config.pxeUrl) {
       throw new Error(`Either a PXE client or a PXE URL must be provided`);
     }
@@ -28,6 +30,7 @@ export class BotFactory {
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
     this.pxe = createPXEClient(config.pxeUrl!);
+    this.node = dependencies.node;
   }
 
   /**
@@ -57,9 +60,9 @@ export class BotFactory {
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
       const sentTx = account.deploy();
-      if (this.config.flushSetupTransactions && this.node) {
+      if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
-        await this.node.flushTxs();
+        await this.node!.flushTxs();
       }
       this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
@@ -90,9 +93,9 @@ export class BotFactory {
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
-      if (this.config.flushSetupTransactions && this.node) {
+      if (this.config.flushSetupTransactions) {
         this.log.verbose('Flushing transactions');
-        await this.node.flushTxs();
+        await this.node!.flushTxs();
       }
       this.log.verbose('Waiting for token setup to settle');
       return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
@@ -120,9 +123,9 @@ export class BotFactory {
       return;
     }
     const sentTx = new BatchCall(token.wallet, calls).send();
-    if (this.config.flushSetupTransactions && this.node) {
+    if (this.config.flushSetupTransactions) {
       this.log.verbose('Flushing transactions');
-      await this.node.flushTxs();
+      await this.node!.flushTxs();
     }
     this.log.verbose('Waiting for token mint to settle');
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
