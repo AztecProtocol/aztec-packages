@@ -97,13 +97,24 @@ export class WalletDB {
   }
 
   tryRetrieveAlias(arg: string) {
+    try {
+      return this.retrieveAlias(arg);
+    } catch (e) {
+      return arg;
+    }
+  }
+
+  retrieveAlias(arg: string) {
     if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
       const [type, ...alias] = arg.split(':');
       const data = this.#aliases.get(`${type}:${alias.join(':') ?? 'last'}`);
-      return data ? data.toString() : arg;
+      if (!data) {
+        throw new Error(`Could not find alias ${arg}`);
+      }
+      return data.toString();
+    } else {
+      throw new Error(`Aliases must start with one of ${Aliases.join(', ')}`);
     }
-
-    return arg;
   }
 
   async storeAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string, metadata: Buffer) {

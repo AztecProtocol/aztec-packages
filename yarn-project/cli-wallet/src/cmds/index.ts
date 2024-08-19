@@ -372,13 +372,13 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (noteName, storageFieldName, _options, command) => {
       const { addNote } = await import('./add_note.js');
       const options = command.optsWithGlobals();
-      const { contractArtifact: artifactPathPromise, contractAddress, address, rpcUrl, fields, hash } = options;
+      const { contractArtifact: artifactPathPromise, contractAddress, address, rpcUrl, body, hash } = options;
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const account = await createOrRetrieveAccount(client, address, db);
       const wallet = await account.getWallet();
 
-      await addNote(wallet, address, contractAddress, noteName, storageFieldName, artifactPath, hash, fields, log);
+      await addNote(wallet, address, contractAddress, noteName, storageFieldName, artifactPath, hash, body, log);
     });
 
   return program;
