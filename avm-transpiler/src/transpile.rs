@@ -699,7 +699,7 @@ fn generate_set_instruction(
 ) -> AvmInstruction {
     AvmInstruction {
         opcode: AvmOpcode::SET,
-        indirect: if indirect { Some(FIRST_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
+        indirect: if indirect { Some(ZEROTH_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
         tag: Some(tag),
         operands: vec![
             // const
