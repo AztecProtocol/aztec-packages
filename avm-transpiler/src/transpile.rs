@@ -1128,6 +1128,7 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
             BrilligOpcode::Const { bit_size: BitSize::Field, .. } => 2,
+            BrilligOpcode::IndirectConst { bit_size: BitSize::Field, .. } => 2,
             BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
             _ => 1,
         };
