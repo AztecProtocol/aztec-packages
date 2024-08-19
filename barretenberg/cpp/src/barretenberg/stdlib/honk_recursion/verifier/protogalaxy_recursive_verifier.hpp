@@ -110,7 +110,6 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
 
      */
-    std::shared_ptr<Instance> verify_folding_proof(const HonkProof&);
     std::shared_ptr<Instance> verify_folding_proof_(const StdlibProof<Builder>&); // WORKTODO: becomes only version?
 
     /**
