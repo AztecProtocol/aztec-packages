@@ -56,3 +56,7 @@ variable "BOT_COUNT" {
   type    = string
   default = "1"
 }
+
+variable "BOT_FLUSH_SETUP_TRANSACTIONS" {
+  type = bool
+}
