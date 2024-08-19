@@ -123,6 +123,20 @@ impl DebugShow {
         debug_println!(self.enable_debug_trace, "  MOV {}, {}", destination, source);
     }
 
+    /// Emits a `imov` instruction.
+    pub(crate) fn indirect_mov_instruction(
+        &self,
+        destination_pointer: MemoryAddress,
+        source_pointer: MemoryAddress,
+    ) {
+        debug_println!(
+            self.enable_debug_trace,
+            "  IMOV {}, {}",
+            destination_pointer,
+            source_pointer
+        );
+    }
+
     /// Emits a conditional `mov` instruction.
     pub(crate) fn conditional_mov_instruction(
         &self,

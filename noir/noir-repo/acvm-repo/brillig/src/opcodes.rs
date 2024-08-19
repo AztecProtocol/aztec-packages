@@ -246,6 +246,10 @@ pub enum BrilligOpcode<F> {
         destination: MemoryAddress,
         source: MemoryAddress,
     },
+    IndirectMov {
+        destination_pointer: MemoryAddress,
+        source_pointer: MemoryAddress,
+    },
     /// destination = condition > 0 ? source_a : source_b
     ConditionalMov {
         destination: MemoryAddress,
