@@ -42,10 +42,9 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     VerifierInstances instances;
 
-    // Constructor from stdlib verifier input
     ProtoGalaxyRecursiveVerifier_(Builder* builder,
-                                  std::shared_ptr<Instance> accumulator,
-                                  std::vector<std::shared_ptr<VerificationKey>> instance_vks)
+                                  const std::shared_ptr<Instance>& accumulator,
+                                  const std::vector<std::shared_ptr<VerificationKey>>& instance_vks)
         : builder(builder)
         , instances(VerifierInstances(builder, accumulator, instance_vks)){};
 
@@ -106,7 +105,7 @@ template <class VerifierInstances> class ProtoGalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
      *
      */
-    std::shared_ptr<Instance> verify_folding_proof(const StdlibProof<Builder>&); // WORKTODO: becomes only version?
+    std::shared_ptr<Instance> verify_folding_proof(const StdlibProof<Builder>&);
 
     /**
      * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
