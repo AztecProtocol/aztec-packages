@@ -121,7 +121,7 @@ fi
 
 ssh_agent_forwarding=""
 if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-  ssh_agent_forwarding="-v /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock -e SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock"
+  ssh_agent_forwarding="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
 fi
 
 docker run \
