@@ -31,8 +31,8 @@ export class ReqResp {
    */
   async start() {
     // Register all protocol handlers
-    for (const [protocol, _] of Object.entries(REQ_RESP_PROTOCOLS)) {
-      await this.libp2p.handle(protocol, streamHandler.bind(this));
+    for (const protocol of Object.keys(REQ_RESP_PROTOCOLS)) {
+      await this.libp2p.handle(protocol, this.streamHandler);
     }
   }
 
@@ -41,8 +41,8 @@ export class ReqResp {
    */
   async stop() {
     // Unregister all handlers
-    for (const [protocol, _] of Object.keys(REQ_RESP_PROTOCOLS)) {
-      this.libp2p.unhandle(protocol);
+    for (const protocol of Object.keys(REQ_RESP_PROTOCOLS)) {
+      await this.libp2p.unhandle(protocol);
     }
     await this.libp2p.stop();
     this.abortController.abort();
@@ -107,37 +107,37 @@ export class ReqResp {
     const messageData = chunks.concat();
     return Buffer.concat(messageData);
   }
-}
 
-/**
- * Stream Handler
- * Reads the incoming stream, determines the protocol, then triggers the appropriate handler
- *
- * @param param0 - The incoming stream data
- */
-async function streamHandler({ stream }: IncomingStreamData) {
-  try {
-    await pipe(
-      stream,
-      async function* (source: any) {
-        let protocol: string | undefined = undefined;
-        for await (const chunk of source) {
-          // The first message should contain the protocol, subsequent messages should contain the payload
+  /**
+   * Stream Handler
+   * Reads the incoming stream, determines the protocol, then triggers the appropriate handler
+   *
+   * @param param0 - The incoming stream data
+   */
+  private async streamHandler({ stream }: IncomingStreamData) {
+    try {
+      await pipe(
+        stream,
+        async function* (source: any) {
+          let protocol: string | undefined = undefined;
+          for await (const chunk of source) {
+            // The first message should contain the protocol, subsequent messages should contain the payload
 
-          const msg = Buffer.from(chunk.subarray()).toString();
-          if (!protocol) {
-            protocol = msg.toString();
-          } else {
-            const handler: any = REQ_RESP_PROTOCOLS[protocol];
-            yield handler(msg);
+            const msg = Buffer.from(chunk.subarray()).toString();
+            if (!protocol) {
+              protocol = msg.toString();
+            } else {
+              const handler: any = REQ_RESP_PROTOCOLS[protocol];
+              yield handler(msg);
+            }
           }
-        }
-      },
-      stream,
-    );
-  } catch (e: any) {
-    console.log(e);
-  } finally {
-    await stream.close();
+        },
+        stream,
+      );
+    } catch (e: any) {
+      this.logger.warn(e);
+    } finally {
+      await stream.close();
+    }
   }
 }

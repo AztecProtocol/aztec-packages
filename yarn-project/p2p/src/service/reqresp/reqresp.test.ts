@@ -52,9 +52,9 @@ const createNodes = async (numberOfNodes: number): Promise<ReqRespNode[]> => {
   return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp()));
 };
 
-const startNodes = async (nodes: ReqRespNode[]): Promise<void> => {
+const startNodes = async (nodes: ReqRespNode[]) => {
   for (const node of nodes) {
-    node.req.start();
+    await node.req.start();
   }
 };
 
@@ -97,7 +97,7 @@ describe('ReqResp', () => {
     const nodes = await createNodes(2);
     const { req: pinger } = nodes[0];
 
-    startNodes(nodes);
+    await startNodes(nodes);
 
     // connect the nodes
     await connectToPeers(nodes);
@@ -117,13 +117,13 @@ describe('ReqResp', () => {
 
     const { req: pinger } = nodes[0];
     const { req: ponger } = nodes[1];
-    startNodes(nodes);
+    await startNodes(nodes);
 
     // connect the nodes
     await connectToPeers(nodes);
     await sleep(500);
 
-    ponger.stop();
+    void ponger.stop();
 
     // It should return undefined if it cannot dial the peer
     const res = await pinger.sendRequest(PING_PROTOCOL, Buffer.from('ping'));
@@ -142,8 +142,8 @@ describe('ReqResp', () => {
     await sleep(500);
 
     // Stop the second middle two nodes
-    nodes[1].req.stop();
-    nodes[2].req.stop();
+    void nodes[1].req.stop();
+    void nodes[2].req.stop();
 
     // send from the first node
     const res = await nodes[0].req.sendRequest(PING_PROTOCOL, Buffer.from('ping'));
