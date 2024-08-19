@@ -290,7 +290,9 @@ function parseNoirFile(fileContent: string): ParsedContent {
 
     if (!name || !value) {
       // eslint-disable-next-line no-console
-      console.warn(`Unknown content: ${line}`);
+      if (!line.includes('use crate')) {
+        console.warn(`Unknown content: ${line}`);
+      }
       return;
     }
 
