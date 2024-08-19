@@ -392,7 +392,9 @@ export class Sequencer {
       } satisfies L2BlockBuiltStats,
     );
 
-    this.log.verbose(`Flushing completed`);
+    if (this.isFlushing) {
+      this.log.verbose(`Flushing completed`);
+    }
     this.isFlushing = false;
 
     try {
