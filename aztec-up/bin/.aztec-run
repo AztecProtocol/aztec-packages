@@ -121,7 +121,13 @@ fi
 
 ssh_agent_forwarding=""
 if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-  ssh_agent_forwarding="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+  ssh_agent_forwarding="-v $(realpath $SSH_AUTH_SOCK):$SSH_AUTH_SOCK"
+  if [ "$UNAME" == "Darwin" ]; then
+    # Docker never fixed the issue with SSH_AUTH_SOCK on macOS, so we need to do this workaround if running a user other than root
+    # in case the user is running the default agent
+    # https://github.com/docker/for-mac/issues/4242#issuecomment-604890394
+    docker run -it --privileged --pid=host ubuntu:noble nsenter -t 1 -m -u -n -i sh -c 'chmod o+w /run/host-services/ssh-auth.sock'
+  fi
 fi
 
 docker run \
