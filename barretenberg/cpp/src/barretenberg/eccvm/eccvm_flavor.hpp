@@ -7,6 +7,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
@@ -523,7 +524,7 @@ class ECCVMFlavor {
             }
 
             // compute polynomials for transcript columns
-            run_loop_in_parallel(transcript_rows.size(), [&](size_t start, size_t end) {
+            parallel_for_range(transcript_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     transcript_accumulator_empty[i] = transcript_rows[i].accumulator_empty;
                     transcript_add[i] = transcript_rows[i].q_add;
@@ -574,7 +575,7 @@ class ECCVMFlavor {
                 transcript_accumulator_y[i] = transcript_accumulator_y[i - 1];
             }
 
-            run_loop_in_parallel(point_table_rows.size(), [&](size_t start, size_t end) {
+            parallel_for_range(point_table_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
                     // coefficient). All other rows in the point_table_rows represent active wnaf gates (i.e.
@@ -604,7 +605,7 @@ class ECCVMFlavor {
             });
 
             // compute polynomials for the msm columns
-            run_loop_in_parallel(msm_rows.size(), [&](size_t start, size_t end) {
+            parallel_for_range(msm_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     msm_transition[i] = static_cast<int>(msm_rows[i].msm_transition);
                     msm_add[i] = static_cast<int>(msm_rows[i].q_add);

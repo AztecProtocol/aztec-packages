@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.49.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.1...aztec-package-v0.49.2) (2024-08-15)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.49.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.0...aztec-package-v0.49.1) (2024-08-15)
+
+
+### Miscellaneous
+
+* Sync alphanet back to master ([#7970](https://github.com/AztecProtocol/aztec-packages/issues/7970)) ([523724d](https://github.com/AztecProtocol/aztec-packages/commit/523724d35a874eea8355e9f7b080a9d84985808d))
+
+## [0.49.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.48.0...aztec-package-v0.49.0) (2024-08-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* Sequencer no longer proves ([#7860](https://github.com/AztecProtocol/aztec-packages/issues/7860))
+
+### Miscellaneous
+
+* Enable execute command on aws ecs services ([#7975](https://github.com/AztecProtocol/aztec-packages/issues/7975)) ([4331bc6](https://github.com/AztecProtocol/aztec-packages/commit/4331bc615427970fe99b1c9a29038a55cd7d9071))
+* Sequencer no longer proves ([#7860](https://github.com/AztecProtocol/aztec-packages/issues/7860)) ([7168290](https://github.com/AztecProtocol/aztec-packages/commit/71682901b04215d78c613f627a0a46a642001019))
+* Terraform template for prover-node ([#7846](https://github.com/AztecProtocol/aztec-packages/issues/7846)) ([546f946](https://github.com/AztecProtocol/aztec-packages/commit/546f9463f2fbc37ba43dbcd8d11cedfae52d480b))
+
 ## [0.48.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.47.1...aztec-package-v0.48.0) (2024-08-12)
 
 

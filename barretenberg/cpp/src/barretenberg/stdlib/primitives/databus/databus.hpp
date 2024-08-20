@@ -1,8 +1,8 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
-#include "barretenberg/stdlib/honk_recursion/verifier/recursive_instances.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/recursive_instances.hpp"
 #include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb::stdlib {
@@ -225,6 +225,9 @@ template <class Builder> class DataBusDepot {
 
     void assert_equality_of_commitments(Commitment& P0, Commitment& P1)
     {
+        if (P0.get_value() != P1.get_value()) { // debug print indicating consistency check failure
+            info("DataBusDepot: Databus consistency check failed!");
+        }
         P0.x.assert_equal(P1.x);
         P0.y.assert_equal(P1.y);
     }
