@@ -81,7 +81,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
 
     // Initialize accumulator proving key polynomials
     auto accumulator_polys = next_accumulator->proving_key.polynomials.get_all();
-    run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
+    parallel_for_threshold(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
         for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
             auto& acc_poly = accumulator_polys[poly_idx];
             for (auto& acc_el : acc_poly) {
@@ -93,7 +93,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Fold the proving key polynomials
     for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
         auto input_polys = instances[inst_idx]->proving_key.polynomials.get_all();
-        run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
+        parallel_for_threshold(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
             for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
                 auto& acc_poly = accumulator_polys[poly_idx];
                 auto& inst_poly = input_polys[poly_idx];

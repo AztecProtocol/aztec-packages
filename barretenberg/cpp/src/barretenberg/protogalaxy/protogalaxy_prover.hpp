@@ -163,7 +163,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         std::mutex evaluation_mutex;
 #endif
         auto linearly_dependent_contribution_accumulator = FF(0);
-        run_loop_in_parallel(instance_size, [&](size_t start_row, size_t end_row) {
+        parallel_for_threshold(instance_size, [&](size_t start_row, size_t end_row) {
             auto thread_accumulator = FF(0);
             for (size_t row = start_row; row < end_row; row++) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
@@ -220,7 +220,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         auto prev_level_width = prev_level_coeffs.size();
         // we need degree + 1 terms to represent the intermediate polynomials
         std::vector<std::vector<FF>> level_coeffs(prev_level_width >> 1, std::vector<FF>(degree + 1, 0));
-        run_loop_in_parallel(
+        parallel_for_threshold(
             prev_level_width >> 1,
             [&](size_t start, size_t end) {
                 for (size_t node = start << 1; node < end << 1; node += 2) {
@@ -253,7 +253,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         auto width = full_honk_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width >> 1, std::vector<FF>(2, 0));
-        run_loop_in_parallel(width >> 1, [&](size_t start, size_t end) {
+        parallel_for_threshold(width >> 1, [&](size_t start, size_t end) {
             // Run loop in parallel can divide the domain in such way that the indices are odd, which we can't tolerate
             // here, so first we divide the width by two, enable parallelism and then reconstruct even start and end
             for (size_t node = start << 1; node < end << 1; node += 2) {
