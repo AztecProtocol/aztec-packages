@@ -206,7 +206,12 @@ end-to-end-base:
         && apt-get install -y wget gnupg \
         && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
         && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-        && apt update && apt install curl chromium nodejs netcat-openbsd -y \
+        && wget -O kubectl "https://dl.k8s.io/release/$(wget -qO- https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+        && chmod +x kubectl && mv kubectl /usr/local/bin/kubectl \
+        && wget -O ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-$(uname)-amd64 \
+        && chmod +x ./kind && mv ./kind /usr/local/bin/kind \
+        && wget -O - https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
+        && apt update && apt install wget chromium nodejs netcat-openbsd -y \
         && rm -rf /var/lib/apt/lists/*
     ENV CHROME_BIN="/usr/bin/chromium"
     ENV PATH=/opt/foundry/bin:$PATH
