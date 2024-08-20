@@ -23,11 +23,9 @@ if [ "${2:-}" == "--permanent" ]; then
 else
     if [ "${1:-}" == "load" ]; then
         echo "Symlinking $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK."
-        mv $ORIGINAL_SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK.bak
         ln -sf $SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK
     elif [ "${1:-}" == "unload" ]; then
         echo "Removing link from $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK."
         unlink $SSH_AUTH_SOCK
-        mv $ORIGINAL_SSH_AUTH_SOCK.bak $ORIGINAL_SSH_AUTH_SOCK
     fi
 fi 
