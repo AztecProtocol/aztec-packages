@@ -254,8 +254,8 @@ export-end-to-end:
 
 export-e2e-test-images:
     BUILD +export-aztec
-    BUILD +export-end-to-end
     BUILD +export-cli-wallet
+    BUILD +export-end-to-end
 
 format-check:
     FROM +build
