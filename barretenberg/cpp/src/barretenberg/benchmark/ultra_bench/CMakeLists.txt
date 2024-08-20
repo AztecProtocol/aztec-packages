@@ -5,6 +5,5 @@ barretenberg_module(
   stdlib_keccak
   stdlib_pedersen_hash
   stdlib_poseidon2
-  crypto_merkle_tree
   plonk
 )
