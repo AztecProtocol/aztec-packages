@@ -2,8 +2,6 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
 import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
@@ -19,8 +17,8 @@ import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
-import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
+import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 
 /**
  * We are using the same blocks as from Rollup.t.sol.
@@ -35,7 +33,6 @@ contract DevNetTest is DecoderBase {
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
-  PortalERC20 internal portalERC20;
 
   AvailabilityOracle internal availabilityOracle;
 
@@ -57,17 +54,15 @@ contract DevNetTest is DecoderBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry();
+    registry = new Registry(address(this));
     availabilityOracle = new AvailabilityOracle();
-    portalERC20 = new PortalERC20();
-    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0));
+    rollup = new Rollup(
+      registry, availabilityOracle, IFeeJuicePortal(address(0)), bytes32(0), address(this)
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup));
-
-    // mint some tokens to the rollup
-    portalERC20.mint(address(rollup), 1000000);
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
@@ -156,7 +151,6 @@ contract DevNetTest is DecoderBase {
 
     availabilityOracle.publish(body);
 
-    uint256 toConsume = inbox.toConsume();
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
@@ -179,8 +173,6 @@ contract DevNetTest is DecoderBase {
     if (ree.shouldRevert) {
       return;
     }
-
-    assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
     bytes32 l2ToL1MessageTreeRoot;
     {
@@ -211,9 +203,13 @@ contract DevNetTest is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
-    assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+      assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    } else {
+      assertEq(root, bytes32(0), "Invalid outbox root");
+    }
 
     assertEq(rollup.archive(), archive, "Invalid archive");
   }
@@ -225,9 +221,5 @@ contract DevNetTest is DecoderBase {
         DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
       );
     }
-  }
-
-  function max(uint256 a, uint256 b) internal pure returns (uint256) {
-    return a > b ? a : b;
   }
 }

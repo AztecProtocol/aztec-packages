@@ -141,7 +141,7 @@ class ACIRRecursionConstraintHonk : public ::testing::Test {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
         size_t witness_offset = 0;
-        std::vector<fr, ContainerSlabAllocator<fr>> witness;
+        SlabVector<fr> witness;
 
         for (auto& inner_circuit : inner_circuits) {
 
@@ -155,6 +155,7 @@ class ACIRRecursionConstraintHonk : public ::testing::Test {
 
             std::vector<fr> proof_witnesses = inner_proof;
             // where the inner public inputs start (after circuit_size, num_pub_inputs, pub_input_offset)
+            const size_t inner_public_input_offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
             // - Save the public inputs so that we can set their values.
             // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
             std::vector<fr> inner_public_input_values(
@@ -210,7 +211,8 @@ class ACIRRecursionConstraintHonk : public ::testing::Test {
                 .key = key_indices,
                 .proof = proof_indices,
                 .public_inputs = inner_public_inputs,
-                .proof_type = 0, // TODO() replace this with the correct proof type
+                .key_hash = 0, // not used
+                .proof_type = HONK_RECURSION,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
 

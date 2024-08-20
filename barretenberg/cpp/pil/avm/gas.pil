@@ -1,6 +1,7 @@
 include "fixed/gas.pil";
 
-// Gas is a "virtual" trace. Things are only in a separate file for modularity.
+// This is a "virtual" trace. Things are only in a separate file for modularity.
+// That is, this trace is expected to be in 1-1 relation with the main trace.
 // However, the columns and relations are set on the "main" namespace.
 namespace main(256);
     //===== GAS ACCOUNTING ========================================================
@@ -57,8 +58,9 @@ namespace main(256);
     sel_execution_row * (1 - sel_op_external_call) * (l2_gas_remaining' - l2_gas_remaining + base_l2_gas_op_cost + (dyn_l2_gas_op_cost * dyn_gas_multiplier)) = 0;
     #[DA_GAS_REMAINING_DECREMENT_NOT_CALL]
     sel_execution_row * (1 - sel_op_external_call) * (da_gas_remaining' - da_gas_remaining + base_da_gas_op_cost + (dyn_da_gas_op_cost * dyn_gas_multiplier)) = 0;
-    // We need to special-case external calls
-    // TODO: for the moment, unconstrained.
+    // We need to special-case external calls since the gas cost format is
+    // base_l2 + nested_call_cost + dyn_gas_cost * dyn_gas_multiplier.
+    // TODO: Unconstrained until CALL is properly implemented.
     // #[L2_GAS_REMAINING_DECREMENT_CALL]
     // sel_execution_row * sel_op_external_call * (l2_gas_remaining' - l2_gas_remaining + base_l2_gas_op_cost + (dyn_l2_gas_op_cost * dyn_gas_multiplier)) = 0;
     // #[DA_GAS_REMAINING_DECREMENT_CALL]

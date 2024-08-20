@@ -63,7 +63,7 @@ pub fn verify_proof_with_type<let N: u32, let M: u32, let K: u32>(
 }
 
 #[foreign(recursive_aggregation)]
-pub fn verify_proof_internal<let N: u32, let M: u32, let K: u32>(
+fn verify_proof_internal<let N: u32, let M: u32, let K: u32>(
     verification_key: [Field; N],
     proof: [Field; M],
     public_inputs: [Field; K],

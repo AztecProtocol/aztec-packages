@@ -6,6 +6,10 @@
 
 namespace acir_format {
 
+// Used to specify the type of recursive verifier via the proof_type specified by the RecursiveAggregation opcode from
+// ACIR
+enum PROOF_TYPE { PLONK_RECURSION, HONK_RECURSION };
+
 using namespace bb::plonk;
 using Builder = bb::UltraCircuitBuilder;
 
@@ -43,6 +47,7 @@ using Builder = bb::UltraCircuitBuilder;
  * aggregation object in B’s public inputs as well as an input aggregation object that points to the object produced by
  * the previous recursion constraint in the circuit (the one that verifies A)
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/996): Create similar comments for Honk.
  */
 // WORKTODO: rename to something more general
 struct RecursionConstraint {
