@@ -8,6 +8,7 @@ template <class VerifierInstances>
 void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_instance(
     const std::shared_ptr<Instance>& inst, const std::string& domain_separator)
 {
+    info("Num gates before receiving and finalizing instance:", builder->num_gates);
     // Get circuit parameters and the public inputs
     const auto instance_size = transcript->template receive_from_prover<FF>(domain_separator + "_circuit_size");
     const auto public_input_size =
@@ -20,11 +21,13 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
     inst->verification_key->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
 
+    info("Num gates before receiving public inputs:", builder->num_gates);
     for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
         inst->public_inputs.emplace_back(public_input_i);
     }
+    info("Num gates after receiving public inputs:", builder->num_gates);
 
     // Get commitments to first three wire polynomials
     auto labels = inst->commitment_labels;
@@ -78,18 +81,21 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
 
     // Compute correction terms for grand products
+    info("Num gates before computing public input delta:", builder->num_gates);
     const FF public_input_delta =
         compute_public_input_delta<Flavor>(inst->public_inputs,
                                            beta,
                                            gamma,
                                            inst->verification_key->circuit_size,
                                            static_cast<size_t>(inst->verification_key->pub_inputs_offset));
+    info("Num gates after computing public input delta:", builder->num_gates);
     inst->relation_parameters = RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
 
     // Get the relation separation challenges
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
+    info("Num gates after receiving and finalizing:", builder->num_gates);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common

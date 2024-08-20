@@ -128,9 +128,12 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->databus_propagation_data = native_key->databus_propagation_data;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
+            info("Num gates before instantiating commitments as witnesses:", builder->num_gates);
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
+                info("    Num gates after instantiating commitment as witnesses:", builder->num_gates);
             }
+            info("Num gates after instantiating commitments as witnesses:", builder->num_gates);
         };
 
         /**
