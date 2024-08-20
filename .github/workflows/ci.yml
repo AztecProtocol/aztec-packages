@@ -25,7 +25,6 @@ env:
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   # kludge until we move away from runners
   WAIT_FOR_RUNNERS: false
-  FULL_CI: true
 
 jobs:
   setup:
@@ -107,7 +106,7 @@ jobs:
 
   build:
     needs: [build-images, changes]
-    if: ${{ (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || 'true' }}
+    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true' }}
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -135,7 +134,7 @@ jobs:
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' || 'true' }}
+    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -165,7 +164,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' || 'true'}}
+    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -198,7 +197,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [build-images, changes]
     # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' || 'true' }}
+    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
