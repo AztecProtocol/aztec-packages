@@ -15,13 +15,11 @@ import {Errors} from "../../src/core/libraries/Errors.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 
 // Portals
 import {TokenPortal} from "./TokenPortal.sol";
 import {UniswapPortal} from "./UniswapPortal.sol";
-
-// Portal tokens
-import {PortalERC20} from "./PortalERC20.sol";
 
 contract UniswapPortalTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
@@ -54,12 +52,11 @@ contract UniswapPortalTest is Test {
     uint256 forkId = vm.createFork(vm.rpcUrl("mainnet_fork"));
     vm.selectFork(forkId);
 
-    registry = new Registry();
-    PortalERC20 portalERC20 = new PortalERC20();
-    rollup =
-      new Rollup(registry, new AvailabilityOracle(), IERC20(address(portalERC20)), bytes32(0));
+    registry = new Registry(address(this));
+    rollup = new Rollup(
+      registry, new AvailabilityOracle(), IFeeJuicePortal(address(0)), bytes32(0), address(this)
+    );
     registry.upgrade(address(rollup));
-    portalERC20.mint(address(rollup), 1000000);
 
     daiTokenPortal = new TokenPortal();
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);

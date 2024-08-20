@@ -46,7 +46,6 @@ import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -58,13 +57,7 @@ import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
-import {
-  AggregateTxValidator,
-  DataTxValidator,
-  type GlobalVariableBuilder,
-  SequencerClient,
-  getGlobalVariableBuilder,
-} from '@aztec/sequencer-client';
+import { AggregateTxValidator, DataTxValidator, GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -202,7 +195,7 @@ export class AztecNodeService implements AztecNode {
       sequencer,
       ethereumChain.chainInfo.id,
       config.version,
-      getGlobalVariableBuilder(config),
+      new GlobalVariableBuilder(config),
       store,
       txValidator,
       telemetry,
@@ -385,6 +378,10 @@ export class AztecNodeService implements AztecNode {
     return Promise.resolve(this.p2pClient!.getTxs('pending'));
   }
 
+  public getPendingTxCount() {
+    return Promise.resolve(this.p2pClient!.getTxs('pending').length);
+  }
+
   /**
    * Method to retrieve a single tx from the mempool or unfinalised chain.
    * @param txHash - The transaction hash to return.
@@ -535,7 +532,7 @@ export class AztecNodeService implements AztecNode {
 
     let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
     if (l2toL1SubtreeRoots.length < 2) {
-      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.fromBuffer(sha256Trunc(Buffer.alloc(64))), 2);
+      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.ZERO, 2);
     }
     const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
@@ -799,6 +796,14 @@ export class AztecNodeService implements AztecNode {
 
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
     return this.contractDataSource.addContractArtifact(address, artifact);
+  }
+
+  public flushTxs(): Promise<void> {
+    if (!this.sequencer) {
+      throw new Error(`Sequencer is not initialized`);
+    }
+    this.sequencer.flush();
+    return Promise.resolve();
   }
 
   /**
