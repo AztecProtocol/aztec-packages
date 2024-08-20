@@ -1,11 +1,31 @@
 #!/bin/bash
 
-LINK_FILE="$HOME/Library/LaunchAgents/link-ssh-auth-sock.plist"
+# Mac OS hack to override the default ssh agent. The OS doesn't respect the SSH_AUTH_SOCK env var, so
+# we have to get creative and symlink the default socket to the one we want to use. This script supports
+# doing it permanently via a launch agent. Heavily inspired by https://github.com/docker/for-mac/issues/4242#issuecomment-822027581
 
-if [ "${1:-}" == "--load" ]; then
-    cat ./link-ssh-auth-sock.plist.template | sed -e "s+NEW_SSH_AUTH_SOCK+$SSH_AUTH_SOCK+g" > "$LINK_FILE"
-    launchctl load -F "$LINK_FILE" || true
-elif [ -e "$LINK_FILE" ]; then
-    launchctl unload -F "$LINK_FILE" || true
-    rm -rf "$LINK_FILE"
-fi
+CWD=$(dirname $0)
+
+LINK_FILE="$HOME/Library/LaunchAgents/link-ssh-auth-sock.plist"
+TEMPLATE_FILE="$CWD/link-ssh-auth-sock.plist.template"
+ORIGINAL_SSH_AUTH_SOCK=$(launchctl asuser "${UID:-"$(id -u)"}" launchctl getenv SSH_AUTH_SOCK)
+
+if [ "${2:-}" == "--permanent" ]; then
+    if [ "${1:-}" == "load" ]; then
+        echo "Symlinking $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK via a launch agent in $LINK_FILE."
+        cat "$TEMPLATE_FILE" | sed -e "s+NEW_SSH_AUTH_SOCK+$SSH_AUTH_SOCK+g" | sed -e "s+ORIGINAL_SSH_AUTH_SOCK+$ORIGINAL_SSH_AUTH_SOCK+g" > "$LINK_FILE"
+        launchctl load -F "$LINK_FILE"
+    elif [ "${1:-}" == "unload" ] && [ -e "$LINK_FILE" ]; then
+        echo "Unloading launch agent and removing $LINK_FILE."
+        launchctl unload -F "$LINK_FILE"
+        rm -rf "$LINK_FILE"
+    fi
+else
+    if [ "${1:-}" == "load" ]; then
+        echo "No --permanent flag provided. Symlinking $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK."
+        ln -sf $SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK
+    elif [ "${1:-}" == "unload" ] && [ -e "$LINK_FILE" ]; then
+        echo "Removing link from $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK."
+        unlink $SSH_AUTH_SOCK
+    fi
+fi 

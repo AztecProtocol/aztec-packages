@@ -31,7 +31,7 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
     .command('get-alias')
     .description('Prints a stored alias')
     .addArgument(new Argument('<alias>', 'Alias to retrieve').choices(Aliases))
-    .action(async alias => {
+    .action(alias => {
       const value = db.tryRetrieveAlias(alias);
       if (value) {
         log(value);

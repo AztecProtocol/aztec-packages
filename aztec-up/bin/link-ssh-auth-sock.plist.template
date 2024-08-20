@@ -8,7 +8,7 @@
   <array>
     <string>/bin/sh</string>
     <string>-c</string>
-    <string>/bin/ln -sf NEW_SSH_AUTH_SOCK $SSH_AUTH_SOCK</string>
+    <string>/bin/ln -sf NEW_SSH_AUTH_SOCK ORIGINAL_SSH_AUTH_SOCK</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
