@@ -68,9 +68,9 @@ class UltraFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    // static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    // static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
@@ -296,7 +296,6 @@ class UltraFlavor {
         ProverPolynomials(size_t circuit_size)
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the
           // shifted polys
-            info(circuit_size);
             ZoneScopedN("creating empty prover polys");
             for (auto& poly : get_unshifted()) {
                 poly = Polynomial{ circuit_size };

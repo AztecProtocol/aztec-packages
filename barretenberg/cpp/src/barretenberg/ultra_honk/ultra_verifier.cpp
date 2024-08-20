@@ -64,7 +64,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        // info("gate challenge idx ", idx, gate_challenges[idx]);
     }
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alphas, gate_challenges);
@@ -87,7 +86,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
                                            transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
     auto pcs_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    // info("PCS verified: ", pcs_verified);
     return sumcheck_verified.value() && pcs_verified;
 }
 

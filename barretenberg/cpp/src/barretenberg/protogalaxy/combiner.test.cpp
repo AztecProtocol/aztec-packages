@@ -49,6 +49,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->proving_key.polynomials = std::move(prover_polynomials);
                 instance->proving_key.circuit_size = 2;
+                instance->proving_key.log_circuit_size = 1;
                 instance_data[idx] = instance;
             }
 
@@ -81,6 +82,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->proving_key.polynomials = std::move(prover_polynomials);
                 instance->proving_key.circuit_size = 2;
+                instance->proving_key.log_circuit_size = 1;
                 instance_data[idx] = instance;
             }
 
@@ -181,6 +183,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->proving_key.polynomials = std::move(prover_polynomials);
                 instance->proving_key.circuit_size = 2;
+                instance->proving_key.log_circuit_size = 1;
                 instance_data[idx] = instance;
             }
 
@@ -188,7 +191,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             instances.alphas.fill(
                 bb::Univariate<FF, UNIVARIATE_LENGTH>(FF(0))); // focus on the arithmetic relation only
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
-            pow_polynomial.compute_values();
+            pow_polynomial.compute_values(1);
 
             // Relation parameters are all zeroes
             RelationParameters<FF> relation_parameters;
@@ -265,6 +268,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 instance->proving_key.polynomials = std::move(prover_polynomials);
                 instance->proving_key.circuit_size = 2;
+                instance->proving_key.log_circuit_size = 1;
                 instance_data[idx] = instance;
             }
 

@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"

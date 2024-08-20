@@ -36,7 +36,6 @@ template <typename Flavor> void ECCVMRecursiveVerifier_<Flavor>::verify_proof(co
     const BF circuit_size_bf = transcript->template receive_from_prover<BF>("circuit_size");
     const FF circuit_size{ static_cast<int>(static_cast<uint256_t>(circuit_size_bf.get_value())) };
 
-    info("wire comms in recursive verifier");
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }

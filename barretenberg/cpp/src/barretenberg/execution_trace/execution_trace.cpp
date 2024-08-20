@@ -58,6 +58,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1078): remove when Keccak flavor works with Poseidon
+    // gate
     auto get_blocks = [&]() {
         if constexpr (!HasKeccak<Flavor>) {
             return builder.blocks.get();

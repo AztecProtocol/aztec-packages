@@ -59,7 +59,6 @@ library TranscriptLib {
 
         t.gateChallenges = generateGateChallenges(t.alphas[NUMBER_OF_ALPHAS - 1]);
 
-
         t.sumCheckUChallenges = generateSumcheckChallenges(proof, t.gateChallenges[CONST_PROOF_SIZE_LOG_N - 1]);
         t.rho = generateRhoChallenge(proof, t.sumCheckUChallenges[CONST_PROOF_SIZE_LOG_N - 1]);
 
@@ -154,7 +153,11 @@ library TranscriptLib {
         }
     }
 
-    function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges) {
+    function generateGateChallenges(Fr previousChallenge)
+        internal
+        view
+        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges)
+    {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
             gateChallenges[i] = previousChallenge;

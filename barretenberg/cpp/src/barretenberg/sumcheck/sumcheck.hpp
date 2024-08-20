@@ -205,8 +205,6 @@ template <typename Flavor> class SumcheckProver {
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges)
     {
-        // info(multivariate_n);
-        // info(gate_challenges.size());
         // In case the Flavor has ZK, we populate sumcheck data structure with randomness, compute correcting term for
         // the total sum, etc.
         if constexpr (Flavor::HasZK) {
@@ -227,7 +225,6 @@ template <typename Flavor> class SumcheckProver {
         // Place the evaluations of the round univariate into transcript.
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
         FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-        // info("Prover challenge at round  0 ", round_challenge);
         multivariate_challenge.emplace_back(round_challenge);
         // Prepare sumcheck book-keeping table for the next round
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
@@ -250,8 +247,6 @@ template <typename Flavor> class SumcheckProver {
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            // info("Prover challenge at ", round_idx, " round  ", round_challenge);
-            // info("round univariate in prover length ", round_univariate.size());
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
@@ -614,7 +609,6 @@ polynomials that are sent in clear.
     P_{N_w} \f$, the prover sends the evaluations of the witness polynomials masked by the terms \f$ \rho_j
     \sum_{i=0}^{d-1} u_i(1-u_i) \f$ for \f$ j= 1, \ldots N_w\f$. If the challenges satisfy the equation
     \f$\sum_{i=0}^{d-1} u_i(1-u_i) = 0\f$, each masking term is \f$0 \f$, which could lead to the leakage of witness
-    information. The challenges satisfy this equation with probability \f$ \sim 1/|\mathbb{F}|\f$.
      *
      * @param multivariate_challenge
      */
@@ -746,15 +740,12 @@ template <typename Flavor> class SumcheckVerifier {
             round.target_total_sum += libra_total_sum * libra_challenge;
         };
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-            // info("Round number: ", round_idx);
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
-            // info("round univariate in prover length ", round_univariate.size());
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            // info("u challenge is: ", round_challenge, " at round i ", round_idx);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();

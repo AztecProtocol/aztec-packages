@@ -8,7 +8,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -49,6 +48,8 @@ void ensure_non_zero(auto& polynomial)
     ASSERT_TRUE(has_non_zero_coefficient);
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1075): Make the tests run on UltraKeccakFlavor as well so
+// we have a means of checking issues without having to run the Solidity verifier contract.
 class UltraHonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }

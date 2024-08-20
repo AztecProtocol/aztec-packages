@@ -600,8 +600,6 @@ void prove_tube(const std::string& output_path)
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
-    // Print the number of gates post finalisation for a precise result
-    info("num gates in tube circuit: ", builder->get_num_gates());
     auto tube_proof = tube_prover.construct_proof();
     std::string tubeProofPath = output_path + "/proof";
     write_file(tubeProofPath, to_buffer<true>(tube_proof));
@@ -1100,11 +1098,6 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
     Verifier verifier{ vk };
-    typename Flavor::CommitmentLabels commitment_labels;
-    info("PRINTING THE VKEY IN  VERIFY ULTRA HONK FLOW");
-    for (auto [label, key] : zip_view(commitment_labels.get_precomputed(), vk->get_all())) {
-        info("label: ", label, " value: ", key);
-    }
 
     bool verified = verifier.verify_proof(proof);
 
@@ -1157,7 +1150,6 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
 void proof_as_fields_honk(const std::string& proof_path, const std::string& output_path)
 {
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    info("proof length: ", proof.size());
     auto json = to_json(proof);
 
     if (output_path == "-") {

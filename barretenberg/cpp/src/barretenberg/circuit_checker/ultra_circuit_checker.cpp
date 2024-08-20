@@ -115,7 +115,6 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         }
 
         if constexpr (IsMegaBuilder<Builder>) {
-
             result = result && check_databus_read(values, builder);
             if (!result) {
                 return report_fail("Failed databus read at row idx = ", idx);
