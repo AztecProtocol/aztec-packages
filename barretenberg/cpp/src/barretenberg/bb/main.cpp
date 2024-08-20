@@ -590,7 +590,6 @@ void prove_tube(const std::string& output_path)
 
     builder->add_recursive_proof(current_aggregation_object);
 
-    info("num gates in tube circuit: ", builder->num_gates);
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
