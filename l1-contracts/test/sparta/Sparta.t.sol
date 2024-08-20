@@ -2,8 +2,6 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
 import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
@@ -22,13 +20,14 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
-
+import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  *
  * We will skip these test if we are running with IS_DEV_NET = true
  */
+
 contract SpartaTest is DecoderBase {
   using MessageHashUtils for bytes32;
 
@@ -60,17 +59,16 @@ contract SpartaTest is DecoderBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry();
+    registry = new Registry(address(this));
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0));
+    rollup = new Rollup(
+      registry, availabilityOracle, IFeeJuicePortal(address(0)), bytes32(0), address(this)
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup));
-
-    // mint some tokens to the rollup
-    portalERC20.mint(address(rollup), 1000000);
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
@@ -199,7 +197,6 @@ contract SpartaTest is DecoderBase {
 
     availabilityOracle.publish(body);
 
-    uint256 toConsume = inbox.toConsume();
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
@@ -253,8 +250,6 @@ contract SpartaTest is DecoderBase {
 
     assertEq(_expectRevert, ree.shouldRevert, "Invalid revert expectation");
 
-    assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
-
     bytes32 l2ToL1MessageTreeRoot;
     {
       uint32 numTxs = full.block.numTxs;
@@ -284,9 +279,14 @@ contract SpartaTest is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
-    assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    // If we are trying to read a block beyond the proven chain, we should see "nothing".
+    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+      assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    } else {
+      assertEq(root, bytes32(0), "Invalid outbox root");
+    }
 
     assertEq(rollup.archive(), archive, "Invalid archive");
   }
@@ -298,10 +298,6 @@ contract SpartaTest is DecoderBase {
         DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
       );
     }
-  }
-
-  function max(uint256 a, uint256 b) internal pure returns (uint256) {
-    return a > b ? a : b;
   }
 
   function createSignature(address _signer, bytes32 _digest)

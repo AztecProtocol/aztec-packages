@@ -3,12 +3,13 @@ import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { BlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
-import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
-import { getL1Publisher } from '../publisher/index.js';
+import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
+import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 
@@ -22,6 +23,7 @@ export class SequencerClient {
    * Initializes and starts a new instance.
    * @param config - Configuration for the sequencer, publisher, and L1 tx sender.
    * @param p2pClient - P2P client that provides the txs to be sequenced.
+   * @param validatorClient - Validator client performs attestation duties when rotating proposers.
    * @param worldStateSynchronizer - Provides access to world state.
    * @param contractDataSource - Provides access to contract bytecode for public executions.
    * @param l2BlockSource - Provides information about the previously published blocks.
@@ -32,6 +34,7 @@ export class SequencerClient {
    */
   public static async new(
     config: SequencerClientConfig,
+    validatorClient: ValidatorClient | undefined, // allowed to be undefined while we migrate
     p2pClient: P2P,
     worldStateSynchronizer: WorldStateSynchronizer,
     contractDataSource: ContractDataSource,
@@ -40,8 +43,8 @@ export class SequencerClient {
     simulationProvider: SimulationProvider,
     telemetryClient: TelemetryClient,
   ) {
-    const publisher = getL1Publisher(config, telemetryClient);
-    const globalsBuilder = getGlobalVariableBuilder(config);
+    const publisher = new L1Publisher(config, telemetryClient);
+    const globalsBuilder = new GlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
     const publicProcessorFactory = new PublicProcessorFactory(
@@ -53,6 +56,7 @@ export class SequencerClient {
 
     const sequencer = new Sequencer(
       publisher,
+      validatorClient,
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
@@ -82,6 +86,11 @@ export class SequencerClient {
    */
   public async stop() {
     await this.sequencer.stop();
+  }
+
+  /** Forces the sequencer to bypass all time and tx count checks for the next block and build anyway. */
+  public flush() {
+    this.sequencer.flush();
   }
 
   /**
