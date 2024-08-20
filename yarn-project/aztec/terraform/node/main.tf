@@ -149,18 +149,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
 
   container_definitions = jsonencode([
     {
-      name      = "init-container"
-      image     = "amazonlinux:latest"
-      essential = false
-      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}/data ${local.data_dir}/node_${count.index + 1}/temp"]
-      mountPoints = [
-        {
-          containerPath = local.data_dir
-          sourceVolume  = "efs-data-store"
-        }
-      ]
-    },
-    {
       name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
       image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
       command           = ["start", "--node", "--archiver", "--sequencer"]
@@ -238,6 +226,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
+          value = local.sequencer_private_keys[count.index]
+        },
+        {
+          name  = "VALIDATOR_PRIVATE_KEY"
           value = local.sequencer_private_keys[count.index]
         },
         {
@@ -367,7 +359,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "NETWORK_NAME",
           value = "${var.DEPLOY_TAG}"
-        }
+        },
+        {
+          name  = "VALIDATOR_DISABLED",
+          value = "1"
+        },
       ]
       mountPoints = [
         {
@@ -376,10 +372,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         }
       ]
       dependsOn = [
-        {
-          containerName = "init-container"
-          condition     = "COMPLETE"
-        }
       ]
       logConfiguration = {
         logDriver = "awslogs"

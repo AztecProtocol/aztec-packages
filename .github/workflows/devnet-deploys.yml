@@ -74,10 +74,12 @@ env:
   TF_VAR_BOT_NO_START: true
   TF_VAR_BOT_PRIVATE_TRANSFERS_PER_TX: 0 # no private transfers
   TF_VAR_BOT_PUBLIC_TRANSFERS_PER_TX: 1
-  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 2400
-  TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: true
+  TF_VAR_BOT_TX_MINED_WAIT_SECONDS: 4800
+  TF_VAR_BOT_FOLLOW_CHAIN: "PROVEN"
   TF_VAR_BOT_TX_INTERVAL_SECONDS: 180
   TF_VAR_BOT_COUNT: 1
+  TF_VAR_BOT_FLUSH_SETUP_TRANSACTIONS: false
+  TF_VAR_BOT_MAX_PENDING_TXS: 1
 
   # PXE
   TF_VAR_PXE_LB_RULE_PRIORITY: 4000
@@ -108,8 +110,11 @@ jobs:
       pxe_lb_priority_range_start: ${{ steps.set_network_vars.outputs.pxe_lb_priority_range_start }}
       prover_node_lb_priority_range_start: ${{ steps.set_network_vars.outputs.prover_node_lb_priority_range_start }}
       faucet_lb_priority: ${{ steps.set_network_vars.outputs.faucet_lb_priority }}
-      bot_no_wait: ${{ steps.set_network_vars.outputs.bot_no_wait }}
       max_txs_per_block: ${{ steps.set_network_vars.outputs.max_txs_per_block }}
+      bot_follow_chain: ${{ steps.set_network_vars.outputs.bot_follow_chain }}
+      min_txs_per_block: ${{ steps.set_network_vars.outputs.min_txs_per_block }}
+      bot_flush_setup_txs: ${{ steps.set_network_vars.outputs.bot_flush_setup_txs }}
+      bot_max_pending_txs: ${{ steps.set_network_vars.outputs.bot_max_pending_txs }}
     steps:
       - name: Set network vars
         shell: bash
@@ -122,7 +127,7 @@ jobs:
               echo "branch_name=devnet" >> $GITHUB_OUTPUT
               echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=4" >> $GITHUB_OUTPUT
-              echo "bot_interval=30" >> $GITHUB_OUTPUT
+              echo "bot_interval=180" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40100" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
               echo "prover_node_tcp_range_start=41100" >> $GITHUB_OUTPUT
@@ -131,8 +136,11 @@ jobs:
               echo "pxe_lb_priority_range_start=5100" >> $GITHUB_OUTPUT
               echo "prover_node_lb_priority_range_start=6100" >> $GITHUB_OUTPUT
               echo "faucet_lb_priority=601" >> $GITHUB_OUTPUT
-              echo "bot_no_wait=false" >> $GITHUB_OUTPUT
+              echo "min_txs_per_block=1" >> $GITHUB_OUTPUT
               echo "max_txs_per_block=64" >> $GITHUB_OUTPUT
+              echo "bot_follow_chain=NONE" >> $GITHUB_OUTPUT
+              echo "bot_flush_setup_txs=false" >> $GITHUB_OUTPUT
+              echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
@@ -148,8 +156,11 @@ jobs:
               echo "pxe_lb_priority_range_start=5200" >> $GITHUB_OUTPUT
               echo "prover_node_lb_priority_range_start=6200" >> $GITHUB_OUTPUT
               echo "faucet_lb_priority=602" >> $GITHUB_OUTPUT
-              echo "bot_no_wait=true" >> $GITHUB_OUTPUT
+              echo "min_txs_per_block=4" >> $GITHUB_OUTPUT
               echo "max_txs_per_block=4" >> $GITHUB_OUTPUT
+              echo "bot_follow_chain=NONE" >> $GITHUB_OUTPUT
+              echo "bot_flush_setup_txs=true" >> $GITHUB_OUTPUT
+              echo "bot_max_pending_txs=20" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
@@ -165,8 +176,11 @@ jobs:
               echo "pxe_lb_priority_range_start=5000" >> $GITHUB_OUTPUT
               echo "prover_node_lb_priority_range_start=6000" >> $GITHUB_OUTPUT
               echo "faucet_lb_priority=600" >> $GITHUB_OUTPUT
-              echo "bot_no_wait=false" >> $GITHUB_OUTPUT
+              echo "min_txs_per_block=1" >> $GITHUB_OUTPUT
               echo "max_txs_per_block=64" >> $GITHUB_OUTPUT
+              echo "bot_follow_chain=PROVEN" >> $GITHUB_OUTPUT
+              echo "bot_flush_setup_txs=false" >> $GITHUB_OUTPUT
+              echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -362,7 +376,7 @@ jobs:
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
       TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
       TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
-      TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
+      TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
       TF_VAR_SEQ_MAX_TX_PER_BLOCK: ${{ needs.set-network.outputs.max_txs_per_block }}
     steps:
       - uses: actions/checkout@v4
@@ -401,6 +415,7 @@ jobs:
             --private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
             --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
+            --salt ${{ github.run_id }} \
             --json | tee ./l1_contracts.json
 
           # upload contract addresses to S3
@@ -442,7 +457,7 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/prover-node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
-          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
+          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.prover_node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
@@ -564,8 +579,11 @@ jobs:
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
       TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
       TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
-      TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
+      TF_VAR_BOT_FLUSH_SETUP_TRANSACTIONS: ${{ needs.set-network.outputs.bot_flush_setup_txs }}
+      TF_VAR_BOT_MAX_PENDING_TXS: ${{ needs.set-network.outputs.bot_max_pending_txs }}
+      TF_VAR_SEQ_MIN_TX_PER_BLOCK: ${{ needs.set-network.outputs.min_txs_per_block }}
       TF_VAR_SEQ_MAX_TX_PER_BLOCK: ${{ needs.set-network.outputs.max_txs_per_block }}
+      TF_VAR_BOT_FOLLOW_CHAIN: ${{ needs.set-network.outputs.bot_follow_chain }}
       TF_VAR_PROVING_ENABLED: true
       TF_VAR_BOT_NO_START: false
     steps:
@@ -583,6 +601,17 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
+
+      # Unneded for now, since the prover-node runs with simulated proofs and submits them to L1, which does not verify them yet.
+      # - name: Set latest block as proven
+      #   working-directory: ./yarn-project/aztec/terraform/pxe
+      #   run: |
+      #     set -eo pipefail
+      #     docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} set-proven-until \
+      #       --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
+      #       --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+      #       --l1-chain-id ${{ env.L1_CHAIN_ID }} \
+      #       --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }}
 
       - name: Deploy PXE
         working-directory: ./yarn-project/aztec/terraform/pxe
@@ -613,7 +642,8 @@ jobs:
         run: |
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
-      - name: Deploy verifier
+      - name: Deploy verifier (allow failure)
+        continue-on-error: true
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           set -eo pipefail
