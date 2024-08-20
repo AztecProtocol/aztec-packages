@@ -50,7 +50,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     {
         is_accumulator = instance->is_accumulator;
         if (is_accumulator) {
-
             for (auto [native_public_input] : zip_view(instance->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
@@ -60,10 +59,12 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
 
             auto other_comms = instance->witness_commitments.get_all();
             size_t comm_idx = 0;
+            info("Num gates before making commitments into witnesses: ", builder->num_gates);
             for (auto& comm : witness_commitments.get_all()) {
                 comm = Commitment::from_witness(builder, other_comms[comm_idx]);
                 comm_idx++;
             }
+            info("Num gates after making commitments into witnesses: ", builder->num_gates);
             target_sum = FF::from_witness(builder, instance->target_sum);
 
             size_t challenge_idx = 0;
@@ -82,6 +83,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             relation_parameters.lookup_grand_product_delta =
                 FF::from_witness(builder, instance->relation_parameters.lookup_grand_product_delta);
         }
+        info("Num gates at the end of instance creation: ", builder->num_gates);
     }
 
     /**
