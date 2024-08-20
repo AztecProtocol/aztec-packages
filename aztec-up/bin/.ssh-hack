@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Mac OS hack to override the default ssh agent. The OS doesn't respect the SSH_AUTH_SOCK env var, so
+# Mac OS hack to override the default ssh agent. Docker for mac doesn't respect the SSH_AUTH_SOCK env var, so
 # we have to get creative and symlink the default socket to the one we want to use. This script supports
 # doing it permanently via a launch agent. Heavily inspired by https://github.com/docker/for-mac/issues/4242#issuecomment-822027581
 
