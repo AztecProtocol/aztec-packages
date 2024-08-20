@@ -140,7 +140,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
@@ -158,6 +157,11 @@ set(BARRETENBERG_TARGET_OBJECTS
 if(NOT DISABLE_AZTEC_VM)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
+endif()
+
+if(NOT WASM)
+    # enable merkle trees
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
 endif()
 
 add_library(
