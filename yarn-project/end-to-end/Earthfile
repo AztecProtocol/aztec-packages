@@ -274,7 +274,7 @@ e2e-cli-wallet:
   IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
      ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/cli-wallet:$AZTEC_DOCKER_TAG"
     WAIT
-      BUILD ../+export-e2e-cli-wallet
+      BUILD ../+export-e2e-test-images
     END
   END
   # Run our docker compose, ending whenever the wallet finishes running
