@@ -38,7 +38,7 @@ template <template <typename> typename Circuit> void generate_proof(uint256_t in
 
         std::vector<uint8_t> proof_bytes = to_buffer(proof);
         std::string p = bytes_to_hex_string(proof_bytes);
-        std::cout << p;
+        std::cout << "0x" << p;
     }
 }
 

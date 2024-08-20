@@ -373,16 +373,16 @@ template <typename Flavor> class SumcheckVerifierRound {
     bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {
         FF total_sum = univariate.value_at(0) + univariate.value_at(1);
-        info("univariate value: ", univariate.value_at(0));
-        info("univariate value: ", univariate.value_at(1));
+        // info("univariate value: ", univariate.value_at(0));
+        // info("univariate value: ", univariate.value_at(1));
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
 
         sumcheck_round_failed = (target_total_sum != total_sum);
-        info("TARGET TOTAL SUM ", target_total_sum);
-        info("total sum ", total_sum);
-        info(sumcheck_round_failed);
+        // info("TARGET TOTAL SUM ", target_total_sum);
+        // info("total sum ", total_sum);
+        // info(sumcheck_round_failed);
 
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;
@@ -401,8 +401,8 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         FF total_sum =
             FF::conditional_assign(dummy_round, target_total_sum, univariate.value_at(0) + univariate.value_at(1));
-        info("univariate value: ", univariate.value_at(0));
-        info("univariate value: ", univariate.value_at(1));
+        // info("univariate value: ", univariate.value_at(0));
+        // info("univariate value: ", univariate.value_at(1));
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
@@ -419,9 +419,9 @@ template <typename Flavor> class SumcheckVerifierRound {
             sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         }
 
-        info("target total sum", target_total_sum.get_value());
-        info("total sum", total_sum.get_value());
-        info("sumcheck round failed: ", sumcheck_round_failed);
+        // info("target total sum", target_total_sum.get_value());
+        // info("total sum", total_sum.get_value());
+        // info("sumcheck round failed: ", sumcheck_round_failed);
 
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;

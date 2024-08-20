@@ -118,7 +118,7 @@ template <typename FF> struct PowPolynomial {
     {
 
         size_t pow_size = subspan.has_value() ? 1 << subspan.value() : 1 << betas.size();
-        info("size of pow", pow_size);
+        // info("size of pow", pow_size);
         pow_betas = std::vector<FF>(pow_size);
 
         // Determine number of threads for multithreading.

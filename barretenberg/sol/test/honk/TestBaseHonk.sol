@@ -6,7 +6,7 @@ import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
 import "forge-std/console.sol";
-
+    
 contract TestBaseHonk is TestBase {
     IVerifier public verifier;
     DifferentialFuzzer public fuzzer;

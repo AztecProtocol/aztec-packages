@@ -184,8 +184,8 @@ template <typename Flavor> class SumcheckProver {
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges)
     {
-        info(multivariate_n);
-        info(gate_challenges.size());
+        // info(multivariate_n);
+        // info(gate_challenges.size());
 
         bb::PowPolynomial<FF> pow_univariate(gate_challenges);
         pow_univariate.compute_values(multivariate_d);
@@ -196,10 +196,10 @@ template <typename Flavor> class SumcheckProver {
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, pow_univariate, alpha);
-        info("round univariate in prover length ", round_univariate.size());
+        // info("round univariate in prover length ", round_univariate.size());
         transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
         FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-        info("Prover challenge at round  0 ", round_challenge);
+        // info("Prover challenge at round  0 ", round_challenge);
         multivariate_challenge.emplace_back(round_challenge);
         partially_evaluate(full_polynomials, multivariate_n, round_challenge);
         pow_univariate.partially_evaluate(round_challenge);
@@ -212,8 +212,8 @@ template <typename Flavor> class SumcheckProver {
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, pow_univariate, alpha);
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            info("Prover challenge at ", round_idx, " round  ", round_challenge);
-            info("round univariate in prover length ", round_univariate.size());
+            // info("Prover challenge at ", round_idx, " round  ", round_challenge);
+            // info("round univariate in prover length ", round_univariate.size());
             multivariate_challenge.emplace_back(round_challenge);
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             pow_univariate.partially_evaluate(round_challenge);
@@ -398,15 +398,15 @@ template <typename Flavor> class SumcheckVerifier {
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-            info("Round number: ", round_idx);
+            // info("Round number: ", round_idx);
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             auto round_univariate =
                 transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                     round_univariate_label);
-            info("round univariate in prover length ", round_univariate.size());
+            // info("round univariate in prover length ", round_univariate.size());
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-            info("u challenge is: ", round_challenge, " at round i ", round_idx);
+            // info("u challenge is: ", round_challenge, " at round i ", round_idx);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
@@ -457,17 +457,17 @@ template <typename Flavor> class SumcheckVerifier {
                 round.target_total_sum.self_reduce();
             }
             checked = (full_honk_relation_purported_value.get_value() == round.target_total_sum.get_value());
-            info("full honk value: ", full_honk_relation_purported_value.get_value());
-            info("final target total sum", round.target_total_sum.get_value());
+            // info("full honk value: ", full_honk_relation_purported_value.get_value());
+            // info("final target total sum", round.target_total_sum.get_value());
 
         } else {
             checked = (full_honk_relation_purported_value == round.target_total_sum);
-            info("full honk value: ", full_honk_relation_purported_value);
-            info("final target total sum ", round.target_total_sum);
-            info("value of checked: ", checked);
+            // info("full honk value: ", full_honk_relation_purported_value);
+            // info("final target total sum ", round.target_total_sum);
+            // info("value of checked: ", checked);
         }
         verified = verified && checked;
-        info("verified result at the end of sumcheck verification ", verified);
+        // info("verified result at the end of sumcheck verification ", verified);
         //! [Final Verification Step]
         return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
     };
