@@ -212,7 +212,7 @@ template <typename Curve_> class IPA {
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
             // Sum inner product contributions computed in parallel and unpack the std::pair
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
-            // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
+            // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
                 &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);

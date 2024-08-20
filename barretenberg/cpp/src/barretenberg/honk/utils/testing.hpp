@@ -19,7 +19,7 @@ typename Flavor::ProverPolynomials get_sequential_prover_polynomials(const size_
     size_t value_idx = starting_value;
     for (auto& polynomial : prover_polynomials.get_all()) {
         polynomial = Polynomial(circuit_size);
-        for (auto& value : polynomial) {
+        for (auto& value : polynomial.as_span()) {
             value = FF(value_idx++);
         }
     }
