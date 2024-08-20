@@ -109,6 +109,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .option('--mint', 'Mint the tokens on L1', false)
     .option('--private', 'If the bridge should use the private flow', false)
+    // TODO (ek): remove this after testing
+    .option('--new-private', 'If the bridge should use the new private flow', false)
     .addOption(l1ChainIdOption)
     .requiredOption('-t, --token <string>', 'The address of the token to bridge', parseEthereumAddress)
     .requiredOption('-p, --portal <string>', 'The address of the portal contract', parseEthereumAddress)
@@ -126,6 +128,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.token,
         options.portal,
         options.private,
+        options.newPrivate,
         options.mint,
         options.json,
         log,
