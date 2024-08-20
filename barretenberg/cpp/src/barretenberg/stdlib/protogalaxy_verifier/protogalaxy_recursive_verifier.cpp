@@ -62,10 +62,12 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     // Receive commitments to wire 4
     witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
 
+    info("Num gates after receiving most commitments:", builder->num_gates);
     // Get permutation challenges and commitment to permutation and lookup grand products
     auto [beta, gamma] =
         transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
 
+    info("Num gates after computing beta and gamma:", builder->num_gates);
     witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
         domain_separator + "_" + commitment_labels.lookup_inverses);
 
@@ -81,7 +83,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
         transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
 
     // Compute correction terms for grand products
-    info("Num gates before computing public input delta:", builder->num_gates);
+    info("Num gates after receiving more commitments:", builder->num_gates);
     const FF public_input_delta =
         compute_public_input_delta<Flavor>(inst->public_inputs,
                                            beta,
@@ -95,7 +97,7 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
         inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
     }
-    info("Num gates after receiving and finalizing:", builder->num_gates);
+    info("Num gates after generating alpha challenges:", builder->num_gates);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
