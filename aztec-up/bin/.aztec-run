@@ -139,7 +139,7 @@ if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; 
         echo ""
         exit 1
     fi
-    # Docker never ssh agent forwarding on macOS, so we need to do this workaround if running a user other than root
+    # Docker never fixed ssh agent forwarding on macOS, so we need to do this workaround if running a user other than root
     # https://github.com/docker/for-mac/issues/4242#issuecomment-604890394
     docker run --rm -it --privileged --pid=host ubuntu:noble nsenter -t 1 -m -u -n -i sh -c 'chmod o+w /run/host-services/ssh-auth.sock'
     "$CWD/.ssh-hack" load
