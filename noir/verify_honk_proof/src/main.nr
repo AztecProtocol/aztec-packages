@@ -10,13 +10,7 @@ fn main(
     public_inputs: pub [Field; 1],
     // This is currently not public. It is fine given that the vk is a part of the circuit definition.
     // I believe we want to eventually make it public too though.
-    key_hash: Field
-    // WORKTODO: Can we delete this program? noir needed it for some reason but its not used in bberg
+    key_hash: Field// WORKTODO: Can we delete this program? noir needed it for some reason but its not used in bberg
 ) {
-    std::verify_proof(
-        verification_key,
-        proof,
-        public_inputs,
-        key_hash
-    );
+    std::verify_proof(verification_key, proof, public_inputs, key_hash);
 }
