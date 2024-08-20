@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/common/container.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -11,6 +13,7 @@ std::vector<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver
                                                      const RelationSeparator& alpha,
                                                      const RelationParameters<FF>& relation_parameters)
 {
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::compute_full_honk_evaluations");
     auto instance_size = instance_polynomials.get_polynomial_size();
     std::vector<FF> full_honk_evaluations(instance_size);
     std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
@@ -30,7 +33,8 @@ std::vector<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver
                 relation_evaluations, alpha, running_challenge, output, linearly_dependent_contribution_accumulator);
 
             full_honk_evaluations[row] = output;
-        });
+        },
+        thread_heuristics::ALWAYS_MULTITHREAD);
     full_honk_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
     return full_honk_evaluations;
 }
@@ -49,20 +53,18 @@ std::vector<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver
 
     auto degree = level + 1;
     auto prev_level_width = prev_level_coeffs.size();
-    std::vector<std::vector<FF>> level_coeffs(prev_level_width >> 1, std::vector<FF>(degree + 1, 0));
-    parallel_for_range(
-        prev_level_width >> 1,
-        [&](size_t start, size_t end) {
-            for (size_t node = start << 1; node < end << 1; node += 2) {
-                auto parent = node >> 1;
-                std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
-                for (size_t d = 0; d < degree; d++) {
-                    level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
-                    level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
-                }
+    std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
+    parallel_for_heuristic(
+        prev_level_width / 2,
+        [&](size_t parent) {
+            size_t node = parent * 2;
+            std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
+            for (size_t d = 0; d < degree; d++) {
+                level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
+                level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
             }
         },
-        /*no_multhreading_if_less_or_equal=*/8);
+        /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
     return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
 }
 
@@ -75,13 +77,14 @@ std::vector<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver
 {
     auto width = full_honk_evaluations.size();
     std::vector<std::vector<FF>> first_level_coeffs(width >> 1, std::vector<FF>(2, 0));
-    parallel_for_range(width >> 1, [&](size_t start, size_t end) {
-        for (size_t node = start << 1; node < end << 1; node += 2) {
-            auto parent = node >> 1;
+    parallel_for_heuristic(
+        width >> 1,
+        [&](size_t parent) {
+            size_t node = parent * 2;
             first_level_coeffs[parent][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
             first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
-        }
-    });
+        },
+        /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
     return construct_coefficients_tree(betas, deltas, first_level_coeffs);
 }
 
