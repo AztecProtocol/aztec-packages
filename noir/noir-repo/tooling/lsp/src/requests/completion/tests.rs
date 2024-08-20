@@ -356,14 +356,14 @@ mod completion_tests {
     async fn test_complete_path_after_colons_and_letter_shows_submodule() {
         let src = r#"
           mod foo {
-            mod bar {}
+            mod qux {}
           }
 
           fn main() {
-            foo::b>|<
+            foo::q>|<
           }
         "#;
-        assert_completion(src, vec![module_completion_item("bar")]).await;
+        assert_completion(src, vec![module_completion_item("qux")]).await;
     }
 
     #[test]
@@ -494,7 +494,7 @@ mod completion_tests {
 
           impl SomeStruct {
             fn foo() {
-                S>|<
+                So>|<
             }
           }
         "#;
@@ -517,7 +517,7 @@ mod completion_tests {
 
           impl Trait for SomeStruct {
             fn foo() {
-                S>|<
+                So>|<
             }
           }
         "#;
@@ -537,7 +537,7 @@ mod completion_tests {
         let src = r#"
           fn main() {
             for index in 0..10 {
-                i>|<
+                ind>|<
             }
           }
         "#;
@@ -558,13 +558,13 @@ mod completion_tests {
           fn lambda(f: fn(i32)) { }
 
           fn main() {
-            lambda(|var| v>|<)
+            lambda(|lambda_var| lambda_v>|<)
           }
         "#;
         assert_completion_excluding_auto_import(
             src,
             vec![simple_completion_item(
-                "var",
+                "lambda_var",
                 CompletionItemKind::VARIABLE,
                 Some("_".to_string()),
             )],
@@ -733,16 +733,19 @@ mod completion_tests {
         let src = r#"
             fn foo(x: i>|<) {}
         "#;
-        assert_completion(
-            src,
+
+        let items = get_completions(src).await;
+        let items = items.into_iter().filter(|item| item.label.starts_with('i')).collect();
+
+        assert_items_match(
+            items,
             vec![
                 simple_completion_item("i8", CompletionItemKind::STRUCT, Some("i8".to_string())),
                 simple_completion_item("i16", CompletionItemKind::STRUCT, Some("i16".to_string())),
                 simple_completion_item("i32", CompletionItemKind::STRUCT, Some("i32".to_string())),
                 simple_completion_item("i64", CompletionItemKind::STRUCT, Some("i64".to_string())),
             ],
-        )
-        .await;
+        );
     }
 
     #[test]
@@ -895,7 +898,7 @@ mod completion_tests {
     async fn test_suggest_struct_type_parameter() {
         let src = r#"
             struct Foo<Context> {
-                context: C>|<
+                context: Cont>|<
             }
         "#;
         assert_completion_excluding_auto_import(
@@ -962,7 +965,7 @@ mod completion_tests {
     #[test]
     async fn test_suggest_function_type_parameters() {
         let src = r#"
-            fn foo<Context>(x: C>|<) {}
+            fn foo<Context>(x: Cont>|<) {}
         "#;
         assert_completion_excluding_auto_import(
             src,
@@ -1443,7 +1446,7 @@ mod completion_tests {
         assert_eq!(
             item.label_details,
             Some(CompletionItemLabelDetails {
-                detail: Some("(use crate::foo::bar::hello_world)".to_string()),
+                detail: Some("(use super::bar::hello_world)".to_string()),
                 description: Some("fn()".to_string())
             })
         );
@@ -1455,7 +1458,7 @@ mod completion_tests {
                     start: Position { line: 7, character: 8 },
                     end: Position { line: 7, character: 8 },
                 },
-                new_text: "use crate::foo::bar::hello_world;\n\n        ".to_string(),
+                new_text: "use super::bar::hello_world;\n\n        ".to_string(),
             }])
         );
     }
@@ -1553,6 +1556,85 @@ mod completion_tests {
             Some(CompletionItemLabelDetails {
                 detail: Some("(use foo::barbaz)".to_string()),
                 description: None
+            })
+        );
+    }
+
+    #[test]
+    async fn test_completes_matching_any_part_of_an_identifier_by_underscore() {
+        let src = r#"
+            struct Foo {
+                some_property: i32,
+            }
+
+            fn foo(f: Foo) {
+                f.prop>|<
+            }
+        "#;
+        assert_completion(src, vec![field_completion_item("some_property", "i32")]).await;
+    }
+
+    #[test]
+    async fn test_completes_in_impl_type() {
+        let src = r#"
+            struct FooBar {
+            }
+
+            impl FooB>|<
+        "#;
+
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "FooBar",
+                CompletionItemKind::STRUCT,
+                Some("FooBar".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_completes_in_impl_for_type() {
+        let src = r#"
+            struct FooBar {
+            }
+
+            impl Default for FooB>|<
+        "#;
+
+        assert_completion(
+            src,
+            vec![simple_completion_item(
+                "FooBar",
+                CompletionItemKind::STRUCT,
+                Some("FooBar".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_auto_import_with_super() {
+        let src = r#"
+            pub fn bar_baz() {}
+
+            mod tests {
+                fn foo() {
+                    bar_b>|<
+                }
+            }
+        "#;
+        let items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = &items[0];
+        assert_eq!(item.label, "bar_baz()");
+        assert_eq!(
+            item.label_details,
+            Some(CompletionItemLabelDetails {
+                detail: Some("(use super::bar_baz)".to_string()),
+                description: Some("fn()".to_string())
             })
         );
     }
