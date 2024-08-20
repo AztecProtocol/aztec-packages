@@ -196,14 +196,8 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
-    info("Printing VK from actual instance");
-
     auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
-    typename Flavor::CommitmentLabels commitment_labels;
-    info("PRINTING THE VKEY IN PROVE AND VERIFY FLOW");
-    for (auto [label, key] : zip_view(commitment_labels.get_precomputed(), verification_key->get_all())) {
-        info("label: ", label, " value: ", key);
-    }
+
     Verifier verifier{ verification_key };
 
     return verifier.verify_proof(proof);
@@ -596,7 +590,7 @@ void prove_tube(const std::string& output_path)
 
     builder->add_recursive_proof(current_aggregation_object);
 
-    info("num gates in tube circuit: ", builder->get_num_gates());
+    info("num gates in tube circuit: ", builder->num_gates);
     using Prover = UltraProver_<UltraFlavor>;
     using Verifier = UltraVerifier_<UltraFlavor>;
     Prover tube_prover{ *builder };
