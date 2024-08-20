@@ -14,19 +14,11 @@ using namespace bb;
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
-// WORKTODO: generate from Noir constants? see constaints.in.ts and aztec_constants.hpp
-enum class IVC_TYPE : uint32_t {
-    HONK_RECURSION,
-    PRIVATE_CLIENT_ACCUMULATION,
-    PRIVATE_CLIENT_VERIFICATION,
-    PLONK_RECURSION
-};
-
 template <typename Builder>
 void build_constraints(Builder& builder,
                        AcirFormat& constraint_system,
                        bool has_valid_witness_assignments,
-                       bool honk_recursion, // WORKTODO: can get rid of this
+                       bool honk_recursion,
                        bool collect_gates_per_opcode,
                        [[maybe_unused]] std::optional<ClientIVC> ivc)
 {

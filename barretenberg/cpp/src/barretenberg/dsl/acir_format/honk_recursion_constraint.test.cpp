@@ -154,20 +154,21 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
 
             std::vector<fr> proof_witnesses = inner_proof;
+            // where the inner public inputs start (after circuit_size, num_pub_inputs, pub_input_offset)
+            const size_t inner_public_input_offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
             // - Save the public inputs so that we can set their values.
             // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
             std::vector<fr> inner_public_input_values(
-                proof_witnesses.begin() + static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET),
+                proof_witnesses.begin() + static_cast<std::ptrdiff_t>(inner_public_input_offset),
                 proof_witnesses.begin() +
-                    static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + num_inner_public_inputs -
+                    static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs -
                                                 bb::AGGREGATION_OBJECT_SIZE));
 
             // We want to make sure that we do not remove the nested aggregation object.
-            proof_witnesses.erase(
-                proof_witnesses.begin() + static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET),
-                proof_witnesses.begin() +
-                    static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + num_inner_public_inputs -
-                                                bb::AGGREGATION_OBJECT_SIZE));
+            proof_witnesses.erase(proof_witnesses.begin() + static_cast<std::ptrdiff_t>(inner_public_input_offset),
+                                  proof_witnesses.begin() +
+                                      static_cast<std::ptrdiff_t>(inner_public_input_offset + num_inner_public_inputs -
+                                                                  bb::AGGREGATION_OBJECT_SIZE));
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
 
@@ -176,22 +177,21 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             // [ circuit size, num_pub_inputs, pub_input_offset, public_input_0, public_input_1, agg_obj_0,
             // agg_obj_1, ..., agg_obj_15, rest of proof..., vkey_0, vkey_1, vkey_2, vkey_3...]
             const uint32_t public_input_start_idx =
-                static_cast<uint32_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + witness_offset); // points to public_input_0
+                static_cast<uint32_t>(inner_public_input_offset + witness_offset); // points to public_input_0
             const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
                 public_input_start_idx + num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE); // points to agg_obj_0
-            const uint32_t key_indices_start_idx = static_cast<uint32_t>(
-                proof_indices_start_idx + proof_witnesses.size() -
-                HONK_RECURSION_PUBLIC_INPUT_OFFSET); // would point to vkey_3 without the -
-                                                     // HONK_RECURSION_PUBLIC_INPUT_OFFSET, points to vkey_0
+            const uint32_t key_indices_start_idx =
+                static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size() -
+                                      inner_public_input_offset); // would point to vkey_3 without the -
+                                                                  // inner_public_input_offset, points to vkey_0
 
             std::vector<uint32_t> proof_indices;
             std::vector<uint32_t> key_indices;
             std::vector<uint32_t> inner_public_inputs;
-            for (size_t i = 0; i < HONK_RECURSION_PUBLIC_INPUT_OFFSET;
-                 ++i) { // go over circuit size, num_pub_inputs, pub_offset
+            for (size_t i = 0; i < inner_public_input_offset; ++i) { // go over circuit size, num_pub_inputs, pub_offset
                 proof_indices.emplace_back(static_cast<uint32_t>(i + witness_offset));
             }
-            for (size_t i = 0; i < proof_witnesses.size() - HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+            for (size_t i = 0; i < proof_witnesses.size() - inner_public_input_offset;
                  ++i) { // goes over agg_obj_0, agg_obj_1, ..., agg_obj_15 and rest of proof
                 proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
             }
@@ -223,8 +223,8 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             for (const auto& wit : proof_witnesses) {
                 witness.emplace_back(wit);
                 idx++;
-                if (idx == HONK_RECURSION_PUBLIC_INPUT_OFFSET) { // before this is true, the loop adds the first three
-                                                                 // into witness
+                if (idx == inner_public_input_offset) { // before this is true, the loop adds the first three
+                                                        // into witness
                     for (size_t i = 0; i < proof_indices_start_idx - public_input_start_idx;
                          ++i) { // adds the inner public inputs
                         witness.emplace_back(0);
@@ -295,7 +295,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
-TEST_F(AcirHonkRecursionConstraint, TestBasicSingleRecursionConstraintHonk)
+TEST_F(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 {
     std::vector<Builder> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit());
@@ -313,7 +313,7 @@ TEST_F(AcirHonkRecursionConstraint, TestBasicSingleRecursionConstraintHonk)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
-TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleRecursionConstraintsHonk)
+TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 {
     std::vector<Builder> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit());

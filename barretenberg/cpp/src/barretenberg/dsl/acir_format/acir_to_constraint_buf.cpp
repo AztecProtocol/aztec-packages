@@ -227,7 +227,7 @@ WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
-                               bool honk_recursion, // WORKTODO: this should go away
+                               bool honk_recursion,
                                size_t opcode_index)
 {
     std::visit(
