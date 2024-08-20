@@ -76,9 +76,9 @@ std::vector<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver
                                                           const std::vector<FF>& full_honk_evaluations)
 {
     auto width = full_honk_evaluations.size();
-    std::vector<std::vector<FF>> first_level_coeffs(width >> 1, std::vector<FF>(2, 0));
+    std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
     parallel_for_heuristic(
-        width >> 1,
+        width / 2,
         [&](size_t parent) {
             size_t node = parent * 2;
             first_level_coeffs[parent][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];

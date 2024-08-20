@@ -76,4 +76,16 @@ Inner sum(Cont<Inner, Args...> const& in)
     return result;
 }
 
+// A simple sum meant for small containers (i.e. doesn't use threading)
+template <template <typename, typename...> typename Cont, typename Left, typename Right, typename... Args>
+std::pair<Left, Right> sum_pairs(Cont<std::pair<Left, Right>, Args...> const& in)
+{
+    std::pair<Left, Right> result{ {}, {} };
+    for (auto& e : in) {
+        result.first += e.first;
+        result.second += e.second;
+    }
+    return result;
+}
+
 } // namespace bb
