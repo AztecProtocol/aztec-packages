@@ -32,13 +32,17 @@ services:
     expose:
       - '8080'
 
-  cli-wallet:
+  end-to-end:
     image: aztecprotocol/cli-wallet:${AZTEC_DOCKER_TAG:-latest}
     environment:
       DEBUG: ${DEBUG:-aztec:*}
       DEBUG_COLORS: 1
       PXE_URL: http://sandbox:8080
-    entrypoint: './test/test.sh'
+    entrypoint: >
+      sh -c '
+        while ! nc -z sandbox 8080; do sleep 1; done;
+        ./test/test.sh
+      '
     volumes:
       - ../log:/usr/src/yarn-project/end-to-end/log:rw
     depends_on:

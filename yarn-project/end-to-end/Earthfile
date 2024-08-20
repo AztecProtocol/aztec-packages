@@ -20,7 +20,8 @@ E2E_COMPOSE_TEST:
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Optimize to not cause serial behavior if image already exists
   IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
-     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
+     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" || \
+     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/cli-wallet:$AZTEC_DOCKER_TAG"
     WAIT
       BUILD ../+export-e2e-test-images
     END
@@ -255,28 +256,4 @@ e2e-devnet-smoke:
   DO +E2E_COMPOSE_TEST --test=devnet/e2e_smoke.test.ts --compose_file=scripts/docker-compose-devnet.yml
 
 e2e-cli-wallet:
-  ARG test
-  ARG compose_file=./scripts/docker-compose-wallet.yml
-  ARG debug="aztec:*"
-  ARG hardware_concurrency=""
-  LOCALLY
-  ENV TEST=$test
-  ENV DEBUG=$debug
-  ENV HARDWARE_CONCURRENCY=$hardware_concurrency
-  IF docker compose > /dev/null 2>&1
-    LET CMD="docker compose"
-  ELSE
-    LET CMD="docker-compose"
-  END
-  # Let docker compose know about the pushed tags above
-  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
-  # Optimize to not cause serial behavior if image already exists
-  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
-     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/cli-wallet:$AZTEC_DOCKER_TAG"
-    WAIT
-      BUILD ../+export-e2e-test-images
-    END
-  END
-  # Run our docker compose, ending whenever the wallet finishes running
-  ENV JOB_NAME=$project_name
-  RUN $CMD -p e2e-cli-wallet -f $compose_file run cli-wallet --force-recreate
+  DO +E2E_COMPOSE_TEST --test=e2e_cli_wallet --compose_file=scripts/docker-compose-wallet.yml
