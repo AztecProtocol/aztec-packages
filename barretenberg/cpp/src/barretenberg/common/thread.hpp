@@ -60,6 +60,23 @@ void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristi
         heuristic_cost);
 }
 
+template <typename Func, typename Accum>
+    requires std::invocable<Func, std::size_t, Accum&>
+std::vector<Accum> parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristic_cost)
+{
+    // thread-safe accumulators
+    std::vector<Accum> accumulators(get_num_cpus());
+    parallel_for_heuristic(
+        num_points,
+        [&](size_t start_idx, size_t end_idx, size_t chunk_index) {
+            for (size_t i = start_idx; i < end_idx; i++) {
+                func(i, accumulators[chunk_index]);
+            }
+        },
+        heuristic_cost);
+    return accumulators;
+}
+
 const size_t DEFAULT_MIN_ITERS_PER_THREAD = 1 << 4;
 
 /**

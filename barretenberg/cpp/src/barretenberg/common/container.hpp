@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+namespace bb {
+
 template <typename C> C slice(C const& container, size_t start)
 {
     auto b = container.begin();
@@ -62,3 +64,16 @@ template <typename T> int64_t index_of(std::vector<T> const& vec, T const& item)
 
     return itr == end ? -1 : std::distance(begin, itr);
 }
+
+// A simple sum meant for small containers (i.e. doesn't use threading)
+template <template <typename, typename...> typename Cont, typename Inner, typename... Args>
+Inner sum(Cont<Inner, Args...> const& in)
+{
+    Inner result{};
+    for (auto& e : in) {
+        result += e;
+    }
+    return result;
+}
+
+} // namespace bb
