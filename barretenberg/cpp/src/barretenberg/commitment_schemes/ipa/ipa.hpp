@@ -171,7 +171,7 @@ template <typename Curve_> class IPA {
         parallel_for_heuristic(
             poly_length,
             [&](size_t i) {
-                G_vec_local[i / 2] = srs_elements[i * 2];
+                G_vec_local[i] = srs_elements[i * 2];
             }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
@@ -204,7 +204,7 @@ template <typename Curve_> class IPA {
             auto inner_prods = parallel_for_heuristic(
                 round_size,
                 std::pair{Fr::zero(), Fr::zero()},
-                [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right, BB_UNUSED size_t chunk_index) {
+                [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
                     inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
@@ -387,10 +387,8 @@ template <typename Curve_> class IPA {
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         parallel_for_heuristic(
             poly_length,
-            [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
-                for (size_t i = start * 2; i < end * 2; i += 2) {
-                    G_vec_local[i / 2] = srs_elements[i];
-                }
+            [&](size_t i) {
+                G_vec_local[i] = srs_elements[i * 2];
             }, thread_heuristics::FF_COPY_COST * 2);
 
         // Step 8.
