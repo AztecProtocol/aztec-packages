@@ -156,8 +156,6 @@ if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; 
   fi
 fi
 
-echo ""
-
 docker run \
   -ti \
   --rm \
@@ -169,5 +167,3 @@ docker run \
   ${DOCKER_HOST_BINDS:-} \
   ${DOCKER_USER:-} \
   $IMAGE:$VERSION ${preserved_args[@]:-}
-
-echo ""

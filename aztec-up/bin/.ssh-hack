@@ -12,20 +12,22 @@ ORIGINAL_SSH_AUTH_SOCK=$(launchctl asuser "${UID:-"$(id -u)"}" launchctl getenv 
 
 if [ "${2:-}" == "--permanent" ]; then
     if [ "${1:-}" == "load" ]; then
-        echo "Symlinking $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK via a launch agent in $LINK_FILE."
+        launchctl stop $(id -u)/com.openssh.ssh-agent
+        mv $ORIGINAL_SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK.bak
         cat "$TEMPLATE_FILE" | sed -e "s+NEW_SSH_AUTH_SOCK+$SSH_AUTH_SOCK+g" | sed -e "s+ORIGINAL_SSH_AUTH_SOCK+$ORIGINAL_SSH_AUTH_SOCK+g" > "$LINK_FILE"
         launchctl load -F "$LINK_FILE"
     elif [ "${1:-}" == "unload" ] && [ -e "$LINK_FILE" ]; then
-        echo "Unloading launch agent and removing $LINK_FILE."
         launchctl unload -F "$LINK_FILE"
         rm -rf "$LINK_FILE"
+        rm -rf $ORIGINAL_SSH_AUTH_SOCK
+        mv $ORIGINAL_SSH_AUTH_SOCK.bak $ORIGINAL_SSH_AUTH_SOCK
     fi
 else
     if [ "${1:-}" == "load" ]; then
-        echo "Symlinking $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK."
+        mv $ORIGINAL_SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK.bak
         ln -sf $SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK
     elif [ "${1:-}" == "unload" ]; then
-        echo "Removing link from $SSH_AUTH_SOCK to $ORIGINAL_SSH_AUTH_SOCK."
-        unlink $SSH_AUTH_SOCK
+        rm -rf $ORIGINAL_SSH_AUTH_SOCK
+        mv $ORIGINAL_SSH_AUTH_SOCK.bak $ORIGINAL_SSH_AUTH_SOCK
     fi
 fi 
