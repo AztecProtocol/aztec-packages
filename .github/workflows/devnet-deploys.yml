@@ -579,7 +579,6 @@ jobs:
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
       TF_VAR_PXE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.pxe_lb_priority_range_start }}
       TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
-      TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
       TF_VAR_BOT_FLUSH_SETUP_TRANSACTIONS: ${{ needs.set-network.outputs.bot_flush_setup_txs }}
       TF_VAR_BOT_MAX_PENDING_TXS: ${{ needs.set-network.outputs.bot_max_pending_txs }}
       TF_VAR_SEQ_MIN_TX_PER_BLOCK: ${{ needs.set-network.outputs.min_txs_per_block }}
