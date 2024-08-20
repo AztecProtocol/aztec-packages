@@ -454,7 +454,7 @@ template <typename Curve_> class IPA {
         // Ensure polynomial length cannot be changed from its default specified valued
         poly_length_var.fix_witness();
 
-        const uint32_t poly_length = static_cast<uint32_t>(poly_length_var.get_value());
+        const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -516,7 +516,7 @@ template <typename Curve_> class IPA {
         // O(nlogn). This can be optimized to be linear by computing a tree of products.
         for (size_t i = 0; i < poly_length; i++) {
             Fr s_vec_scalar = Fr(1);
-            for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
+            for (size_t j = (log_poly_degree - 1); j != static_cast<size_t>(-1); j--) {
                 auto bit = (i >> j) & 1;
                 bool b = static_cast<bool>(bit);
                 if (b) {
