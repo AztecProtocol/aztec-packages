@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724148698533,
+  "lastUpdate": 1724173298508,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "ef2830a7522be7a9888908eee71c0d447a4940b6",
-          "message": "feat: PG recursive verifier constructors based on stdlib inputs",
-          "timestamp": "2024-08-16T17:40:57Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8052/commits/ef2830a7522be7a9888908eee71c0d447a4940b6"
-        },
-        "date": 1723847635399,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13543.747924000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10137.636813000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4790.658500000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4396.979987 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40743.408449,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40743408000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14430.890829000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14430891000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3790686858,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3790686858 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208787525,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208787525 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3101595260,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3101595260 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173005580,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173005580 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3424,6 +3356,78 @@ window.BENCHMARK_DATA = {
             "value": 173658037,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173658037 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c568b0545b022a536a6eb4199be817593e6b317",
+          "message": "feat: PG recursive verifier constructors based on stdlib inputs (#8052)\n\nUpdate the PG recursive verifier to take stdlib\r\naccumulators/verification_keys and stdlib proofs as opposed to their\r\nnative counterparts. This work will allow for a connection to be made\r\nbetween the proofs/vkeys used in noir protocol circuits and those used\r\nin the backend. The workflow will be roughly 1) construct stdlib\r\nvkey/proof from their known native counterparts, 2) use `assert_equal`\r\nto connect the witnesses of these objects to those received in the\r\ncorresponding acir `RecursionConstraint`, and 3) run the recursive\r\nverifier as usual.",
+          "timestamp": "2024-08-20T16:45:09Z",
+          "tree_id": "3fcd651b87ccb62eaca1da05ed8f66128d0526d9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c568b0545b022a536a6eb4199be817593e6b317"
+        },
+        "date": 1724173284608,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13300.210032999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10012.99604 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4887.386962000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4495.215189 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39827.981034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39827982000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14388.985789,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14388987000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3762419491,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3762419491 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 207201517,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 207201517 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3076782901,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3076782901 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 172472322,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 172472322 ns\nthreads: 1"
           }
         ]
       }
