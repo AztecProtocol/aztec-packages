@@ -185,7 +185,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .client_ivc_accumulation_constraints = {},
-        .client_ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},

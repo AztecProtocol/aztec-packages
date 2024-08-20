@@ -97,6 +97,7 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
+    std::vector<RecursionConstraint> client_ivc_accumulation_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -137,7 +138,7 @@ struct AcirFormat {
                    ec_add_constraints,
                    recursion_constraints,
                    honk_recursion_constraints,
-                   //    client_ivc_accumulation_constraints,
+                   client_ivc_accumulation_constraints,
                    poly_triple_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,

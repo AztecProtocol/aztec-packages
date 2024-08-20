@@ -171,9 +171,9 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     }
 
     std::vector<field_ct> proof_fields;
-    // Insert the public inputs in the middle the proof fields after 'HONK_INNER_PUBLIC_INPUT_OFFSET' because this is
-    // how the core barretenberg library processes proofs (with the public inputs starting at the third element and not
-    // separate from the rest of the proof)
+    // Insert the public inputs in the middle the proof fields after 'HONK_RECURSION_PUBLIC_INPUT_OFFSET' because this
+    // is how the core barretenberg library processes proofs (with the public inputs starting at the third element and
+    // not separate from the rest of the proof)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
     size_t i = 0;
     for (const auto& idx : input.proof) {
