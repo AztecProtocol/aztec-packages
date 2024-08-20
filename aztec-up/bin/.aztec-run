@@ -11,7 +11,6 @@ DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
 INHERIT_USER=${INHERIT_USER:-1}
-SSH_AUTH_SOCK_WARNING_FILE="$(dirname $0)/ssh_auth_sock_warning.lock"
 
 if [[ -n "${NETWORK:-}" ]]; then
   VERSION=$NETWORK
@@ -126,15 +125,14 @@ if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; 
   warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Enabling SSH agent forwarding."
   CWD=$(dirname $0)
   if [[ "$UNAME" == "Darwin" ]]; then
-    if [[ $SSH_AUTH_SOCK == "/private/tmp/com.apple.launchd."* && ! -f "$SSH_AUTH_SOCK_WARNING_FILE" ]]; then
+    if [[ $SSH_AUTH_SOCK == "/private/tmp/com.apple.launchd."* ]]; then
         echo ""
         warn "#####################################################################################"
         warn "# WARNING: SSH_AUTH_SOCK is set to the default macOS ssh-agent in /private/tmp/...  #"
         warn "# Unfortunately this is not supported in Docker and specially problematic if using  #"
         warn "# VirtioFS (https://github.com/docker/for-mac/issues/6375)                          #"
         warn "#                                                                                   #"
-        warn "# To get rid of this warning, either set SSH_AUTH_SOCK to a different value or run  #"
-        warn "# aztec ignore-mac-os-default-ssh-agent                                             #"
+        warn "# To get rid of this warning, either set SSH_AUTH_SOCK to a different value         #"
         warn "#####################################################################################"
         echo ""
         exit 1
