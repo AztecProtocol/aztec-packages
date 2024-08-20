@@ -28,9 +28,9 @@ inline size_t get_num_cpus_pow2()
  * The size will be chosen based on the hardware concurrency (i.e., env or cpus).
  */
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func);
-void parallel_for_threshold(size_t num_points,
-                            const std::function<void(size_t, size_t)>& func,
-                            size_t no_multhreading_if_less_or_equal = 0);
+void parallel_for_range(size_t num_points,
+                        const std::function<void(size_t, size_t)>& func,
+                        size_t no_multhreading_if_less_or_equal = 0);
 
 /**
  * @brief Split a loop into several loops running in parallel based on operations in 1 iteration

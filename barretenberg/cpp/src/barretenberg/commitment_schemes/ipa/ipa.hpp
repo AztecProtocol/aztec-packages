@@ -196,9 +196,11 @@ template <typename Curve_> class IPA {
         GroupElement R_i;
         std::size_t round_size = poly_length;
 
+#ifndef NO_MULTITHREADING
         //  The inner products we'll be computing in parallel need a mutex to be thread-safe during the last
         //  accumulation
         std::mutex inner_product_accumulation_mutex;
+#endif
         // Step 6.
         // Perform IPA reduction rounds
         for (size_t i = 0; i < log_poly_degree; i++) {
@@ -218,7 +220,9 @@ template <typename Curve_> class IPA {
                     }
                     // Update the accumulated results thread-safely
                     {
+#ifndef NO_MULTITHREADING
                         std::unique_lock<std::mutex> lock(inner_product_accumulation_mutex);
+#endif
                         inner_prod_L += current_inner_prod_L;
                         inner_prod_R += current_inner_prod_R;
                     }

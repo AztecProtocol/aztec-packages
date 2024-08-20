@@ -99,9 +99,9 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
  * @param no_multhreading_if_less_or_equal If num points is less or equal to this value, run without parallelization
  *
  */
-void parallel_for_threshold(size_t num_points,
-                            const std::function<void(size_t, size_t)>& func,
-                            size_t no_multhreading_if_less_or_equal)
+void parallel_for_range(size_t num_points,
+                        const std::function<void(size_t, size_t)>& func,
+                        size_t no_multhreading_if_less_or_equal)
 {
     if (num_points <= no_multhreading_if_less_or_equal) {
         func(0, num_points);
