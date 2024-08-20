@@ -7,7 +7,6 @@ process_dir() {
     local dir=$1
     local current_dir=$2
     local dir_name=$(basename "$dir")
-    local failure=0
 
     {
         echo "Processing $dir"
@@ -29,10 +28,8 @@ process_dir() {
         fi
 
         if ! nargo execute witness; then
-            failure=1
-        fi
-
-        if [ $failure -eq 0 ]; then
+            echo "$dir: failed"
+        else
             if [ -d "$current_dir/acir_artifacts/$dir_name/target" ]; then
                 rm -r "$current_dir/acir_artifacts/$dir_name/target"
             fi
@@ -41,13 +38,10 @@ process_dir() {
             mv ./target/$dir_name.json "$current_dir/acir_artifacts/$dir_name/target/program.json"
             mv ./target/*.gz "$current_dir/acir_artifacts/$dir_name/target/"
             echo "$dir: succeeded"
-        else
-            echo "$dir: failed"
         fi
 
         cd "$current_dir"
     } >> "$current_dir/rebuild.log" 2>&1
-    echo "Done processing $dir with exit code $failure"
 }
 
 export -f process_dir
