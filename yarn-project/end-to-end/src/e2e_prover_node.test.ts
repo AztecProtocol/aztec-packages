@@ -5,17 +5,15 @@ import {
   type AztecAddress,
   type DebugLogger,
   EthAddress,
-  type FieldsOf,
   Fr,
   SignerlessWallet,
-  type TxReceipt,
   computeSecretHash,
   createDebugLogger,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { StatefulTestContract, TestContract } from '@aztec/noir-contracts.js';
-import { createProverNode } from '@aztec/prover-node';
+import { type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 
 import { sendL1ToL2Message } from './fixtures/l1_to_l2_messaging.js';
 import {
@@ -35,7 +33,6 @@ describe('e2e_prover_node', () => {
   let recipient: AztecAddress;
   let contract: StatefulTestContract;
   let msgTestContract: TestContract;
-  let txReceipts: FieldsOf<TxReceipt>[];
 
   let logger: DebugLogger;
   let snapshotManager: ISnapshotManager;
@@ -84,42 +81,28 @@ describe('e2e_prover_node', () => {
       },
     );
 
-    await snapshotManager.snapshot(
-      'create-blocks',
-      async ctx => {
-        const msgSender = ctx.deployL1ContractsValues.walletClient.account.address;
-        const txReceipt1 = await msgTestContract.methods
-          .consume_message_from_arbitrary_sender_private(msgContent, msgSecret, EthAddress.fromString(msgSender))
-          .send()
-          .wait();
-        const txReceipt2 = await contract.methods.create_note(recipient, recipient, 10).send().wait();
-        const txReceipt3 = await contract.methods.increment_public_value(recipient, 20).send().wait();
-        return { txReceipts: [txReceipt1, txReceipt2, txReceipt3] };
-      },
-      data => {
-        txReceipts = data.txReceipts;
-        return Promise.resolve();
-      },
-    );
-
     ctx = await snapshotManager.setup();
   });
 
   it('submits three blocks, then prover proves the first two', async () => {
+    // Stop the current prover node
+    await ctx.proverNode.stop();
+
+    const msgSender = ctx.deployL1ContractsValues.walletClient.account.address;
+    const txReceipt1 = await msgTestContract.methods
+      .consume_message_from_arbitrary_sender_private(msgContent, msgSecret, EthAddress.fromString(msgSender))
+      .send()
+      .wait();
+    const txReceipt2 = await contract.methods.create_note(recipient, recipient, 10).send().wait();
+    const txReceipt3 = await contract.methods.increment_public_value(recipient, 20).send().wait();
+
     // Check everything went well during setup and txs were mined in two different blocks
-    const [txReceipt1, txReceipt2, txReceipt3] = txReceipts;
     const firstBlock = txReceipt1.blockNumber!;
     const secondBlock = firstBlock + 1;
     expect(txReceipt2.blockNumber).toEqual(secondBlock);
     expect(txReceipt3.blockNumber).toEqual(firstBlock + 2);
     expect(await contract.methods.get_public_value(recipient).simulate()).toEqual(20n);
     expect(await contract.methods.summed_values(recipient).simulate()).toEqual(10n);
-    expect(await ctx.aztecNode.getProvenBlockNumber()).toEqual(0);
-
-    // Trick archiver into thinking everything has been proven up to this point.
-    // TODO: Add cheat code to flag current block as proven on L1, which will be needed when we assert on L1 that proofs do not have any gaps.
-    await (ctx.aztecNode.getBlockSource() as Archiver).setProvenBlockNumber(firstBlock - 1);
-    expect(await ctx.aztecNode.getProvenBlockNumber()).toEqual(firstBlock - 1);
 
     // Kick off a prover node
     await sleep(1000);
@@ -127,7 +110,13 @@ describe('e2e_prover_node', () => {
     logger.info(`Creating prover node ${proverId.toString()}`);
     // HACK: We have to use the existing archiver to fetch L2 data, since anvil's chain dump/load used by the
     // snapshot manager does not include events nor txs, so a new archiver would not "see" old blocks.
-    const proverConfig = { ...ctx.aztecNodeConfig, txProviderNodeUrl: undefined, dataDirectory: undefined, proverId };
+    const proverConfig: ProverNodeConfig = {
+      ...ctx.aztecNodeConfig,
+      txProviderNodeUrl: undefined,
+      dataDirectory: undefined,
+      proverId,
+      proverNodeMaxPendingJobs: 100,
+    };
     const archiver = ctx.aztecNode.getBlockSource() as Archiver;
     const proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: ctx.aztecNode, archiver });
 
@@ -141,13 +130,20 @@ describe('e2e_prover_node', () => {
     await expect(proverNode.startProof(firstBlock, firstBlock)).rejects.toThrow(/behind the current world state/i);
 
     // Await until proofs get submitted
-    await retryUntil(async () => (await ctx.aztecNode.getProvenBlockNumber()) === secondBlock, 'proven', 10, 1);
+    await retryUntil(async () => (await ctx.aztecNode.getProvenBlockNumber()) === secondBlock, 'proven', 60, 1);
     expect(await ctx.aztecNode.getProvenBlockNumber()).toEqual(secondBlock);
 
     // Check that the prover id made it to the emitted event
     const { publicClient, l1ContractAddresses } = ctx.deployL1ContractsValues;
     const logs = await retrieveL2ProofVerifiedEvents(publicClient, l1ContractAddresses.rollupAddress, 1n);
-    expect(logs[0].l2BlockNumber).toEqual(BigInt(firstBlock));
-    expect(logs[0].proverId.toString()).toEqual(proverId.toString());
+    expect(logs.length).toEqual(secondBlock);
+
+    const expectedBlockNumbers = [firstBlock, secondBlock];
+    const logsSlice = logs.slice(firstBlock - 1);
+    for (let i = 0; i < 2; i++) {
+      const log = logsSlice[i];
+      expect(log.l2BlockNumber).toEqual(BigInt(expectedBlockNumbers[i]));
+      expect(log.proverId.toString()).toEqual(proverId.toString());
+    }
   });
 });
