@@ -5,7 +5,7 @@ contract FeeJuice {
         protocol_types::{
         contract_class_id::ContractClassId, abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
-        constants::{DEPLOYER_CONTRACT_ADDRESS, REGISTERER_CONTRACT_ADDRESS}
+        constants::{DEPLOYER_CONTRACT_ADDRESS, REGISTERER_CONTRACT_ADDRESS, FEE_JUICE_INITIAL_MINT}
     },
         state_vars::{SharedImmutable, PublicMutable, Map},
         oracle::get_contract_instance::get_contract_instance, deploy::deploy_contract
@@ -46,18 +46,17 @@ contract FeeJuice {
         );
 
         // Increase self balance and set as fee payer, and end setup
-        let deploy_fees = 20000000000;
-        FeeJuice::at(self)._increase_public_balance(self, deploy_fees).enqueue(&mut context);
+        FeeJuice::at(self)._increase_public_balance(self, FEE_JUICE_INITIAL_MINT).enqueue(&mut context);
         context.set_as_fee_payer();
         context.end_setup();
 
         // Register class and publicly deploy contract
-        let _register = ContractClassRegisterer::at(AztecAddress::from_field(REGISTERER_CONTRACT_ADDRESS)).register(
+        let _register = ContractClassRegisterer::at(REGISTERER_CONTRACT_ADDRESS).register(
             artifact_hash,
             private_functions_root,
             public_bytecode_commitment
         ).call(&mut context);
-        let _deploy = ContractInstanceDeployer::at(AztecAddress::from_field(DEPLOYER_CONTRACT_ADDRESS)).deploy(
+        let _deploy = ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).deploy(
             instance.salt,
             instance.contract_class_id,
             instance.initialization_hash,
