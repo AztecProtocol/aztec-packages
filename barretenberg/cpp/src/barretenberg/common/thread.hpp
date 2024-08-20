@@ -60,6 +60,12 @@ void parallel_for_heuristic(size_t num_points, const Func& func, size_t heuristi
         heuristic_cost);
 }
 
+/**
+ * @brief parallel_for_heuristic variant that takes an accumulator initializer
+ * that is allocated in a vector, one accumulator per thread/chunk.
+ * This allows for thread-safe accumulation, see sum() or sum_pairs() in container.hpp
+ * for an easy way to combine the thread/chunk contributions into a final result.
+ */
 template <typename Func, typename Accum>
     requires std::invocable<Func, std::size_t, Accum&>
 std::vector<Accum> parallel_for_heuristic(size_t num_points,
