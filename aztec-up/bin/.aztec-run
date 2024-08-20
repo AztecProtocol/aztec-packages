@@ -122,10 +122,8 @@ if [[ -z "${SKIP_PORT_ASSIGNMENT:-}" ]]; then
 fi
 
 ssh_agent_forwarding=""
-if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n $SSH_AUTH_SOCK ]]; then
-  echo ""
-  echo "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Enabling SSH agent forwarding."
-  echo ""
+if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; then
+  warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Enabling SSH agent forwarding."
   CWD=$(dirname $0)
   if [[ "$UNAME" == "Darwin" ]]; then
     if [[ $SSH_AUTH_SOCK == "/private/tmp/com.apple.launchd."* && ! -f "$SSH_AUTH_SOCK_WARNING_FILE" ]]; then
@@ -148,27 +146,28 @@ if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n $SSH_AUTH_SOCK ]]; then
     DOCKER_SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock"
     ssh_agent_forwarding="-v $DOCKER_SSH_AUTH_SOCK:$DOCKER_SSH_AUTH_SOCK"
     DOCKER_ENV+=" -e SSH_AUTH_SOCK=$DOCKER_SSH_AUTH_SOCK"
-    trap "$CWD/.ssh-hack unload" EXIT
+    ssh_hack_unload() {
+      $CWD/.ssh-hack unload
+    }
+    trap ssh_hack_unload EXIT
   else
     ssh_agent_forwarding="-v $(realpath $SSH_AUTH_SOCK):$SSH_AUTH_SOCK"
     DOCKER_ENV+=" -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
   fi
 fi
 
-aztec_run() {
-  echo "Launching!"
-  docker run \
-    -ti \
-    --rm \
-    --workdir "$PWD" \
-    -v $HOME:$HOME -v cache:/cache \
-    $ssh_agent_forwarding \
-    $port_assignment \
-    ${DOCKER_ENV:-} \
-    ${DOCKER_HOST_BINDS:-} \
-    ${DOCKER_USER:-} \
-    $IMAGE:$VERSION ${preserved_args[@]:-}
-}
+echo ""
 
+docker run \
+  -ti \
+  --rm \
+  --workdir "$PWD" \
+  -v $HOME:$HOME -v cache:/cache \
+  $ssh_agent_forwarding \
+  $port_assignment \
+  ${DOCKER_ENV:-} \
+  ${DOCKER_HOST_BINDS:-} \
+  ${DOCKER_USER:-} \
+  $IMAGE:$VERSION ${preserved_args[@]:-}
 
-aztec_run
+echo ""
