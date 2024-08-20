@@ -3,6 +3,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type AccountType } from '../utils/accounts.js';
+import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
 
 export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions'] as const;
 export type AliasType = (typeof Aliases)[number];
@@ -71,7 +72,8 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}-sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}-salt`, salt.toBuffer());
     if (type === 'ecdsasecp256r1ssh' && publicKey) {
-      await this.storeAccountMetadata(address, 'publicSigningKey', Buffer.from(publicKey));
+      const publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
+      await this.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
     }
     await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
@@ -115,6 +117,19 @@ export class WalletDB {
     } else {
       throw new Error(`Aliases must start with one of ${Aliases.join(', ')}`);
     }
+  }
+
+  listAliases(type?: AliasType) {
+    let result = [];
+    if (type && !Aliases.includes(type)) {
+      throw new Error(`Unknown alias type ${type}`);
+    }
+    for (let [key, value] of this.#aliases.entries()) {
+      if (!type || key.startsWith(`${type}:`)) {
+        result.push({ key, value: value.toString() });
+      }
+    }
+    return result;
   }
 
   async storeAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string, metadata: Buffer) {

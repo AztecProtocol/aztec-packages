@@ -29,14 +29,17 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
 
   program
     .command('get-alias')
-    .description('Prints a stored alias')
-    .addArgument(new Argument('<alias>', 'Alias to retrieve').choices(Aliases))
+    .description('Shows stored aliases')
+    .addArgument(new Argument('[alias]', 'Alias to retrieve'))
     .action(alias => {
-      const value = db.tryRetrieveAlias(alias);
-      if (value) {
+      if (alias?.includes(':')) {
+        const value = db.retrieveAlias(alias);
         log(value);
       } else {
-        throw new Error(`Alias ${alias} not found`);
+        const aliases = db.listAliases(alias);
+        for (const { key, value } of aliases) {
+          log(`${key} -> ${value}`);
+        }
       }
     });
 
