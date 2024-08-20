@@ -68,8 +68,6 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
-            let context = self.map.context;
-
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = T::new(addend, owner_npk_m.hash());
 

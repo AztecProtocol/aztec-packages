@@ -516,8 +516,6 @@ contract Token {
         assert_current_call_valid_authwit(&mut context, user);
 
         // 2. Get all the relevant keys
-        let header = context.get_header();
-
         let fee_payer_npk_m_hash = get_current_public_keys(&mut context, fee_payer).npk_m.hash();
         let user_keys = get_current_public_keys(&mut context, user);
         let user_npk_m_hash = user_keys.npk_m.hash();
