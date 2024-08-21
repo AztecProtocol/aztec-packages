@@ -336,7 +336,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         accumulateDeltaRangeRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-
+        accumulatePoseidonExternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulatePoseidonInternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         // Apply alpha challenges to challenge evaluations
         // Returns grand honk realtion evaluation
         accumulator = scaleAndBatchSubrelations(evaluations, tp.alphas);
@@ -649,9 +650,9 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     function accumulateAuxillaryRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp,
+        Transcript memory tp, // sooo we take the relation parameters, if needed, from tramscript
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        Fr domainSep // i guess this is the scaling factor?
     ) internal pure {
         AuxParams memory ap;
 
@@ -880,6 +881,69 @@ abstract contract BaseHonkVerifier is IVerifier {
         evals[12] = ap.auxiliary_identity;
     }
 
+    struct PoseidonExternalParams {
+        Fr s1;
+        Fr s2;
+        Fr s3;
+        Fr s4;
+        Fr u1;
+        Fr u2;
+        Fr u3;
+        Fr u4;
+        Fr t0;
+        Fr t1;
+        Fr t2;
+        Fr t3;
+        Fr v1;
+        Fr v2;
+        Fr v3;
+        Fr v4;
+        Fr qPosByScaling;
+    }
+
+    function accumulatePoseidonExternalRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp, // I think this is not needed
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep // i guess this is the scaling factor?
+    ) internal pure {
+        PoseidonExternalParams memory ep;
+
+        ep.s1 = wire(WIRE.W_L) + wire(WIRE.Q_L);
+        ep.s2 = wire(WIRE.W_R) + wire(WIRE.Q_R);
+        ep.s3 = wire(WIRE.W_O) + wire(WIRE.Q_O);
+        ep.s4 = wire(WIRE.W_4) + wire(WIRE.Q_4);
+
+        ep.u1 = ep.s1 * ep.s1 * ep.s1 * ep.s1 * ep.s1;
+        ep.u2 = ep.s2 * ep.s2 * ep.s2 * ep.s2 * ep.s2;
+        ep.u3 = ep.s3 * ep.s3 * ep.s3 * ep.s3 * ep.s3;
+        ep.u4 = ep.s4 * ep.s4 * ep.s4 * ep.s4 * ep.s4;
+        // matrix mul v = M_E * u with 14 additions
+        ep.t0 = u1 + ep.u2; // u_1 + u_2
+        ep.t1 = u3 + ep.u4; // u_3 + u_4
+        ep.t2 = ep.u2 + ep.u2 + ep.t1; // 2u_2
+        // ep.t2 += ep.t1; // 2u_2 + u_3 + u_4
+        ep.t3 = ep.u4 + ep.u4 + ep.t0; // 2u_4
+        // ep.t3 += ep.t0; // u_1 + u_2 + 2u_4
+        ep.v4 = ep.t1 + ep.t1;
+        ep.v4 = ep.v4 + ep.v4 + ep.t3;
+        // ep.v4 += ep.t3; // u_1 + u_2 + 4u_3 + 6u_4
+        ep.v2 = ep.t0 + ep.t0;
+        ep.v2 = ep.v2 + ep.v2 + ep.t2;
+        // ep.v2 += ep.t2; // 4u_1 + 6u_2 + u_3 + u_4
+        ep.v1 = ep.t3 + ep.v2; // 5u_1 + 7u_2 + u_3 + 3u_4
+        ep.v3 = ep.t2 + ep.v4; // u_1 + 3u_2 + 5u_3 + 7u_4
+
+        ep.q_pos_by_scaling = wire(WIRE.Q_POSEIDON2_EXTERNAL) * domainSep;
+        evals[18] = evals[18] + ep.q_pos_by_scaling * (ep.v1 + wire(WIRE.W_L_SHIFT));
+
+        evals[19] = evals[19] + ep.q_pos_by_scaling * (ep.v2 + wire(WIRE.W_R_SHIFT));
+
+        evals[20] = evals[20] + ep.q_pos_by_scaling * (ep.v3 + wire(WIRE.W_O_SHIFT));
+
+        evals[21] += evals[21] + ep.q_pos_by_scaling * (ep.v4 + wire(WIRE.W_4_SHIFT));
+    }
+
     function scaleAndBatchSubrelations(
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
         Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
@@ -988,7 +1052,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // TODO: dont accumulate these into the comms array, just accumulate directly
-        commitments[1] = vk.qm;
+        ommitments[1] = vk.qm;
         commitments[2] = vk.qc;
         commitments[3] = vk.ql;
         commitments[4] = vk.qr;
@@ -999,41 +1063,43 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[9] = vk.qElliptic;
         commitments[10] = vk.qAux;
         commitments[11] = vk.qLookup;
-        commitments[12] = vk.s1;
-        commitments[13] = vk.s2;
-        commitments[14] = vk.s3;
-        commitments[15] = vk.s4;
-        commitments[16] = vk.id1;
-        commitments[17] = vk.id2;
-        commitments[18] = vk.id3;
-        commitments[19] = vk.id4;
-        commitments[20] = vk.t1;
-        commitments[21] = vk.t2;
-        commitments[22] = vk.t3;
-        commitments[23] = vk.t4;
-        commitments[24] = vk.lagrangeFirst;
-        commitments[25] = vk.lagrangeLast;
+        commitments[12] = vk.qPoseidon2External;
+        commitments[13] = vk.qPoseidon2Internal;
+        commitments[14] = vk.s1;
+        commitments[15] = vk.s2;
+        commitments[16] = vk.s3;
+        commitments[17] = vk.s4;
+        commitments[18] = vk.id1;
+        commitments[19] = vk.id2;
+        commitments[20] = vk.id3;
+        commitments[21] = vk.id4;
+        commitments[22] = vk.t1;
+        commitments[23] = vk.t2;
+        commitments[24] = vk.t3;
+        commitments[25] = vk.t4;
+        commitments[26] = vk.lagrangeFirst;
+        commitments[27] = vk.lagrangeLast;
 
         // Accumulate proof points
-        commitments[26] = convertProofPoint(proof.w1);
-        commitments[27] = convertProofPoint(proof.w2);
-        commitments[28] = convertProofPoint(proof.w3);
-        commitments[29] = convertProofPoint(proof.w4);
-        commitments[30] = convertProofPoint(proof.zPerm);
-        commitments[31] = convertProofPoint(proof.lookupInverses);
-        commitments[32] = convertProofPoint(proof.lookupReadCounts);
-        commitments[33] = convertProofPoint(proof.lookupReadTags);
+        commitments[28] = convertProofPoint(proof.w1);
+        commitments[29] = convertProofPoint(proof.w2);
+        commitments[30] = convertProofPoint(proof.w3);
+        commitments[31] = convertProofPoint(proof.w4);
+        commitments[32] = convertProofPoint(proof.zPerm);
+        commitments[33] = convertProofPoint(proof.lookupInverses);
+        commitments[34] = convertProofPoint(proof.lookupReadCounts);
+        commitments[35] = convertProofPoint(proof.lookupReadTags);
 
         // to be Shifted
-        commitments[34] = vk.t1;
-        commitments[35] = vk.t2;
-        commitments[36] = vk.t3;
-        commitments[37] = vk.t4;
-        commitments[38] = convertProofPoint(proof.w1);
-        commitments[39] = convertProofPoint(proof.w2);
-        commitments[40] = convertProofPoint(proof.w3);
-        commitments[41] = convertProofPoint(proof.w4);
-        commitments[42] = convertProofPoint(proof.zPerm);
+        commitments[36] = vk.t1;
+        commitments[37] = vk.t2;
+        commitments[38] = vk.t3;
+        commitments[39] = vk.t4;
+        commitments[40] = convertProofPoint(proof.w1);
+        commitments[41] = convertProofPoint(proof.w2);
+        commitments[42] = convertProofPoint(proof.w3);
+        commitments[43] = convertProofPoint(proof.w4);
+        commitments[44] = convertProofPoint(proof.zPerm);
 
         // Add scalar contributions
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
