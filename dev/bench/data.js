@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724238253967,
+  "lastUpdate": 1724258213101,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "495d363fdf0b89dfeb228c200824fc5f9af7bb19",
-          "message": "feat: passes copy_cycles by const reference to avoid copying (#8051)\n\nAs part of my memory deep-dive, I discovered some unnecessary memory\r\ncopying of the copy_cycles vector.\r\n\r\nIn particular, this vector has length variables.size(), which can be\r\nhuge. In the case of ultra_honk_bench on a mock 2^20 sized circuit which\r\nhas approximately 2^20 variables as well, this copy_cycles vector takes\r\nup around 24MB (for just the 2^20 empty vectors) plus 32MB of memory for\r\nthe actual data (it has full capacity of 36MB, since it's made up of a\r\nbunch of small vectors of lengths 2, 3, and 4, and the length 3 vectors\r\nhave the same capacity as a length 4 vector).\r\n\r\nWhen this copy_cycles vector is passed into\r\n`compute_permutation_argument_polynomials` and\r\n`compute_permutation_mapping`, it was actually passed by value, which\r\nmeant that 24+32=56MB of memory was getting copied twice. This had the\r\neffect of bumping up peak memory during proving key construction by an\r\nextra 112MB.\r\n\r\nMore context on why I think memory during proving key construction is\r\nimportant:\r\nProving key construction memory is not the memory bottleneck in the case\r\nof ultra_honk_bench (ever since my recent memory fix removing\r\nunnecessary polynomial initialization in the TraceData constructor)\r\nsince sumcheck takes up way more memory. However, we care a lot about\r\npeak memory during proving key construction because we expect this to be\r\nthe bottleneck during ClientIVC when we need to construct the proving\r\nkey of one instance while holding all the memory of the accumulator as\r\nwell.\r\n\r\nThe graph below shows the 112MB allocation under the first half of\r\ncompute_permutation_argument_polynomials.\r\n![Tracy\r\ngraph](https://github.com/user-attachments/assets/bc4df740-edf2-42e4-8304-9f24a19d9c76)\r\n\r\nEffect on timing:\r\nNot sure why but it seems to make the benchmark 150ms slower?\r\nBefore: `construct_proof_ultrahonk_power_of_2/20 4858 ms 4423 ms 1`\r\nAfter: `construct_proof_ultrahonk_power_of_2/20 5016 ms 4579 ms 1`",
-          "timestamp": "2024-08-16T18:32:47-04:00",
-          "tree_id": "f4c53e28bd2d67708e1c41b23ecbf82b42eca6e3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/495d363fdf0b89dfeb228c200824fc5f9af7bb19"
-        },
-        "date": 1723848301886,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13332.194797,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9997.833553999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4964.387115000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4467.850303 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39749.31989100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39749320000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14475.096365,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14475096000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3797585755,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3797585755 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209883524,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209883524 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3095054791,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3095054791 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173253673,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173253673 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3432,6 +3360,78 @@ window.BENCHMARK_DATA = {
             "value": 172251297,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 172251297 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ee79d28affa66ef3c9f73782182b6221e2e9d98",
+          "message": "chore: handle constant output for ec add opcode (#8108)\n\nWhen enabling constant inputs for ec addition we may get contant output\r\nas well.",
+          "timestamp": "2024-08-21T18:26:38+02:00",
+          "tree_id": "5bffe3598c2a9bf59fcd93e7303ad9156b2deb9b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2ee79d28affa66ef3c9f73782182b6221e2e9d98"
+        },
+        "date": 1724258199375,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13665.626783000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10404.427329999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5094.544990000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4639.034811 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40069.431718,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40069431000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14777.989955000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14777990000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3748228723,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3748228723 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 210611464,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 210611464 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3071174040,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3071174040 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 172694889,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 172694889 ns\nthreads: 1"
           }
         ]
       }
