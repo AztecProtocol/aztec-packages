@@ -39,14 +39,7 @@ AvmProver AvmComposer::create_prover(CircuitConstructor& circuit_constructor)
 AvmVerifier AvmComposer::create_verifier(CircuitConstructor& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
-
-    AvmVerifier output_state(verification_key);
-
-    auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>();
-
-    output_state.pcs_verification_key = std::move(pcs_verification_key);
-
-    return output_state;
+    return AvmVerifier(verification_key);
 }
 
 std::shared_ptr<Flavor::ProvingKey> AvmComposer::compute_proving_key(CircuitConstructor& circuit_constructor)

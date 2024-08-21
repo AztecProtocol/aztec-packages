@@ -11,6 +11,7 @@ namespace bb {
 
 {{name}}Verifier::{{name}}Verifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
+    , pcs_verification_key(std::make_shared<VerifierCommitmentKey>())
 {}
 
 {{name}}Verifier::{{name}}Verifier({{name}}Verifier&& other) noexcept

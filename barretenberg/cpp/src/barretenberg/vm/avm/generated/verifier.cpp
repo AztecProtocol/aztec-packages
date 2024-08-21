@@ -11,6 +11,7 @@ namespace bb {
 
 AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
+    , pcs_verification_key(std::make_shared<VerifierCommitmentKey>())
 {}
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
