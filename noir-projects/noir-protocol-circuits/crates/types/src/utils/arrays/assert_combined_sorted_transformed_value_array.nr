@@ -22,8 +22,9 @@ fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered +
 }
 
 // original_array(_lt/_gte) must be valid, i.e. validate_array(original_array) == true
-// Both array should have items with a counter of 0 prepended to it.
-// Non-zero counters in original_array_lt must be less than all non-zero counters in original_array_gte.
+// Both arrays come from the previous kernel, so they are guaranteed to be valid, and meet the following conditions:
+//  - Items with a counter of 0 are placed at the begining of each array.
+//  - All non-zero counters in original_array_lt must be less than those in original_array_gte.
 pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],
@@ -150,8 +151,8 @@ mod tests {
         hints: [CombinedOrderHint; N],
     }
 
-    impl TestDataBuilder<TestItem, TestValue, 12> {
-        pub fn new() -> Self {
+    impl<let N: u32> TestDataBuilder<TestItem, TestValue, N> {
+        pub fn new() -> TestDataBuilder<TestItem, TestValue, 12> {
             let original_array_lt = pad_end(
                 [
                 TestItem { name: 7, price: 40, tax: 7, counter: 0 },
@@ -206,6 +207,49 @@ mod tests {
             TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
         }
 
+        pub fn new_without_prepended() -> TestDataBuilder<TestItem, TestValue, 8> {
+            let original_array_lt = pad_end(
+                [
+                TestItem { name: 6, price: 80, tax: 1, counter: 22 },
+                TestItem { name: 3, price: 30, tax: 4, counter: 11 }
+            ],
+                TestItem::empty()
+            );
+
+            let original_array_gte = pad_end(
+                [
+                TestItem { name: 5, price: 50, tax: 9, counter: 55 },
+                TestItem { name: 1, price: 60, tax: 8, counter: 33 },
+                TestItem { name: 2, price: 10, tax: 5, counter: 44 }
+            ],
+                TestItem::empty()
+            );
+
+            let sorted_transformed_value_array = pad_end(
+                [
+                TestValue { name: 3, total: 34 },
+                TestValue { name: 6, total: 81 },
+                TestValue { name: 1, total: 68 },
+                TestValue { name: 2, total: 15 },
+                TestValue { name: 5, total: 59 }
+            ],
+                TestValue::empty()
+            );
+
+            let hints = [
+                CombinedOrderHint { counter: 11, original_index: 1 },
+                CombinedOrderHint { counter: 22, original_index: 0 },
+                CombinedOrderHint { counter: 33, original_index: 1 },
+                CombinedOrderHint { counter: 44, original_index: 2 },
+                CombinedOrderHint { counter: 55, original_index: 0 },
+                CombinedOrderHint { counter: 0, original_index: 3 },
+                CombinedOrderHint { counter: 0, original_index: 4 },
+                CombinedOrderHint { counter: 0, original_index: 5 }
+            ];
+
+            TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
+        }
+
         pub fn swap_items(&mut self, from: u32, to: u32) {
             let tmp = self.sorted_transformed_value_array[from];
             self.sorted_transformed_value_array[from] = self.sorted_transformed_value_array[to];
@@ -232,6 +276,19 @@ mod tests {
     #[test]
     fn assert_combined_sorted_transformed_value_array_asc_succeeds() {
         let builder = TestDataBuilder::new();
+
+        let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
+        assert_eq(hints, builder.hints);
+
+        let sorted = sort_by_counter_asc(array_merge(builder.original_array_lt, builder.original_array_gte)).map(transform);
+        assert_eq(sorted, builder.sorted_transformed_value_array);
+
+        builder.execute();
+    }
+
+    #[test]
+    fn assert_combined_sorted_transformed_value_array_asc_without_prepended_counter_zeros_succeeds() {
+        let builder = TestDataBuilder::new_without_prepended();
 
         let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
         assert_eq(hints, builder.hints);

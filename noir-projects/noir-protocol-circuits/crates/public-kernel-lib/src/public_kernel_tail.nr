@@ -88,7 +88,8 @@ mod tests {
         PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX, PUBLIC_KERNEL_SETUP_INDEX,
         PUBLIC_KERNEL_TEARDOWN_INDEX
     },
-        hash::compute_siloed_nullifier, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+        hash::{compute_siloed_nullifier, silo_note_hash},
+        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree,
         utils::{assert_array_eq, swap_items}
@@ -521,7 +522,44 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn combine_accumulated_data() {
+    unconstrained fn combine_and_silo_accumulated_note_hashes() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_revertible.value_offset = 999;
+        builder.previous_revertible.counter = 88;
+        builder.previous_kernel.set_first_nullifier();
+
+        builder.previous_kernel.append_note_hashes(3);
+        // 1 of them is from private.
+        builder.previous_kernel.note_hashes.storage[0].note_hash.counter = 0;
+        let non_rev = builder.previous_kernel.note_hashes.storage;
+
+        builder.previous_revertible.append_note_hashes(5);
+        // 2 of them are from private:
+        builder.previous_revertible.note_hashes.storage[0].note_hash.counter = 0;
+        builder.previous_revertible.note_hashes.storage[1].note_hash.counter = 0;
+        let rev = builder.previous_revertible.note_hashes.storage;
+        // Swap the items so that they are not ordered by counters.
+        swap_items(&mut builder.previous_revertible.note_hashes, 2, 3);
+
+        let public_inputs = builder.execute();
+
+        let tx_hash = builder.previous_kernel.nullifiers.storage[0].value();
+        let expected = [
+            // Note hashes from private are already siloed.
+            non_rev[0].value(),
+            rev[0].value(),
+            rev[1].value(),
+            silo_note_hash(non_rev[1], tx_hash, 3),
+            silo_note_hash(non_rev[2], tx_hash, 4),
+            silo_note_hash(rev[2], tx_hash, 5),
+            silo_note_hash(rev[3], tx_hash, 6),
+            silo_note_hash(rev[4], tx_hash, 7)
+        ];
+        assert_array_eq(public_inputs.end.note_hashes, expected);
+    }
+
+    #[test]
+    unconstrained fn combine_accumulated_nullifiers() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
         builder.previous_revertible.value_offset = 999;
         builder.previous_revertible.counter = 88;

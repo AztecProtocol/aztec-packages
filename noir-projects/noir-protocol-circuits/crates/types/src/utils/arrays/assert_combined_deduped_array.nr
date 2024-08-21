@@ -16,8 +16,9 @@ use crate::{
 };
 
 // original_array_(lt/gte) must be valid, i.e. validate_array(original_array) == true
-// All non-empty items in the original arrays must be unique, otherwise duplicated values can be squashed and assert_combined_permuted_array will still pass.
-// This is currently used for deduplicating public data writes. And each public data write is unique because they have unique counters.
+// All non-empty items in the original arrays must be unique, otherwise duplicate values could be merged and
+// assert_combined_permuted_array would still pass undetected.
+// This is currently used for deduplicating public data writes, where each public data write is unique due to having a unique counter.
 pub fn assert_combined_deduped_array<T, let N: u32>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],

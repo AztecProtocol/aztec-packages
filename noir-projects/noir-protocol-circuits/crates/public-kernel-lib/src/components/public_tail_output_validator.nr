@@ -1,6 +1,6 @@
 mod output_hints;
 
-use crate::components::public_tail_output_validator::output_hints::{generate_output_hints, OutputHints};
+use crate::components::public_tail_output_validator::output_hints::{generate_output_hints, OutputHints, SiloedNoteHashHint};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
@@ -24,7 +24,7 @@ impl PublicTailOutputValidator {
         previous_kernel: PublicKernelCircuitPublicInputs,
         start_state: PartialStateReference
     ) -> Self {
-        let hints = generate_output_hints(previous_kernel);
+        let hints = generate_output_hints(previous_kernel, output);
         PublicTailOutputValidator { output, previous_kernel, start_state, hints }
     }
 
@@ -51,41 +51,31 @@ impl PublicTailOutputValidator {
     fn validate_combined_siloed_note_hashes(self) {
         let non_revertible = self.previous_kernel.end_non_revertible;
         let revertible = self.previous_kernel.end;
-
-        // note_hashes
-        let mut siloed_note_hashes_lt = non_revertible.note_hashes.map(|n: ScopedNoteHash| n.note_hash);
-        let mut siloed_note_hashes_gte = revertible.note_hashes.map(|n: ScopedNoteHash| n.note_hash);
         let tx_hash = self.output.end.nullifiers[0];
-        let sorted_note_hash_hints = self.hints.sorted_note_hash_hints;
-        let num_lt = array_length(non_revertible.note_hashes);
-        let mut is_lt = true;
-        for i in 0..sorted_note_hash_hints.len() {
-            is_lt &= i != num_lt;
-            let original_index = sorted_note_hash_hints[i].original_index;
-            let note_hash = if is_lt {
-                non_revertible.note_hashes[original_index]
-            } else {
-                revertible.note_hashes[original_index]
-            };
-            let siloed_value = if note_hash.counter() == 0 {
-                // If counter is zero, the note hash was emitted from private and has been siloed in private_kernel_tail_to_public.
-                note_hash.value()
-            } else {
-                silo_note_hash(note_hash, tx_hash, i)
-            };
-            if is_lt {
-                siloed_note_hashes_lt[original_index].value = siloed_value;
-            } else {
-                siloed_note_hashes_gte[original_index].value = siloed_value;
+        let output_note_hashes = self.output.end.note_hashes;
+        let siloed_note_hash_hints = self.hints.siloed_note_hash_hints;
+        for i in 0..output_note_hashes.len() {
+            let output_note_hash = output_note_hashes[i];
+            assert_eq(output_note_hash, siloed_note_hash_hints[i].siloed_note_hash);
+            if output_note_hash != 0 {
+                assert_eq(i, siloed_note_hash_hints[i].index);
             }
         }
 
         assert_combined_sorted_transformed_value_array_asc(
-            siloed_note_hashes_lt,
-            siloed_note_hashes_gte,
-            self.output.end.note_hashes,
-            |prev: NoteHash, out: Field| out == prev.value,
-            sorted_note_hash_hints
+            non_revertible.note_hashes,
+            revertible.note_hashes,
+            siloed_note_hash_hints,
+            |prev: ScopedNoteHash, out: SiloedNoteHashHint| {
+                let siloed_value = if prev.counter() == 0 {
+                    // If counter is zero, the note hash is either empty or is emitted from private and has been siloed in private_kernel_tail_to_public.
+                    prev.value()
+                } else {
+                    silo_note_hash(prev, tx_hash, out.index)
+                };
+                out.siloed_note_hash == siloed_value
+            },
+            self.hints.sorted_note_hash_hints
         );
     }
 
