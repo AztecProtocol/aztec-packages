@@ -80,6 +80,8 @@ class ClientIVC {
     bool initialized = false;
 
     void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
+    void accumulate(std::unique_ptr<ClientCircuit> circuit,
+                    const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
 
     Proof prove();
 

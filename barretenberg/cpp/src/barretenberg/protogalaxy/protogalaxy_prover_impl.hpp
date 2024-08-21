@@ -215,6 +215,7 @@ template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
+    ZoneScopedN("ProtoGalaxyProver::finalise_and_send_instance");
     OinkProver<Flavor> oink_prover(instance->proving_key, transcript, domain_separator + '_');
 
     auto [proving_key, relation_params, alphas] = oink_prover.prove();
@@ -408,7 +409,12 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accum
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::prove()
 {
+<<<<<<< Updated upstream
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
+=======
+    ZoneScopedN("ProtogalaxyProver::prove");
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
+>>>>>>> Stashed changes
     // Ensure instances are all of the same size
     for (size_t idx = 0; idx < ProverInstances::NUM - 1; ++idx) {
         if (instances[idx]->proving_key.circuit_size != instances[idx + 1]->proving_key.circuit_size) {

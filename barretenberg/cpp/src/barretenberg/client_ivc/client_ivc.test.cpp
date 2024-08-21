@@ -38,6 +38,7 @@ class ClientIVCTests : public ::testing::Test {
      */
     static bool prove_and_verify(ClientIVC& ivc)
     {
+        ZoneScopedN("ClientIVC::prove_and_verify");
         auto proof = ivc.prove();
 
         auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
@@ -74,12 +75,16 @@ TEST_F(ClientIVCTests, Basic)
     ClientIVC ivc;
 
     // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_0);
+    auto circuit_0 = std::make_unique<Builder>(create_mock_circuit(ivc));
+    ivc.accumulate(std::move(circuit_0));
 
     // Create another circuit and accumulate
-    Builder circuit_1 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_1);
+    auto circuit_1 = std::make_unique<Builder>(create_mock_circuit(ivc));
+    ivc.accumulate(std::move(circuit_1));
+
+    // Create another circuit and accumulate
+    auto circuit_2 = std::make_unique<Builder>(create_mock_circuit(ivc));
+    ivc.accumulate(std::move(circuit_2));
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };
@@ -93,12 +98,12 @@ TEST_F(ClientIVCTests, BasicFailure)
     ClientIVC ivc;
 
     // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_0);
+    auto circuit_0 = std::make_unique<Builder>(create_mock_circuit(ivc));
+    ivc.accumulate(std::move(circuit_0));
 
     // Create another circuit and accumulate
-    Builder circuit_1 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_1);
+    auto circuit_1 = std::make_unique<Builder>(create_mock_circuit(ivc));
+    ivc.accumulate(std::move(circuit_1));
 
     // Tamper with the fold proof just created in the last accumulation step
     for (auto& val : ivc.fold_output.proof) {
@@ -109,8 +114,8 @@ TEST_F(ClientIVCTests, BasicFailure)
     }
 
     // Accumulate another circuit; this involves recursive folding verification of the bad proof
-    Builder circuit_2 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_2);
+    auto circuit_2 = std::make_unique<Builder>(create_mock_circuit(ivc));
+    ivc.accumulate(std::move(circuit_2));
 
     // The bad fold proof should result in an invalid witness in the final circuit and the IVC should fail to verify
     EXPECT_FALSE(prove_and_verify(ivc));
