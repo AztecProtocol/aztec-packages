@@ -22,7 +22,7 @@ RESULT_RECIPIENT=$(aztec-wallet simulate balance_of_private -ca contracts:last -
 if [ ${RESULT_MAIN} = ${RESULT_RECIPIENT} ]; then
     echo
     echo "Test passed"
-else 
+else
     exit 1
 fi
 

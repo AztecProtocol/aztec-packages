@@ -323,6 +323,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(pxeOption)
     .addOption(l1ChainIdOption)
     .option('--json', 'Output the claim in JSON format')
+    .option(
+      '--no-wait',
+      'Wait for the brigded funds to be available in L2, polling every 60 seconds (default, override with --delay',
+    )
+    .option('--interval <number>', 'The polling interval in seconds for the bridged funds', '60')
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const secret = await bridgeL1FeeJuice(
@@ -335,6 +340,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.mnemonic,
         options.mint,
         options.json,
+        options.wait,
+        options.interval * 1000,
         log,
         debugLogger,
       );
