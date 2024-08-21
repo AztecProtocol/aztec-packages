@@ -405,31 +405,31 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn compute_note_header_ciphertext(secret: Scalar, point: Point) -> [u8; 48] {
-        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, IvpkM { inner: point })
+    fn compute_note_header_ciphertext(secret: Scalar, ivpk: IvpkM) -> [u8; 48] {
+        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, ivpk)
     }
 
     // 64 bytes + 32 * #fields + 16 = 112 bytes
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
         secret: Scalar,
-        point: Point,
+        ivpk: IvpkM,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, IvpkM { inner: point }).as_array()
+        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, ivpk).as_array()
     }
 
     #[aztec(private)]
     fn compute_outgoing_log_body_ciphertext(
         eph_sk: Scalar,
         recipient: AztecAddress,
-        recipient_ivpk: Point,
+        recipient_ivpk: IvpkM,
         ovsk_app: Scalar
     ) -> [u8; 144] {
         let eph_pk = derive_public_key(eph_sk);
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, IvpkM { inner: recipient_ivpk }).compute_ciphertext(ovsk_app, eph_pk)
+        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
     }
 
     #[aztec(public)]

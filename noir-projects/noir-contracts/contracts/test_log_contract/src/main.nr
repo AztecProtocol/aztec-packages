@@ -31,7 +31,7 @@ contract TestLog {
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
         secret: Scalar,
-        point: Point,
+        ivpk: IvpkM,
         randomness: Field,
         event_type_id: Field,
         preimage: [Field; 2]
@@ -39,7 +39,7 @@ contract TestLog {
         EncryptedLogIncomingBody::from_event(
             ExampleEvent0 { value0: preimage[0], value1: preimage[1] },
             randomness
-        ).compute_ciphertext(secret, IvpkM { inner: point }).as_array()
+        ).compute_ciphertext(secret, ivpk).as_array()
     }
 
     #[aztec(private)]
