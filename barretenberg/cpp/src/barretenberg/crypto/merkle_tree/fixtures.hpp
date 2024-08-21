@@ -20,17 +20,17 @@ static std::vector<fr> VALUES = []() {
     return values;
 }();
 
-inline std::string randomString()
+inline std::string random_string()
 {
     std::stringstream ss;
     ss << random_engine.get_random_uint256();
     return ss.str();
 }
 
-inline std::string randomTempDirectory()
+inline std::string random_temp_directory()
 {
     std::stringstream ss;
-    ss << "/tmp/lmdb/" << randomString();
+    ss << "/tmp/lmdb/" << random_string();
     return ss.str();
 }
 

@@ -30,7 +30,7 @@ class PersistedAppendOnlyTreeTest : public testing::Test {
     void SetUp() override
     {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
-        _directory = randomTempDirectory();
+        _directory = random_temp_directory();
         std::filesystem::create_directories(_directory);
         _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 2, 2);
     }
@@ -201,7 +201,7 @@ void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_pat
 TEST_F(PersistedAppendOnlyTreeTest, can_create)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     EXPECT_NO_THROW(Store store(name, depth, db));
     Store store(name, depth, db);
@@ -217,7 +217,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_create)
 TEST_F(PersistedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
 
@@ -228,7 +228,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
 TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_sibling_path)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
 
@@ -250,8 +250,8 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_sibling_path)
 TEST_F(PersistedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
 {
     constexpr size_t depth = 4;
-    std::string name = randomString();
-    std::string directory = randomTempDirectory();
+    std::string name = random_string();
+    std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
     auto environment = std::make_unique<LMDBEnvironment>(directory, 1024, 1, 2);
     LMDBStore db(*environment, name, false, false, integer_key_cmp);
@@ -281,8 +281,8 @@ TEST_F(PersistedAppendOnlyTreeTest, errors_are_caught_and_handled)
 {
     // We use a deep tree with a small amount of storage (20 * 1024) bytes
     constexpr size_t depth = 16;
-    std::string name = randomString();
-    std::string directory = randomTempDirectory();
+    std::string name = random_string();
+    std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
     auto environment = std::make_unique<LMDBEnvironment>(directory, 300, 1, 2);
     LMDBStore db(*environment, name, false, false, integer_key_cmp);
@@ -361,7 +361,7 @@ TEST_F(PersistedAppendOnlyTreeTest, errors_are_caught_and_handled)
 TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
     {
         LMDBStore db(*_environment, name, false, false, integer_key_cmp);
@@ -427,7 +427,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
 TEST_F(PersistedAppendOnlyTreeTest, test_size)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
@@ -455,7 +455,7 @@ TEST_F(PersistedAppendOnlyTreeTest, test_size)
 TEST_F(PersistedAppendOnlyTreeTest, test_find_leaf_index)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
@@ -541,7 +541,7 @@ TEST_F(PersistedAppendOnlyTreeTest, test_find_leaf_index)
 TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
@@ -561,7 +561,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values)
 TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values_in_a_batch)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
@@ -581,7 +581,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values_in_a_batch)
 TEST_F(PersistedAppendOnlyTreeTest, can_be_filled)
 {
     constexpr size_t depth = 3;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
@@ -613,7 +613,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
     std::vector<fr_sibling_path> paths(num_reads);
 
     {
-        std::string name = randomString();
+        std::string name = random_string();
         LMDBStore db(*_environment, name, false, false, integer_key_cmp);
         Store store(name, depth, db);
         ThreadPool pool(8);
@@ -647,7 +647,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
 TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
 {
     constexpr size_t depth = 10;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
@@ -666,7 +666,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
 TEST_F(PersistedAppendOnlyTreeTest, returns_sibling_path)
 {
     constexpr size_t depth = 4;
-    std::string name = randomString();
+    std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);

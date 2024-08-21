@@ -2,6 +2,7 @@
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -34,13 +35,13 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
 
-    std::string directory = randomTempDirectory();
-    std::string name = randomString();
+    std::string directory = random_temp_directory();
+    std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
     LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
 
-    LMDBStore db(environment, name, false, false, IntegerKeyCmp);
+    LMDBStore db(environment, name, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);
@@ -61,13 +62,13 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
 
-    std::string directory = randomTempDirectory();
-    std::string name = randomString();
+    std::string directory = random_temp_directory();
+    std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 1;
     LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
 
-    LMDBStore db(environment, name, false, false, IntegerKeyCmp);
+    LMDBStore db(environment, name, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);

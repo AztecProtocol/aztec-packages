@@ -48,13 +48,13 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
     const size_t batch_size = size_t(state.range(0));
     const size_t depth = TREE_DEPTH;
 
-    std::string directory = randomTempDirectory();
-    std::string name = randomString();
+    std::string directory = random_temp_directory();
+    std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
     LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
 
-    LMDBStore db(environment, name, false, false, IntegerKeyCmp);
+    LMDBStore db(environment, name, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers);
