@@ -26,8 +26,8 @@ class MockPersistedStore {
   public:
     using ReadTransaction = MockTransaction;
     using WriteTransaction = MockTransaction;
-    static MockTransaction::Ptr createWriteTransaction() { return std::make_unique<MockTransaction>(); }
-    static MockTransaction::Ptr createReadTransaction() { return std::make_unique<MockTransaction>(); }
+    static MockTransaction::Ptr create_write_transaction() { return std::make_unique<MockTransaction>(); }
+    static MockTransaction::Ptr create_read_transaction() { return std::make_unique<MockTransaction>(); }
 };
 
 /**
@@ -85,7 +85,7 @@ template <typename PersistedStore> class ArrayStore {
     void commit(){};
     void rollback(){};
 
-    ReadTransactionPtr createReadTransaction() { return std::make_unique<ReadTransaction>(); }
+    ReadTransactionPtr create_read_transactiono() { return std::make_unique<ReadTransaction>(); }
 
   private:
     std::vector<std::vector<std::pair<bool, std::vector<uint8_t>>>> map;

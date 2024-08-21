@@ -16,7 +16,7 @@ LMDBReadTransaction::~LMDBReadTransaction()
 void LMDBReadTransaction::abort()
 {
     LMDBTransaction::abort();
-    _environment.releaseReader();
+    _environment.release_reader();
 }
 
 bool LMDBReadTransaction::get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data) const
@@ -35,7 +35,7 @@ bool LMDBReadTransaction::get_value(std::vector<uint8_t>& key, std::vector<uint8
 
 bool LMDBReadTransaction::get_node(uint32_t level, index_t index, std::vector<uint8_t>& data) const
 {
-    NodeKeyType key = GetKeyForNode(level, index);
+    NodeKeyType key = get_key_for_node(level, index);
     return get_value(key, data);
 }
 } // namespace bb::crypto::merkle_tree

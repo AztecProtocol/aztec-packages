@@ -26,8 +26,8 @@ class LMDBStore {
     LMDBStore& operator=(LMDBStore&& other) = delete;
     ~LMDBStore() = default;
 
-    LMDBWriteTransaction::Ptr createWriteTransaction() const;
-    LMDBReadTransaction::Ptr createReadTransaction();
+    LMDBWriteTransaction::Ptr create_write_transaction() const;
+    LMDBReadTransaction::Ptr create_read_transaction();
 
   private:
     LMDBEnvironment& _environment;

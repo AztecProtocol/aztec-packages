@@ -1,6 +1,7 @@
 
 
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_write_transaction.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 
 namespace bb::crypto::merkle_tree {
 
@@ -33,7 +34,7 @@ void LMDBWriteTransaction::try_abort()
 
 void LMDBWriteTransaction::put_node(uint32_t level, index_t index, std::vector<uint8_t>& data)
 {
-    NodeKeyType key = GetKeyForNode(level, index);
+    NodeKeyType key = get_key_for_node(level, index);
     put_value(key, data);
 }
 

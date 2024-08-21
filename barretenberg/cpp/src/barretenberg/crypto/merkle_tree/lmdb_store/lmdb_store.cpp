@@ -16,13 +16,13 @@ LMDBStore::LMDBStore(
     , _database(_environment, LMDBDatabaseCreationTransaction(_environment), _name, integerKeys, reverseKeys, cmp)
 {}
 
-LMDBWriteTransaction::Ptr LMDBStore::createWriteTransaction() const
+LMDBWriteTransaction::Ptr LMDBStore::create_write_transaction() const
 {
     return std::make_unique<LMDBWriteTransaction>(_environment, _database);
 }
-LMDBReadTransaction::Ptr LMDBStore::createReadTransaction()
+LMDBReadTransaction::Ptr LMDBStore::create_read_transaction()
 {
-    _environment.waitForReader();
+    _environment.wait_for_reader();
     return std::make_unique<LMDBReadTransaction>(_environment, _database);
 }
 } // namespace bb::crypto::merkle_tree

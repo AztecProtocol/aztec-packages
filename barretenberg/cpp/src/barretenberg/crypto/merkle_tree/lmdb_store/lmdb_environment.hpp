@@ -30,9 +30,9 @@ class LMDBEnvironment {
 
     MDB_env* underlying() const;
 
-    void waitForReader();
+    void wait_for_reader();
 
-    void releaseReader();
+    void release_reader();
 
   private:
     MDB_env* _mdbEnv;

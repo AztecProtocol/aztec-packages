@@ -41,7 +41,7 @@ class LMDBWriteTransaction : public LMDBTransaction {
 
 template <typename T> void LMDBWriteTransaction::put_value(T& key, std::vector<uint8_t>& data)
 {
-    std::vector<uint8_t> keyBuffer = SerialiseKey(key);
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
     put_value(keyBuffer, data);
 }
 } // namespace bb::crypto::merkle_tree

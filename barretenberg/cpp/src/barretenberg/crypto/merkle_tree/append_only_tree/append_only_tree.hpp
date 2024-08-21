@@ -177,7 +177,7 @@ AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& w
     bb::fr stored_root = fr::zero();
     {
         // start by reading the meta data from the backing store
-        ReadTransactionPtr tx = store_.createReadTransaction();
+        ReadTransactionPtr tx = store_.create_read_transaction();
         store_.get_full_meta(stored_size, stored_root, name_, depth_, *tx, false);
     }
     zero_hashes_.resize(depth_ + 1);
@@ -203,9 +203,9 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
                                                          const MetaDataCallback& on_completion) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<TreeMetaResponse>(
+        execute_and_report<TreeMetaResponse>(
             [=, this](TypedResponse<TreeMetaResponse>& response) {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 store_.get_meta(response.inner.size, response.inner.root, *tx, includeUncommitted);
                 response.inner.depth = depth_;
             },
@@ -220,10 +220,10 @@ void AppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index
                                                             bool includeUncommitted) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<GetSiblingPathResponse>(
+        execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 index_t current_index = index;
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 for (uint32_t level = depth_; level > 0; --level) {
                     bool is_right = static_cast<bool>(current_index & 0x01);
                     fr sibling = is_right ? get_element_or_zero(level, current_index - 1, *tx, includeUncommitted)
@@ -243,9 +243,9 @@ void AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const uint32
                                                                     bool includeUncommitted) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<GetSiblingPathResponse>(
+        execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 index_t index_of_next_leaf = 0;
                 bb::fr root;
                 store_.get_meta(index_of_next_leaf, root, *tx, includeUncommitted);
@@ -264,9 +264,9 @@ void AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const index_
                                                                     bool includeUncommitted) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<GetSiblingPathResponse>(
+        execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 response.inner.path =
                     get_subtree_sibling_path_internal(leaf_index, subtree_depth, *tx, includeUncommitted);
             },
@@ -303,9 +303,9 @@ void AppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& index,
                                                     const GetLeafCallback& on_completion) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<GetLeafResponse>(
+        execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 auto leaf = read_node(depth_, index, *tx, includeUncommitted);
                 response.success = leaf.first;
                 if (leaf.first) {
@@ -332,9 +332,9 @@ void AppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(const fr& leaf,
                                                                 const FindLeafCallback& on_completion) const
 {
     auto job = [=, this]() -> void {
-        ExecuteAndReport<FindLeafIndexResponse>(
+        execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+                typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
@@ -367,7 +367,7 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(const std::vector
 {
     std::shared_ptr<std::vector<fr>> hashes = std::make_shared<std::vector<fr>>(values);
     auto append_op = [=, this]() -> void {
-        ExecuteAndReport<AddDataResponse>(
+        execute_and_report<AddDataResponse>(
             [=, this](TypedResponse<AddDataResponse>& response) {
                 add_values_internal(hashes, response.inner.root, response.inner.size, update_index);
             },
@@ -379,14 +379,14 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(const std::vector
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
 {
-    auto job = [=, this]() { ExecuteAndReport([=, this]() { store_.commit(); }, on_completion); };
+    auto job = [=, this]() { execute_and_report([=, this]() { store_.commit(); }, on_completion); };
     workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
 void AppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
-    auto job = [=, this]() { ExecuteAndReport([=, this]() { store_.rollback(); }, on_completion); };
+    auto job = [=, this]() { execute_and_report([=, this]() { store_.rollback(); }, on_completion); };
     workers_.enqueue(job);
 }
 
@@ -404,7 +404,7 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<s
     index_t start_size = 0;
     bb::fr root;
 
-    typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+    typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
     store_.get_meta(start_size, root, *tx, true);
     index_t index = start_size;
     new_size = start_size + number_to_insert;

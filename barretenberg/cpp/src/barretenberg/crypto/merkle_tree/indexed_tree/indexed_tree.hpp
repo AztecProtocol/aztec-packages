@@ -185,7 +185,7 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
     index_t stored_size = 0;
     bb::fr stored_root = fr::zero();
     {
-        ReadTransactionPtr tx = store_.createReadTransaction();
+        ReadTransactionPtr tx = store_.create_read_transaction();
         std::string name;
         uint32_t depth = 0;
         store_.get_full_meta(stored_size, stored_root, name, depth, *tx, false);
@@ -228,9 +228,9 @@ void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
                                                  const LeafCallback& completion) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<GetIndexedLeafResponse<LeafValueType>>(
+        execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
             [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 response.inner.indexed_leaf = store_.get_leaf(index, *tx, includeUncommitted);
             },
             completion);
@@ -255,9 +255,9 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
     auto job = [=, this]() -> void {
-        ExecuteAndReport<FindLeafIndexResponse>(
+        execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
-                typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+                typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
@@ -276,9 +276,9 @@ void IndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
                                                       const FindLowLeafCallback& on_completion) const
 {
     auto job = [=, this]() {
-        ExecuteAndReport<std::pair<bool, index_t>>(
+        execute_and_report<std::pair<bool, index_t>>(
             [=, this](TypedResponse<std::pair<bool, index_t>>& response) {
-                typename Store::ReadTransactionPtr tx = store_.createReadTransaction();
+                typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 response.inner = store_.find_low_value(leaf_key, includeUncommitted, *tx);
             },
             on_completion);
@@ -461,7 +461,7 @@ void IndexedTree<Store, HashingPolicy>::perform_insertions(size_t total_leaves,
             Signal& leaderSignal = (*signals)[i];
             Signal& followerSignal = (*signals)[i + 1];
             try {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 auto& current_witness_data = low_leaf_witness_data->at(i);
                 current_witness_data.leaf = insertion.original_low_leaf;
                 current_witness_data.index = insertion.low_leaf_index;
@@ -495,7 +495,7 @@ template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
     std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash, const HashGenerationCallback& completion)
 {
-    ExecuteAndReport<HashGenerationResponse>(
+    execute_and_report<HashGenerationResponse>(
         [=](TypedResponse<HashGenerationResponse>& response) {
             response.inner.hashes = std::make_shared<std::vector<fr>>(leaves_to_hash->size(), 0);
             std::vector<IndexedLeafValueType>& leaves = *leaves_to_hash;
@@ -513,7 +513,7 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
     const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
     const InsertionGenerationCallback& on_completion)
 {
-    ExecuteAndReport<InsertionGenerationResponse>(
+    execute_and_report<InsertionGenerationResponse>(
         [=, this](TypedResponse<InsertionGenerationResponse>& response) {
             // The first thing we do is sort the values into descending order but maintain knowledge of their
             // orignal order
@@ -539,7 +539,7 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
             index_t num_leaves_to_be_inserted = values.size();
             std::set<uint256_t> unique_values;
             {
-                ReadTransactionPtr tx = store_.createReadTransaction();
+                ReadTransactionPtr tx = store_.create_read_transaction();
                 bb::fr old_root = fr::zero();
                 store_.get_meta(old_size, old_root, *tx, true);
                 // Ensure that the tree is not going to be overfilled

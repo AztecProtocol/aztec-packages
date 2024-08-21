@@ -43,13 +43,13 @@ class LMDBReadTransaction : public LMDBTransaction {
 
 template <typename T> bool LMDBReadTransaction::get_value(T& key, std::vector<uint8_t>& data) const
 {
-    std::vector<uint8_t> keyBuffer = SerialiseKey(key);
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
     return get_value(keyBuffer, data);
 }
 
 template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, std::vector<uint8_t>& data) const
 {
-    std::vector<uint8_t> keyBuffer = SerialiseKey(key);
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, underlying(), _database.underlying(), &cursor);
@@ -82,13 +82,13 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
                     // There is no previous key, do nothing
                 } else {
                     copy_to_vector(dbVal, data);
-                    DeserialiseKey(dbKey.mv_data, key);
+                    deserialise_key(dbKey.mv_data, key);
                     success = true;
                 }
             } else if (code == MDB_NOTFOUND) {
                 // There is no previous key, do nothing
             } else {
-                ThrowError("get_value_or_previous::mdb_cursor_get", code);
+                throw_error("get_value_or_previous::mdb_cursor_get", code);
             }
         }
     } else if (code == MDB_NOTFOUND) {
@@ -100,16 +100,16 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
                 // The key is not the same size, same as not found, do nothing
             } else {
                 copy_to_vector(dbVal, data);
-                DeserialiseKey(dbKey.mv_data, key);
+                deserialise_key(dbKey.mv_data, key);
                 success = true;
             }
         } else if (code == MDB_NOTFOUND) {
             // DB is empty?
         } else {
-            ThrowError("get_value_or_previous::mdb_cursor_get", code);
+            throw_error("get_value_or_previous::mdb_cursor_get", code);
         }
     } else {
-        ThrowError("get_value_or_previous::mdb_cursor_get", code);
+        throw_error("get_value_or_previous::mdb_cursor_get", code);
     }
     call_lmdb_func(mdb_cursor_close, cursor);
     return success;

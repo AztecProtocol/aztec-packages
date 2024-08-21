@@ -54,13 +54,13 @@ TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
         {
             std::vector<uint8_t> buf;
             write(buf, VALUES[0]);
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             transaction->put_node(0, 0, buf);
             transaction->commit();
         }
 
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> buf2;
             bool success = transaction->get_node(0, 0, buf2);
             EXPECT_EQ(success, true);
@@ -76,13 +76,13 @@ TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
             write(key, VALUES[0]);
             std::vector<uint8_t> value;
             write(value, VALUES[1]);
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             transaction->put_value(key, value);
             transaction->commit();
         }
 
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> key;
             write(key, VALUES[0]);
             std::vector<uint8_t> value;
@@ -102,13 +102,13 @@ TEST_F(LMDBStoreTest, reading_an_empty_key_reports_correctly)
         {
             std::vector<uint8_t> buf;
             write(buf, VALUES[0]);
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             transaction->put_node(0, 0, buf);
             transaction->commit();
         }
 
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> buf2;
             bool success = transaction->get_node(0, 1, buf2);
             EXPECT_EQ(success, false);
@@ -123,12 +123,12 @@ TEST_F(LMDBStoreTest, reading_an_empty_key_reports_correctly)
             write(key, VALUES[0]);
             std::vector<uint8_t> value;
             write(value, VALUES[1]);
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             transaction->put_value(key, value);
             transaction->commit();
         }
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> key2;
             write(key2, VALUES[5]);
             std::vector<uint8_t> value;
@@ -145,7 +145,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
         LMDBStore store(*_environment, "DB1");
 
         {
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
                 std::vector<uint8_t> buf;
                 write(buf, VALUES[i]);
@@ -155,7 +155,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
         }
 
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
                 std::vector<uint8_t> buf2;
                 bool success = transaction->get_node(10, i, buf2);
@@ -171,7 +171,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
         uint32_t num_reads = 128;
 
         {
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             for (size_t i = 0; i < num_reads; i++) {
                 std::vector<uint8_t> key;
                 write(key, VALUES[i]);
@@ -184,7 +184,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
 
         {
             for (size_t i = 0; i < num_reads; i++) {
-                LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+                LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
                 std::vector<uint8_t> key;
                 write(key, VALUES[i]);
                 std::vector<uint8_t> buf2;
@@ -204,7 +204,7 @@ TEST_F(LMDBStoreTest, throws_if_write_transaction_is_reused)
         {
             std::vector<uint8_t> buf;
             write(buf, VALUES[0]);
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             transaction->put_node(0, 0, buf);
             transaction->commit();
             EXPECT_THROW(transaction->put_node(0, 1, buf), std::runtime_error);
@@ -218,7 +218,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
     // This test is performed using integer keys of uint128_t
     // We also add keys of different sizes but with larger and smaller values
     // This ensures we don't erroneously return keys of different sizes
-    LMDBStore store(*_environment, "note hash tree", false, false, IntegerKeyCmp);
+    LMDBStore store(*_environment, "note hash tree", false, false, integer_key_cmp);
 
     std::vector<uint32_t> values{ 1, 2, 3, 4, 5 };
 
@@ -235,7 +235,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
     }
 
     {
-        LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
         for (size_t i = 0; i < num_keys; i++) {
             std::vector<uint8_t> value;
             write(value, values[i]);
@@ -263,7 +263,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
 
         // First look for the value at each key, should return the exact keys
         for (uint32_t i = 0; i < num_keys; i++) {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> data;
             uint128_t key_copy = keys[i];
             bool success = transaction->get_value_or_previous(key_copy, data);
@@ -275,7 +275,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
 
         // Now look for the value at key <= key[1] + 5 (does not exist), should be at keys[1]
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> data;
             uint128_t key = keys[1] + 5;
             bool success = transaction->get_value_or_previous(key, data);
@@ -289,7 +289,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
         // keys[4]
 
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> data;
             uint128_t key = keys[4] + 5;
             bool success = transaction->get_value_or_previous(key, data);
@@ -301,7 +301,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
 
         // Now look for the value at key <= keys[0] - 5 (does not exist, less than first key), should not exist
         {
-            LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
             std::vector<uint8_t> data;
             uint128_t key = keys[0] - 5;
             bool success = transaction->get_value_or_previous(key, data);
@@ -313,7 +313,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
 TEST_F(LMDBStoreTest, can_not_retrieve_previous_key_from_empty_db)
 {
     LMDBStore store(*_environment, "note hash tree", false, false);
-    LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+    LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
     uint128_t key = 20;
     std::vector<uint8_t> data;
     bool success = transaction->get_value(key, data);
@@ -327,7 +327,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_at_random_keys)
     std::vector<size_t> keys;
 
     {
-        LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
 
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
             std::vector<uint8_t> buf;
@@ -340,7 +340,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_at_random_keys)
     }
 
     {
-        LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
             std::vector<uint8_t> buf2;
             bool success = transaction->get_node(0, keys[i], buf2);
@@ -357,7 +357,7 @@ TEST_F(LMDBStoreTest, can_recreate_the_store_and_use_again)
     {
         LMDBStore store(*_environment, "note hash tree");
 
-        LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
 
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
             std::vector<uint8_t> buf;
@@ -372,7 +372,7 @@ TEST_F(LMDBStoreTest, can_recreate_the_store_and_use_again)
     {
         LMDBStore store(*_environment, "note hash tree");
 
-        LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
             std::vector<uint8_t> buf2;
             bool success = transaction->get_node(0, keys[i], buf2);
@@ -387,7 +387,7 @@ void read_loop(LMDBStore& store, size_t key, std::atomic<size_t>& flag, bb::fr s
 {
     bool seen = false;
     while (true) {
-        LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
         std::vector<uint8_t> buf;
         bool success = transaction->get_node(0, key, buf);
         EXPECT_EQ(success, true);
@@ -413,7 +413,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
 
     {
         // we write VALUES[0] to a slot
-        LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
         std::vector<uint8_t> buf;
         write(buf, VALUES[0]);
         transaction->put_node(0, key, buf);
@@ -433,7 +433,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
         }
         {
             // we write VALUES[0] + 1 to the slot
-            LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             std::vector<uint8_t> buf;
             write(buf, VALUES[0] + 1);
             transaction->put_node(0, key, buf);
@@ -448,7 +448,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
 
 TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
 {
-    LMDBStore store(*_environment, "DB1", false, false, IntegerKeyCmp);
+    LMDBStore store(*_environment, "DB1", false, false, integer_key_cmp);
 
     // create a set of keys
     std::vector<uint8_t> keys{ 10, 20, 30, 40, 50 };
@@ -481,7 +481,7 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
     };
 
     {
-        LMDBWriteTransaction::Ptr transaction = store.createWriteTransaction();
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
 
         write_values.template operator()<NodeKeyType>(*transaction, 0);
         write_values.template operator()<LeafIndexKeyType>(*transaction, 1);
@@ -491,7 +491,7 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
     }
 
     {
-        LMDBReadTransaction::Ptr transaction = store.createReadTransaction();
+        LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
 
         // we should be able to read values from different key spaces
         check_values.template operator()<NodeKeyType>(*transaction, 0);
@@ -503,11 +503,11 @@ TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
 
 template <typename T> void TestSerialisation(const T& key, uint32_t expectedSize)
 {
-    std::vector<uint8_t> buf = SerialiseKey(key);
+    std::vector<uint8_t> buf = serialise_key(key);
     // Should serialise to expected size
     EXPECT_EQ(expectedSize, buf.size());
     T newValue;
-    DeserialiseKey(buf.data(), newValue);
+    deserialise_key(buf.data(), newValue);
     // Should be different objects
     EXPECT_NE(&newValue, &key);
     // Should have the same value

@@ -67,8 +67,8 @@ struct Response {
 };
 
 template <typename ResponseType>
-void ExecuteAndReport(const std::function<void(TypedResponse<ResponseType>&)>& f,
-                      const std::function<void(const TypedResponse<ResponseType>&)>& on_completion)
+void execute_and_report(const std::function<void(TypedResponse<ResponseType>&)>& f,
+                        const std::function<void(const TypedResponse<ResponseType>&)>& on_completion)
 {
     TypedResponse<ResponseType> response;
     try {
@@ -83,7 +83,8 @@ void ExecuteAndReport(const std::function<void(TypedResponse<ResponseType>&)>& f
     }
 }
 
-inline void ExecuteAndReport(const std::function<void()>& f, const std::function<void(const Response&)>& on_completion)
+inline void execute_and_report(const std::function<void()>& f,
+                               const std::function<void(const Response&)>& on_completion)
 {
     Response response{ true, "" };
     try {

@@ -31,7 +31,7 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
     }
 }
 
-void LMDBEnvironment::waitForReader()
+void LMDBEnvironment::wait_for_reader()
 {
     std::unique_lock lock(_readersLock);
     if (_numReaders >= _maxReaders) {
@@ -40,7 +40,7 @@ void LMDBEnvironment::waitForReader()
     ++_numReaders;
 }
 
-void LMDBEnvironment::releaseReader()
+void LMDBEnvironment::release_reader()
 {
     std::unique_lock lock(_readersLock);
     --_numReaders;

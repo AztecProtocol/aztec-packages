@@ -141,7 +141,7 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     /**
      * @brief Returns a read transaction against the underlying store.
      */
-    ReadTransactionPtr createReadTransaction() const { return dataStore.createReadTransaction(); }
+    ReadTransactionPtr create_read_transaction() const { return dataStore.create_read_transaction(); }
 
   private:
     struct Indices {
@@ -160,11 +160,11 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
 
     void initialise();
 
-    bool readPersistedMeta(TreeMeta& m, ReadTransaction& tx) const;
+    bool read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const;
 
-    void persistMeta(TreeMeta& m, WriteTransaction& tx);
+    void persist_meta(TreeMeta& m, WriteTransaction& tx);
 
-    WriteTransactionPtr createWriteTransaction() const { return dataStore.createWriteTransaction(); }
+    WriteTransactionPtr create_write_transaction() const { return dataStore.create_write_transaction(); }
 };
 
 template <typename PersistedStore, typename LeafValueType>
@@ -362,7 +362,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::get_meta(index_t& size,
         return;
     }
     TreeMeta m;
-    readPersistedMeta(m, tx);
+    read_persisted_meta(m, tx);
     size = m.size;
     root = m.root;
 }
@@ -379,7 +379,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::get_full_meta(
         return;
     }
     TreeMeta m;
-    readPersistedMeta(m, tx);
+    read_persisted_meta(m, tx);
     size = m.size;
     root = m.root;
     depth = m.depth;
@@ -390,7 +390,7 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
 {
     {
         {
-            ReadTransactionPtr tx = createReadTransaction();
+            ReadTransactionPtr tx = create_read_transaction();
             for (auto& idx : indices_) {
                 std::vector<uint8_t> value;
                 FrKeyType key = idx.first;
@@ -403,7 +403,7 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
                 }
             }
         }
-        WriteTransactionPtr tx = createWriteTransaction();
+        WriteTransactionPtr tx = create_write_transaction();
         try {
             for (uint32_t i = 1; i < nodes.size(); i++) {
                 auto& level = nodes[i];
@@ -427,7 +427,7 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
                 LeafIndexKeyType key = leaf.first;
                 tx->put_value(key, value);
             }
-            persistMeta(meta, *tx);
+            persist_meta(meta, *tx);
             tx->commit();
         } catch (std::exception& e) {
             tx->try_abort();
@@ -442,8 +442,8 @@ void CachedTreeStore<PersistedStore, LeafValueType>::rollback()
 {
     // Extract the committed meta data and destroy the cache
     {
-        ReadTransactionPtr tx = createReadTransaction();
-        readPersistedMeta(meta, *tx);
+        ReadTransactionPtr tx = create_read_transaction();
+        read_persisted_meta(meta, *tx);
     }
     nodes = std::vector<std::unordered_map<index_t, std::vector<uint8_t>>>(
         depth + 1, std::unordered_map<index_t, std::vector<uint8_t>>());
@@ -452,7 +452,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::rollback()
 }
 
 template <typename PersistedStore, typename LeafValueType>
-bool CachedTreeStore<PersistedStore, LeafValueType>::readPersistedMeta(TreeMeta& m, ReadTransaction& tx) const
+bool CachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const
 {
     std::vector<uint8_t> data;
     bool success = tx.get_node(0, 0, data);
@@ -463,7 +463,7 @@ bool CachedTreeStore<PersistedStore, LeafValueType>::readPersistedMeta(TreeMeta&
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::persistMeta(TreeMeta& m, WriteTransaction& tx)
+void CachedTreeStore<PersistedStore, LeafValueType>::persist_meta(TreeMeta& m, WriteTransaction& tx)
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, m);
@@ -478,8 +478,8 @@ void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
     // construction then we throw
     std::vector<uint8_t> data;
     {
-        ReadTransactionPtr tx = createReadTransaction();
-        bool success = readPersistedMeta(meta, *tx);
+        ReadTransactionPtr tx = create_read_transaction();
+        bool success = read_persisted_meta(meta, *tx);
         if (success) {
             if (name == meta.name && depth == meta.depth) {
                 return;
@@ -492,9 +492,9 @@ void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
     meta.name = name;
     meta.size = 0;
     meta.depth = depth;
-    WriteTransactionPtr tx = createWriteTransaction();
+    WriteTransactionPtr tx = create_write_transaction();
     try {
-        persistMeta(meta, *tx);
+        persist_meta(meta, *tx);
         tx->commit();
     } catch (std::exception& e) {
         tx->try_abort();
