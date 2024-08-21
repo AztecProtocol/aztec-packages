@@ -136,4 +136,5 @@ docker run \
   $port_assignment \
   ${DOCKER_ENV:-} \
   ${DOCKER_HOST_BINDS:-} \
+  ${DOCKER_USER:-} \
   $IMAGE:$VERSION ${preserved_args[@]:-}
