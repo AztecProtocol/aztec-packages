@@ -189,7 +189,7 @@ export-aztec-faucet:
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
     FROM +cli-base
-    RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
+    RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
     SAVE ARTIFACT /usr/src /usr/src
 
@@ -254,7 +254,6 @@ export-end-to-end:
 
 export-e2e-test-images:
     BUILD +export-aztec
-    BUILD +export-cli-wallet
     BUILD +export-end-to-end
 
 format-check:

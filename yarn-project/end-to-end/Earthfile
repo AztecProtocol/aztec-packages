@@ -20,15 +20,14 @@ E2E_COMPOSE_TEST:
   ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
   # Optimize to not cause serial behavior if image already exists
   IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
-     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" || \
-     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/cli-wallet:$AZTEC_DOCKER_TAG"
+     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
     WAIT
       BUILD ../+export-e2e-test-images
     END
   END
   # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   ENV JOB_NAME=$project_name
-  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate  
+  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
 E2E_TEST:
   FUNCTION
