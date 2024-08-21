@@ -1,17 +1,11 @@
-use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}};
+use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}, utils::arrays::sort_by::sort_by};
 
 pub fn compare_by_counter_empty_padded_asc<T>(a: T, b: T) -> bool where T: Ordered + Empty + Eq {
-    let both_exposed = (a.counter() == b.counter()) & (a.counter() == 0); // Items exposed from private have 0 counters.
-    is_empty(b) | (!is_empty(a) & ((a.counter() < b.counter()) | both_exposed))
+    !is_empty(a) & (is_empty(b) | (a.counter() < b.counter()))
 }
 
 pub fn compare_by_counter_empty_padded_desc<T>(a: T, b: T) -> bool where T: Ordered + Empty + Eq {
-    let both_exposed = (a.counter() == b.counter()) & (a.counter() == 0);
-    is_empty(b) | ((a.counter() > b.counter()) | both_exposed)
-}
-
-fn sort_by<T, let N: u32>(array: [T; N], ordering: fn(T, T) -> bool) -> [T; N] {
-    array.sort_via(|a, b| ordering(a, b))
+    !is_empty(a) & (is_empty(b) | (a.counter() >= b.counter()))
 }
 
 pub fn sort_by_counter_asc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ordered + Empty + Eq {
@@ -25,7 +19,10 @@ pub fn sort_by_counter_desc<T, let N: u32>(array: [T; N]) -> [T; N] where T: Ord
 mod tests {
     use crate::{
         abis::side_effect::Ordered, traits::Empty,
-        utils::arrays::sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc}
+        utils::arrays::sort_by_counter::{
+        compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc, sort_by_counter_asc,
+        sort_by_counter_desc
+    }
     };
 
     struct TestItem {
@@ -61,6 +58,36 @@ mod tests {
         sort_by_counter_desc(items).map(|item: TestItem| item.value)
     }
 
+    fn compare_test_items_asc(value_1: u32, value_2: u32) -> bool {
+        compare_by_counter_empty_padded_asc(
+            TestItem { value: value_1, counter: value_1 },
+            TestItem { value: value_2, counter: value_2 }
+        )
+    }
+
+    fn compare_test_items_desc(value_1: u32, value_2: u32) -> bool {
+        compare_by_counter_empty_padded_desc(
+            TestItem { value: value_1, counter: value_1 },
+            TestItem { value: value_2, counter: value_2 }
+        )
+    }
+
+    #[test]
+    fn compare_by_counter_empty_padded_asc_expected() {
+        assert_eq(compare_test_items_asc(1, 2), true);
+        assert_eq(compare_test_items_asc(1, 1), false);
+        assert_eq(compare_test_items_asc(2, 1), false);
+        assert_eq(compare_test_items_asc(0, 0), false);
+    }
+
+    #[test]
+    fn compare_by_counter_empty_padded_desc_expected() {
+        assert_eq(compare_test_items_desc(1, 2), false);
+        assert_eq(compare_test_items_desc(1, 1), true);
+        assert_eq(compare_test_items_desc(2, 1), true);
+        assert_eq(compare_test_items_desc(0, 0), false);
+    }
+
     #[test]
     fn sort_by_counter_asc_full_non_empty() {
         let sorted = sort_by_values_asc([4, 2, 1, 3, 5]);
@@ -92,14 +119,18 @@ mod tests {
             TestItem { value: 11, counter: 0 },
             TestItem { value: 33, counter: 2 },
             TestItem { value: 44, counter: 0 },
-            TestItem { value: 22, counter: 0 }
+            TestItem { value: 22, counter: 0 },
+            TestItem::empty(),
+            TestItem::empty()
         ];
         let expected = [
-            TestItem { value: 22, counter: 0 },
-            TestItem { value: 44, counter: 0 },
             TestItem { value: 11, counter: 0 },
+            TestItem { value: 44, counter: 0 },
+            TestItem { value: 22, counter: 0 },
             TestItem { value: 55, counter: 1 },
-            TestItem { value: 33, counter: 2 }
+            TestItem { value: 33, counter: 2 },
+            TestItem::empty(),
+            TestItem::empty()
         ];
         assert_eq(sort_by_counter_asc(original), expected);
     }
@@ -111,14 +142,18 @@ mod tests {
             TestItem { value: 11, counter: 0 },
             TestItem { value: 33, counter: 2 },
             TestItem { value: 44, counter: 0 },
-            TestItem { value: 22, counter: 0 }
+            TestItem { value: 22, counter: 0 },
+            TestItem::empty(),
+            TestItem::empty()
         ];
         let expected = [
             TestItem { value: 33, counter: 2 },
             TestItem { value: 55, counter: 1 },
             TestItem { value: 22, counter: 0 },
             TestItem { value: 44, counter: 0 },
-            TestItem { value: 11, counter: 0 }
+            TestItem { value: 11, counter: 0 },
+            TestItem::empty(),
+            TestItem::empty()
         ];
         assert_eq(sort_by_counter_desc(original), expected);
     }

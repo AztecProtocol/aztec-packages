@@ -4,7 +4,7 @@ use dep::types::{
     log_hash::{LogHash, ScopedLogHash}, nullifier::Nullifier
 },
     constants::MAX_NOTE_HASHES_PER_TX, hash::silo_note_hash,
-    utils::arrays::{array_merge, combine_sort_asc, dedupe_array}
+    utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc}
 };
 
 unconstrained pub fn combine_data(
@@ -12,7 +12,7 @@ unconstrained pub fn combine_data(
     revertible: PublicAccumulatedData
 ) -> CombinedAccumulatedData {
     let mut note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
-    let sorted_unsiloed_note_hashes = combine_sort_asc(non_revertible.note_hashes, revertible.note_hashes);
+    let sorted_unsiloed_note_hashes = sort_by_counter_asc(array_merge(non_revertible.note_hashes, revertible.note_hashes));
     let tx_hash = non_revertible.nullifiers[0].value;
     for i in 0..sorted_unsiloed_note_hashes.len() {
         let note_hash = sorted_unsiloed_note_hashes[i];
@@ -24,9 +24,9 @@ unconstrained pub fn combine_data(
         };
     }
 
-    let nullifiers = combine_sort_asc(non_revertible.nullifiers, revertible.nullifiers).map(|n: Nullifier| n.value);
+    let nullifiers = sort_by_counter_asc(array_merge(non_revertible.nullifiers, revertible.nullifiers)).map(|n: Nullifier| n.value);
 
-    let l2_to_l1_msgs = combine_sort_asc(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs);
+    let l2_to_l1_msgs = sort_by_counter_asc(array_merge(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs));
 
     let public_data_update_requests = dedupe_array(
         array_merge(
@@ -35,21 +35,27 @@ unconstrained pub fn combine_data(
         )
     );
 
-    let note_encrypted_logs_hashes = combine_sort_asc(
-        non_revertible.note_encrypted_logs_hashes,
-        revertible.note_encrypted_logs_hashes
+    let note_encrypted_logs_hashes = sort_by_counter_asc(
+        array_merge(
+            non_revertible.note_encrypted_logs_hashes,
+            revertible.note_encrypted_logs_hashes
+        )
     );
     let note_encrypted_log_preimages_length = note_encrypted_logs_hashes.fold(0, |a, b: LogHash| a + b.length);
 
-    let encrypted_logs_hashes = combine_sort_asc(
-        non_revertible.encrypted_logs_hashes,
-        revertible.encrypted_logs_hashes
+    let encrypted_logs_hashes = sort_by_counter_asc(
+        array_merge(
+            non_revertible.encrypted_logs_hashes,
+            revertible.encrypted_logs_hashes
+        )
     );
     let encrypted_log_preimages_length = encrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
 
-    let unencrypted_logs_hashes = combine_sort_asc(
-        non_revertible.unencrypted_logs_hashes,
-        revertible.unencrypted_logs_hashes
+    let unencrypted_logs_hashes = sort_by_counter_asc(
+        array_merge(
+            non_revertible.unencrypted_logs_hashes,
+            revertible.unencrypted_logs_hashes
+        )
     );
     let unencrypted_log_preimages_length = unencrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
 

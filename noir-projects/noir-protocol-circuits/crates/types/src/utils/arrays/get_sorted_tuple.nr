@@ -1,9 +1,14 @@
+use crate::utils::arrays::sort_by::sort_by;
+
 struct SortedTuple<T> {
     elem: T,
     original_index: u32,
 }
 
-pub fn get_sorted_tuple<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [SortedTuple<T>; N] {
+pub fn get_sorted_tuple<T, let N: u32, Env>(
+    array: [T; N],
+    ordering: fn[Env](T, T) -> bool
+) -> [SortedTuple<T>; N] {
     let mut tuples = [SortedTuple { elem: array[0], original_index: 0 }; N];
     for i in 0..N {
         tuples[i] = SortedTuple {
@@ -11,7 +16,10 @@ pub fn get_sorted_tuple<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, 
             original_index: i,
         };
     }
-    tuples.sort_via(|a: SortedTuple<T>, b: SortedTuple<T>| ordering(a.elem, b.elem))
+    sort_by(
+        tuples,
+        |a: SortedTuple<T>, b: SortedTuple<T>| ordering(a.elem, b.elem)
+    )
 }
 
 #[test]

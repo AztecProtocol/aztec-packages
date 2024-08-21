@@ -7,6 +7,7 @@ mod assert_split_sorted_transformed_value_arrays;
 mod assert_split_transformed_value_arrays;
 mod get_sorted_hints;
 mod get_sorted_tuple;
+mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
@@ -16,7 +17,7 @@ use assert_combined_deduped_array::{
     sort_by_position_then_counter::sort_by_position_then_counter
 };
 use assert_combined_sorted_transformed_value_array::{
-    assert_combined_sorted_transformed_value_array_asc, combine_sort::combine_sort_asc,
+    assert_combined_sorted_transformed_value_array_asc,
     get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
 };
 use assert_exposed_sorted_transformed_value_array::{

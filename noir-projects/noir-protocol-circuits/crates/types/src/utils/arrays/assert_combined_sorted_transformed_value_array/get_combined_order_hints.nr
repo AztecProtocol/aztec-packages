@@ -1,9 +1,6 @@
 use crate::{
     abis::side_effect::Ordered, traits::{Empty, is_empty},
-    utils::arrays::{
-    array_length, assert_combined_sorted_transformed_value_array::combine_sort::combine_sort_asc,
-    sort_by_counter::compare_by_counter_empty_padded_asc, get_sorted_tuple::get_sorted_tuple
-}
+    utils::arrays::{array_length, sort_by_counter::compare_by_counter_empty_padded_asc, get_sorted_tuple::get_sorted_tuple}
 };
 
 struct CombinedOrderHint {
@@ -23,6 +20,16 @@ impl Eq for CombinedOrderHint {
     }
 }
 
+unconstrained fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+    let mut length = 0;
+    for item in array {
+        if !is_empty(item) & (item.counter() == 0) {
+            length += 1;
+        }
+    }
+    length
+}
+
 pub fn get_combined_order_hints_asc<T, S, let N: u32>(
     array_lt: [T; N],
     array_gte: [T; N]
@@ -30,25 +37,23 @@ pub fn get_combined_order_hints_asc<T, S, let N: u32>(
     let mut hints = [CombinedOrderHint::empty(); N];
     let sorted_lt = get_sorted_tuple(array_lt, compare_by_counter_empty_padded_asc);
     let sorted_gte = get_sorted_tuple(array_gte, compare_by_counter_empty_padded_asc);
+    let num_private_lt = count_private_items(array_lt);
+    let num_private_gte = count_private_items(array_gte);
     let num_lt = array_length(array_lt);
+    let total_private = num_private_lt + num_private_gte;
+    let total_non_public_gte = num_lt + num_private_gte;
     for i in 0..N {
-        let from_index = if i < num_lt { i } else { i - num_lt };
-        let from = if i < num_lt {
-            array_lt[from_index]
+        let sorted = if i < num_private_lt {
+            sorted_lt[i]
+        } else if i < total_private {
+            sorted_gte[i - num_private_lt]
+        } else if i < total_non_public_gte {
+            sorted_lt[i - num_private_gte]
         } else {
-            array_gte[from_index]
+            sorted_gte[i - num_lt]
         };
-        let sorted = if i < num_lt {
-            sorted_lt[from_index]
-        } else {
-            sorted_gte[from_index]
-        };
-        if from.counter() == 0 {
-            hints[i].original_index = from_index;
-        } else {
-            hints[i].original_index = sorted.original_index;
-            hints[i].counter = sorted.elem.counter();
-        }
+        hints[i].original_index = sorted.original_index;
+        hints[i].counter = sorted.elem.counter();
     }
     hints
 }
@@ -203,10 +208,10 @@ mod tests {
         let expected_hints = [
             CombinedOrderHint { counter: 0, original_index: 0 },
             CombinedOrderHint { counter: 0, original_index: 1 },
-            CombinedOrderHint { counter: 13, original_index: 3 },
-            CombinedOrderHint { counter: 16, original_index: 2 },
             CombinedOrderHint { counter: 0, original_index: 0 },
             CombinedOrderHint { counter: 0, original_index: 1 },
+            CombinedOrderHint { counter: 13, original_index: 3 },
+            CombinedOrderHint { counter: 16, original_index: 2 },
             CombinedOrderHint { counter: 19, original_index: 2 },
             CombinedOrderHint { counter: 0, original_index: 3 },
             CombinedOrderHint { counter: 0, original_index: 4 },

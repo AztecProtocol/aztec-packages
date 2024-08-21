@@ -52,7 +52,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
     pub fn to_hints(self) -> NullifierNonExistentReadRequestHints {
         let sorted_result = get_sorted_hints(
             self.pending_nullifiers,
-            |a: Nullifier, b: Nullifier| (b.value == 0) | ((a.value != 0) & (b.value != 0) & a.value.lt(b.value))
+            |a: Nullifier, b: Nullifier| (b.value == 0) | ((a.value != 0) & a.value.lt(b.value))
         );
         let sorted_pending_values = sorted_result.sorted_array;
         let sorted_pending_value_index_hints = sorted_result.sorted_index_hints;

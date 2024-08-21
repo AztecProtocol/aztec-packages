@@ -39,7 +39,7 @@ impl PublicKernelTailCircuitPrivateInputs {
         PublicTailOutputComposer::new(self.previous_kernel.public_inputs, self.start_state).finish()
     }
 
-    pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
+    pub fn execute(self) -> KernelCircuitPublicInputs {
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
         previous_kernel_validator.validate_phase(PublicKernelPhase.TAIL);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
@@ -89,7 +89,10 @@ mod tests {
         PUBLIC_KERNEL_TEARDOWN_INDEX
     },
         hash::compute_siloed_nullifier, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-        tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
+        tests::{
+        fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree,
+        utils::{assert_array_eq, swap_items}
+    },
         traits::is_empty, partial_state_reference::PartialStateReference,
         utils::arrays::{array_length, array_merge}, merkle_tree::MembershipWitness
     };
@@ -141,7 +144,7 @@ mod tests {
             let previous_revertible = FixtureBuilder::new();
             let nullifier_non_existent_read_request_hints_builder = NullifierNonExistentReadRequestHintsBuilder::new();
 
-            let mut builder = PublicKernelTailCircuitPrivateInputsBuilder {
+            PublicKernelTailCircuitPrivateInputsBuilder {
                 previous_kernel,
                 previous_revertible,
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
@@ -150,9 +153,7 @@ mod tests {
                 public_data_hints: BoundedVec::new(),
                 public_data_tree: NonEmptyMerkleTree::empty(),
                 start_state: PartialStateReference::empty()
-            };
-            builder.set_nullifiers_for_non_existent_read_request_hints();
-            builder
+            }
         }
 
         pub fn with_nullifier_tree(&mut self) -> Self {
@@ -271,6 +272,8 @@ mod tests {
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
+            self.set_nullifiers_for_non_existent_read_request_hints();
+
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
@@ -280,7 +283,7 @@ mod tests {
                 start_state: self.start_state
             };
 
-            kernel.public_kernel_tail()
+            kernel.execute()
         }
 
         pub fn succeeded(&mut self) {
@@ -515,6 +518,31 @@ mod tests {
         assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
         let public_inputs = builder.execute();
         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
+    }
+
+    #[test]
+    unconstrained fn combine_accumulated_data() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+        builder.previous_revertible.value_offset = 999;
+        builder.previous_revertible.counter = 88;
+
+        builder.previous_kernel.append_nullifiers(3);
+        // 1 of them is from private:
+        builder.previous_kernel.nullifiers.storage[0].nullifier.counter = 0;
+        let non_rev = builder.previous_kernel.nullifiers.storage;
+
+        builder.previous_revertible.append_nullifiers(5);
+        // 2 of them are from private:
+        builder.previous_revertible.nullifiers.storage[0].nullifier.counter = 0;
+        builder.previous_revertible.nullifiers.storage[1].nullifier.counter = 0;
+        let rev = builder.previous_revertible.nullifiers.storage;
+        // Swap the items so that they are not ordered by counters.
+        swap_items(&mut builder.previous_revertible.nullifiers, 2, 3);
+
+        let public_inputs = builder.execute();
+
+        let expected = [non_rev[0], rev[0], rev[1], non_rev[1], non_rev[2], rev[2], rev[3], rev[4]].map(|n: ScopedNullifier| n.nullifier.value);
+        assert_array_eq(public_inputs.end.nullifiers, expected);
     }
 
     #[test]

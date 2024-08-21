@@ -1,15 +1,29 @@
-mod combine_sort;
 mod get_combined_order_hints;
 
 use crate::{
     abis::side_effect::Ordered, traits::{Empty, is_empty},
     utils::arrays::{
     array_length,
-    assert_combined_sorted_transformed_value_array::get_combined_order_hints::CombinedOrderHint
+    assert_combined_sorted_transformed_value_array::get_combined_order_hints::{CombinedOrderHint, count_private_items}
 }
 };
 
+fn get_num_private_items<T, let N: u32>(array: [T; N]) -> u32 where T: Ordered + Empty + Eq {
+    let length = count_private_items(array);
+    if length != 0 {
+        let last_private_item = array[length - 1];
+        assert(!is_empty(last_private_item) & (last_private_item.counter() == 0));
+    }
+    if length != N {
+        let first_non_private_item = array[length];
+        assert(is_empty(first_non_private_item) | (first_non_private_item.counter() != 0));
+    }
+    length
+}
+
 // original_array(_lt/_gte) must be valid, i.e. validate_array(original_array) == true
+// Both array should have items with a counter of 0 prepended to it.
+// Non-zero counters in original_array_lt must be less than all non-zero counters in original_array_gte.
 pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>(
     original_array_lt: [T; N],
     original_array_gte: [T; N],
@@ -17,44 +31,52 @@ pub fn assert_combined_sorted_transformed_value_array_asc<T, S, let N: u32, Env>
     is_transformed: fn[Env](T, S) -> bool,
     hints: [CombinedOrderHint; N]
 ) where T: Ordered + Empty + Eq, S: Empty + Eq {
+    let num_private_lt = get_num_private_items(original_array_lt);
+    let num_private_gte = get_num_private_items(original_array_gte);
+    let total_private = num_private_lt + num_private_gte;
     let num_lt = array_length(original_array_lt);
     let num_gte = array_length(original_array_gte);
+    let total_non_public_gte = num_lt + num_private_gte;
     let total_num = num_lt + num_gte;
 
     let mut prev_counter = 0;
-    let mut is_lt = true;
+    let mut should_be_private_lt = true;
+    let mut should_be_private = true;
+    let mut should_be_public_gte = false;
     let mut should_be_empty = false;
     for i in 0..N {
-        is_lt &= i != num_lt;
+        should_be_private_lt &= i != num_private_lt;
+        should_be_private &= i != total_private;
+        should_be_public_gte |= i == total_non_public_gte;
         should_be_empty |= i == total_num;
         let hint = hints[i];
-        let original = if is_lt {
-            original_array_lt[hint.original_index]
+        let from_lt = original_array_lt[hint.original_index];
+        let from_gte = original_array_gte[hint.original_index];
+        let from = if should_be_private_lt {
+            assert_eq(hint.original_index, i, "items with a counter of 0 should be prepended");
+            from_lt
+        } else if should_be_private {
+            assert_eq(hint.original_index, i - num_private_lt, "items with a counter of 0 should be prepended");
+            from_gte
+        } else if should_be_public_gte {
+            from_gte
         } else {
-            original_array_gte[hint.original_index]
+            from_lt
         };
         let dest = sorted_transformed_value_array[i];
         let dest_counter = hint.counter;
-        assert(is_transformed(original, dest), "incorrect transformed value");
-        assert_eq(original.counter(), dest_counter, "mismatch counter");
+        assert(is_transformed(from, dest), "incorrect transformed value");
+        assert_eq(from.counter(), dest_counter, "mismatch counter");
         if !should_be_empty {
-            if dest_counter != 0 {
+            if !should_be_private {
                 assert(
                     dest_counter > prev_counter, "value array must be sorted by counter in ascending order"
                 );
-            } else {
-                assert((prev_counter == 0) | (i == num_lt), "items with 0 counters should be prepended");
-                let sorted_index = if is_lt {
-                    hint.original_index
-                } else {
-                    hint.original_index + num_lt
-                };
-                assert_eq(sorted_index, i, "order of the items with 0 counters should be preserved");
             }
-            prev_counter = dest_counter;
         } else {
             assert(is_empty(dest), "array must be padded with empty items");
         }
+        prev_counter = dest_counter;
     }
 }
 
@@ -62,10 +84,12 @@ mod tests {
     use crate::{
         abis::side_effect::Ordered, tests::utils::pad_end, traits::Empty,
         utils::arrays::{
+        array_merge,
         assert_combined_sorted_transformed_value_array::{
-        assert_combined_sorted_transformed_value_array_asc, combine_sort::combine_sort_asc,
+        assert_combined_sorted_transformed_value_array_asc,
         get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
-    }
+    },
+        sort_by_counter::sort_by_counter_asc
     }
     };
 
@@ -153,10 +177,10 @@ mod tests {
                 [
                 TestValue { name: 7, total: 47 },
                 TestValue { name: 4, total: 76 },
-                TestValue { name: 3, total: 34 },
-                TestValue { name: 6, total: 81 },
                 TestValue { name: 9, total: 22 },
                 TestValue { name: 8, total: 93 },
+                TestValue { name: 3, total: 34 },
+                TestValue { name: 6, total: 81 },
                 TestValue { name: 1, total: 68 },
                 TestValue { name: 2, total: 15 },
                 TestValue { name: 5, total: 59 }
@@ -167,10 +191,10 @@ mod tests {
             let hints = [
                 CombinedOrderHint { counter: 0, original_index: 0 },
                 CombinedOrderHint { counter: 0, original_index: 1 },
-                CombinedOrderHint { counter: 11, original_index: 3 },
-                CombinedOrderHint { counter: 22, original_index: 2 },
                 CombinedOrderHint { counter: 0, original_index: 0 },
                 CombinedOrderHint { counter: 0, original_index: 1 },
+                CombinedOrderHint { counter: 11, original_index: 3 },
+                CombinedOrderHint { counter: 22, original_index: 2 },
                 CombinedOrderHint { counter: 33, original_index: 3 },
                 CombinedOrderHint { counter: 44, original_index: 4 },
                 CombinedOrderHint { counter: 55, original_index: 2 },
@@ -180,6 +204,18 @@ mod tests {
             ];
 
             TestDataBuilder { original_array_lt, original_array_gte, sorted_transformed_value_array, hints }
+        }
+
+        pub fn swap_items(&mut self, from: u32, to: u32) {
+            let tmp = self.sorted_transformed_value_array[from];
+            self.sorted_transformed_value_array[from] = self.sorted_transformed_value_array[to];
+            self.sorted_transformed_value_array[to] = tmp;
+        }
+
+        pub fn swap_hints(&mut self, from: u32, to: u32) {
+            let tmp = self.hints[from];
+            self.hints[from] = self.hints[to];
+            self.hints[to] = tmp;
         }
 
         pub fn execute(self) {
@@ -200,7 +236,7 @@ mod tests {
         let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
         assert_eq(hints, builder.hints);
 
-        let sorted = combine_sort_asc(builder.original_array_lt, builder.original_array_gte).map(transform);
+        let sorted = sort_by_counter_asc(array_merge(builder.original_array_lt, builder.original_array_gte)).map(transform);
         assert_eq(sorted, builder.sorted_transformed_value_array);
 
         builder.execute();
@@ -220,44 +256,27 @@ mod tests {
     fn assert_combined_sorted_transformed_value_array_asc_cross_boundary_fails() {
         let mut builder = TestDataBuilder::new();
 
-        // Swap the values at index 1 and 4.
-        let tmp = builder.sorted_transformed_value_array[1];
-        builder.sorted_transformed_value_array[1] = builder.sorted_transformed_value_array[4];
-        builder.sorted_transformed_value_array[4] = tmp;
+        builder.swap_items(4, 6);
 
         builder.execute();
     }
 
-    #[test(should_fail_with="order of the items with 0 counters should be preserved")]
+    #[test(should_fail_with="items with a counter of 0 should be prepended")]
     fn assert_combined_sorted_transformed_value_array_asc_unordered_prepended_fails() {
         let mut builder = TestDataBuilder::new();
 
-        // Swap the values at index 0 and 1.
-        let tmp = builder.sorted_transformed_value_array[0];
-        builder.sorted_transformed_value_array[0] = builder.sorted_transformed_value_array[1];
-        builder.sorted_transformed_value_array[1] = tmp;
-
-        // Update hints.
-        let tmp = builder.hints[0];
-        builder.hints[0] = builder.hints[1];
-        builder.hints[1] = tmp;
+        builder.swap_items(0, 1);
+        builder.swap_hints(0, 1);
 
         builder.execute();
     }
 
-    #[test(should_fail_with="items with 0 counters should be prepended")]
+    #[test(should_fail_with="items with a counter of 0 should be prepended")]
     fn assert_combined_sorted_transformed_value_array_asc_mixed_prepended_fails() {
         let mut builder = TestDataBuilder::new();
 
-        // Swap the values at index 1 and 2.
-        let tmp = builder.sorted_transformed_value_array[1];
-        builder.sorted_transformed_value_array[1] = builder.sorted_transformed_value_array[2];
-        builder.sorted_transformed_value_array[2] = tmp;
-
-        // Update hints.
-        let tmp = builder.hints[1];
-        builder.hints[1] = builder.hints[2];
-        builder.hints[2] = tmp;
+        builder.swap_items(1, 4);
+        builder.swap_hints(1, 4);
 
         builder.execute();
     }
@@ -266,15 +285,8 @@ mod tests {
     fn assert_combined_sorted_transformed_value_array_asc_unordered_fails() {
         let mut builder = TestDataBuilder::new();
 
-        // Swap the values at index 2 and 3.
-        let tmp = builder.sorted_transformed_value_array[2];
-        builder.sorted_transformed_value_array[2] = builder.sorted_transformed_value_array[3];
-        builder.sorted_transformed_value_array[3] = tmp;
-
-        // Update hints.
-        let tmp = builder.hints[2];
-        builder.hints[2] = builder.hints[3];
-        builder.hints[3] = tmp;
+        builder.swap_items(4, 5);
+        builder.swap_hints(4, 5);
 
         builder.execute();
     }
@@ -283,15 +295,12 @@ mod tests {
     fn assert_combined_sorted_transformed_value_array_asc_unordered_values_with_ordered_counters_fails() {
         let mut builder = TestDataBuilder::new();
 
-        // Swap the values at index 2 and 3.
-        let tmp = builder.sorted_transformed_value_array[2];
-        builder.sorted_transformed_value_array[2] = builder.sorted_transformed_value_array[3];
-        builder.sorted_transformed_value_array[3] = tmp;
+        builder.swap_items(4, 5);
 
         // Update indexes in hints.
-        let tmp = builder.hints[2].original_index;
-        builder.hints[2].original_index = builder.hints[3].original_index;
-        builder.hints[3].original_index = tmp;
+        let tmp = builder.hints[4].original_index;
+        builder.hints[4].original_index = builder.hints[5].original_index;
+        builder.hints[5].original_index = tmp;
 
         builder.execute();
     }
@@ -307,7 +316,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="items with 0 counters should be prepended")]
+    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
     fn assert_combined_sorted_transformed_value_array_asc_extra_empty_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -318,13 +327,24 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with="order of the items with 0 counters should be preserved")]
-    fn assert_combined_sorted_transformed_value_array_asc_extra_prepended_fails() {
+    #[test(should_fail_with="value array must be sorted by counter in ascending order")]
+    fn assert_combined_sorted_transformed_value_array_asc_duplicate_fails() {
         let mut builder = TestDataBuilder::new();
 
-        // Add an item.
-        builder.sorted_transformed_value_array[6] = builder.sorted_transformed_value_array[5];
-        builder.hints[6] = builder.hints[5];
+        // Duplicate an item.
+        builder.sorted_transformed_value_array[5] = builder.sorted_transformed_value_array[4];
+        builder.hints[5] = builder.hints[4];
+
+        builder.execute();
+    }
+
+    #[test(should_fail_with="items with a counter of 0 should be prepended")]
+    fn assert_combined_sorted_transformed_value_array_asc_duplicate_zero_counter_fails() {
+        let mut builder = TestDataBuilder::new();
+
+        // Duplicate an item with 0 counter.
+        builder.sorted_transformed_value_array[1] = builder.sorted_transformed_value_array[0];
+        builder.hints[1] = builder.hints[0];
 
         builder.execute();
     }
