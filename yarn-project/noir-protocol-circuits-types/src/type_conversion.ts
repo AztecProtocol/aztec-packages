@@ -5,7 +5,6 @@ import {
   type BaseParityInputs,
   type BaseRollupInputs,
   CallContext,
-  type CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -125,7 +124,7 @@ import {
   type TransientDataIndexHint,
   TxContext,
   type TxRequest,
-  type VerificationKeyAsFields,
+  type VerificationKeyAsFields
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
@@ -136,7 +135,6 @@ import type {
   BaseParityInputs as BaseParityInputsNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
   CallContext as CallContextNoir,
-  CombineHints as CombineHintsNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
@@ -1737,38 +1735,6 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
-export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsNoir {
-  return {
-    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapScopedNoteHashToNoir),
-    sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
-    sorted_note_encrypted_logs_hashes: mapTuple(combineHints.sortedNoteEncryptedLogsHashes, mapLogHashToNoir),
-    sorted_note_encrypted_logs_hashes_indexes: mapTuple(
-      combineHints.sortedNoteEncryptedLogsHashesIndexes,
-      mapNumberToNoir,
-    ),
-    sorted_encrypted_logs_hashes: mapTuple(combineHints.sortedEncryptedLogsHashes, mapScopedLogHashToNoir),
-    sorted_encrypted_logs_hashes_indexes: mapTuple(combineHints.sortedEncryptedLogsHashesIndexes, mapNumberToNoir),
-    sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapScopedLogHashToNoir),
-    sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
-    sorted_public_data_update_requests: mapTuple(
-      combineHints.sortedPublicDataUpdateRequests,
-      mapPublicDataUpdateRequestToNoir,
-    ),
-    sorted_public_data_update_requests_indexes: mapTuple(
-      combineHints.sortedPublicDataUpdateRequestsIndexes,
-      mapNumberToNoir,
-    ),
-    deduped_public_data_update_requests: mapTuple(
-      combineHints.dedupedPublicDataUpdateRequests,
-      mapPublicDataUpdateRequestToNoir,
-    ),
-    deduped_public_data_update_requests_runs: mapTuple(
-      combineHints.dedupedPublicDataUpdateRequestsRuns,
-      mapNumberToNoir,
-    ),
-  };
-}
-
 export function mapPublicKernelTailCircuitPrivateInputsToNoir(
   inputs: PublicKernelTailCircuitPrivateInputs,
 ): PublicKernelTailCircuitPrivateInputsNoir {
@@ -1781,7 +1747,6 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
-    combine_hints: mapCombineHintsToNoir(inputs.combineHints),
   };
 }
 
