@@ -24,7 +24,7 @@ impl<let M: u32> EncryptedLogIncomingBody<M> {
     }
 
     pub fn compute_ciphertext(self, eph_sk: Scalar, ivpk: IvpkM) -> [u8] {
-        let full_key = point_to_symmetric_key(eph_sk, ivpk.inner);
+        let full_key = point_to_symmetric_key(eph_sk, ivpk.to_point());
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
 
