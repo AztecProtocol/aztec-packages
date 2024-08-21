@@ -54,7 +54,7 @@ spec:
             [
               "/bin/bash",
               "-c",
-              "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node p2pEnabled=true --archiver --sequencer --prover --pxe",
+              "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer",
             ]
           volumeMounts:
             - name: shared-volume
@@ -91,8 +91,8 @@ spec:
             - name: VALIDATOR_PRIVATE_KEY
               value: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
           ports:
-            - containerPort: 8080
-            - containerPort: 40400
+            - containerPort: "{{ .Values.bootNode.service.nodePort }}"
+            - containerPort: "{{ .Values.bootNode.service.p2pPort }}"
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
