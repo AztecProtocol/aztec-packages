@@ -162,7 +162,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--data-directory <value>',
       description: 'Where to store data. If not set, will store temporarily',
       defaultValue: undefined,
-      envVar: undefined,
+      envVar: 'DATA_DIRECTORY',
     },
     {
       flag: '--node.archiverUrl <value>',
