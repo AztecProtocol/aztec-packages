@@ -124,7 +124,7 @@ import {
   type TransientDataIndexHint,
   TxContext,
   type TxRequest,
-  type VerificationKeyAsFields
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
