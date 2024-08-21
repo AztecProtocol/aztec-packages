@@ -11,7 +11,7 @@ namespace bb {
 
 template <IsUltraFlavor Flavor> struct OinkOutput {
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
-    typename Flavor::WitnessCommitments commitments; // WORKTODO: make this VerifierCommitments
+    typename Flavor::WitnessCommitments commitments;
     std::vector<typename Flavor::FF> public_inputs;
     typename Flavor::RelationSeparator alphas;
 };
