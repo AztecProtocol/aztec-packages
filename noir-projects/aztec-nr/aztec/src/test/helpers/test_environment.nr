@@ -73,10 +73,10 @@ impl TestEnvironment {
         let address = test_account.address;
         let keys = test_account.keys;
 
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
+        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m.inner);
+        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m.inner);
+        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m.inner);
+        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m.inner);
 
         test_account.address
     }
@@ -88,15 +88,15 @@ impl TestEnvironment {
 
         let keys = test_account.keys;
 
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
+        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m.inner);
+        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m.inner);
+        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m.inner);
+        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m.inner);
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
         let mut context = self.private_at(get_block_number());
-        let args = [test_account.keys.ivpk_m.x, test_account.keys.ivpk_m.y];
+        let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
         let _ = context.call_private_function(address, selector, args);
 
         address
