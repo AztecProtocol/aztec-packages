@@ -39,11 +39,14 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
     using ZeroMorph = ::bb::ZeroMorphVerifier_<Curve>;
+    using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
 
     transcript = std::make_shared<Transcript>(proof);
     OinkVerifier oink_verifier{ builder, key, transcript };
-    auto [relation_parameters, commitments, public_inputs, alphas] = oink_verifier.verify();
+    auto [relation_parameters, witness_commitments, public_inputs, alphas] = oink_verifier.verify();
+
+    VerifierCommitments commitments{ key, witness_commitments };
 
     auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {

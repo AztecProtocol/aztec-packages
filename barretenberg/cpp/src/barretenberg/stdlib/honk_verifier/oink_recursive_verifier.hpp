@@ -14,11 +14,11 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
 
     struct Output {
         bb::RelationParameters<typename Flavor::FF> relation_parameters;
-        VerifierCommitments commitments;
+        WitnessCommitments commitments;
         std::vector<typename Flavor::FF> public_inputs;
         typename Flavor::RelationSeparator alphas;
     };

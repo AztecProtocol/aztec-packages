@@ -28,7 +28,7 @@ template <typename Flavor> OinkRecursiveVerifier_<Flavor>::Output OinkRecursiveV
     using RelationParams = ::bb::RelationParameters<FF>;
 
     RelationParams relation_parameters;
-    VerifierCommitments commitments{ key };
+    WitnessCommitments commitments;
     CommitmentLabels labels;
 
     FF circuit_size = transcript->template receive_from_prover<FF>(domain_separator + "circuit_size");
