@@ -93,7 +93,7 @@ void compute_wnaf_states(uint64_t* point_schedule,
                          size_t num_initial_points);
 
 template <typename Curve>
-void generate_pippenger_point_table(typename Curve::AffineElement* points,
+void generate_pippenger_point_table(const typename Curve::AffineElement* points,
                                     typename Curve::AffineElement* table,
                                     size_t num_points);
 
@@ -134,15 +134,15 @@ void evaluate_addition_chains(affine_product_runtime_state<Curve>& state,
                               size_t max_bucket_bits,
                               bool handle_edge_cases);
 template <typename Curve>
-typename Curve::Element pippenger_internal(typename Curve::AffineElement* points,
-                                           typename Curve::ScalarField* scalars,
+typename Curve::Element pippenger_internal(const typename Curve::AffineElement* points,
+                                           const typename Curve::ScalarField* scalars,
                                            size_t num_initial_points,
                                            pippenger_runtime_state<Curve>& state,
                                            bool handle_edge_cases);
 
 template <typename Curve>
 typename Curve::Element evaluate_pippenger_rounds(pippenger_runtime_state<Curve>& state,
-                                                  typename Curve::AffineElement* points,
+                                                  const typename Curve::AffineElement* points,
                                                   size_t num_points,
                                                   bool handle_edge_cases = false);
 
@@ -152,21 +152,21 @@ typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve
                                               bool handle_edge_cases = false);
 
 template <typename Curve>
-typename Curve::Element pippenger(typename Curve::ScalarField* scalars,
-                                  typename Curve::AffineElement* points,
+typename Curve::Element pippenger(const typename Curve::ScalarField* scalars,
+                                  const typename Curve::AffineElement* points,
                                   size_t num_initial_points,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases = true);
 
 template <typename Curve>
-typename Curve::Element pippenger_unsafe(typename Curve::ScalarField* scalars,
-                                         typename Curve::AffineElement* points,
+typename Curve::Element pippenger_unsafe(const typename Curve::ScalarField* scalars,
+                                         const typename Curve::AffineElement* points,
                                          size_t num_initial_points,
                                          pippenger_runtime_state<Curve>& state);
 
 template <typename Curve>
-typename Curve::Element pippenger_without_endomorphism_basis_points(typename Curve::ScalarField* scalars,
-                                                                    typename Curve::AffineElement* points,
+typename Curve::Element pippenger_without_endomorphism_basis_points(const typename Curve::ScalarField* scalars,
+                                                                    const typename Curve::AffineElement* points,
                                                                     size_t num_initial_points,
                                                                     pippenger_runtime_state<Curve>& state);
 
