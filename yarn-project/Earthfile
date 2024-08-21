@@ -191,7 +191,7 @@ end-to-end-prod:
     FROM +cli-base
     RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    COPY --dir +build-dev/usr/src/noir-projects/noir-contracts/target /usr/src/noir-projects/noir-contracts/target
+    COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
     SAVE ARTIFACT /usr/src /usr/src
 
 anvil:
