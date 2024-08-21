@@ -38,7 +38,7 @@ services:
       DEBUG: ${DEBUG:-aztec:*}
       DEBUG_COLORS: 1
       PXE_URL: http://sandbox:8080
-    workdir: /usr/src/yarn-project/cli-wallet
+    working_dir: /usr/src/yarn-project/cli-wallet
     entrypoint: >
       sh -c '
         while ! nc -z sandbox 8080; do sleep 1; done;
