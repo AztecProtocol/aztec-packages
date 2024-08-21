@@ -21,8 +21,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     instance->witness_commitments = std::move(witness_commitments);
     instance->alphas = std::move(alphas);
 
-    size_t log_circuit_size = numeric::get_msb(instance->verification_key->circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         instance->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
