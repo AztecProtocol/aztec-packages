@@ -35,8 +35,6 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
         a = b * b;
         b = c * c;
     }
-    info("number of gates at the end of mock circuit generation: ", builder.num_gates);
-    info("number of variables at the end of mock circuit generation: ", builder.variables.size());
 }
 
 template <typename Prover>
