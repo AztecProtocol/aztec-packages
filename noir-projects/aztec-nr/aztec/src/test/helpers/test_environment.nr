@@ -73,10 +73,10 @@ impl TestEnvironment {
         let address = test_account.address;
         let keys = test_account.keys;
 
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m.inner);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m.inner);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m.inner);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m.inner);
+        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
+        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
+        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
+        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
 
         test_account.address
     }
@@ -88,10 +88,10 @@ impl TestEnvironment {
 
         let keys = test_account.keys;
 
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m.inner);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m.inner);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m.inner);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m.inner);
+        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
+        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
+        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
+        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 

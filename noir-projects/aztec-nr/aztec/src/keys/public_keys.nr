@@ -22,6 +22,12 @@ struct NpkM {
     inner: Point
 }
 
+impl ToPoint for NpkM {
+    fn to_point(self) -> Point {
+        self.inner
+    }
+}
+
 impl Serialize<POINT_LENGTH> for NpkM {
     fn serialize(self) -> [Field; POINT_LENGTH] {
         self.inner.serialize()
@@ -75,6 +81,12 @@ impl Serialize<POINT_LENGTH> for OvpkM {
 
 struct TpkM {
     inner: Point
+}
+
+impl ToPoint for TpkM {
+    fn to_point(self) -> Point {
+        self.inner
+    }
 }
 
 impl Empty for PublicKeys {
