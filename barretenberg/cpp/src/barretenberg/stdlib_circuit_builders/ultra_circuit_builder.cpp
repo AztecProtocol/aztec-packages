@@ -505,27 +505,7 @@ template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::create_bool_gate(const uint32_t variable_index)
 {
     this->assert_valid_variables({ variable_index });
-
-    blocks.arithmetic.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
-    blocks.arithmetic.q_m().emplace_back(1);
-    blocks.arithmetic.q_1().emplace_back(-1);
-    blocks.arithmetic.q_2().emplace_back(0);
-    blocks.arithmetic.q_3().emplace_back(0);
-    blocks.arithmetic.q_c().emplace_back(0);
-    blocks.arithmetic.q_delta_range().emplace_back(0);
-
-    blocks.arithmetic.q_arith().emplace_back(1);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_lookup_type().emplace_back(0);
-    blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_external().emplace_back(0);
-    blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.arithmetic.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
+    this->create_new_range_constraint(variable_index, 1);
 }
 
 /**

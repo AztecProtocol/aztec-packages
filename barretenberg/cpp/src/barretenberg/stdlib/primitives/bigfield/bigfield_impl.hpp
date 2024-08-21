@@ -912,7 +912,6 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
         quotient = create_from_u512_as_witness(ctx, quotient_value, false, num_quotient_bits);
         remainder = create_from_u512_as_witness(ctx, remainder_value);
     };
-
     unsafe_evaluate_square_add(*this, {}, quotient, remainder);
     remainder.set_origin_tag(get_origin_tag());
     return remainder;
@@ -1441,12 +1440,13 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
         remainder = zero();
         // remainder needs to be defined as wire value and not selector values to satisfy
         // UltraPlonk's bigfield custom gates
-        remainder.convert_constant_to_fixed_witness(ctx);
+
+        // The formula simply uses zero_idx without providing remainder
+        unsafe_evaluate_multiple_multiply_add(new_input_left, new_input_right, new_to_add, quotient, {});
     } else {
         remainder = create_from_u512_as_witness(ctx, remainder_value);
+        unsafe_evaluate_multiple_multiply_add(new_input_left, new_input_right, new_to_add, quotient, { remainder });
     }
-
-    unsafe_evaluate_multiple_multiply_add(new_input_left, new_input_right, new_to_add, quotient, { remainder });
 
     remainder.set_origin_tag(new_tag);
     return remainder;
@@ -1962,7 +1962,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
 {
     Builder* ctx = this->context ? this->context : other.context;
-
+    info("Assert equal triggered");
     if constexpr (IsSimulator<Builder>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
         return;
@@ -1975,6 +1975,40 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
             // evaluate a strict equality - make sure *this is reduced first, or an honest prover
             // might not be able to satisfy these constraints.
+            if constexpr (HasPlookup<Builder>) {
+                if (prime_basis_limb.multiplicative_constant == 1) {
+                    std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
+                                                    binary_basis_limbs[0].element.multiplicative_constant };
+                    std::pair<uint32_t, bb::fr> x1{ binary_basis_limbs[1].element.witness_index,
+                                                    binary_basis_limbs[1].element.multiplicative_constant };
+                    std::pair<uint32_t, bb::fr> x2{ binary_basis_limbs[2].element.witness_index,
+                                                    binary_basis_limbs[2].element.multiplicative_constant };
+                    std::pair<uint32_t, bb::fr> x3{ binary_basis_limbs[3].element.witness_index,
+                                                    binary_basis_limbs[3].element.multiplicative_constant };
+                    std::pair<uint32_t, bb::fr> y{ ctx->zero_idx, 1 };
+                    bb::fr c0(binary_basis_limbs[0].element.additive_constant -
+                              other.binary_basis_limbs[0].element.additive_constant);
+                    bb::fr c1(binary_basis_limbs[1].element.additive_constant -
+                              other.binary_basis_limbs[1].element.additive_constant);
+                    bb::fr c2(binary_basis_limbs[2].element.additive_constant -
+                              other.binary_basis_limbs[2].element.additive_constant);
+                    bb::fr c3(binary_basis_limbs[3].element.additive_constant -
+                              other.binary_basis_limbs[3].element.additive_constant);
+
+                    uint32_t xp(prime_basis_limb.witness_index);
+                    uint32_t yp(ctx->zero_idx);
+                    bb::fr cp(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
+
+                    const auto output_witnesses = ctx->evaluate_non_native_field_subtraction(
+                        { x0, y, c0 }, { x1, y, c1 }, { x2, y, c2 }, { x3, y, c3 }, { xp, yp, cp });
+                    ctx->assert_equal(output_witnesses[0], ctx->zero_idx);
+                    ctx->assert_equal(output_witnesses[1], ctx->zero_idx);
+                    ctx->assert_equal(output_witnesses[2], ctx->zero_idx);
+                    ctx->assert_equal(output_witnesses[3], ctx->zero_idx);
+                    ctx->assert_equal(output_witnesses[4], ctx->zero_idx);
+                    return;
+                }
+            }
             field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
             field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
             field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
