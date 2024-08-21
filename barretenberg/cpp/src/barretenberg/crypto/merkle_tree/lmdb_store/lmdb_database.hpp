@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 

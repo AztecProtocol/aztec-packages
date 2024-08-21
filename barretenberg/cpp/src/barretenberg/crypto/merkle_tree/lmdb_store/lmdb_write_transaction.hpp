@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"

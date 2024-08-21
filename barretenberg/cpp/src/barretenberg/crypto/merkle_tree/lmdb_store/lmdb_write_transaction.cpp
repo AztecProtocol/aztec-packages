@@ -1,7 +1,7 @@
 
 
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_write_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 
 namespace bb::crypto::merkle_tree {
 

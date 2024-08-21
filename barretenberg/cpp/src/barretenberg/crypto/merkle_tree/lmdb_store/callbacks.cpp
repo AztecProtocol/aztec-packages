@@ -1,4 +1,4 @@
-#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "lmdb.h"
 #include <algorithm>

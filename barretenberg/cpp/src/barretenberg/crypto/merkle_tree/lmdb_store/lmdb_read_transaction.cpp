@@ -1,5 +1,5 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_read_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include <cstdint>
 
 namespace bb::crypto::merkle_tree {
