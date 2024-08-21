@@ -37,7 +37,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the prover instance for circuit
-    prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+    auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
     // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
     max_block_size_tracker.update(circuit);
@@ -58,58 +58,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
         fold_output = folding_prover.prove();
     }
-    // forget the prover_instance now?
-    prover_instance = nullptr;
-}
-
-void ClientIVC::accumulate(std::unique_ptr<ClientCircuit> circuit,
-                           const std::shared_ptr<VerificationKey>& precomputed_vk)
-{
-    // If a previous fold proof exists, add a recursive folding verification to the circuit
-    if (!fold_output.proof.empty()) {
-        BB_OP_COUNT_TIME_NAME("construct_circuits");
-
-        // Construct stdlib accumulator, vkey and proof
-        auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&*circuit, verifier_accumulator);
-        auto stdlib_instance_vk = std::make_shared<RecursiveVerificationKey>(&*circuit, instance_vk);
-        auto stdlib_proof = bb::convert_proof_to_witness(&*circuit, fold_output.proof);
-
-        FoldingRecursiveVerifier verifier{ &*circuit, stdlib_verifier_accum, { stdlib_instance_vk } };
-        auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
-        verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
-    }
-
-    // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
-    goblin.merge(*circuit);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
-    // verifier.
-    circuit->add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(*circuit));
-
-    // Construct the prover instance for circuit
-    prover_instance = std::make_shared<ProverInstance>(*circuit, trace_structure);
-
-    // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
-    max_block_size_tracker.update(*circuit);
-
-    // Set the instance verification key from precomputed if available, else compute it
-    if (precomputed_vk) {
-        instance_vk = precomputed_vk;
-    } else {
-        instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
-    }
-
-    // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
-    if (!initialized) {
-        fold_output.accumulator = prover_instance;
-        verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
-        initialized = true;
-    } else { // Otherwise, fold the new instance into the accumulator
-        FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
-        fold_output = folding_prover.prove();
-    }
-    // forget the prover_instance now?
-    prover_instance = nullptr;
 }
 
 /**
