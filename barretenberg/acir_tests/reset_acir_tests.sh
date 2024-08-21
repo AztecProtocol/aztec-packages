@@ -1,19 +1,43 @@
 #!/usr/bin/env bash
+set -e
 
 # Run from within barretenberg/acir_tests
 
-# Optional argument that can be passed to rebuild.sh
-optional_arg=${1:-}
+# Initialize variables for flags
+REBUILD_NARGO_FLAG=""
+PROGRAMS=""
 
-# Clean and rebuild noir then compile the test programs
+# Parse the arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --rebuild-nargo)
+            REBUILD_NARGO_FLAG="--rebuild-nargo"
+            ;;
+        --programs)
+            shift
+            PROGRAMS="$@"
+            break  # Exit loop after collecting all programs
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# Clean and rebuild noir, then compile the test programs if --rebuild-nargo flag is set
 cd ../../noir/noir-repo
-cargo clean
-noirup -p .
-cd test_programs
 
-# Check if the optional argument exists and pass it to rebuild.sh
-if [ -n "$optional_arg" ]; then
-    ./rebuild.sh "$optional_arg"
+if [[ -n "$REBUILD_NARGO_FLAG" ]]; then
+    cargo clean
+    noirup -p .
+fi
+
+# Rebuild test programs with rebuild.sh
+cd test_programs
+if [[ -n "$PROGRAMS" ]]; then
+    ./rebuild.sh $PROGRAMS
 else
     ./rebuild.sh
 fi

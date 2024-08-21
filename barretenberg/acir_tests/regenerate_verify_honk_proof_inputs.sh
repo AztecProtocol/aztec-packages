@@ -18,7 +18,7 @@ fi
 
 export BRANCH
 
-./reset_acir_tests.sh assert_statement_recursive
+./reset_acir_tests.sh --rebuild-nargo --programs assert_statement_recursive
 
 cd acir_tests/assert_statement_recursive
 
@@ -45,4 +45,4 @@ $BIN proof_as_fields_honk $VFLAG -c $CRS_PATH -p "./proofs/honk_$PROOF_NAME" -o 
 cd ../..
 python3 update_verify_honk_proof_inputs.py
 
-./reset_acir_tests.sh verify_honk_proof
+./reset_acir_tests.sh --programs verify_honk_proof
