@@ -102,7 +102,9 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant IS_DEV_NET = 1;
+  uint256 internal constant AZTEC_SLOT_DURATION = 36;
+  uint256 internal constant AZTEC_EPOCH_DURATION = 48;
+  uint256 internal constant IS_DEV_NET = 0;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 20000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;

@@ -89,8 +89,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     VERSION = 1;
 
     // Genesis block
-    blocks[0] =
-      BlockLog({archive: bytes32(0), blockHash: bytes32(0), slotNumber: 0, isProven: true});
+    blocks[0] = BlockLog({
+      archive: bytes32(0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e),
+      blockHash: bytes32(0),
+      slotNumber: 0,
+      isProven: true
+    });
     pendingBlockCount = 1;
     provenBlockCount = 1;
   }
@@ -579,9 +583,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       );
     }
 
-    // TODO(#4148) Proper genesis state. If the state is empty, we allow anything for now.
     bytes32 tipArchive = archive();
-    if (tipArchive != bytes32(0) && tipArchive != _header.lastArchive.root) {
+    if (tipArchive != _header.lastArchive.root) {
       revert Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root);
     }
 

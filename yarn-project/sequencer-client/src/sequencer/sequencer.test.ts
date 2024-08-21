@@ -1,4 +1,6 @@
 import {
+  BlockAttestation,
+  BlockProposal,
   type BlockSimulator,
   type L1ToL2MessageSource,
   L2Block,
@@ -7,7 +9,9 @@ import {
   PROVING_STATUS,
   type ProvingSuccess,
   type ProvingTicket,
+  Signature,
   type Tx,
+  TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
   makeProcessedTx,
@@ -22,6 +26,7 @@ import {
   IS_DEV_NET,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
@@ -63,22 +68,41 @@ describe('sequencer', () => {
   const feeRecipient = AztecAddress.random();
   const gasFees = GasFees.empty();
 
-  // We mock an attestation
-  const mockedAttestation = {
-    isEmpty: false,
-    v: 27,
-    r: Fr.random().toString(),
-    s: Fr.random().toString(),
+  const archive = Fr.random();
+
+  const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
+
+  const committee = [EthAddress.random()];
+  const getSignatures = () => (IS_DEV_NET ? undefined : [mockedSig]);
+  const getAttestations = () => {
+    if (IS_DEV_NET) {
+      return undefined;
+    }
+
+    const attestation = new BlockAttestation(block.header, archive, mockedSig);
+    (attestation as any).sender = committee[0];
+
+    return [attestation];
+  };
+  const createBlockProposal = () => {
+    return new BlockProposal(block.header, archive, [TxHash.random()], mockedSig);
   };
 
-  const getAttestations = () => (IS_DEV_NET ? undefined : [mockedAttestation]);
+  let block: L2Block;
 
   beforeEach(() => {
     lastBlockNumber = 0;
 
-    publisher = mock<L1Publisher>();
+    block = L2Block.random(lastBlockNumber + 1);
 
-    publisher.isItMyTurnToSubmit.mockResolvedValue(true);
+    publisher = mock<L1Publisher>();
+    publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
+    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue([
+      EthAddress.ZERO,
+      block.header.globalVariables.slotNumber.toBigInt(),
+      BigInt(lastBlockNumber),
+      block.header.lastArchive.toBuffer(),
+    ]);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeOperations>();
@@ -124,6 +148,13 @@ describe('sequencer', () => {
       create: () => blockSimulator,
     });
 
+    if (!IS_DEV_NET) {
+      validatorClient = mock<ValidatorClient>({
+        collectAttestations: mockFn().mockResolvedValue(getAttestations()),
+        createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
+      });
+    }
+
     sequencer = new TestSubject(
       publisher,
       // TDOO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
@@ -143,7 +174,7 @@ describe('sequencer', () => {
   it('builds a block out of a single tx', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
-    const block = L2Block.random(lastBlockNumber + 1);
+
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -178,14 +209,13 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block when it is their turn', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
-    const block = L2Block.random(lastBlockNumber + 1);
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -212,20 +242,34 @@ describe('sequencer', () => {
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
     // Not your turn!
-    publisher.isItMyTurnToSubmit.mockClear().mockResolvedValue(false);
+    const publisherAddress = EthAddress.random();
+    publisher.getSenderAddress.mockResolvedValue(publisherAddress);
+    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue([
+      EthAddress.random(),
+      block.header.globalVariables.slotNumber.toBigInt(),
+      BigInt(lastBlockNumber),
+      block.header.lastArchive.toBuffer(),
+    ]);
+
     await sequencer.initialSync();
     await sequencer.work();
     expect(blockSimulator.startNewBlock).not.toHaveBeenCalled();
 
     // Now it is!
-    publisher.isItMyTurnToSubmit.mockClear().mockResolvedValue(true);
+    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue([
+      publisherAddress,
+      block.header.globalVariables.slotNumber.toBigInt(),
+      BigInt(lastBlockNumber),
+      block.header.lastArchive.toBuffer(),
+    ]);
+
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -235,7 +279,6 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
     });
     const doubleSpendTx = txs[1];
-    const block = L2Block.random(lastBlockNumber + 1);
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -277,7 +320,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -288,7 +331,6 @@ describe('sequencer', () => {
       tx.data.constants.txContext.chainId = chainId;
     });
     const invalidChainTx = txs[1];
-    const block = L2Block.random(lastBlockNumber + 1);
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -325,7 +367,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -335,7 +377,6 @@ describe('sequencer', () => {
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const block = L2Block.random(lastBlockNumber + 1);
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -373,7 +414,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -563,7 +604,6 @@ describe('sequencer', () => {
   it('aborts building a block if the chain moves underneath it', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
-    const block = L2Block.random(lastBlockNumber + 1);
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
