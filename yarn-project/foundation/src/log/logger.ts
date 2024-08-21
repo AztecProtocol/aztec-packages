@@ -11,7 +11,7 @@ const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : 
 export type LogLevel = (typeof LogLevels)[number];
 
 const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-export const currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
+export let currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
 
 const namespaces = process.env.DEBUG ?? 'aztec:*';
 debug.enable(namespaces);
@@ -62,6 +62,11 @@ const logHandlers: LogHandler[] = [];
  */
 export function onLog(handler: LogHandler) {
   logHandlers.push(handler);
+}
+
+/** Overrides current log level. */
+export function setLevel(level: LogLevel) {
+  currentLevel = level;
 }
 
 /**
