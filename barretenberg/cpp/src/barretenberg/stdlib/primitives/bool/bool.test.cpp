@@ -80,7 +80,11 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
-    if (!IsSimulator<Builder>) {
+    if (std::is_same_v<Builder, bb::StandardCircuitBuilder>) {
+        auto gates_after = builder.get_num_gates();
+        EXPECT_EQ(gates_after - gates_before, 6UL);
+    }
+    if (std::is_same_v<Builder, bb::UltraCircuitBuilder>) {
         auto gates_after = builder.get_num_gates();
         EXPECT_EQ(gates_after - gates_before, 5UL);
     }
