@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::PublicKeysHash, constants::GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-    hash::poseidon2_hash_with_separator, point::Point,
+    hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH},
     traits::{Deserialize, Serialize, Empty, is_empty, Hash}
 };
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
@@ -22,6 +22,12 @@ struct NpkM {
     inner: Point
 }
 
+impl Serialize<POINT_LENGTH> for NpkM {
+    fn serialize(self) -> [Field; POINT_LENGTH] {
+        self.inner.serialize()
+    }
+}
+
 // Note: If we store npk_m_hash directly we can remove this trait implementation
 impl Hash for NpkM {
     fn hash(self) -> Field {
@@ -39,6 +45,12 @@ impl ToPoint for IvpkM {
     }
 }
 
+impl Serialize<POINT_LENGTH> for IvpkM {
+    fn serialize(self) -> [Field; POINT_LENGTH] {
+        self.inner.serialize()
+    }
+}
+
 struct OvpkM {
     inner: Point
 }
@@ -52,6 +64,12 @@ impl Hash for OvpkM {
 impl ToPoint for OvpkM {
     fn to_point(self) -> Point {
         self.inner
+    }
+}
+
+impl Serialize<POINT_LENGTH> for OvpkM {
+    fn serialize(self) -> [Field; POINT_LENGTH] {
+        self.inner.serialize()
     }
 }
 

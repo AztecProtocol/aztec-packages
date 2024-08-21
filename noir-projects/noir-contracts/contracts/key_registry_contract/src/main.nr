@@ -44,7 +44,7 @@ contract KeyRegistry {
     }
 
     #[aztec(public)]
-    fn rotate_npk_m(account: AztecAddress, new_npk_m: Point, nonce: Field) {
+    fn rotate_npk_m(account: AztecAddress, new_npk_m: NpkM, nonce: Field) {
         if (!account.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, account);
         } else {
@@ -57,7 +57,7 @@ contract KeyRegistry {
         // updating all keys at once costs the same as updating just one (unless setting public storage to its current
         // value is cheaper than changing it, e.g. EIP-2200).
         let mut current_keys = account_key_storage.read().public_keys;
-        current_keys.npk_m = NpkM { inner: new_npk_m };
+        current_keys.npk_m = new_npk_m;
 
         account_key_storage.write(StoredKeys::new(current_keys));
     }

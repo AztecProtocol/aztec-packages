@@ -22,8 +22,8 @@ export function useContract() {
       Fr.random(),
       wallet.getCompleteAddress().address,
       masterNullifierPublicKey.hash(),
-      masterOutgoingViewingPublicKey.toNoirStruct(),
-      masterIncomingViewingPublicKey.toNoirStruct(),
+      { inner: masterOutgoingViewingPublicKey.toNoirStruct() },
+      { inner: masterIncomingViewingPublicKey.toNoirStruct() },
     ).send({
       contractAddressSalt: salt,
     });
