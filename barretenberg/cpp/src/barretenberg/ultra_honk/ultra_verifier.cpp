@@ -5,22 +5,6 @@
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {
-template <typename Flavor>
-UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transcript,
-                                       const std::shared_ptr<VerificationKey>& verifier_key)
-    : transcript(transcript)
-    , instance(std::make_shared<Instance>(verifier_key))
-{}
-
-/**
- * @brief Construct an UltraVerifier directly from a verification key
- *
- */
-template <typename Flavor>
-UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
-    : transcript(std::make_shared<Transcript>())
-    , instance(std::make_shared<Instance>(verifier_key))
-{}
 
 /**
  * @brief This function verifies an Ultra Honk proof for a given Flavor.
