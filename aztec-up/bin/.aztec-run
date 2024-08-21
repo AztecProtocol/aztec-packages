@@ -122,8 +122,10 @@ fi
 
 if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; then
   warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Enabling SSH agent forwarding via socat"
-  socat TCP-LISTEN:12345,reuseaddr,fork UNIX-CLIENT:$SSH_AUTH_SOCK &
-  trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+  socat TCP-LISTEN:${SSH_AUTH_SOCK_SOCAT_PORT:-12345},reuseaddr,fork UNIX-CLIENT:$SSH_AUTH_SOCK &
+  SOCAT_PID=$!
+  trap "kill -9 $SOCAT_PID" SIGINT SIGTERM EXIT
+  DOCKER_ENV+=" -e SSH_AUTH_SOCK_SOCAT_PORT=${SSH_AUTH_SOCK_SOCAT_PORT:-12345}"
 fi
 
 docker run \
@@ -134,5 +136,4 @@ docker run \
   $port_assignment \
   ${DOCKER_ENV:-} \
   ${DOCKER_HOST_BINDS:-} \
-  ${DOCKER_USER:-} \
   $IMAGE:$VERSION ${preserved_args[@]:-}
