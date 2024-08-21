@@ -6,6 +6,12 @@
 
 namespace bb {
 
+/**
+ * @brief Constructor from prover instance and a transcript assumed to be initialized with a full honk proof
+ * @details Used in the case where an external transcript already exists and has been initialized with a proof, e.g.
+ * when the decider is being used in the context of the larger honk protocol.
+ *
+ */
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
@@ -14,25 +20,37 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstanc
     , transcript(transcript)
 {}
 
+/**
+ * @brief Constructor from prover instance
+ *
+ */
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_()
-    : pcs_verification_key(std::make_unique<VerifierCommitmentKey>())
-    , transcript(std::make_shared<Transcript>())
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator)
+    : accumulator(accumulator)
+    , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
 {}
 
 /**
- * @brief This function verifies an Ultra Honk proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
+ * @brief This function verifies a decider proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
  * e*).
  *
  */
-template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
+{
+    transcript = std::make_shared<Transcript>(proof);
+    return verify();
+}
+
+/**
+ * @brief Verify a decider proof that is assumed to be contained in the transcript
+ *
+ */
+template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
     using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-
-    transcript = std::make_shared<Transcript>(proof);
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 

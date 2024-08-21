@@ -14,14 +14,16 @@ template <typename Flavor> class DeciderVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
     using VerifierInstance = VerifierInstance_<Flavor>;
+    using DeciderProof = std::vector<FF>;
 
   public:
     explicit DeciderVerifier_();
     explicit DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
-                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                              const std::shared_ptr<Transcript>& transcript);
+    explicit DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator);
 
-    bool verify_proof(const HonkProof& proof);
-
+    bool verify_proof(const DeciderProof&);
+    bool verify();
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierInstance> accumulator;
