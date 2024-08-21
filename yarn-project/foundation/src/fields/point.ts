@@ -226,6 +226,12 @@ export class Point {
     /* eslint-enable camelcase */
   }
 
+  toWrappedNoirStruct() {
+    /* eslint-disable camelcase */
+    return { inner: this.toNoirStruct() };
+    /* eslint-enable camelcase */
+  }
+
   /**
    * Check if two Point instances are equal by comparing their buffer values.
    * Returns true if the buffer values are the same, and false otherwise.

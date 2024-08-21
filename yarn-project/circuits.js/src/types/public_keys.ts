@@ -104,10 +104,10 @@ export class PublicKeys {
     return {
       // TODO(#6337): Directly dump account.publicKeys here
       /* eslint-disable camelcase */
-      npk_m: { inner: this.masterNullifierPublicKey.toNoirStruct() },
-      ivpk_m: { inner: this.masterIncomingViewingPublicKey.toNoirStruct() },
-      ovpk_m: { inner: this.masterOutgoingViewingPublicKey.toNoirStruct() },
-      tpk_m: { inner: this.masterTaggingPublicKey.toNoirStruct() },
+      npk_m: this.masterNullifierPublicKey.toWrappedNoirStruct(),
+      ivpk_m: this.masterIncomingViewingPublicKey.toWrappedNoirStruct(),
+      ovpk_m: this.masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
+      tpk_m: this.masterTaggingPublicKey.toWrappedNoirStruct(),
       /* eslint-enable camelcase */
     };
   }

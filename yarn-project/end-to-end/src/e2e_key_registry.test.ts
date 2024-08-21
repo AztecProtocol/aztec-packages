@@ -66,7 +66,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.rotate_npk_m(wallets[1].getAddress(), { inner: Point.random().toNoirStruct() }, Fr.ZERO)
+          .methods.rotate_npk_m(wallets[1].getAddress(), Point.random().toWrappedNoirStruct(), Fr.ZERO)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -129,11 +129,7 @@ describe('Key Registry', () => {
       // docs:start:key-rotation
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.rotate_npk_m(
-          wallets[0].getAddress(),
-          { inner: firstNewMasterNullifierPublicKey.toNoirStruct() },
-          Fr.ZERO,
-        )
+        .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey.toWrappedNoirStruct(), Fr.ZERO)
         .send()
         .wait();
       // docs:end:key-rotation
@@ -149,7 +145,7 @@ describe('Key Registry', () => {
         .withWallet(wallets[1])
         .methods.rotate_npk_m(
           wallets[0].getAddress(),
-          { inner: secondNewMasterNullifierPublicKey.toNoirStruct() },
+          secondNewMasterNullifierPublicKey.toWrappedNoirStruct(),
           Fr.ZERO,
         );
 
