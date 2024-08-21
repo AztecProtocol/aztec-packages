@@ -65,16 +65,20 @@ bool {{name}}CircuitBuilder::check_circuit() const {
                 r = 0;
             }
 
+            std::array<bool, result.size()> subrelation_failed = { false };
             for (size_t r = 0; r < num_rows; ++r) {
                 Relation::accumulate(result, polys.get_row(r), {}, 1);
                 for (size_t j = 0; j < result.size(); ++j) {
-                    if (result[j] != 0) {
+                    if (!subrelation_failed[j] && result[j] != 0) {
                         signal_error(format("Relation ",
                                             Relation::NAME,
                                             ", subrelation ",
                                             Relation::get_subrelation_label(j),
                                             " failed at row ",
                                             r));
+                        // We will not check this subrelation for any other rows.
+                        // Since the accumulation will keep being != 0.
+                        subrelation_failed[j] = true;
                     }
                 }
             }

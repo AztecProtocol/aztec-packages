@@ -30,6 +30,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
+    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
@@ -38,6 +39,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
+        options.salt,
         options.json,
         log,
         debugLogger,
@@ -106,6 +108,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'test test test test test test test test test test test junk',
     )
     .option('--mint', 'Mint the tokens on L1', false)
+    .option('--private', 'If the bridge should use the private flow', false)
     .addOption(l1ChainIdOption)
     .requiredOption('-t, --token <string>', 'The address of the token to bridge', parseEthereumAddress)
     .requiredOption('-p, --portal <string>', 'The address of the portal contract', parseEthereumAddress)
@@ -122,6 +125,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.mnemonic,
         options.token,
         options.portal,
+        options.private,
         options.mint,
         options.json,
         log,
@@ -152,6 +156,38 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (who, options) => {
       const { getL1Balance } = await import('./get_l1_balance.js');
       await getL1Balance(who, options.token, options.l1RpcUrl, options.l1ChainId, options.json, log);
+    });
+
+  program
+    .command('set-proven-until')
+    .description(
+      'Instructs the L1 rollup contract to assume all blocks until the given number are automatically proven.',
+    )
+    .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(pxeOption)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .action(async (blockNumber, options) => {
+      const { assumeProvenUntil } = await import('./assume_proven_until.js');
+      await assumeProvenUntil(
+        blockNumber,
+        options.l1RpcUrl,
+        options.rpcUrl,
+        options.l1ChainId,
+        options.l1PrivateKey,
+        options.mnemonic,
+        log,
+      );
     });
 
   return program;

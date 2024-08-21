@@ -22,12 +22,14 @@ import {
   IS_DEV_NET,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
@@ -40,6 +42,7 @@ import { Sequencer } from './sequencer.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
+  let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -74,10 +77,6 @@ describe('sequencer', () => {
     lastBlockNumber = 0;
 
     publisher = mock<L1Publisher>();
-
-    publisher.attest.mockImplementation(_archive => {
-      return Promise.resolve(mockedAttestation);
-    });
 
     publisher.isItMyTurnToSubmit.mockResolvedValue(true);
 
@@ -127,6 +126,8 @@ describe('sequencer', () => {
 
     sequencer = new TestSubject(
       publisher,
+      // TDOO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
+      validatorClient,
       globalVariableBuilder,
       p2p,
       worldState,
@@ -372,6 +373,189 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+  });
+
+  it('builds a block once it reaches the minimum number of transactions', async () => {
+    const txs = times(8, i => {
+      const tx = mockTxForRollup(i * 0x10000);
+      tx.data.constants.txContext.chainId = chainId;
+      return tx;
+    });
+    const block = L2Block.random(lastBlockNumber + 1);
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
+    };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
+
+    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
+    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    publisher.processL2Block.mockResolvedValueOnce(true);
+
+    const mockedGlobalVariables = new GlobalVariables(
+      chainId,
+      version,
+      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.slotNumber,
+      Fr.ZERO,
+      coinbase,
+      feeRecipient,
+      gasFees,
+    );
+
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+    await sequencer.initialSync();
+
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
+
+    // block is not built with 0 txs
+    p2p.getTxs.mockReturnValueOnce([]);
+    //p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+
+    // block is not built with 3 txs
+    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+
+    // block is built with 4 txs
+    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+      4,
+      mockedGlobalVariables,
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+  });
+
+  it('builds a block that contains zero real transactions once flushed', async () => {
+    const txs = times(8, i => {
+      const tx = mockTxForRollup(i * 0x10000);
+      tx.data.constants.txContext.chainId = chainId;
+      return tx;
+    });
+    const block = L2Block.random(lastBlockNumber + 1);
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
+    };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
+
+    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
+    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    publisher.processL2Block.mockResolvedValueOnce(true);
+
+    const mockedGlobalVariables = new GlobalVariables(
+      chainId,
+      version,
+      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.slotNumber,
+      Fr.ZERO,
+      coinbase,
+      feeRecipient,
+      gasFees,
+    );
+
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+    await sequencer.initialSync();
+
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
+
+    // block is not built with 0 txs
+    p2p.getTxs.mockReturnValueOnce([]);
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+
+    // block is not built with 3 txs
+    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+
+    // flush the sequencer and it should build a block
+    sequencer.flush();
+
+    // block is built with 0 txs
+    p2p.getTxs.mockReturnValueOnce([]);
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+      2,
+      mockedGlobalVariables,
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+  });
+
+  it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
+    const txs = times(8, i => {
+      const tx = mockTxForRollup(i * 0x10000);
+      tx.data.constants.txContext.chainId = chainId;
+      return tx;
+    });
+    const block = L2Block.random(lastBlockNumber + 1);
+    const result: ProvingSuccess = {
+      status: PROVING_STATUS.SUCCESS,
+    };
+    const ticket: ProvingTicket = {
+      provingPromise: Promise.resolve(result),
+    };
+
+    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
+    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    publisher.processL2Block.mockResolvedValueOnce(true);
+
+    const mockedGlobalVariables = new GlobalVariables(
+      chainId,
+      version,
+      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.slotNumber,
+      Fr.ZERO,
+      coinbase,
+      feeRecipient,
+      gasFees,
+    );
+
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+    await sequencer.initialSync();
+
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
+
+    // block is not built with 0 txs
+    p2p.getTxs.mockReturnValueOnce([]);
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+
+    // block is not built with 3 txs
+    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+
+    // flush the sequencer and it should build a block
+    sequencer.flush();
+
+    // block is built with 3 txs
+    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    await sequencer.work();
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
+    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+      3,
+      mockedGlobalVariables,
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });

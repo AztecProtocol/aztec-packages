@@ -9,8 +9,6 @@ import { publicDeployAccounts, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-const SHARED_MUTABLE_DELAY = 5;
-
 describe('Key Registry', () => {
   let keyRegistry: KeyRegistryContract;
 
@@ -33,13 +31,6 @@ describe('Key Registry', () => {
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
   });
 
-  const crossDelay = async () => {
-    for (let i = 0; i < SHARED_MUTABLE_DELAY; i++) {
-      // We send arbitrary tx to mine a block
-      await testContract.methods.emit_unencrypted(0).send().wait();
-    }
-  };
-
   afterAll(() => teardown());
 
   describe('failure cases', () => {
@@ -60,7 +51,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.register_npk_and_ivpk(
+          .methods.register_initial_keys(
             account,
             account.partialAddress,
             // TODO(#6337): Make calling `toNoirStruct()` unnecessary
@@ -113,7 +104,7 @@ describe('Key Registry', () => {
     it('registers', async () => {
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.register_npk_and_ivpk(
+        .methods.register_initial_keys(
           account,
           account.partialAddress,
           // TODO(#6337): Make calling `toNoirStruct()` unnecessary
@@ -122,37 +113,6 @@ describe('Key Registry', () => {
         .send()
         .wait();
 
-      await keyRegistry
-        .withWallet(wallets[0])
-        .methods.register_ovpk_and_tpk(
-          account,
-          account.partialAddress,
-          // TODO(#6337): Make calling `toNoirStruct()` unnecessary
-          account.publicKeys.toNoirStruct(),
-        )
-        .send()
-        .wait();
-
-      // We check if our registered nullifier key is equal to the key obtained from the getter by
-      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
-      const emptyNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, account)
-        .simulate();
-
-      expect(new Fr(emptyNullifierPublicKeyX)).toEqual(Fr.ZERO);
-
-      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
-      await crossDelay();
-
-      const nullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, account)
-        .simulate();
-
-      expect(new Fr(nullifierPublicKeyX)).toEqual(account.publicKeys.masterNullifierPublicKey.x);
-    });
-
-    // Note: This test case is dependent on state from the previous one
-    it('key lib succeeds for registered account', async () => {
       // Should succeed as the account is registered in key registry from tests before
       await testContract.methods
         .test_nullifier_key_freshness(account, account.publicKeys.masterNullifierPublicKey.toNoirStruct())
@@ -174,22 +134,10 @@ describe('Key Registry', () => {
         .wait();
       // docs:end:key-rotation
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by reading our registry
-      // contract from the test contract. We expect this to fail because the change has not been applied yet
-      const emptyNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
-        .simulate();
-
-      expect(new Fr(emptyNullifierPublicKeyX)).toEqual(Fr.ZERO);
-
-      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
-      await crossDelay();
-
-      const nullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
-        .simulate();
-
-      expect(new Fr(nullifierPublicKeyX)).toEqual(firstNewMasterNullifierPublicKey.x);
+      await testContract.methods
+        .test_nullifier_key_freshness(wallets[0].getAddress(), firstNewMasterNullifierPublicKey.toNoirStruct())
+        .send()
+        .wait();
     });
 
     it(`rotates npk_m with authwit`, async () => {
@@ -204,25 +152,6 @@ describe('Key Registry', () => {
 
       await action.send().wait();
 
-      // We get the old nullifier key as the change has not been applied yet
-      const oldNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
-        .simulate();
-
-      expect(new Fr(oldNullifierPublicKeyX)).toEqual(firstNewMasterNullifierPublicKey.x);
-
-      await crossDelay();
-
-      // We get the new nullifier key as the change has been applied
-      const newNullifierPublicKeyX = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
-        .simulate();
-
-      expect(new Fr(newNullifierPublicKeyX)).toEqual(secondNewMasterNullifierPublicKey.x);
-    });
-
-    it('fresh key lib gets new key after rotation', async () => {
-      // Change has been applied hence should succeed now
       await testContract.methods
         .test_nullifier_key_freshness(wallets[0].getAddress(), secondNewMasterNullifierPublicKey.toNoirStruct())
         .send()

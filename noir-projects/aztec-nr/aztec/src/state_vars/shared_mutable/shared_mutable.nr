@@ -9,7 +9,7 @@ use crate::state_vars::{
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
 };
 use crate::oracle::storage::storage_read;
-use dep::std::unsafe::zeroed;
+use dep::std::mem::zeroed;
 
 mod test;
 
@@ -17,6 +17,11 @@ struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
     storage_slot: Field,
 }
+
+// Separators separating storage slot of different values within the same state variable
+global VALUE_CHANGE_SEPARATOR: u32 = 0;
+global DELAY_CHANGE_SEPARATOR: u32 = 1;
+global HASH_SEPARATOR: u32 = 2;
 
 // This will make the Aztec macros require that T implements the Serialize<N> trait, and allocate N storage slots to
 // this state variable. This is incorrect, since what we actually store is:
@@ -76,15 +81,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 0], 0)
+        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 1], 0)
+        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 2], 0)
+        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us

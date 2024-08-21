@@ -139,7 +139,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     std::vector<RecursionConstraint> recursion_constraints;
 
     size_t witness_offset = 0;
-    std::vector<fr, ContainerSlabAllocator<fr>> witness;
+    SlabVector<fr> witness;
 
     for (auto& inner_circuit : inner_circuits) {
         auto inner_composer = Composer();
@@ -209,6 +209,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
+            .proof_type = PLONK_RECURSION,
         };
         recursion_constraints.push_back(recursion_constraint);
 
