@@ -1962,7 +1962,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
 {
     Builder* ctx = this->context ? this->context : other.context;
-    info("Assert equal triggered");
     if constexpr (IsSimulator<Builder>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/677)
         return;
