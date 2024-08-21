@@ -1,17 +1,34 @@
-import { type L2Block } from '@aztec/circuit-types';
+import { type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { type EthAddress, type Header, type Proof } from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
+import { createEthereumChain } from '@aztec/ethereum';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
+import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
+import {
+  type GetContractReturnType,
+  type Hex,
+  type HttpTransport,
+  type PrivateKeyAccount,
+  type PublicClient,
+  type WalletClient,
+  createPublicClient,
+  createWalletClient,
+  getAddress,
+  getContract,
+  hexToBytes,
+  http,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import type * as chains from 'viem/chains';
 
-import { type L2BlockReceiver } from '../receiver.js';
-import { type PublisherConfig } from './config.js';
+import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
 
 /**
@@ -27,7 +44,7 @@ export type TransactionStats = {
 };
 
 /**
- * Minimal information from a tx receipt returned by an L1PublisherTxSender.
+ * Minimal information from a tx receipt.
  */
 export type MinimalTransactionReceipt = {
   /** True if the tx was successful, false if reverted. */
@@ -49,74 +66,6 @@ export type MinimalTransactionReceipt = {
  */
 export type Attestation = { isEmpty: boolean; v: number; r: `0x${string}`; s: `0x${string}` };
 
-/**
- * Pushes txs to the L1 chain and waits for their completion.
- */
-export interface L1PublisherTxSender {
-  /** Attests to the given archive root. */
-  attest(archive: `0x${string}`): Promise<Attestation>;
-
-  /** Returns the EOA used for sending txs to L1.  */
-  getSenderAddress(): Promise<EthAddress>;
-
-  /** Returns the address of the L2 proposer at the NEXT Ethereum block zero if anyone can submit. */
-  getProposerAtNextEthBlock(): Promise<EthAddress>;
-
-  /**
-   * Publishes tx effects to Availability Oracle.
-   * @param encodedBody - Encoded block body.
-   * @returns The hash of the mined tx.
-   */
-  sendPublishTx(encodedBody: Buffer): Promise<string | undefined>;
-
-  /**
-   * Sends a tx to the L1 rollup contract with a new L2 block. Returns once the tx has been mined.
-   * @param encodedData - Serialized data for processing the new L2 block.
-   * @returns The hash of the mined tx.
-   */
-  sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
-
-  /**
-   * Publishes tx effects to availability oracle and send L2 block to rollup contract
-   * @param encodedData - Data for processing the new L2 block.
-   * @returns The hash of the tx.
-   */
-  sendPublishAndProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined>;
-
-  /**
-   * Sends a tx to the L1 rollup contract with a proof. Returns once the tx has been mined.
-   * @param encodedData - Serialized data for processing the new L2 block.
-   * @returns The hash of the mined tx.
-   */
-  sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined>;
-
-  /**
-   * Returns a tx receipt if the tx has been mined.
-   * @param txHash - Hash of the tx to look for.
-   * @returns Undefined if the tx hasn't been mined yet, the receipt otherwise.
-   */
-  getTransactionReceipt(txHash: string): Promise<MinimalTransactionReceipt | undefined>;
-
-  /**
-   * Returns info on a tx by calling eth_getTransaction.
-   * @param txHash - Hash of the tx to look for.
-   */
-  getTransactionStats(txHash: string): Promise<TransactionStats | undefined>;
-
-  /**
-   * Returns the current archive root.
-   * @returns The current archive root of the rollup contract.
-   */
-  getCurrentArchive(): Promise<Buffer>;
-
-  /**
-   * Checks if the transaction effects of the given block are available.
-   * @param block - The block of which to check whether txs are available.
-   * @returns True if the txs are available, false otherwise.
-   */
-  checkIfTxsAreAvailable(block: L2Block): Promise<boolean>;
-}
-
 /** Arguments to the process method of the rollup contract */
 export type L1ProcessArgs = {
   /** The L2 block header. */
@@ -126,7 +75,7 @@ export type L1ProcessArgs = {
   /** L2 block body. */
   body: Buffer;
   /** Attestations */
-  attestations?: Attestation[];
+  attestations?: Signature[];
 };
 
 /** Arguments to the submitProof method of the rollup contract */
@@ -151,30 +100,99 @@ export type L1SubmitProofArgs = {
  *
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
-export class L1Publisher implements L2BlockReceiver {
+export class L1Publisher {
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
   private log = createDebugLogger('aztec:sequencer:publisher');
 
-  constructor(private txSender: L1PublisherTxSender, client: TelemetryClient, config?: PublisherConfig) {
+  private availabilityOracleContract: GetContractReturnType<
+    typeof AvailabilityOracleAbi,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  >;
+  private rollupContract: GetContractReturnType<
+    typeof RollupAbi,
+    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
+  >;
+  private publicClient: PublicClient<HttpTransport, chains.Chain>;
+  private account: PrivateKeyAccount;
+
+  constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
+
+    const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
+    const chain = createEthereumChain(rpcUrl, chainId);
+    this.account = privateKeyToAccount(publisherPrivateKey);
+    const walletClient = createWalletClient({
+      account: this.account,
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
+    });
+
+    this.publicClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
+    });
+
+    this.availabilityOracleContract = getContract({
+      address: getAddress(l1Contracts.availabilityOracleAddress.toString()),
+      abi: AvailabilityOracleAbi,
+      client: walletClient,
+    });
+    this.rollupContract = getContract({
+      address: getAddress(l1Contracts.rollupAddress.toString()),
+      abi: RollupAbi,
+      client: walletClient,
+    });
   }
 
-  public async attest(archive: `0x${string}`): Promise<Attestation> {
-    return await this.txSender.attest(archive);
+  public getSenderAddress(): Promise<EthAddress> {
+    return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  public async senderAddress(): Promise<EthAddress> {
-    return await this.txSender.getSenderAddress();
+  // Computes who will be the L2 proposer at the next Ethereum block
+  // Using next Ethereum block so we do NOT need to wait for it being mined before seeing the effect
+  // @note Assumes that all ethereum slots have blocks
+  async getProposerAtNextEthBlock(): Promise<EthAddress> {
+    try {
+      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+      const submitter = await this.rollupContract.read.getProposerAt([ts]);
+      return EthAddress.fromString(submitter);
+    } catch (err) {
+      this.log.warn(`Failed to get submitter: ${err}`);
+      return EthAddress.ZERO;
+    }
   }
 
   public async isItMyTurnToSubmit(): Promise<boolean> {
-    const submitter = await this.txSender.getProposerAtNextEthBlock();
-    const sender = await this.txSender.getSenderAddress();
+    const submitter = await this.getProposerAtNextEthBlock();
+    const sender = await this.getSenderAddress();
     return submitter.isZero() || submitter.equals(sender);
+  }
+
+  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+    const committee = await this.rollupContract.read.getCurrentEpochCommittee();
+    return committee.map(EthAddress.fromString);
+  }
+
+  checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
+    const args = [`0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`] as const;
+    return this.availabilityOracleContract.read.isAvailable(args);
+  }
+
+  async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
+    const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
+    if (!tx) {
+      return undefined;
+    }
+    const calldata = hexToBytes(tx.input);
+    return {
+      transactionHash: tx.hash,
+      calldataSize: calldata.length,
+      calldataGas: getCalldataGasUsage(calldata),
+    };
   }
 
   /**
@@ -182,7 +200,7 @@ export class L1Publisher implements L2BlockReceiver {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, attestations?: Attestation[]): Promise<boolean> {
+  public async processL2Block(block: L2Block, attestations?: Signature[]): Promise<boolean> {
     const ctx = { blockNumber: block.number, blockHash: block.hash().toString() };
     // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
     const lastArchive = block.header.lastArchive.root.toBuffer();
@@ -204,7 +222,7 @@ export class L1Publisher implements L2BlockReceiver {
       let txHash;
       const timer = new Timer();
 
-      if (await this.txSender.checkIfTxsAreAvailable(block)) {
+      if (await this.checkIfTxsAreAvailable(block)) {
         this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
         txHash = await this.sendProcessTx(processTxArgs);
       } else {
@@ -224,7 +242,7 @@ export class L1Publisher implements L2BlockReceiver {
 
       // Tx was mined successfully
       if (receipt.status) {
-        const tx = await this.txSender.getTransactionStats(txHash);
+        const tx = await this.getTransactionStats(txHash);
         const stats: L1PublishBlockStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
@@ -284,13 +302,13 @@ export class L1Publisher implements L2BlockReceiver {
 
       // Tx was mined successfully
       if (receipt.status) {
-        const tx = await this.txSender.getTransactionStats(txHash);
+        const tx = await this.getTransactionStats(txHash);
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize'),
           eventName: 'proof-published-to-l1',
         };
-        this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
+        this.log.info(`Published proof to L1 rollup contract`, { ...stats, ...ctx });
         this.metrics.recordSubmitProof(timer.ms(), stats);
         return true;
       }
@@ -320,13 +338,18 @@ export class L1Publisher implements L2BlockReceiver {
     this.interrupted = false;
   }
 
+  async getCurrentArchive(): Promise<Buffer> {
+    const archive = await this.rollupContract.read.archive();
+    return Buffer.from(archive.replace('0x', ''), 'hex');
+  }
+
   /**
    * Verifies that the given value of last archive in a block header equals current archive of the rollup contract
    * @param lastArchive - The last archive of the block we wish to publish.
    * @returns Boolean indicating if the hashes are equal.
    */
   private async checkLastArchiveHash(lastArchive: Buffer): Promise<boolean> {
-    const fromChain = await this.txSender.getCurrentArchive();
+    const fromChain = await this.getCurrentArchive();
     const areSame = lastArchive.equals(fromChain);
     if (!areSame) {
       this.log.debug(`Contract archive: ${fromChain.toString('hex')}`);
@@ -339,7 +362,19 @@ export class L1Publisher implements L2BlockReceiver {
     try {
       const size = Object.values(submitProofArgs).reduce((acc, arg) => acc + arg.length, 0);
       this.log.info(`SubmitProof size=${size} bytes`);
-      return await this.txSender.sendSubmitProofTx(submitProofArgs);
+
+      const { header, archive, proverId, aggregationObject, proof } = submitProofArgs;
+      const args = [
+        `0x${header.toString('hex')}`,
+        `0x${archive.toString('hex')}`,
+        `0x${proverId.toString('hex')}`,
+        `0x${aggregationObject.toString('hex')}`,
+        `0x${proof.toString('hex')}`,
+      ] as const;
+
+      return await this.rollupContract.write.submitProof(args, {
+        account: this.account,
+      });
     } catch (err) {
       this.log.error(`Rollup submit proof failed`, err);
       return undefined;
@@ -350,7 +385,11 @@ export class L1Publisher implements L2BlockReceiver {
     while (!this.interrupted) {
       try {
         this.log.info(`TxEffects size=${encodedBody.length} bytes`);
-        return await this.txSender.sendPublishTx(encodedBody);
+        const args = [`0x${encodedBody.toString('hex')}`] as const;
+
+        return await this.availabilityOracleContract.write.publish(args, {
+          account: this.account,
+        });
       } catch (err) {
         this.log.error(`TxEffects publish failed`, err);
         return undefined;
@@ -361,7 +400,24 @@ export class L1Publisher implements L2BlockReceiver {
   private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
-        return await this.txSender.sendProcessTx(encodedData);
+        if (encodedData.attestations) {
+          const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
+          const args = [
+            `0x${encodedData.header.toString('hex')}`,
+            `0x${encodedData.archive.toString('hex')}`,
+            attestations,
+          ] as const;
+
+          return await this.rollupContract.write.process(args, {
+            account: this.account,
+          });
+        } else {
+          const args = [`0x${encodedData.header.toString('hex')}`, `0x${encodedData.archive.toString('hex')}`] as const;
+
+          return await this.rollupContract.write.process(args, {
+            account: this.account,
+          });
+        }
       } catch (err) {
         this.log.error(`Rollup publish failed`, err);
         return undefined;
@@ -372,7 +428,30 @@ export class L1Publisher implements L2BlockReceiver {
   private async sendPublishAndProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     while (!this.interrupted) {
       try {
-        return await this.txSender.sendPublishAndProcessTx(encodedData);
+        // @note  This is quite a sin, but I'm committing war crimes in this code already.
+        if (encodedData.attestations) {
+          const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
+          const args = [
+            `0x${encodedData.header.toString('hex')}`,
+            `0x${encodedData.archive.toString('hex')}`,
+            attestations,
+            `0x${encodedData.body.toString('hex')}`,
+          ] as const;
+
+          return await this.rollupContract.write.publishAndProcess(args, {
+            account: this.account,
+          });
+        } else {
+          const args = [
+            `0x${encodedData.header.toString('hex')}`,
+            `0x${encodedData.archive.toString('hex')}`,
+            `0x${encodedData.body.toString('hex')}`,
+          ] as const;
+
+          return await this.rollupContract.write.publishAndProcess(args, {
+            account: this.account,
+          });
+        }
       } catch (err) {
         this.log.error(`Rollup publish failed`, err);
         return undefined;
@@ -380,10 +459,34 @@ export class L1Publisher implements L2BlockReceiver {
     }
   }
 
-  private async getTransactionReceipt(txHash: string): Promise<MinimalTransactionReceipt | undefined> {
+  /**
+   * Returns a tx receipt if the tx has been mined.
+   * @param txHash - Hash of the tx to look for.
+   * @returns Undefined if the tx hasn't been mined yet, the receipt otherwise.
+   */
+  async getTransactionReceipt(txHash: string): Promise<MinimalTransactionReceipt | undefined> {
     while (!this.interrupted) {
       try {
-        return await this.txSender.getTransactionReceipt(txHash);
+        const receipt = await this.publicClient.getTransactionReceipt({
+          hash: txHash as Hex,
+        });
+
+        if (receipt) {
+          if (receipt.transactionHash !== txHash) {
+            throw new Error(`Tx hash mismatch: ${receipt.transactionHash} !== ${txHash}`);
+          }
+
+          return {
+            status: receipt.status === 'success',
+            transactionHash: txHash,
+            gasUsed: receipt.gasUsed,
+            gasPrice: receipt.effectiveGasPrice,
+            logs: receipt.logs,
+          };
+        }
+
+        this.log.debug(`Receipt not found for tx hash ${txHash}`);
+        return undefined;
       } catch (err) {
         //this.log.error(`Error getting tx receipt`, err);
         await this.sleepOrInterrupted();
@@ -394,4 +497,13 @@ export class L1Publisher implements L2BlockReceiver {
   protected async sleepOrInterrupted() {
     await this.interruptibleSleep.sleep(this.sleepTimeMs);
   }
+}
+
+/**
+ * Returns cost of calldata usage in Ethereum.
+ * @param data - Calldata.
+ * @returns 4 for each zero byte, 16 for each nonzero.
+ */
+function getCalldataGasUsage(data: Uint8Array) {
+  return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
 }

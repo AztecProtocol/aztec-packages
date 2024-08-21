@@ -2,11 +2,14 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/container.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
 #include <numeric>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bb {
@@ -90,8 +93,6 @@ template <typename Curve_> class IPA {
 #ifdef IPA_FUZZ_TEST
    friend class ProxyCaller;
 #endif
-   // clang-format off
-
    /**
     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
     *
@@ -127,17 +128,15 @@ template <typename Curve_> class IPA {
     *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
     *
     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
-    */ 
-   template <typename Transcript>
-   static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
-                                              const ProverOpeningClaim<Curve>& opening_claim,
-                                              const std::shared_ptr<Transcript>& transcript)
-   {
+    */
+    template <typename Transcript>
+    static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
+                                               const ProverOpeningClaim<Curve>& opening_claim,
+                                               const std::shared_ptr<Transcript>& transcript)
+    {
+        const Polynomial& polynomial = opening_claim.polynomial;
 
-        Polynomial polynomial = opening_claim.polynomial;
-
-        // clang-format on
-        auto poly_length = static_cast<size_t>(polynomial.size());
+        size_t poly_length = polynomial.size();
 
         // Step 1.
         // Send polynomial degree + 1 = d to the verifier
@@ -169,36 +168,25 @@ template <typename Curve_> class IPA {
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
-        run_loop_in_parallel_if_effective(
+        parallel_for_heuristic(
             poly_length,
-            [&G_vec_local, srs_elements](size_t start, size_t end) {
-                for (size_t i = start * 2; i < end * 2; i += 2) {
-                    G_vec_local[i >> 1] = srs_elements[i];
-                }
-            },
-            /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/0,
-            /*finite_field_inversions_per_iteration=*/0,
-            /*group_element_additions_per_iteration=*/0,
-            /*group_element_doublings_per_iteration=*/0,
-            /*scalar_multiplications_per_iteration=*/0,
-            /*sequential_copy_ops_per_iteration=*/1);
+            [&](size_t i) {
+                G_vec_local[i] = srs_elements[i * 2];
+            }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
         OpeningPair<Curve> opening_pair = opening_claim.opening_pair;
         std::vector<Fr> b_vec(poly_length);
-        run_loop_in_parallel_if_effective(
+        parallel_for_heuristic(
             poly_length,
-            [&b_vec, &opening_pair](size_t start, size_t end) {
+            [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
                 Fr b_power = opening_pair.challenge.pow(start);
                 for (size_t i = start; i < end; i++) {
                     b_vec[i] = b_power;
                     b_power *= opening_pair.challenge;
                 }
-            },
-            /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/1);
+            }, thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
@@ -208,49 +196,22 @@ template <typename Curve_> class IPA {
         GroupElement R_i;
         std::size_t round_size = poly_length;
 
-#ifndef NO_MULTITHREADING
-        //  The inner products we'll be computing in parallel need a mutex to be thread-safe during the last
-        //  accumulation
-        std::mutex inner_product_accumulation_mutex;
-#endif
         // Step 6.
         // Perform IPA reduction rounds
         for (size_t i = 0; i < log_poly_degree; i++) {
-            round_size >>= 1;
-            // Compute inner_prod_L := < a_vec_lo, b_vec_hi > and inner_prod_R := < a_vec_hi, b_vec_lo >
-            Fr inner_prod_L = Fr::zero();
-            Fr inner_prod_R = Fr::zero();
+            round_size /= 2;
             // Run scalar products in parallel
-            run_loop_in_parallel_if_effective(
+            auto inner_prods = parallel_for_heuristic(
                 round_size,
-                [&a_vec,
-                 &b_vec,
-                 round_size,
-                 &inner_prod_L,
-                 &inner_prod_R
-#ifndef NO_MULTITHREADING
-                 ,
-                 &inner_product_accumulation_mutex
-#endif
-            ](size_t start, size_t end) {
-                    Fr current_inner_prod_L = Fr::zero();
-                    Fr current_inner_prod_R = Fr::zero();
-                    for (size_t j = start; j < end; j++) {
-                        current_inner_prod_L += a_vec[j] * b_vec[round_size + j];
-                        current_inner_prod_R += a_vec[round_size + j] * b_vec[j];
-                    }
-                    // Update the accumulated results thread-safely
-                    {
-#ifndef NO_MULTITHREADING
-                        std::unique_lock<std::mutex> lock(inner_product_accumulation_mutex);
-#endif
-                        inner_prod_L += current_inner_prod_L;
-                        inner_prod_R += current_inner_prod_R;
-                    }
-                },
-                /*finite_field_additions_per_iteration=*/2,
-                /*finite_field_multiplications_per_iteration=*/2);
-
+                std::pair{Fr::zero(), Fr::zero()},
+                [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
+                    // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
+                    inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
+                    // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
+                    inner_prod_left_right.second += a_vec[round_size + j] * b_vec[j];
+                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            // Sum inner product contributions computed in parallel and unpack the std::pair
+            auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
@@ -281,11 +242,11 @@ template <typename Curve_> class IPA {
             // Step 6.e
             // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
             auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
-                std::span{ G_vec_local.begin() + static_cast<long>(round_size),
-                           G_vec_local.begin() + static_cast<long>(round_size * 2) },
+                std::span{ G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size),
+                           G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size * 2) },
                 round_challenge_inv);
             GroupElement::batch_affine_add(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<long>(round_size) },
+                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size) },
                 G_hi_by_inverse_challenge,
                 G_vec_local);
 
@@ -293,17 +254,12 @@ template <typename Curve_> class IPA {
             // Update the vectors a_vec, b_vec.
             // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
             // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
-            run_loop_in_parallel_if_effective(
+            parallel_for_heuristic(
                 round_size,
-                [&a_vec, &b_vec, round_challenge, round_challenge_inv, round_size](size_t start, size_t end) {
-                    for (size_t j = start; j < end; j++) {
-                        a_vec[j] += round_challenge * a_vec[round_size + j];
-                        b_vec[j] += round_challenge_inv * b_vec[round_size + j];
-                    }
-                },
-                /*finite_field_additions_per_iteration=*/4,
-                /*finite_field_multiplications_per_iteration=*/8,
-                /*finite_field_inversions_per_iteration=*/1);
+                [&](size_t j) {
+                    a_vec[j] += round_challenge * a_vec[round_size + j];
+                    b_vec[j] += round_challenge_inv * b_vec[round_size + j];
+                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
 
         // Step 7
@@ -404,28 +360,22 @@ template <typename Curve_> class IPA {
 
         // Step 7.
         // Construct vector s
-        std::vector<Fr> s_vec(poly_length);
+        std::vector<Fr> s_vec(poly_length, Fr::one());
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/857): This code is not efficient as its
         // O(nlogn). This can be optimized to be linear by computing a tree of products. Its very readable, so we're
         // leaving it unoptimized for now.
-        run_loop_in_parallel_if_effective(
+        parallel_for_heuristic(
             poly_length,
-            [&s_vec, &round_challenges_inv, log_poly_degree](size_t start, size_t end) {
-                for (size_t i = start; i < end; i++) {
-                    Fr s_vec_scalar = Fr::one();
-                    for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
-                        auto bit = (i >> j) & 1;
-                        bool b = static_cast<bool>(bit);
-                        if (b) {
-                            s_vec_scalar *= round_challenges_inv[log_poly_degree - 1 - j];
-                        }
+            [&](size_t i) {
+                for (size_t j = (log_poly_degree - 1); j != static_cast<size_t>(-1); j--) {
+                    auto bit = (i >> j) & 1;
+                    bool b = static_cast<bool>(bit);
+                    if (b) {
+                        s_vec[i] *= round_challenges_inv[log_poly_degree - 1 - j];
                     }
-                    s_vec[i] = s_vec_scalar;
                 }
-            },
-            /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/log_poly_degree);
+            }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
         auto* srs_elements = vk->get_monomial_points();
 
@@ -435,20 +385,11 @@ template <typename Curve_> class IPA {
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
-        run_loop_in_parallel_if_effective(
+        parallel_for_heuristic(
             poly_length,
-            [&G_vec_local, srs_elements](size_t start, size_t end) {
-                for (size_t i = start * 2; i < end * 2; i += 2) {
-                    G_vec_local[i >> 1] = srs_elements[i];
-                }
-            },
-            /*finite_field_additions_per_iteration=*/0,
-            /*finite_field_multiplications_per_iteration=*/0,
-            /*finite_field_inversions_per_iteration=*/0,
-            /*group_element_additions_per_iteration=*/0,
-            /*group_element_doublings_per_iteration=*/0,
-            /*scalar_multiplications_per_iteration=*/0,
-            /*sequential_copy_ops_per_iteration=*/1);
+            [&](size_t i) {
+                G_vec_local[i] = srs_elements[i * 2];
+            }, thread_heuristics::FF_COPY_COST * 2);
 
         // Step 8.
         // Compute G₀
@@ -497,7 +438,7 @@ template <typename Curve_> class IPA {
         // Ensure polynomial length cannot be changed from its default specified valued
         poly_length_var.fix_witness();
 
-        const uint32_t poly_length = static_cast<uint32_t>(poly_length_var.get_value());
+        const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -559,7 +500,7 @@ template <typename Curve_> class IPA {
         // O(nlogn). This can be optimized to be linear by computing a tree of products.
         for (size_t i = 0; i < poly_length; i++) {
             Fr s_vec_scalar = Fr(1);
-            for (size_t j = (log_poly_degree - 1); j != size_t(-1); j--) {
+            for (size_t j = (log_poly_degree - 1); j != static_cast<size_t>(-1); j--) {
                 auto bit = (i >> j) & 1;
                 bool b = static_cast<bool>(bit);
                 if (b) {
