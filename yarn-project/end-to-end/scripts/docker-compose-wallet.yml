@@ -37,6 +37,8 @@ services:
     environment:
       DEBUG: ${DEBUG:-aztec:*}
       DEBUG_COLORS: 1
+      ETHEREUM_HOST: http://fork:8545
+      L1_CHAIN_ID: 31337
       PXE_URL: http://sandbox:8080
     working_dir: /usr/src/yarn-project/cli-wallet/test
     entrypoint: >
