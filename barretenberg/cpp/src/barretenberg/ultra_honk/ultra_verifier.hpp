@@ -22,14 +22,9 @@ template <typename Flavor> class UltraVerifier_ {
                             const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
 
     explicit UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key);
-    UltraVerifier_(UltraVerifier_&& other);
-
-    UltraVerifier_& operator=(const UltraVerifier_& other) = delete;
-    UltraVerifier_& operator=(UltraVerifier_&& other);
 
     bool verify_proof(const HonkProof& proof);
 
-    std::shared_ptr<VerificationKey> key;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Instance> instance;
 };

@@ -6,12 +6,6 @@
 
 namespace bb {
 
-/**
- * @brief Constructor from prover instance and a transcript assumed to be initialized with a full honk proof
- * @details Used in the case where an external transcript already exists and has been initialized with a proof, e.g.
- * when the decider is being used in the context of the larger honk protocol.
- *
- */
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
@@ -20,10 +14,6 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstanc
     , transcript(transcript)
 {}
 
-/**
- * @brief Constructor from prover instance
- *
- */
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator)
     : accumulator(accumulator)
