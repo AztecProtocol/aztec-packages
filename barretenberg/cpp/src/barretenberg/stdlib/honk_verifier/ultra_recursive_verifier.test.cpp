@@ -30,7 +30,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
-    using NativeVerificationKey = typename InnerFlavor::VerificationKey;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
@@ -105,7 +104,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Compute native verification key
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
         InnerProver prover(instance); // A prerequisite for computing VK
-        auto verification_key = std::make_shared<NativeVerificationKey>(instance->proving_key);
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
         // Instantiate the recursive verifier using the native verification key
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
@@ -127,8 +126,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     static void test_independent_vk_hash()
     {
         // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-        auto get_blocks =
-            [](size_t inner_size) -> std::tuple<typename OuterBuilder::GateBlocks, std::shared_ptr<VerificationKey>> {
+        auto get_blocks = [](size_t inner_size)
+            -> std::tuple<typename OuterBuilder::GateBlocks, std::shared_ptr<typename OuterFlavor::VerificationKey>> {
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit(inner_size);
 
@@ -136,7 +135,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
             InnerProver inner_prover(instance);
             info("test circuit size: ", instance->proving_key.circuit_size);
-            auto verification_key = std::make_shared<NativeVerificationKey>(instance->proving_key);
+            auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
             auto inner_proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
@@ -147,7 +146,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
 
             auto outer_instance = std::make_shared<OuterProverInstance>(outer_circuit);
-            auto outer_verification_key = std::make_shared<VerificationKey>(outer_instance->proving_key);
+            auto outer_verification_key =
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_instance->proving_key);
 
             return { outer_circuit.blocks, outer_verification_key };
         };
@@ -208,7 +208,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Generate a proof over the inner circuit
         auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
         InnerProver inner_prover(instance);
-        auto verification_key = std::make_shared<NativeVerificationKey>(instance->proving_key);
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -221,7 +221,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
             init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
         auto pairing_points = verifier.verify_proof(inner_proof, agg_obj);
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -250,7 +250,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         if constexpr (!IsSimulator<OuterBuilder>) {
             auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
             OuterProver prover(instance);
-            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -282,7 +282,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         inner_proof = inner_prover.export_proof();
 
         // Generate the corresponding inner verification key
-        auto inner_verification_key = std::make_shared<NativeVerificationKey>(instance->proving_key);
+        auto inner_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
