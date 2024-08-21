@@ -1,6 +1,5 @@
 export type EnvVar =
   | 'AZTEC_PORT'
-  | 'NODE_DATA_DIRECTORY'
   | 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER'
   | 'TEST_ACCOUNTS'
   | 'ENABLE_GAS'
