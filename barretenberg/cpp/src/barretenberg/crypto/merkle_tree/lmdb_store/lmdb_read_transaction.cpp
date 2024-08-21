@@ -1,5 +1,6 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_read_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include <cstdint>
 
 namespace bb::crypto::merkle_tree {
 LMDBReadTransaction::LMDBReadTransaction(LMDBEnvironment& env, const LMDBDatabase& database)
@@ -28,8 +29,7 @@ bool LMDBReadTransaction::get_value(std::vector<uint8_t>& key, std::vector<uint8
     if (!call_lmdb_func(mdb_get, underlying(), _database.underlying(), &dbKey, &dbVal)) {
         return false;
     }
-    data.resize(dbVal.mv_size);
-    std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
+    copy_to_vector(dbVal, data);
     return true;
 }
 

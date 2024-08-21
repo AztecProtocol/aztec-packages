@@ -1,5 +1,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "lmdb.h"
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -17,12 +19,24 @@ std::vector<uint8_t> SerialiseKey(uint8_t key)
 {
     return { key };
 }
+
+void DeserialiseKey(void* data, uint8_t& key)
+{
+    uint8_t* p = static_cast<uint8_t*>(data);
+    key = *p;
+}
+
 std::vector<uint8_t> SerialiseKey(uint64_t key)
 {
-    std::vector<uint8_t> buf(sizeof(key));
-    std::memcpy(buf.data(), &key, sizeof(key));
-    return buf;
+    const uint8_t* p = reinterpret_cast<uint8_t*>(&key);
+    return std::vector<uint8_t>(p, p + sizeof(key));
 }
+
+void DeserialiseKey(void* data, uint64_t& key)
+{
+    std::memcpy(&key, data, sizeof(key));
+}
+
 std::vector<uint8_t> SerialiseKey(uint128_t key)
 {
     std::vector<uint8_t> buf(16);
@@ -34,22 +48,6 @@ std::vector<uint8_t> SerialiseKey(uint128_t key)
     return buf;
 }
 
-std::vector<uint8_t> SerialiseKey(uint256_t key)
-{
-    std::vector<uint8_t> buf(32);
-    std::memcpy(buf.data(), key.data, 32);
-    return buf;
-}
-
-void DeserialiseKey(void* data, uint8_t& key)
-{
-    uint8_t* p = (uint8_t*)data;
-    key = *p;
-}
-void DeserialiseKey(void* data, uint64_t& key)
-{
-    std::memcpy(&key, data, sizeof(key));
-}
 void DeserialiseKey(void* data, uint128_t& key)
 {
 #ifdef __i386__
@@ -57,6 +55,13 @@ void DeserialiseKey(void* data, uint128_t& key)
 #else
     std::memcpy(&key, data, 16);
 #endif
+}
+
+std::vector<uint8_t> SerialiseKey(uint256_t key)
+{
+    std::vector<uint8_t> buf(32);
+    std::memcpy(buf.data(), key.data, 32);
+    return buf;
 }
 
 void DeserialiseKey(void* data, uint256_t& key)
@@ -83,12 +88,20 @@ int SizeCmp(const MDB_val* a, const MDB_val* b)
     return 0;
 }
 
+std::vector<uint8_t> mdb_val_to_vector(const MDB_val& dbVal)
+{
+    const uint8_t* p = static_cast<uint8_t*>(dbVal.mv_data);
+    return std::vector<uint8_t>(p, p + dbVal.mv_size);
+}
+
 /**
  * Default lexicographical implementation of key comparisons used in our LMDB implementation
  */
 int MemCmp(const MDB_val* a, const MDB_val* b)
 {
-    return std::memcmp(static_cast<char*>(a->mv_data), static_cast<char*>(b->mv_data), a->mv_size);
+    std::vector<uint8_t> a_vector = mdb_val_to_vector(*a);
+    std::vector<uint8_t> b_vector = mdb_val_to_vector(*b);
+    return std::lexicographical_compare(a_vector.begin(), a_vector.end(), b_vector.begin(), b_vector.end());
 }
 
 /**
@@ -125,5 +138,11 @@ int IntegerKeyCmp(const MDB_val* a, const MDB_val* b)
         ValueCmp<uint8_t>, ValueCmp<uint64_t>, ValueCmp<uint128_t>, MemCmp, ValueCmp<uint256_t>
     };
     return functions[factor](a, b);
+}
+
+void copy_to_vector(const MDB_val& dbVal, std::vector<uint8_t>& target)
+{
+    std::vector<uint8_t> temp = mdb_val_to_vector(dbVal);
+    target.swap(temp);
 }
 } // namespace bb::crypto::merkle_tree

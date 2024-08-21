@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -65,10 +66,10 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
     int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
     if (code == 0) {
         // we found the key, now determine if it is the exact key
-        if (dbKey.mv_size == keySize && std::memcmp(dbKey.mv_data, keyBuffer.data(), dbKey.mv_size) == 0) {
+        std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
+        if (keyBuffer == temp) {
             // we have the exact key
-            data.resize(dbVal.mv_size);
-            std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
+            copy_to_vector(dbVal, data);
             success = true;
         } else {
             // We have a key of the same size but larger value OR a larger size
@@ -80,8 +81,7 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
                 if (dbKey.mv_size != keySize) {
                     // There is no previous key, do nothing
                 } else {
-                    data.resize(dbVal.mv_size);
-                    std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
+                    copy_to_vector(dbVal, data);
                     DeserialiseKey(dbKey.mv_data, key);
                     success = true;
                 }
@@ -99,8 +99,7 @@ template <typename T> bool LMDBReadTransaction::get_value_or_previous(T& key, st
             if (dbKey.mv_size != keySize) {
                 // The key is not the same size, same as not found, do nothing
             } else {
-                data.resize(dbVal.mv_size);
-                std::memcpy(&data[0], dbVal.mv_data, dbVal.mv_size);
+                copy_to_vector(dbVal, data);
                 DeserialiseKey(dbKey.mv_data, key);
                 success = true;
             }

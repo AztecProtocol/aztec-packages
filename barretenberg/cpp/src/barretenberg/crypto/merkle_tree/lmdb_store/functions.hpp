@@ -47,6 +47,8 @@ template <typename T> int ValueCmp(const MDB_val* a, const MDB_val* b)
 }
 
 int IntegerKeyCmp(const MDB_val* a, const MDB_val* b);
+std::vector<uint8_t> mdb_val_to_vector(const MDB_val& dbVal);
+void copy_to_vector(const MDB_val& dbVal, std::vector<uint8_t>& target);
 
 template <typename... TArgs> bool call_lmdb_func(int (*f)(TArgs...), TArgs... args)
 {
