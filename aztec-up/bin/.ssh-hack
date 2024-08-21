@@ -12,7 +12,6 @@ ORIGINAL_SSH_AUTH_SOCK=$(launchctl asuser "${UID:-"$(id -u)"}" launchctl getenv 
 
 if [ "${2:-}" == "--permanent" ]; then
     if [ "${1:-}" == "load" ]; then
-        launchctl stop $(id -u)/com.openssh.ssh-agent
         mv $ORIGINAL_SSH_AUTH_SOCK $ORIGINAL_SSH_AUTH_SOCK.bak
         cat "$TEMPLATE_FILE" | sed -e "s+NEW_SSH_AUTH_SOCK+$SSH_AUTH_SOCK+g" | sed -e "s+ORIGINAL_SSH_AUTH_SOCK+$ORIGINAL_SSH_AUTH_SOCK+g" > "$LINK_FILE"
         launchctl load -F "$LINK_FILE"
@@ -30,4 +29,4 @@ else
         rm -rf $ORIGINAL_SSH_AUTH_SOCK
         mv $ORIGINAL_SSH_AUTH_SOCK.bak $ORIGINAL_SSH_AUTH_SOCK
     fi
-fi 
+fi
