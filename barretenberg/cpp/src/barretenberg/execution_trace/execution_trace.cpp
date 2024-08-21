@@ -121,42 +121,6 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
             offset += block_size;
         }
     }
-    size_t biggest_copy_cycle = 0;
-    int count0 = 0;
-    int count1 = 0;
-    int count2 = 0;
-    int count3 = 0;
-    int count4 = 0;
-    int count1048600 = 0;
-    int countelse = 0;
-    for (size_t i = 0; i < builder.variables.size(); ++i) {
-        size_t len = trace_data.copy_cycles[i].size();
-        biggest_copy_cycle = std::max(biggest_copy_cycle, len);
-        if (len == 0)
-            count0++;
-        else if (len == 1)
-            count1++;
-        else if (len == 2)
-            count2++;
-        else if (len == 3)
-            count3++;
-        else if (len == 4)
-            count4++;
-        else if (len == 1048600)
-            count1048600++;
-        else {
-            info("other len: ", len);
-            countelse++;
-        }
-    }
-    info("biggest copy cycle: ", biggest_copy_cycle);
-    info("count0: ", count0);
-    info("count1: ", count1);
-    info("count2: ", count2);
-    info("count3: ", count3);
-    info("count4: ", count4);
-    info("count1048600: ", count1048600);
-    info("countelse: ", countelse);
     return trace_data;
 }
 
