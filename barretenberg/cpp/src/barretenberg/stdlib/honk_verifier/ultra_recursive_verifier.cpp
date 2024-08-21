@@ -31,6 +31,10 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     return verify_proof(stdlib_proof, agg_obj);
 }
 
+/**
+ * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
+ * @return Output aggregation object
+ */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& proof, aggregation_state<typename Flavor::Curve> agg_obj)
