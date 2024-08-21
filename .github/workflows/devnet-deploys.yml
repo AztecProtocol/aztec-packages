@@ -453,14 +453,11 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        build-aztec,
-        build-aztec-arm,
         build-faucet,
         build-cli-wallet,
         build-mainnet-fork,
-        build-aztec-nargo,
-        build-aztec-nargo-arm,
         set-network,
+        publish-aztec-manifests,
       ]
     env:
       BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
