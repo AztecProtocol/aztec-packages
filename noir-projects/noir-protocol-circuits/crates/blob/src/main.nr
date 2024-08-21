@@ -142,11 +142,11 @@ fn bignum_to_bytes(x: F) -> [u8] {
 // DANGER: this assumes the input bignum is <= the Noir field size.
 // Only use this if you _know_ the data being passed in is small enough.
 //
-// This is inefficient, in the sense that we discard ~1 bit of blob space per 
-// 255-bit blob field, when converting it to a 245-bit noir field. Over the whole blob, 
+// This is inefficient, in the sense that we discard ~1 bit of blob space per
+// 255-bit blob field, when converting it to a 245-bit noir field. Over the whole blob,
 // we end up discarding 1 bit * 4096 fields_per_blob = 512 bytes = 16 words of data.
 // BUT, it is much simpler to do this than to reconstitute 4096 disparate bits across
-// the whole blob into 16 words. Perhaps the more complex approach should only be 
+// the whole blob into 16 words. Perhaps the more complex approach should only be
 // taken once aztec blobs are sufficiently full?
 fn unsafe_blob_to_fields(blob: [F; FIELDS_PER_BLOB]) -> [Field; FIELDS_PER_BLOB] {
     let mut blob_as_fields: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
@@ -165,10 +165,10 @@ unconstrained fn __unsafe_extract_top_bit(x: F) -> (Field, Field) {
     (top_bit, top_limb_with_top_bit_removed)
 }
 
-// DANGER: it's named as "unsafe" because the caller MUST already have checked that 
+// DANGER: it's named as "unsafe" because the caller MUST already have checked that
 // each blob Field is formatted as (u1, Field). I.e. the "rhs" 254-bits should already
 // fit within a Field. If the "rhs" 254 bits is larger than the field modulus,
-// there will be an uncaught overflow of the 254-bits in the Field, resulting in 
+// there will be an uncaught overflow of the 254-bits in the Field, resulting in
 // an unintended tiny value.
 //
 // For efficiency, the top_bit is kept as a Field throughout.
@@ -184,7 +184,7 @@ fn blob_to_fields__tightly_packed(blob: [F; FIELDS_PER_BLOB]) -> [Field; NOIR_FI
     let mut top_bits: [Field; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB] = [0; FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB];
 
     // We start with [F; 4096].
-    // The first 4064 of these bls-fields have a 255th bit (counting from 1) which can contribute towards 
+    // The first 4064 of these bls-fields have a 255th bit (counting from 1) which can contribute towards
     // new 254-bit noir fields. That is, we extract 4064 top-bits from the first 4064 of the 4096 bls-fields,
     // and reconstitute them into 4064 / 254 = 16 extra noir fields.
     // So we end up with 4096 + 16 = 4112 noir fields.
@@ -236,11 +236,11 @@ fn compute_challenge(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> 
     challenge
 }
 
-// ~500k constraints. 30 MINUTES TO COMPILE (due to all the brillig)! 
+// ~500k constraints. 30 MINUTES TO COMPILE (due to all the brillig)!
 //
 // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
-// we haven't implemented Fq; only Fr, and we don't actually need to operate on it; 
-// we just need the bits of data. So we've simply encoded it as fitting inside a 
+// we haven't implemented Fq; only Fr, and we don't actually need to operate on it;
+// we just need the bits of data. So we've simply encoded it as fitting inside a
 // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
 fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F, [Field; 2]) {
     let challenge_z: Field = compute_challenge(blob, kzg_commitment);
@@ -259,11 +259,11 @@ fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F
 }
 
 /**
- *                    ___d-1              
- *         z^d - 1    \            ω^i    
+ *                    ___d-1
+ *         z^d - 1    \            ω^i
  * p(z) = --------- . /   y_i . ---------
- *            d      /____       z - ω^i   
- *                    i=0                 
+ *            d      /____       z - ω^i
+ *                    i=0
  *
  * p(z) = factor . sum( y_i . num / denom )
  *
@@ -273,11 +273,11 @@ fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F
  * Precompute:
  * - The d roots of unity ω^i (plus maybe their negatives for z - ω^i computations).
  * - (1 / d)
- * 
+ *
  * @param z
  * @param ys - the many y_i's of the blob.
  *
- * @return y = p(z)                  
+ * @return y = p(z)
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // z ^ D:
@@ -347,22 +347,22 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     /**
       *
       * Note: it's more efficient (saving 30k constraints) to compute:
-      *    ___d-1                        
-      *    \     /    y_i    \          
-      *    /    |  ---------  | . ω^i   
-      *   /____  \  z - ω^i  /         
-      *    i=0                        
+      *    ___d-1
+      *    \     /    y_i    \
+      *    /    |  ---------  | . ω^i
+      *   /____  \  z - ω^i  /
+      *    i=0
       *            ^^^^^^^^^
       *              frac
       *
       * ... than to compute:
       *
-      *    ___d-1             
+      *    ___d-1
       *    \          /    ω^i    \
       *    /   y_i . |  ---------  |
       *   /____       \  z - ω^i  /
-      *    i=0                      
-      *     
+      *    i=0
+      *
       * perhaps because all the ω^i terms are constant witnesses?
       *
       */
@@ -417,7 +417,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     let mut sum: F = BigNum::new();
     /**
      * Seeking:
-     *                    ___d-1 
+     *                    ___d-1
      *                    \            ω^i
      *              sum = /   y_i . ---------
      *                   /____       z - ω^i
@@ -431,7 +431,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         /**
          * Seeking:
-         *                    ___i*8 + 7 
+         *                    ___i*8 + 7
          *                    \            ω^k
          *      partial_sum = /   y_k . ---------
          *                   /____       z - ω^k
@@ -461,23 +461,23 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         /**
          * Seeking:
-         *                    ___i*8 - 1              ___i*8 + 7                     
-         *                    \            ω^i        \            /    y_k    \         
-         *      sum_out   =   /   y_i . ---------  +  /     ω^k . |  ---------  |        
-         *                   /____       z - ω^i     /____         \  z - ω^k  /              
-         *                       0                    k = i*8                               
-         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    
-         *                          sum                         partial_sum     
+         *                    ___i*8 - 1              ___i*8 + 7
+         *                    \            ω^i        \            /    y_k    \
+         *      sum_out   =   /   y_i . ---------  +  /     ω^k . |  ---------  |
+         *                   /____       z - ω^i     /____         \  z - ω^k  /
+         *                       0                    k = i*8
+         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         *                          sum                         partial_sum
          *
          * ... that is:
-         *                                               
-         *                    ___i*8 - 1              ___ 7          
-         *                    \            ω^i        \              
+         *
+         *                    ___i*8 - 1              ___ 7
+         *                    \            ω^i        \
          *      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
-         *                   /____       z - ω^i     /____         
-         *                       0                    j = 0              
-         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^ 
-         *                          sum                   partial_sum     
+         *                   /____       z - ω^i     /____
+         *                       0                    j = 0
+         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
+         *                          sum                   partial_sum
          */
 
         let mut sum_out = sum.__add(partial_sum);
@@ -486,7 +486,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         std::as_witness(sum_out.limbs[1]);
         std::as_witness(sum_out.limbs[2]);
 
-        //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) 
+        //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
         // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
         BigNum::evaluate_quadratic_expression(
             [[lhs[0]], [lhs[1]], [lhs[2]], [lhs[3]], [lhs[4]], [lhs[5]], [lhs[6]], [lhs[7]]],
@@ -516,24 +516,24 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     y
 }
 
-// Doesn't work - don't have time to debug right now
+// Need to wait for https://github.com/noir-lang/noir-bignum/pull/9 for this to work.
 // nargo test --show-output test_main
-#[test]
-fn test_main() {
-    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+// #[test]
+// fn test_main() {
+//     let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
 
-    blob[0] = BigNum { limbs: [0x1234, 0, 0] };
-    blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
-    blob[2] = BigNum { limbs: [0x69, 0, 0] };
+//     blob[0] = BigNum { limbs: [0x1234, 0, 0] };
+//     blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
+//     blob[2] = BigNum { limbs: [0x69, 0, 0] };
 
-    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+//     let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
 
-    let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
+//     let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
 
-    println(challenge_z);
-    println(y);
-    println(kzg_commitment);
-}
+//     println(challenge_z);
+//     println(y);
+//     println(kzg_commitment);
+// }
 
 #[test]
 fn test_print() {
@@ -541,12 +541,13 @@ fn test_print() {
     println(f"x: {x}");
 }
 
-#[test]
-fn test_bignum_conversions() {
-    let x = 1000;
-    let x_bignum = __field_to_bignum(x);
-    println(f"x_bignum: {x_bignum}");
-}
+// Need to wait for https://github.com/noir-lang/noir-bignum/pull/9 for this to work.
+// #[test]
+// fn test_bignum_conversions() {
+//     let x = 1000;
+//     let x_bignum = __field_to_bignum(x);
+//     println(f"x_bignum: {x_bignum}");
+// }
 
 // nargo test --show-output test_barycentric
 #[test]
@@ -567,7 +568,7 @@ fn test_barycentric() {
     if (FIELDS_PER_BLOB == 4096) {
         // Computed with the eth consensus specs py lib
         expected_y = [
-            0x0c62e352a428e8e9842eadc1c106bd, 
+            0x0c62e352a428e8e9842eadc1c106bd,
             0x902c5b4968d755b6f49c0231e15af8,
             0x00049a
         ];
@@ -577,7 +578,7 @@ fn test_barycentric() {
     if (FIELDS_PER_BLOB == 8) {
         // Computed with the eth consensus specs py lib (after hacking it to cope with blobs of size 8 instead of 4096):
         expected_y = [
-            0xb04cdea4304000053abffffffb203a, 
+            0xb04cdea4304000053abffffffb203a,
             0x0000000002e30785c8afa4496f8e38,
             0x000000
         ];
