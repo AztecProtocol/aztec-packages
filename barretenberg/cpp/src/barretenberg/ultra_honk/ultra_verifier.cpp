@@ -10,6 +10,7 @@ UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<Transcript>& transc
                                        const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
     , transcript(transcript)
+    , instance(std::make_shared<Instance>(verifier_key))
 {}
 
 /**
@@ -22,6 +23,7 @@ template <typename Flavor>
 UltraVerifier_<Flavor>::UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
     , transcript(std::make_shared<Transcript>())
+    , instance(std::make_shared<Instance>(verifier_key))
 {}
 
 template <typename Flavor>
@@ -51,6 +53,11 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     VerifierCommitments commitments{ key };
     OinkVerifier<Flavor> oink_verifier{ key, transcript };
     auto [relation_parameters, witness_commitments, public_inputs, alphas] = oink_verifier.verify();
+    instance->relation_parameters = relation_parameters;
+    instance->witness_commitments = witness_commitments;
+    instance->alphas = alphas;
+
+    [[maybe_unused]] DeciderVerifier decider_verifier{ instance, transcript };
 
     // Copy the witness_commitments over to the VerifierCommitments
     for (auto [wit_comm_1, wit_comm_2] : zip_view(commitments.get_witness(), witness_commitments.get_all())) {
