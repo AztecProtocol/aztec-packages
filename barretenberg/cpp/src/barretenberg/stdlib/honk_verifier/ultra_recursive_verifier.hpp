@@ -35,7 +35,4 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
 };
 
-// Instance declarations for Ultra and Goblin-Ultra verifier circuits with both conventional Ultra and Goblin-Ultra
-// arithmetization.
-using UltraRecursiveVerifier = UltraRecursiveVerifier_<UltraCircuitBuilder>;
 } // namespace bb::stdlib::recursion::honk
