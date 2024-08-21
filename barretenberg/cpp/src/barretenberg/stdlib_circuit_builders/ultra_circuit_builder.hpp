@@ -423,6 +423,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
 #endif // NDEBUG
     }
 
+    std::unordered_set<uint32_t> get_all_used_variables();
+
     void finalize_circuit(const bool ensure_nonzero = false);
 
     void add_gates_to_ensure_all_polys_are_non_zero();
@@ -757,7 +759,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     }
 
     RangeList create_range_list(const uint64_t target_range);
-    void process_range_list(RangeList& list);
+    void process_range_list(RangeList& list, const std::unordered_set<uint32_t>& all_used_real_variable_indices);
     void process_range_lists();
 
     /**

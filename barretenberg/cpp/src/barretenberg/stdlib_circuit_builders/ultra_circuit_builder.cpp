@@ -6,12 +6,44 @@
  *
  */
 #include "ultra_circuit_builder.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include <barretenberg/plonk/proof_system/constants.hpp>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace bb {
+
+/**
+ * @brief Go through the wires and collect all variables that are present in the wires
+ *
+ * @details We need this for range constraints, since we can't range constrain a value that isn't used anywhere else in
+ * the circuit
+ * @tparam Arithmetization
+ * @return std::unordered_set<uint32_t>
+ */
+template <typename Arithmetization>
+std::unordered_set<uint32_t> UltraCircuitBuilder_<Arithmetization>::get_all_used_variables()
+{
+    std::unordered_set<uint32_t> all_used_real_variables;
+#ifndef NO_MULTITHREADING
+    std::mutex common_set_merge_mutex;
+#endif
+    parallel_for(/*NUM_WIRES=*/4, [&](size_t wire_index) {
+        std::unordered_set<uint32_t> this_wire_variables;
+        for (auto& block : this->blocks.get()) {
+            for (size_t i = 0; i < block.size(); i++) {
+                this_wire_variables.insert(this->real_variable_index[block.wires[wire_index][i]]);
+            }
+        }
+#ifndef NO_MULTITHREADING
+        std::unique_lock<std::mutex> lock(common_set_merge_mutex);
+#endif
+        all_used_real_variables.merge(this_wire_variables);
+    });
+    return all_used_real_variables;
+}
 
 template <typename Arithmetization>
 void UltraCircuitBuilder_<Arithmetization>::finalize_circuit(const bool ensure_nonzero)
@@ -983,7 +1015,19 @@ void UltraCircuitBuilder_<Arithmetization>::create_new_range_constraint(const ui
     }
 }
 
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_range_list(RangeList& list)
+/**
+ * @brief Create gates with variables that are constrained to be within target range and connect them with original
+ * variables we want to range constrain through a set permutation
+ *
+ * @details Goes through the list of variables for range, converts them to real variables, filters for the ones used in
+ * the circuit then for this list uses a combination of set permutation and delta range gates to range constrain them.
+ * @tparam Arithmetization
+ * @param list
+ * @param all_used_variables
+ */
+template <typename Arithmetization>
+void UltraCircuitBuilder_<Arithmetization>::process_range_list(
+    RangeList& list, const std::unordered_set<uint32_t>& all_used_real_variable_indices)
 {
     this->assert_valid_variables(list.variable_indices);
 
@@ -999,6 +1043,17 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
     std::sort(list.variable_indices.begin(), list.variable_indices.end());
     auto back_iterator = std::unique(list.variable_indices.begin(), list.variable_indices.end());
     list.variable_indices.erase(back_iterator, list.variable_indices.end());
+    // Remove variables not contained in the trace
+    list.variable_indices.erase(
+        std::remove_if(list.variable_indices.begin(),
+                       list.variable_indices.end(),
+                       [&](uint32_t index) { return !all_used_real_variable_indices.contains(index); }),
+        list.variable_indices.end());
+
+    if (list.variable_indices.empty()) {
+        info("Range list for range ", list.target_range, " is empty!");
+        return;
+    }
 
     // go over variables
     // iterate over each variable and create mirror variable with same value - with tau tag
@@ -1039,8 +1094,9 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 
 template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::process_range_lists()
 {
+    auto all_used_variables = get_all_used_variables();
     for (auto& i : range_lists) {
-        process_range_list(i.second);
+        process_range_list(i.second, all_used_variables);
     }
 }
 
