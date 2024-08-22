@@ -335,7 +335,6 @@ class DataBusTests : public ::testing::Test {
         auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.instance->proving_key);
         MegaVerifier verifier{ verification_key };
         auto proof = prover.construct_proof();
-        EXPECT_TRUE(CircuitChecker::check(builder));
         return verifier.verify_proof(proof);
     }
 

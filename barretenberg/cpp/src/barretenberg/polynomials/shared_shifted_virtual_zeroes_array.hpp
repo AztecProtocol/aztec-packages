@@ -45,7 +45,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     {
         ASSERT(index < virtual_size_);
         if (index >= start_ && index < end_) {
-            return data()[index] - start_;
+            return data()[index - start_];
         }
         return T{}; // Return default element when index is out of the actual filled size
     }
