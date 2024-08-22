@@ -7,6 +7,7 @@
  * simplify the codebase.
  */
 
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
@@ -84,8 +85,11 @@ template <class Curve> class CommitmentKey {
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial spann.
         G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
-        return scalar_multiplication::pippenger_unsafe<Curve>(
+        DEBUG_LOG_ALL(polynomial.span);
+        Commitment point = scalar_multiplication::pippenger_unsafe<Curve>(
             polynomial.data(), point_table, degree, pippenger_runtime_state);
+        DEBUG_LOG(point);
+        return point;
     };
 
     /**
