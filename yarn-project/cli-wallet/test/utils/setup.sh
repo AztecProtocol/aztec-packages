@@ -8,6 +8,9 @@ p="\033[35m" # Purple
 r="\033[0m"  # Reset
 bold="\033[1m"
 
+SETUP_LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+export TEST_FOLDER=$( cd $SETUP_LOCATION/../flows &> /dev/null && pwd )
+
 if [ $# -eq 4 ]; then
     COMMAND="$1 $2 $3"
     alias aztec-wallet="${COMMAND}"
