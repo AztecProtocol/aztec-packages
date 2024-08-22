@@ -5,12 +5,12 @@ import {
   AZTEC_SLOT_DURATION,
   ETHEREUM_SLOT_DURATION,
   EthAddress,
+  GENESIS_ARCHIVE_ROOT,
   type Header,
-  IS_DEV_NET,
   type Proof,
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
@@ -20,6 +20,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
+  ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
@@ -102,6 +103,15 @@ export type MetadataForSlot = {
   archive: Buffer;
 };
 
+// @note  If we want to simulate in the future, we have to skip the viem simulations and use `reads` instead
+//        This is because the viem simulations are not able to simulate the future, only the current state.
+//        This means that we will be simulating as if `block.timestamp` is the same for the next block
+//        as for the last block.
+//        Nevertheless, it can be quite useful for figuring out why exactly the transaction is failing
+//        as a middle ground right now, we will be skipping the simulation and just sending the transaction
+//        but only after we have done a successful run of the `validateHeader` for the timestamp in the future.
+const SKIP_SIMULATION = true;
+
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
@@ -176,20 +186,46 @@ export class L1Publisher {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  public async willSimulationFail(slot: bigint): Promise<boolean> {
-    // @note  When simulating or estimating gas, `viem` will use the CURRENT state of the chain
-    //        and not the state in the next block. Meaning that the timestamp will be the same as
-    //        the previous block, which means that the slot will also be the same.
-    //        This effectively means that if we try to simulate for the first L1 block where we
-    //        will be proposer, we will have a failure as the slot have not yet changed.
-    // @todo  #8110
+  public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
+      ts,
+      this.account.address,
+      `0x${archive.toString('hex')}`,
+    ]);
+    return [slot, blockNumber];
+  }
 
-    if (IS_DEV_NET) {
-      return false;
+  public async validateBlockForSubmission(
+    header: Header,
+    digest: Buffer = new Fr(GENESIS_ARCHIVE_ROOT).toBuffer(),
+    attestations: Signature[] = [],
+  ): Promise<void> {
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+
+    const formattedAttestations = attestations.map(attest => attest.toViemSignature());
+    const flags = { ignoreDA: true, ignoreSignatures: attestations.length == 0 };
+
+    const args = [
+      `0x${header.toBuffer().toString('hex')}`,
+      formattedAttestations,
+      `0x${digest.toString('hex')}`,
+      ts,
+      flags,
+    ] as const;
+
+    try {
+      await this.rollupContract.read.validateHeader(args, { account: this.account });
+    } catch (error: unknown) {
+      // Specify the type of error
+      if (error instanceof ContractFunctionRevertedError) {
+        const err = error as ContractFunctionRevertedError;
+        this.log.debug(`Validation failed: ${err.message}`, err.data);
+      } else {
+        this.log.debug(`Unexpected error during validation: ${error}`);
+      }
+      throw error; // Re-throw the error if needed
     }
-
-    const currentSlot = BigInt(await this.rollupContract.read.getCurrentSlot());
-    return currentSlot != slot;
   }
 
   // @note Assumes that all ethereum slots have blocks
@@ -247,11 +283,11 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    if (await this.willSimulationFail(block.header.globalVariables.slotNumber.toBigInt())) {
-      // @note  See comment in willSimulationFail for more information
-      this.log.info(`Simulation will fail for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
-      return false;
-    }
+    // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+    //        This means that we can avoid the simulation issues in later checks.
+    //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+    //        make time consistency checks break.
+    await this.validateBlockForSubmission(block.header, block.archive.root.toBuffer(), attestations);
 
     const processTxArgs = {
       header: block.header.toBuffer(),
@@ -436,9 +472,11 @@ export class L1Publisher {
         `0x${proof.toString('hex')}`,
       ] as const;
 
-      await this.rollupContract.simulate.submitBlockRootProof(args, {
-        account: this.account,
-      });
+      if (!SKIP_SIMULATION) {
+        await this.rollupContract.simulate.submitBlockRootProof(args, {
+          account: this.account,
+        });
+      }
 
       return await this.rollupContract.write.submitBlockRootProof(args, {
         account: this.account,
@@ -449,6 +487,7 @@ export class L1Publisher {
     }
   }
 
+  // This is used in `integration_l1_publisher.test.ts` currently. Could be removed though.
   private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
     if (!this.interrupted) {
       try {
@@ -481,7 +520,9 @@ export class L1Publisher {
             attestations,
           ] as const;
 
-          await this.rollupContract.simulate.process(args, { account: this.account });
+          if (!SKIP_SIMULATION) {
+            await this.rollupContract.simulate.process(args, { account: this.account });
+          }
 
           return await this.rollupContract.write.process(args, {
             account: this.account,
@@ -493,8 +534,9 @@ export class L1Publisher {
             `0x${encodedData.blockHash.toString('hex')}`,
           ] as const;
 
-          await this.rollupContract.simulate.process(args, { account: this.account });
-
+          if (!SKIP_SIMULATION) {
+            await this.rollupContract.simulate.process(args, { account: this.account });
+          }
           return await this.rollupContract.write.process(args, {
             account: this.account,
           });
@@ -519,10 +561,11 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          // Using simulate to get a meaningful error message
-          await this.rollupContract.simulate.publishAndProcess(args, {
-            account: this.account,
-          });
+          if (!SKIP_SIMULATION) {
+            await this.rollupContract.simulate.publishAndProcess(args, {
+              account: this.account,
+            });
+          }
 
           return await this.rollupContract.write.publishAndProcess(args, {
             account: this.account,
@@ -535,9 +578,11 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          await this.rollupContract.simulate.publishAndProcess(args, {
-            account: this.account,
-          });
+          if (!SKIP_SIMULATION) {
+            await this.rollupContract.simulate.publishAndProcess(args, {
+              account: this.account,
+            });
+          }
 
           return await this.rollupContract.write.publishAndProcess(args, {
             account: this.account,

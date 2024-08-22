@@ -12,6 +12,7 @@ pragma solidity >=0.8.18;
 library Errors {
   // DEVNET related
   error DevNet__NoPruningAllowed(); // 0x6984c590
+  error DevNet__InvalidProposer(address expected, address actual); // 0x11e6e6f7
 
   // Inbox
   error Inbox__Unauthorized(); // 0xe5336a6b
