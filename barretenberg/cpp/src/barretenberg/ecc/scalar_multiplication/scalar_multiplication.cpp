@@ -101,7 +101,7 @@ namespace bb::scalar_multiplication {
  * to use the curve endomorphism for faster scalar multiplication. See below for more details.
  */
 template <typename Curve>
-void generate_pippenger_point_table(typename Curve::AffineElement* points,
+void generate_pippenger_point_table(const typename Curve::AffineElement* points,
                                     typename Curve::AffineElement* table,
                                     size_t num_points)
 {
@@ -947,8 +947,8 @@ typename Curve::Element pippenger_unsafe(const typename Curve::ScalarField* scal
 }
 
 template <typename Curve>
-typename Curve::Element pippenger_without_endomorphism_basis_points(typename Curve::ScalarField* scalars,
-                                                                    typename Curve::AffineElement* points,
+typename Curve::Element pippenger_without_endomorphism_basis_points(const typename Curve::ScalarField* scalars,
+                                                                    const typename Curve::AffineElement* points,
                                                                     const size_t num_initial_points,
                                                                     pippenger_runtime_state<Curve>& state)
 {
@@ -959,7 +959,7 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(typename Cur
 
 // Explicit instantiation
 // BN254
-template void generate_pippenger_point_table<curve::BN254>(curve::BN254::AffineElement* points,
+template void generate_pippenger_point_table<curve::BN254>(const curve::BN254::AffineElement* points,
                                                            curve::BN254::AffineElement* table,
                                                            size_t num_points);
 
@@ -967,7 +967,7 @@ template uint32_t construct_addition_chains<curve::BN254>(affine_product_runtime
                                                           bool empty_bucket_counts = true);
 
 template void add_affine_points<curve::BN254>(curve::BN254::AffineElement* points,
-                                              const size_t num_points,
+                                              size_t num_points,
                                               curve::BN254::BaseField* scratch_space);
 
 template void add_affine_points_with_edge_cases<curve::BN254>(curve::BN254::AffineElement* points,
@@ -1004,13 +1004,13 @@ template curve::BN254::Element pippenger_unsafe<curve::BN254>(const curve::BN254
                                                               pippenger_runtime_state<curve::BN254>& state);
 
 template curve::BN254::Element pippenger_without_endomorphism_basis_points<curve::BN254>(
-    curve::BN254::ScalarField* scalars,
-    curve::BN254::AffineElement* points,
+    const curve::BN254::ScalarField* scalars,
+    const curve::BN254::AffineElement* points,
     const size_t num_initial_points,
     pippenger_runtime_state<curve::BN254>& state);
 
 // Grumpkin
-template void generate_pippenger_point_table<curve::Grumpkin>(curve::Grumpkin::AffineElement* points,
+template void generate_pippenger_point_table<curve::Grumpkin>(const curve::Grumpkin::AffineElement* points,
                                                               curve::Grumpkin::AffineElement* table,
                                                               size_t num_points);
 
@@ -1055,8 +1055,8 @@ template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(const curve:
                                                                     pippenger_runtime_state<curve::Grumpkin>& state);
 
 template curve::Grumpkin::Element pippenger_without_endomorphism_basis_points<curve::Grumpkin>(
-    curve::Grumpkin::ScalarField* scalars,
-    curve::Grumpkin::AffineElement* points,
+    const curve::Grumpkin::ScalarField* scalars,
+    const curve::Grumpkin::AffineElement* points,
     const size_t num_initial_points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 
