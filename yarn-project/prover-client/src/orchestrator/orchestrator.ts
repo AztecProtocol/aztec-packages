@@ -421,12 +421,12 @@ export class ProvingOrchestrator implements BlockProver {
       new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
       sha256Trunc(
         Buffer.concat([
-          previousMergeData[0]?.txsEffectsHash.toBuffer(),
-          previousMergeData[1]?.txsEffectsHash.toBuffer(),
+          previousMergeData[0].txsEffectsHash.toBuffer(),
+          previousMergeData[1].txsEffectsHash.toBuffer(),
         ]),
       ),
-      this.provingState.finalRootParityInput?.publicInputs.shaRoot.toBuffer(),
-      sha256Trunc(Buffer.concat([previousMergeData[0]?.outHash.toBuffer(), previousMergeData[1]?.outHash.toBuffer()])),
+      this.provingState.finalRootParityInput.publicInputs.shaRoot.toBuffer(),
+      sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
     );
     const state = new StateReference(
       await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db),
