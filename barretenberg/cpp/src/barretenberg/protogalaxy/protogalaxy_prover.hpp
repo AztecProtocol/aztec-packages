@@ -110,20 +110,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      */
     BB_PROFILE FoldingResult<Flavor> prove();
 
-    /**
-     * @brief For a new round challenge δ at each iteration of the ProtoGalaxy protocol, compute the vector
-     * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
-     */
-    static std::vector<FF> compute_round_challenge_pows(const size_t log_instance_size, const FF& round_challenge)
-    {
-        std::vector<FF> pows(log_instance_size);
-        pows[0] = round_challenge;
-        for (size_t i = 1; i < log_instance_size; i++) {
-            pows[i] = pows[i - 1].sqr();
-        }
-        return pows;
-    }
-
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }

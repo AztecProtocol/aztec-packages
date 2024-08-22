@@ -30,19 +30,6 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
     ProtoGalaxyVerifier_(const std::vector<std::shared_ptr<Instance>>& insts)
         : instances(VerifierInstances(insts)){};
     ~ProtoGalaxyVerifier_() = default;
-    /**
-     * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
-     * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
-     */
-    static std::vector<FF> compute_round_challenge_pows(size_t log_instance_size, FF round_challenge)
-    {
-        std::vector<FF> pows(log_instance_size);
-        pows[0] = round_challenge;
-        for (size_t i = 1; i < log_instance_size; i++) {
-            pows[i] = pows[i - 1].sqr();
-        }
-        return pows;
-    }
 
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
