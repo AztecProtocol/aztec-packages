@@ -2,15 +2,13 @@ import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@a
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
-import { format } from 'util';
-
 export async function authorizeAction(
   wallet: AccountWalletWithSecretKey,
   functionName: string,
+  caller: AztecAddress,
   functionArgsIn: any[],
   contractArtifactPath: string,
   contractAddress: AztecAddress,
-  caller: AztecAddress,
   log: LogFn,
 ) {
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
@@ -18,5 +16,9 @@ export async function authorizeAction(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const action = contract.methods[functionName](...functionArgs);
 
-  log(format('\nSimulation result: ', result, '\n'));
+  const witness = await wallet.createAuthWit({ caller, action });
+
+  await wallet.addAuthWitness(witness);
+
+  log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 }
