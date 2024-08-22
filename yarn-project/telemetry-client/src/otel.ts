@@ -77,7 +77,11 @@ export class OpenTelemetryClient implements TelemetryClient {
     await Promise.all([this.meterProvider.shutdown()]);
   }
 
-  public static createAndStart(collectorBaseUrl: URL, log: DebugLogger): OpenTelemetryClient {
+  public static createAndStart(
+    metricsCollector: URL,
+    tracesCollector: URL | undefined,
+    log: DebugLogger,
+  ): OpenTelemetryClient {
     const resource = detectResourcesSync({
       detectors: [
         osDetectorSync,
@@ -93,9 +97,12 @@ export class OpenTelemetryClient implements TelemetryClient {
     const tracerProvider = new NodeTracerProvider({
       resource,
     });
-    tracerProvider.addSpanProcessor(
-      new BatchSpanProcessor(new OTLPTraceExporter({ url: new URL('/v1/traces', collectorBaseUrl).href })),
-    );
+
+    // optionally push traces to an OTEL collector instance
+    if (tracesCollector) {
+      tracerProvider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: tracesCollector.href })));
+    }
+
     tracerProvider.register();
 
     const meterProvider = new MeterProvider({
@@ -103,7 +110,7 @@ export class OpenTelemetryClient implements TelemetryClient {
       readers: [
         new PeriodicExportingMetricReader({
           exporter: new OTLPMetricExporter({
-            url: new URL('/v1/metrics', collectorBaseUrl).href,
+            url: metricsCollector.href,
           }),
         }),
       ],
