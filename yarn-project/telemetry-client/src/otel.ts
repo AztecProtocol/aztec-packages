@@ -62,14 +62,7 @@ export class OpenTelemetryClient implements TelemetryClient {
       description: 'Target information',
     });
 
-    if (this.resource.asyncAttributesPending) {
-      void this.resource.waitForAsyncAttributes!().then(() => {
-        this.targetInfo!.record(1, this.resource.attributes);
-      });
-    } else {
-      this.targetInfo.record(1, this.resource.attributes);
-    }
-
+    this.targetInfo.record(1, this.resource.attributes);
     this.hostMetrics.start();
   }
 
@@ -77,11 +70,11 @@ export class OpenTelemetryClient implements TelemetryClient {
     await Promise.all([this.meterProvider.shutdown()]);
   }
 
-  public static createAndStart(
+  public static async createAndStart(
     metricsCollector: URL,
     tracesCollector: URL | undefined,
     log: DebugLogger,
-  ): OpenTelemetryClient {
+  ): Promise<OpenTelemetryClient> {
     const resource = detectResourcesSync({
       detectors: [
         osDetectorSync,
@@ -93,6 +86,10 @@ export class OpenTelemetryClient implements TelemetryClient {
         aztecDetector,
       ],
     });
+
+    if (resource.asyncAttributesPending) {
+      await resource.waitForAsyncAttributes!();
+    }
 
     const tracerProvider = new NodeTracerProvider({
       resource,

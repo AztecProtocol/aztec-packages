@@ -70,7 +70,7 @@ export const startProverNode = async (
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
   }
 
-  const telemetry = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await createAndStartTelemetryClient(getTelemetryClientConfig());
   const proverNode = await createProverNode(proverConfig, { telemetry });
 
   services.push({ node: createProverNodeRpcServer(proverNode) });
