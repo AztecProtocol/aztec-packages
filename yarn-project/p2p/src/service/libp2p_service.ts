@@ -31,7 +31,7 @@ import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 import { ReqResp } from './reqresp/reqresp.js';
-import { SubProtocol } from './reqresp/interface.js';
+import { ReqRespTypes, SubProtocol, SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -221,10 +221,22 @@ export class LibP2PService implements P2PService {
     return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool);
   }
 
-  // TODO: implement requestable for block hash - we just want that to be toBuffer
-  sendRequest<T>(protocol: SubProtocol, payload: T) {
-    // THe sub protocol should determine what happens next
+  /**
+   *
+   * @param protocol The request response protocol to use
+   * @param request The request type to send
+   * @returns
+   */
+  async sendRequest<Protocol extends SubProtocol>(protocol: Protocol, request: InstanceType<SubProtocolMap[Protocol]['request']>): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
+    const pair = subProtocolMap[protocol];
 
+    // TODO: Can the type be retreived from a mapping based on the subprotocol
+    const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
+    if (!res) {
+      return undefined;
+    }
+
+    return pair.response.fromBuffer(res!);
   }
 
   public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>) {

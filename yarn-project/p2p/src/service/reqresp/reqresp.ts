@@ -7,7 +7,7 @@ import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { pingHandler, statusHandler } from './handlers.js';
-import { PING_PROTOCOL, STATUS_PROTOCOL, SubProtocol, SubProtocolHandler } from './interface.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL, SubProtocol, SubProtocolHandler, TX_REQ_PROTOCOL } from './interface.js';
 
 /**
  * A mapping from a protocol to a handler function
@@ -15,6 +15,7 @@ import { PING_PROTOCOL, STATUS_PROTOCOL, SubProtocol, SubProtocolHandler } from 
 const SUB_PROTOCOL_HANDLERS: Record<SubProtocol, SubProtocolHandler> = {
   [PING_PROTOCOL]: pingHandler,
   [STATUS_PROTOCOL]: statusHandler,
+  [TX_REQ_PROTOCOL]: (_msg: any) => Buffer.from("tx"),
 };
 
 

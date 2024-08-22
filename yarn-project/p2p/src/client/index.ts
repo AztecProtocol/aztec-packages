@@ -23,6 +23,9 @@ export const createP2PClient = async (
 
   if (config.p2pEnabled) {
     // If announceTcpAddress or announceUdpAddress are not provided, query for public IP if config allows
+
+    // TODO: move create libp2p2 client INTO the p2p client constructor?????
+    // WHat is the advantage to defining here and passing it in?
     const {
       tcpAnnounceAddress: configTcpAnnounceAddress,
       udpAnnounceAddress: configUdpAnnounceAddress,
