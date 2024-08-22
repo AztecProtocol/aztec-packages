@@ -420,10 +420,7 @@ export class ProvingOrchestrator implements BlockProver {
     const contentCommitment = new ContentCommitment(
       new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
       sha256Trunc(
-        Buffer.concat([
-          previousMergeData[0].txsEffectsHash.toBuffer(),
-          previousMergeData[1].txsEffectsHash.toBuffer(),
-        ]),
+        Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
       ),
       this.provingState.finalRootParityInput.publicInputs.shaRoot.toBuffer(),
       sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
