@@ -1,24 +1,12 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import {
-  CompleteAddress,
-  type DebugLogger,
-  type DeployL1Contracts,
-  EthCheatCodes,
-  Fr,
-  GrumpkinScalar,
-  type SentTx,
-  TxStatus,
-  sleep,
-} from '@aztec/aztec.js';
-import { IS_DEV_NET } from '@aztec/circuits.js';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep } from '@aztec/aztec.js';
+import { EthAddress, IS_DEV_NET } from '@aztec/circuits.js';
 import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
-import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
@@ -45,7 +33,6 @@ describe('e2e_p2p_network', () => {
   let teardown: () => Promise<void>;
   let bootstrapNode: BootstrapNode;
   let bootstrapNodeEnr: string;
-  let deployL1ContractsValues: DeployL1Contracts;
 
   beforeEach(async () => {
     // If we want to test with interval mining, we can use the local host and start `anvil --block-time 12`
@@ -54,43 +41,26 @@ describe('e2e_p2p_network', () => {
       jest.setTimeout(300_000);
     }
     const options = useLocalHost ? { l1RpcUrl: 'http://127.0.0.1:8545' } : {};
-    ({ teardown, config, logger, deployL1ContractsValues } = await setup(0, options));
-    // It would likely be useful if we had the sequencers in such that they don't spam each other.
-    // However, even if they do, it should still work. Not sure what caused the failure
-    // Would be easier if I could see the errors from anvil as well, but those seem to be hidden.
 
-    const rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
+    // We need the very first node to be the sequencer for this is the one doing everything throughout the setup.
+    // Without it we will wait forever.
+    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+    const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
+    const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
 
-    if (IS_DEV_NET) {
-      // Add just ONE of the peers as sequencer, he will be the proposer all blocks.
-      const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 1 });
+    const initialValidators = [EthAddress.fromString(account.address)];
+
+    // Add 1 extra validator if in devnet or NUM_NODES if not.
+    // Each of these will become a validator and sign attestations.
+    const limit = IS_DEV_NET ? 1 : NUM_NODES;
+    for (let i = 0; i < limit; i++) {
+      const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
       const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
       const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
-      await rollup.write.addValidator([account.address], { gas: 1_000_000n });
-      logger.info(`Adding sequencer ${account.address}`);
-    } else {
-      // Add all nodes as validators - they will all sign attestations of each other's proposals
-      for (let i = 0; i < NUM_NODES; i++) {
-        const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
-        const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
-        const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
-        await rollup.write.addValidator([account.address], { gas: 1_000_000n });
-        logger.info(`Adding sequencer ${account.address}`);
-      }
+      initialValidators.push(EthAddress.fromString(account.address));
     }
 
-    //@note   Now we jump ahead to the next epoch such that the validator committee is picked
-    //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
-    //        Which means that the validator set will still be empty! So anyone can propose.
-    const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-    const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-
-    const cheatCodes = new EthCheatCodes(config.l1RpcUrl);
-    await cheatCodes.warp(Number(timestamp));
+    ({ teardown, config, logger } = await setup(0, { initialValidators, ...options }));
 
     bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
