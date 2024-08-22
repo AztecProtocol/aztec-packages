@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724344266090,
+  "lastUpdate": 1724349813575,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "ebaf8de4705a25a7aea717758589e8ad8985a1da",
-          "message": "refactor(avm): kernel trace and finalization",
-          "timestamp": "2024-08-18T19:46:39Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8049/commits/ebaf8de4705a25a7aea717758589e8ad8985a1da"
-        },
-        "date": 1724019728574,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 14290.349651000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10001.413918 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5637.750612000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4341.659532 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39640.9048,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39640905000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16483.796306999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16483797000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3796789238,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3796789238 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209698784,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209698784 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3091627544,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3091627544 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173119738,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173119738 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3468,6 +3400,78 @@ window.BENCHMARK_DATA = {
             "value": 173309427,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173309427 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "32a04c1e14564192df1581829d8f0ccb4a072769",
+          "message": "feat: Free instances and circuits earlier to reduce max memory usage (#8118)\n\nThis PR reduces max memory by roughly a third by deleting a\r\nprover_instance member variable in client_ivc. Before, we were storing\r\nthis prover_instance, which meant that when we accumulate a third\r\ncircuit, we were storing three instances at the same time - the\r\naccumulator, the old instance, and the new instance. It also adjusts the\r\ntest (ClientIVCTests.BasicThree) to only store the builder for when it's\r\nneeded.\r\n\r\nThis is the original memory graph when running\r\nClientIVCTests.BasicThree, which accumulates three circuits of size 2^17\r\n(?).\r\n<img width=\"735\" alt=\"Before\"\r\nsrc=\"https://github.com/user-attachments/assets/66bed03b-3692-4bb2-b176-b6772bdcb27e\">\r\n\r\nAfter freeing the Builder after constructing the instance from it, and\r\nafter freeing the instance after folding it into the accumulator, our\r\nmemory graph looks like.\r\n<img width=\"700\" alt=\"After\"\r\nsrc=\"https://github.com/user-attachments/assets/13f4432c-cfc3-4095-aa6d-908a244aa6b5\">\r\n\r\nYou can see that the peak memory goes from 1216MB to 774MB, and that\r\nwe're no longer storing 3 instances worth of data at one time.",
+          "timestamp": "2024-08-22T13:47:51-04:00",
+          "tree_id": "f1e8de78798d3508864ba838c19617cb8d608f62",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/32a04c1e14564192df1581829d8f0ccb4a072769"
+        },
+        "date": 1724349799776,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13718.26680800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10607.756371000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5102.3281669999815,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4592.5226920000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39919.471173,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39919471000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14658.943422000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14658943000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3760003409,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3760003409 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208016375,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208016375 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3065669492,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3065669492 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173992757,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173992757 ns\nthreads: 1"
           }
         ]
       }
