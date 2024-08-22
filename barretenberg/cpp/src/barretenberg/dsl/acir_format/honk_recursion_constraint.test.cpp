@@ -138,10 +138,10 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
      */
     Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     {
-        std::vector<HonkRecursionConstraint> honk_recursion_constraints;
+        std::vector<RecursionConstraint> honk_recursion_constraints;
 
         size_t witness_offset = 0;
-        std::vector<fr, ContainerSlabAllocator<fr>> witness;
+        SlabVector<fr> witness;
 
         for (auto& inner_circuit : inner_circuits) {
 
@@ -155,7 +155,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
             std::vector<fr> proof_witnesses = inner_proof;
             // where the inner public inputs start (after circuit_size, num_pub_inputs, pub_input_offset)
-            const size_t inner_public_input_offset = 3;
+            const size_t inner_public_input_offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
             // - Save the public inputs so that we can set their values.
             // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
             std::vector<fr> inner_public_input_values(
@@ -206,10 +206,12 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
 
-            HonkRecursionConstraint honk_recursion_constraint{
+            RecursionConstraint honk_recursion_constraint{
                 .key = key_indices,
                 .proof = proof_indices,
                 .public_inputs = inner_public_inputs,
+                .key_hash = 0, // not used
+                .proof_type = HONK_RECURSION,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
 
@@ -292,6 +294,24 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
+
+TEST_F(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
+{
+    std::vector<Builder> layer_1_circuits;
+    layer_1_circuits.push_back(create_inner_circuit());
+
+    auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
+
+    info("circuit gates = ", layer_2_circuit.get_num_gates());
+
+    auto instance = std::make_shared<ProverInstance>(layer_2_circuit);
+    Prover prover(instance);
+    info("prover gates = ", instance->proving_key.circuit_size);
+    auto proof = prover.construct_proof();
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    Verifier verifier(verification_key);
+    EXPECT_EQ(verifier.verify_proof(proof), true);
+}
 
 TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 {

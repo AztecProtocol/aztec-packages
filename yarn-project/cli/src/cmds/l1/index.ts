@@ -13,6 +13,8 @@ import {
 } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+  const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
+
   program
     .command('deploy-l1-contracts')
     .description('Deploys all necessary Ethereum contracts for Aztec.')
@@ -28,6 +30,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
+    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
@@ -36,6 +39,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
+        options.salt,
         options.json,
         log,
         debugLogger,
@@ -46,35 +50,38 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .command('deploy-l1-verifier')
     .description('Deploys the rollup verifier contract')
     .requiredOption(
-      '--eth-rpc-url <string>',
+      '--l1-rpc-url <string>',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
+    .requiredOption('--l1-chain-id <string>', 'The chain id of the L1 network', '31337')
     .addOption(pxeOption)
-    .requiredOption('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option('--l1-private-key <string>', 'The L1 private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
     .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
-    .option('--bb <path>', 'Path to bb binary')
-    .option('--bb-working-dir <path>', 'Path to bb working directory')
+    .option('--bb <path>', 'Path to bb binary', BB_BINARY_PATH)
+    .option('--bb-working-dir <path>', 'Path to bb working directory', BB_WORKING_DIRECTORY)
     .action(async options => {
-      const { deployMockVerifier, deployUltraVerifier } = await import('./deploy_l1_verifier.js');
+      const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
       if (options.verifier === 'mock') {
         await deployMockVerifier(
-          options.ethRpcUrl,
-          options.privateKey,
+          options.l1RpcUrl,
+          options.l1ChainId,
+          options.l1PrivateKey,
           options.mnemonic,
           options.rpcUrl,
           log,
           debugLogger,
         );
       } else {
-        await deployUltraVerifier(
-          options.ethRpcUrl,
-          options.privateKey,
+        await deployUltraHonkVerifier(
+          options.l1RpcUrl,
+          options.l1ChainId,
+          options.l1PrivateKey,
           options.mnemonic,
           options.rpcUrl,
           options.bb,
@@ -147,6 +154,38 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (who, options) => {
       const { getL1Balance } = await import('./get_l1_balance.js');
       await getL1Balance(who, options.token, options.l1RpcUrl, options.l1ChainId, options.json, log);
+    });
+
+  program
+    .command('set-proven-until')
+    .description(
+      'Instructs the L1 rollup contract to assume all blocks until the given number are automatically proven.',
+    )
+    .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(pxeOption)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .action(async (blockNumber, options) => {
+      const { assumeProvenUntil } = await import('./assume_proven_until.js');
+      await assumeProvenUntil(
+        blockNumber,
+        options.l1RpcUrl,
+        options.rpcUrl,
+        options.l1ChainId,
+        options.l1PrivateKey,
+        options.mnemonic,
+        log,
+      );
     });
 
   return program;

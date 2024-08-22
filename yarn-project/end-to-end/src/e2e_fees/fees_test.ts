@@ -24,7 +24,7 @@ import {
   FPCContract,
   FeeJuiceContract,
   PrivateFPCContract,
-  TokenWithRefundsContract,
+  TokenContract,
 } from '@aztec/noir-contracts.js';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
@@ -33,10 +33,7 @@ import { getContract } from 'viem';
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 import { type BalancesFn, deployCanonicalFeeJuice, getBalancesFn, publicDeployAccounts } from '../fixtures/utils.js';
-import {
-  FeeJuicePortalTestingHarnessFactory,
-  type IGasBridgingTestHarness,
-} from '../shared/gas_portal_test_harness.js';
+import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
@@ -70,17 +67,17 @@ export class FeesTest {
   public feeJuiceContract!: FeeJuiceContract;
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
-  public tokenWithRefunds!: TokenWithRefundsContract;
+  public token!: TokenContract;
   public privateFPC!: PrivateFPCContract;
   public counterContract!: CounterContract;
   public subscriptionContract!: AppSubscriptionContract;
-  public feeJuiceBridgeTestHarness!: IGasBridgingTestHarness;
+  public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
 
   public getCoinbaseBalance!: () => Promise<bigint>;
   public getGasBalanceFn!: BalancesFn;
   public getBananaPublicBalanceFn!: BalancesFn;
   public getBananaPrivateBalanceFn!: BalancesFn;
-  public getTokenWithRefundsBalanceFn!: BalancesFn;
+  public getTokenBalanceFn!: BalancesFn;
 
   public readonly INITIAL_GAS_BALANCE = BigInt(1e15);
   public readonly ALICE_INITIAL_BANANAS = BigInt(1e12);
@@ -102,12 +99,20 @@ export class FeesTest {
     await this.snapshotManager.teardown();
   }
 
-  /** Alice mints TokenWithRefunds  */
-  async mintTokenWithRefunds(amount: bigint) {
-    const balanceBefore = await this.tokenWithRefunds.methods.balance_of_private(this.aliceAddress).simulate();
-    await this.tokenWithRefunds.methods.privately_mint_private_note(amount).send().wait();
-    const balanceAfter = await this.tokenWithRefunds.methods.balance_of_private(this.aliceAddress).simulate();
+  /** Alice mints Token  */
+  async mintToken(amount: bigint) {
+    const balanceBefore = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
+    await this.token.methods.privately_mint_private_note(amount).send().wait();
+    const balanceAfter = await this.token.methods.balance_of_private(this.aliceAddress).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
+  }
+
+  // Mint fee juice AND mint funds to the portal to emulate the L1 -> L2 bridge
+  async mintFeeJuice(address: AztecAddress, amount: bigint) {
+    await this.feeJuiceContract.methods.mint_public(address, amount).send().wait();
+    // Need to also mint funds to the portal
+    const portalAddress = EthAddress.fromString(this.feeJuiceBridgeTestHarness.tokenPortal.address);
+    await this.feeJuiceBridgeTestHarness.mintTokensOnL1(amount, portalAddress);
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
@@ -187,7 +192,6 @@ export class FeesTest {
           walletClient: walletClient,
           wallet: this.aliceWallet,
           logger: this.logger,
-          mockL1: false,
         });
       },
     );
@@ -223,7 +227,6 @@ export class FeesTest {
           walletClient: walletClient,
           wallet: this.aliceWallet,
           logger: this.logger,
-          mockL1: false,
         });
       },
     );
@@ -245,29 +248,23 @@ export class FeesTest {
     );
   }
 
-  async applyTokenWithRefundsAndFPC() {
+  async applyTokenAndFPC() {
     await this.snapshotManager.snapshot(
-      'token_with_refunds_and_private_fpc',
+      'token_and_private_fpc',
       async context => {
         // Deploy token/fpc flavors for private refunds
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.l2Token;
         expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
 
-        const tokenWithRefunds = await TokenWithRefundsContract.deploy(
-          this.aliceWallet,
-          this.aliceAddress,
-          'PVT',
-          'PVT',
-          18n,
-        )
+        const token = await TokenContract.deploy(this.aliceWallet, this.aliceAddress, 'PVT', 'PVT', 18n)
           .send()
           .deployed();
 
-        this.logger.info(`TokenWithRefunds deployed at ${tokenWithRefunds.address}`);
+        this.logger.info(`Token deployed at ${token.address}`);
 
         const privateFPCSent = PrivateFPCContract.deploy(
           this.bobWallet,
-          tokenWithRefunds.address,
+          token.address,
           this.bobWallet.getAddress(),
         ).send();
         const privateFPC = await privateFPCSent.deployed();
@@ -280,20 +277,16 @@ export class FeesTest {
         );
 
         return {
-          tokenWithRefundsAddress: tokenWithRefunds.address,
+          tokenAddress: token.address,
           privateFPCAddress: privateFPC.address,
         };
       },
       async data => {
         this.privateFPC = await PrivateFPCContract.at(data.privateFPCAddress, this.bobWallet);
-        this.tokenWithRefunds = await TokenWithRefundsContract.at(data.tokenWithRefundsAddress, this.aliceWallet);
+        this.token = await TokenContract.at(data.tokenAddress, this.aliceWallet);
 
         const logger = this.logger;
-        this.getTokenWithRefundsBalanceFn = getBalancesFn(
-          '🕵️.private',
-          this.tokenWithRefunds.methods.balance_of_private,
-          logger,
-        );
+        this.getTokenBalanceFn = getBalancesFn('🕵️.private', this.token.methods.balance_of_private, logger);
       },
     );
   }
@@ -362,7 +355,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'fund_alice_with_tokens',
       async () => {
-        await this.mintTokenWithRefunds(this.ALICE_INITIAL_BANANAS);
+        await this.mintToken(this.ALICE_INITIAL_BANANAS);
       },
       () => Promise.resolve(),
     );
@@ -372,7 +365,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'fund_alice_with_fee_juice',
       async () => {
-        await this.feeJuiceContract.methods.mint_public(this.aliceAddress, this.INITIAL_GAS_BALANCE).send().wait();
+        await this.mintFeeJuice(this.aliceAddress, this.INITIAL_GAS_BALANCE);
       },
       () => Promise.resolve(),
     );
@@ -402,11 +395,7 @@ export class FeesTest {
 
         // Mint some Fee Juice to the subscription contract
         // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
-        await this.feeJuiceContract.methods
-          .mint_public(subscriptionContract.address, this.INITIAL_GAS_BALANCE)
-          .send()
-          .wait();
-
+        await this.mintFeeJuice(subscriptionContract.address, this.INITIAL_GAS_BALANCE);
         return {
           counterContractAddress: counterContract.address,
           subscriptionContractAddress: subscriptionContract.address,

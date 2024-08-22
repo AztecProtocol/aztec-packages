@@ -57,7 +57,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;
-    auto perturbator = Polynomial<FF>(perturbator_coeffs);
+    auto perturbator = LegacyPolynomial<FF>(perturbator_coeffs);
     FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
@@ -102,6 +102,16 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
         accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
+    next_accumulator->verification_key->contains_recursive_proof =
+        accumulator->verification_key->contains_recursive_proof;
+    next_accumulator->verification_key->recursive_proof_public_input_indices =
+        accumulator->verification_key->recursive_proof_public_input_indices;
+
+    if constexpr (IsGoblinFlavor<Flavor>) { // Databus commitment propagation data
+        next_accumulator->verification_key->databus_propagation_data =
+            accumulator->verification_key->databus_propagation_data;
+    }
+
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;

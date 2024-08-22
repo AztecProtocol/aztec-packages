@@ -22,7 +22,7 @@ import {
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
@@ -57,6 +57,7 @@ import {
   executeBbClientIvcProof,
   verifyProof,
 } from '../bb/execute.js';
+import { type BBConfig } from '../config.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -73,11 +74,17 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     Promise<VerificationKeyData>
   >();
 
-  constructor(
+  private constructor(
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
+    private skipCleanup: boolean,
     private log = createDebugLogger('aztec:bb-native-prover'),
   ) {}
+
+  public static async new(config: BBConfig, log?: DebugLogger) {
+    await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
+    return new BBNativePrivateKernelProver(config.bbBinaryPath, config.bbWorkingDirectory, !!config.bbSkipCleanup, log);
+  }
 
   private async _createClientIvcProof(
     directory: string,
@@ -119,7 +126,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     const operation = async (directory: string) => {
       return await this._createClientIvcProof(directory, acirs, witnessStack);
     };
-    return await runInDirectory(this.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   public getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
@@ -189,7 +196,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       return await this.computeVerificationKey(directory, bytecode, 'App', appCircuitName);
     };
 
-    return await runInDirectory(this.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -229,7 +236,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       await fs.writeFile(verificationKeyPath, verificationKey);
       return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
     };
-    return await runInDirectory(this.bbWorkingDirectory, operation);
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -270,7 +277,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     } satisfies CircuitWitnessGenerationStats);
 
     // TODO(#7410) we dont need to generate vk's for these circuits, they are in the vk tree
-    const { verificationKey } = await runInDirectory(this.bbWorkingDirectory, dir =>
+    const { verificationKey } = await this.runInDirectory(dir =>
       this.computeVerificationKey(dir, Buffer.from(compiledCircuit.bytecode, 'base64'), circuitType),
     );
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
@@ -352,7 +359,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     const json = JSON.parse(proofString);
     const fields = json.map(Fr.fromString);
     const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-
     const fieldsWithoutPublicInputs = fields.slice(numPublicInputs);
     this.log.info(
       `Circuit type: ${circuitType}, complete proof length: ${fields.length}, without public inputs: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
@@ -363,5 +369,18 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       true,
     );
     return proof;
+  }
+
+  private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
+    const log = this.log;
+    return runInDirectory(
+      this.bbWorkingDirectory,
+      (dir: string) =>
+        fn(dir).catch(err => {
+          log.error(`Error running operation at ${dir}: ${err}`);
+          throw err;
+        }),
+      this.skipCleanup,
+    );
   }
 }

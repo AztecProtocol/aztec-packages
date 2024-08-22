@@ -26,6 +26,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
     goblin.merge(circuit);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
+    // verifier.
+    circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
+
     // Construct the prover instance for circuit
     prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
 
@@ -46,7 +50,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
-        fold_output = folding_prover.fold_instances();
+        fold_output = folding_prover.prove();
     }
 }
 

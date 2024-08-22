@@ -132,6 +132,7 @@ export async function deployContractsToL1(
       l2FeeJuiceAddress: FeeJuiceAddress,
       vkTreeRoot: getVKTreeRoot(),
       assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
+      salt: undefined,
     }),
   );
 
@@ -159,6 +160,10 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+  }
+  if (!aztecNodeConfig.validatorPrivateKey || aztecNodeConfig.validatorPrivateKey === NULL_KEY) {
+    const privKey = hdAccount.getHdKey().privateKey;
+    aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
   if (!aztecNodeConfig.p2pEnabled) {

@@ -1,6 +1,8 @@
+mod assert_exposed_sorted_transformed_value_array;
 mod assert_sorted_array;
 mod assert_sorted_transformed_value_array;
 mod assert_split_sorted_transformed_value_arrays;
+mod assert_split_transformed_value_arrays;
 mod sort_by_counters;
 mod sort_get_order_hints;
 mod sort_get_sorted_hints;
@@ -8,9 +10,11 @@ mod sort_get_sorted_tuple;
 mod sort_get_split_order_hints;
 
 // Re-exports.
-use assert_sorted_array::{assert_sorted_array_with_order_hints, assert_sorted_array};
+use assert_exposed_sorted_transformed_value_array::assert_exposed_sorted_transformed_value_array;
+use assert_sorted_array::assert_sorted_array;
 use assert_split_sorted_transformed_value_arrays::{assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc};
-use assert_sorted_transformed_value_array::assert_sorted_transformed_value_array;
+use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
+use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
 use sort_by_counters::{sort_by_counters_asc, sort_by_counters_desc};
 use sort_get_order_hints::{OrderHint, sort_get_order_hints_asc, sort_get_order_hints_desc};
 use sort_get_sorted_hints::sort_get_sorted_hints;
@@ -30,38 +34,10 @@ pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N> wh
     BoundedVec { storage: array, len }
 }
 
-unconstrained fn filter_array_to_bounded_vec_unsafe<T, let N: u32>(
-    arr: [T; N],
-    should_propagate: [bool; N]
-) -> BoundedVec<T, N> {
-    let mut vec = BoundedVec::new();
+unconstrained pub fn find_index_hint<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
+    let mut index = N;
     for i in 0..N {
-        if should_propagate[i] {
-            vec.push(arr[i]);
-        }
-    }
-    vec
-}
-
-pub fn filter_array_to_bounded_vec<T, let N: u32>(arr: [T; N], should_propagate: [bool; N]) -> BoundedVec<T, N> where T: Eq {
-    let vec_hint = filter_array_to_bounded_vec_unsafe(arr, should_propagate);
-    let mut verifying_index = 0;
-
-    for i in 0..N {
-        if should_propagate[i] {
-            assert_eq(arr[i], vec_hint.get(verifying_index));
-            verifying_index += 1;
-        }
-    }
-    assert_eq(verifying_index, vec_hint.len());
-
-    vec_hint
-}
-
-unconstrained pub fn find_index_hint<T, let N: u32>(array: [T; N], find: T) -> u32 where T: Eq {
-    let mut index = 0;
-    for i in 0..array.len() {
-        if array[i] == find {
+        if (index == N) & find(array[i]) {
             index = i;
         }
     }
@@ -120,24 +96,6 @@ pub fn array_eq<T, let N: u32, let S: u32>(array: [T; N], expected: [T; S]) -> b
     }
 
     eq
-}
-
-pub fn find_index<T, let N: u32, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u32 {
-    let mut index = N;
-    for i in 0..N {
-        if (index == N) & find(array[i]) {
-            index = i;
-        }
-    }
-    index
-}
-
-pub fn array_cp<T, let N: u32, let S: u32>(array: [T; N]) -> [T; S] where T: Empty {
-    let mut result: [T; S] = [T::empty(); S];
-    for i in 0..S {
-        result[i] = array[i];
-    }
-    result
 }
 
 pub fn array_concat<T, let N: u32, let M: u32, let S: u32>(array1: [T; N], array2: [T; M]) -> [T; S] {
@@ -568,7 +526,7 @@ fn test_array_length_invalid_arrays() {
 fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = find_index(values, |v: Field| min.lt(v));
+    let index = find_index_hint(values, |v: Field| min.lt(v));
     assert_eq(index, 2);
 }
 
@@ -576,7 +534,7 @@ fn find_index_greater_than_min() {
 fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
-    let index = find_index(values, |v: Field| min.lt(v));
+    let index = find_index_hint(values, |v: Field| min.lt(v));
     assert_eq(index, 4);
 }
 
