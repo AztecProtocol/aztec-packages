@@ -7,9 +7,8 @@ import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig 
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 
-import { MNEMONIC } from './fixtures/fixtures.js';
 import {
   type NodeContext,
   createBootstrapNode,
@@ -17,7 +16,7 @@ import {
   createNodes,
   generatePeerIdPrivateKeys,
 } from './fixtures/setup_p2p_test.js';
-import { setup } from './fixtures/utils.js';
+import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -44,9 +43,7 @@ describe('e2e_p2p_network', () => {
 
     // We need the very first node to be the sequencer for this is the one doing everything throughout the setup.
     // Without it we will wait forever.
-    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
-    const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
-    const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
+    const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
 
     const initialValidators = [EthAddress.fromString(account.address)];
 
@@ -54,9 +51,7 @@ describe('e2e_p2p_network', () => {
     // Each of these will become a validator and sign attestations.
     const limit = IS_DEV_NET ? 1 : NUM_NODES;
     for (let i = 0; i < limit; i++) {
-      const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: i + 1 });
-      const publisherPrivKey = Buffer.from(hdAccount.getHdKey().privateKey!);
-      const account = privateKeyToAccount(`0x${publisherPrivKey!.toString('hex')}`);
+      const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(i + 1)!.toString('hex')}`);
       initialValidators.push(EthAddress.fromString(account.address));
     }
 
