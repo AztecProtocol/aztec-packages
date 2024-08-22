@@ -30,6 +30,8 @@ import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
+import { ReqResp } from './reqresp/reqresp.js';
+import { SubProtocol } from './reqresp/interface.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -60,6 +62,9 @@ export class LibP2PService implements P2PService {
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
 
+  // Request and response sub service
+  private reqresp: ReqResp;
+
   private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
 
   constructor(
@@ -71,6 +76,9 @@ export class LibP2PService implements P2PService {
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
+
+    // TODO: will handlers get passed in here?
+    this.reqresp = new ReqResp(node);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(
@@ -123,6 +131,7 @@ export class LibP2PService implements P2PService {
       this.peerManager.discover();
     }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
+    this.reqresp.start();
   }
 
   /**
@@ -139,6 +148,9 @@ export class LibP2PService implements P2PService {
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
+    this.logger.debug('Stopping request response service...');
+    await this.reqresp.stop();
+    this.logger.debug('Request response service stopped...');
   }
 
   /**
@@ -205,7 +217,14 @@ export class LibP2PService implements P2PService {
       },
     });
 
+
     return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool);
+  }
+
+  // TODO: implement requestable for block hash - we just want that to be toBuffer
+  sendRequest<T>(protocol: SubProtocol, payload: T) {
+    // THe sub protocol should determine what happens next
+
   }
 
   public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>) {
