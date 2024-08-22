@@ -412,10 +412,9 @@ class MegaFlavor {
      */
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
-        // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
 
+        ProvingKey() = default;
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
