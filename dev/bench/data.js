@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724349813575,
+  "lastUpdate": 1724363588696,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "a1c39575a23337517c52cbe4d428581f4f23edcc",
-          "message": "chore(master): Release 0.50.0",
-          "timestamp": "2024-08-19T09:19:49Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8032/commits/a1c39575a23337517c52cbe4d428581f4f23edcc"
-        },
-        "date": 1724060115450,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13245.183534000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10111.824527999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4888.156416000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4458.6078259999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39802.996167,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39802997000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14537.849121000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14537850000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3803998605,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3803998605 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213841493,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213841493 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3103043674,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3103043674 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 174377127,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 174377127 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3472,6 +3404,78 @@ window.BENCHMARK_DATA = {
             "value": 173992757,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173992757 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c3dddf83941fd7411f2faefff43552aa174e1401",
+          "message": "feat: share the commitment key between instances to reduce mem (#8154)\n\nContinuation of\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/8118.\r\n\r\nIn AztecIVC (or ClientIVC), when we have multiple instances, we create a\r\ncommitment key for each one. However, since each of these instances are\r\nthe same size, there's no need to create a new one for each one.\r\n\r\nWhen we're constructing an instance beyond the first one, we can reuse\r\nthe same commitment key from the AztecIVC accumulator, which saves\r\n~123MB of memory for 2^17 circuits, a reduction of 15.6%.\r\n<img width=\"1045\" alt=\"After\"\r\nsrc=\"https://github.com/user-attachments/assets/032cf442-5c68-4c23-b4d2-16ab8c6812b7\">\r\n\r\n\r\nAfter the change, we cut down max memory by 123MB.\r\n<img width=\"969\" alt=\"Before\"\r\nsrc=\"https://github.com/user-attachments/assets/8e374ab5-8a4b-4395-964e-35e49fe8920a\">",
+          "timestamp": "2024-08-22T21:41:18Z",
+          "tree_id": "d49386cb90db1a839ad8687b3559fe73e65c2f77",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c3dddf83941fd7411f2faefff43552aa174e1401"
+        },
+        "date": 1724363575621,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13527.57957,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10337.787540000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5134.989187999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4703.179805 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39685.25907100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39685259000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14643.226008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14643226000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3784877519,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3784877519 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 210666309,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 210666309 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3118162547,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3118162547 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 174714749,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 174714749 ns\nthreads: 1"
           }
         ]
       }
