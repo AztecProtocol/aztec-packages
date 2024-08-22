@@ -126,7 +126,7 @@ if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; 
 
   if [[ "$UNAME" == "Darwin" ]]; then
     if ! command -v socat &> /dev/null; then
-      warn "Socat is not installed. To make SSH agent forwarding work, please run:\n brew install socat"
+      warn "Socat is not installed. To make SSH agent forwarding work in MacOS, please run:\n\nbrew install socat\n"
     else
       socat TCP-LISTEN:${SSH_AUTH_SOCK_SOCAT_PORT:-12345},reuseaddr,fork UNIX-CLIENT:$SSH_AUTH_SOCK &
       SOCAT_PID=$!
