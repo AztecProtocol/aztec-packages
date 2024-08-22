@@ -134,7 +134,7 @@ if [[ "$ENV_VARS_TO_INJECT" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; 
       DOCKER_ENV+=" -e SSH_AUTH_SOCK_SOCAT_PORT=${SSH_AUTH_SOCK_SOCAT_PORT:-12345}"
     fi
   else
-    DOCKER_ENV+=" -e SSH_AUTH_SOCK_SOCAT_PORT=${SSH_AUTH_SOCK}"
+    DOCKER_ENV+=" -e SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
     ssh_agent_socket_mount="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
   fi
 fi
