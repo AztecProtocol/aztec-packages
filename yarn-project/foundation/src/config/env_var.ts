@@ -1,4 +1,6 @@
 export type EnvVar =
+  | 'AZTEC_PORT'
+  | 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER'
   | 'TEST_ACCOUNTS'
   | 'ENABLE_GAS'
   | 'API_PREFIX'
@@ -78,6 +80,7 @@ export type EnvVar =
   | 'PROVER_TEST_DELAY_MS'
   | 'TX_PROVIDER_NODE_URL'
   | 'TXE_PORT'
+  | 'LOG_JSON'
   | 'BOT_PXE_URL'
   | 'BOT_PRIVATE_KEY'
   | 'BOT_RECIPIENT_ENCRYPTION_SECRET'
