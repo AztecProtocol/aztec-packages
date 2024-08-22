@@ -41,7 +41,7 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type L1Publisher, type MetadataForSlot } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
 
@@ -89,20 +89,23 @@ describe('sequencer', () => {
   };
 
   let block: L2Block;
+  let metadata: MetadataForSlot;
 
   beforeEach(() => {
     lastBlockNumber = 0;
 
     block = L2Block.random(lastBlockNumber + 1);
 
+    metadata = {
+      proposer: EthAddress.ZERO,
+      slot: block.header.globalVariables.slotNumber.toBigInt(),
+      pendingBlockNumber: BigInt(lastBlockNumber),
+      archive: block.header.lastArchive.toBuffer(),
+    };
+
     publisher = mock<L1Publisher>();
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
-    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue([
-      EthAddress.ZERO,
-      block.header.globalVariables.slotNumber.toBigInt(),
-      BigInt(lastBlockNumber),
-      block.header.lastArchive.toBuffer(),
-    ]);
+    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue(metadata);
     publisher.getValidatorCount.mockResolvedValue(0n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
@@ -245,12 +248,7 @@ describe('sequencer', () => {
     // Not your turn!
     const publisherAddress = EthAddress.random();
     publisher.getSenderAddress.mockResolvedValue(publisherAddress);
-    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue([
-      EthAddress.random(),
-      block.header.globalVariables.slotNumber.toBigInt(),
-      BigInt(lastBlockNumber),
-      block.header.lastArchive.toBuffer(),
-    ]);
+    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue({ ...metadata, proposer: EthAddress.random() });
     // Specify that there is a validator, such that we don't allow everyone to publish
     publisher.getValidatorCount.mockResolvedValueOnce(1n);
 
@@ -259,12 +257,7 @@ describe('sequencer', () => {
     expect(blockSimulator.startNewBlock).not.toHaveBeenCalled();
 
     // Now it is!
-    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue([
-      publisherAddress,
-      block.header.globalVariables.slotNumber.toBigInt(),
-      BigInt(lastBlockNumber),
-      block.header.lastArchive.toBuffer(),
-    ]);
+    publisher.getMetadataForSlotAtNextEthBlock.mockResolvedValue({ ...metadata, proposer: publisherAddress });
 
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(

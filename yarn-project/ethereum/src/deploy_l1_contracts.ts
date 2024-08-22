@@ -243,7 +243,8 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
 
-  // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot
+  // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+  //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
   try {
     // Need to get the time
     const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;

@@ -125,8 +125,8 @@ contract SpartaTest is DecoderBase {
       return;
     }
 
-    _testBlock("mixed_block_1", false, 3, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_2", false, 3, false); // We need signatures!
+    _testBlock("mixed_block_1", false, 3, false);
+    _testBlock("mixed_block_2", false, 3, false);
   }
 
   function testInvalidProposer() public setup(4) {

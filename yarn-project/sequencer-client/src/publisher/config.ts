@@ -26,6 +26,7 @@ export interface PublisherConfig {
   l1PublishRetryIntervalMS: number;
   /**
    * Whether the publisher is a time traveler and can warp the underlying chain
+   * @todo #8153 - Remove this flag once the time traveler is removed
    */
   timeTraveler: boolean;
 }

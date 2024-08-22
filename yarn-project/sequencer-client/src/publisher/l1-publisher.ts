@@ -95,6 +95,13 @@ export type L1SubmitProofArgs = {
   aggregationObject: Buffer;
 };
 
+export type MetadataForSlot = {
+  proposer: EthAddress;
+  slot: bigint;
+  pendingBlockNumber: bigint;
+  archive: Buffer;
+};
+
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
@@ -187,7 +194,7 @@ export class L1Publisher {
 
   // @note Assumes that all ethereum slots have blocks
   // Using next Ethereum block so we do NOT need to wait for it being mined before seeing the effect
-  public async getMetadataForSlotAtNextEthBlock(): Promise<[EthAddress, bigint, bigint, Buffer]> {
+  public async getMetadataForSlotAtNextEthBlock(): Promise<MetadataForSlot> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
 
     const [submitter, slot, pendingBlockCount, archive] = await Promise.all([
@@ -197,12 +204,12 @@ export class L1Publisher {
       this.rollupContract.read.archive(),
     ]);
 
-    return [
-      EthAddress.fromString(submitter),
+    return {
+      proposer: EthAddress.fromString(submitter),
       slot,
-      pendingBlockCount - 1n,
-      Buffer.from(archive.replace('0x', ''), 'hex'),
-    ];
+      pendingBlockNumber: pendingBlockCount - 1n,
+      archive: Buffer.from(archive.replace('0x', ''), 'hex'),
+    };
   }
 
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
@@ -317,6 +324,8 @@ export class L1Publisher {
     //        Time jumps only allowed into the future.
     //
     //        If this is run on top of a real chain, the time lords will catch you.
+    //
+    // @todo  #8153
 
     if (!this.timeTraveler) {
       return;

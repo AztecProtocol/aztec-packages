@@ -289,7 +289,7 @@ export class Sequencer {
     //        Also, we are logging debug messages for checks that fail to make it easier to debug, as we are usually
     //        catching the errors.
 
-    const [submitter, slot, pendingBlockNumber, archive] = await this.publisher.getMetadataForSlotAtNextEthBlock();
+    const { proposer, slot, pendingBlockNumber, archive } = await this.publisher.getMetadataForSlotAtNextEthBlock();
 
     if (await this.publisher.willSimulationFail(slot)) {
       // @note  See comment in willSimulationFail for more information
@@ -362,7 +362,7 @@ export class Sequencer {
       }
 
       // Do not go forward with new block if not free for all or my turn
-      if (!submitter.isZero() && !submitter.equals(await this.publisher.getSenderAddress())) {
+      if (!proposer.isZero() && !proposer.equals(await this.publisher.getSenderAddress())) {
         const msg = 'Not my turn to submit block';
         this.log.debug(msg);
         throw new Error(msg);
@@ -439,8 +439,6 @@ export class Sequencer {
 
     return true;
   }
-
-  async assertCanStillProposeBlock(): Promise<void> {}
 
   @trackSpan(
     'Sequencer.buildBlockAndPublish',

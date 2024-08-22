@@ -21,6 +21,7 @@ import {
 import {
   ETHEREUM_SLOT_DURATION,
   EthAddress,
+  GENESIS_ARCHIVE_ROOT,
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
@@ -76,9 +77,6 @@ const logger = createDebugLogger('aztec:integration_l1_publisher');
 const config = getConfigEnvVars();
 
 const numberOfConsecutiveBlocks = 2;
-
-// The initial archive is what we have in the genesis block in `Rollup.sol`.
-const INITIAL_ARCHIVE = Fr.fromString('0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e').toBuffer();
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
@@ -351,7 +349,7 @@ describe('L1Publisher integration', () => {
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(INITIAL_ARCHIVE);
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
     // random recipient address, just kept consistent for easy testing ts/sol.
@@ -469,14 +467,14 @@ describe('L1Publisher integration', () => {
       // We wipe the messages from previous iteration
       nextL1ToL2Messages = [];
 
-      // @todo @LHerskind need to make sure that time have progressed to the next slot!
+      // Make sure that time have progressed to the next slot!
       await progressTimeBySlot();
     }
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(INITIAL_ARCHIVE);
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
 
