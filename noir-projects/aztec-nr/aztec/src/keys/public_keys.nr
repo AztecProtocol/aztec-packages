@@ -34,7 +34,7 @@ impl Serialize<POINT_LENGTH> for NpkM {
     }
 }
 
-// Note: If we store npk_m_hash directly we can remove this trait implementation
+// Note: If we store npk_m_hash directly we can remove this trait implementation. See #8091
 impl Hash for NpkM {
     fn hash(self) -> Field {
         self.inner.hash()
