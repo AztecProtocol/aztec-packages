@@ -169,7 +169,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            data()[i - start_index_offset] += other[i];
+            data()[i - start_index_offset] += other.span[i];
         }
     });
 
@@ -297,7 +297,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            coefficients_.data()[i - start_index_offset] -= other[i];
+            coefficients_.data()[i - start_index_offset] -= other.span[i];
         }
     });
     return *this;
@@ -329,11 +329,12 @@ template <typename Fr> void hacky_shift_adjustment(const Polynomial<Fr>& to_shif
     auto& mutable_hack = const_cast<Polynomial<Fr>&>(to_shift);
     ASSERT(to_shift[to_shift.start_index()] == Fr(0));
 
-    mutable_hack = Polynomial<Fr>(to_shift.size() - 1, to_shift.virtual_size(), to_shift.start_index() + 1);
+    auto copy = Polynomial<Fr>(to_shift.size() - 1, to_shift.virtual_size(), to_shift.start_index() + 1);
     size_t i = 0;
     for (const Fr& coeff : to_shift.coeffs(/*offset*/ 1)) {
-        mutable_hack.coeffs()[i] = coeff;
+        copy.coeffs()[i] = coeff;
     }
+    mutable_hack = copy;
 }
 } // namespace
 
@@ -341,17 +342,26 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
 {
     const size_t other_size = other.size();
 
-    // WORKTODO(sparse) remove this and properly instantiate these things
-    if (start_index() > other.start_index || end_index() < other.end_index()) {
-        if (start_index() <= 0) {
-            hacky_shift_adjustment(*this);
-        } else {
-            other.start_index += 1;
-            other.span = other.span.subspan(1);
-        }
-    }
+    // // WORKTODO(sparse) remove this and properly instantiate these things
+    // if (start_index() > other.start_index || end_index() < other.end_index()) {
+    //     if (start_index() <= 0) {
+    //         hacky_shift_adjustment(*this);
+    //     } else {
+    //         other.start_index += 1;
+    //         other.span = other.span.subspan(1);
+    //     }
+    // }
     // END WORKTODO(sparse) remove this block
-    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
+    // Compute the subset that is defined in both polynomials
+    size_t start = std::max(start_index(), other.start_index);
+    size_t end = std::min(end_index(), other.end_index());
+    // Assert that values in 'other' that lie outside this subset are zeroes
+    for (size_t i = other.start_index; i < start; i++) {
+        ASSERT(other[i] == 0);
+    }
+    for (size_t i = end; i < other.end_index(); i++) {
+        ASSERT(other[i] == 0);
+    }
 
     size_t start_index_offset = other.start_index - start_index();
     size_t num_threads = calculate_num_threads(other_size);
@@ -361,7 +371,7 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
         size_t offset = j * range_per_thread;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            data()[i - start_index_offset] += scaling_factor * other[i];
+            data()[i - start_index_offset] += scaling_factor * other.span[i];
         }
     });
 }
@@ -374,10 +384,10 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
  */
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
-    // WORKTODO(sparse) remove this and properly instantiate these things
-    if (coefficients_.start_ <= 0) {
-        hacky_shift_adjustment(*this);
-    }
+    // // WORKTODO(sparse) remove this and properly instantiate these things
+    // if (coefficients_.start_ <= 0) {
+    //     hacky_shift_adjustment(*this);
+    // }
     ASSERT(coefficients_.start_ >= 1);
     Polynomial result;
     result.coefficients_ = coefficients_;

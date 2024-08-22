@@ -350,7 +350,7 @@ class ECCVMFlavor {
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
+                poly = Polynomial(circuit_size / 2, circuit_size / 2);
             }
         }
     };
@@ -507,7 +507,7 @@ class ECCVMFlavor {
 
             // allocate polynomials; define lagrange and lookup read count polynomials
             for (auto& poly : get_all()) {
-                poly = Polynomial(dyadic_num_rows);
+                poly = Polynomial(dyadic_num_rows, dyadic_num_rows);
             }
             lagrange_first[0] = 1;
             lagrange_second[1] = 1;

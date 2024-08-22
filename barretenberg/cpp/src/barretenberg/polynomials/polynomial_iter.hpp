@@ -343,8 +343,8 @@ template <typename Fr> struct PolynomialSpan {
     size_t end_index() const { return start_index + size(); }
     Fr* data() { return span.data(); }
     size_t size() const { return span.size(); }
-    Fr& operator[](size_t index) { return span[index]; }
-    const Fr& operator[](size_t index) const { return span[index]; }
+    Fr& operator[](size_t index) { return span[index - start_index]; }
+    const Fr& operator[](size_t index) const { return span[index - start_index]; }
 };
 
 } // namespace bb

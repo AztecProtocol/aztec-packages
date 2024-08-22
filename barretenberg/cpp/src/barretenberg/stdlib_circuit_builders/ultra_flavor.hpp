@@ -298,7 +298,11 @@ class UltraFlavor {
           // shifted polys
             ZoneScopedN("creating empty prover polys");
             for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ circuit_size };
+                poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
+            }
+            // WORKTODO bad
+            for (auto& poly : get_to_be_shifted()) {
+                poly = Polynomial{ /*memory size*/ circuit_size - 1, /*degree + 1*/ circuit_size, /* offset */ 1 };
             }
             set_shifted();
         }
@@ -554,7 +558,7 @@ class UltraFlavor {
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
+                poly = Polynomial(circuit_size / 2, circuit_size / 2);
             }
         }
     };

@@ -788,7 +788,7 @@ class TranslatorFlavor {
         ProverPolynomials(size_t circuit_size)
         {
             for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ circuit_size };
+                poly = Polynomial{ circuit_size, circuit_size };
             }
             set_shifted();
         }
@@ -911,7 +911,7 @@ class TranslatorFlavor {
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
+                poly = Polynomial(circuit_size / 2, circuit_size / 2);
             }
         }
     };

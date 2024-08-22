@@ -122,7 +122,7 @@ template <class Curve> class CommitmentKey {
 
             for (size_t idx = start; idx < end; ++idx) {
 
-                const Fr& scalar = polynomial[idx];
+                const Fr& scalar = polynomial.span[idx];
 
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);

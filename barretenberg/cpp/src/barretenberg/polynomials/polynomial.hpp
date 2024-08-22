@@ -39,9 +39,9 @@ template <typename Fr> class Polynomial {
 
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
-    Polynomial(size_t size)
-        : Polynomial(size, size)
-    {}
+    // Polynomial(size_t size)
+    //     : Polynomial(size, size)
+    // {}
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
@@ -214,7 +214,7 @@ template <typename Fr> class Polynomial {
     // const_iterator begin() const { return const_iterator(this, 0); }
     // const_iterator end() const { return const_iterator(this, size()); }
 
-    iterator at(size_t index) { return iterator(this, index); }
+    Fr& at(size_t index) { return data()[index - start_index()]; }
     // const_iterator at(size_t index) const { return const_iterator(this, index); }
 
     Fr operator[](size_t i) { return get(i); }

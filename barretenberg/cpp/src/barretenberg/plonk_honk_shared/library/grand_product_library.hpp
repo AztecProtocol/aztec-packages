@@ -57,8 +57,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
     size_t circuit_size = full_polynomials.get_polynomial_size();
-    Polynomial numerator{ circuit_size };
-    Polynomial denominator{ circuit_size };
+    Polynomial numerator{ circuit_size, circuit_size };
+    Polynomial denominator{ circuit_size, circuit_size };
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
