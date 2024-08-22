@@ -103,6 +103,7 @@ describe('sequencer', () => {
       BigInt(lastBlockNumber),
       block.header.lastArchive.toBuffer(),
     ]);
+    publisher.getValidatorCount.mockResolvedValue(0n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeOperations>();
@@ -190,7 +191,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
@@ -231,7 +232,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
@@ -250,6 +251,8 @@ describe('sequencer', () => {
       BigInt(lastBlockNumber),
       block.header.lastArchive.toBuffer(),
     ]);
+    // Specify that there is a validator, such that we don't allow everyone to publish
+    publisher.getValidatorCount.mockResolvedValueOnce(1n);
 
     await sequencer.initialSync();
     await sequencer.work();
@@ -294,7 +297,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
@@ -346,7 +349,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
@@ -498,7 +501,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
@@ -560,7 +563,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
@@ -619,7 +622,7 @@ describe('sequencer', () => {
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(lastBlockNumber + 1),
+      block.header.globalVariables.blockNumber,
       block.header.globalVariables.slotNumber,
       Fr.ZERO,
       coinbase,
