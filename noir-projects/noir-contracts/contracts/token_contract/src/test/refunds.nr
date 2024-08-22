@@ -1,4 +1,4 @@
-use crate::{test::utils, Token, types::token_note::TokenNote};
+use crate::{test::utils, Token};
 
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use dep::aztec::{
@@ -6,6 +6,7 @@ use dep::aztec::{
     protocol_types::storage::map::derive_storage_slot_in_map,
 };
 use std::test::OracleMock;
+use dep::uint_note::uint_note::UintNote;
 
 #[test]
 unconstrained fn setup_refund_success() {
@@ -48,21 +49,21 @@ unconstrained fn setup_refund_success() {
     // worth  `funded_amount - transaction_fee`. We "know" the transaction fee was 1 (it is hardcoded in
     // `executePublicFunction` TXE oracle) but we need to notify TXE of the note (preimage).
     env.add_note(
-        &mut TokenNote {
-            amount: U128::from_integer(funded_amount - 1),
+        &mut UintNote {
+            value: U128::from_integer(funded_amount - 1),
             npk_m_hash: user_npk_m_hash,
             randomness: user_randomness,
-            header: NoteHeader::empty(),
+            header: NoteHeader::empty()
         },
         user_balances_slot,
         token_contract_address,
     );
     env.add_note(
-        &mut TokenNote {
-            amount: U128::from_integer(1),
+        &mut UintNote {
+            value: U128::from_integer(1),
             npk_m_hash: fee_payer_npk_m_hash,
             randomness: fee_payer_randomness,
-            header: NoteHeader::empty(),
+            header: NoteHeader::empty()
         },
         fee_payer_balances_slot,
         token_contract_address,
