@@ -59,7 +59,7 @@ export async function bridgeL1FeeJuice(
   }
 
   if (wait) {
-    const delayedCheck = async (delay: number) => {
+    const delayedCheck = (delay: number) => {
       return new Promise(resolve => {
         setTimeout(async () => {
           const witness = await client.getL1ToL2MembershipWitness(
