@@ -321,24 +321,6 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
-template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor)
-{
-    const size_t other_size = other.size();
-    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
-
-    size_t start_index_offset = other.start_index - start_index();
-    size_t num_threads = calculate_num_threads(other_size);
-    size_t range_per_thread = other_size / num_threads;
-    size_t leftovers = other_size - (range_per_thread * num_threads);
-    parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread;
-        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
-        for (size_t i = offset; i < end; ++i) {
-            data()[i - start_index_offset] += scaling_factor * other[i];
-        }
-    });
-}
-
 namespace {
 // WORKTODO(sparse polys)
 // WORKTODO we need to actually allocate shifted polynomials properly - until then, reallocate them shifted
@@ -354,6 +336,35 @@ template <typename Fr> void hacky_shift_adjustment(const Polynomial<Fr>& to_shif
     }
 }
 } // namespace
+
+template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor)
+{
+    const size_t other_size = other.size();
+
+    // WORKTODO(sparse) remove this and properly instantiate these things
+    if (start_index() > other.start_index || end_index() < other.end_index()) {
+        if (start_index() <= 0) {
+            hacky_shift_adjustment(*this);
+        } else {
+            other.start_index += 1;
+            other.span = other.span.subspan(1);
+        }
+    }
+    // END WORKTODO(sparse) remove this block
+    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
+
+    size_t start_index_offset = other.start_index - start_index();
+    size_t num_threads = calculate_num_threads(other_size);
+    size_t range_per_thread = other_size / num_threads;
+    size_t leftovers = other_size - (range_per_thread * num_threads);
+    parallel_for(num_threads, [&](size_t j) {
+        size_t offset = j * range_per_thread;
+        size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
+        for (size_t i = offset; i < end; ++i) {
+            data()[i - start_index_offset] += scaling_factor * other[i];
+        }
+    });
+}
 
 /**
  * @brief Returns a Polynomial the left-shift of self.

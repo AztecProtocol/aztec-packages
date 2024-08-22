@@ -203,8 +203,8 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
-    std::size_t size() const { return coefficients_.end_; }
-    std::size_t virtual_size() const { return coefficients_.virtual_size_; }
+    std::size_t size() const { return coefficients_.size(); }
+    std::size_t virtual_size() const { return coefficients_.virtual_size(); }
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
