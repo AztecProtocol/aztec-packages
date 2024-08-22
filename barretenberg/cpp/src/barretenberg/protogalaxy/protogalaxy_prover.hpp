@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -124,21 +123,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
         return pows;
     }
-
-    /**
-     * @brief Compute the gate challenges used int the combiner calculation
-     *
-     * @details This is Step 8 of the protocol.
-     *
-     * @param perturbator_challenge
-     * @param gate_challenges
-     * @param round_challenges
-     * @return std::vector<FF>
-     */
-    // WORKTODO: deduplicate
-    static std::vector<FF> update_gate_challenges(FF perturbator_challenge,
-                                                  const std::vector<FF>& gate_challenges,
-                                                  const std::vector<FF>& round_challenges);
 
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.

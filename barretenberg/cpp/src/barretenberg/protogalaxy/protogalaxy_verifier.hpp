@@ -44,19 +44,6 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
         return pows;
     }
 
-    static std::vector<FF> update_gate_challenges(const FF perturbator_challenge,
-                                                  const std::vector<FF>& gate_challenges,
-                                                  const std::vector<FF>& round_challenges)
-    {
-        auto log_instance_size = gate_challenges.size();
-        std::vector<FF> next_gate_challenges(log_instance_size);
-
-        for (size_t idx = 0; idx < log_instance_size; idx++) {
-            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
-        }
-        return next_gate_challenges;
-    }
-
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
