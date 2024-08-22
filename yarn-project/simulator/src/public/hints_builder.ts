@@ -42,6 +42,7 @@ export class HintsBuilder {
       readRequests,
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
       NOTE_HASH_TREE_HEIGHT,
+      MerkleTreeId.NOTE_HASH_TREE,
     );
   }
 
@@ -74,6 +75,7 @@ export class HintsBuilder {
       readRequests,
       MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
       L1_TO_L2_MSG_TREE_HEIGHT,
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
     );
   }
 
@@ -161,17 +163,15 @@ export class HintsBuilder {
   private async getTreeLeafReadRequestsHints<N extends number, TREE_HEIGHT extends number>(
     readRequests: Tuple<TreeLeafReadRequest, N>,
     size: N,
-    height: TREE_HEIGHT,
+    treeHeight: TREE_HEIGHT,
+    treeId: MerkleTreeId,
   ): Promise<Tuple<TreeLeafReadRequestHint<TREE_HEIGHT>, N>> {
-    const hints = makeTuple(size, () => TreeLeafReadRequestHint.empty(height));
+    const hints = makeTuple(size, () => TreeLeafReadRequestHint.empty(treeHeight));
     for (let i = 0; i < readRequests.length; i++) {
       const request = readRequests[i];
       if (!request.isEmpty()) {
-        const siblingPath = await this.db.getSiblingPath<typeof height>(
-          MerkleTreeId.NOTE_HASH_TREE,
-          request.leafIndex.toBigInt(),
-        );
-        hints[i] = new TreeLeafReadRequestHint(height, siblingPath.toTuple());
+        const siblingPath = await this.db.getSiblingPath<typeof treeHeight>(treeId, request.leafIndex.toBigInt());
+        hints[i] = new TreeLeafReadRequestHint(treeHeight, siblingPath.toTuple());
       }
     }
     return hints;
