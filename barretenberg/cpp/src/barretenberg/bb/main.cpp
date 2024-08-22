@@ -1012,10 +1012,14 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     vinfo("circuit size: ", circuit_size);
     vinfo("num of pub inputs: ", num_public_inputs);
 
+    // Each commitment (precomputed entity) is represented as 2 Fq field elements.
+    // Each Fq element is split into two limbs of Fr elements.
+    // We therefore need 2 (circuit_size, num_public_inputs) + 4 * NUM_PRECOMPUTED_ENTITIES fr elements.
     ASSERT(vk_as_fields.size() == 4 * AvmFlavor::NUM_PRECOMPUTED_ENTITIES + 2);
 
     std::array<Commitment, AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
     for (size_t i = 0; i < AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
+        // Start at offset 2 and adds 4 fr elements per commitment. Therefore, index = 4 * i + 2.
         precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(vk_span.subspan(4 * i + 2, 4));
     }
 

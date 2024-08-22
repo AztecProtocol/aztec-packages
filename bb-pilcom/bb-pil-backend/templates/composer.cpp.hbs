@@ -39,7 +39,7 @@ void {{name}}Composer::compute_witness(CircuitConstructor& circuit)
 {{name}}Verifier {{name}}Composer::create_verifier(CircuitConstructor& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
-    return {{name}}Verifier(verification_key);
+    return {{name}}Verifier(std::move(verification_key));
 }
 
 std::shared_ptr<Flavor::ProvingKey> {{name}}Composer::compute_proving_key(CircuitConstructor& circuit_constructor)

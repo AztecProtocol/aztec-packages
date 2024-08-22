@@ -289,7 +289,8 @@ const proveAndVerifyAvmTestContract = async (
   // - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
   // 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
   // Total number of bytes = 2112
-  expect(verificationKey.keyAsBytes).toHaveLength(2112);
+  const NUM_PRECOMPUTED_ENTITIES = 16;
+  expect(verificationKey.keyAsBytes).toHaveLength(NUM_PRECOMPUTED_ENTITIES * 4 * 32 + 2 * 32);
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');

@@ -10,8 +10,7 @@
 namespace bb {
 
 {{name}}Verifier::{{name}}Verifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
-    : key(verifier_key)
-    , pcs_verification_key(std::make_shared<VerifierCommitmentKey>())
+    : key(std::move(verifier_key))
 {}
 
 {{name}}Verifier::{{name}}Verifier({{name}}Verifier&& other) noexcept
@@ -22,7 +21,7 @@ namespace bb {
 {{name}}Verifier& {{name}}Verifier::operator=({{name}}Verifier&& other) noexcept
 {
     key = other.key;
-    pcs_verification_key = (std::move(other.pcs_verification_key));
+    pcs_verification_key = other.pcs_verification_key;
     commitments.clear();
     return *this;
 }
@@ -125,11 +124,11 @@ bool {{name}}Verifier::verify_proof(const HonkProof& proof, [[maybe_unused]] con
                                            claimed_evaluations.get_unshifted(),
                                            claimed_evaluations.get_shifted(),
                                            multivariate_challenge,
-                                           pcs_verification_key->get_g1_identity(),
+                                           pcs_verification_key.get_g1_identity(),
                                            transcript);
 
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified = pcs_verification_key.pairing_check(pairing_points[0], pairing_points[1]);
     return sumcheck_verified.value() && verified;
 }
 
