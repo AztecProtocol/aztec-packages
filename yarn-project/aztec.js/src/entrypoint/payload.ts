@@ -178,3 +178,13 @@ class FeeEntrypointPayload extends EntrypointPayload {
   }
   /* eslint-enable camelcase */
 }
+
+/**
+ * Computes the hash of the combined payload.
+ * @param appPayload - The app payload.
+ * @param feePayload - The fee payload.
+ * @returns The hash of the combined payload.
+ */
+export function computeCombinedPayloadHash(appPayload: AppEntrypointPayload, feePayload: FeeEntrypointPayload): Fr {
+  return poseidon2HashWithSeparator([appPayload.hash(), feePayload.hash()], GeneratorIndex.COMBINED_PAYLOAD);
+}
