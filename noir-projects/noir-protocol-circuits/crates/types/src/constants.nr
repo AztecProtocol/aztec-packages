@@ -185,7 +185,7 @@ global L2_GAS_PER_NOTE_HASH: u32 = 32;
 global L2_GAS_PER_NULLIFIER: u32 = 64;
 
 // CANONICAL CONTRACT ADDRESSES
-global CANONICAL_KEY_REGISTRY_ADDRESS = AztecAddress::from_field(0x2ee3f8c67efa88f9e6fb44242f1e9dcc0f9a6752ded07af0d9fac3875a61d421);
+global CANONICAL_KEY_REGISTRY_ADDRESS = AztecAddress::from_field(0x156eabf84e3ea50d40e3330224f2d2e81648fff8f1f7ec1bc6d2873cca6e959d);
 global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x24877c50868f86712240eb535d90d1c97403d074805dd3758c3aecb02958f8d4);
 global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x2ab1a2bd6d07d8d61ea56d85861446349e52c6b7c0612b702cb1e6db6ad0b089);
 global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x05d15342d76e46e5be07d3cda0d753158431cdc5e39d29ce4e8fe1f5c070564a);
@@ -279,11 +279,11 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 409;
-global NESTED_RECURSIVE_PROOF_LENGTH = 409;
+global RECURSIVE_PROOF_LENGTH = 439;
+global NESTED_RECURSIVE_PROOF_LENGTH = 439;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 120;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.

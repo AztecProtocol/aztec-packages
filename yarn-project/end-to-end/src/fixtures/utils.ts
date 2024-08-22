@@ -38,7 +38,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/foundation/abi';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -55,7 +55,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { AuthRegistryContract, NewKeyRegistryContract } from '@aztec/noir-contracts.js';
+import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
@@ -111,6 +111,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
+  args: { salt?: number } = {},
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -146,7 +147,7 @@ export const setupL1Contracts = async (
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
-    salt: undefined,
+    salt: args.salt,
   });
 
   return l1Data;
@@ -691,7 +692,7 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet) {
     return;
   }
 
-  const keyRegistry = await NewKeyRegistryContract.deploy(deployer)
+  const keyRegistry = await KeyRegistryContract.deploy(deployer)
     .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
     .deployed();
 
@@ -741,4 +742,15 @@ export async function deployCanonicalAuthRegistry(deployer: Wallet) {
   expect(getContractClassFromArtifact(authRegistry.artifact).id).toEqual(authRegistry.instance.contractClassId);
   await expect(deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalAuthRegistry.instance.address)).resolves.toBeDefined();
+}
+
+export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
+  targetBlock ??= await node.getBlockNumber();
+
+  await retryUntil(
+    async () => (await node.getProvenBlockNumber()) >= targetBlock,
+    'proven chain status',
+    timeoutSec,
+    intervalSec,
+  );
 }
