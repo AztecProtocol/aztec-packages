@@ -1,10 +1,11 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/polynomials/pow.hpp"
-#include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include "barretenberg/ultra_honk/decider_verifier.hpp"
 
 #include <gtest/gtest.h>
 
@@ -96,7 +97,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
         auto expected_pows = PowPolynomial(accumulator->gate_challenges);
-        expected_pows.compute_values();
+        expected_pows.compute_values(accumulator->gate_challenges.size());
 
         // Compute the corresponding target sum and create a dummy accumulator
         auto expected_target_sum = FF(0);
@@ -203,7 +204,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
         // Construct pow(\vec{betas}) as in the paper
         auto pow_beta = bb::PowPolynomial(betas);
-        pow_beta.compute_values();
+        pow_beta.compute_values(log_instance_size);
 
         // Compute the corresponding target sum and create a dummy accumulator
         auto target_sum = FF(0);
@@ -218,7 +219,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         accumulator->relation_parameters = relation_parameters;
         accumulator->alphas = alphas;
 
-        auto deltas = ProtoGalaxyProver::compute_round_challenge_pows(log_instance_size, FF::random_element());
+        auto deltas = compute_round_challenge_pows(log_instance_size, FF::random_element());
         auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas);
 
         // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
