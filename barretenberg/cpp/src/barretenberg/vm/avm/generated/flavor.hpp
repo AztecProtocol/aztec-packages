@@ -329,29 +329,30 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
     };
 
-<<<<<<< HEAD
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
-=======
     // Note(md): required for instantiation from the proving key - im sure there are other ways to construct this
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
             : VerificationKey_(proving_key->circuit_size, proving_key->num_public_inputs)
         {
-            // TODO(md): will likely need more information from this - circuit_size etc???
-
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
+
+        VerificationKey(const size_t circuit_size,
+                        const size_t num_public_inputs,
+                        std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> const& precomputed_cmts)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {
+            for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
+                vk_cmt = cmt;
+            }
+        }
     };
->>>>>>> d0b2110807 (7790: Fix for zeromorph verification issue)
 
     class AllValues : public AllEntities<FF> {
       public:
@@ -447,8 +448,10 @@ class AvmFlavor {
             this->byte_lookup_table_input_b = verification_key->byte_lookup_table_input_b;
             this->byte_lookup_table_op_id = verification_key->byte_lookup_table_op_id;
             this->byte_lookup_table_output = verification_key->byte_lookup_table_output;
-            this->gas_da_gas_fixed_table = verification_key->gas_da_gas_fixed_table;
-            this->gas_l2_gas_fixed_table = verification_key->gas_l2_gas_fixed_table;
+            this->gas_base_da_gas_fixed_table = verification_key->gas_base_da_gas_fixed_table;
+            this->gas_base_l2_gas_fixed_table = verification_key->gas_base_l2_gas_fixed_table;
+            this->gas_dyn_da_gas_fixed_table = verification_key->gas_dyn_da_gas_fixed_table;
+            this->gas_dyn_l2_gas_fixed_table = verification_key->gas_dyn_l2_gas_fixed_table;
             this->gas_sel_gas_cost = verification_key->gas_sel_gas_cost;
             this->main_clk = verification_key->main_clk;
             this->main_sel_first = verification_key->main_sel_first;

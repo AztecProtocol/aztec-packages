@@ -10,9 +10,9 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 // TODO(md): uni or multivariate polynomials required?
 // #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 // Include relation files
@@ -130,6 +130,9 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     // static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = FF;
+
+    // This flavor would not be used with ZK Sumcheck
+    static constexpr bool HasZK = false;
 
     // TODO(md): inherited?
     // define the containers for storing the contributions from each relation in Sumcheck
