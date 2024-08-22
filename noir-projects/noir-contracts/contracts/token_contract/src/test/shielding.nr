@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash};
+use dep::aztec::{oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::{types::transparent_note::TransparentNote, Token};
 

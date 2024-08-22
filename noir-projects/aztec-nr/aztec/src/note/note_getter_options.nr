@@ -3,9 +3,9 @@ use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, trait
 use crate::note::note_interface::NoteInterface;
 
 struct PropertySelector {
-    index: u8,
-    offset: u8,
-    length: u8,
+    index: u8, // index of the field in the serialized note array
+    offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
+    length: u8, // number of bytes to read after the offset
 }
 
 struct Select {

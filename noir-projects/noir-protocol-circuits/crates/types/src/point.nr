@@ -1,5 +1,5 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
-use crate::{traits::{Empty, Hash, Serialize}, hash::poseidon2_hash};
+use crate::{traits::{Deserialize, Empty, Hash, Serialize}, hash::poseidon2_hash};
 
 global POINT_LENGTH: Field = 3;
 
@@ -20,5 +20,15 @@ impl Empty for Point {
     /// empty/unpopulated value in an array of points).
     fn empty() -> Self {
         Point { x: 0, y: 0, is_infinite: false }
+    }
+}
+
+impl Deserialize<POINT_LENGTH> for Point {
+    fn deserialize(serialized: [Field; POINT_LENGTH]) -> Point {
+        Point {
+            x: serialized[0],
+            y: serialized[1],
+            is_infinite: serialized[2] as bool
+        }
     }
 }

@@ -1,7 +1,6 @@
 use crate::{test::utils, Token, types::token_note::TokenNote};
 
 use dep::aztec::{
-    test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash,
     prelude::NoteHeader, protocol_types::storage::map::derive_storage_slot_in_map,
     keys::getters::get_current_public_keys
 };
