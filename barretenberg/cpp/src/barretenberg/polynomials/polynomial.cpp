@@ -339,6 +339,22 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
     });
 }
 
+namespace {
+// WORKTODO(sparse polys)
+// WORKTODO we need to actually allocate shifted polynomials properly - until then, reallocate them shifted
+template <typename Fr> void hacky_shift_adjustment(const Polynomial<Fr>& to_shift)
+{
+    auto& mutable_hack = const_cast<Polynomial<Fr>&>(to_shift);
+    ASSERT(to_shift[to_shift.start_index()] == Fr(0));
+
+    mutable_hack = Polynomial<Fr>(to_shift.size() - 1, to_shift.virtual_size(), to_shift.start_index() + 1);
+    size_t i = 0;
+    for (const Fr& coeff : to_shift.coeffs(/*offset*/ 1)) {
+        mutable_hack.coeffs()[i] = coeff;
+    }
+}
+} // namespace
+
 /**
  * @brief Returns a Polynomial the left-shift of self.
  *
@@ -347,6 +363,10 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
  */
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
+    // WORKTODO(sparse) remove this and properly instantiate these things
+    if (coefficients_.start_ <= 0) {
+        hacky_shift_adjustment(*this);
+    }
     ASSERT(coefficients_.start_ >= 1);
     Polynomial result;
     result.coefficients_ = coefficients_;

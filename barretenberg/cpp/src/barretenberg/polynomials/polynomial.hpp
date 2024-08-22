@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/polynomials/polynomial_iter.hpp"
@@ -167,7 +168,7 @@ template <typename Fr> class Polynomial {
     void factor_roots(const Fr& root)
     {
         // WORKTODO(sparse) we can optimize the case root = 0 with just a simple shift (start_index +=1 , size -= 1)
-        polynomial_arithmetic::factor_roots(as_span(), root);
+        polynomial_arithmetic::factor_roots(coeffs(), root);
     };
 
     Fr evaluate(const Fr& z, size_t target_size) const;
@@ -247,22 +248,27 @@ template <typename Fr> class Polynomial {
     size_t start_index() const { return coefficients_.start_; }
     size_t end_index() const { return coefficients_.end_; }
 
-    // We keep this explicit, instead of having an implicit conversion to span.
-    // This is safer as it is more likely that we need to consider our start_index()
-    // along with the span, as in PolynomialSpan below.
-    std::span<Fr> as_span() { return { data(), data() + size() }; }
-    std::span<const Fr> as_span() const { return { data(), data() + size() }; }
+    /**
+     * @brief Strictly iterates the defined region of the polynomial.
+     * We keep this explicit, instead of having an implicit conversion to span.
+     * This is safer as it is more likely that we need to consider our start_index()
+     * along with the span, as in PolynomialSpan below.
+     *
+     * @return std::span<Fr> a span covering start_index() to end_index()
+     */
+    std::span<Fr> coeffs(size_t offset = 0) { return { data() + offset, data() + size() }; }
+    std::span<const Fr> coeffs(size_t offset = 0) const { return { data() + offset, data() + size() }; }
     /**
      * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<Fr>() { return { start_index(), as_span() }; }
+    operator PolynomialSpan<Fr>() { return { start_index(), coeffs() }; }
 
     /**
      * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<const Fr>() const { return { start_index(), as_span() }; }
+    operator PolynomialSpan<const Fr>() const { return { start_index(), coeffs() }; }
 
   private:
     // allocate a fresh memory pointer for backing memory
@@ -296,6 +302,14 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynom
               << "  " << p[p.size() - 2] << ",\n"
               << "  " << p[p.size() - 1] << ",\n"
               << "]";
+}
+
+template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&... polys)
+{
+    // Ensure all polys have the same start_index() and end_index() as poly
+    // Use fold expression to check all polys exactly match our size
+    ASSERT((poly.start_index() == polys.start_index() && poly.end_index() == polys.end_index()) && ...);
+    return zip_view(poly.coeffs(), polys.coeffs()...);
 }
 
 } // namespace bb

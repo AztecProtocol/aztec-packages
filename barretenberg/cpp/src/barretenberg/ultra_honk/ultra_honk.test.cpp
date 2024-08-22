@@ -42,7 +42,7 @@ void prove_and_verify(auto& circuit_builder, bool expected_result)
 void ensure_non_zero(auto& polynomial)
 {
     bool has_non_zero_coefficient = false;
-    for (auto& coeff : polynomial) {
+    for (auto& coeff : polynomial.coeffs()) {
         has_non_zero_coefficient |= !coeff.is_zero();
     }
     ASSERT_TRUE(has_non_zero_coefficient);
@@ -267,7 +267,7 @@ TEST_F(UltraHonkTests, LookupFailure)
         auto& polynomials = instance->proving_key.polynomials;
 
         // Find a lookup gate and alter one of the wire values
-        for (auto [q_lookup, wire_3] : zip_view(polynomials.q_lookup, polynomials.w_o)) {
+        for (auto [q_lookup, wire_3] : zip_polys(polynomials.q_lookup, polynomials.w_o)) {
             if (!q_lookup.is_zero()) {
                 wire_3 += 1;
                 break;

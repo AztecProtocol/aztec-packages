@@ -54,7 +54,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
 
     // Compute inverse polynomial I in place by inverting the product at each row
     // Note: zeroes are ignored as they are not used anyway
-    FF::batch_invert(inverse_polynomial.as_span());
+    FF::batch_invert(inverse_polynomial.coeffs());
 }
 
 /**
