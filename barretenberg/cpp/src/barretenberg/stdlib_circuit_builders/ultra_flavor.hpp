@@ -335,12 +335,13 @@ class UltraFlavor {
      */
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
-        // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
 
-        ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
-            : Base(circuit_size, num_public_inputs)
+        ProvingKey() = default;
+        ProvingKey(const size_t circuit_size,
+                   const size_t num_public_inputs,
+                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+            : Base(circuit_size, num_public_inputs, std::move(commitment_key))
             , polynomials(circuit_size){};
 
         std::vector<uint32_t> memory_read_records;
@@ -555,6 +556,7 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
+            ZoneScopedN("PartiallyEvaluatedMultivariates constructor");
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {
