@@ -162,6 +162,7 @@ library Constants {
   uint256 internal constant SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH = 6;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
   uint256 internal constant READ_REQUEST_LENGTH = 2;
+  uint256 internal constant TREE_LEAF_READ_REQUEST_LENGTH = 2;
   uint256 internal constant LOG_HASH_LENGTH = 3;
   uint256 internal constant SCOPED_LOG_HASH_LENGTH = 4;
   uint256 internal constant ENCRYPTED_LOG_HASH_LENGTH = 4;
@@ -188,14 +189,14 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 514;
+  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 770;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 610;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 43;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1336;
   uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2167;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1311;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3629;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3885;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;

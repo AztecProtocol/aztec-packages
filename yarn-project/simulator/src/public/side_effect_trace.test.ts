@@ -102,8 +102,8 @@ describe('Side Effect Trace', () => {
         //storageAddress: contractAddress,
         value: utxo,
         //exists: exists,
-        counter: startCounter,
-        //leafIndex: leafIndex,
+        // counter: startCounter,
+        leafIndex,
       },
     ]);
     expect(pxResult.avmCircuitHints.noteHashExists.items).toEqual([{ key: startCounterFr, value: new Fr(exists) }]);
@@ -180,7 +180,7 @@ describe('Side Effect Trace', () => {
     expect(pxResult.l1ToL2MsgReadRequests).toEqual([
       {
         value: utxo,
-        counter: startCounter,
+        leafIndex,
       },
     ]);
     expect(pxResult.avmCircuitHints.l1ToL2MessageExists.items).toEqual([
