@@ -20,9 +20,9 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
 template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     // TODO(md): enable zeromorph
-    // using Curve = typename Flavor::Curve;
-    // using Zeromorph = ZeroMorphVerifier_<Curve>;
-    // using PCS = typename Flavor::PCS;
+    using Curve = typename Flavor::Curve;
+    using Zeromorph = ZeroMorphVerifier_<Curve>;
+    using PCS = typename Flavor::PCS;
 
     // TODO(md): Questionable assignments
     // using Curve = typename Flavor::Curve;
@@ -99,21 +99,19 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
 
     // TODO(md): when calling `get_commitments` do the values get constrained in their origin? check that the zip_view
     // does in fact use the verifier type to get it?
-    // TODO: will probably need to disable zeromorph for the meantime as we are not able to verify it natively at the
-    // moment
 
-    // info()
-    // auto multivariate_to_univariate_opening_claim = Zeromorph::verify(commitments.get_unshifted(),
-    //                                                                   commitments.get_to_be_shifted(),
-    //                                                                   claimed_evaluations.get_unshifted(),
-    //                                                                   claimed_evaluations.get_shifted(),
-    //                                                                   multivatiate_challenge,
-    //                                                                   key->pcs_verification_key->get_g1_identity(),
-    //                                                                   transcript);
+    auto multivariate_to_univariate_opening_claim = Zeromorph::verify(circuit_size,
+                                                                      commitments.get_unshifted(),
+                                                                      commitments.get_to_be_shifted(),
+                                                                      claimed_evaluations.get_unshifted(),
+                                                                      claimed_evaluations.get_shifted(),
+                                                                      multivariate_challenge,
+                                                                      Commitment::one(builder),
+                                                                      transcript);
 
-    // auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
+    auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
 
-    // info("pairing points size ", pairing_points.size());
+    info("pairing points size ", pairing_points.size());
 
     // TODO(md): call assert true on the builder type to lay down the positive boolean constraint?
 }
