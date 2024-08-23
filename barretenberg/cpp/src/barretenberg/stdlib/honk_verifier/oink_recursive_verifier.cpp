@@ -25,9 +25,7 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
 template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationParams = ::bb::RelationParameters<FF>;
 
-    RelationParams relation_parameters;
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
@@ -92,8 +90,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs, beta, gamma, circuit_size, static_cast<uint32_t>(instance->verification_key->pub_inputs_offset));
 
-    relation_parameters = RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
-
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
@@ -101,6 +97,11 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     for (size_t idx = 0; idx < alphas.size(); idx++) {
         alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
     }
+
+    instance->relation_parameters = RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
+    instance->witness_commitments = std::move(commitments);
+    instance->public_inputs = std::move(public_inputs);
+    instance->alphas = std::move(alphas);
 }
 
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;
