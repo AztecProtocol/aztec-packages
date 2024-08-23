@@ -63,6 +63,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
     using GroupElement = typename TypeParam::Element;
+    using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
     const size_t n = 16;
@@ -72,13 +73,18 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    const auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
+    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
     auto poly1 = this->random_polynomial(n);
     auto poly2 = this->random_polynomial(n);
     poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
 
-    GroupElement commitment1 = this->commit(poly1);
-    GroupElement commitment2 = this->commit(poly2);
+    Commitment commitment1 = this->commit(poly1);
+    Commitment commitment2 = this->commit(poly2);
+
+    std::vector<Commitment> unshifted_commitments = { commitment1, commitment2 };
+    std::vector<Commitment> shifted_commitments = { commitment2 };
+    // RefSpan<Commitment> f_commitments(unshifted_commitments);
+    // RefSpan<Commitment> g_commitments(shifted_commitments);
 
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
     auto eval2 = poly2.evaluate_mle(mle_opening_point);
@@ -126,17 +132,17 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     const Fr r_challenge = prover_transcript->template get_challenge<Fr>("Gemini:r");
 
-    const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
+    const auto gemini_output = GeminiProver::compute_fold_polynomial_evaluations(
         mle_opening_point, std::move(gemini_polynomials), r_challenge);
 
     std::vector<ProverOpeningClaim<TypeParam>> opening_claims;
     for (size_t l = 0; l < log_n; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
-        const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
+        const auto& evaluation = gemini_output[l + 1].opening_pair.evaluation;
         prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
+        opening_claims.emplace_back(gemini_output[l].polynomial, gemini_output[l].opening_pair);
     }
-    opening_claims.emplace_back(gemini_witnesses[log_n], gemini_opening_pairs[log_n]);
+    opening_claims.emplace_back(gemini_output[log_n].polynomial, gemini_output[log_n].opening_pair);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -150,19 +156,21 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    Fr gemini_challenge;
 
     // Gemini verifier output:
-    // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                                     batched_evaluation,
-                                                                     batched_commitment_unshifted,
-                                                                     batched_commitment_to_be_shifted,
-                                                                     verifier_transcript);
+    auto gemini_verifier_claim =
+        GeminiVerifier::reduce_efficient_verification(mle_opening_point.size(), gemini_challenge, verifier_transcript);
 
-    // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
-    const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(this->vk()->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
-
+    const auto shplonk_verifier_claim = ShplonkVerifier::verify_gemini(this->vk()->get_g1_identity(),
+                                                                       RefVector(unshifted_commitments),
+                                                                       RefVector(shifted_commitments),
+                                                                       multilinear_evaluations,
+                                                                       mle_opening_point,
+                                                                       rho,
+                                                                       gemini_challenge,
+                                                                       gemini_verifier_claim,
+                                                                       verifier_transcript);
     // KZG verifier:
     // aggregates inputs [Q] - [Q_z] and [W] into an 'accumulator' (can perform pairing check on result)
     auto pairing_points = KZG::reduce_verify(shplonk_verifier_claim, verifier_transcript);
@@ -171,5 +179,4 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
 }
-
 } // namespace bb

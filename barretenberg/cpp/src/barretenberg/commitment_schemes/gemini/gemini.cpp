@@ -1,4 +1,3 @@
-
 #include "gemini.hpp"
 #include "barretenberg/common/thread.hpp"
 
@@ -86,7 +85,6 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         gemini_polynomials.emplace_back(Polynomial(n_l));
     }
-
     // A_l = Aₗ(X) is the polynomial being folded
     // in the first iteration, we take the batched polynomial
     // in the next iteration, it is the previously folded one
@@ -116,8 +114,10 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
                 // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
                 //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
                 //            = Aₗ₊₁[j]
-                A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
-            }
+                auto idx = static_cast<ptrdiff_t>(j);
+                auto idx_to_2 = static_cast<ptrdiff_t>(j << 1);
+                A_l_fold[idx] = A_l[idx_to_2] + u_l * (A_l[idx_to_2 + 1] - A_l[idx_to_2]);
+            };
         });
         // set Aₗ₊₁ = Aₗ for the next iteration
         A_l = A_l_fold;
@@ -141,7 +141,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
  * @param r_challenge univariate opening challenge
  */
 template <typename Curve>
-GeminiProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
+std::vector<ProverOpeningClaim<Curve>> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
     std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& gemini_polynomials, const Fr& r_challenge)
 {
     const size_t num_variables = mle_opening_point.size(); // m
@@ -183,9 +183,14 @@ GeminiProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluati
             OpeningPair<Curve>{ -r_squares[l], gemini_polynomials[l + 1].evaluate(-r_squares[l]) });
     }
 
-    return { fold_poly_opening_pairs, std::move(gemini_polynomials) };
+    std::vector<ProverOpeningClaim<Curve>> result;
+    result.reserve(gemini_polynomials.size());
+    for (size_t i = 0; i < gemini_polynomials.size(); ++i) {
+        result.push_back(ProverOpeningClaim<Curve>{ .polynomial = std::move(gemini_polynomials[i]),
+                                                    .opening_pair = std::move(fold_poly_opening_pairs[i]) });
+    }
+    return result;
 };
-
-template class GeminiProver_<curve::BN254>;
-template class GeminiProver_<curve::Grumpkin>;
-}; // namespace bb
+template class GeminiProver_<bb::curve::BN254>;
+template class GeminiProver_<bb::curve::Grumpkin>;
+} // namespace bb

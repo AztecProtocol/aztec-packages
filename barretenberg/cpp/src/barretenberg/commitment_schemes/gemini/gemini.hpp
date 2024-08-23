@@ -1,9 +1,7 @@
 #pragma once
-
 #include "../claim.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-
 #include <vector>
 
 /**
@@ -58,8 +56,8 @@ namespace bb {
  * @tparam Curve CommitmentScheme parameters
  */
 template <typename Curve> struct GeminiProverOutput {
+    std::vector<bb::Polynomial<typename Curve::ScalarField>> witnesses;
     std::vector<OpeningPair<Curve>> opening_pairs;
-    std::vector<Polynomial<typename Curve::ScalarField>> witnesses;
 };
 
 namespace gemini {
@@ -108,11 +106,23 @@ template <typename Curve> class GeminiProver_ {
                                                               Polynomial&& batched_unshifted,
                                                               Polynomial&& batched_to_be_shifted);
 
-    static GeminiProverOutput<Curve> compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
-                                                                         std::vector<Polynomial>&& gemini_polynomials,
-                                                                         const Fr& r_challenge);
+    static std::vector<ProverOpeningClaim<Curve>> compute_fold_polynomial_evaluations(
+        std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& gemini_polynomials, const Fr& r_challenge);
 }; // namespace bb
 
+/*!
+ * @brief Gemini Verifier designed to run in tandem with \ref bb::ShplonkVerifier_< Curve >::verify_gemini "verify
+gemini" method of the Shplonk Verifier.
+ *
+ * @details This verifier obtains the commitments to Prover's folded polynomials \f$ A_1,\ldots, A_{d-1}\f$, where \f$ d
+= \text{log_circuit_size}\f$, gets the opening challenge \f$ r \f$, and receives the claimed evaluations \f$ A_1(-r),
+\ldots, A_{d-1} (-r^{2^{d-1}})\f$. The output is a tuple consisting of a vector of the  powers of the gemini challenge
+\f$(r, r^2, \ldots, r^{2^{d-1}})\f$, the claimed evaluations of \f$ A_i \f$ at corresponding points, and a vector of
+commitments \f$(A_1,\ldots, A_{d-1})\f$. The only computation performed at this stage is the computation of the vector
+of powers of \f$ r \f$.
+ *
+ * @tparam Curve
+ */
 template <typename Curve> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -120,149 +130,38 @@ template <typename Curve> class GeminiVerifier_ {
 
   public:
     /**
-     * @brief Returns univariate opening claims for the Fold polynomials to be checked later
+     * @brief Returns a tuple of vectors \f$  (r, r^2, \ldots, r^{2^{d-1}} )\f$ , \f$ \left( A_0(-r), A_1(-r^2), \ldots,
+     * A_{d-1}(-r^{2^{d-1}}) \right)\f$, \f$ ( \text{com}(A_1), \text{com}(A_2), \ldots, \text{com}(A_{d-1} ) \f$
      *
-     * @param mle_opening_point the MLE evaluation point u
-     * @param batched_evaluation batched evaluation from multivariate evals at the point u
-     * @param batched_f batched commitment to unshifted polynomials
-     * @param batched_g batched commitment to to-be-shifted polynomials
-     * @param proof commitments to the m-1 folded polynomials, and alleged evaluations.
-     * @param transcript
-     * @return Fold polynomial opening claims: (r, A₀(r), C₀₊), (-r, A₀(-r), C₀₋), and
-     * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
+     * @param log_circuit_size MLE evaluation point u
+     * @param r Gemini evaluation challenge.
+     * @param transcript verifier's transcript
      */
-    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                                const Fr batched_evaluation,           /* all */
-                                                                GroupElement& batched_f,               /* unshifted */
-                                                                GroupElement& batched_g, /* to-be-shifted */
-                                                                auto& transcript)
+    static std::tuple<std::vector<Fr>, std::vector<Fr>, std::vector<Commitment>> reduce_efficient_verification(
+        const size_t log_circuit_size, // log circuit size
+        Fr& r,                         // gemini challenge
+        auto& transcript)
     {
-        const size_t num_variables = mle_opening_point.size();
-
-        // Get polynomials Fold_i, i = 1,...,m-1 from transcript
+        // Get commitments to polynomials A_i, i = 1,...,m-1 from transcript
         std::vector<Commitment> commitments;
-        commitments.reserve(num_variables - 1);
-        for (size_t i = 0; i < num_variables - 1; ++i) {
+        commitments.reserve(log_circuit_size - 1);
+        for (size_t i = 0; i < log_circuit_size - 1; ++i) {
             auto commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
             commitments.emplace_back(commitment);
         }
-
-        // compute vector of powers of random evaluation point r
-        const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        std::vector<Fr> r_squares = gemini::squares_of_r(r, num_variables);
-
-        // Get evaluations a_i, i = 0,...,m-1 from transcript
+        // get the Gemini challenge r and compute its powers
+        r = transcript->template get_challenge<Fr>("Gemini:r");
+        std::vector<Fr> r_squares = gemini::squares_of_r(r, log_circuit_size);
+        // get evaluations a_i, i = 0,...,m-1 from transcript
         std::vector<Fr> evaluations;
-        evaluations.reserve(num_variables);
-        for (size_t i = 0; i < num_variables; ++i) {
+        evaluations.reserve(log_circuit_size);
+        // populate the output tuple
+        for (size_t i = 0; i < log_circuit_size; ++i) {
             auto eval = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             evaluations.emplace_back(eval);
         }
-
-        // Compute evaluation A₀(r)
-        auto a_0_pos = compute_eval_pos(batched_evaluation, mle_opening_point, r_squares, evaluations);
-
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
-        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
-        auto [c0_r_pos, c0_r_neg] = compute_simulated_commitments(batched_f, batched_g, r);
-
-        std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
-        fold_polynomial_opening_claims.reserve(num_variables + 1);
-
-        // ( [A₀₊], r, A₀(r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, a_0_pos }, c0_r_pos });
-        // ( [A₀₋], -r, A₀(-r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, c0_r_neg });
-        for (size_t l = 0; l < num_variables - 1; ++l) {
-            // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
-            fold_polynomial_opening_claims.emplace_back(
-                OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
-        }
-
-        return fold_polynomial_opening_claims;
-    }
-
-  private:
-    /**
-     * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
-     *
-     * @param batched_mle_eval The evaluation of the folded polynomials
-     * @param mle_vars MLE opening point u
-     * @param r_squares squares of r, r², ..., r^{2ᵐ⁻¹}
-     * @param fold_polynomial_evals series of Aᵢ₋₁(−r^{2ⁱ⁻¹})
-     * @return evaluation A₀(r)
-     */
-    static Fr compute_eval_pos(const Fr batched_mle_eval,
-                               std::span<const Fr> mle_vars,
-                               std::span<const Fr> r_squares,
-                               std::span<const Fr> fold_polynomial_evals)
-    {
-        const size_t num_variables = mle_vars.size();
-
-        const auto& evals = fold_polynomial_evals;
-
-        // Initialize eval_pos with batched MLE eval v = ∑ⱼ ρʲ vⱼ + ∑ⱼ ρᵏ⁺ʲ v↺ⱼ
-        Fr eval_pos = batched_mle_eval;
-        for (size_t l = num_variables; l != 0; --l) {
-            const Fr r = r_squares[l - 1];    // = rₗ₋₁ = r^{2ˡ⁻¹}
-            const Fr eval_neg = evals[l - 1]; // = Aₗ₋₁(−r^{2ˡ⁻¹})
-            const Fr u = mle_vars[l - 1];     // = uₗ₋₁
-
-            // The folding property ensures that
-            //                     Aₗ₋₁(r^{2ˡ⁻¹}) + Aₗ₋₁(−r^{2ˡ⁻¹})      Aₗ₋₁(r^{2ˡ⁻¹}) - Aₗ₋₁(−r^{2ˡ⁻¹})
-            // Aₗ(r^{2ˡ}) = (1-uₗ₋₁) ----------------------------- + uₗ₋₁ -----------------------------
-            //                                   2                                2r^{2ˡ⁻¹}
-            // We solve the above equation in Aₗ₋₁(r^{2ˡ⁻¹}), using the previously computed Aₗ(r^{2ˡ}) in eval_pos
-            // and using Aₗ₋₁(−r^{2ˡ⁻¹}) sent by the prover in the proof.
-            eval_pos = ((r * eval_pos * 2) - eval_neg * (r * (Fr(1) - u) - u)) / (r * (Fr(1) - u) + u);
-        }
-
-        return eval_pos; // return A₀(r)
-    }
-
-    /**
-     * @brief Computes two commitments to A₀ partially evaluated in r and -r.
-     *
-     * @param batched_f batched commitment to non-shifted polynomials
-     * @param batched_g batched commitment to to-be-shifted polynomials
-     * @param r evaluation point at which we have partially evaluated A₀ at r and -r.
-     * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
-     */
-    static std::pair<GroupElement, GroupElement> compute_simulated_commitments(GroupElement& batched_f,
-                                                                               GroupElement& batched_g,
-                                                                               Fr r)
-    {
-        // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
-        GroupElement C0_r_pos;
-        // C₀ᵣ₋ = [F] - r⁻¹⋅[G]
-        GroupElement C0_r_neg;
-        Fr r_inv = r.invert(); // r⁻¹
-
-        // If in a recursive setting, perform a batch mul. Otherwise, accumulate directly.
-        // TODO(#673): The following if-else represents the stldib/native code paths. Once the "native" verifier is
-        // achieved through a builder Simulator, the stdlib codepath should become the only codepath.
-        if constexpr (Curve::is_stdlib_type) {
-            std::vector<GroupElement> commitments = { batched_f, batched_g };
-            auto builder = r.get_context();
-            auto one = Fr(builder, 1);
-            // TODO(#707): these batch muls include the use of 1 as a scalar. This is handled appropriately as a non-mul
-            // (add-accumulate) in the goblin batch_mul but is done inefficiently as a scalar mul in the conventional
-            // emulated batch mul.
-            C0_r_pos = GroupElement::batch_mul(commitments, { one, r_inv });
-            C0_r_neg = GroupElement::batch_mul(commitments, { one, -r_inv });
-        } else {
-            C0_r_pos = batched_f;
-            C0_r_neg = batched_f;
-            if (!batched_g.is_point_at_infinity()) {
-                batched_g = batched_g * r_inv;
-                C0_r_pos += batched_g;
-                C0_r_neg -= batched_g;
-            }
-        }
-
-        return { C0_r_pos, C0_r_neg };
+        return std::make_tuple(r_squares, evaluations, commitments);
     }
 };
-
 } // namespace bb
