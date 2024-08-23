@@ -114,7 +114,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     });
 
     DEBUG_LOG_ALL(partial_numerators);
-    DEBUG_LOG_ALL(partial_numerators);
+    DEBUG_LOG_ALL(partial_denominators);
 
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
@@ -136,6 +136,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         // Final step: invert denominator
         FF::batch_invert(std::span{ &denominator.data()[start], block_size });
     });
+
+    DEBUG_LOG_ALL(numerator.coeffs());
+    DEBUG_LOG_ALL(denominator.coeffs());
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
