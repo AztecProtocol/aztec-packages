@@ -2,7 +2,7 @@ import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@a
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
-export async function authorizeAction(
+export async function createAuthwit(
   wallet: AccountWalletWithSecretKey,
   functionName: string,
   caller: AztecAddress,
@@ -18,7 +18,7 @@ export async function authorizeAction(
 
   const witness = await wallet.createAuthWit({ caller, action });
 
-  await wallet.addAuthWitness(witness);
+  log(`Created authorization witness for action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 
-  log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
+  return witness;
 }
