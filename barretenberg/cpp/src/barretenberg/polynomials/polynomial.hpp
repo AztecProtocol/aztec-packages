@@ -39,9 +39,9 @@ template <typename Fr> class Polynomial {
 
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
-    // Polynomial(size_t size)
-    //     : Polynomial(size, size)
-    // {}
+    Polynomial(size_t size)
+        : Polynomial(size, size)
+    {}
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
@@ -236,7 +236,7 @@ template <typename Fr> class Polynomial {
      * @param shift the lower to shift our start_index() by upon copying.
      * @return a polynomial with a larger size() but same virtual_size()
      */
-    Polynomial expand(size_t left_expand);
+    Polynomial expand(size_t left_expand) const;
 
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }

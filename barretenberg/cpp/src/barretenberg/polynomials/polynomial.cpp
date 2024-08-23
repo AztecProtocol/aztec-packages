@@ -346,7 +346,7 @@ template <typename Fr> void hacky_shift_adjustment(const Polynomial<Fr>& to_shif
 }
 } // namespace
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t left_expand)
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t left_expand) const
 {
     Polynomial result = *this;
     result.coefficients_ = _clone(coefficients_, 0, left_expand);

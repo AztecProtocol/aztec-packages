@@ -161,7 +161,8 @@ template <typename Curve_> class IPA {
 
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
-        auto a_vec = polynomial;
+        // Ensure the polynomial copy is fully-formed
+        auto a_vec = polynomial.expand(polynomial.start_index());
         auto* srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
@@ -215,13 +216,13 @@ template <typename Curve_> class IPA {
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
+                a_vec.data(), &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
+                &a_vec.data()[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -257,7 +258,7 @@ template <typename Curve_> class IPA {
             parallel_for_heuristic(
                 round_size,
                 [&](size_t j) {
-                    a_vec[j] += round_challenge * a_vec[round_size + j];
+                    a_vec.set(j, a_vec[j] + round_challenge * a_vec[round_size + j]);
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
