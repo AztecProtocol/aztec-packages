@@ -3,11 +3,11 @@
 #include <stack>
 
 template <typename FF>
-std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component(
+inline std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
     auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto arithmetic_block = ultra_circuit_builder.blocks.arithmetic;
+    auto& arithmetic_block = ultra_circuit_builder.blocks.arithmetic;
     uint32_t left_idx = arithmetic_block.w_l()[index];
     uint32_t right_idx = arithmetic_block.w_r()[index];
     uint32_t out_idx = arithmetic_block.w_o()[index];
@@ -65,11 +65,11 @@ std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component(
 }
 
 template <typename FF>
-std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                        size_t index)
+inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
+    bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
     auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto elliptic_block = ultra_circuit_builder.blocks.elliptic;
+    auto& elliptic_block = ultra_circuit_builder.blocks.elliptic;
     std::vector<uint32_t> gate_variables;
     bool is_elliptic_gate = elliptic_block.q_elliptic()[index] == 1;
     bool is_elliptic_add_gate = elliptic_block.q_1()[index] != 0 && elliptic_block.q_m()[index] == 0;
@@ -106,11 +106,11 @@ std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(bb::Ultr
 }
 
 template <typename FF>
-std::pair<bool, std::vector<uint32_t>> Graph_<FF>::get_sort_constraint_connected_component(
+inline std::pair<bool, std::vector<uint32_t>> Graph_<FF>::get_sort_constraint_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
     auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
-    auto delta_range_block = ultra_circuit_builder.blocks.delta_range;
+    auto& delta_range_block = ultra_circuit_builder.blocks.delta_range;
     std::vector<uint32_t> gate_variables;
     bool is_dummy_gate = false;
     if (delta_range_block.q_delta_range()[index] == 1) {
@@ -132,8 +132,8 @@ std::pair<bool, std::vector<uint32_t>> Graph_<FF>::get_sort_constraint_connected
 }
 
 template <typename FF>
-std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                       size_t index)
+inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
+    bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
     auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
     std::vector<uint32_t> variable_indices;
@@ -185,7 +185,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     }
 
     std::map<FF, uint32_t> constant_variable_indices = ultra_circuit_constructor.constant_variable_indices;
-    auto& arithmetic_block = ultra_circuit_constructor.blocks.arithmetic;
+    const auto& arithmetic_block = ultra_circuit_constructor.blocks.arithmetic;
     auto arithmetic_gate_numbers = arithmetic_block.size();
     bool arithmetic_gate_exists = arithmetic_gate_numbers > 0;
     if (arithmetic_gate_exists) {
@@ -194,7 +194,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
             connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
         }
     }
-    auto& elliptic_block = ultra_circuit_constructor.blocks.elliptic;
+    const auto& elliptic_block = ultra_circuit_constructor.blocks.elliptic;
     auto elliptic_gate_numbers = elliptic_block.size();
     bool elliptic_gates_exist = elliptic_gate_numbers > 0;
     if (elliptic_gates_exist) {
@@ -203,7 +203,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
             connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
         }
     }
-    auto& range_block = ultra_circuit_constructor.blocks.delta_range;
+    const auto& range_block = ultra_circuit_constructor.blocks.delta_range;
     auto range_gates = range_block.size();
     bool range_gates_exists = range_gates > 0;
     if (range_gates_exists) {
@@ -215,7 +215,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
         }
     }
 
-    auto& lookup_block = ultra_circuit_constructor.blocks.lookup;
+    const auto& lookup_block = ultra_circuit_constructor.blocks.lookup;
     auto lookup_gates = lookup_block.size();
     bool lookup_gates_exists = lookup_gates > 0;
     if (lookup_gates_exists) {
@@ -305,7 +305,7 @@ template <typename FF> std::vector<uint32_t> Graph_<FF>::get_variable_adjacency_
 
 template <typename FF>
 void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
-                                    std::vector<uint32_t>& is_used,
+                                    std::unordered_set<uint32_t>& is_used,
                                     std::vector<uint32_t>& connected_component)
 {
     // this method realizes algorithm depth_first_search for undirected graph using the give variable
@@ -314,8 +314,8 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
     while (!variable_stack.empty()) {
         uint32_t current_index = variable_stack.top();
         variable_stack.pop();
-        if (std::find(is_used.begin(), is_used.end(), current_index) == is_used.end()) {
-            is_used.emplace_back(current_index);
+        if (!is_used.contains(current_index)) {
+            is_used.insert(current_index);
             connected_component.emplace_back(current_index);
             for (const auto& it : variable_adjacency_lists[current_index]) {
                 variable_stack.push(it);
@@ -327,11 +327,11 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
 template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_connected_components()
 {
     // this methond finds connected components from the graph described by adjacency lists
-    std::vector<uint32_t> is_used;
+    std::unordered_set<uint32_t> is_used;
     std::vector<std::vector<uint32_t>> connected_components;
     for (const auto& pair : variable_adjacency_lists) {
         if (pair.first != 0 && variables_degree[pair.first] > 0) {
-            if (std::find(is_used.begin(), is_used.end(), pair.first) == is_used.end()) {
+            if (!is_used.contains(pair.first)) {
                 std::vector<uint32_t> connected_component;
                 depth_first_search(pair.first, is_used, connected_component);
                 std::sort(connected_component.begin(), connected_component.end());

@@ -32,7 +32,7 @@ template <typename FF> class Graph_ {
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index);
 
     void depth_first_search(const uint32_t& variable_index,
-                            std::vector<uint32_t>& is_used,
+                            std::unordered_set<uint32_t>& is_used,
                             std::vector<uint32_t>& connected_component);
     std::vector<std::vector<uint32_t>> find_connected_components();
     std::vector<uint32_t> find_dangerous_variables();
