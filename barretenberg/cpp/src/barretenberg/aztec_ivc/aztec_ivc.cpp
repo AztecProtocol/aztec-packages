@@ -44,6 +44,14 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             verifier_accum->witness_commitments = std::move(witness_commitments);
             verifier_accum->public_inputs = std::move(public_inputs);
             verifier_accum->alphas = std::move(alphas);
+            verifier_accum->is_accumulator = true;
+            // WORKTODO: this is wrong because FF is the native field type and we need the stdlib version. Solution is
+            // probably just for gate_challenges to be handled internally by oink prover/verifier.
+            auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
+            for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+                gate_challenges[idx] =
+                    verifier.transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+            }
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
 
             // Perform databus commitment consistency checks and propagate return data commitments via public inputs
@@ -73,6 +81,11 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  */
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
+    if (!CircuitChecker::check(circuit)) {
+        info("CIRCUIT CHECK FAILED!");
+    } else {
+        info("CIRCUIT CHECK PASSED!");
+    }
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
@@ -94,6 +107,8 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
         prover_instance->proving_key = std::move(proving_key);
         prover_instance->relation_parameters = relation_params;
         prover_instance->alphas = alphas;
+        prover_instance->gate_challenges = std::vector<FF>(prover_instance->proving_key.log_circuit_size, 0);
+        prover_instance->is_accumulator = true; // this means "is complete"
         fold_output.accumulator = prover_instance;
 
         verification_queue.emplace_back(oink_prover.transcript->proof_data, instance_vk, QUEUE_TYPE::OINK);

@@ -51,17 +51,23 @@ class GoblinMockCircuits {
      * @param builder
      * @param large If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
      */
-    static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
+    static void construct_mock_app_circuit(MegaBuilder& builder, [[maybe_unused]] bool large = false)
     {
-        if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 12);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 11);
-            stdlib::generate_merkle_membership_test_circuit(builder, 12);
-        } else { // Results in circuit size 2^17
-            stdlib::generate_sha256_test_circuit(builder, 9);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
-            stdlib::generate_merkle_membership_test_circuit(builder, 10);
-        }
+        // if (large) { // Results in circuit size 2^19
+        //     //     stdlib::generate_sha256_test_circuit(builder, 12);
+        //     //     stdlib::generate_ecdsa_verification_test_circuit(builder, 11);
+        //     //     stdlib::generate_merkle_membership_test_circuit(builder, 12);
+        // } else { // Results in circuit size 2^17
+        //     // stdlib::generate_sha256_test_circuit(builder, 9);
+        //     // stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
+        //     //     stdlib::generate_merkle_membership_test_circuit(builder, 10);
+        // }
+
+        // stdlib::generate_sha256_test_circuit(builder, 9);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
+        // stdlib::generate_merkle_membership_test_circuit(builder, 10);
+
+        // MockCircuits::construct_arithmetic_circuit(builder, 5);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
@@ -179,12 +185,18 @@ class GoblinMockCircuits {
     {
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
-        const size_t NUM_MERKLE_CHECKS = 20;
-        const size_t NUM_ECDSA_VERIFICATIONS = 1;
-        const size_t NUM_SHA_HASHES = 1;
-        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
-        stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
-        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+        // const size_t NUM_MERKLE_CHECKS = 20;
+        // const size_t NUM_ECDSA_VERIFICATIONS = 1;
+        // const size_t NUM_SHA_HASHES = 1;
+        // stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        // stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
+        // stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+
+        // stdlib::generate_sha256_test_circuit(builder, 1);
+        stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
+        // stdlib::generate_merkle_membership_test_circuit(builder, 20);
+
+        // MockCircuits::construct_arithmetic_circuit(builder, 5);
     }
 
     /**
