@@ -71,6 +71,7 @@ template <class Builder> class DataBusDepot {
 
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
     using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
+    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
     static constexpr size_t NUM_FR_LIMBS_PER_COMMITMENT = NUM_FR_LIMBS_PER_FQ * 2;
@@ -93,48 +94,29 @@ template <class Builder> class DataBusDepot {
      *
      * @param instances Completed verifier instances corresponding to prover instances that have been folded
      */
-    void execute(RecursiveVerifierInstances& instances)
+    void execute(WitnessCommitments& commitments,
+                 std::vector<Fr>& public_inputs,
+                 DatabusPropagationData& propagation_data)
     {
-        // Upon completion of folding recursive verfication, the verifier contains two completed verifier instances
-        // which store data from a fold proof. The first is the instance into which we're folding and the second
-        // corresponds to an instance being folded.
-        auto inst_1 = instances[0]; // instance into which we're folding (an accumulator, except on the initial round)
-        auto inst_2 = instances[1]; // instance that has been folded
-
-        // The first folding round is a special case in that it folds an instance into a non-accumulator instance. The
-        // fold proof thus contains two oink proofs. The first oink proof (stored in first instance) contains the return
-        // data R_0' from the first app, and its calldata counterpart C_0' in the kernel will be contained in the second
-        // oink proof (stored in second instance). In this special case, we can check directly that \pi_0.R_0' =
-        // \pi_0.C_0', without having had to propagate the return data commitment via the public inputs.
-        if (!inst_1->is_accumulator) {
-            // Assert equality of \pi_0.R_0' and \pi_0.C_0'
-            auto& app_return_data = inst_1->witness_commitments.return_data;           // \pi_0.R_0'
-            auto& secondary_calldata = inst_2->witness_commitments.secondary_calldata; // \pi_0.C_0'
-            assert_equality_of_commitments(app_return_data, secondary_calldata);       // assert equality R_0' == C_0'
-        }
-
-        // Define aliases for members in the second (non-accumulator) instance
-        bool is_kernel_instance = inst_2->verification_key->databus_propagation_data.is_kernel;
-        auto& propagation_data = inst_2->verification_key->databus_propagation_data;
-        auto& public_inputs = inst_2->public_inputs;
-        auto& commitments = inst_2->witness_commitments;
+        // Is this data coming from a kernel? Only kernels can contain commitments propagated via public inputs
+        bool is_kernel_instance = propagation_data.is_kernel;
 
         // Assert equality between return data commitments propagated via the public inputs and the corresponding
         // calldata commitment
-        if (is_kernel_instance) { // only kernels can contain commitments propagated via public inputs
-            if (propagation_data.contains_app_return_data_commitment) {
-                // Assert equality between the app return data commitment and the kernel secondary calldata commitment
-                size_t start_idx = propagation_data.app_return_data_public_input_idx;
-                Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-                assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
-            }
+        if (propagation_data.contains_app_return_data_commitment) {
+            ASSERT(is_kernel_instance);
+            // Assert equality between the app return data commitment and the kernel secondary calldata commitment
+            size_t start_idx = propagation_data.app_return_data_public_input_idx;
+            Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+            assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
+        }
 
-            if (propagation_data.contains_kernel_return_data_commitment) {
-                // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
-                size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
-                Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-                assert_equality_of_commitments(kernel_return_data, commitments.calldata);
-            }
+        if (propagation_data.contains_kernel_return_data_commitment) {
+            ASSERT(is_kernel_instance);
+            // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
+            size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
+            Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+            assert_equality_of_commitments(kernel_return_data, commitments.calldata);
         }
 
         // Propagate the return data commitment via the public inputs mechanism

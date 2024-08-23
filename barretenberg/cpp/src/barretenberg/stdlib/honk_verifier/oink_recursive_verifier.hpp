@@ -15,6 +15,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
+    using OinkProof = std::vector<FF>;
 
     struct Output {
         bb::RelationParameters<typename Flavor::FF> relation_parameters;
@@ -28,11 +29,16 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
                                     std::shared_ptr<Transcript> transcript,
                                     std::string domain_separator = "");
 
+    explicit OinkRecursiveVerifier_(Builder* builder,
+                                    const std::shared_ptr<VerificationKey>& vkey,
+                                    std::string domain_separator = "");
+
     Output verify();
+    Output verify_proof(OinkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     Builder* builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript{ nullptr };
     std::string domain_separator; // used in PG to distinguish between instances in transcript
 };
 

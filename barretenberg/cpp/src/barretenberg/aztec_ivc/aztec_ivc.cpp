@@ -1,4 +1,5 @@
 #include "barretenberg/aztec_ivc/aztec_ivc.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
 
@@ -13,23 +14,44 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
     circuit.databus_propagation_data.is_kernel = true;
 
-    // The folding verification queue should be either empty or contain two fold proofs
-    ASSERT(verification_queue.empty() || verification_queue.size() == 2);
-
-    for (auto& [proof, vkey] : verification_queue) {
-
-        // Construct stdlib accumulator, vkey and proof
-        auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
-        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+    for (auto& [proof, vkey, type] : verification_queue) {
+        // Construct stdlib vkey and proof
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
-        // Perform folding recursive verification
-        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_vkey } };
-        auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
-        verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+        switch (type) {
+        case QUEUE_TYPE::PG: {
+            // Construct stdlib accumulator
+            auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
 
-        // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-        bus_depot.execute(verifier.instances);
+            // Perform folding recursive verification
+            FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_vkey } };
+            auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
+            verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+
+            // Perform databus commitment consistency checks and propagate return data commitments via public inputs
+            bus_depot.execute(verifier.instances[1]->witness_commitments,
+                              verifier.instances[1]->public_inputs,
+                              verifier.instances[1]->verification_key->databus_propagation_data);
+            break;
+        }
+        case QUEUE_TYPE::OINK: {
+            auto verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, stdlib_vkey);
+            OinkRecursiveVerifier verifier{ &circuit, stdlib_vkey };
+            auto [relation_parameters, witness_commitments, public_inputs, alphas] =
+                verifier.verify_proof(stdlib_proof);
+            verifier_accum->relation_parameters = std::move(relation_parameters);
+            verifier_accum->witness_commitments = std::move(witness_commitments);
+            verifier_accum->public_inputs = std::move(public_inputs);
+            verifier_accum->alphas = std::move(alphas);
+            verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+
+            // Perform databus commitment consistency checks and propagate return data commitments via public inputs
+            bus_depot.execute(witness_commitments, public_inputs, stdlib_vkey->databus_propagation_data);
+
+            break;
+        }
+        }
     }
     verification_queue.clear();
 
@@ -67,15 +89,22 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 
     // If this is the first circuit simply initialize the prover and verifier accumulator instances
     if (!initialized) {
+        OinkProver<Flavor> oink_prover{ prover_instance->proving_key };
+        auto [proving_key, relation_params, alphas] = oink_prover.prove();
+        prover_instance->proving_key = std::move(proving_key);
+        prover_instance->relation_parameters = relation_params;
+        prover_instance->alphas = alphas;
         fold_output.accumulator = prover_instance;
-        verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
+
+        verification_queue.emplace_back(oink_prover.transcript->proof_data, instance_vk, QUEUE_TYPE::OINK);
+
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
         fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
-        verification_queue.emplace_back(fold_output.proof, instance_vk);
+        verification_queue.emplace_back(fold_output.proof, instance_vk, QUEUE_TYPE::PG);
     }
 
     // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)

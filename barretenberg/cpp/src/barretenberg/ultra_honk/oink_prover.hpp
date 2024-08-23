@@ -2,12 +2,12 @@
 // clang-format off
 /*                                            )\   /|
 *                                          .-/'-|_/ |
-*                       __            __,-' (   / \/          
-*                   .-'"  "'-..__,-'""          -o.`-._   
+*                       __            __,-' (   / \/
+*                   .-'"  "'-..__,-'""          -o.`-._
 *                  /                                   '/
-*          *--._ ./                                 _.-- 
-*                |                              _.-' 
-*                :                           .-/   
+*          *--._ ./                                 _.--
+*                |                              _.-'
+*                :                           .-/
 *                 \                       )_ /
 *                  \                _)   / \(
 *                    `.   /-.___.---'(  /   \\
@@ -57,7 +57,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
 
     OinkProver(ProvingKey& proving_key,
-               const std::shared_ptr<typename Flavor::Transcript>& transcript,
+               const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
                std::string domain_separator = "")
         : proving_key(std::move(proving_key))
         , transcript(transcript)

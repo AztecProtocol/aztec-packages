@@ -18,9 +18,30 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
     , domain_separator(std::move(domain_separator))
 {}
 
+template <typename Flavor>
+OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
+                                                       const std::shared_ptr<VerificationKey>& vkey,
+                                                       std::string domain_separator)
+    : key(vkey)
+    , builder(builder)
+    , domain_separator(std::move(domain_separator))
+{}
+
 /**
- * @brief This function constructs a recursive verifier circuit for a native Ultra Honk proof of a given flavor.
- * @return Output aggregation object
+ * @brief This function constructs a recursive oink verifier circuit for an oink proof.
+ *
+ */
+template <typename Flavor>
+OinkRecursiveVerifier_<Flavor>::Output OinkRecursiveVerifier_<Flavor>::verify_proof(OinkProof& proof)
+{
+    transcript = std::make_shared<Transcript>(proof);
+    return verify();
+}
+
+/**
+ * @brief This function constructs a recursive oink verifier circuit for an oink proof assumed to be contained in the
+ * transcript.
+ *
  */
 template <typename Flavor> OinkRecursiveVerifier_<Flavor>::Output OinkRecursiveVerifier_<Flavor>::verify()
 {
