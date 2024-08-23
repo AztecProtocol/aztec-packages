@@ -2,49 +2,173 @@
 #include <algorithm>
 #include <stack>
 
-template <typename FF> Graph_<FF>::Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor)
+template <typename FF>
+std::vector<uint32_t> Graph_<FF>::get_arithmetic_gate_connected_component(
+    bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
 {
-    this->variable_adjacency_lists = std::vector<std::set<uint32_t>>(circuit_constructor.real_variable_index.size());
-    this->variables_gate_counts = std::unordered_map<uint32_t, size_t>(circuit_constructor.real_variable_index.size());
-    const auto& block = circuit_constructor.blocks.arithmetic;
-    auto zero_idx = circuit_constructor.zero_idx;
-    std::map<FF, uint32_t> constant_variable_indices = circuit_constructor.constant_variable_indices;
-    for (auto key : circuit_constructor.real_variable_index) {
-        variables_gate_counts[key] = 0;
-    }
-    for (size_t i = 0; i < circuit_constructor.num_gates; i++) {
-        uint32_t left_idx = block.w_l()[i];
-        uint32_t right_idx = block.w_r()[i];
-        uint32_t out_idx = block.w_o()[i];
-
-        FF q_m = block.q_m()[i];
-        FF q_1 = block.q_1()[i];
-        FF q_2 = block.q_2()[i];
-        FF q_3 = block.q_3()[i];
-        std::set<uint32_t> unique_gate_variables;
-        if ((q_m != FF::zero() || q_1 != FF::zero() || q_2 != FF::zero()) &&
-            q_3 != FF::zero()) // this is not constant gate. we don't need constant variables
-        {
+    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
+    auto arithmetic_block = ultra_circuit_builder.blocks.arithmetic;
+    uint32_t left_idx = arithmetic_block.w_l()[index];
+    uint32_t right_idx = arithmetic_block.w_r()[index];
+    uint32_t out_idx = arithmetic_block.w_o()[index];
+    uint32_t fourth_idx = arithmetic_block.w_4()[index];
+    auto q_m = arithmetic_block.q_m()[index];
+    auto q_1 = arithmetic_block.q_1()[index];
+    auto q_2 = arithmetic_block.q_2()[index];
+    auto q_3 = arithmetic_block.q_3()[index];
+    auto q_4 = arithmetic_block.q_4()[index];
+    std::vector<uint32_t> gate_variables;
+    if (q_m != 0 || q_1 != 1 || q_2 != 0 || q_3 != 0 || q_4 != 0) {
+        // this is not the gate for fix_witness, so we have to process this gate
+        if (arithmetic_block.q_arith()[index] > 0) {
             if (q_m != 0) {
-                unique_gate_variables.insert(left_idx);
-                unique_gate_variables.insert(right_idx);
+                gate_variables.emplace_back(left_idx);
+                gate_variables.emplace_back(right_idx);
             }
             if (q_1 != 0) {
-                unique_gate_variables.insert(left_idx);
+                gate_variables.emplace_back(left_idx);
             }
             if (q_2 != 0) {
-                unique_gate_variables.insert(right_idx);
+                gate_variables.emplace_back(right_idx);
             }
             if (q_3 != 0) {
-                unique_gate_variables.insert(out_idx);
+                gate_variables.emplace_back(out_idx);
+            }
+            if (q_4 != 0) {
+                gate_variables.emplace_back(fourth_idx);
+            }
+            if (arithmetic_block.q_arith()[index] == 1 && q_m == 0) {
+            }
+            if (arithmetic_block.q_arith()[index] == 2) {
+                // We have to use w_4_shift from the next gate
+                // if and only if the current gate isn't last, cause we can't
+                // look into the next gate
+                if (index != arithmetic_block.size() - 1) {
+                    uint32_t fourth_shift_idx = arithmetic_block.w_4()[index + 1];
+                    gate_variables.emplace_back(fourth_shift_idx);
+                }
+            }
+            if (arithmetic_block.q_arith()[index] == 3) {
+                info("q_arith == 3 isn't implemented yet");
             }
         }
-        for (const auto& elem : unique_gate_variables) {
-            variables_gate_counts[elem] += 1;
-        }
-        std::vector<uint32_t> gate_variables(unique_gate_variables.begin(), unique_gate_variables.end());
-        connect_all_variables_in_vector(gate_variables, zero_idx, constant_variable_indices, false);
     }
+    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
+    gate_variables.erase(unique_variables, gate_variables.end());
+    std::transform(gate_variables.cbegin(), gate_variables.cend(), gate_variables.begin(), to_real);
+    if (!gate_variables.empty()) {
+        for (const auto& real_variable_index : gate_variables) {
+            variables_gate_counts[real_variable_index] += 1;
+        }
+    }
+    return gate_variables;
+}
+
+template <typename FF>
+std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                        size_t index)
+{
+    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
+    auto elliptic_block = ultra_circuit_builder.blocks.elliptic;
+    std::vector<uint32_t> gate_variables;
+    bool is_elliptic_gate = elliptic_block.q_elliptic()[index] == 1;
+    bool is_elliptic_add_gate = elliptic_block.q_1()[index] != 0 && elliptic_block.q_m()[index] == 0;
+    bool is_elliptic_dbl_gate = elliptic_block.q_1()[index] == 0 && elliptic_block.q_m()[index] == 1;
+    if (is_elliptic_gate) {
+        auto right_idx = elliptic_block.w_r()[index];
+        auto out_idx = elliptic_block.w_o()[index];
+        gate_variables.emplace_back(right_idx);
+        gate_variables.emplace_back(out_idx);
+        if (index != elliptic_block.size() - 1) {
+            if (is_elliptic_add_gate) {
+                // if this gate is ecc_add_gate, we have to get indices x2, x3, y3, y2 from the next gate
+                gate_variables.emplace_back(elliptic_block.w_l()[index + 1]);
+                gate_variables.emplace_back(elliptic_block.w_r()[index + 1]);
+                gate_variables.emplace_back(elliptic_block.w_o()[index + 1]);
+                gate_variables.emplace_back(elliptic_block.w_4()[index + 1]);
+            }
+            if (is_elliptic_dbl_gate) {
+                // if this gate is ecc_dbl_gate, we have to indices x3, y3 from right and output wires
+                gate_variables.emplace_back(elliptic_block.w_r()[index + 1]);
+                gate_variables.emplace_back(elliptic_block.w_o()[index + 1]);
+            }
+        }
+    }
+    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
+    gate_variables.erase(unique_variables, gate_variables.end());
+    std::transform(gate_variables.cbegin(), gate_variables.cend(), gate_variables.begin(), to_real);
+    if (!gate_variables.empty()) {
+        for (const auto& real_variable_index : gate_variables) {
+            variables_gate_counts[real_variable_index] += 1;
+        }
+    }
+    return gate_variables;
+}
+
+template <typename FF>
+std::pair<bool, std::vector<uint32_t>> Graph_<FF>::get_sort_constraint_connected_component(
+    bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index)
+{
+    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
+    auto delta_range_block = ultra_circuit_builder.blocks.delta_range;
+    std::vector<uint32_t> gate_variables;
+    bool is_dummy_gate = false;
+    if (delta_range_block.q_delta_range()[index] == 1) {
+        auto left_idx = delta_range_block.w_l()[index];
+        auto right_idx = delta_range_block.w_r()[index];
+        auto out_idx = delta_range_block.w_o()[index];
+        auto fourth_idx = delta_range_block.w_4()[index];
+        gate_variables.insert(gate_variables.end(), { left_idx, right_idx, out_idx, fourth_idx });
+    }
+    auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
+    gate_variables.erase(unique_variables, gate_variables.end());
+    std::transform(gate_variables.cbegin(), gate_variables.cend(), gate_variables.begin(), to_real);
+    if (!gate_variables.empty()) {
+        for (const auto& real_variable_index : gate_variables) {
+            variables_gate_counts[real_variable_index] += 1;
+        }
+    }
+    return std::make_pair(is_dummy_gate, gate_variables);
+}
+
+template <typename FF>
+std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                       size_t index)
+{
+    auto to_real = [&](uint32_t variable_index) { return ultra_circuit_builder.real_variable_index[variable_index]; };
+    std::vector<uint32_t> variable_indices;
+    auto& lookup_block = ultra_circuit_builder.blocks.lookup;
+    auto q_2 = lookup_block.q_2()[index];
+    auto q_m = lookup_block.q_m()[index];
+    auto q_c = lookup_block.q_c()[index];
+    auto left_idx = lookup_block.w_l()[index];
+    auto right_idx = lookup_block.w_r()[index];
+    auto out_idx = lookup_block.w_o()[index];
+    variable_indices.emplace_back(left_idx);
+    variable_indices.emplace_back(right_idx);
+    variable_indices.emplace_back(out_idx);
+    if (index < lookup_block.size() - 1) {
+        if (q_2 != 0 || q_m != 0 || q_c != 0) {
+            if (q_2 != 0) {
+                variable_indices.emplace_back(lookup_block.w_l()[index + 1]);
+            }
+            if (q_m != 0) {
+                variable_indices.emplace_back(lookup_block.w_r()[index + 1]);
+            }
+            if (q_c != 0) {
+                variable_indices.emplace_back(lookup_block.w_o()[index + 1]);
+            }
+        }
+    }
+    auto unique_variables = std::unique(variable_indices.begin(), variable_indices.end());
+    variable_indices.erase(unique_variables, variable_indices.end());
+    std::transform(variable_indices.cbegin(), variable_indices.cend(), variable_indices.begin(), to_real);
+    if (!variable_indices.empty()) {
+        for (const auto& real_variable_index : variable_indices) {
+            variables_gate_counts[real_variable_index] += 1;
+        }
+    }
+    return variable_indices;
 }
 
 template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor)
@@ -52,60 +176,22 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     this->variables_gate_counts =
         std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
     this->variable_adjacency_lists =
-        std::vector<std::set<uint32_t>>(ultra_circuit_constructor.real_variable_index.size());
-    for (const auto& variables_index : ultra_circuit_constructor.real_variable_index) {
-        variables_gate_counts[variables_index] = 0;
+        std::unordered_map<uint32_t, std::vector<uint32_t>>(ultra_circuit_constructor.real_variable_index.size());
+    this->variables_degree = std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
+    for (const auto& variable_index : ultra_circuit_constructor.real_variable_index) {
+        variables_gate_counts[variable_index] = 0;
+        variables_degree[variable_index] = 0;
+        variable_adjacency_lists[variable_index] = {};
     }
+
     std::map<FF, uint32_t> constant_variable_indices = ultra_circuit_constructor.constant_variable_indices;
-    uint32_t zero_idx = ultra_circuit_constructor.zero_idx;
     auto& arithmetic_block = ultra_circuit_constructor.blocks.arithmetic;
     auto arithmetic_gate_numbers = arithmetic_block.size();
     bool arithmetic_gate_exists = arithmetic_gate_numbers > 0;
     if (arithmetic_gate_exists) {
         for (size_t i = 0; i < arithmetic_gate_numbers; i++) {
-            if (arithmetic_block.q_arith()[i] != 0) {
-                uint32_t left_idx = arithmetic_block.w_l()[i];
-                uint32_t right_idx = arithmetic_block.w_r()[i];
-                uint32_t out_idx = arithmetic_block.w_o()[i];
-                uint32_t fourth_idx = arithmetic_block.w_4()[i];
-                FF q_m = arithmetic_block.q_m()[i];
-                FF q_1 = arithmetic_block.q_1()[i];
-                FF q_2 = arithmetic_block.q_2()[i];
-                FF q_3 = arithmetic_block.q_3()[i];
-                FF q_c = arithmetic_block.q_c()[i];
-                FF q_4 = arithmetic_block.q_4()[i];
-                std::set<uint32_t> unique_gate_variables;
-                if (q_m == 0 && q_1 == 1 && q_2 == 0 && q_3 == 0 && q_c != 0 && q_4 == 0) {
-                    info("This is the gate for fixing witness. We can ignore it");
-                } else {
-                    if (q_m != 0) {
-                        unique_gate_variables.insert(left_idx);
-                        unique_gate_variables.insert(right_idx);
-                    }
-                    if (q_1 != 0) {
-                        unique_gate_variables.insert(left_idx);
-                    }
-                    if (q_2 != 0) {
-                        unique_gate_variables.insert(right_idx);
-                    }
-                    if (q_3 != 0) {
-                        unique_gate_variables.insert(out_idx);
-                    }
-                    if (q_4 != 0) {
-                        unique_gate_variables.insert(fourth_idx);
-                    }
-                    for (const auto& elem : unique_gate_variables) {
-                        variables_gate_counts[elem] += 1;
-                    }
-                }
-                std::vector<uint32_t> gate_variables(unique_gate_variables.begin(), unique_gate_variables.end());
-                connect_all_variables_in_vector(gate_variables, zero_idx, constant_variable_indices, false);
-            } else {
-                // this is the dummy gate for arithmetic gate. From ultra_circuit_builder.cpp I know that it was
-                // created for sort_constraint with wires(variable_indx, zero_idx, zero_idx, zero_idx),
-                // so it's need to update number_gate_counts for variable w_l()[i]
-                variables_gate_counts[arithmetic_block.w_l()[i]] += 1;
-            }
+            auto gate_variables = get_arithmetic_gate_connected_component(ultra_circuit_constructor, i);
+            connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
         }
     }
     auto& elliptic_block = ultra_circuit_constructor.blocks.elliptic;
@@ -113,63 +199,19 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     bool elliptic_gates_exist = elliptic_gate_numbers > 0;
     if (elliptic_gates_exist) {
         for (size_t i = 0; i < elliptic_gate_numbers; i++) {
-            std::vector wire_variables = {
-                elliptic_block.w_l()[i], elliptic_block.w_r()[i], elliptic_block.w_o()[i], elliptic_block.w_4()[i]
-            };
-            for (const auto& elem : wire_variables) {
-                if (elem != zero_idx) {
-                    variables_gate_counts[elem] += 1;
-                }
-            }
-        }
-        for (size_t i = 1; i < elliptic_gate_numbers; i++) {
-            if (elliptic_block.q_elliptic()[i - 1] == 1) {
-                // the previous gate was connected with our current gate, cause it has the value "q_elliptic = 0"
-                std::vector<uint32_t> coordinates = { elliptic_block.w_l()[i],     elliptic_block.w_r()[i],
-                                                      elliptic_block.w_o()[i],     elliptic_block.w_4()[i],
-                                                      elliptic_block.w_r()[i - 1], elliptic_block.w_o()[i - 1] };
-
-                connect_all_variables_in_vector(coordinates, zero_idx, constant_variable_indices, false);
-            }
-            // if this condition is not approved, then then the previous was dummy gate, and it wasn't connected with
-            // out current gate,
-            // so we have to skip this gate and go to the next gate, cause it can extract variables from the current
-            // gate
+            std::vector<uint32_t> gate_variables = get_elliptic_gate_connected_component(ultra_circuit_constructor, i);
+            connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables, false);
         }
     }
     auto& range_block = ultra_circuit_constructor.blocks.delta_range;
     auto range_gates = range_block.size();
     bool range_gates_exists = range_gates > 0;
     if (range_gates_exists) {
-        // just go through gates and collect all variables, while we don't meet dummy gate
         std::vector<uint32_t> sorted_variables;
         for (size_t i = 0; i < range_gates; i++) {
-            if (range_block.q_delta_range()[i] == 1) {
-                uint32_t left_idx = range_block.w_l()[i];
-                uint32_t right_idx = range_block.w_r()[i];
-                uint32_t out_idx = range_block.w_o()[i];
-                uint32_t fourth_idx = range_block.w_4()[i];
-                sorted_variables.emplace_back(left_idx);
-                sorted_variables.emplace_back(right_idx);
-                sorted_variables.emplace_back(out_idx);
-                sorted_variables.emplace_back(fourth_idx);
-            } else {
-                // we go to the dummy gate, there's a shift of the variable from the previous gate and
-                // we have to update variable_gate_counts on 2 for this variable
-                // after processing the dummy gate we have to clean sorted_variables_vector
-                auto sorted_variables_size = sorted_variables.size();
-                for (size_t i = 0; i < sorted_variables_size; i++) {
-                    if (sorted_variables[i] != zero_idx) {
-                        if (i == sorted_variables_size - 1) {
-                            variables_gate_counts[sorted_variables[i]] += 2;
-                        } else {
-                            variables_gate_counts[sorted_variables[i]] += 1;
-                        }
-                    }
-                }
-                connect_all_variables_in_vector(sorted_variables, zero_idx, constant_variable_indices, true);
-                sorted_variables.clear();
-            }
+            std::pair<bool, std::vector<uint32_t>> current_gate =
+                get_sort_constraint_connected_component(ultra_circuit_constructor, i);
+            sorted_variables.insert(sorted_variables.end(), current_gate.second.begin(), current_gate.second.end());
         }
     }
 
@@ -177,50 +219,23 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     auto lookup_gates = lookup_block.size();
     bool lookup_gates_exists = lookup_gates > 0;
     if (lookup_gates_exists) {
-        std::vector<uint32_t> left_indexes;
-        std::vector<uint32_t> right_indexes;
-        std::vector<uint32_t> out_indexes;
         for (size_t i = 0; i < lookup_gates; i++) {
-            if (lookup_block.q_lookup_type()[i] == FF(1)) {
-                uint32_t left_idx = lookup_block.w_l()[i];
-                uint32_t right_idx = lookup_block.w_r()[i];
-                uint32_t out_idx = lookup_block.w_o()[i];
-                left_indexes.emplace_back(left_idx);
-                right_indexes.emplace_back(right_idx);
-                out_indexes.emplace_back(out_idx);
-                std::vector<uint32_t> current_gate_variables = { left_idx, right_idx, out_idx };
-                for (const auto& variable : current_gate_variables) {
-                    variables_gate_counts[variable] += 1;
-                }
-                connect_all_variables_in_vector(current_gate_variables, zero_idx, constant_variable_indices, false);
-                auto q_2 = lookup_block.q_2()[i];
-                auto q_m = lookup_block.q_m()[i];
-                auto q_c = lookup_block.q_c()[i];
-                if (q_2 == 0 && q_m == 0 && q_c == 0) {
-                    // this is the last gate in the in this blocks of lookup, so we can connect variables from
-                    //  left_indexes vectors, right_indexes vector, out_indexes vector
-                    connect_all_variables_in_vector(left_indexes, zero_idx, constant_variable_indices, false);
-                    connect_all_variables_in_vector(right_indexes, zero_idx, constant_variable_indices, false);
-                    connect_all_variables_in_vector(out_indexes, zero_idx, constant_variable_indices, false);
-                    // now we can erase all these vector to begin with new lookup accumulators
-                    left_indexes.clear();
-                    right_indexes.clear();
-                    out_indexes.clear();
-                }
-            }
+            std::vector<uint32_t> variable_indices = get_plookup_gate_connected_component(ultra_circuit_constructor, i);
+            connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices, false);
         }
     }
 }
 
 template <typename FF>
-bool Graph_<FF>::check_is_not_constant_variable(const uint32_t& variable_index,
-                                                const std::map<FF, uint32_t>& constant_variable_indices)
+bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                const uint32_t& variable_index)
 {
     // this method checks that variable is not constant, so it's not in constant_variable_indices from ultra circuit
     // builder
     bool is_not_constant = true;
+    auto constant_variable_indices = ultra_circuit_builder.constant_variable_indices;
     for (const auto& pair : constant_variable_indices) {
-        if (pair.second == variable_index) {
+        if (pair.second == ultra_circuit_builder.real_variable_index[variable_index]) {
             is_not_constant = false;
             break;
         }
@@ -229,9 +244,8 @@ bool Graph_<FF>::check_is_not_constant_variable(const uint32_t& variable_index,
 }
 
 template <typename FF>
-void Graph_<FF>::connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector,
-                                                 const uint32_t& zero_idx,
-                                                 const std::map<FF, uint32_t>& constant_variable_indices,
+void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                 const std::vector<uint32_t>& variables_vector,
                                                  bool is_sorted_variables)
 {
     // this method connects between each other variables that have different indexes, their indexes are not equal
@@ -240,13 +254,14 @@ void Graph_<FF>::connect_all_variables_in_vector(const std::vector<uint32_t>& va
     if (!variables_vector.empty()) {
         if (is_sorted_variables) {
             for (size_t i = 0; i < variables_vector.size() - 1; i++) {
-                if (variables_vector[i] != zero_idx && variables_vector[i + 1] != zero_idx &&
+                if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
+                    variables_vector[i + 1] != ultra_circuit_builder.zero_idx &&
                     variables_vector[i] != variables_vector[i + 1]) {
                     {
                         bool first_variable_is_not_constant =
-                            check_is_not_constant_variable(variables_vector[i], constant_variable_indices);
+                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
                         bool second_variable_is_not_constant =
-                            check_is_not_constant_variable(variables_vector[i + 1], constant_variable_indices);
+                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i + 1]);
                         if (first_variable_is_not_constant && second_variable_is_not_constant) {
                             add_new_edge(variables_vector[i], variables_vector[i + 1]);
                         }
@@ -256,12 +271,14 @@ void Graph_<FF>::connect_all_variables_in_vector(const std::vector<uint32_t>& va
         } else {
             for (size_t i = 0; i < variables_vector.size() - 1; i++) {
                 for (size_t j = 1; j < variables_vector.size(); j++) {
-                    if (variables_vector[i] != zero_idx && variables_vector[j] != zero_idx &&
+                    if (variables_vector[i] != ultra_circuit_builder.zero_idx &&
+                        variables_vector[j] != ultra_circuit_builder.zero_idx &&
                         variables_vector[i] != variables_vector[j]) {
+
                         bool first_variable_is_not_constant =
-                            check_is_not_constant_variable(variables_vector[i], constant_variable_indices);
+                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[i]);
                         bool second_variable_is_not_constant =
-                            check_is_not_constant_variable(variables_vector[j], constant_variable_indices);
+                            check_is_not_constant_variable(ultra_circuit_builder, variables_vector[j]);
                         if (first_variable_is_not_constant && second_variable_is_not_constant) {
                             add_new_edge(variables_vector[i], variables_vector[j]);
                         }
@@ -275,26 +292,23 @@ void Graph_<FF>::connect_all_variables_in_vector(const std::vector<uint32_t>& va
 template <typename FF>
 void Graph_<FF>::add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index)
 {
-    if (first_variable_index != second_variable_index) {
-        this->variable_adjacency_lists[first_variable_index].insert(second_variable_index);
-        this->variable_adjacency_lists[second_variable_index].insert(first_variable_index);
-    }
+    variable_adjacency_lists[first_variable_index].emplace_back(second_variable_index);
+    variable_adjacency_lists[second_variable_index].emplace_back(first_variable_index);
+    variables_degree[first_variable_index] += 1;
+    variables_degree[second_variable_index] += 1;
 }
 
-template <typename FF> std::set<uint32_t> Graph_<FF>::get_variable_adjacency_list(const uint32_t& variable_index)
+template <typename FF> std::vector<uint32_t> Graph_<FF>::get_variable_adjacency_list(const uint32_t& variable_index)
 {
-    if (variable_index >= (this->variable_adjacency_lists).size()) {
-        throw std::out_of_range("Variable index out of bounds");
-    }
     return variable_adjacency_lists[variable_index];
 }
 
 template <typename FF>
 void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
                                     std::vector<uint32_t>& is_used,
-                                    std::set<uint32_t>& connected_component)
+                                    std::vector<uint32_t>& connected_component)
 {
-    // this method realizes algorith depth_first_search for undirected graph using the give variable
+    // this method realizes algorithm depth_first_search for undirected graph using the give variable
     std::stack<uint32_t> variable_stack;
     variable_stack.push(variable_index);
     while (!variable_stack.empty()) {
@@ -302,7 +316,7 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
         variable_stack.pop();
         if (std::find(is_used.begin(), is_used.end(), current_index) == is_used.end()) {
             is_used.emplace_back(current_index);
-            connected_component.insert(current_index);
+            connected_component.emplace_back(current_index);
             for (const auto& it : variable_adjacency_lists[current_index]) {
                 variable_stack.push(it);
             }
@@ -310,17 +324,19 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
     }
 }
 
-template <typename FF> std::vector<std::set<uint32_t>> Graph_<FF>::find_connected_components()
+template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_connected_components()
 {
     // this methond finds connected components from the graph described by adjacency lists
     std::vector<uint32_t> is_used;
-    std::vector<std::set<uint32_t>> connected_components;
-    for (size_t i = 2; i < variable_adjacency_lists.size(); i++) {
-        auto var_index = static_cast<uint32_t>(i);
-        if (std::find(is_used.begin(), is_used.end(), var_index) == is_used.end()) {
-            std::set<uint32_t> connected_component;
-            depth_first_search(var_index, is_used, connected_component);
-            connected_components.emplace_back(connected_component);
+    std::vector<std::vector<uint32_t>> connected_components;
+    for (const auto& pair : variable_adjacency_lists) {
+        if (pair.first != 0 && variables_degree[pair.first] > 0) {
+            if (std::find(is_used.begin(), is_used.end(), pair.first) == is_used.end()) {
+                std::vector<uint32_t> connected_component;
+                depth_first_search(pair.first, is_used, connected_component);
+                std::sort(connected_component.begin(), connected_component.end());
+                connected_components.emplace_back(connected_component);
+            }
         }
     }
     return connected_components;
@@ -341,14 +357,13 @@ template <typename FF> std::vector<uint32_t> Graph_<FF>::find_dangerous_variable
 
 template <typename FF> void Graph_<FF>::print_graph()
 {
-    for (size_t i = 2; i < this->variable_adjacency_lists.size(); i++) {
-        info("variable with index ", i);
-        if (this->variable_adjacency_lists[i].size() == 0) {
+    for (const auto& elem : variable_adjacency_lists) {
+        info("variable with index", elem.first);
+        if (variable_adjacency_lists[elem.first].empty()) {
             info("is isolated");
         } else {
-            for (auto it = this->variable_adjacency_lists[i].begin(); it != this->variable_adjacency_lists[i].end();
-                 ++it) {
-                info(*it, " ");
+            for (const auto& it : elem.second) {
+                info(it);
             }
         }
     }
@@ -358,7 +373,7 @@ template <typename FF> void Graph_<FF>::print_connected_components()
 {
     auto connected_components = find_connected_components();
     for (size_t i = 0; i < connected_components.size(); i++) {
-        info("printing the ", i, " connected component:");
+        info("printing the ", i + 1, " connected component:");
         for (const auto& it : connected_components[i]) {
             info(it, " ");
         }
@@ -386,9 +401,19 @@ void Graph_<FF>::print_dangerous_variables(const bb::StandardCircuitBuilder_<FF>
 
 template <typename FF> void Graph_<FF>::print_variables_gate_counts()
 {
-    for (auto& it : variables_gate_counts) {
-        info("number of gates with variables ", it.first);
+    for (const auto& it : variables_gate_counts) {
+        info("number of gates with variables ", it.first, " == ", it.second);
         info(it.second);
+    }
+}
+
+template <typename FF> void Graph_<FF>::print_variables_edge_counts()
+{
+    for (const auto& it : variables_degree) {
+        if (it.first != 0) {
+            info("variable index = ", it.first);
+            info("number of edges for this variables = ", it.second);
+        }
     }
 }
 

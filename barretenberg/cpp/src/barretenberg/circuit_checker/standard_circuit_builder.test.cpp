@@ -470,9 +470,9 @@ TEST(standard_circuit_constructor, test_check_circuit_broken)
 TEST(standard_circuit, test_boomerang_value_1)
 {
     StandardCircuitBuilder circuit_constructor = StandardCircuitBuilder();
-    fr a = fr::random_element();                                 // взяли случайный элемент
-    uint32_t a_idx = circuit_constructor.add_public_variable(a); // добавили его в схему
-    fr b = fr::random_element();                                 // еще один случайный элемент
+    fr a = fr::random_element();
+    uint32_t a_idx = circuit_constructor.add_public_variable(a);
+    fr b = fr::random_element();
     fr c = a + b;
     fr d = fr::random_element();
     fr e = d + a; //
