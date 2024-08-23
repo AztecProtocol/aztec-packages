@@ -151,7 +151,7 @@ class {{name}}Flavor {
                   , public ShiftedEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-        
+
         auto get_unshifted() {
           return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         }
@@ -170,7 +170,6 @@ class {{name}}Flavor {
          }
     };
 
-    // Note(md): required for instantiation from the proving key - im sure there are other ways to construct this
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
        VerificationKey() = default;
@@ -182,6 +181,7 @@ class {{name}}Flavor {
                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
                     commitment = proving_key->commitment_key->commit(polynomial);
             }
+            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         VerificationKey(const size_t circuit_size,
@@ -192,6 +192,7 @@ class {{name}}Flavor {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }
+            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
     };
 
