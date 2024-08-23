@@ -657,7 +657,8 @@ TEST(ultra_circuit_constructor, test_graph_for_range_constraints)
     // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
     circuit_constructor.create_sort_constraint(indices);
     Graph graph = Graph(circuit_constructor);
-    graph.print_connected_components();
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
 }
 
 TEST(ultra_circuit_constructor, composed_range_constraint)
@@ -672,5 +673,6 @@ TEST(ultra_circuit_constructor, composed_range_constraint)
     circuit_constructor.decompose_into_default_range(a_idx, 134);
 
     Graph graph = Graph(circuit_constructor);
-    graph.print_connected_components();
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
 }
