@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, AuthWitness, type AztecAddress, Contract } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AuthWitness, type AztecAddress } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 
 export async function addAuthwit(

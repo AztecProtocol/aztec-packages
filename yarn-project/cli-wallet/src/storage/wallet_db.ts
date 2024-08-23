@@ -1,4 +1,4 @@
-import { AuthWitness } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';

@@ -1,7 +1,7 @@
 import { getEcdsaRSSHAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
-import { AccountManager, AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import { type AccountManager, type AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { type PXE } from '../../../circuit-types/src/interfaces/pxe.js';
@@ -88,6 +88,7 @@ export async function getWalletWithScopes(account: AccountManager, db?: WalletDB
     let storedScopes: string[] = [];
     try {
       storedScopes = (db.retrieveAccountMetadata(wallet.getAddress(), 'scopes') ?? '').toString().split(',');
+      // eslint-disable-next-line no-empty
     } catch {}
     const currentScopes = wallet.getScopes()?.map(scopes => scopes.toString()) ?? [];
     const deduplicatedScopes = Array.from(new Set([address, ...currentScopes, ...storedScopes]).values()).map(scope =>
