@@ -6,8 +6,10 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { tcp } from '@libp2p/tcp';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
-import { PING_PROTOCOL } from './interface.js';
-import { ReqResp } from './reqresp.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
+import { ReqResp, SubProtocolHandlers } from './reqresp.js';
+import { pingHandler, statusHandler } from './handlers.js';
+import { Tx, TxHash, makeEmptyProcessedTx, mockTx } from '@aztec/circuit-types';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -44,6 +46,13 @@ type ReqRespNode = {
   req: ReqResp;
 };
 
+// handlers
+const SUB_PROTOCOL_HANDLERS: SubProtocolHandlers = {
+  [PING_PROTOCOL]: pingHandler,
+  [STATUS_PROTOCOL]: statusHandler,
+  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from("tx"))),
+};
+
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
@@ -52,9 +61,10 @@ const createNodes = async (numberOfNodes: number): Promise<ReqRespNode[]> => {
   return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp()));
 };
 
-const startNodes = async (nodes: ReqRespNode[]) => {
+// TODO: think about where else this can go
+const startNodes = async (nodes: ReqRespNode[], subProtocolHandlers = SUB_PROTOCOL_HANDLERS) => {
   for (const node of nodes) {
-    await node.req.start();
+    await node.req.start(subProtocolHandlers);
   }
 };
 
@@ -151,5 +161,57 @@ describe('ReqResp', () => {
     expect(res?.toString('utf-8')).toEqual('pong');
 
     await stopNodes(nodes);
+  });
+
+  describe("TX REQ PROTOCOL", () => {
+    it("Can request a Tx from TxHash", async () => {
+      const tx = mockTx();
+      const txHash = tx.getTxHash();
+
+      const protocolHandlers = SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[TX_REQ_PROTOCOL] = async (message: Buffer): Promise<Uint8Array> => {
+        const receivedHash = TxHash.fromBuffer(message);
+        if (txHash.equals(receivedHash)) {
+          return Promise.resolve(Uint8Array.from(tx.toBuffer()));
+        }
+        return Promise.resolve(Uint8Array.from(Buffer.from('')));
+      }
+
+      const nodes = await createNodes(2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash.toBuffer());
+      expect(res).toEqual(tx.toBuffer());
+
+      await stopNodes(nodes);
+    });
+
+    it("Does not crash if tx hash returns undefined", async () => {
+      const tx = mockTx();
+      const txHash = tx.getTxHash();
+
+      const protocolHandlers = SUB_PROTOCOL_HANDLERS;
+      // Return nothing
+      protocolHandlers[TX_REQ_PROTOCOL] = async (_message: Buffer): Promise<Uint8Array> => {
+        return Promise.resolve(Uint8Array.from(Buffer.from('')));
+      }
+
+      const nodes = await createNodes(2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash.toBuffer());
+      expect(res).toBeUndefined();
+
+      await stopNodes(nodes);
+
+    })
   });
 });
