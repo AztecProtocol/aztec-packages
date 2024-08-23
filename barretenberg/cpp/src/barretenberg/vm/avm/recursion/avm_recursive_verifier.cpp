@@ -1,7 +1,5 @@
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -94,6 +92,8 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         info(gate_challenges[idx]);
     }
+
+    info("All challenges are set!");
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);

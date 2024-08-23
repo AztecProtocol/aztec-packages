@@ -1,7 +1,4 @@
 #pragma once
-#include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
 

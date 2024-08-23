@@ -5,90 +5,10 @@
 // We also want noir to be able to absorb these proofs
 
 #pragma once
-#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
-// TODO(md): uni or multivariate polynomials required?
-// #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-
-// Include relation files
-#include "barretenberg/vm/avm/generated/relations/alu.hpp"
-#include "barretenberg/vm/avm/generated/relations/binary.hpp"
-#include "barretenberg/vm/avm/generated/relations/conversion.hpp"
-#include "barretenberg/vm/avm/generated/relations/incl_main_tag_err.hpp"
-#include "barretenberg/vm/avm/generated/relations/incl_mem_tag_err.hpp"
-#include "barretenberg/vm/avm/generated/relations/keccakf1600.hpp"
-#include "barretenberg/vm/avm/generated/relations/kernel.hpp"
-#include "barretenberg/vm/avm/generated/relations/kernel_output_lookup.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_byte_lengths.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_byte_operations.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_0.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_1.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_2.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_3.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_4.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_5.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_6.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_div_u16_7.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_into_kernel.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_mem_rng_chk_hi.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_mem_rng_chk_lo.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_mem_rng_chk_mid.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_opcode_gas.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_pow_2_0.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_pow_2_1.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_0.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_1.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_10.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_11.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_12.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_13.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_14.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_2.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_3.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_4.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_5.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_6.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_7.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_8.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u16_9.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u8_0.hpp"
-#include "barretenberg/vm/avm/generated/relations/lookup_u8_1.hpp"
-#include "barretenberg/vm/avm/generated/relations/main.hpp"
-#include "barretenberg/vm/avm/generated/relations/mem.hpp"
-#include "barretenberg/vm/avm/generated/relations/pedersen.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_alu.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_bin.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_conv.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_a.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_b.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_c.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_d.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_ind_addr_a.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_ind_addr_b.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_ind_addr_c.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_mem_ind_addr_d.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_pedersen.hpp"
-#include "barretenberg/vm/avm/generated/relations/perm_main_pos2_perm.hpp"
-#include "barretenberg/vm/avm/generated/relations/poseidon2.hpp"
-#include "barretenberg/vm/avm/generated/relations/range_check_da_gas_hi.hpp"
-#include "barretenberg/vm/avm/generated/relations/range_check_da_gas_lo.hpp"
-#include "barretenberg/vm/avm/generated/relations/range_check_l2_gas_hi.hpp"
-#include "barretenberg/vm/avm/generated/relations/range_check_l2_gas_lo.hpp"
-#include "barretenberg/vm/avm/generated/relations/sha256.hpp"
-
 #include "barretenberg/vm/avm/generated/flavor.hpp"
-
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 
 namespace bb {
 
@@ -139,7 +59,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
-     * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
      */
     class AllValues : public AvmFlavor::AllEntities<FF> {
