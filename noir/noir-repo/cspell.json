@@ -204,6 +204,7 @@
         "typevar",
         "typevars",
         "udiv",
+        "underconstrained",
         "uninstantiated",
         "unnormalized",
         "unoptimized",
@@ -216,7 +217,8 @@
         "wasi",
         "wasmer",
         "Weierstraß",
-        "zshell"
+        "zshell",
+        "Linea"
     ],
     "ignorePaths": [
         "./**/node_modules/**",
