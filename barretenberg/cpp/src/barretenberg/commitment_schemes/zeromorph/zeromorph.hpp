@@ -145,7 +145,7 @@ template <typename Curve> class ZeroMorphProver_ {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
-                result[offset + idx] += scalar * quotient[idx];
+                result.set(offset + idx, result[offset + idx] + scalar * quotient[idx]);
             }
             scalar *= y_challenge; // update batching scalar y^k
             k++;
@@ -234,7 +234,7 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute Z_x -= v * x * \Phi_n(x)
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
-        result[0] -= v_evaluation * x_challenge * phi_n_x;
+        result.set(0, result[0] - v_evaluation * x_challenge * phi_n_x);
 
         // Add contribution from q_k polynomials
         auto x_power = x_challenge; // x^{2^k}

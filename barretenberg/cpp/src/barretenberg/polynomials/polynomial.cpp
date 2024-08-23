@@ -265,7 +265,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
         n_l = 1 << (n - l - 1);
         u_l = evaluation_points[m - l - 1];
         for (size_t i = 0; i < n_l; ++i) {
-            intermediate[i] += u_l * (intermediate[i + n_l] - intermediate[i]);
+            intermediate.set(i, intermediate[i] + u_l * (intermediate[i + n_l] - intermediate[i]));
         }
     }
 

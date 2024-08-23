@@ -39,7 +39,7 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
     }
 }
 
-template <class T> constexpr field<T>& field<T>::operator*=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator*=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_mul");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -109,7 +109,7 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
     }
 }
 
-template <class T> constexpr field<T>& field<T>::operator+=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator+=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_add");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -188,7 +188,7 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
     return (p - *this).reduce_once(); // modulus - *this;
 }
 
-template <class T> constexpr field<T>& field<T>::operator-=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator-=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_sub");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -555,7 +555,7 @@ template <class T> constexpr field<T> field<T>::operator/(const field& other) co
     return operator*(other.invert());
 }
 
-template <class T> constexpr field<T>& field<T>::operator/=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator/=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_div");
     *this = operator/(other);
