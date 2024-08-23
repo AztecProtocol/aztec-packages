@@ -101,6 +101,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           blocksSynchedTo: 0n,
           messagesSynchedTo: 0n,
           blockBodiesSynchedTo: 0n,
+          provenLogsSynchedTo: 0n,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -110,6 +111,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           blocksSynchedTo: blocks.lastProcessedL1BlockNumber,
           messagesSynchedTo: 0n,
           blockBodiesSynchedTo: 0n,
+          provenLogsSynchedTo: 0n,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -119,6 +121,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           blocksSynchedTo: 0n,
           messagesSynchedTo: 0n,
           blockBodiesSynchedTo: blockBodies.lastProcessedL1BlockNumber,
+          provenLogsSynchedTo: 0n,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -131,6 +134,17 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           blocksSynchedTo: 0n,
           messagesSynchedTo: 1n,
           blockBodiesSynchedTo: 0n,
+          provenLogsSynchedTo: 0n,
+        } satisfies ArchiverL1SynchPoint);
+      });
+
+      it('returns the L1 block number that most recently logged a proven block', async () => {
+        await store.setProvenL2BlockNumber({ lastProcessedL1BlockNumber: 3n, retrievedData: 5 });
+        await expect(store.getSynchPoint()).resolves.toEqual({
+          blocksSynchedTo: 0n,
+          messagesSynchedTo: 0n,
+          blockBodiesSynchedTo: 0n,
+          provenLogsSynchedTo: 3n,
         } satisfies ArchiverL1SynchPoint);
       });
     });

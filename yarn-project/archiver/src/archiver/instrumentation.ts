@@ -1,4 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
+import { createDebugLogger } from '@aztec/foundation/log';
 import {
   Attributes,
   type Gauge,
@@ -7,14 +8,16 @@ import {
   type TelemetryClient,
   ValueType,
   exponentialBuckets,
+  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 export class ArchiverInstrumentation {
   private blockHeight: Gauge;
   private blockSize: Gauge;
   private syncDuration: Histogram;
+  private proofsSubmitted: Histogram;
 
-  constructor(telemetry: TelemetryClient) {
+  constructor(private telemetry: TelemetryClient) {
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',
@@ -34,6 +37,19 @@ export class ArchiverInstrumentation {
         explicitBucketBoundaries: exponentialBuckets(1, 16),
       },
     });
+
+    this.proofsSubmitted = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY, {
+      unit: 'ms',
+      description: 'Time after a block is submitted until its proof is published',
+      valueType: ValueType.INT,
+      advice: {
+        explicitBucketBoundaries: millisecondBuckets(1, 80), // 10ms -> ~3hs
+      },
+    });
+  }
+
+  public isEnabled(): boolean {
+    return this.telemetry.isEnabled();
   }
 
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
@@ -46,5 +62,15 @@ export class ArchiverInstrumentation {
 
   public updateLastProvenBlock(blockNumber: number) {
     this.blockHeight.record(blockNumber, { [Attributes.STATUS]: 'proven' });
+  }
+
+  public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
+    for (const log of logs) {
+      createDebugLogger('aztec:metrics').warn('FOO', log);
+      this.proofsSubmitted.record(Number(log.delay), {
+        [Attributes.ROLLUP_PROVER_ID]: log.proverId,
+        [Attributes.BLOCK_NUMBER]: Number(log.l2BlockNumber),
+      });
+    }
   }
 }

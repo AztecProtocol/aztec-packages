@@ -185,14 +185,6 @@ export class BlockStore {
     return this.#lastSynchedL1Block.get() ?? 0n;
   }
 
-  getProvenL2BlockNumber(): number {
-    return this.#lastProvenL2Block.get() ?? 0;
-  }
-
-  async setProvenL2BlockNumber(blockNumber: number) {
-    await this.#lastProvenL2Block.set(blockNumber);
-  }
-
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);

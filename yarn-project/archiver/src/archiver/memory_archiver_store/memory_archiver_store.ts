@@ -27,7 +27,7 @@ import {
 } from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../data_retrieval.js';
+import { type DataRetrieval, type SingletonDataRetrieval } from '../data_retrieval.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
@@ -85,6 +85,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private lastL1BlockNewBlocks: bigint = 0n;
   private lastL1BlockNewBlockBodies: bigint = 0n;
   private lastL1BlockNewMessages: bigint = 0n;
+  private lastL1BlockNewProvenLogs: bigint = 0n;
+
   private lastProvenL2BlockNumber: number = 0;
 
   constructor(
@@ -435,8 +437,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
-  public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
-    this.lastProvenL2BlockNumber = l2BlockNumber;
+  public setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void> {
+    this.lastProvenL2BlockNumber = l2BlockNumber.retrievedData;
+    this.lastL1BlockNewProvenLogs = l2BlockNumber.lastProcessedL1BlockNumber;
     return Promise.resolve();
   }
 
@@ -445,6 +448,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
       blockBodiesSynchedTo: this.lastL1BlockNewBlockBodies,
+      provenLogsSynchedTo: this.lastL1BlockNewProvenLogs,
     });
   }
 

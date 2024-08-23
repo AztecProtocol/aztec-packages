@@ -24,7 +24,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { type DataRetrieval } from './data_retrieval.js';
+import { type DataRetrieval, type SingletonDataRetrieval } from './data_retrieval.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -36,6 +36,8 @@ export type ArchiverL1SynchPoint = {
   blockBodiesSynchedTo: bigint;
   /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
   messagesSynchedTo: bigint;
+  /** Number of the last L1 block that added a new proven block. */
+  provenLogsSynchedTo: bigint;
 };
 
 /**
@@ -160,7 +162,7 @@ export interface ArchiverDataStore {
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
-  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
+  setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void>;
 
   /**
    * Gets the synch point of the archiver

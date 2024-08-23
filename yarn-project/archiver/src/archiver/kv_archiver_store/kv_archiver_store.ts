@@ -27,7 +27,7 @@ import {
 } from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../data_retrieval.js';
+import { type DataRetrieval, type SingletonDataRetrieval } from '../data_retrieval.js';
 import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractArtifactsStore } from './contract_artifacts_store.js';
@@ -35,13 +35,15 @@ import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
+import { ProvenStore } from './proven_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
-  #blockStore: BlockStore;
   #blockBodyStore: BlockBodyStore;
+  #blockStore: BlockStore;
+  #provenStore: ProvenStore;
   #logStore: LogStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
@@ -53,6 +55,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockBodyStore = new BlockBodyStore(db);
     this.#blockStore = new BlockStore(db, this.#blockBodyStore);
+    this.#provenStore = new ProvenStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -247,11 +250,11 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   getProvenL2BlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockStore.getProvenL2BlockNumber());
+    return Promise.resolve(this.#provenStore.getProvenL2BlockNumber());
   }
 
-  async setProvenL2BlockNumber(blockNumber: number) {
-    await this.#blockStore.setProvenL2BlockNumber(blockNumber);
+  async setProvenL2BlockNumber(blockNumber: SingletonDataRetrieval<number>) {
+    await this.#provenStore.setProvenL2BlockNumber(blockNumber);
   }
 
   /**
@@ -262,6 +265,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
       blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
       blockBodiesSynchedTo: this.#blockBodyStore.getSynchedL1BlockNumber(),
       messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
+      provenLogsSynchedTo: this.#provenStore.getSynchedL1BlockNumber(),
     });
   }
 }

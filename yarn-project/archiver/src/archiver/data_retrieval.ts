@@ -30,6 +30,20 @@ export type DataRetrieval<T> = {
 };
 
 /**
+ * Data retrieved from logs
+ */
+export type SingletonDataRetrieval<T> = {
+  /**
+   * Blocknumber of the last L1 block from which we obtained data.
+   */
+  lastProcessedL1BlockNumber: bigint;
+  /**
+   * The data returned.
+   */
+  retrievedData: T;
+};
+
+/**
  * Fetches new L2 block metadata (header, archive snapshot).
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.

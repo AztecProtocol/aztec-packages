@@ -24,6 +24,7 @@ import {
 import { createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray, unique } from '@aztec/foundation/collection';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -47,6 +48,7 @@ import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import {
   type DataRetrieval,
+  type SingletonDataRetrieval,
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
   retrieveL1ToL2Messages,
@@ -70,9 +72,6 @@ export class Archiver implements ArchiveSource {
    */
   private runningPromise?: RunningPromise;
 
-  /** Capture runtime metrics */
-  private instrumentation: ArchiverInstrumentation;
-
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
@@ -91,11 +90,9 @@ export class Archiver implements ArchiveSource {
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
-    telemetry: TelemetryClient,
+    private readonly instrumentation: ArchiverInstrumentation,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
-  ) {
-    this.instrumentation = new ArchiverInstrumentation(telemetry);
-  }
+  ) {}
 
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
@@ -125,7 +122,7 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS,
-      telemetry,
+      new ArchiverInstrumentation(telemetry),
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -352,7 +349,6 @@ export class Archiver implements ArchiveSource {
 
   private async updateLastProvenL2Block(fromBlock: bigint, toBlock: bigint) {
     const logs = await retrieveL2ProofVerifiedEvents(this.publicClient, this.rollupAddress, fromBlock, toBlock);
-
     const lastLog = logs[logs.length - 1];
     if (!lastLog) {
       return;
@@ -363,12 +359,68 @@ export class Archiver implements ArchiveSource {
       throw new Error(`Missing argument blockNumber from L2ProofVerified event`);
     }
 
+    await this.emitProofVerifiedMetrics(logs);
+
     const currentProvenBlockNumber = await this.store.getProvenL2BlockNumber();
     if (provenBlockNumber > currentProvenBlockNumber) {
       this.log.verbose(`Updated last proven block number from ${currentProvenBlockNumber} to ${provenBlockNumber}`);
-      await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+      await this.store.setProvenL2BlockNumber({
+        retrievedData: Number(provenBlockNumber),
+        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
+      });
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     }
+  }
+
+  /**
+   * Emits as metrics the block number proven, who proved it, and how much time passed since it was submitted.
+   * @param logs - The ProofVerified logs to emit metrics for, as collected from `retrieveL2ProofVerifiedEvents`.
+   **/
+  private async emitProofVerifiedMetrics(logs: { l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr }[]) {
+    if (!logs.length || !this.instrumentation.isEnabled()) {
+      return;
+    }
+
+    // Collect L1 block times for all ProofVerified event logs, this is the time in which the proof was submitted.
+    const getL1BlockTime = async (blockNumber: bigint) =>
+      (await this.publicClient.getBlock({ includeTransactions: false, blockNumber })).timestamp;
+
+    const l1BlockTimes = new Map(
+      await Promise.all(
+        unique(logs.map(log => log.l1BlockNumber)).map(
+          async blockNumber => [blockNumber, await getL1BlockTime(blockNumber)] as const,
+        ),
+      ),
+    );
+
+    // Collect L2 block times for all the blocks verified, this is the time in which the block proven was
+    // originally submitted, according to the block header global variables. If we stop having this info,
+    // we'll have to tweak the archiver store to save the L1 block time of when the block is pushed during
+    // the addBlocks call.
+    const getL2BlockTime = async (blockNumber: bigint) =>
+      (await this.store.getBlocks(Number(blockNumber), 1))[0]?.header.globalVariables.timestamp.toBigInt();
+
+    const l2BlockTimes = new Map(
+      await Promise.all(
+        unique(logs.map(log => log.l2BlockNumber)).map(
+          async blockNumber => [blockNumber, await getL2BlockTime(blockNumber)] as const,
+        ),
+      ),
+    );
+
+    // Emit the prover id and the time difference between block submission and proof.
+    this.instrumentation.processProofsVerified(
+      compactArray(
+        logs.map(log => {
+          const l1BlockTime = l1BlockTimes.get(log.l1BlockNumber)!;
+          const l2BlockTime = l2BlockTimes.get(log.l2BlockNumber);
+          if (!l2BlockTime) {
+            return undefined;
+          }
+          return { ...log, delay: l1BlockTime - l2BlockTime, proverId: log.proverId.toString() };
+        }),
+      ),
+    );
   }
 
   /**
@@ -552,7 +604,7 @@ export class Archiver implements ArchiveSource {
   }
 
   /** Forcefully updates the last proven block number. Use for testing. */
-  public setProvenBlockNumber(block: number): Promise<void> {
+  public setProvenBlockNumber(block: SingletonDataRetrieval<number>): Promise<void> {
     return this.store.setProvenL2BlockNumber(block);
   }
 
