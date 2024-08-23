@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724363588696,
+  "lastUpdate": 1724405974139,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "c959fcb38468e46a93dc649082365113a8c6c913",
-          "message": "feat: Poseidon2 gates for Ultra arithmetisation",
-          "timestamp": "2024-08-19T09:19:49Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/7494/commits/c959fcb38468e46a93dc649082365113a8c6c913"
-        },
-        "date": 1724061514173,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13501.51005799998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10335.438951999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4949.317458999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4506.067785000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40579.30413,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40579305000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14654.556318,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14654557000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3808756347,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3808756347 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212583838,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212583838 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3126501410,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3126501410 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 174827435,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 174827435 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3476,6 +3408,78 @@ window.BENCHMARK_DATA = {
             "value": 174714749,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 174714749 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5ac57884828af8fd0b2da7121f937727ee059ba0",
+          "message": "chore(master): Release 0.50.1 (#8151)\n\n:robot: I have created a release *beep* *boop*\r\n---\r\n\r\n\r\n<details><summary>aztec-package: 0.50.1</summary>\r\n\r\n##\r\n[0.50.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.50.0...aztec-package-v0.50.1)\r\n(2024-08-23)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **aztec-package:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>barretenberg.js: 0.50.1</summary>\r\n\r\n##\r\n[0.50.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.50.0...barretenberg.js-v0.50.1)\r\n(2024-08-23)\r\n\r\n\r\n### Miscellaneous\r\n\r\n* **barretenberg.js:** Synchronize aztec-packages versions\r\n</details>\r\n\r\n<details><summary>aztec-packages: 0.50.1</summary>\r\n\r\n##\r\n[0.50.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.50.0...aztec-packages-v0.50.1)\r\n(2024-08-23)\r\n\r\n\r\n### Features\r\n\r\n* Free instances and circuits earlier to reduce max memory usage\r\n([#8118](https://github.com/AztecProtocol/aztec-packages/issues/8118))\r\n([32a04c1](https://github.com/AztecProtocol/aztec-packages/commit/32a04c1e14564192df1581829d8f0ccb4a072769))\r\n* Prepare protocol circuits for batch rollup\r\n([#7727](https://github.com/AztecProtocol/aztec-packages/issues/7727))\r\n([a126e22](https://github.com/AztecProtocol/aztec-packages/commit/a126e220a1a6b5265926f5bbb91b7eb79102f0f3))\r\n* Share the commitment key between instances to reduce mem\r\n([#8154](https://github.com/AztecProtocol/aztec-packages/issues/8154))\r\n([c3dddf8](https://github.com/AztecProtocol/aztec-packages/commit/c3dddf83941fd7411f2faefff43552aa174e1401))\r\n\r\n\r\n### Bug Fixes\r\n\r\n* Cli-wallet manifest\r\n([#8156](https://github.com/AztecProtocol/aztec-packages/issues/8156))\r\n([2ffcda3](https://github.com/AztecProtocol/aztec-packages/commit/2ffcda319b6b185c2ce05361149750a8abfdae0d))\r\n\r\n\r\n### Miscellaneous\r\n\r\n* Replace relative paths to noir-protocol-circuits\r\n([5372ac4](https://github.com/AztecProtocol/aztec-packages/commit/5372ac44107eac4a9b216ffa588b69dac4e41c76))\r\n* Requiring only 1 sig from user\r\n([#8146](https://github.com/AztecProtocol/aztec-packages/issues/8146))\r\n([f0b564b](https://github.com/AztecProtocol/aztec-packages/commit/f0b564be119fd0625032abf55d040a186b1cb380))\r\n</details>\r\n\r\n<details><summary>barretenberg: 0.50.1</summary>\r\n\r\n##\r\n[0.50.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.50.0...barretenberg-v0.50.1)\r\n(2024-08-23)\r\n\r\n\r\n### Features\r\n\r\n* Free instances and circuits earlier to reduce max memory usage\r\n([#8118](https://github.com/AztecProtocol/aztec-packages/issues/8118))\r\n([32a04c1](https://github.com/AztecProtocol/aztec-packages/commit/32a04c1e14564192df1581829d8f0ccb4a072769))\r\n* Share the commitment key between instances to reduce mem\r\n([#8154](https://github.com/AztecProtocol/aztec-packages/issues/8154))\r\n([c3dddf8](https://github.com/AztecProtocol/aztec-packages/commit/c3dddf83941fd7411f2faefff43552aa174e1401))\r\n</details>\r\n\r\n---\r\nThis PR was generated with [Release\r\nPlease](https://github.com/googleapis/release-please). See\r\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2024-08-23T10:25:50+01:00",
+          "tree_id": "1a7a163d575c8a81ea0817df3c5723558102373b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5ac57884828af8fd0b2da7121f937727ee059ba0"
+        },
+        "date": 1724405957330,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13554.103808000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10389.01234 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5079.755617999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4667.523031999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39870.69915000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39870701000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14779.831767000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14779832000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3729705409,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3729705409 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 207885837,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 207885837 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3102662291,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3102662291 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173525352,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173525352 ns\nthreads: 1"
           }
         ]
       }
