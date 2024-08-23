@@ -99,6 +99,7 @@ export class TxProver implements ProverClient {
     const agent = config.proverAgentEnabled
       ? new ProverAgent(
           await TxProver.buildCircuitProver(config, telemetry),
+          telemetry,
           config.proverAgentConcurrency,
           config.proverAgentPollInterval,
         )

@@ -38,6 +38,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { elapsed } from '@aztec/foundation/timer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { ProvingQueueMetrics } from './queue_metrics.js';
@@ -102,13 +103,14 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     this.log.info('Proving queue stopped');
   }
 
-  public async getProvingJob({ timeoutSec = 1 } = {}): Promise<ProvingJob<ProvingRequest> | undefined> {
+  public async getProvingJob(): Promise<ProvingJob<ProvingRequest> | undefined> {
     if (!this.runningPromise.isRunning()) {
       throw new Error('Proving queue is not running. Start the queue before getting jobs.');
     }
 
     try {
-      const job = await this.queue.get(timeoutSec);
+      const [ms, job] = await elapsed(this.queue.get());
+      this.metrics.recordQueueAccess(ms);
       if (!job) {
         return undefined;
       }

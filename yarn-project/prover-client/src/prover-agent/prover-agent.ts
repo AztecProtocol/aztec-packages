@@ -9,7 +9,9 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 
+import { ProverClientMetrics } from '../metrics.js';
 import { ProvingError } from './proving-error.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
@@ -28,15 +30,20 @@ export class ProverAgent {
   >();
   private runningPromise?: RunningPromise;
 
+  private metrics: ProverClientMetrics;
+
   constructor(
     /** The prover implementation to defer jobs to */
     private circuitProver: ServerCircuitProver,
+    client: TelemetryClient,
     /** How many proving jobs this agent can handle in parallel */
     private maxConcurrency = 1,
     /** How long to wait between jobs */
     private pollIntervalMs = 100,
     private log = createDebugLogger('aztec:prover-client:prover-agent'),
-  ) {}
+  ) {
+    this.metrics = new ProverClientMetrics(client, 'ProverAgent');
+  }
 
   setMaxConcurrency(maxConcurrency: number): void {
     if (maxConcurrency < 1) {
@@ -61,8 +68,11 @@ export class ProverAgent {
     let lastPrint = process.hrtime.bigint();
 
     this.runningPromise = new RunningPromise(async () => {
+      this.metrics.recordGauge('aztec.prover_agent.in_flight_jobs', this.inFlightPromises.size);
+
       for (const jobId of this.inFlightPromises.keys()) {
-        await jobSource.heartbeat(jobId);
+        const [ms] = await elapsed(jobSource.heartbeat(jobId));
+        this.metrics.recordHistogram('aztec.prover_agent.job_heartbeat', ms);
       }
 
       const now = process.hrtime.bigint();
@@ -80,11 +90,16 @@ export class ProverAgent {
 
       while (this.inFlightPromises.size < this.maxConcurrency) {
         try {
-          const job = await jobSource.getProvingJob();
+          const [ms, job] = await elapsed(jobSource.getProvingJob());
+          this.metrics.recordHistogram('aztec.prover_agent.job_fetch', ms);
           if (!job) {
+            this.log.info(`No job found duration=${ms}ms`);
             // job source is fully drained, sleep for a bit and try again
             return;
           }
+          this.log.info(
+            `Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${ms}ms`,
+          );
 
           try {
             const promise = this.work(jobSource, job).finally(() => this.inFlightPromises.delete(job.id));
@@ -99,6 +114,7 @@ export class ProverAgent {
             );
           }
         } catch (err) {
+          this.metrics.recordCounter('aztec.prover_agent.job_fetch_error', 1);
           this.log.error(`Error fetching job`, err);
         }
       }
@@ -121,13 +137,13 @@ export class ProverAgent {
 
   private async work(jobSource: ProvingJobSource, job: ProvingJob<ProvingRequest>): Promise<void> {
     try {
-      this.log.debug(`Picked up proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
       const [time, result] = await elapsed(this.getProof(job.request));
       if (this.isRunning()) {
         this.log.verbose(
           `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
         );
-        await jobSource.resolveProvingJob(job.id, result);
+        const [ms] = await elapsed(jobSource.resolveProvingJob(job.id, result));
+        this.metrics.recordHistogram('aztec.prover_agent.job_resolve', ms);
       } else {
         this.log.verbose(
           `Dropping proving job id=${job.id} type=${
@@ -136,6 +152,7 @@ export class ProverAgent {
         );
       }
     } catch (err) {
+      this.metrics.recordCounter('aztec.prover_agent.job_error', 1);
       if (this.isRunning()) {
         this.log.error(
           `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${
@@ -143,7 +160,10 @@ export class ProverAgent {
           }`,
           err,
         );
-        await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
+        const [ms] = await elapsed(
+          jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err))),
+        );
+        this.metrics.recordHistogram('aztec.prover_agent.job_reject', ms);
       } else {
         this.log.verbose(
           `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${

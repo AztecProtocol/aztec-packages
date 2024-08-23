@@ -24,10 +24,11 @@ describe('Prover agent <-> queue integration', () => {
 
     queueJobTimeout = 100;
     queuePollInterval = 10;
-    queue = new MemoryProvingQueue(new NoopTelemetryClient(), queueJobTimeout, queuePollInterval);
+    const telemetryClient = new NoopTelemetryClient();
+    queue = new MemoryProvingQueue(telemetryClient, queueJobTimeout, queuePollInterval);
 
     agentPollInterval = 10;
-    agent = new ProverAgent(prover, 1, agentPollInterval);
+    agent = new ProverAgent(prover, telemetryClient, 1, agentPollInterval);
 
     queue.start();
     agent.start(queue);
@@ -86,7 +87,7 @@ describe('Prover agent <-> queue integration', () => {
     // reset the mock
     const secondRun = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
     prover.getBaseParityProof.mockResolvedValueOnce(secondRun.promise);
-    const newAgent = new ProverAgent(prover, 1, agentPollInterval);
+    const newAgent = new ProverAgent(prover, new NoopTelemetryClient(), 1, agentPollInterval);
     newAgent.start(queue);
     // test that the job is re-queued and kept alive by the new agent
     await sleep(queueJobTimeout * 2);

@@ -74,7 +74,7 @@ describe('MemoryProvingQueue', () => {
   });
 
   it('returns undefined when no jobs are available', async () => {
-    await expect(queue.getProvingJob({ timeoutSec: 0 })).resolves.toBeUndefined();
+    await expect(queue.getProvingJob()).resolves.toBeUndefined();
   });
 
   it('notifies of completion', async () => {

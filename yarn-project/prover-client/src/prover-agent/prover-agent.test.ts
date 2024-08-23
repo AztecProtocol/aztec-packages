@@ -24,7 +24,7 @@ describe('ProverAgent', () => {
   beforeEach(() => {
     prover = mock<ServerCircuitProver>();
     queue = new MemoryProvingQueue(new NoopTelemetryClient());
-    agent = new ProverAgent(prover);
+    agent = new ProverAgent(prover, new NoopTelemetryClient());
   });
 
   beforeEach(() => {

@@ -35,6 +35,7 @@ export const startProverAgent: ServiceStarter = async (options, signalHandlers, 
 
   const agent = new ProverAgent(
     circuitProver,
+    telemetry,
     proverConfig.proverAgentConcurrency,
     proverConfig.proverAgentPollInterval,
   );

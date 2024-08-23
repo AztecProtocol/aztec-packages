@@ -168,7 +168,7 @@ configs:
           editable: false
           isDefault: true
           jsonData:
-            timeInterval: 10s
+            timeInterval: 15s
 
   prometheus-config:
     content: |

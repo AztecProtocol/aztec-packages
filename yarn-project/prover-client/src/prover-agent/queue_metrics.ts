@@ -1,9 +1,18 @@
 import { ProvingRequestType } from '@aztec/circuit-types';
-import { Attributes, type Gauge, type Histogram, Metrics, type TelemetryClient } from '@aztec/telemetry-client';
+import { type Timer } from '@aztec/foundation/timer';
+import {
+  Attributes,
+  type Gauge,
+  type Histogram,
+  Metrics,
+  type TelemetryClient,
+  millisecondBuckets,
+} from '@aztec/telemetry-client';
 
 export class ProvingQueueMetrics {
   private jobSize: Histogram;
   private queueSize: Gauge;
+  private queueAccess: Histogram;
 
   constructor(client: TelemetryClient, name = 'ProvingQueueMetrics') {
     const meter = client.getMeter(name);
@@ -15,6 +24,14 @@ export class ProvingQueueMetrics {
     this.queueSize = meter.createGauge(Metrics.PROVING_QUEUE_SIZE, {
       description: 'Size of proving queue',
     });
+
+    this.queueAccess = meter.createHistogram('aztec.proving_queue.access_duration' as any, {
+      description: 'Access time of proving queue',
+      unit: 'ms',
+      advice: {
+        explicitBucketBoundaries: millisecondBuckets(1),
+      },
+    });
   }
 
   recordNewJob(type: ProvingRequestType, size: number) {
@@ -25,5 +42,10 @@ export class ProvingQueueMetrics {
 
   recordQueueSize(size: number) {
     this.queueSize.record(size);
+  }
+
+  recordQueueAccess(timerOrMs: Timer | number) {
+    const ms = Math.ceil(typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms());
+    this.queueAccess.record(ms);
   }
 }
