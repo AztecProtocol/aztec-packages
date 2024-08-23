@@ -43,10 +43,10 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    // TODO: assert the same as the key circuit size?
-    //  if (circuit_size != key->circuit_size) {
-    //     return false;
-    //  }
+    if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
+        throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
+    }
+
     info("got circuit size from prover: ", circuit_size);
 
     // Get commitments to VM wires
@@ -84,9 +84,6 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     info("rec: sumcheck alpha: ", alpha);
 
-    info("got sumcheck alpha");
-
-    // TODO(md): do we want this to be an unrolled for loop?
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));

@@ -1,7 +1,6 @@
 // As this adds the honk_stdlib_recursion module to the cmake lists, we probably
 // want to make vm recursion its own module
 
-// TMEPTEPTMEPTMEPTETMP
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 
 #include "barretenberg/numeric/random/engine.hpp"
@@ -68,6 +67,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
+        info("inner builder - num gates: ", builder.get_num_gates());
 
         return builder;
     }
@@ -75,7 +75,6 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-
     AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
     AvmProver prover = composer.create_prover(circuit_builder);
