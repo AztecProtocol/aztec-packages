@@ -252,8 +252,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
             if (is_read || nonzero_read_count) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                 auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                inverse_polynomial[i] = compute_read_term<FF>(row, relation_parameters) *
-                                        compute_write_term<FF, bus_idx>(row, relation_parameters);
+                auto value = compute_read_term<FF>(row, relation_parameters) *
+                             compute_write_term<FF, bus_idx>(row, relation_parameters);
+                inverse_polynomial.set(i, value);
             }
         }
         // Compute inverse polynomial I in place by inverting the product at each row

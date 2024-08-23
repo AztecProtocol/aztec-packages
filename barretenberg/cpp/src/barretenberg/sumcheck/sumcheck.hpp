@@ -333,7 +333,7 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j][i >> 1] = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
+                pep_view[j].set((i >> 1), poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]));
             }
         });
     };

@@ -83,7 +83,7 @@ template <class Curve> class CommitmentKey {
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial spann.
+        // with our polynomial span.
         G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
         DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe<Curve>(

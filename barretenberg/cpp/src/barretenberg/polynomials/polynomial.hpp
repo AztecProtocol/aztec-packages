@@ -229,20 +229,14 @@ template <typename Fr> class Polynomial {
         return p;
     }
 
-    // WORKTODO(sparse) needed?
-    // /**
-    //  * @brief Creates a PolynomialSpan over a specified range.
-    //  * @param start_index The starting index of the span.
-    //  * @param span_size The number of elements in the span.
-    //  * @return PolynomialSpan<Fr> The created span.
-    //  */
-    // PolynomialSpan<Fr> subspan(size_t start_index, size_t span_size)
-    // {
-    //     ASSERT(start_index + span_size <= size());
-    //     return { coefficients_.start_ + start_index,
-    //              { coefficients_.backing_memory_.get() + start_index,
-    //                coefficients_.backing_memory_.get() + start_index + span_size } };
-    // }
+    /**
+     * @brief Copys the polynomial, but with a lowers start_index() by 'left_expand'.
+     * The value of the polynomial remains the same, but defined memory region differs.
+     *
+     * @param shift the lower to shift our start_index() by upon copying.
+     * @return a polynomial with a larger size() but same virtual_size()
+     */
+    Polynomial expand(size_t left_expand);
 
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }

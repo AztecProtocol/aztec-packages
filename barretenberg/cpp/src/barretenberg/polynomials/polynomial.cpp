@@ -23,18 +23,25 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
     return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
 }
 
+// Note: This function is pretty gnarly, but we try to make it the only function that deals
+// with copying polynomials. It should be scrutinized thusly.
 template <typename Fr>
-SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray<Fr>& array, size_t target_size)
+SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray<Fr>& array,
+                                           size_t right_expansion = 0,
+                                           size_t left_expansion = 0)
 {
+    size_t expanded_size = array.size() + right_expansion + left_expansion;
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    ASSERT(target_size >= array.size());
-    std::shared_ptr<Fr[]> backing_clone = _allocate_aligned_memory<Fr>(target_size);
-    memcpy(static_cast<void*>(backing_clone.get()),
+    std::shared_ptr<Fr[]> backing_clone = _allocate_aligned_memory<Fr>(expanded_size);
+    // zero any left extensions to the array
+    memset(static_cast<void*>(backing_clone.get()), 0, sizeof(Fr) * left_expansion);
+    // copy our cloned array over
+    memcpy(static_cast<void*>(backing_clone.get() + left_expansion),
            static_cast<const void*>(array.backing_memory_.get()),
            sizeof(Fr) * array.size());
-    // zero any extensions to the array
-    memset(static_cast<void*>(backing_clone.get()), 0, sizeof(Fr) * (target_size - array.size()));
-    return { array.start_, array.end_, array.virtual_size_, backing_clone };
+    // zero any right extensions to the array
+    memset(static_cast<void*>(backing_clone.get() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
+    return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
 }
 
 template <typename Fr>
@@ -93,7 +100,8 @@ Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
 // fully copying "expensive" constructor
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
-    coefficients_ = _clone(other.coefficients_, target_size);
+    ASSERT(other.size() <= target_size);
+    coefficients_ = _clone(other.coefficients_, target_size - other.size());
 }
 
 // interpolation constructor
@@ -124,7 +132,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     if (this == &other) {
         return *this;
     }
-    coefficients_ = _clone(other.coefficients_, other.size());
+    coefficients_ = _clone(other.coefficients_);
     return *this;
 }
 
@@ -250,7 +258,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
 
     for (size_t i = 0; i < n_l; i++) {
         // Initiate our intermediate results using this Polynomial.
-        intermediate[i] = get(i) + u_l * (get(i + n_l) - get(i));
+        intermediate.set(i, get(i) + u_l * (get(i + n_l) - get(i)));
     }
     // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
     for (size_t l = 1; l < m; ++l) {
@@ -264,7 +272,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     // Construct resulting Polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
     Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
-        result[idx] = intermediate[idx];
+        result.set(idx, intermediate[idx]);
     }
 
     return result;
@@ -338,6 +346,12 @@ template <typename Fr> void hacky_shift_adjustment(const Polynomial<Fr>& to_shif
 }
 } // namespace
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t left_expand)
+{
+    Polynomial result = *this;
+    result.coefficients_ = _clone(coefficients_, 0, left_expand);
+    return result;
+}
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor)
 {
     // // WORKTODO(sparse) remove this and properly instantiate these things

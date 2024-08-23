@@ -174,8 +174,8 @@ template <class Params_> struct alignas(32) field {
 
     constexpr field(const field& other) noexcept = default;
     constexpr field(field&& other) noexcept = default;
-    constexpr field& operator=(const field& other) noexcept = default;
-    constexpr field& operator=(field&& other) noexcept = default;
+    constexpr field& operator=(const field& other) & noexcept = default;
+    constexpr field& operator=(field&& other) & noexcept = default;
     constexpr ~field() noexcept = default;
     alignas(32) uint64_t data[4]; // NOLINT
 

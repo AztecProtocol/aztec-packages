@@ -152,6 +152,8 @@ template <typename Fr> class LegacyPolynomial {
 
     bool is_empty() const { return size_ == 0; }
 
+    // For compatibility with polynomial.hpp
+    void set(size_t i, const Fr& value) { (*this)[i] = value; };
     /**
      * @brief Returns an std::span of the left-shift of self.
      *

@@ -84,7 +84,7 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t size_q = 1 << (log_N - 1);
         Polynomial q{ size_q, size_q };
         for (size_t l = 0; l < size_q; ++l) {
-            q[l] = polynomial[size_q + l] - polynomial[l];
+            q.set(l, polynomial[size_q + l] - polynomial[l]);
         }
 
         quotients[log_N - 1] = q.share();
@@ -106,7 +106,7 @@ template <typename Curve> class ZeroMorphProver_ {
             q = Polynomial{ size_q, size_q };
 
             for (size_t l = 0; l < size_q; ++l) {
-                q[l] = f_k[size_q + l] - f_k[l];
+                q.set(l, f_k[size_q + l] - f_k[l]);
             }
 
             quotients[log_N - k - 1] = q.share();
@@ -227,7 +227,7 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t log_N = quotients.size();
 
         // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
-        auto result = g_batched;
+        auto result = g_batched.expand(g_batched.start_index());
         result.add_scaled(f_batched, x_challenge);
 
         // Compute Z_x -= v * x * \Phi_n(x)

@@ -75,10 +75,12 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
                 eval = full_poly.size() > i ? full_poly.get(i) : 0;
             }
-            numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
+            auto num = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(evaluations,
+                                                                                                relation_parameters);
+            numerator.set(i, num);
+            auto denom = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
                 evaluations, relation_parameters);
-            denominator[i] = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-                evaluations, relation_parameters);
+            denominator.set(i, denom);
         }
     });
 
@@ -137,12 +139,13 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-    grand_product_polynomial[0] = 0;
+    // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
+    ASSERT(grand_product_polynomial.start_index() == 1);
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx == num_threads - 1) ? circuit_size - 1 : (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial[i + 1] = numerator[i] * denominator[i];
+            grand_product_polynomial.set(i + 1, numerator[i] * denominator[i]);
         }
     });
 
