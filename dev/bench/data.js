@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724405974139,
+  "lastUpdate": 1724429298622,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -3480,6 +3480,74 @@ window.BENCHMARK_DATA = {
             "value": 173525352,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173525352 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "93b1914edd1fcaf582e9f47645f7188f334fb21d",
+          "message": "refactor(avm): extract rng chk from gas and mem",
+          "timestamp": "2024-08-23T14:49:14Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8164/commits/93b1914edd1fcaf582e9f47645f7188f334fb21d"
+        },
+        "date": 1724429284301,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13289.292838000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10092.118189 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4919.573163999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4511.477937 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39764.283927,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39764283000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14470.127863,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14470128000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3761111182,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3761111182 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 209496581,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 209496581 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3054100960,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3054100960 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 172886224,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 172886224 ns\nthreads: 1"
           }
         ]
       }
