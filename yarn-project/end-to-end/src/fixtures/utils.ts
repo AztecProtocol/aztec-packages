@@ -78,13 +78,14 @@ import {
   createWalletClient,
   http,
 } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { NULL_KEY } from '@aztec/ethereum';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -359,19 +360,29 @@ export async function setup(
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
-  const publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
-  const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
-  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+  let publisherPrivKey = undefined;
+  let publisherHdAccount = undefined;
+
+  if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
+    console.log(`KEY: ${config.publisherPrivateKey}`);
+    publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+  } else if (!MNEMONIC) {
+    throw new Error(`Mnemonic not provided and no publisher private key`);
+  } else {
+    publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+    const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
+    publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+    config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  }
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(publisherHdAccount, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger));
 
-  config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   // Run the test with validators enabled
