@@ -50,9 +50,10 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     FF& challenge,
     const FF& compressed_perturbator)
 {
+    using Fun = ProtogalaxyProverInternal<ProverInstances>;
+
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
-    auto [vanishing_polynomial_at_challenge, lagranges] =
-        ProtogalaxyProverInternal<ProverInstances>::compute_vanishing_polynomial_and_lagranges(challenge);
+    auto [vanishing_polynomial_at_challenge, lagranges] = Fun::compute_vanishing_polynomial_and_lagranges(challenge);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::move(instances[0]);
@@ -112,6 +113,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::perturbator_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::perturbator_round");
+
+    using Fun = ProtogalaxyProverInternal<ProverInstances>;
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
     state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
@@ -119,8 +122,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
         LegacyPolynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
     if (state.accumulator->is_accumulator) {
-        state.perturbator =
-            ProtogalaxyProverInternal<ProverInstances>::compute_perturbator(state.accumulator, state.deltas);
+        state.perturbator = Fun::compute_perturbator(state.accumulator, state.deltas);
         // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
         // the accumulator which the folding verifier has from the previous iteration.
         for (size_t idx = 1; idx <= state.accumulator->proving_key.log_circuit_size; idx++) {
@@ -132,19 +134,19 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
+
+    using Fun = ProtogalaxyProverInternal<ProverInstances>;
     auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
     // WORKTODO: these becomes member functions on instances?
-    ProtogalaxyProverInternal<ProverInstances>::combine_relation_parameters(instances);
-    ProtogalaxyProverInternal<ProverInstances>::combine_alpha(instances);
+    Fun::combine_relation_parameters(instances);
+    Fun::combine_alpha(instances);
     auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
-    auto combiner = ProtogalaxyProverInternal<ProverInstances>::compute_combiner(
-        instances, pow_polynomial, state.optimised_univariate_accumulators);
+    auto combiner = Fun::compute_combiner(instances, pow_polynomial, state.optimised_univariate_accumulators);
 
     state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
-    state.combiner_quotient =
-        ProtogalaxyProverInternal<ProverInstances>::compute_combiner_quotient(state.compressed_perturbator, combiner);
+    state.combiner_quotient = Fun::compute_combiner_quotient(state.compressed_perturbator, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), state.combiner_quotient.value_at(idx));
