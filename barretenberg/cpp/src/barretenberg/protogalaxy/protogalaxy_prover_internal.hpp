@@ -316,8 +316,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                     accumulate_relation_univariates(
                         thread_univariate_accumulators[thread_idx],
                         extended_univariates[thread_idx],
-                        instances
-                            .optimised_relation_parameters, // these parameters have already been folded // WORKTODO
+                        instances.optimised_relation_parameters, // these parameters have already been folded
                         pow_challenge);
                 } else {
                     accumulate_relation_univariates(
@@ -483,7 +482,6 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     /**
      * @brief Combine the relation batching parameters (alphas) from each instance into a univariate, used in the
      * computation of combiner.
-     *
      */
     static void combine_alpha(ProverInstances& instances)
     {

@@ -1,5 +1,5 @@
 #include "barretenberg/honk/utils/testing.hpp"
-#include "barretenberg/protogalaxy/protogalaxy_prover.hpp" // WORKTODO: get rid
+#include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"

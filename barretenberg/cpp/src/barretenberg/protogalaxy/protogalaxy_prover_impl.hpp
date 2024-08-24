@@ -139,7 +139,6 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
-    // WORKTODO: these becomes member functions on instances?
     Fun::combine_relation_parameters(instances);
     Fun::combine_alpha(instances);
     auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
