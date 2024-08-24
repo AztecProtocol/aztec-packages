@@ -247,8 +247,6 @@ export async function createAndSyncProverNode(
     { blockUntilSync: true },
   );
 
-  console.log(`Prover key: ${proverNodePrivateKey}`);
-
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
     ...aztecNodeConfig,

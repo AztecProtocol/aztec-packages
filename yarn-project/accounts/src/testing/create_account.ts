@@ -3,6 +3,7 @@ import { type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
+import { WaitOpts } from '@aztec/aztec.js';
 
 /**
  * Deploys and registers a new account using random private keys and returns the associated Schnorr account wallet. Useful for testing.
@@ -27,6 +28,7 @@ export async function createAccounts(
   pxe: PXE,
   numberOfAccounts = 1,
   secrets: Fr[] = [],
+  waitOpts: WaitOpts = { interval: 0.1 }
 ): Promise<AccountWalletWithSecretKey[]> {
   const accounts = [];
 
@@ -56,6 +58,6 @@ export async function createAccounts(
 
   // Send them and await them to be mined
   const txs = await Promise.all(accounts.map(account => account.deploy()));
-  await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
+  await Promise.all(txs.map(tx => tx.wait(waitOpts)));
   return Promise.all(accounts.map(account => account.getWallet()));
 }

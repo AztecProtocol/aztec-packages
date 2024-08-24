@@ -1,20 +1,23 @@
 import {
   AztecNode,
   type DebugLogger,
-  DeployL1Contracts,
   Fr,
   type PXE,
 } from '@aztec/aztec.js';
 
-import { setup } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { createAccounts } from '@aztec/accounts/testing';
 import { getProverNodeConfigFromEnv, ProverNode, ProverNodeConfig } from '@aztec/prover-node';
 import { createAndSyncProverNode } from '../fixtures/snapshot_manager.js';
 import { AztecNodeConfig } from '@aztec/aztec-node';
+import { NULL_KEY } from '@aztec/ethereum';
+import { foundry, sepolia } from 'viem/chains';
 
-process.env.SEQ_PUBLISHER_PRIVATE_KEY = '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6';
-process.env.PROVER_PUBLISHER_PRIVATE_KEY = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
+// process.env.SEQ_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
+// process.env.PROVER_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
+// process.env.ETHEREUM_HOST= 'https://sepolia.infura.io/v3/<API_KEY>';
+// process.env.L1_CHAIN_ID = '11155111';
 
 describe(`deploys and transfers a private only token`, () => {
   let secretKey1: Fr;
@@ -29,13 +32,20 @@ describe(`deploys and transfers a private only token`, () => {
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
-    ({ logger, pxe, teardown, config, aztecNode } = await setup(0, {skipProtocolContracts: true, stateLoad: undefined}));
+    const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
+    const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
+    ({ logger, pxe, teardown, config, aztecNode } = await setup(0, {skipProtocolContracts: true, stateLoad: undefined, salt: 1}, { }, false, false, chain));
     proverConfig = getProverNodeConfigFromEnv();
+    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    proverConfig.publisherPrivateKey = proverConfig.publisherPrivateKey === NULL_KEY ? `0x${proverNodePrivateKey?.toString('hex')}` : proverConfig.publisherPrivateKey;
 
-    //proverNode = await createAndSyncProverNode(config.l1Contracts.rollupAddress, proverConfig.publisherPrivateKey, config, aztecNode);
+    proverNode = await createAndSyncProverNode(config.l1Contracts.rollupAddress, proverConfig.publisherPrivateKey, config, aztecNode);
+  }, 600_000);
+
+  afterEach(async () => {
+    await proverNode.stop();
+    teardown();
   });
-
-  afterEach(() => teardown());
 
   it('calls a private function', async () => {
     const initialBalance = 100000000000n;
@@ -45,7 +55,7 @@ describe(`deploys and transfers a private only token`, () => {
 
     logger.info(`Deploying accounts.`)
 
-    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2]);
+    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2], { interval: 0.1, proven: true, provenTimeout: 600});
 
     logger.info(`Accounts deployed, deploying token.`);
 
@@ -63,13 +73,13 @@ describe(`deploys and transfers a private only token`, () => {
       skipInitialization: false,
       skipPublicSimulation: true,
     }).deployed({
-      proven: false,
+      proven: true,
       provenTimeout: 600,
     });
 
     logger.info(`Performing transfer.`);
 
-    await token.methods.transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress()).send().wait({proven: false, provenTimeout: 600});
+    await token.methods.transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress()).send().wait({proven: true, provenTimeout: 600});
 
     logger.info(`Transfer completed`);
 
@@ -80,5 +90,5 @@ describe(`deploys and transfers a private only token`, () => {
 
     expect(balanceDeployer).toBe(initialBalance - transferValue);
     expect(balanceRecipient).toBe(transferValue);
-  });
+  }, 600_000);
 });

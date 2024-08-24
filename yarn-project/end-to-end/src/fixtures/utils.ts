@@ -114,6 +114,7 @@ export const setupL1Contracts = async (
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
   args: { salt?: number } = {},
+  chain: Chain = foundry,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -146,7 +147,7 @@ export const setupL1Contracts = async (
     },
   };
 
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt: args.salt,
@@ -292,6 +293,8 @@ type SetupOptions = {
   deployL1ContractsValues?: DeployL1Contracts;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
   skipProtocolContracts?: boolean;
+  /** Salt to use in L1 contract deployment */
+  salt?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -330,6 +333,7 @@ export async function setup(
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
   enableValidators = false,
+  chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
@@ -337,6 +341,9 @@ export async function setup(
   let anvil: Anvil | undefined;
 
   if (!config.l1RpcUrl) {
+    if (chain.id != foundry.id) {
+      throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
+    }
     if (PXE_URL) {
       throw new Error(
         `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
@@ -364,7 +371,6 @@ export async function setup(
   let publisherHdAccount = undefined;
 
   if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-    console.log(`KEY: ${config.publisherPrivateKey}`);
     publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
   } else if (!MNEMONIC) {
     throw new Error(`Mnemonic not provided and no publisher private key`);
@@ -381,7 +387,7 @@ export async function setup(
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, { salt: opts.salt }, chain));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
