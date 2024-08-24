@@ -254,14 +254,16 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * @param pow_betas
      * @return ExtendedUnivariateWithRandomization
      */
-    template <bool skip_zero_computations = true>
-    static ExtendedUnivariateWithRandomization compute_combiner(
-        const ProverInstances& instances,
-        PowPolynomial<FF>& pow_betas,
-        TupleOfTuplesOfUnivariates& univariate_accumulators,
-        OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators)
+    template <typename TupleOfTuples>
+    static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
+                                                                PowPolynomial<FF>& pow_betas,
+                                                                TupleOfTuples& univariate_accumulators)
     {
         BB_OP_COUNT_TIME();
+
+        // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
+        constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, OptimisedTupleOfTuplesOfUnivariates>;
+
         size_t common_instance_size = instances[0]->proving_key.circuit_size;
         pow_betas.compute_values(instances[0]->proving_key.log_circuit_size);
         // Determine number of threads for multithreading.
@@ -278,8 +280,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
-        using ThreadAccumulators =
-            std::conditional_t<skip_zero_computations, OptimisedTupleOfTuplesOfUnivariates, TupleOfTuplesOfUnivariates>;
+        using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
             std::conditional_t<skip_zero_computations, OptimisedExtendedUnivariates, ExtendedUnivariates>;
 
@@ -315,7 +316,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                     accumulate_relation_univariates(
                         thread_univariate_accumulators[thread_idx],
                         extended_univariates[thread_idx],
-                        instances.optimised_relation_parameters, // these parameters have already been folded
+                        instances
+                            .optimised_relation_parameters, // these parameters have already been folded // WORKTODO
                         pow_challenge);
                 } else {
                     accumulate_relation_univariates(
@@ -326,25 +328,16 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                 }
             }
         });
-        const auto batch_univariates = [&](auto& possibly_optimised_univariate_accumulators) {
-            RelationUtils::zero_univariates(possibly_optimised_univariate_accumulators);
-            // Accumulate the per-thread univariate accumulators into a single set of accumulators
-            for (auto& accumulators : thread_univariate_accumulators) {
-                RelationUtils::add_nested_tuples(possibly_optimised_univariate_accumulators, accumulators);
-            }
 
-            if constexpr (skip_zero_computations) { // Convert from optimised version to non-optimised
-                deoptimise_univariates(possibly_optimised_univariate_accumulators, univariate_accumulators);
-            };
-            //  Batch the univariate contributions from each sub-relation to obtain the round univariate
-            return batch_over_relations(univariate_accumulators, instances.alphas);
-        };
-
-        if constexpr (skip_zero_computations) { // Convert from optimised version to non-optimised
-            return batch_univariates(optimised_univariate_accumulators);
-        } else {
-            return batch_univariates(univariate_accumulators);
+        RelationUtils::zero_univariates(univariate_accumulators);
+        // Accumulate the per-thread univariate accumulators into a single set of accumulators
+        for (auto& accumulators : thread_univariate_accumulators) {
+            RelationUtils::add_nested_tuples(univariate_accumulators, accumulators);
         }
+        // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
+        TupleOfTuplesOfUnivariates deoptimized_univariates = deoptimise_univariates(univariate_accumulators);
+        //  Batch the univariate contributions from each sub-relation to obtain the round univariate
+        return batch_over_relations(deoptimized_univariates, instances.alphas);
     }
 
     /**
@@ -356,15 +349,22 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * @param optimised_univariate_accumulators
      * @param new_univariate_accumulators
      */
-    static void deoptimise_univariates(const OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators,
-                                       TupleOfTuplesOfUnivariates& new_univariate_accumulators)
+    template <typename PossiblyOptimisedTupleOfTuplesOfUnivariates>
+    static TupleOfTuplesOfUnivariates deoptimise_univariates(const PossiblyOptimisedTupleOfTuplesOfUnivariates& tup)
     {
+        // If input does not have optimized operators, return the input
+        if constexpr (std::same_as<PossiblyOptimisedTupleOfTuplesOfUnivariates, TupleOfTuplesOfUnivariates>) {
+            return tup;
+        }
+
         auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(optimised_univariate_accumulators));
+            auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(tup));
             element = optimised_element.convert();
         };
 
-        RelationUtils::template apply_to_tuple_of_tuples<0, 0>(new_univariate_accumulators, deoptimise);
+        TupleOfTuplesOfUnivariates result;
+        RelationUtils::template apply_to_tuple_of_tuples<0, 0>(result, deoptimise);
+        return result;
     }
 
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,

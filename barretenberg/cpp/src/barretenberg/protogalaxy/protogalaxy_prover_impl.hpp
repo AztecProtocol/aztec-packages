@@ -139,8 +139,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     ProtogalaxyProverInternal<ProverInstances>::combine_relation_parameters(instances);
     ProtogalaxyProverInternal<ProverInstances>::combine_alpha(instances);
     auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
-    auto combiner = ProtogalaxyProverInternal<ProverInstances>::template compute_combiner</*OptimisationEnabled=*/true>(
-        instances, pow_polynomial, state.univariate_accumulators, state.optimised_univariate_accumulators);
+    auto combiner = ProtogalaxyProverInternal<ProverInstances>::compute_combiner(
+        instances, pow_polynomial, state.optimised_univariate_accumulators);
 
     state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
     state.combiner_quotient =
