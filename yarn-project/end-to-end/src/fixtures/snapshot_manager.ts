@@ -332,7 +332,7 @@ async function setupFromFresh(
   logger.verbose('Creating and syncing a simulated prover node...');
   const proverNode = await createAndSyncProverNode(
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    `0x${proverNodePrivateKey!}`,
+    `0x${proverNodePrivateKey!.toString('hex')}`,
     aztecNodeConfig,
     aztecNode,
   );
