@@ -8,12 +8,20 @@ namespace bb {
 struct OriginTag {
     static constexpr size_t CONSTANT = 0;
     // Parent tag uses a concrete index, not bits for now, since we never expect the values to meet
-    size_t parent_tag = 0;
-    numeric::uint256_t child_tag = 0;
+    size_t parent_tag;
+    numeric::uint256_t child_tag;
     OriginTag() = default;
+    OriginTag(const OriginTag& other) = default;
+    OriginTag& operator=(const OriginTag& other) = default;
+    OriginTag& operator=(OriginTag&& other) noexcept
+    {
+        parent_tag = other.parent_tag;
+        child_tag = other.child_tag;
+        return *this;
+    }
     OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
         : parent_tag(parent_index)
-        , child_tag((static_cast<size_t>(1) << (child_index + (is_submitted ? 0 : 128))))
+        , child_tag((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
     {
         ASSERT(child_index < 128);
     }

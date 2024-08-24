@@ -71,6 +71,7 @@ template <typename Builder> class field_t {
         , additive_constant(other.additive_constant)
         , multiplicative_constant(other.multiplicative_constant)
         , witness_index(other.witness_index)
+        , tag(other.tag)
     {}
 
     field_t(field_t&& other) noexcept
@@ -78,6 +79,7 @@ template <typename Builder> class field_t {
         , additive_constant(other.additive_constant)
         , multiplicative_constant(other.multiplicative_constant)
         , witness_index(other.witness_index)
+        , tag(other.tag)
     {}
 
     field_t(const bool_t<Builder>& other);
