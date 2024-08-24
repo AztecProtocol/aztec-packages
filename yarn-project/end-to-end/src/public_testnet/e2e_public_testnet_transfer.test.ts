@@ -1,18 +1,14 @@
-import {
-  type AztecNode,
-  type DebugLogger,
-  Fr,
-  type PXE,
-} from '@aztec/aztec.js';
-
-import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { createAccounts } from '@aztec/accounts/testing';
-import { getProverNodeConfigFromEnv, type ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
-import { createAndSyncProverNode } from '../fixtures/snapshot_manager.js';
 import { type AztecNodeConfig } from '@aztec/aztec-node';
+import { type AztecNode, type DebugLogger, Fr, type PXE } from '@aztec/aztec.js';
 import { NULL_KEY } from '@aztec/ethereum';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
+import { type ProverNode, type ProverNodeConfig, getProverNodeConfigFromEnv } from '@aztec/prover-node';
+
 import { foundry, sepolia } from 'viem/chains';
+
+import { createAndSyncProverNode } from '../fixtures/snapshot_manager.js';
+import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 // process.env.SEQ_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
 // process.env.PROVER_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
@@ -34,12 +30,27 @@ describe(`deploys and transfers a private only token`, () => {
   beforeEach(async () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
-    ({ logger, pxe, teardown, config, aztecNode } = await setup(0, {skipProtocolContracts: true, stateLoad: undefined, salt: 1}, { }, false, false, chain));
+    ({ logger, pxe, teardown, config, aztecNode } = await setup(
+      0,
+      { skipProtocolContracts: true, stateLoad: undefined, salt: 1 },
+      {},
+      false,
+      false,
+      chain,
+    ));
     proverConfig = getProverNodeConfigFromEnv();
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
-    proverConfig.publisherPrivateKey = proverConfig.publisherPrivateKey === NULL_KEY ? `0x${proverNodePrivateKey?.toString('hex')}` : proverConfig.publisherPrivateKey;
+    proverConfig.publisherPrivateKey =
+      proverConfig.publisherPrivateKey === NULL_KEY
+        ? `0x${proverNodePrivateKey?.toString('hex')}`
+        : proverConfig.publisherPrivateKey;
 
-    proverNode = await createAndSyncProverNode(config.l1Contracts.rollupAddress, proverConfig.publisherPrivateKey, config, aztecNode);
+    proverNode = await createAndSyncProverNode(
+      config.l1Contracts.rollupAddress,
+      proverConfig.publisherPrivateKey,
+      config,
+      aztecNode,
+    );
   }, 600_000);
 
   afterEach(async () => {
@@ -53,9 +64,13 @@ describe(`deploys and transfers a private only token`, () => {
     secretKey1 = Fr.random();
     secretKey2 = Fr.random();
 
-    logger.info(`Deploying accounts.`)
+    logger.info(`Deploying accounts.`);
 
-    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2], { interval: 0.1, proven: true, provenTimeout: 600});
+    const accounts = await createAccounts(pxe, 2, [secretKey1, secretKey2], {
+      interval: 0.1,
+      proven: true,
+      provenTimeout: 600,
+    });
 
     logger.info(`Accounts deployed, deploying token.`);
 
@@ -66,20 +81,25 @@ describe(`deploys and transfers a private only token`, () => {
       initialBalance,
       deployerWallet.getAddress(),
       deployerWallet.getAddress(),
-    ).send({
-      universalDeploy: true,
-      skipPublicDeployment: true,
-      skipClassRegistration: true,
-      skipInitialization: false,
-      skipPublicSimulation: true,
-    }).deployed({
-      proven: true,
-      provenTimeout: 600,
-    });
+    )
+      .send({
+        universalDeploy: true,
+        skipPublicDeployment: true,
+        skipClassRegistration: true,
+        skipInitialization: false,
+        skipPublicSimulation: true,
+      })
+      .deployed({
+        proven: true,
+        provenTimeout: 600,
+      });
 
     logger.info(`Performing transfer.`);
 
-    await token.methods.transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress()).send().wait({proven: true, provenTimeout: 600});
+    await token.methods
+      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
+      .send()
+      .wait({ proven: true, provenTimeout: 600 });
 
     logger.info(`Transfer completed`);
 

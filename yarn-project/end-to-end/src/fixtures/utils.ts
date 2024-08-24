@@ -37,6 +37,7 @@ import {
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { NULL_KEY } from '@aztec/ethereum';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
@@ -85,7 +86,6 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import { NULL_KEY } from '@aztec/ethereum';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -387,7 +387,8 @@ export async function setup(
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, { salt: opts.salt }, chain));
+    opts.deployL1ContractsValues ??
+    (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, { salt: opts.salt }, chain));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
