@@ -116,6 +116,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
+
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 
@@ -186,6 +188,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
 
@@ -749,6 +752,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const bool with_edgecases)
 {
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
+    OriginTag tag{};
+    for (auto& point : _points) {
+        tag = OriginTag(tag, point.get_origin_tag());
+    }
+    for (auto& scalar : _scalars) {
+        tag = OriginTag(tag, scalar.get_origin_tag());
+    }
 
     if constexpr (IsSimulator<C>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
@@ -760,7 +770,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
             result += (element_t(points[i].get_value()) * scalars[i].get_value());
         }
         result = result.normalize();
-        return from_witness(context, result);
+        auto nonnative_result = from_witness(context, result);
+        return nonnative_result;
     } else {
         // Perform goblinized batched mul if available; supported only for BN254
         if (with_edgecases) {

@@ -12,6 +12,7 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     static_assert(HasPlookup<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
+        tag = OriginTag(tag, entry[0].get_origin_tag(), entry[1].get_origin_tag());
         if (entry[0].get_context() != nullptr) {
             context = entry[0].get_context();
             break;
@@ -72,6 +73,7 @@ twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
+    , tag(other.tag)
 {}
 
 template <typename Builder>
@@ -82,6 +84,7 @@ twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
+    , tag(other.tag)
 {}
 
 template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other)
@@ -92,6 +95,7 @@ template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::op
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
+    tag = other.tag;
     return *this;
 }
 
@@ -103,6 +107,7 @@ template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::op
     rom_id = other.rom_id;
     initialized = other.initialized;
     context = other.context;
+    tag = other.tag;
     return *this;
 }
 
@@ -132,10 +137,13 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
     }
 
     auto output_indices = context->read_ROM_array_pair(rom_id, index.normalize().get_witness_index());
-    return field_pair_pt{
+    auto pair = field_pair_pt{
         field_pt::from_witness_index(context, output_indices[0]),
         field_pt::from_witness_index(context, output_indices[1]),
     };
+    pair[0].set_origin_tag(OriginTag(tag, index.get_origin_tag()));
+    pair[1].set_origin_tag(OriginTag(tag, index.get_origin_tag()));
+    return pair;
 }
 
 template class twin_rom_table<bb::UltraCircuitBuilder>;

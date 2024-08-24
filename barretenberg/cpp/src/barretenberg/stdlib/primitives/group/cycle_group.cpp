@@ -249,6 +249,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
     });
+    result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
+    result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     return result;
 }
 
@@ -324,7 +326,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         .sign_coefficient = 1,
     };
     context->create_ecc_add_gate(add_gate);
-
+    result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
+    result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     return result;
 }
 
@@ -376,7 +379,10 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             .sign_coefficient = -1,
         };
         context->create_ecc_add_gate(add_gate);
-
+        result.x.set_origin_tag(
+            OriginTag(x.get_origin_tag(), y.get_origin_tag(), other.x.get_origin_tag(), other.y.get_origin_tag()));
+        result.y.set_origin_tag(
+            OriginTag(x.get_origin_tag(), y.get_origin_tag(), other.x.get_origin_tag(), other.y.get_origin_tag()));
         return result;
     }
 }
@@ -593,6 +599,8 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(con
         // bb::fq modulus otherwise we could have two representations for in
         validate_scalar_is_in_field();
     }
+    lo.set_origin_tag(in.get_origin_tag());
+    hi.set_origin_tag(in.get_origin_tag());
 }
 
 template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(const ScalarField& in)
@@ -663,6 +671,10 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     field_t lo = witness_t(in.get_context(), lo_v);
     field_t hi = witness_t(in.get_context(), hi_v);
     lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
+
+    lo.set_origin_tag(in.get_origin_tag());
+    hi.set_origin_tag(in.get_origin_tag());
+
     cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
     return result;
 }
@@ -696,6 +708,8 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         scalar.assert_equal(res);
         validate_scalar_is_in_field();
     }
+    lo.set_origin_tag(scalar.get_origin_tag());
+    hi.set_origin_tag(scalar.get_origin_tag());
 };
 
 template <typename Builder> bool cycle_group<Builder>::cycle_scalar::is_constant() const
@@ -822,6 +836,10 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
             }
             field_t::accumulate(linear_elements).assert_equal(scalar);
         }
+        auto tag = scalar.get_origin_tag();
+        for (auto& element : result) {
+            element.set_origin_tag(tag);
+        }
         return result;
     };
 
@@ -873,6 +891,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                                                                size_t table_bits)
     : _table_bits(table_bits)
     , _context(context)
+    , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
 {
     const size_t table_size = 1UL << table_bits;
     point_table.resize(table_size);
@@ -937,6 +956,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
     }
     field_t x = _index * (point_table[1].x - point_table[0].x) + point_table[0].x;
     field_t y = _index * (point_table[1].y - point_table[0].y) + point_table[0].y;
+    x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
+    y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     return cycle_group(x, y, false);
 }
 
@@ -999,7 +1020,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     std::vector<straus_scalar_slice> scalar_slices;
     std::vector<straus_lookup_table> point_tables;
+    OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
+        tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
         scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
         point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
     }
@@ -1053,6 +1076,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         auto x_diff = x2 - x1;
         x_diff.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
+
+    accumulator.set_origin_tag(tag);
     /**
      * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
@@ -1090,7 +1115,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<AffineElement> plookup_base_points;
     std::vector<field_t> plookup_scalars;
 
+    OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
+        tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
         ASSERT(table_id.has_value());
@@ -1131,6 +1158,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
      * in `batch_mul` before performing the subtraction.
      */
+    accumulator.set_origin_tag(tag);
     return { accumulator, offset_generator_accumulator };
 }
 

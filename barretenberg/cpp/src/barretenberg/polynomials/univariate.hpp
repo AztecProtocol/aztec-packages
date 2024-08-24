@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/transcript/tag.hpp"
 #include <span>
 
 namespace bb {
@@ -46,6 +47,14 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate(Univariate&& other) noexcept = default;
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
+
+    void set_origin_tag(const bb::OriginTag& new_tag)
+        requires usesTag<Fr>
+    {
+        for (auto& evaluation : evaluations) {
+            evaluation.set_origin_tag(new_tag);
+        }
+    }
 
     /**
      * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped

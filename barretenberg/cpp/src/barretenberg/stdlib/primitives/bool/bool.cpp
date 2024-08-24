@@ -50,6 +50,7 @@ bool_t<Builder>::bool_t(const bool_t<Builder>& other)
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
 }
 
 template <typename Builder>
@@ -59,6 +60,7 @@ bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
 }
 
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool other)
@@ -76,6 +78,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
     return *this;
 }
 
@@ -85,6 +88,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
     witness_index = other.witness_index;
     witness_bool = other.witness_bool;
     witness_inverted = other.witness_inverted;
+    tag = other.tag;
     return *this;
 }
 
@@ -177,6 +181,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
         result.witness_index = IS_CONSTANT;
         result.witness_inverted = false;
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -257,6 +262,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         result.witness_inverted = false;
         result.witness_index = IS_CONSTANT;
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -316,6 +322,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
         result.witness_inverted = false;
         result.witness_index = IS_CONSTANT;
     }
+    result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
@@ -376,6 +383,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
                                     right_coefficient,
                                     bb::fr::neg_one(),
                                     constant_coefficient });
+
+        result.tag = OriginTag(tag, other.tag);
         return result;
     }
 }

@@ -40,5 +40,6 @@ template <typename Builder> class twin_rom_table {
     mutable size_t rom_id = 0; // Builder identifier for this ROM table
     mutable bool initialized = false;
     mutable Builder* context = nullptr;
+    OriginTag tag{};
 };
 } // namespace bb::stdlib

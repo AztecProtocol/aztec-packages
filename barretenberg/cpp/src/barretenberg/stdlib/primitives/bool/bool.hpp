@@ -1,6 +1,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
+#include "barretenberg/transcript/tag.hpp"
 
 namespace bb::stdlib {
 
@@ -64,10 +65,13 @@ template <typename Builder> class bool_t {
 
     Builder* get_context() const { return context; }
 
+    void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
+    OriginTag get_origin_tag() const { return tag; }
     mutable Builder* context = nullptr;
     mutable bool witness_bool = false;
     mutable bool witness_inverted = false;
     mutable uint32_t witness_index = IS_CONSTANT;
+    mutable OriginTag tag{};
 };
 
 template <typename T> inline std::ostream& operator<<(std::ostream& os, bool_t<T> const& v)

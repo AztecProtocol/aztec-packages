@@ -54,5 +54,6 @@ template <typename Builder> class ram_table {
     mutable bool _ram_table_generated_in_builder = false;
     mutable bool _all_entries_written_to_with_constant_index = false;
     mutable Builder* _context = nullptr;
+    OriginTag _tag{};
 };
 } // namespace bb::stdlib

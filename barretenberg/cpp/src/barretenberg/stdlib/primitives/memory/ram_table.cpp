@@ -37,6 +37,7 @@ template <typename Builder> ram_table<Builder>::ram_table(const std::vector<fiel
     static_assert(HasPlookup<Builder>);
     // get the builder _context
     for (const auto& entry : table_entries) {
+        _tag = OriginTag(_tag, entry.get_origin_tag());
         if (entry.get_context() != nullptr) {
             _context = entry.get_context();
             break;
@@ -106,6 +107,7 @@ ram_table<Builder>::ram_table(const ram_table& other)
     , _ram_table_generated_in_builder(other._ram_table_generated_in_builder)
     , _all_entries_written_to_with_constant_index(other._all_entries_written_to_with_constant_index)
     , _context(other._context)
+    , _tag(other._tag)
 {}
 
 /**
@@ -123,6 +125,7 @@ ram_table<Builder>::ram_table(ram_table&& other)
     , _ram_table_generated_in_builder(other._ram_table_generated_in_builder)
     , _all_entries_written_to_with_constant_index(other._all_entries_written_to_with_constant_index)
     , _context(other._context)
+    , _tag(other._tag)
 {}
 
 /**
@@ -142,6 +145,7 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(co
     _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
 
     _context = other._context;
+    _tag = other._tag;
     return *this;
 }
 
@@ -161,6 +165,7 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ra
     _ram_table_generated_in_builder = other._ram_table_generated_in_builder;
     _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
     _context = other._context;
+    _tag = other._tag;
     return *this;
 }
 
@@ -198,7 +203,9 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
     }
 
     uint32_t output_idx = _context->read_RAM_array(_ram_id, index_wire.normalize().get_witness_index());
-    return field_pt::from_witness_index(_context, output_idx);
+    auto element = field_pt::from_witness_index(_context, output_idx);
+    element.set_origin_tag(OriginTag(_tag, index.get_origin_tag()));
+    return element;
 }
 
 /**
@@ -249,6 +256,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     } else {
         _context->write_RAM_array(_ram_id, index_wire.normalize().get_witness_index(), value_wire.get_witness_index());
     }
+    _tag = OriginTag(_tag, index.get_origin_tag(), value.get_origin_tag());
 }
 
 template class ram_table<bb::UltraCircuitBuilder>;
