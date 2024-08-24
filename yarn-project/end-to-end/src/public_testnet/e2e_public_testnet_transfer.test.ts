@@ -1,5 +1,5 @@
 import {
-  AztecNode,
+  type AztecNode,
   type DebugLogger,
   Fr,
   type PXE,
@@ -8,9 +8,9 @@ import {
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { createAccounts } from '@aztec/accounts/testing';
-import { getProverNodeConfigFromEnv, ProverNode, ProverNodeConfig } from '@aztec/prover-node';
+import { getProverNodeConfigFromEnv, type ProverNode, type ProverNodeConfig } from '@aztec/prover-node';
 import { createAndSyncProverNode } from '../fixtures/snapshot_manager.js';
-import { AztecNodeConfig } from '@aztec/aztec-node';
+import { type AztecNodeConfig } from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
 import { foundry, sepolia } from 'viem/chains';
 
@@ -44,7 +44,7 @@ describe(`deploys and transfers a private only token`, () => {
 
   afterEach(async () => {
     await proverNode.stop();
-    teardown();
+    await teardown();
   });
 
   it('calls a private function', async () => {
