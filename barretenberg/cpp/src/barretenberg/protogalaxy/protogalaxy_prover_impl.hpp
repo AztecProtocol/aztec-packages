@@ -88,18 +88,14 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     }
 
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
-    // the verifier
-    auto& combined_relation_parameters = instances.relation_parameters;
-    auto folded_relation_parameters = bb::RelationParameters<FF>{
-        combined_relation_parameters.eta.evaluate(challenge),
-        combined_relation_parameters.eta_two.evaluate(challenge),
-        combined_relation_parameters.eta_three.evaluate(challenge),
-        combined_relation_parameters.beta.evaluate(challenge),
-        combined_relation_parameters.gamma.evaluate(challenge),
-        combined_relation_parameters.public_input_delta.evaluate(challenge),
-        combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
-    };
-    next_accumulator->relation_parameters = folded_relation_parameters;
+    // the verifier. We could reuse the univariate relation parameters comuted before, but the computation is tiny and
+    // we do this now to avoid passing that state through the ProverInstances.
+    auto univariate_relation_parameters =
+        Fun::template compute_extended_relation_parameters<typename ProverInstances::RelationParameters>(instances);
+    for (auto [univariate, value] :
+         zip_view(univariate_relation_parameters.get_to_fold(), next_accumulator->relation_parameters.get_to_fold())) {
+        value = univariate.evaluate(challenge);
+    }
     next_accumulator->proving_key = std::move(instances[0]->proving_key);
     return next_accumulator;
 }
@@ -139,9 +135,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
-    Fun::combine_relation_parameters(instances);
     Fun::combine_alpha(instances);
-    auto pow_polynomial = PowPolynomial<FF>(instances.next_gate_challenges);
+    PowPolynomial<FF> pow_polynomial{ instances.next_gate_challenges };
+    pow_polynomial.compute_values(instances[0]->proving_key.log_circuit_size);
     auto combiner = Fun::compute_combiner(instances, pow_polynomial, state.optimised_univariate_accumulators);
 
     state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);

@@ -263,7 +263,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      * univariate, barycentrially extended to the desired number of evaluations, is performed correctly.
      *
      */
-    static void test_combine_relation_parameters()
+    static void test_compute_extended_relation_parameters()
     {
         Builder builder1;
         auto instance1 = std::make_shared<ProverInstance>(builder1);
@@ -275,14 +275,18 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         instance2->relation_parameters.eta = 3;
 
         ProverInstances instances{ { instance1, instance2 } };
-        Fun::combine_relation_parameters(instances);
+        auto relation_parameters =
+            Fun::template compute_extended_relation_parameters<typename ProverInstances::RelationParameters>(instances);
+        auto optimised_relation_parameters =
+            Fun::template compute_extended_relation_parameters<typename ProverInstances::OptimisedRelationParameters>(
+                instances);
 
         bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
-        EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
+        EXPECT_EQ(relation_parameters.eta, expected_eta);
         // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
         // deriving values from them
         for (size_t i = 0; i < 11; i++) {
-            EXPECT_EQ(instances.optimised_relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
+            EXPECT_EQ(optimised_relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
         }
     }
 
@@ -585,7 +589,7 @@ TYPED_TEST(ProtoGalaxyTests, CombinerQuotient)
 
 TYPED_TEST(ProtoGalaxyTests, CombineRelationParameters)
 {
-    TestFixture::test_combine_relation_parameters();
+    TestFixture::test_compute_extended_relation_parameters();
 }
 
 TYPED_TEST(ProtoGalaxyTests, CombineAlpha)
