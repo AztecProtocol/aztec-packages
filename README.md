@@ -17,7 +17,7 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 
 ## Issues Board
 
-All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/aztec/roadmap) section of our docs.
+All issues being worked on are tracked on the [Aztec Github Projects](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/aztec/roadmap) section of our docs.
 
 ## Development Setup
 
@@ -51,7 +51,7 @@ Logging goes through the [DebugLogger](yarn-project/foundation/src/log/debug.ts)
 
 ## Releases
 
-Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release_please.yml) will create the tagged release triggering CircleCI to build and deploy the version at that tag.
+Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflows](./.github/workflows/release_please.yml) will create the tagged release triggering CircleCI to build and deploy the version at that tag.
 
 ## Contribute
 
