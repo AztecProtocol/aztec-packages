@@ -43,7 +43,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         : instances(ProverInstances(insts))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(instances[1]->proving_key.commitment_key){};
-    ~ProtoGalaxyProver_() = default;
 
     /**
      * @brief Prior to folding, we need to finalize the given instances and add all their public data ϕ to the
