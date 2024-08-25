@@ -12,6 +12,8 @@ env:
   GIT_COMMIT: ${{ github.sha }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  # Uncomment the following to run against Sepolia
   # SEQ_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_SEQ_PRIVATE_KEY }}
   # PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
   # ETHEREUM_HOST: 'https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}';
