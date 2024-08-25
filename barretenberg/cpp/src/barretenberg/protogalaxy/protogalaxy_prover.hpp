@@ -59,13 +59,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         , commitment_key(instances[1]->proving_key.commitment_key){};
 
     /**
-     * @brief Create inputs to folding protocol (an Oink interaction).
-     * @details Prior to folding, we need to finalize the given instances and add all their public data ϕ to the
-     * transcript, labelled by their corresponding instance index for domain separation.
-     */
-    void prepare_for_folding();
-
-    /**
      * @brief For each instance produced by a circuit, prior to folding, we need to complete the computation of its
      * prover polynomials, commit to witnesses and generate the relation parameters as well as send the public data ϕ of
      * an instance to the verifier.
@@ -115,7 +108,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * and compute commitments. Send commitments to the verifier and retrieve challenges.
      *
      */
-    void preparation_round();
+    void run_oink_prover_on_each_instance();
 
     /**
      * @brief Steps 2 - 5 of the paper.
@@ -138,6 +131,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * parameters set.
      *
      */
-    void accumulator_update_round();
+    void update_target_sum_and_fold();
 };
 } // namespace bb

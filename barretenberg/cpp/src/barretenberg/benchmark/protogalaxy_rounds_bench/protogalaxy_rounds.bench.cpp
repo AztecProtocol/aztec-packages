@@ -39,7 +39,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
     std::fill_n(folding_prover.state.deltas.begin(), log2_num_gates, 0);
     folding_prover.state.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);
     folding_prover.transcript = Flavor::Transcript::prover_init_empty();
-    folding_prover.preparation_round();
+    folding_prover.run_oink_prover_on_each_instance();
 
     for (auto _ : state) {
         F(folding_prover);
@@ -51,13 +51,13 @@ void bench_round_mega(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Pr
     _bench_round<MegaFlavor>(state, F);
 }
 
-BENCHMARK_CAPTURE(bench_round_mega, preparation, [](auto& prover) { prover.preparation_round(); }) -> DenseRange(14, 20)
-    -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_mega, preparation, [](auto& prover) { prover.run_oink_prover_on_each_instance(); })
+    -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) { prover.perturbator_round(); }) -> DenseRange(14, 20)
     -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_mega, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
+BENCHMARK_CAPTURE(bench_round_mega, accumulator_update, [](auto& prover) { prover.update_target_sum_and_fold(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 
 } // namespace bb

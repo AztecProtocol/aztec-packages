@@ -17,27 +17,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     oink_prover.prove();
 }
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
-{
-    auto idx = 0;
-    auto instance = instances[0];
-    auto domain_separator = std::to_string(idx);
-    // WORKTODO: just do this on a longer
-    if (!instance->is_accumulator) {
-        finalise_and_send_instance(instance, domain_separator);
-        instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
-    }
-
-    idx++;
-
-    for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
-        auto instance = *it;
-        auto domain_separator = std::to_string(idx);
-        finalise_and_send_instance(instance, domain_separator);
-    }
-}
-
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
@@ -99,10 +78,27 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     return next_accumulator;
 }
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::preparation_round() // WORKTODO:
+template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
 {
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::preparation_round");
-    prepare_for_folding();
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::run_oink_prover_on_each_instance");
+    auto idx = 0;
+    auto instance = instances[0];
+    auto domain_separator = std::to_string(idx);
+
+    // WORKTODO: just do this on a longer
+    if (!instance->is_accumulator) {
+        finalise_and_send_instance(instance, domain_separator);
+        instance->target_sum = 0;
+        instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
+    }
+
+    idx++;
+
+    for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
+        auto instance = *it;
+        auto domain_separator = std::to_string(idx);
+        finalise_and_send_instance(instance, domain_separator);
+    }
 };
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::perturbator_round()
@@ -154,9 +150,9 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     }
 };
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accumulator_update_round()
+template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::update_target_sum_and_fold()
 {
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::accumulator_update_round");
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     std::shared_ptr<Instance> next_accumulator = compute_next_accumulator(instances,
                                                                           state.combiner_quotient,
@@ -181,7 +177,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
             ASSERT(false);
         }
     }
-    /* instances =  */ preparation_round(/* instances */);
+    /* instances =  */ run_oink_prover_on_each_instance(/* instances */);
 
     /* state.deltas, state.perturbator = */ perturbator_round(/* accumulator  */);
 
@@ -189,7 +185,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     /* gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */
     /* = */ combiner_quotient_round(/* gate challenges, deltas, instances */);
 
-    /* result =  */ accumulator_update_round(
+    /* result =  */ update_target_sum_and_fold(
         /* instances, combiner_quotient, optimised_relation_parameters, perturbator_evaluation */);
 
     return state.result;
