@@ -25,7 +25,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using CombinedRelationSeparator = typename ProverInstances::RelationSeparator;
+    using CombinedRelationSeparator =
+        std::array<Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     // WORKTODO: move this stuff into Protogalaxy and reuse here so the prover can be more explicit
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
@@ -259,6 +260,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
                                                                 const PowPolynomial<FF>& pow_betas,
                                                                 const Parameters& relation_parameters,
+                                                                const CombinedRelationSeparator& alphas,
                                                                 TupleOfTuples& univariate_accumulators)
     {
         BB_OP_COUNT_TIME();
@@ -328,7 +330,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
         TupleOfTuplesOfUnivariates deoptimized_univariates = deoptimise_univariates(univariate_accumulators);
         //  Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations(deoptimized_univariates, instances.alphas);
+        return batch_over_relations(deoptimized_univariates, alphas);
     }
 
     /**
@@ -472,10 +474,11 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * @brief Combine the relation batching parameters (alphas) from each instance into a univariate, used in the
      * computation of combiner.
      */
-    static void combine_alpha(ProverInstances& instances)
+    static CombinedRelationSeparator compute_and_extend_alphas(const ProverInstances& instances)
     {
+        CombinedRelationSeparator result;
         size_t alpha_idx = 0;
-        for (auto& alpha : instances.alphas) {
+        for (auto& alpha : result) {
             Univariate<FF, ProverInstances::NUM> tmp;
             size_t instance_idx = 0;
             for (auto& instance : instances) {
@@ -485,6 +488,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
             alpha = tmp.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
             alpha_idx++;
         }
+        return result;
     }
 };
 } // namespace bb

@@ -85,7 +85,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
     auto& folded_alphas = next_accumulator->alphas;
     for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        folded_alphas[idx] = instances.alphas[idx].evaluate(challenge);
+        folded_alphas[idx] = state.alphas[idx].evaluate(challenge);
     }
 
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
@@ -135,13 +135,17 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
 
-    Fun::combine_alpha(instances);
+    state.alphas = Fun::compute_and_extend_alphas(instances);
     PowPolynomial<FF> pow_polynomial{ instances.next_gate_challenges, instances[0]->proving_key.log_circuit_size };
     state.optimised_relation_parameters =
         Fun::template compute_extended_relation_parameters<typename State::OptimisedRelationParameters>(instances);
 
-    auto combiner = Fun::compute_combiner(
-        instances, pow_polynomial, state.optimised_relation_parameters, state.optimised_univariate_accumulators);
+    auto combiner = Fun::compute_combiner(instances,
+                                          pow_polynomial,
+                                          state.optimised_relation_parameters,
+                                          state.alphas,
+                                          state.optimised_univariate_accumulators);
+
     state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge); // WORKTODO: where reused?
     state.combiner_quotient = Fun::compute_combiner_quotient(state.compressed_perturbator, combiner);
 

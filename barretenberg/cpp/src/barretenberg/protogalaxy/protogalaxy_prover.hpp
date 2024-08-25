@@ -19,6 +19,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         using RelationParameters = bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
         using OptimisedRelationParameters = bb::RelationParameters<
             Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
+        using CombinedRelationSeparator =
+            std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
         std::shared_ptr<ProverInstance> accumulator;
         LegacyPolynomial<FF> perturbator;
@@ -26,6 +28,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         CombinerQuotient combiner_quotient;
         FF compressed_perturbator;
         RelationParameters relation_parameters;
+        CombinedRelationSeparator alphas; // a univariate interpolation of challenges for each subrelation
         OptimisedRelationParameters optimised_relation_parameters;
         OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;
         TupleOfTuplesOfUnivariates univariate_accumulators;

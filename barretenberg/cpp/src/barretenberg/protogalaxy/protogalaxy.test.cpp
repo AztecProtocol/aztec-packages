@@ -292,7 +292,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      * @brief Given two dummy instances with the batching challenges alphas set (one for each subrelation) ensure
      * combining them in a univariate of desired length works as expected.
      */
-    static void test_combine_alpha()
+    static void test_compute_and_extend_alphas()
     {
         Builder builder1;
         auto instance1 = std::make_shared<ProverInstance>(builder1);
@@ -304,11 +304,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         instance2->alphas.fill(4);
 
         ProverInstances instances{ { instance1, instance2 } };
-        Fun::combine_alpha(instances);
+        auto alphas = Fun::compute_and_extend_alphas(instances);
 
-        bb::Univariate<FF, 12> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
-        for (const auto& alpha : instances.alphas) {
-            EXPECT_EQ(alpha, expected_alpha);
+        bb::Univariate<FF, 12> expected_alphas{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
+        for (const auto& alpha : alphas) {
+            EXPECT_EQ(alpha, expected_alphas);
         }
     }
 
@@ -590,9 +590,9 @@ TYPED_TEST(ProtoGalaxyTests, CombineRelationParameters)
     TestFixture::test_compute_extended_relation_parameters();
 }
 
-TYPED_TEST(ProtoGalaxyTests, CombineAlpha)
+TYPED_TEST(ProtoGalaxyTests, CombineAlphas)
 {
-    TestFixture::test_combine_alpha();
+    TestFixture::test_compute_and_extend_alphas();
 }
 
 TYPED_TEST(ProtoGalaxyTests, ProtogalaxyInhomogeneous)
