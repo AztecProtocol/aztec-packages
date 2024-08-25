@@ -1,7 +1,7 @@
 name: Run public testnet test
 on:
   schedule:
-    - cron: '12 10 * * 0-5'
+    - cron: '00 08 * * 1-5'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,6 +12,10 @@ env:
   GIT_COMMIT: ${{ github.sha }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  # SEQ_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_SEQ_PRIVATE_KEY }}
+  # PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
+  # ETHEREUM_HOST: 'https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}';
+  # L1_CHAIN_ID: '11155111' # Sepolia Chain ID
 
 jobs:
   setup:
@@ -20,14 +24,12 @@ jobs:
       username: ${{ github.event.pull_request.user.login || github.actor }}
       runner_type: builder-x86
     secrets: inherit
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
   build:
     needs: setup
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,7 +56,6 @@ jobs:
       fail-fast: false
       matrix:
         test: ${{ fromJson( needs.build.outputs.e2e_list )}}
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
