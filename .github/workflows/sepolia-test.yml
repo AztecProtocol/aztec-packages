@@ -1,7 +1,7 @@
 name: Run public testnet test
 on:
   schedule:
-    - cron: '06 10 * * 1 - 5
+    - cron: '06 10 * * 1-5'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,7 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "${{ env.GIT_COMMIT }}"
+          #ref: "${{ env.GIT_COMMIT }}"
+          ref: pw/new-test-2
 
       - uses: ./.github/ci-setup-action
         with:
