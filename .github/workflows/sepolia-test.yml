@@ -1,10 +1,7 @@
 name: Run public testnet test
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches:
-      - 'pw/new-test-2'
+  schedule:
+    - cron: '06 10 * * 1 - 5
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
