@@ -23,17 +23,19 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
         std::shared_ptr<ProverInstance> accumulator;
-        LegacyPolynomial<FF> perturbator;
-        std::vector<FF> gate_challenges;
-        std::vector<FF> deltas;
-        CombinerQuotient combiner_quotient;
-        FF compressed_perturbator;
-        RelationParameters relation_parameters;
-        CombinedRelationSeparator alphas; // a univariate interpolation of challenges for each subrelation
-        OptimisedRelationParameters optimised_relation_parameters;
-        OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;
-        TupleOfTuplesOfUnivariates univariate_accumulators;
-        FoldingResult<typename ProverInstances_::Flavor> result;
+        LegacyPolynomial<FF> perturbator;       // computed then evaluated at a challenge
+        std::vector<FF> gate_challenges;        // use to compute pow_polynomial
+                                                // WORKTODO: move into accumulator
+        std::vector<FF> deltas;                 // used to compute perturbator; used to update gate challenge
+        CombinerQuotient combiner_quotient;     // computed then evaluated in computation of next target sum
+        FF perturbator_evaluation;              // computed then evaluated in computation of next target sum
+        RelationParameters relation_parameters; // used for combiner; folded
+                                                // WORKTODO: deprecated
+        OptimisedRelationParameters optimised_relation_parameters;             // used for combiner; folded
+        CombinedRelationSeparator alphas;                                      // used for combiner; folded
+        TupleOfTuplesOfUnivariates univariate_accumulators;                    // WORKTODO: delete
+        OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators; // WORKTODO: delete
+        FoldingResult<typename ProverInstances_::Flavor> result;               // WORKTODO: move out
     };
 
     using ProverInstances = ProverInstances_;
@@ -95,7 +97,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @param instances
      * @param combiner_quotient polynomial K in the paper
      * @param challenge
-     * @param compressed_perturbator
+     * @param perturbator_evaluation
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new
      * accumulator
@@ -104,7 +106,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                        State::CombinerQuotient&,
                                                        State::OptimisedRelationParameters&,
                                                        FF& challenge,
-                                                       const FF& compressed_perturbator);
+                                                       const FF& perturbator_evaluation);
 
     /**
      * @brief Finalise the prover instances that will be folded: complete computation of all the witness polynomials
