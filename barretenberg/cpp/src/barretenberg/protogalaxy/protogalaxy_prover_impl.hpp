@@ -136,8 +136,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
     Fun::combine_alpha(instances);
-    PowPolynomial<FF> pow_polynomial{ instances.next_gate_challenges };
-    pow_polynomial.compute_values(instances[0]->proving_key.log_circuit_size);
+    PowPolynomial<FF> pow_polynomial{ instances.next_gate_challenges, instances[0]->proving_key.log_circuit_size };
     auto combiner = Fun::compute_combiner(instances, pow_polynomial, state.optimised_univariate_accumulators);
 
     state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
