@@ -42,7 +42,6 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
  * and the computation of Lagrange basis for k instances
  */
-// WORKTODO: const correctness here?
 template <class ProverInstances>
 std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     ProverInstances& instances,
@@ -145,7 +144,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
                                           state.alphas,
                                           state.optimised_univariate_accumulators);
 
-    state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge); // WORKTODO: where reused?
+    state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
     state.combiner_quotient = Fun::compute_combiner_quotient(state.compressed_perturbator, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {

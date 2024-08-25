@@ -28,7 +28,6 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     using CombinedRelationSeparator =
         std::array<Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
-    // WORKTODO: move this stuff into Protogalaxy and reuse here so the prover can be more explicit
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
     // obtained by composing a relation with folded instance + relation parameters .
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
