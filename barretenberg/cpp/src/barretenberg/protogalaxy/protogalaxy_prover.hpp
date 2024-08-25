@@ -59,7 +59,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         , commitment_key(instances[1]->proving_key.commitment_key){};
 
     /**
-     * @brief Prior to folding, we need to finalize the given instances and add all their public data ϕ to the
+     * @brief Create inputs to folding protocol (an Oink interaction).
+     * @details Prior to folding, we need to finalize the given instances and add all their public data ϕ to the
      * transcript, labelled by their corresponding instance index for domain separation.
      */
     void prepare_for_folding();
@@ -109,27 +110,31 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                                        const FF& perturbator_evaluation);
 
     /**
-     * @brief Finalise the prover instances that will be folded: complete computation of all the witness polynomials
+     * @brief Create inputs to folding protocol (an Oink interaction).
+     * @details Finalise the prover instances that will be folded: complete computation of all the witness polynomials
      * and compute commitments. Send commitments to the verifier and retrieve challenges.
      *
      */
     void preparation_round();
 
     /**
-     * @brief Compute perturbator (F polynomial in paper). Send all but the constant coefficient to verifier.
+     * @brief Steps 2 - 5 of the paper.
+     * @details Compute perturbator (F polynomial in paper). Send all but the constant coefficient to verifier.
      *
      */
     void perturbator_round();
 
     /**
-     * @brief Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient
+     * @brief Steps 6 - 11 of the paper.
+     * @details Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient
      * will be sent to the verifier.
      *
      */
     void combiner_quotient_round();
 
     /**
-     * @brief Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
+     * @brief Steps 12 - 13 of the paper plus the prover folding work.
+     * @details Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
      * parameters set.
      *
      */
