@@ -22,6 +22,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     auto idx = 0;
     auto instance = instances[0];
     auto domain_separator = std::to_string(idx);
+    // WORKTODO: just do this on a longer
     if (!instance->is_accumulator) {
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
@@ -98,7 +99,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     return next_accumulator;
 }
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::preparation_round()
+template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::preparation_round() // WORKTODO:
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::preparation_round");
     prepare_for_folding();
@@ -115,6 +116,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     state.perturbator =
         LegacyPolynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
+    // WORKTODO: just check if accumulator is null
     if (state.accumulator->is_accumulator) {
         state.perturbator = Fun::compute_perturbator(state.accumulator, state.deltas);
         // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
@@ -179,10 +181,16 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
             ASSERT(false);
         }
     }
-    preparation_round();
-    perturbator_round();
-    combiner_quotient_round();
-    accumulator_update_round();
+    /* instances =  */ preparation_round(/* instances */);
+
+    /* state.deltas, state.perturbator = */ perturbator_round(/* accumulator  */);
+
+    /* state.*/
+    /* gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */
+    /* = */ combiner_quotient_round(/* gate challenges, deltas, instances */);
+
+    /* result =  */ accumulator_update_round(
+        /* instances, combiner_quotient, optimised_relation_parameters, perturbator_evaluation */);
 
     return state.result;
 }
