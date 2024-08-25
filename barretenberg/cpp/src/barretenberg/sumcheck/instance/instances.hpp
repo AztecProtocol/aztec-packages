@@ -17,8 +17,6 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     // The extended length here is the length of a composition of polynomials.
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
-    using RelationParameters = bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH>>;
-    using OptimisedRelationParameters = bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, NUM_ - 1>>;
     using RelationSeparator = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
 
     ArrayType _data;

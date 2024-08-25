@@ -27,6 +27,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     using RelationSeparator = typename Flavor::RelationSeparator;
     using CombinedRelationSeparator = typename ProverInstances::RelationSeparator;
 
+    // WORKTODO: move this stuff into Protogalaxy and reuse here so the prover can be more explicit
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
     // obtained by composing a relation with folded instance + relation parameters .
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
@@ -254,9 +255,10 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * @param pow_betas
      * @return ExtendedUnivariateWithRandomization
      */
-    template <typename TupleOfTuples>
+    template <typename Parameters, typename TupleOfTuples>
     static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
                                                                 const PowPolynomial<FF>& pow_betas,
+                                                                const Parameters& relation_parameters,
                                                                 TupleOfTuples& univariate_accumulators)
     {
         BB_OP_COUNT_TIME();
@@ -290,11 +292,6 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
             RelationUtils::zero_univariates(accum);
         }
 
-        auto relation_parameters =
-            compute_extended_relation_parameters<typename ProverInstances::RelationParameters>(instances);
-        auto optimised_relation_parameters =
-            compute_extended_relation_parameters<typename ProverInstances::OptimisedRelationParameters>(instances);
-
         // Construct extended univariates containers; one per thread
         std::vector<ExtendedUnivatiatesType> extended_univariates;
         extended_univariates.resize(num_threads);
@@ -316,18 +313,10 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
                 // this function have already been folded. Moreover, linear-dependent relations that act over the
                 // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
-                if constexpr (skip_zero_computations) {
-                    accumulate_relation_univariates(
-                        thread_univariate_accumulators[thread_idx],
-                        extended_univariates[thread_idx],
-                        optimised_relation_parameters, // these parameters have already been folded
-                        pow_challenge);
-                } else {
-                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                    extended_univariates[thread_idx],
-                                                    relation_parameters, // these parameters have already been folded
-                                                    pow_challenge);
-                }
+                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                extended_univariates[thread_idx],
+                                                relation_parameters, // these parameters have already been folded
+                                                pow_challenge);
             }
         });
 
