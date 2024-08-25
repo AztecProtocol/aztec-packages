@@ -24,6 +24,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
         std::shared_ptr<ProverInstance> accumulator;
         LegacyPolynomial<FF> perturbator;
+        std::vector<FF> gate_challenges;
         std::vector<FF> deltas;
         CombinerQuotient combiner_quotient;
         FF compressed_perturbator;

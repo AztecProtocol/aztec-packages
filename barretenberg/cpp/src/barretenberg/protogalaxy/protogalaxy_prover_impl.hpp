@@ -65,7 +65,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
     next_accumulator->target_sum = next_target_sum;
-    next_accumulator->gate_challenges = instances.next_gate_challenges;
+    next_accumulator->gate_challenges = state.gate_challenges;
 
     // Initialize accumulator proving key polynomials
     auto accumulator_polys = next_accumulator->proving_key.polynomials.get_all();
@@ -131,15 +131,14 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
-    auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-    instances.next_gate_challenges =
-        update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
 
+    auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
+    state.gate_challenges =
+        update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
     state.alphas = Fun::compute_and_extend_alphas(instances);
-    PowPolynomial<FF> pow_polynomial{ instances.next_gate_challenges, instances[0]->proving_key.log_circuit_size };
+    PowPolynomial<FF> pow_polynomial{ state.gate_challenges, instances[0]->proving_key.log_circuit_size };
     state.optimised_relation_parameters =
         Fun::template compute_extended_relation_parameters<typename State::OptimisedRelationParameters>(instances);
-
     auto combiner = Fun::compute_combiner(instances,
                                           pow_polynomial,
                                           state.optimised_relation_parameters,

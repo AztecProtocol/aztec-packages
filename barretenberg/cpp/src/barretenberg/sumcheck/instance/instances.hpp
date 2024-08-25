@@ -18,8 +18,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
 
-    ArrayType _data;
-    std::vector<FF> next_gate_challenges;
+    ArrayType _data; // we should not add any other data to this class
 
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::const_iterator begin() const { return _data.begin(); };
