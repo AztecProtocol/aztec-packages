@@ -254,9 +254,9 @@ export async function createAndSyncProverNode(
     dataDirectory: undefined,
     proverId: new Fr(42),
     realProofs: false,
-    proverAgentConcurrency: 1,
+    proverAgentConcurrency: 2,
     publisherPrivateKey: proverNodePrivateKey,
-    proverNodeMaxPendingJobs: 1,
+    proverNodeMaxPendingJobs: 100,
   };
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNode,
