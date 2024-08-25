@@ -48,7 +48,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     State::CombinerQuotient& combiner_quotient,
     State::OptimisedRelationParameters& univariate_relation_parameters,
     FF& challenge,
-    const FF& compressed_perturbator)
+    const FF& perturbator_evaluation)
 {
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
@@ -61,9 +61,9 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
-        compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
-    next_accumulator->target_sum = next_target_sum;
+    next_accumulator->target_sum = next_target_sum; // WORKTODO: move out
     next_accumulator->gate_challenges = state.gate_challenges;
 
     // Initialize accumulator proving key polynomials
@@ -144,8 +144,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
                                           state.alphas,
                                           state.optimised_univariate_accumulators);
 
-    state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
-    state.combiner_quotient = Fun::compute_combiner_quotient(state.compressed_perturbator, combiner);
+    state.perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
+    state.combiner_quotient = Fun::compute_combiner_quotient(state.perturbator_evaluation, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), state.combiner_quotient.value_at(idx));
@@ -160,7 +160,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accum
                                                                           state.combiner_quotient,
                                                                           state.optimised_relation_parameters,
                                                                           combiner_challenge,
-                                                                          state.compressed_perturbator);
+                                                                          state.perturbator_evaluation);
     state.result.proof = transcript->proof_data;
     state.result.accumulator = next_accumulator;
 };

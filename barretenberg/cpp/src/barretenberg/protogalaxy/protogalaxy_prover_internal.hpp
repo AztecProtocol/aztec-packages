@@ -415,7 +415,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      *
      */
     static Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> compute_combiner_quotient(
-        FF compressed_perturbator, ExtendedUnivariateWithRandomization combiner)
+        FF perturbator_evaluation, ExtendedUnivariateWithRandomization combiner)
     {
         std::array<FF, ProverInstances::BATCHED_EXTENDED_LENGTH - ProverInstances::NUM> combiner_quotient_evals = {};
 
@@ -438,7 +438,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
             static_assert(ProverInstances::NUM < 5);
 
             combiner_quotient_evals[idx] =
-                (combiner.value_at(point) - compressed_perturbator * lagrange_0) * vanishing_polynomial.invert();
+                (combiner.value_at(point) - perturbator_evaluation * lagrange_0) * vanishing_polynomial.invert();
         }
 
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> combiner_quotient(
