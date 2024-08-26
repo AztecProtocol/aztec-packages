@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
@@ -12,6 +13,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
+    using Instance = RecursiveVerifierInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
@@ -19,14 +21,15 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
     using AggregationObject = aggregation_state<typename Flavor::Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
     explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    AggregationObject verify_proof(const HonkProof& proof, aggregation_state<typename Flavor::Curve> previous_output);
+    AggregationObject verify_proof(const HonkProof& proof, aggregation_state<typename Flavor::Curve> agg_obj);
     AggregationObject verify_proof(const StdlibProof<Builder>& proof,
-                                   aggregation_state<typename Flavor::Curve> previous_output);
+                                   aggregation_state<typename Flavor::Curve> agg_obj);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
@@ -35,7 +38,4 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
 };
 
-// Instance declarations for Ultra and Goblin-Ultra verifier circuits with both conventional Ultra and Goblin-Ultra
-// arithmetization.
-using UltraRecursiveVerifier = UltraRecursiveVerifier_<UltraCircuitBuilder>;
 } // namespace bb::stdlib::recursion::honk

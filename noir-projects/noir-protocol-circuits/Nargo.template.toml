@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/types",
+    "crates/blob",
     "crates/parity-base",
     "crates/parity-lib",
     "crates/parity-root",
@@ -33,5 +34,7 @@ members = [
     "crates/rollup-merge",
     "crates/rollup-base",
     "crates/rollup-base-simulated",
+    "crates/rollup-block-merge",
+    "crates/rollup-block-root",
     "crates/rollup-root",
 ]

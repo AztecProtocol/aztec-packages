@@ -15,6 +15,9 @@ class ClientIVCRecursionTests : public testing::Test {
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
     using Proof = ClientIVC::Proof;
+    using Flavor = UltraRecursiveFlavor_<Builder>;
+    using NativeFlavor = Flavor::NativeFlavor;
+    using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
 
     static void SetUpTestSuite()
     {
@@ -89,11 +92,12 @@ TEST_F(ClientIVCRecursionTests, Basic)
     // Generate the recursive verification circuit
     verifier.verify(proof);
 
-    info("Recursive Verifier: num gates = ", builder->num_gates);
-
     EXPECT_EQ(builder->failed(), false) << builder->err();
 
     EXPECT_TRUE(CircuitChecker::check(*builder));
+
+    // Print the number of gates post finalisation
+    info("Recursive Verifier: finalised num gates = ", builder->num_gates);
 }
 
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
@@ -119,16 +123,16 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto inner_instance = std::make_shared<ProverInstance_<UltraFlavor>>(*tube_builder);
-    auto vk = std::make_shared<typename UltraFlavor::VerificationKey>(inner_instance->proving_key);
-    UltraProver_<UltraFlavor> tube_prover{ inner_instance };
-    auto tube_proof = tube_prover.construct_proof();
+    UltraProver tube_prover{ inner_instance };
+    auto native_tube_proof = tube_prover.construct_proof();
 
     Builder base_builder;
-    UltraRecursiveVerifier_<UltraRecursiveFlavor_<Builder>> base_verifier{ &base_builder, vk };
-    base_verifier.verify_proof(
-        tube_proof,
-        stdlib::recursion::init_default_aggregation_state<Builder, UltraRecursiveFlavor_<Builder>::Curve>(
-            base_builder));
+    auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(inner_instance->proving_key);
+    auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
+    auto tube_proof = bb::convert_proof_to_witness(&base_builder, native_tube_proof);
+    UltraRecursiveVerifier base_verifier{ &base_builder, vk };
+    base_verifier.verify_proof(tube_proof,
+                               stdlib::recursion::init_default_aggregation_state<Builder, Flavor::Curve>(base_builder));
     info("UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
 
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();

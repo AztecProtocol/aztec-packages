@@ -152,7 +152,7 @@ export class AztecNodeService implements AztecNode {
     );
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver);
+    const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver, telemetry);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
@@ -221,6 +221,10 @@ export class AztecNodeService implements AztecNode {
    */
   public getL1ContractAddresses(): Promise<L1ContractAddresses> {
     return Promise.resolve(this.config.l1Contracts);
+  }
+
+  public getEncodedEnr(): Promise<string | undefined> {
+    return Promise.resolve(this.p2pClient.getEnr()?.encodeTxt());
   }
 
   /**
@@ -722,7 +726,7 @@ export class AztecNodeService implements AztecNode {
     // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
     // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
     // So simulation of public functions doesn't affect the merkle trees.
-    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, this.log);
+    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, new NoopTelemetryClient(), this.log);
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),

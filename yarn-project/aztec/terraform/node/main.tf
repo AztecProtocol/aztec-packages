@@ -337,8 +337,8 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.PROVING_ENABLED)
         },
         {
-          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
-          value = "http://aztec-otel.local:4318"
+          name  = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+          value = "http://aztec-otel.local:4318/v1/metrics"
         },
         {
           name  = "OTEL_SERVICE_NAME"
@@ -355,6 +355,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "LOG_LEVEL"
           value = "info"
+        },
+        {
+          name  = "LOG_JSON",
+          value = "1"
         },
         {
           name  = "NETWORK_NAME",
