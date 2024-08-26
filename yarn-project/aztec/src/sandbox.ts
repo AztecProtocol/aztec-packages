@@ -3,6 +3,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
+import { IS_DEV_NET } from '@aztec/circuits.js';
 import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
   type DeployL1Contracts,
@@ -133,6 +134,7 @@ export async function deployContractsToL1(
       vkTreeRoot: getVKTreeRoot(),
       assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
       salt: undefined,
+      blockInterval: IS_DEV_NET ? undefined : 12,
     }),
   );
 

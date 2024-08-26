@@ -147,7 +147,13 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr; assumeProvenUntil?: number; salt: number | undefined },
+  args: {
+    blockInterval: number | undefined;
+    l2FeeJuiceAddress: AztecAddress;
+    vkTreeRoot: Fr;
+    assumeProvenUntil?: number;
+    salt: number | undefined;
+  },
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -161,13 +167,13 @@ export const deployL1Contracts = async (
     };
     return await (await fetch(rpcUrl, content)).json();
   };
-  if (chain.id == foundry.id) {
-    const interval = 12;
-    const res = await rpcCall(rpcUrl, 'anvil_setBlockTimestampInterval', [interval]);
+
+  if (chain.id == foundry.id && args.blockInterval !== undefined) {
+    const res = await rpcCall(rpcUrl, 'anvil_setBlockTimestampInterval', [args.blockInterval]);
     if (res.error) {
       throw new Error(`Error setting block interval: ${res.error.message}`);
     }
-    logger.info(`Set block interval to ${interval}`);
+    logger.info(`Set block interval to ${args.blockInterval}`);
   }
 
   logger.info(`Deploying contracts from ${account.address.toString()}...`);

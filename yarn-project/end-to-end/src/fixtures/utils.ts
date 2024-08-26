@@ -33,6 +33,7 @@ import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
   GasSettings,
+  IS_DEV_NET,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
@@ -151,6 +152,7 @@ export const setupL1Contracts = async (
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt: args.salt,
+    blockInterval: IS_DEV_NET ? undefined : 12,
   });
 
   return l1Data;

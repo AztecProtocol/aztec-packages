@@ -1,4 +1,5 @@
 import { type DebugLogger, type L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/aztec.js';
+import { IS_DEV_NET } from '@aztec/circuits.js';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -63,6 +64,7 @@ export const setupL1Contracts = async (
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt: undefined,
+    blockInterval: IS_DEV_NET ? undefined : 12,
   });
 
   return l1Data;

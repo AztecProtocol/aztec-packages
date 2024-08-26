@@ -1,10 +1,4 @@
-import {
-  type AztecAddress,
-  ETHEREUM_SLOT_DURATION,
-  type EthAddress,
-  GasFees,
-  GlobalVariables,
-} from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -22,10 +16,10 @@ import {
 import type * as chains from 'viem/chains';
 
 /**
- * Simple global variables builder.
+ * Simple global variables builder for devnet. Uses current timestamp and slots equal to block numbers.
  */
-export class GlobalVariableBuilder {
-  private log = createDebugLogger('aztec:sequencer:global_variable_builder');
+export class DevnetGlobalVariableBuilder {
+  private log = createDebugLogger('aztec:sequencer:devnet_global_variable_builder');
 
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
@@ -61,23 +55,16 @@ export class GlobalVariableBuilder {
   ): Promise<GlobalVariables> {
     const version = new Fr(await this.rollupContract.read.VERSION());
     const chainId = new Fr(this.publicClient.chain.id);
-
-    const ts = (await this.publicClient.getBlock()).timestamp;
-
-    // Not just the current slot, the slot of the next block.
-    const slot = await this.rollupContract.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
-    const timestamp = await this.rollupContract.read.getTimestampForSlot([slot]);
-
-    const slotFr = new Fr(slot);
-    const timestampFr = new Fr(timestamp);
+    const timestamp = new Fr(Math.floor(Date.now() / 1000));
+    const slot = blockNumber;
 
     const gasFees = GasFees.default();
     const globalVariables = new GlobalVariables(
       chainId,
       version,
       blockNumber,
-      slotFr,
-      timestampFr,
+      slot,
+      timestamp,
       coinbase,
       feeRecipient,
       gasFees,

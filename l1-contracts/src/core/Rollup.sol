@@ -585,19 +585,21 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root);
     }
 
-    uint256 slot = _header.globalVariables.slotNumber;
-    if (slot > type(uint128).max) {
-      revert Errors.Rollup__SlotValueTooLarge(slot);
-    }
+    if (!isDevNet) {
+      uint256 slot = _header.globalVariables.slotNumber;
+      if (slot > type(uint128).max) {
+        revert Errors.Rollup__SlotValueTooLarge(slot);
+      }
 
-    uint256 lastSlot = uint256(blocks[pendingBlockCount - 1].slotNumber);
-    if (slot <= lastSlot) {
-      revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
-    }
+      uint256 lastSlot = uint256(blocks[pendingBlockCount - 1].slotNumber);
+      if (slot <= lastSlot) {
+        revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
+      }
 
-    uint256 timestamp = getTimestampForSlot(slot);
-    if (_header.globalVariables.timestamp != timestamp) {
-      revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
+      uint256 timestamp = getTimestampForSlot(slot);
+      if (_header.globalVariables.timestamp != timestamp) {
+        revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
+      }
     }
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)

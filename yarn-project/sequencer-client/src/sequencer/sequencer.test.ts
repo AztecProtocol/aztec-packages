@@ -35,7 +35,7 @@ import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynch
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type BlockBuilderFactory } from '../block_builder/index.js';
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import { type GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';

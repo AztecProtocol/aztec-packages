@@ -22,7 +22,7 @@ import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type BlockBuilderFactory } from '../block_builder/index.js';
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import { type GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';

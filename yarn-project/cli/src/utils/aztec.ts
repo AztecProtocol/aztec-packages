@@ -1,6 +1,7 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/circuit-types';
+import { IS_DEV_NET } from '@aztec/circuits.js';
 import { type DeployL1Contracts } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
@@ -118,6 +119,7 @@ export async function deployAztecContracts(
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt,
+    blockInterval: IS_DEV_NET ? undefined : 12,
   });
 }
 

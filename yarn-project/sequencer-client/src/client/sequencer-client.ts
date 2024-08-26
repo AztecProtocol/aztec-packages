@@ -8,7 +8,7 @@ import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { BlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
-import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
+import { createGlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
@@ -44,7 +44,7 @@ export class SequencerClient {
     telemetryClient: TelemetryClient,
   ) {
     const publisher = new L1Publisher(config, telemetryClient);
-    const globalsBuilder = new GlobalVariableBuilder(config);
+    const globalsBuilder = createGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
     const publicProcessorFactory = new PublicProcessorFactory(
