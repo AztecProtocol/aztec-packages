@@ -23,59 +23,56 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
  * and the computation of Lagrange basis for k instances
  */
 template <class ProverInstances>
-std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
-    ProverInstances& instances,
-    CombinerQuotient& combiner_quotient,
+FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::update_target_sum_and_fold(
+    const ProverInstances& instances,
+    const CombinerQuotient& combiner_quotient,
+    const std::vector<FF>& gate_challenges,
+    const CombinedRelationSeparator& alphas,
     OptimisedRelationParameters& univariate_relation_parameters,
-    FF& challenge,
     const FF& perturbator_evaluation)
 {
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
-    auto [vanishing_polynomial_at_challenge, lagranges] = Fun::compute_vanishing_polynomial_and_lagranges(challenge);
+    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+
+    FoldingResult<Flavor> result{ .accumulator = instances[0], .proof = std::move(transcript->proof_data) };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    auto next_accumulator = std::move(instances[0]);
-    next_accumulator->is_accumulator = true;
+    result.accumulator->is_accumulator = true;
 
-    // Compute the next target sum and send the next folding parameters to the verifier
-    FF next_target_sum =
-        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+    // Compute the next target sum
+    auto [vanishing_polynomial_at_challenge, lagranges] =
+        Fun::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
+    result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +
+                                     vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
 
-    next_accumulator->target_sum = next_target_sum; // WORKTODO: move out
-    next_accumulator->gate_challenges = state.gate_challenges;
-
-    // Initialize accumulator proving key polynomials
-    auto accumulator_polys = next_accumulator->proving_key.polynomials.get_all();
-    for (size_t poly_idx = 0; poly_idx < Flavor::NUM_FOLDED_ENTITIES; poly_idx++) {
-        accumulator_polys[poly_idx] *= lagranges[0];
-    }
+    result.accumulator->gate_challenges = gate_challenges;
 
     // Fold the proving key polynomials
+    for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
+        poly *= lagranges[0];
+    }
     for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
-        auto input_polys = instances[inst_idx]->proving_key.polynomials.get_all();
-        for (size_t poly_idx = 0; poly_idx < Flavor::NUM_FOLDED_ENTITIES; poly_idx++) {
-            accumulator_polys[poly_idx].add_scaled(input_polys[poly_idx], lagranges[inst_idx]);
+        for (auto [acc_poly, inst_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
+                                                   instances[inst_idx]->proving_key.polynomials.get_unshifted())) {
+            acc_poly.add_scaled(inst_poly, lagranges[inst_idx]);
         }
     }
 
     // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
-    auto& folded_alphas = next_accumulator->alphas;
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        folded_alphas[idx] = state.alphas[idx].evaluate(challenge);
+    for (auto [folded_alpha, inst_alpha] : zip_view(result.accumulator->alphas, alphas)) {
+        folded_alpha = inst_alpha.evaluate(combiner_challenge);
     }
 
-    // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
-    // the verifier. We could reuse the univariate relation parameters comuted before, but the computation is tiny and
-    // we do this now to avoid passing that state through the ProverInstances.
-    for (auto [univariate, value] :
-         zip_view(univariate_relation_parameters.get_to_fold(), next_accumulator->relation_parameters.get_to_fold())) {
-        value = univariate.evaluate(challenge);
+    // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
+    for (auto [univariate, value] : zip_view(univariate_relation_parameters.get_to_fold(),
+                                             result.accumulator->relation_parameters.get_to_fold())) {
+        value = univariate.evaluate(combiner_challenge);
     }
-    next_accumulator->proving_key = std::move(instances[0]->proving_key);
-    return next_accumulator;
+
+    return result;
 }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
@@ -100,7 +97,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_o
         finalise_and_send_instance(instance, domain_separator);
     }
 
-    state.accumulator = instances[0];
+    state.accumulator = instances[0]; // WORKTODO: use this
 };
 
 template <class ProverInstances>
@@ -126,7 +123,7 @@ ProtoGalaxyProver_<ProverInstances>::perturbator_round(
         }
     }
 
-    return std::make_tuple(std::move(deltas), std::move(perturbator));
+    return std::make_tuple(deltas, perturbator);
 };
 
 template <class ProverInstances>
@@ -162,25 +159,9 @@ ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
 
-    return std::make_tuple(std::move(updated_gate_challenges),
-                           std::move(alphas),
-                           std::move(optimised_relation_parameters),
-                           std::move(perturbator_evaluation),
-                           std::move(combiner_quotient));
+    return std::make_tuple(
+        updated_gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient);
 }
-
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::update_target_sum_and_fold()
-{
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
-    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    std::shared_ptr<Instance> next_accumulator = compute_next_accumulator(instances,
-                                                                          state.combiner_quotient,
-                                                                          state.optimised_relation_parameters,
-                                                                          combiner_challenge,
-                                                                          state.perturbator_evaluation);
-    state.result.proof = transcript->proof_data;
-    state.result.accumulator = next_accumulator;
-};
 
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::prove()
@@ -207,9 +188,13 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
              state.combiner_quotient) =
         combiner_quotient_round(state.accumulator->gate_challenges, state.deltas, instances);
 
-    /* result =  */ update_target_sum_and_fold(
-        /* instances, combiner_quotient, optimised_relation_parameters, perturbator_evaluation */);
+    FoldingResult<Flavor> result = update_target_sum_and_fold(instances,
+                                                              state.combiner_quotient,
+                                                              state.gate_challenges,
+                                                              state.alphas,
+                                                              state.optimised_relation_parameters,
+                                                              state.perturbator_evaluation);
 
-    return state.result;
+    return result;
 }
 } // namespace bb

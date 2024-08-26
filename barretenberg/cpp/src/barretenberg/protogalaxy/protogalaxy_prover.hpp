@@ -34,7 +34,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         CombinedRelationSeparator alphas;                                      // used for combiner; folded
         TupleOfTuplesOfUnivariates univariate_accumulators;                    // WORKTODO: delete
         OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators; // WORKTODO: delete
-        FoldingResult<typename ProverInstances_::Flavor> result;               // WORKTODO: move out
+        FoldingResult<Flavor> result;                                          // WORKTODO: move out
     };
     using Transcript = typename Flavor::Transcript;
     using Instance = typename ProverInstances_::Instance;
@@ -78,27 +78,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
-     * @brief Compute the next accumulator (ϕ*, ω*, \vec{\beta*}, e*), send the public data ϕ*  and the folding
-     * parameters
-     * (\vec{\beta*}, e*) to the verifier and return the complete accumulator
-     *
-     * @details At this stage, we assume that the instances have the same size and the same number of public
-     * parameter.s
-     * @param instances
-     * @param combiner_quotient polynomial K in the paper
-     * @param challenge
-     * @param perturbator_evaluation
-     *
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new
-     * accumulator
-     */
-    std::shared_ptr<Instance> compute_next_accumulator(ProverInstances_&,
-                                                       CombinerQuotient&,
-                                                       OptimisedRelationParameters&,
-                                                       FF& challenge,
-                                                       const FF& perturbator_evaluation);
-
-    /**
      * @brief Create inputs to folding protocol (an Oink interaction).
      * @details Finalise the prover instances that will be folded: complete computation of all the witness polynomials
      * and compute commitments. Send commitments to the verifier and retrieve challenges.
@@ -131,6 +110,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @details Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
      * parameters set.
      */
-    void update_target_sum_and_fold();
+    FoldingResult<Flavor> update_target_sum_and_fold(
+        const ProverInstances_& instances,
+        const CombinerQuotient& combiner_quotient,
+        const std::vector<FF>& gate_challenges,
+        const CombinedRelationSeparator& alphas,
+        /* WORKTOO */ OptimisedRelationParameters& univariate_relation_parameters,
+        const FF& perturbator_evaluation);
 };
 } // namespace bb

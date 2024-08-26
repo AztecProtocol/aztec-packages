@@ -51,7 +51,7 @@ void bench_round_mega(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Pr
     _bench_round<MegaFlavor>(state, F);
 }
 
-BENCHMARK_CAPTURE(bench_round_mega, preparation, [](auto& prover) { prover.run_oink_prover_on_each_instance(); })
+BENCHMARK_CAPTURE(bench_round_mega, oink, [](auto& prover) { prover.run_oink_prover_on_each_instance(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) {
     prover.perturbator_round(prover.state.accumulator);
@@ -59,8 +59,14 @@ BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) {
 BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) {
     prover.combiner_quotient_round(prover.state.accumulator->gate_challenges, prover.state.deltas, prover.instances);
 }) -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_mega, accumulator_update, [](auto& prover) { prover.update_target_sum_and_fold(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_mega, fold, [](auto& prover) {
+    prover.update_target_sum_and_fold(prover.instances,
+                                      prover.state.combiner_quotient,
+                                      prover.state.gate_challenges,
+                                      prover.state.alphas,
+                                      prover.state.optimised_relation_parameters,
+                                      prover.state.perturbator_evaluation);
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
 
 } // namespace bb
 
