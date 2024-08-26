@@ -175,17 +175,25 @@ export class Archiver implements ArchiveSource {
      *
      * This code does not handle reorgs.
      */
-    const { blockBodiesSynchedTo, blocksSynchedTo, messagesSynchedTo } = await this.store.getSynchPoint();
+    const { blockBodiesSynchedTo, blocksSynchedTo, messagesSynchedTo, provenLogsSynchedTo } =
+      await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
     if (
       currentL1BlockNumber <= blocksSynchedTo &&
       currentL1BlockNumber <= messagesSynchedTo &&
-      currentL1BlockNumber <= blockBodiesSynchedTo
+      currentL1BlockNumber <= blockBodiesSynchedTo &&
+      currentL1BlockNumber <= provenLogsSynchedTo
     ) {
       // chain hasn't moved forward
       // or it's been rolled back
-      this.log.debug(`Nothing to sync`, { currentL1BlockNumber, blocksSynchedTo, messagesSynchedTo });
+      this.log.debug(`Nothing to sync`, {
+        currentL1BlockNumber,
+        blocksSynchedTo,
+        messagesSynchedTo,
+        provenLogsSynchedTo,
+        blockBodiesSynchedTo,
+      });
       return;
     }
 
@@ -339,8 +347,9 @@ export class Archiver implements ArchiveSource {
     }
 
     // Fetch the logs for proven blocks in the block range and update the last proven block number.
-    // Note it's ok to read repeated data here, since we're just using the largest number we see on the logs.
-    await this.updateLastProvenL2Block(blocksSynchedTo, currentL1BlockNumber);
+    if (currentL1BlockNumber > provenLogsSynchedTo) {
+      await this.updateLastProvenL2Block(provenLogsSynchedTo + 1n, currentL1BlockNumber);
+    }
 
     if (retrievedBlocks.length > 0 || blockUntilSynced) {
       (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
