@@ -32,7 +32,7 @@ describe(`deploys and transfers a private only token`, () => {
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
     ({ logger, pxe, teardown, config, aztecNode } = await setup(
       0,
-      { skipProtocolContracts: true, stateLoad: undefined, salt: 1 },
+      { skipProtocolContracts: true, stateLoad: undefined },
       {},
       false,
       false,

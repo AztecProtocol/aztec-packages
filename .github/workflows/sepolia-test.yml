@@ -35,8 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          #ref: "${{ env.GIT_COMMIT }}"
-          ref: pw/new-test-2
+          ref: "${{ env.GIT_COMMIT }}"
 
       - uses: ./.github/ci-setup-action
         with:
