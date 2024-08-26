@@ -206,15 +206,15 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     // Copy values, transforming them into Finite Field elements
     std::transform(vector_for_sorting.cbegin(),
                    vector_for_sorting.cend(),
-                   prover_polynomials.ordered_range_constraints_0.begin(),
+                   prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
                    [](uint64_t in) { return FF(in); });
 
     // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but we
     // only need to check the correctness of the relation and it acts independently on each polynomial)
     parallel_for(4, [&](size_t i) {
-        std::copy(prover_polynomials.ordered_range_constraints_0.begin(),
-                  prover_polynomials.ordered_range_constraints_0.end(),
-                  polynomial_pointers[i + 1]->begin());
+        std::copy(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
+                  prover_polynomials.ordered_range_constraints_0.coeffs().end(),
+                  polynomial_pointers[i + 1]->coeffs().begin());
     });
 
     // Get shifted polynomials
