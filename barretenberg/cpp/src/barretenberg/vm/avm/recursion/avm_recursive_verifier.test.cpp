@@ -75,7 +75,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    GTEST_SKIP() << "Skipping single test";
+    // GTEST_SKIP() << "Skipping single test";
     AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
     AvmProver prover = composer.create_prover(circuit_builder);
@@ -113,8 +113,10 @@ TEST_F(AvmRecursiveTests, recursion)
     info("Outer circuit failed? ", outer_circuit.failed());
     CircuitChecker::check(outer_circuit);
 
-    // Make a proof of the verifiers
-    auto ultra_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+    // Make a proof of the verification of an AVM proof
+    const size_t srs_size = 1 << 23;
+    auto ultra_instance = std::make_shared<OuterProverInstance>(
+        outer_circuit, TraceStructure::NONE, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
     OuterVerifier ultra_verifier(ultra_verification_key);

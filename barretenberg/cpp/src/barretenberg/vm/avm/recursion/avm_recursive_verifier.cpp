@@ -19,14 +19,9 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
 
 template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    // TODO(md): enable zeromorph
     using Curve = typename Flavor::Curve;
     using Zeromorph = ZeroMorphVerifier_<Curve>;
     using PCS = typename Flavor::PCS;
-
-    // TODO(md): Questionable assignments
-    // using Curve = typename Flavor::Curve;
-
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<typename Flavor::FF>;

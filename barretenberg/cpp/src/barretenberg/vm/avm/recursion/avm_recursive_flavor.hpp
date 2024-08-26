@@ -82,7 +82,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            // this->num_public_inputs = native_key->num_public_inputs;
+            this->num_public_inputs = native_key->num_public_inputs;
             // this->pub_inputs_offset = native_key->pub_inputs_offset;
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
