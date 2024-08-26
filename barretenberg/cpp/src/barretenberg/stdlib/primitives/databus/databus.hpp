@@ -92,7 +92,7 @@ template <class Builder> class DataBusDepot {
      *
      * @param commitments Witness polynomial commitments for an instance that has been accumulated
      * @param public_inputs The public inputs of that instance
-     * @param propagation_data Data indicating what databus commitments are present on the public inputs of the instance
+     * @param propagation_data Data about the presence of databus commitments on the public inputs of the instance
      */
     void execute(WitnessCommitments& commitments,
                  std::vector<Fr>& public_inputs,

@@ -14,6 +14,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
     circuit.databus_propagation_data.is_kernel = true;
 
+    // Peform recursive verification and databus consistency checks for each entry in the verification queue
     for (auto& [proof, vkey, type] : verification_queue) {
         // Construct stdlib verification key and proof
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
@@ -24,7 +25,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
             auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
 
-            // Perform folding recursive verification
+            // Perform folding recursive verification to update the verifier accumulator
             FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_vkey } };
             auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
 
@@ -41,7 +42,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
             auto verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, stdlib_vkey);
 
-            // Perform oink recursive verification (which completes the verifier accumulator)
+            // Perform oink recursive verification to complete the initial verifier accumulator
             OinkRecursiveVerifier oink{ &circuit, verifier_accum };
             oink.verify_proof(stdlib_proof);
             verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink on this instance
