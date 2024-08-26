@@ -136,6 +136,11 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_2);
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
 
+    // ensure we can shift these
+    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
+        prover_poly = prover_poly.unshifted().share();
+    }
+
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     compute_translator_range_constraint_ordered_polynomials<Flavor>(prover_polynomials, mini_circuit_size);
 
@@ -217,6 +222,11 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
                   polynomial_pointers[i + 1]->coeffs().begin());
     });
 
+    // ensure we can shift these
+    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
+        prover_poly = prover_poly.unshifted().share();
+    }
+
     // Get shifted polynomials
     prover_polynomials.ordered_range_constraints_0_shift = prover_polynomials.ordered_range_constraints_0.shifted();
     prover_polynomials.ordered_range_constraints_1_shift = prover_polynomials.ordered_range_constraints_1.shifted();
@@ -262,9 +272,8 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     std::vector<Polynomial> polynomial_container;
     std::vector<size_t> polynomial_ids;
     for (size_t i = 0; i < polynomial_id_get_all.size(); i++) {
-        Polynomial temporary_polynomial(circuit_size);
         // Allocate polynomials
-        polynomial_container.push_back(temporary_polynomial);
+        polynomial_container.emplace_back(circuit_size);
         // Push sequential ids to polynomial ids
         polynomial_ids.push_back(i);
         polynomial_id_get_all[i] = polynomial_ids[i];
@@ -287,6 +296,8 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        // Ensure we can shift this
+        polynomial_container[to_be_shifted_id] = polynomial_container[to_be_shifted_id].unshifted().share();
         polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
@@ -386,6 +397,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        // Ensure we can shift this
+        polynomial_container[to_be_shifted_id] = polynomial_container[to_be_shifted_id].unshifted().share();
         polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
@@ -809,6 +822,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
         auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        // Ensure we can shift this
+        polynomial_container[to_be_shifted_id] = polynomial_container[to_be_shifted_id].unshifted().share();
         polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
