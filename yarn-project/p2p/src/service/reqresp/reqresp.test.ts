@@ -3,13 +3,12 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it } from '@jest/globals';
 
-import { SUB_PROTOCOL_HANDLERS, connectToPeers, createNodes, startNodes, stopNodes } from '../../mocks/index.js';
+import { MOCK_SUB_PROTOCOL_HANDLERS, connectToPeers, createNodes, startNodes, stopNodes } from '../../mocks/index.js';
 import { PING_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
 
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
 describe('ReqResp', () => {
-
   it('Should perform a ping request', async () => {
     // Create two nodes
     // They need to discover each other
@@ -77,7 +76,7 @@ describe('ReqResp', () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
-      const protocolHandlers = SUB_PROTOCOL_HANDLERS;
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Uint8Array> => {
         const receivedHash = TxHash.fromBuffer(message);
         if (txHash.equals(receivedHash)) {
@@ -103,7 +102,7 @@ describe('ReqResp', () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
-      const protocolHandlers = SUB_PROTOCOL_HANDLERS;
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Return nothing
       protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Uint8Array> => {
         return Promise.resolve(Uint8Array.from(Buffer.from('')));

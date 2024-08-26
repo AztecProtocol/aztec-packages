@@ -6,7 +6,11 @@ import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
-import { DEFAULT_SUB_PROTOCOL_HANDLERS, type ReqRespSubProtocol, ReqRespSubProtocolHandlers } from './interface.js';
+import {
+  DEFAULT_SUB_PROTOCOL_HANDLERS,
+  type ReqRespSubProtocol,
+  type ReqRespSubProtocolHandlers,
+} from './interface.js';
 
 /**
  * The Request Response Service
@@ -85,7 +89,11 @@ export class ReqResp {
    * @param payload - The payload to send
    * @returns If the request is successful, the response is returned, otherwise undefined
    */
-  async sendRequestToPeer(peerId: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer): Promise<Buffer | undefined> {
+  async sendRequestToPeer(
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+    payload: Buffer,
+  ): Promise<Buffer | undefined> {
     try {
       const stream = await this.libp2p.dialProtocol(peerId, subProtocol);
 
@@ -116,9 +124,8 @@ export class ReqResp {
    * @param param0 - The incoming stream data
    */
   private async streamHandler(protocol: ReqRespSubProtocol, { stream }: IncomingStreamData) {
-    // Store a reference to this for the async generator
-    // @ts-ignore we need access to this within the async generator
-    const self = this;
+    // Store a reference to from this for the async generator
+    const handler = this.subProtocolHandlers[protocol];
 
     try {
       await pipe(
@@ -126,7 +133,7 @@ export class ReqResp {
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
-            yield self.subProtocolHandlers[protocol](msg);
+            yield handler(msg);
           }
         },
         stream,

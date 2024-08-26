@@ -30,7 +30,13 @@ import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
-import { DEFAULT_SUB_PROTOCOL_HANDLERS, type ReqRespSubProtocol, ReqRespSubProtocolHandlers, type SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
+import {
+  DEFAULT_SUB_PROTOCOL_HANDLERS,
+  type ReqRespSubProtocol,
+  type ReqRespSubProtocolHandlers,
+  type SubProtocolMap,
+  subProtocolMap,
+} from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 
