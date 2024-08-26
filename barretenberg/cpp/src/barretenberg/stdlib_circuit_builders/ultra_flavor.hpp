@@ -297,12 +297,14 @@ class UltraFlavor {
         { // Initialize all unshifted polynomials to the zero polynomial and initialize the
           // shifted polys
             ZoneScopedN("creating empty prover polys");
-            for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
-            }
-            // WORKTODO bad
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1, /*degree + 1*/ circuit_size, /* offset */ 1 };
+            }
+            for (auto& poly : get_unshifted()) {
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
+                }
             }
             set_shifted();
         }

@@ -378,12 +378,15 @@ class MegaFlavor {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in aztec_ivc_bench only).
             BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
-            for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
-            }
-            // WORKTODO bad
+
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1, /*degree + 1*/ circuit_size, /* offset */ 1 };
+            }
+            for (auto& poly : get_unshifted()) {
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
+                }
             }
             set_shifted();
         }
