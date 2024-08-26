@@ -21,6 +21,8 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
 
     /**
      * @brief Constructs an Oink Recursive Verifier with a transcript that has been instantiated externally.
+     * @details Used when oink recursive verification is part of a larger protocol for which a transcript already
+     * exists, e.g. Honk recursive verification.
      *
      * @param builder
      * @param instance Incomplete verifier instance to be completed during verification

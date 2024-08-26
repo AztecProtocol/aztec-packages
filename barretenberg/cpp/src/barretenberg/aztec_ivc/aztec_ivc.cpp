@@ -21,7 +21,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         switch (type) {
         case QUEUE_TYPE::PG: {
-            // Construct stdlib accumulator
+            // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
             auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
 
             // Perform folding recursive verification
@@ -38,7 +38,10 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             break;
         }
         case QUEUE_TYPE::OINK: {
+            // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
             auto verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, stdlib_vkey);
+
+            // Perform oink recursive verification (which completes the verifier accumulator)
             OinkRecursiveVerifier oink{ &circuit, verifier_accum };
             oink.verify_proof(stdlib_proof);
             verifier_accum->is_accumulator = true; // WORKTODO: using this as a synonym for "is complete"
