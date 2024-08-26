@@ -6,6 +6,7 @@ import {
   TopicType,
   TopicTypeMap,
   Tx,
+  TxHash,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -30,11 +31,15 @@ import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
+import { pingHandler, statusHandler } from './reqresp/handlers.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
+  PING_PROTOCOL,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
+  STATUS_PROTOCOL,
   type SubProtocolMap,
+  TX_REQ_PROTOCOL,
   subProtocolMap,
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
@@ -72,8 +77,12 @@ export class LibP2PService implements P2PService {
   // Request and response sub service
   private reqresp: ReqResp;
 
+  /**
+   * Callback for when a block is received from a peer.
+   * @param block - The block received from the peer.
+   * @returns The attestation for the block, if any.
+   */
   private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
-  // private reqRespHandlers: SubProtocolHandlers | undefined;
 
   constructor(
     private config: P2PConfig,
@@ -173,7 +182,6 @@ export class LibP2PService implements P2PService {
     txPool: TxPool,
     attestationPool: AttestationPool,
     store: AztecKVStore,
-    requestResponseHandlers: ReqRespSubProtocolHandlers,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -224,6 +232,25 @@ export class LibP2PService implements P2PService {
         }),
       },
     });
+
+    // Create request response protocol handlers
+    /**
+     * Handler for tx requests
+     * @param msg - the tx request message
+     * @returns the tx response message
+     */
+    const txHandler = (msg: Buffer): Promise<Uint8Array> => {
+      const txHash = TxHash.fromBuffer(msg);
+      const foundTx = txPool.getTxByHash(txHash);
+      const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
+      return Promise.resolve(asUint8Array);
+    };
+
+    const requestResponseHandlers = {
+      [PING_PROTOCOL]: pingHandler,
+      [STATUS_PROTOCOL]: statusHandler,
+      [TX_REQ_PROTOCOL]: txHandler,
+    };
 
     return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool, requestResponseHandlers);
   }

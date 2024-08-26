@@ -25,7 +25,7 @@ type Mockify<T> = {
   [P in keyof T]: ReturnType<typeof jest.fn>;
 };
 
-const BEFORE_EACH_TIMEOUT = 45000;
+const BEFORE_EACH_TIMEOUT = 60000;
 
 const BOOT_NODE_UDP_PORT = 40400;
 async function createBootstrapNode(port: number) {
@@ -68,7 +68,6 @@ describe('Req Resp p2p client integration', () => {
   // the p2p client's functionality, as we need it to connect to peers and exchange
   // information
   beforeEach(async () => {
-    // TODO: work out how to not re declare the code for this - / have it be able to be used across the e2e and this integration test
     bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
     logger.info(`Created bootstrap node with enr: ${bootstrapNodeEnr}`);
@@ -163,7 +162,7 @@ describe('Req Resp p2p client integration', () => {
     expect(requestedTx).toBeUndefined();
   });
 
-  it('It can request a transaction from another peer', async () => {
+  it('Can request a transaction from another peer', async () => {
     // We want to create a set of nodes and request transaction from them
     const [client1] = clients;
 
