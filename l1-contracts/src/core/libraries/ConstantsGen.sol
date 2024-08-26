@@ -91,7 +91,9 @@ library Constants {
   uint256 internal constant ROOT_PARITY_INDEX = 19;
   uint256 internal constant BASE_ROLLUP_INDEX = 20;
   uint256 internal constant MERGE_ROLLUP_INDEX = 21;
-  uint256 internal constant ROOT_ROLLUP_INDEX = 22;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 22;
+  uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
+  uint256 internal constant ROOT_ROLLUP_INDEX = 24;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 16;
   uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
@@ -128,7 +130,7 @@ library Constants {
   uint256 internal constant L2_GAS_PER_NOTE_HASH = 32;
   uint256 internal constant L2_GAS_PER_NULLIFIER = 64;
   uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
-    21209182303070804160941065409360795406831433542792830301721453026531461944353;
+    9694109890306420370616891858093188542026876097103155811681068343994212062621;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS =
     16522644890256297179255458951626875692461008240031142745359776058397274208468;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
@@ -197,6 +199,7 @@ library Constants {
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 91;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
@@ -208,10 +211,10 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 409;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 409;
-  uint256 internal constant TUBE_PROOF_LENGTH = 409;
-  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 120;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 439;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 439;
+  uint256 internal constant TUBE_PROOF_LENGTH = 439;
+  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;

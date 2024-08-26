@@ -17,9 +17,15 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     ASSERT(verification_queue.empty() || verification_queue.size() == 2);
 
     for (auto& [proof, vkey] : verification_queue) {
+
+        // Construct stdlib accumulator, vkey and proof
+        auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
+        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+
         // Perform folding recursive verification
-        FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { vkey } } };
-        auto verifier_accum = verifier.verify_folding_proof(proof);
+        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_vkey } };
+        auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
 
         // Perform databus commitment consistency checks and propagate return data commitments via public inputs
@@ -54,7 +60,13 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the prover instance for circuit
-    auto prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+    std::shared_ptr<ProverInstance> prover_instance;
+    if (!initialized) {
+        prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+    } else {
+        prover_instance = std::make_shared<ProverInstance>(
+            circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
+    }
 
     // Set the instance verification key from precomputed if available, else compute it
     instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
@@ -66,7 +78,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
-        fold_output = folding_prover.fold_instances();
+        fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.emplace_back(fold_output.proof, instance_vk);

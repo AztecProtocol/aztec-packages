@@ -148,7 +148,7 @@ describe('L1Publisher integration', () => {
     });
 
     const tmpStore = openTmpStore();
-    builderDb = await MerkleTrees.new(tmpStore);
+    builderDb = await MerkleTrees.new(tmpStore, new NoopTelemetryClient());
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
@@ -428,6 +428,7 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.header.hash().toBuffer().toString('hex')}`,
           `0x${block.body.toBuffer().toString('hex')}`,
         ],
       });
@@ -529,6 +530,7 @@ describe('L1Publisher integration', () => {
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.header.hash().toBuffer().toString('hex')}`,
                 `0x${block.body.toBuffer().toString('hex')}`,
               ],
             })
@@ -538,6 +540,7 @@ describe('L1Publisher integration', () => {
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.header.hash().toBuffer().toString('hex')}`,
               ],
             });
       expect(ethTx.input).toEqual(expectedData);
