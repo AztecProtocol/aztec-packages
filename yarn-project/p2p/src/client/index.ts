@@ -10,7 +10,7 @@ import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { getPublicIp, splitAddressPort } from '../util.js';
+import { getPublicIp, resolveAddressIfNecessary, splitAddressPort } from '../util.js';
 
 export * from './p2p_client.js';
 
@@ -33,6 +33,13 @@ export const createP2PClient = async (
       udpAnnounceAddress: configUdpAnnounceAddress,
       queryForIp,
     } = config;
+
+    config.tcpAnnounceAddress = configTcpAnnounceAddress
+      ? await resolveAddressIfNecessary(configTcpAnnounceAddress)
+      : undefined;
+    config.udpAnnounceAddress = configUdpAnnounceAddress
+      ? await resolveAddressIfNecessary(configUdpAnnounceAddress)
+      : undefined;
 
     // create variable for re-use if needed
     let publicIp;

@@ -11,6 +11,8 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
+import { type ENR } from '@chainsafe/enr';
+
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
@@ -131,6 +133,11 @@ export interface P2P {
    * Returns the current status of the p2p client.
    */
   getStatus(): Promise<P2PSyncState>;
+
+  /**
+   * Returns the ENR for this node, if any.
+   */
+  getEnr(): ENR | undefined;
 }
 
 /**
@@ -334,6 +341,10 @@ export class P2PClient implements P2P {
    */
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
     return this.txPool.getTxStatus(txHash);
+  }
+
+  public getEnr(): ENR | undefined {
+    return this.p2pService.getEnr();
   }
 
   /**

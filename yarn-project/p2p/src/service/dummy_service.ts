@@ -43,11 +43,25 @@ export class DummyP2PService implements P2PService {
    */
   public registerBlockReceivedCallback(_: (block: BlockProposal) => Promise<BlockAttestation>) {}
 
+  /**
+   * Sends a request to a peer.
+   * @param _protocol - The protocol to send the request on.
+   * @param _request - The request to send.
+   * @returns The response from the peer, otherwise undefined.
+   */
   public sendRequest<Protocol extends SubProtocol>(
     _protocol: Protocol,
     _request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
     return Promise.resolve(undefined);
+  }
+
+  /**
+   * Returns the ENR of the peer.
+   * @returns The ENR of the peer, otherwise undefined.
+   */
+  public getEnr(): undefined {
+    return undefined;
   }
 }
 
@@ -90,5 +104,9 @@ export class DummyPeerDiscoveryService extends EventEmitter implements PeerDisco
 
   public getStatus(): PeerDiscoveryState {
     return this.currentState;
+  }
+
+  public getEnr(): undefined {
+    return undefined;
   }
 }

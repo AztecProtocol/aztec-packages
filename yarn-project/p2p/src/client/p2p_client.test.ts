@@ -45,6 +45,7 @@ describe('In-Memory P2P Client', () => {
       propagate: jest.fn(),
       registerBlockReceivedCallback: jest.fn(),
       sendRequest: jest.fn(),
+      getEnr: jest.fn(),
     };
 
     attestationPool = {

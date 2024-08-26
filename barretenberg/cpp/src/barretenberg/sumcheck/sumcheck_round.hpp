@@ -66,6 +66,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
     {
+        ZoneScopedN("SumcheckProverRound constructor");
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
     }
@@ -160,6 +161,7 @@ template <typename Flavor> class SumcheckProverRound {
         const RelationSeparator alpha,
         std::optional<ZKSumcheckData<Flavor>> zk_sumcheck_data = std::nullopt) // only submitted when Flavor HasZK
     {
+        ZoneScopedN("compute_univariate");
         BB_OP_COUNT_TIME();
 
         // Determine number of threads for multithreading.
@@ -438,19 +440,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-                // https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the assert_equal
-                // below fails because we are comparing a constant against a non-constant value and the non-constant
-                // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
-                // 0.
-                total_sum.self_reduce();
-            }
-            target_total_sum.assert_equal(total_sum);
-            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-        } else {
-            sumcheck_round_failed = (target_total_sum != total_sum);
-        }
+        sumcheck_round_failed = (target_total_sum != total_sum);
 
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;
@@ -472,20 +462,16 @@ template <typename Flavor> class SumcheckVerifierRound {
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-                // https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the assert_equal
-                // below fails because we are comparing a constant against a non-constant value and the non-constant
-                // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
-                // 0.
-                total_sum.self_reduce();
-            }
-            target_total_sum.assert_equal(total_sum);
-            if (!dummy_round.get_value()) {
-                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-            }
-        } else {
-            sumcheck_round_failed = (target_total_sum != total_sum);
+        if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+            // https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the assert_equal
+            // below fails because we are comparing a constant against a non-constant value and the non-constant
+            // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
+            // 0.
+            total_sum.self_reduce();
+        }
+        target_total_sum.assert_equal(total_sum);
+        if (!dummy_round.get_value()) {
+            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         }
 
         round_failed = round_failed || sumcheck_round_failed;

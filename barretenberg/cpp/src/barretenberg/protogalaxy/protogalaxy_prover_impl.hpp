@@ -3,8 +3,10 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "protogalaxy_prover.hpp"
+
 namespace bb {
 // See protogalaxy_prover.hpp for details
 template <class ProverInstances_>
@@ -215,12 +217,10 @@ template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    OinkProver<Flavor> oink_prover(instance->proving_key, transcript, domain_separator + '_');
+    ZoneScopedN("ProtoGalaxyProver::finalise_and_send_instance");
+    OinkProver<Flavor> oink_prover(instance, transcript, domain_separator + '_');
 
-    auto [proving_key, relation_params, alphas] = oink_prover.prove();
-    instance->proving_key = std::move(proving_key);
-    instance->relation_parameters = std::move(relation_params);
-    instance->alphas = std::move(alphas);
+    oink_prover.prove();
 }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
@@ -361,21 +361,6 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     }
 };
 
-template <class ProverInstances_>
-std::vector<typename bb::ProtoGalaxyProver_<ProverInstances_>::FF> bb::ProtoGalaxyProver_<
-    ProverInstances_>::update_gate_challenges(const FF perturbator_challenge,
-                                              const std::vector<FF>& gate_challenges,
-                                              const std::vector<FF>& round_challenges)
-{
-    auto log_instance_size = gate_challenges.size();
-    std::vector<FF> next_gate_challenges(log_instance_size);
-
-    for (size_t idx = 0; idx < log_instance_size; idx++) {
-        next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
-    }
-    return next_gate_challenges;
-}
-
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
@@ -408,6 +393,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accum
 template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::prove()
 {
+    ZoneScopedN("ProtogalaxyProver::prove");
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
     // Ensure instances are all of the same size
     for (size_t idx = 0; idx < ProverInstances::NUM - 1; ++idx) {
