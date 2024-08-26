@@ -46,6 +46,7 @@ class AztecIVC {
     using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
     using RecursiveVerifierInstance = RecursiveVerifierInstances::Instance;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
+    using StdProof = StdlibProof<ClientCircuit>;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
     using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
@@ -96,6 +97,13 @@ class AztecIVC {
     TraceStructure trace_structure = TraceStructure::NONE;
 
     bool initialized = false; // Is the IVC accumulator initialized
+
+    void perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
+                                                                       StdProof& proof,
+                                                                       std::shared_ptr<RecursiveVerificationKey> vkey,
+                                                                       QUEUE_TYPE type);
+
+    void process_recursive_merge_verification_queue(ClientCircuit& circuit);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
