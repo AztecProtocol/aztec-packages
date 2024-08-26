@@ -3,7 +3,7 @@ import type { BlockAttestation, BlockProposal, Gossipable, TxHash } from '@aztec
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type SubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
@@ -49,7 +49,7 @@ export class DummyP2PService implements P2PService {
    * @param _request - The request to send.
    * @returns The response from the peer, otherwise undefined.
    */
-  public sendRequest<Protocol extends SubProtocol>(
+  public sendRequest<Protocol extends ReqRespSubProtocol>(
     _protocol: Protocol,
     _request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {

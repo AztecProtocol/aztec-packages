@@ -4,7 +4,7 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
-import { type SubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
 
 export enum PeerDiscoveryState {
   RUNNING = 'running',
@@ -40,7 +40,7 @@ export interface P2PService {
    * @param request - The request type, corresponding to the protocol
    * @returns The response type, corresponding to the protocol
    */
-  sendRequest<Protocol extends SubProtocol>(
+  sendRequest<Protocol extends ReqRespSubProtocol>(
     protocol: Protocol,
     request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;

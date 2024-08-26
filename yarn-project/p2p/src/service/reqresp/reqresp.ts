@@ -6,37 +6,25 @@ import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
-import {
-  PING_PROTOCOL,
-  STATUS_PROTOCOL,
-  type SubProtocol,
-  type SubProtocolHandler,
-  TX_REQ_PROTOCOL,
-} from './interface.js';
-
-export type SubProtocolHandlers = Record<SubProtocol, SubProtocolHandler>;
+import { DEFAULT_SUB_PROTOCOL_HANDLERS, type ReqRespSubProtocol, ReqRespSubProtocolHandlers } from './interface.js';
 
 /**
- * A mapping from a protocol to a handler function
+ * The Request Response Service
+ *
+ * It allows nodes to request specific information from their peers, its use case covers recovering
+ * information that was missed during a syncronisation or a gossip event.
+ *
+ * This service implements the request response sub protocol, it is heavily inspired from
+ * ethereum implementations of the same name.
+ *
+ * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
-
-// HMMM???? - messy haha!
-const defaultHandler = (_msg: any): Promise<Uint8Array> => {
-  return Promise.resolve(Uint8Array.from(Buffer.from('default')));
-};
-export const DEFAULT_SUB_PROTOCOL_HANDLERS: SubProtocolHandlers = {
-  [PING_PROTOCOL]: defaultHandler,
-  [STATUS_PROTOCOL]: defaultHandler,
-  [TX_REQ_PROTOCOL]: defaultHandler,
-};
-
 export class ReqResp {
   protected readonly logger: Logger;
 
   private abortController: AbortController = new AbortController();
 
-  // TODO: not default
-  private subProtocolHandlers: SubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
+  private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
 
   constructor(protected readonly libp2p: Libp2p) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
@@ -45,11 +33,11 @@ export class ReqResp {
   /**
    * Start the reqresp service
    */
-  async start(subProtocolHandlers: SubProtocolHandlers) {
+  async start(subProtocolHandlers: ReqRespSubProtocolHandlers) {
     this.subProtocolHandlers = subProtocolHandlers;
     // Register all protocol handlers
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
-      await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as SubProtocol));
+      await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
     }
   }
 
@@ -72,7 +60,7 @@ export class ReqResp {
    * @param payload - The payload to send
    * @returns - The response from the peer, otherwise undefined
    */
-  async sendRequest(subProtocol: SubProtocol, payload: Buffer): Promise<Buffer | undefined> {
+  async sendRequest(subProtocol: ReqRespSubProtocol, payload: Buffer): Promise<Buffer | undefined> {
     // Get active peers
     const peers = this.libp2p.getPeers();
 
@@ -97,7 +85,7 @@ export class ReqResp {
    * @param payload - The payload to send
    * @returns If the request is successful, the response is returned, otherwise undefined
    */
-  async sendRequestToPeer(peerId: PeerId, subProtocol: SubProtocol, payload: Buffer): Promise<Buffer | undefined> {
+  async sendRequestToPeer(peerId: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer): Promise<Buffer | undefined> {
     try {
       const stream = await this.libp2p.dialProtocol(peerId, subProtocol);
 
@@ -127,8 +115,9 @@ export class ReqResp {
    *
    * @param param0 - The incoming stream data
    */
-  private async streamHandler(protocol: SubProtocol, { stream }: IncomingStreamData) {
+  private async streamHandler(protocol: ReqRespSubProtocol, { stream }: IncomingStreamData) {
     // Store a reference to this for the async generator
+    // @ts-ignore we need access to this within the async generator
     const self = this;
 
     try {

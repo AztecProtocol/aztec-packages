@@ -30,8 +30,8 @@ import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
-import { type SubProtocol, type SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
-import { DEFAULT_SUB_PROTOCOL_HANDLERS, ReqResp, type SubProtocolHandlers } from './reqresp/reqresp.js';
+import { DEFAULT_SUB_PROTOCOL_HANDLERS, type ReqRespSubProtocol, ReqRespSubProtocolHandlers, type SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
+import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 
 export interface PubSubLibp2p extends Libp2p {
@@ -75,12 +75,10 @@ export class LibP2PService implements P2PService {
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
-    private requestResponseHandlers: SubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
+    private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
-
-    // TODO: will handlers get passed in here?
     this.reqresp = new ReqResp(node);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
@@ -169,7 +167,7 @@ export class LibP2PService implements P2PService {
     txPool: TxPool,
     attestationPool: AttestationPool,
     store: AztecKVStore,
-    requestResponseHandlers: SubProtocolHandlers,
+    requestResponseHandlers: ReqRespSubProtocolHandlers,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -225,18 +223,21 @@ export class LibP2PService implements P2PService {
   }
 
   /**
+   * Send Request via the ReqResp service
+   * The subprotocol defined will determine the request and response types
+   *
+   * See the subProtocolMap for the mapping of subprotocols to request/response types in `interface.ts`
    *
    * @param protocol The request response protocol to use
    * @param request The request type to send
    * @returns
    */
-  async sendRequest<Protocol extends SubProtocol>(
-    protocol: Protocol,
-    request: InstanceType<SubProtocolMap[Protocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
+  async sendRequest<SubProtocol extends ReqRespSubProtocol>(
+    protocol: SubProtocol,
+    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
     const pair = subProtocolMap[protocol];
 
-    // TODO: Can the type be retreived from a mapping based on the subprotocol
     const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
     if (!res) {
       return undefined;
@@ -245,6 +246,10 @@ export class LibP2PService implements P2PService {
     return pair.response.fromBuffer(res!);
   }
 
+  /**
+   * Get the ENR of the node
+   * @returns The ENR of the node
+   */
   public getEnr(): ENR | undefined {
     return this.peerDiscoveryService.getEnr();
   }
@@ -253,11 +258,6 @@ export class LibP2PService implements P2PService {
     this.blockReceivedCallback = callback;
     this.logger.verbose('Block received callback registered');
   }
-
-  // public registerRequestResponseHandlers(handlers: SubProtocolHandlers) {
-  //   this.reqRespHandlers = handlers;
-  //   this.logger.verbose("Request response protocol handlers registered");
-  // }
 
   /**
    * Subscribes to a topic.

@@ -9,6 +9,7 @@ import { PING_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
 describe('ReqResp', () => {
+
   it('Should perform a ping request', async () => {
     // Create two nodes
     // They need to discover each other
