@@ -296,7 +296,11 @@ contract RollupTest is DecoderBase {
 
     availabilityOracle.publish(body);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
+    if (Constants.IS_DEV_NET != 1) {
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs)
+      );
+    }
     rollup.process(header, archive, bytes32(0));
   }
 
