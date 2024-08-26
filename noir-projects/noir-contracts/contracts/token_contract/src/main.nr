@@ -503,6 +503,7 @@ contract Token {
     ///
     /// `fee_payer_point` and `user_point` above are public information because they are passed as args to the public
     /// `complete_refund(...)` function.
+    // docs:start:setup_refund
     #[aztec(private)]
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
@@ -521,7 +522,7 @@ contract Token {
         let user_npk_m_hash = user_keys.npk_m.hash();
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
-        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
+        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
         // to the user in the `complete_refund(...)` function.
         let change = subtract_balance(
             &mut context,
@@ -573,9 +574,11 @@ contract Token {
         ]
         );
     }
+    // docs:end:setup_refund
 
     // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
+    // docs:start:complete_refund
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(
@@ -614,6 +617,7 @@ contract Token {
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
+    // docs:end:complete_refund
 
     /// Internal ///
 
