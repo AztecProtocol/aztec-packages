@@ -156,6 +156,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     using Relations = typename Flavor::Relations;
 
+    std::cout << prover_polynomials.z_perm << std::endl;
     // Check that permutation relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(full_circuit_size, prover_polynomials, params);
 }

@@ -21,12 +21,12 @@ namespace barretenberg {
 /**
  * Throws an std::runtime_error if we would print a log that includes the env variable DEBUG_LOG_ABORT.
  * This is primarily intended to be used with a debugger to then poke around execution and see differences in a
- * comparison log. Does nothing if DEBUG_LOG_ABORT is not set.
- * Should be run with MULTITHREADING=OFF for best results, and with no non-determinism (the BBERG_DEBUG_LOG flag
- * currently turns off some determinism).
+ * comparison log. Prints the string if DEBUG_LOG_ABORT is not set.
+ * Should be run with MULTITHREADING=OFF if DEBUG_LOG is used within parallel_for, and with as little non-determinism as
+ * possible (the BBERG_DEBUG_LOG flag currently turns off some determinism).
  * @param log_str The log string to be checked against the environment variable.
  */
-void _debug_log_check_abort_condition(const std::string& log_str);
+void _debug_log_impl(const std::string& log_str);
 
 template <class T>
 concept Printable = requires(T a) { std::cout << a; };
@@ -79,8 +79,7 @@ template <typename... FuncArgs> void _debug_log(const char* func_name, const cha
     ((ss << _summarize(&args) << " "), ...);
     std::string log_str = ss.str();
     // Want to be able to catch offending statements in a debugger, this throws if we match an env variable pattern
-    _debug_log_check_abort_condition(log_str);
-    std::cout << log_str << std::endl;
+    _debug_log_impl(log_str);
     debug_log_calls--;
 }
 } // namespace barretenberg

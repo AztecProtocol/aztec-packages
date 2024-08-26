@@ -8,6 +8,7 @@
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fstream>
+#include <ranges>
 
 namespace bb {
 
@@ -280,6 +281,35 @@ template <typename Fr> class Polynomial {
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
     operator PolynomialSpan<const Fr>() const { return { start_index(), coeffs() }; }
+
+    auto indices() const { return std::ranges::iota_view(start_index(), end_index()); }
+
+    /**
+     * @brief Copy over values from a vector that is of a convertible type.
+     *
+     * @tparam T a convertible type
+     * @param vec the vector
+     */
+    template <typename T> void copy_vector(const std::vector<T>& vec)
+    {
+        ASSERT(vec.size() <= end_index());
+        for (size_t i : indices()) {
+            ASSERT(i < vec.size());
+            at(i) = vec[i];
+        }
+    }
+
+    /*
+     * @brief For quick and dirty comparisons. ONLY for development and log use!
+     */
+    Fr debug_hash() const
+    {
+        Fr result{ 0 };
+        for (size_t i = start_index(); i < end_index(); i++) {
+            result += (*this)[i] * i;
+        }
+        return result;
+    }
 
   private:
     // allocate a fresh memory pointer for backing memory

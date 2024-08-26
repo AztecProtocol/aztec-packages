@@ -36,11 +36,10 @@ void TranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
     for (auto [wire_poly, wire] : zip_view(key->polynomials.get_wires(), circuit_builder.wires)) {
         parallel_for_range(circuit_builder.num_gates, [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
-                FF val = circuit_builder.get_variable(wire[i]);
-                if (!val.is_zero()) {
-                    // Both an optimization and an edge-case handling as this lets 'i' be a virtual index in the
-                    // polynomial (i.e. outside of start_index()..end_index())
-                    wire_poly.at(i) -= val;
+                if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
+                    wire_poly.at(i) = circuit_builder.get_variable(wire[i]);
+                } else {
+                    ASSERT(wire[i] == 0);
                 }
             }
         });
