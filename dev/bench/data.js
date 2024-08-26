@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724678414238,
+  "lastUpdate": 1724694853594,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e9a530cfd83f375f6b3a1bb9fb67cf562847f9b",
-          "message": "feat: zk sumcheck (#7517)\n\nAdded ZK Sumcheck that ensures that neither round univariates nor\r\nclaimed evaluations leak witness information\r\n\r\nZK Sumcheck is \"togglable\": only Flavors with (HasZK = true) use it \r\n\r\nRefactored sumcheck tests: now they are typed by the Flavor (Ultra or\r\nUltraWithZK)\r\n\r\nMade sumcheck-outline.md consistent with the implementation, expanded\r\ndocs in sumcheck.hpp and sumcheck_round.hpp\r\n\r\nNote: ultra/mega/... -provers and verifiers using ZK sumcheck will be\r\nadded later\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/979",
-          "timestamp": "2024-08-19T11:55:34Z",
-          "tree_id": "a1d480238f08571c06965d47a318c054a98ef600",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e9a530cfd83f375f6b3a1bb9fb67cf562847f9b"
-        },
-        "date": 1724069156368,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13296.60499100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9989.665782000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4930.4773199999945,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4531.79382 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39702.395791,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39702396000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14490.632123999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14490632000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3789790720,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3789790720 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208747104,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208747104 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3108811403,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3108811403 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172746037,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172746037 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3492,6 +3420,78 @@ window.BENCHMARK_DATA = {
             "value": 172869665,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 172869665 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7395b95672e94318de695dc0fc71863ef31b2e30",
+          "message": "refactor(Protogalaxy): Isolate some state and clarify skipped zero computation (#8173)\n\nSome steps toward clarifying state during Protogalaxy proof\r\nconstruction:\r\n - Move accumulators into the class that contains state.\r\n- Reduce size of Prover header. Move internal functions into a purely\r\nstatic class. This accounts for most of the diff.\r\n- Clarify the known-zero-value while removing loose coupling of template\r\nparameters.\r\n\r\nThe next step will be to reduce the amount of state in ProverInstances.",
+          "timestamp": "2024-08-26T13:35:00-04:00",
+          "tree_id": "549b36c902a1ff256f4020e710e3c9981483d2fb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7395b95672e94318de695dc0fc71863ef31b2e30"
+        },
+        "date": 1724694846213,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13583.453192000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10239.822048999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5104.207797000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4723.826975 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39787.214678000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39787215000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14751.218413,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14751218000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3766951787,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3766951787 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208054914,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208054914 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3069267900,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3069267900 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173003019,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173003019 ns\nthreads: 1"
           }
         ]
       }
