@@ -66,7 +66,6 @@ export class ArchiverInstrumentation {
 
   public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
     for (const log of logs) {
-      createDebugLogger('aztec:metrics').warn('FOO', log);
       this.proofsSubmitted.record(Number(log.delay), {
         [Attributes.ROLLUP_PROVER_ID]: log.proverId,
         [Attributes.BLOCK_NUMBER]: Number(log.l2BlockNumber),
