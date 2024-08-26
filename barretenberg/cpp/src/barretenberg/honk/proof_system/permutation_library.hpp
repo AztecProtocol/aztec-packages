@@ -48,12 +48,12 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
         auto my_group = concatenation_groups[i];
         auto& current_target = targets[i];
 
-        auto starting_write_offset = current_target.begin();
-        auto finishing_read_offset = my_group[j].begin();
+        auto starting_write_offset = current_target.coeffs().begin();
+        auto finishing_read_offset = my_group[j].coeffs().begin();
         std::advance(starting_write_offset, j * MINI_CIRCUIT_SIZE);
         std::advance(finishing_read_offset, MINI_CIRCUIT_SIZE);
         // Copy into appropriate position in the concatenated polynomial
-        std::copy(my_group[j].begin(), finishing_read_offset, starting_write_offset);
+        std::copy(my_group[j].coeffs().begin(), finishing_read_offset, starting_write_offset);
     };
     parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
 }
@@ -169,7 +169,7 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
         // Copy the values into the actual polynomial
         std::transform(current_vector.cbegin(),
                        current_vector.cend(),
-                       (*ordered_constraint_polynomials[i]).begin(),
+                       (*ordered_constraint_polynomials[i]).coeffs().begin(),
                        [](uint32_t in) { return FF(in); });
     };
 
@@ -193,7 +193,7 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     // And copy it to the actual polynomial
     std::transform(extra_denominator_uint.cbegin(),
                    extra_denominator_uint.cend(),
-                   polynomials.ordered_range_constraints_4.begin(),
+                   polynomials.ordered_range_constraints_4.coeffs().begin(),
                    [](uint32_t in) { return FF(in); });
 }
 

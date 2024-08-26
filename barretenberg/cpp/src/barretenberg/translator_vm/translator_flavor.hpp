@@ -138,11 +138,11 @@ class TranslatorFlavor {
             const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
 
             for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-                this->lagrange_odd_in_minicircuit.set(i, 1);
-                this->lagrange_even_in_minicircuit.set(i + 1, 1);
+                this->lagrange_odd_in_minicircuit.at(i) = 1;
+                this->lagrange_even_in_minicircuit.at(i + 1) = 1;
             }
-            this->lagrange_second.set(1, 1);
-            this->lagrange_second_to_last_in_minicircuit.set(mini_circuit_dyadic_size - 2, 1);
+            this->lagrange_second.at(1) = 1;
+            this->lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
         }
 
         /**
@@ -182,7 +182,7 @@ class TranslatorFlavor {
             // TODO(#756): can be parallelized further. This will use at most 5 threads
             auto fill_with_shift = [&](size_t shift) {
                 for (size_t i = 0; i < sorted_elements_count; i++) {
-                    extra_range_constraint_numerator.set(shift + i * (NUM_CONCATENATED_WIRES + 1), sorted_elements[i]);
+                    extra_range_constraint_numerator.at(shift + i * (NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
                 }
             };
             // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times

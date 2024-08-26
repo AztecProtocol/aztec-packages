@@ -87,7 +87,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    trace_data.wires[wire_idx].set(trace_row_idx, builder.get_variable(var_idx));
+                    trace_data.wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
                     trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
@@ -101,7 +101,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
             auto selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
-                trace_data.selectors[selector_idx].set(trace_row_idx, selector[row_idx]);
+                trace_data.selectors[selector_idx].at(trace_row_idx) = selector[row_idx];
             }
         }
 
@@ -154,8 +154,8 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
          zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
         for (size_t i = 0; i < builder.blocks.ecc_op.size(); ++i) {
             size_t idx = i + op_wire_offset;
-            ecc_op_wire.set(idx, wire[idx]);
-            ecc_op_selector.set(idx, 1); // construct selector as the indicator on the ecc op block
+            ecc_op_wire.at(idx) = wire[idx];
+            ecc_op_selector.at(idx) = 1; // construct selector as the indicator on the ecc op block
         }
     }
 }

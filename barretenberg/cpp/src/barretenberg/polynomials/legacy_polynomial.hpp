@@ -2,7 +2,8 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/polynomials/polynomial_iter.hpp"
+// for PolynomialSpan
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <fstream>

@@ -145,7 +145,7 @@ template <typename Curve> class ZeroMorphProver_ {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
-                result.set(offset + idx, result[offset + idx] + scalar * quotient[idx]);
+                result.at(offset + idx) += scalar * quotient[idx];
             }
             scalar *= y_challenge; // update batching scalar y^k
             k++;

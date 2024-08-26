@@ -77,10 +77,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             }
             auto num = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(evaluations,
                                                                                                 relation_parameters);
-            numerator.set(i, num);
+            numerator.at(i) = num;
             auto denom = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
                 evaluations, relation_parameters);
-            denominator.set(i, denom);
+            denominator.at(i) = denom;
         }
     });
 
@@ -106,8 +106,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx + 1) * block_size;
         for (size_t i = start; i < end - 1; ++i) {
-            numerator.set(i + 1, numerator[i + 1] * numerator[i]);
-            denominator.set(i + 1, denominator[i + 1] * denominator[i]);
+            numerator.at(i + 1) *= numerator[i];
+            denominator.at(i + 1) *= denominator[i];
         }
         partial_numerators[thread_idx] = numerator[end - 1];
         partial_denominators[thread_idx] = denominator[end - 1];
@@ -128,8 +128,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 denominator_scaling *= partial_denominators[j];
             }
             for (size_t i = start; i < end; ++i) {
-                numerator.set(i, numerator[i] * numerator_scaling);
-                denominator.set(i, denominator[i] * denominator_scaling);
+                numerator.at(i) = numerator[i] * numerator_scaling;
+                denominator.at(i) = denominator[i] * denominator_scaling;
             }
         }
 
@@ -148,7 +148,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx == num_threads - 1) ? circuit_size - 1 : (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial.set(i + 1, numerator[i] * denominator[i]);
+            grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
         }
     });
 

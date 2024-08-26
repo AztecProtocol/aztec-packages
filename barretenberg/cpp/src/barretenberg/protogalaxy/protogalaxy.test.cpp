@@ -531,7 +531,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         // Tamper with an accumulator polynomial
-        prover_accumulator->proving_key.polynomials.w_l.set(1, FF::random_element());
+        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
         check_accumulator_target_sum_manual(prover_accumulator, false);
 
         TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances

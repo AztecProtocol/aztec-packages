@@ -29,10 +29,10 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
         const fr table_index(table.table_index);
 
         for (size_t i = 0; i < table.size(); ++i) {
-            table_polynomials[0].set(offset, table.column_1[i]);
-            table_polynomials[1].set(offset, table.column_2[i]);
-            table_polynomials[2].set(offset, table.column_3[i]);
-            table_polynomials[3].set(offset, table_index);
+            table_polynomials[0].at(offset) = table.column_1[i];
+            table_polynomials[1].at(offset) = table.column_2[i];
+            table_polynomials[2].at(offset) = table.column_3[i];
+            table_polynomials[3].at(offset) = table_index;
             ++offset;
         }
     }

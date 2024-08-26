@@ -3,7 +3,6 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/polynomials/polynomial_iter.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
@@ -42,12 +41,6 @@ template <typename Fr> struct PolynomialSpan {
  */
 template <typename Fr> class Polynomial {
   public:
-    using FF = Fr;
-    using iterator = PolynomialIterator<Fr>;
-    using const_iterator = const PolynomialIterator<Fr>;
-    using reference = PolynomialReference<Fr>;
-    using const_reference = Fr;
-
     enum class DontZeroMemory { FLAG };
 
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
@@ -118,7 +111,7 @@ template <typename Fr> class Polynomial {
 
     bool operator==(Polynomial const& rhs) const;
 
-    // void set(size_t i, const Fr& value) { coefficients_.set(i, value); };
+    // void set(size_t i, const Fr& value) { coefficients_.at(i) = value; };
     Fr get(size_t i) const { return coefficients_.get(i); };
 
     bool is_empty() const { return coefficients_.size() == 0; }
@@ -230,13 +223,16 @@ template <typename Fr> class Polynomial {
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
 
-    iterator begin() { return iterator(this, 0); }
-    iterator end() { return iterator(this, size()); }
-    // const_iterator begin() const { return const_iterator(this, 0); }
-    // const_iterator end() const { return const_iterator(this, size()); }
-
-    Fr& at(size_t index) { return data()[index - start_index()]; }
-    // const_iterator at(size_t index) const { return const_iterator(this, index); }
+    /**
+     * @brief Our mutable accessor, unlike operator[].
+     * We abuse precedent a bit to differentiate at() and operator[] as mutable and immutable, respectively.
+     * This means at() can only index within start_index()..end_index() unlike operator[] which can index
+     * 0..virtual_size
+     * We do not provide a const version to dissuade its use in an immutable context.
+     * @param index the index, to be subtracted by start_index() and read into the array memory
+     * @return Fr& a mutable reference.
+     */
+    Fr& at(size_t index) { return coefficients_[index]; }
 
     Fr operator[](size_t i) { return get(i); }
     Fr operator[](size_t i) const { return get(i); }

@@ -23,16 +23,16 @@ TEST(Protogalaxy, CombinerOn2Instances)
     using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
-        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
-        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
-        std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
-        std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
-        std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
-        std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
-        std::fill(polys.q_poseidon2_external.begin(), polys.q_poseidon2_external.end(), 0);
-        std::fill(polys.q_poseidon2_internal.begin(), polys.q_poseidon2_internal.end(), 0);
-        std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
-        std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+        std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
+        std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
+        std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
+        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
+        std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
+        std::fill(polys.q_poseidon2_external.coeffs().begin(), polys.q_poseidon2_external.coeffs().end(), 0);
+        std::fill(polys.q_poseidon2_internal.coeffs().begin(), polys.q_poseidon2_internal.coeffs().end(), 0);
+        std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);
+        std::fill(polys.w_4_shift.coeffs().begin(), polys.w_4_shift.coeffs().end(), 0);
     };
 
     auto run_test = [&](bool is_random_input) {
@@ -158,14 +158,14 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
 
     constexpr size_t UNIVARIATE_LENGTH = 12;
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
-        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
-        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
-        std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
-        std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
-        std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
-        std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
-        std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
-        std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+        std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
+        std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
+        std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
+        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
+        std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
+        std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);
+        std::fill(polys.w_4_shift.coeffs().begin(), polys.w_4_shift.coeffs().end(), 0);
     };
 
     auto run_test = [&](bool is_random_input) {
@@ -209,8 +209,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Get the result of the 0th subrelation of the arithmetic relation
             FF instance_offset = std::get<0>(temporary_accumulator)[0];
             // Subtract it from q_c[0] (it directly affect the target sum, making it zero and enabling the optimisation)
-            instance_data[1]->proving_key.polynomials.q_c.set(
-                0, instance_data[1]->proving_key.polynomials.q_c[0] - instance_offset);
+            instance_data[1]->proving_key.polynomials.q_c.at(0) =
+                instance_data[1]->proving_key.polynomials.q_c[0] - instance_offset;
             std::vector<typename Flavor::ProverPolynomials>
                 extended_polynomials; // These hold the extensions of prover polynomials
 
@@ -224,8 +224,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                               instance_data[1]->proving_key.polynomials.get_all(),
                               prover_polynomials.get_all())) {
                     for (size_t i = 0; i < /*circuit_size*/ 2; i++) {
-                        new_polynomial.set(i,
-                                           instance_0_polynomial[i] +
+                        new_polynomial.at(i) = instance_0_polynomial[i] +
                                                ((instance_1_polynomial[i] - instance_0_polynomial[i]) * idx));
                     }
                 }
@@ -346,14 +345,14 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
 //     using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
 
 //     const auto zero_all_selectors = [](auto& polys) {
-//         std::fill(polys.q_arith.begin(), polys.q_arith.end(), 0);
-//         std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
-//         std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
-//         std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
-//         std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
-//         std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
-//         std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
-//         std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+//         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 0);
+//         std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
+//         std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
+//         std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+//         std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
+//         std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
+//         std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);
+//         std::fill(polys.w_4_shift.coeffs().begin(), polys.w_4_shift.coeffs().end(), 0);
 //     };
 
 //     auto run_test = [&]() {
@@ -381,7 +380,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
 //         auto result = prover.compute_combiner</*OptimisationEnabled=*/false>(instances, pow_polynomial);
 //         auto optimised_result = prover.compute_combiner(instances, pow_polynomial);
 //         std::array<FF, 40> zeroes;
-//         std::fill(zeroes.begin(), zeroes.end(), 0);
+//         std::fill(zeroes.coeffs().begin(), zeroes.coeffs().end(), 0);
 //         auto expected_result = Univariate<FF, 40>(zeroes);
 //         EXPECT_EQ(result, expected_result);
 //         EXPECT_EQ(optimised_result, expected_result);

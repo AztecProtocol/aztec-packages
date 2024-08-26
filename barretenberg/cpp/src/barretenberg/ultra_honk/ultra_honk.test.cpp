@@ -255,8 +255,8 @@ TEST_F(UltraHonkTests, LookupFailure)
         // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in question
         // will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the inverse will
         // be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is expected behavior.
-        polynomials.lookup_read_counts.set(25, 1);
-        polynomials.lookup_read_tags.set(25, 1);
+        polynomials.lookup_read_counts.at(25) = 1;
+        polynomials.lookup_read_tags.at(25) = 1;
 
         EXPECT_FALSE(prove_and_verify(instance));
     }
@@ -288,7 +288,7 @@ TEST_F(UltraHonkTests, LookupFailure)
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
         EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        polynomials.q_lookup.set(25, 1);
+        polynomials.q_lookup.at(25) = 1;
 
         EXPECT_FALSE(prove_and_verify(instance));
     }
