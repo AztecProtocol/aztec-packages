@@ -37,25 +37,17 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         }
         case QUEUE_TYPE::OINK: {
             auto verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, stdlib_vkey);
-            OinkRecursiveVerifier verifier{ &circuit, stdlib_vkey };
-            auto [relation_parameters, witness_commitments, public_inputs, alphas] =
-                verifier.verify_proof(stdlib_proof);
-            verifier_accum->relation_parameters = std::move(relation_parameters);
-            verifier_accum->witness_commitments = std::move(witness_commitments);
-            verifier_accum->public_inputs = std::move(public_inputs);
-            verifier_accum->alphas = std::move(alphas);
-            verifier_accum->is_accumulator = true;
-            // WORKTODO: this is wrong because FF is the native field type and we need the stdlib version. Solution is
-            // probably just for gate_challenges to be handled internally by oink prover/verifier.
-            auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-            for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-                gate_challenges[idx] =
-                    verifier.transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-            }
+            OinkRecursiveVerifier oink{ &circuit, verifier_accum };
+            oink.verify_proof(stdlib_proof);
+            verifier_accum->is_accumulator = true; // WORKTODO: using this as a synonym for "is complete"
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+            verifier_accumulator->gate_challenges =
+                std::vector<FF>(verifier_accum->verification_key->log_circuit_size, 0);
 
             // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-            bus_depot.execute(witness_commitments, public_inputs, stdlib_vkey->databus_propagation_data);
+            bus_depot.execute(verifier_accum->witness_commitments,
+                              verifier_accum->public_inputs,
+                              verifier_accum->verification_key->databus_propagation_data);
 
             break;
         }
@@ -106,17 +98,17 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     // Set the instance verification key from precomputed if available, else compute it
     instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
 
-    // If this is the first circuit simply initialize the prover and verifier accumulator instances
+    // If this is the first circuit in the IVC, use oink to compute the completed instance and generate an oink proof
     if (!initialized) {
-        OinkProver<Flavor> oink_prover{ prover_instance->proving_key };
-        auto [proving_key, relation_params, alphas] = oink_prover.prove();
-        prover_instance->proving_key = std::move(proving_key);
-        prover_instance->relation_parameters = relation_params;
-        prover_instance->alphas = alphas;
+        OinkProver<Flavor> oink_prover{ prover_instance };
+        oink_prover.prove();
+        prover_instance->is_accumulator = true; // WORKTODO: using this as a synonym for "is complete"
+        // WORKTODO: just default init these in constructor? (same for ver instance)
         prover_instance->gate_challenges = std::vector<FF>(prover_instance->proving_key.log_circuit_size, 0);
-        prover_instance->is_accumulator = true; // this means "is complete"
-        fold_output.accumulator = prover_instance;
 
+        fold_output.accumulator = prover_instance; // initialize the prover accum with the completed instance
+
+        // Add oink proof and corresponding verification key to the verification queue
         verification_queue.emplace_back(oink_prover.transcript->proof_data, instance_vk, QUEUE_TYPE::OINK);
 
         initialized = true;
