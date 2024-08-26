@@ -99,28 +99,34 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_o
         auto domain_separator = std::to_string(idx);
         finalise_and_send_instance(instance, domain_separator);
     }
+
+    state.accumulator = instances[0];
 };
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::perturbator_round()
+template <class ProverInstances>
+std::tuple<std::vector<typename ProverInstances::Flavor::FF>, LegacyPolynomial<typename ProverInstances::Flavor::FF>>
+ProtoGalaxyProver_<ProverInstances>::perturbator_round(
+    const std::shared_ptr<const typename ProverInstances::Instance>& accumulator)
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::perturbator_round");
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
-    state.accumulator = get_accumulator();
+
     FF delta = transcript->template get_challenge<FF>("delta");
-    state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
-    state.perturbator =
-        LegacyPolynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
-    // compute perturbator only if this is not the first round and has an accumulator
-    // WORKTODO: just check if accumulator is null
-    if (state.accumulator->is_accumulator) {
-        state.perturbator = Fun::compute_perturbator(state.accumulator, state.deltas);
-        // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
-        // the accumulator which the folding verifier has from the previous iteration.
-        for (size_t idx = 1; idx <= state.accumulator->proving_key.log_circuit_size; idx++) {
-            transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
+    std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
+    // An honest prover with valid initial instances computes that the perturbator is 0 in the first round
+    LegacyPolynomial<FF> perturbator = accumulator->is_accumulator
+                                           ? Fun::compute_perturbator(accumulator, deltas)
+                                           : LegacyPolynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
+    // the accumulator which the folding verifier has from the previous iteration.
+    if (accumulator->is_accumulator) { // WORKTODO: differing amount of work in the verifier
+        for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
+            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
         }
     }
+
+    return std::make_tuple(std::move(deltas), std::move(perturbator));
 };
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
@@ -179,7 +185,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     }
     /* instances =  */ run_oink_prover_on_each_instance(/* instances */);
 
-    /* state.deltas, state.perturbator = */ perturbator_round(/* accumulator  */);
+    std::tie(state.deltas, state.perturbator) = perturbator_round(state.accumulator);
 
     /* state.*/
     /* gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */

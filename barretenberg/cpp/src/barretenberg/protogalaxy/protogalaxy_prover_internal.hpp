@@ -160,7 +160,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      *
      *
      */
-    static LegacyPolynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator,
+    static LegacyPolynomial<FF> compute_perturbator(const std::shared_ptr<const Instance>& accumulator,
                                                     const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();

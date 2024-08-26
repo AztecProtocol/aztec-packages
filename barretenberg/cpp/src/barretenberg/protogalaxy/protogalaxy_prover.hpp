@@ -114,8 +114,11 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Steps 2 - 5 of the paper.
      * @details Compute perturbator (F polynomial in paper). Send all but the constant coefficient to verifier.
      *
+     * @param accumulator
+     * @return std::tuple<std::vector<FF>, LegacyPolynomial<FF>> deltas, perturbator
      */
-    void perturbator_round();
+    std::tuple<std::vector<FF>, LegacyPolynomial<FF>> perturbator_round(
+        const std::shared_ptr<const Instance>& accumulator);
 
     /**
      * @brief Steps 6 - 11 of the paper.

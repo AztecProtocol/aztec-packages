@@ -53,8 +53,9 @@ void bench_round_mega(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Pr
 
 BENCHMARK_CAPTURE(bench_round_mega, preparation, [](auto& prover) { prover.run_oink_prover_on_each_instance(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) { prover.perturbator_round(); }) -> DenseRange(14, 20)
-    -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) {
+    prover.perturbator_round(prover.state.accumulator);
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, accumulator_update, [](auto& prover) { prover.update_target_sum_and_fold(); })
