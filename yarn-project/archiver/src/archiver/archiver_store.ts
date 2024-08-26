@@ -24,7 +24,8 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { type DataRetrieval, type SingletonDataRetrieval } from './data_retrieval.js';
+import { type DataRetrieval, type SingletonDataRetrieval } from './structs/data_retrieval.js';
+import { type L1Published } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -50,7 +51,7 @@ export interface ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean>;
+  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
 
   /**
    * Append new block bodies to the store's list.
@@ -73,7 +74,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number): Promise<L2Block[]>;
+  getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]>;
 
   /**
    * Gets a tx effect.

@@ -27,7 +27,8 @@ import {
 } from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval, type SingletonDataRetrieval } from '../data_retrieval.js';
+import { type DataRetrieval, type SingletonDataRetrieval } from '../structs/data_retrieval.js';
+import { type L1Published } from '../structs/published.js';
 import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractArtifactsStore } from './contract_artifacts_store.js';
@@ -123,7 +124,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean> {
+  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
     return this.#blockStore.addBlocks(blocks);
   }
 
@@ -134,7 +135,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlocks(start: number, limit: number): Promise<L2Block[]> {
+  getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
     try {
       return Promise.resolve(Array.from(this.#blockStore.getBlocks(start, limit)));
     } catch (err) {

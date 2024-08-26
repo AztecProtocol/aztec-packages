@@ -174,7 +174,7 @@ describe('Archiver', () => {
 
     // Check instrumentation of proven blocks
     expect(instrumentation.processProofsVerified).toHaveBeenCalledWith([
-      { delay: 101000n, l1BlockNumber: 102n, l2BlockNumber: 1n, proverId: proverId.toString() },
+      { delay: 1000n, l1BlockNumber: 102n, l2BlockNumber: 1n, proverId: proverId.toString() },
     ]);
   }, 10_000);
 

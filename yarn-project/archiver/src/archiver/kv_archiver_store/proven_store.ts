@@ -1,6 +1,6 @@
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
-import { type SingletonDataRetrieval } from '../data_retrieval.js';
+import { type SingletonDataRetrieval } from '../structs/data_retrieval.js';
 
 export class ProvenStore {
   /** Stores L1 block number in which the last processed L2 block was included */

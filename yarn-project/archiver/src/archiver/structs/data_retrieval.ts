@@ -13,7 +13,8 @@ import {
   processL2BlockProcessedLogs,
   processMessageSentLogs,
   processTxsPublishedLogs,
-} from './eth_log_handlers.js';
+} from '../eth_log_handlers.js';
+import { type L1PublishedData } from './published.js';
 
 /**
  * Data retrieved from logs
@@ -61,8 +62,8 @@ export async function retrieveBlockMetadataFromRollup(
   searchEndBlock: bigint,
   expectedNextL2BlockNum: bigint,
   logger: DebugLogger = createDebugLogger('aztec:archiver'),
-): Promise<DataRetrieval<[Header, AppendOnlyTreeSnapshot]>> {
-  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot][] = [];
+): Promise<[Header, AppendOnlyTreeSnapshot, L1PublishedData][]> {
+  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, L1PublishedData][] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -91,7 +92,7 @@ export async function retrieveBlockMetadataFromRollup(
     searchStartBlock = lastLog.blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockMetadata };
+  return retrievedBlockMetadata;
 }
 
 /**
