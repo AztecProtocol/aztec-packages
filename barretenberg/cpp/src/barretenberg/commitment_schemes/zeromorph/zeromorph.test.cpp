@@ -110,7 +110,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         size_t poly_length = 1 << u_challenge.size();
         for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
             f_polynomials.emplace_back(this->random_polynomial(poly_length));
-            f_polynomials[i][0] = Fr(0); // ensure f is "shiftable"
+            f_polynomials[i] = f_polynomials[i].shifted(); // ensure f is "shiftable"
             v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
             f_commitments.emplace_back(this->commit(f_polynomials[i]));
         }
@@ -177,8 +177,8 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
                     if (k > 0) {
                         tmp = Fr::random_element(this->engine);
                     }
-                    chunk_polynomial[k] = tmp;
-                    concatenated_polynomial[j * MINI_CIRCUIT_N + k] = tmp;
+                    chunk_polynomial.at(k) = tmp;
+                    concatenated_polynomial.at(j * MINI_CIRCUIT_N + k) = tmp;
                 }
                 concatenation_group.emplace_back(chunk_polynomial);
             }
@@ -511,7 +511,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
     Polynomial multilinear_f = this->random_polynomial(N);
     Polynomial multilinear_g = this->random_polynomial(N);
-    multilinear_g[0] = 0;
+    multilinear_g = multilinear_g.unshifted().share();
     std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
     Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
     Fr w_evaluation = multilinear_g.evaluate_mle(u_challenge, /* shift = */ true);
@@ -539,7 +539,7 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     // Compute Z_x directly
     auto Z_x_expected = g_batched;
     Z_x_expected.add_scaled(f_batched, x_challenge);
-    Z_x_expected[0] -= v_batched * x_challenge * this->Phi(x_challenge, log_N);
+    Z_x_expected.at(0) -= v_batched * x_challenge * this->Phi(x_challenge, log_N);
     for (size_t k = 0; k < log_N; ++k) {
         auto x_pow_2k = x_challenge.pow(1 << k);         // x^{2^k}
         auto x_pow_2kp1 = x_challenge.pow(1 << (k + 1)); // x^{2^{k+1}}

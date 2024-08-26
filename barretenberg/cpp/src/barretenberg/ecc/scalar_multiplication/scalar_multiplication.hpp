@@ -120,7 +120,7 @@ template <typename Curve>
 uint32_t construct_addition_chains(affine_product_runtime_state<Curve>& state, bool empty_bucket_counts = true);
 
 template <typename Curve>
-void add_affine_points(const typename Curve::AffineElement* points,
+void add_affine_points(typename Curve::AffineElement* points,
                        size_t num_points,
                        typename Curve::BaseField* scratch_space);
 

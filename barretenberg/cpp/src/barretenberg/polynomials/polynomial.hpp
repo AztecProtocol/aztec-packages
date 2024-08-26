@@ -12,8 +12,21 @@
 
 namespace bb {
 
+/* Span class with a start index offset.
+ * We conceptually have a span like a_0 + a_1 x ... a_n x^n and then multiply by x^start_index.
+ * This allows more efficient representation than a fully defined span for 'islands' of zeroes. */
+template <typename Fr> struct PolynomialSpan {
+    size_t start_index;
+    std::span<Fr> span;
+    size_t end_index() const { return start_index + size(); }
+    Fr* data() { return span.data(); }
+    size_t size() const { return span.size(); }
+    Fr& operator[](size_t index) { return span[index - start_index]; }
+    const Fr& operator[](size_t index) const { return span[index - start_index]; }
+};
+
 /**
- * @brief Structured polynomial class that represents the coefficients 'a' of a_0 + a_1 x + a_n x^n of
+ * @brief Structured polynomial class that represents the coefficients 'a' of a_0 + a_1 x ... a_n x^n of
  * a finite field polynomial equation of degree that is at most the size of some zk circuit.
  * Past 'n' it has a virtual size where it conceptually has coefficients all equal to 0.
  * Notably, we allow indexing past 'n' up to our virtual size (checked only in a debug build, however).
@@ -105,7 +118,7 @@ template <typename Fr> class Polynomial {
 
     bool operator==(Polynomial const& rhs) const;
 
-    void set(size_t i, const Fr& value) { coefficients_.set(i, value); };
+    // void set(size_t i, const Fr& value) { coefficients_.set(i, value); };
     Fr get(size_t i) const { return coefficients_.get(i); };
 
     bool is_empty() const { return coefficients_.size() == 0; }
@@ -117,6 +130,14 @@ template <typename Fr> class Polynomial {
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
     Polynomial shifted() const;
+
+    /**
+     * @brief Returns a Polynomial the right-shift of self.
+     *
+     * @details If the n coefficients of self are (a₁, …, aₙ₋₁),
+     * we returns the view of the n-1 coefficients (0, a₁, …, aₙ₋₁).
+     */
+    Polynomial unshifted() const;
 
     /**
      * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)

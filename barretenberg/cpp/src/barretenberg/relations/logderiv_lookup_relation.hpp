@@ -164,7 +164,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
                 auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
                 auto value = compute_read_term<FF, 0>(row, relation_parameters) *
                              compute_write_term<FF, 0>(row, relation_parameters);
-                inverse_polynomial.set(i, value);
+                inverse_polynomial.at(i) = value;
             }
         }
         // Compute inverse polynomial I in place by inverting the product at each row

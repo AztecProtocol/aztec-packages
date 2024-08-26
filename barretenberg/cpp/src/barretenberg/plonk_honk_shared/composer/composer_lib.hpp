@@ -71,8 +71,8 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
-            read_counts.set(index_in_poly, read_counts[index_in_poly] + 1);
-            read_tags.set(index_in_poly, 1); // tag is 1 if entry has been read 1 or more times
+            read_counts.at(index_in_poly) = read_counts[index_in_poly] + 1;
+            read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
         }
         table_offset += table.size(); // set the offset of the next table within the polynomials
     }

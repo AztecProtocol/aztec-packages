@@ -77,14 +77,14 @@ template <typename Curve> class ZeroMorphProver_ {
         std::vector<Polynomial> quotients;
         for (size_t k = 0; k < log_N; ++k) {
             size_t size = 1 << k;
-            quotients.emplace_back(Polynomial(size, size)); // degree 2^k - 1
+            quotients.emplace_back(Polynomial(size)); // degree 2^k - 1
         }
 
         // Compute the coefficients of q_{n-1}
         size_t size_q = 1 << (log_N - 1);
-        Polynomial q{ size_q, size_q };
+        Polynomial q{ size_q };
         for (size_t l = 0; l < size_q; ++l) {
-            q.set(l, polynomial[size_q + l] - polynomial[l]);
+            q.at(l) = polynomial[size_q + l] - polynomial[l];
         }
 
         quotients[log_N - 1] = q.share();
@@ -103,10 +103,10 @@ template <typename Curve> class ZeroMorphProver_ {
             }
 
             size_q = size_q / 2;
-            q = Polynomial{ size_q, size_q };
+            q = Polynomial{ size_q };
 
             for (size_t l = 0; l < size_q; ++l) {
-                q.set(l, f_k[size_q + l] - f_k[l]);
+                q.at(l) = f_k[size_q + l] - f_k[l];
             }
 
             quotients[log_N - k - 1] = q.share();
@@ -134,7 +134,7 @@ template <typename Curve> class ZeroMorphProver_ {
     {
         DEBUG_LOG(quotients, y_challenge, N);
         // Batched lifted degree quotient polynomial
-        auto result = Polynomial(N, N);
+        auto result = Polynomial(N);
 
         // Compute \hat{q} = \sum_k y^k * X^{N - d_k - 1} * q_k
         size_t k = 0;
@@ -234,7 +234,7 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute Z_x -= v * x * \Phi_n(x)
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
-        result.set(0, result[0] - v_evaluation * x_challenge * phi_n_x);
+        result.at(0) -= v_evaluation * x_challenge * phi_n_x;
 
         // Add contribution from q_k polynomials
         auto x_power = x_challenge; // x^{2^k}
@@ -368,7 +368,7 @@ template <typename Curve> class ZeroMorphProver_ {
         // Note: g_batched is formed from the to-be-shifted polynomials, but the batched evaluation incorporates the
         // evaluations produced by sumcheck of h_i = g_i_shifted.
         FF batched_evaluation{ 0 };
-        Polynomial f_batched(N, N); // batched unshifted polynomials
+        Polynomial f_batched(N); // batched unshifted polynomials
         FF batching_scalar{ 1 };
         for (auto [f_poly, f_eval] : zip_view(f_polynomials, f_evaluations)) {
             f_batched.add_scaled(f_poly, batching_scalar);
@@ -386,12 +386,12 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t num_groups = concatenation_groups.size();
         size_t num_chunks_per_group = concatenation_groups.empty() ? 0 : concatenation_groups[0].size();
         // Concatenated polynomials
-        Polynomial concatenated_batched(N, N);
+        Polynomial concatenated_batched(N);
 
         // construct concatention_groups_batched
         std::vector<Polynomial> concatenation_groups_batched;
         for (size_t i = 0; i < num_chunks_per_group; ++i) {
-            concatenation_groups_batched.push_back(Polynomial(N, N));
+            concatenation_groups_batched.push_back(Polynomial(N));
         }
         // for each group
         for (size_t i = 0; i < num_groups; ++i) {

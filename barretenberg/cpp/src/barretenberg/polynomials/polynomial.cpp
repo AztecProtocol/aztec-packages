@@ -258,21 +258,21 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
 
     for (size_t i = 0; i < n_l; i++) {
         // Initiate our intermediate results using this Polynomial.
-        intermediate.set(i, get(i) + u_l * (get(i + n_l) - get(i)));
+        intermediate.at(i) = get(i) + u_l * (get(i + n_l) - get(i));
     }
     // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
     for (size_t l = 1; l < m; ++l) {
         n_l = 1 << (n - l - 1);
         u_l = evaluation_points[m - l - 1];
         for (size_t i = 0; i < n_l; ++i) {
-            intermediate.set(i, intermediate[i] + u_l * (intermediate[i + n_l] - intermediate[i]));
+            intermediate.at(i) = intermediate[i] + u_l * (intermediate[i + n_l] - intermediate[i]);
         }
     }
 
     // Construct resulting Polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
     Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
-        result.set(idx, intermediate[idx]);
+        result.at(idx) = intermediate[idx];
     }
 
     return result;
@@ -388,23 +388,23 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
     });
 }
 
-/**
- * @brief Returns a Polynomial the left-shift of self.
- *
- * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
- * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
- */
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
-    // // WORKTODO(sparse) remove this and properly instantiate these things
-    // if (coefficients_.start_ <= 0) {
-    //     hacky_shift_adjustment(*this);
-    // }
     ASSERT(coefficients_.start_ >= 1);
     Polynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
     result.coefficients_.end_ -= 1;
+    return result;
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::unshifted() const
+{
+    // // WORKTODO(sparse) remove this and properly instantiate these things
+    Polynomial result;
+    result.coefficients_ = coefficients_;
+    result.coefficients_.start_ += 1;
+    result.coefficients_.end_ += 1;
     return result;
 }
 

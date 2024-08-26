@@ -76,7 +76,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
     {
         Polynomial p(n);
         for (size_t i = 0; i < n; ++i) {
-            p[i] = Fr::random_element(engine);
+            p.at(i) = Fr::random_element(engine);
         }
         return p;
     }

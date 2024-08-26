@@ -258,7 +258,7 @@ template <typename Curve_> class IPA {
             parallel_for_heuristic(
                 round_size,
                 [&](size_t j) {
-                    a_vec.set(j, a_vec[j] + round_challenge * a_vec[round_size + j]);
+                    a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }

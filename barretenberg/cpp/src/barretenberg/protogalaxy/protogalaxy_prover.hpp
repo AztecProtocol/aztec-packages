@@ -17,7 +17,7 @@ template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
     using ProverInstance = typename ProverInstances_::Instance;
 
     std::shared_ptr<ProverInstance> accumulator;
-    LegacyPolynomial<FF> perturbator;
+    Polynomial<FF> perturbator;
     std::vector<FF> deltas;
     Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
     FF compressed_perturbator;
@@ -160,8 +160,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      *
      */
-    static LegacyPolynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator,
-                                                    const std::vector<FF>& deltas);
+    static Polynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, const std::vector<FF>& deltas);
 
     OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;
     TupleOfTuplesOfUnivariates univariate_accumulators;

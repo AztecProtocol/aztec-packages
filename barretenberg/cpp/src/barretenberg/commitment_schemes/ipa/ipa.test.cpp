@@ -33,9 +33,9 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     constexpr size_t n = 4;
     Polynomial p(n);
     for (size_t i = 0; i < n - 1; i++) {
-        p[i] = Fr::zero();
+        p.at(i) = Fr::zero();
     }
-    p[3] = Fr::one();
+    p.at(3) = Fr::one();
     GroupElement commitment = this->commit(p);
     auto* srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
@@ -156,8 +156,8 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     size_t n = 4;
     auto poly = Polynomial(n);
     for (size_t i = 0; i < n / 2; i++) {
-        poly[i] = Fr::random_element();
-        poly[i + (n / 2)] = poly[i];
+        poly.at(i) = Fr::random_element();
+        poly.at(i + (n / 2)) = poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
@@ -249,7 +249,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     const auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
     auto poly1 = this->random_polynomial(n);
     auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
+    poly2.at(0) = Fr::zero(); // this property is required of polynomials whose shift is used
 
     GroupElement commitment1 = this->commit(poly1);
     GroupElement commitment2 = this->commit(poly2);

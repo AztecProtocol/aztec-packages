@@ -44,12 +44,13 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         const size_t num_unshifted = multilinear_polynomials.size();
         const size_t num_shifted = multilinear_polynomials_to_be_shifted.size();
         for (size_t i = 0; i < num_unshifted; ++i) {
-            batched_unshifted.add_scaled(multilinear_polynomials[i], rhos[i]);
+            batched_unshifted.add_scaled({ /*start index*/ 0, multilinear_polynomials[i] }, rhos[i]);
             batched_commitment_unshifted += multilinear_commitments[i] * rhos[i];
         }
         for (size_t i = 0; i < num_shifted; ++i) {
             size_t rho_idx = num_unshifted + i;
-            batched_to_be_shifted.add_scaled(multilinear_polynomials_to_be_shifted[i], rhos[rho_idx]);
+            batched_to_be_shifted.add_scaled({ /*start index*/ 0, multilinear_polynomials_to_be_shifted[i] },
+                                             rhos[rho_idx]);
             batched_commitment_to_be_shifted += multilinear_commitments_to_be_shifted[i] * rhos[rho_idx];
         }
 
@@ -119,7 +120,7 @@ TYPED_TEST(GeminiTest, Single)
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval };
-    std::vector<std::span<Fr>> multilinear_polynomials = { poly };
+    std::vector<std::span<Fr>> multilinear_polynomials = { poly.coeffs() };
     std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = {};
     std::vector<GroupElement> multilinear_commitments = { commitment };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
@@ -145,7 +146,7 @@ TYPED_TEST(GeminiTest, SingleShift)
 
     // shiftable polynomial must have 0 as last coefficient
     auto poly = this->random_polynomial(n);
-    poly[0] = Fr::zero();
+    poly.at(0) = Fr::zero();
 
     auto commitment = this->commit(poly);
     auto eval_shift = poly.evaluate_mle(u, true);
@@ -153,7 +154,7 @@ TYPED_TEST(GeminiTest, SingleShift)
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval_shift };
     std::vector<std::span<Fr>> multilinear_polynomials = {};
-    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = { poly };
+    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = { poly.coeffs() };
     std::vector<GroupElement> multilinear_commitments = {};
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment };
 
@@ -187,7 +188,7 @@ TYPED_TEST(GeminiTest, Double)
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval1, eval2 };
-    std::vector<std::span<Fr>> multilinear_polynomials = { poly1, poly2 };
+    std::vector<std::span<Fr>> multilinear_polynomials = { poly1.coeffs(), poly2.coeffs() };
     std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = {};
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
@@ -212,8 +213,7 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
     auto u = this->random_evaluation_point(log_n);
 
     auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // necessary for polynomial to be 'shiftable'
+    auto poly2 = this->random_polynomial(n).unshifted(); // make 'shiftable'
 
     auto commitment1 = this->commit(poly1);
     auto commitment2 = this->commit(poly2);
@@ -224,8 +224,8 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
-    std::vector<std::span<Fr>> multilinear_polynomials = { poly1, poly2 };
-    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = { poly2 };
+    std::vector<std::span<Fr>> multilinear_polynomials = { poly1.coeffs(), poly2.coeffs() };
+    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = { poly2.coeffs() };
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment2 };
 

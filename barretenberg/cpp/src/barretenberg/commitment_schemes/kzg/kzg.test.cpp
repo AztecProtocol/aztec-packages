@@ -74,8 +74,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // point.
     const auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
     auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
+    auto poly2 = this->random_polynomial(n).unshifted(); // shiftable
 
     GroupElement commitment1 = this->commit(poly1);
     GroupElement commitment2 = this->commit(poly2);

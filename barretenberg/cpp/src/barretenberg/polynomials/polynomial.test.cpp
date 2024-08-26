@@ -10,7 +10,7 @@ TEST(Polynomial, Shifted)
     using Polynomial = bb::Polynomial<FF>;
     const size_t SIZE = 10;
     auto poly = Polynomial::random(SIZE);
-    poly[0] = 0; // make it shiftable
+    poly.at(0) = 0; // make it shiftable
 
     // Instantiate the shift via the shited method
     auto poly_shifted = poly.shifted();
@@ -23,7 +23,7 @@ TEST(Polynomial, Shifted)
     }
 
     // If I change the original polynomial, the shift is updated accordingly
-    poly[3] = 25;
+    poly.at(3) = 25;
     for (size_t i = 0; i < poly_shifted.size() - 1; ++i) {
         EXPECT_EQ(poly_shifted.get(i), poly.get(i + 1));
     }
@@ -44,10 +44,10 @@ TEST(Polynomial, Share)
     EXPECT_EQ(poly_clone, poly);
 
     // Changing one changes the other
-    poly[3] = 25;
+    poly.at(3) = 25;
     EXPECT_EQ(poly_clone, poly);
 
-    poly_clone[2] = 13;
+    poly_clone.at(2) = 13;
     EXPECT_EQ(poly_clone, poly);
 
     // If reset the original poly, it will no longer be equal to the clone made earlier

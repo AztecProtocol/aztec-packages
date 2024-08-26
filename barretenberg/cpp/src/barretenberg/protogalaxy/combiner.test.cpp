@@ -90,20 +90,20 @@ TEST(Protogalaxy, CombinerOn2Instances)
             instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l + w_r;
-                polys.q_l[idx] = 1;
-                polys.q_r[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l + w_r;
+                polys.q_l.at(idx) = 1;
+                polys.q_r.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             const auto create_mul_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l * w_r;
-                polys.q_m[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l * w_r;
+                polys.q_m.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             create_add_gate(instances[0]->proving_key.polynomials, 0, 1, 2);
@@ -209,7 +209,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Get the result of the 0th subrelation of the arithmetic relation
             FF instance_offset = std::get<0>(temporary_accumulator)[0];
             // Subtract it from q_c[0] (it directly affect the target sum, making it zero and enabling the optimisation)
-            instance_data[1]->proving_key.polynomials.q_c[0] -= instance_offset;
+            instance_data[1]->proving_key.polynomials.q_c.set(
+                0, instance_data[1]->proving_key.polynomials.q_c[0] - instance_offset);
             std::vector<typename Flavor::ProverPolynomials>
                 extended_polynomials; // These hold the extensions of prover polynomials
 
@@ -223,8 +224,9 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                               instance_data[1]->proving_key.polynomials.get_all(),
                               prover_polynomials.get_all())) {
                     for (size_t i = 0; i < /*circuit_size*/ 2; i++) {
-                        new_polynomial[i] =
-                            instance_0_polynomial[i] + ((instance_1_polynomial[i] - instance_0_polynomial[i]) * idx);
+                        new_polynomial.set(i,
+                                           instance_0_polynomial[i] +
+                                               ((instance_1_polynomial[i] - instance_0_polynomial[i]) * idx));
                     }
                 }
                 extended_polynomials.push_back(std::move(prover_polynomials));
@@ -276,20 +278,20 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l + w_r;
-                polys.q_l[idx] = 1;
-                polys.q_r[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l + w_r;
+                polys.q_l.at(idx) = 1;
+                polys.q_r.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             const auto create_mul_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l * w_r;
-                polys.q_m[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l * w_r;
+                polys.q_m.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             create_add_gate(instances[0]->proving_key.polynomials, 0, 1, 2);

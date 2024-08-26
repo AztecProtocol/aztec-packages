@@ -92,8 +92,8 @@ std::vector<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver
 
 // See protogalaxy_prover.hpp for details
 template <class ProverInstances_>
-LegacyPolynomial<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver_<
-    ProverInstances_>::compute_perturbator(const std::shared_ptr<Instance> accumulator, const std::vector<FF>& deltas)
+Polynomial<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyProver_<ProverInstances_>::compute_perturbator(
+    const std::shared_ptr<Instance> accumulator, const std::vector<FF>& deltas)
 {
     BB_OP_COUNT_TIME();
     auto full_honk_evaluations = compute_full_honk_evaluations(
@@ -101,7 +101,7 @@ LegacyPolynomial<typename ProtoGalaxyProver_<ProverInstances_>::FF> ProtoGalaxyP
     const auto betas = accumulator->gate_challenges;
     assert(betas.size() == deltas.size());
     auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
-    return LegacyPolynomial<FF>(coeffs);
+    return Polynomial<FF>(coeffs);
 }
 
 // See protogalaxy_prover.hpp for details
@@ -351,8 +351,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
     state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
-    state.perturbator =
-        LegacyPolynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
+    state.perturbator = Polynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
     if (state.accumulator->is_accumulator) {
         state.perturbator = compute_perturbator(state.accumulator, state.deltas);

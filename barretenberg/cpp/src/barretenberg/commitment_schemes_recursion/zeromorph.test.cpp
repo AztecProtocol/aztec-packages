@@ -53,7 +53,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
         f_polynomials.emplace_back(Polynomial::random(N));
-        f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
+        f_polynomials[i] = f_polynomials[i].unshifted().share(); // ensure f is "shiftable"
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
 

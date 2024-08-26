@@ -22,7 +22,7 @@ template <class FF> class GrandProductTests : public testing::Test {
     static constexpr Polynomial get_random_polynomial(size_t size)
     {
         Polynomial random_polynomial{ size };
-        for (auto& coeff : random_polynomial) {
+        for (auto& coeff : random_polynomial.coeffs()) {
             coeff = FF::random_element();
         }
         return random_polynomial;
@@ -136,10 +136,10 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         // Step (4)
         Polynomial z_permutation_expected(circuit_size);
-        z_permutation_expected[0] = FF::zero(); // Z_0 = 1
+        z_permutation_expected.at(0) = FF::zero(); // Z_0 = 1
         // Note: in practice, we replace this expensive element-wise division with Montgomery batch inversion
         for (size_t i = 0; i < circuit_size - 1; ++i) {
-            z_permutation_expected[i + 1] = numerator_accum[0][i] / denominator_accum[0][i];
+            z_permutation_expected.at(i + 1) = numerator_accum[0][i] / denominator_accum[0][i];
         }
 
         // Check consistency between locally computed z_perm and the one computed by the prover library

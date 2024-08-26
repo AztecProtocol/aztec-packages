@@ -101,7 +101,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     FF alpha = transcript->template get_challenge<FF>("alpha");
 
     // Construct batched polynomial to opened via KZG
-    auto batched_polynomial = Polynomial(N, N);
+    auto batched_polynomial = Polynomial(N);
     auto batched_eval = FF(0);
     auto alpha_pow = FF(1);
     for (auto& claim : opening_claims) {

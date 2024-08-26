@@ -26,7 +26,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     Polynomial<FF> random_poly(size_t size)
     {
         auto poly = bb::Polynomial<FF>(size);
-        for (auto& coeff : poly) {
+        for (auto& coeff : poly.coeffs()) {
             coeff = FF::random_element();
         }
         return poly;

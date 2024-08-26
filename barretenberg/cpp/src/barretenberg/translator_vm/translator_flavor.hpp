@@ -841,8 +841,8 @@ class TranslatorFlavor {
             , polynomials(this->circuit_size)
         {
             // First and last lagrange polynomials (in the full circuit size)
-            polynomials.lagrange_first.set(0, 1);
-            polynomials.lagrange_last.set(circuit_size - 1, 1);
+            polynomials.lagrange_first.at(0) = 1;
+            polynomials.lagrange_last.at(circuit_size - 1) = 1;
 
             // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
             // polynomials at second and second to last indices in the minicircuit
