@@ -15,7 +15,7 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     circuit.databus_propagation_data.is_kernel = true;
 
     for (auto& [proof, vkey, type] : verification_queue) {
-        // Construct stdlib vkey and proof
+        // Construct stdlib verification key and proof
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
         auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
@@ -73,11 +73,6 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  */
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
-    if (!CircuitChecker::check(circuit)) {
-        info("CIRCUIT CHECK FAILED!");
-    } else {
-        info("CIRCUIT CHECK PASSED!");
-    }
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);

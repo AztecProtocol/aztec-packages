@@ -79,48 +79,50 @@ template <class Builder> class DataBusDepot {
     /**
      * @brief Execute circuit logic to establish proper transfer of databus data between circuits
      * @details The databus mechanism establishes the transfer of data between two circuits (i-1 and i) in a third
-     * circuit (i+1) via commitment equality checks of the form [R_{i-1}] = [C_i]. In practice, circuit (i+1) is given
-     * access to [R_{i-1}] via the public inputs of \pi_i, and it has access to [C_i] directly from \pi_i. The
-     * consistency checks in circuit (i+1) are thus of the form \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i]. This method
-     * peforms the two primary operations required for these checks: (1) extract commitments [R] from proofs received as
-     * private witnesses and propagate them to the next circuit via adding them to the public inputs. (2) Assert
-     * equality of commitments.
+     * circuit (i+1) via commitment equality checks of the form [R_{i-1}] = [C_i], where R and C represent return data
+     * and calldata, respectively. In practice, circuit (i+1) is given access to [R_{i-1}] via the public inputs of
+     * \pi_i, and it has access to [C_i] directly from \pi_i. The consistency checks in circuit (i+1) are thus of the
+     * form \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i]. This method peforms the two primary operations required for
+     * these checks: (1) extract commitments [R] from proofs received as private witnesses and propagate them to the
+     * next circuit via adding them to the public inputs. (2) Assert equality of commitments.
      *
      * In Aztec private function execution, this mechanism is used as follows. Kernel circuit K_{i+1} must in general
-     * perform two databus consistency checks: (1) that the return_data of app circuit A_{i} was calldata to K_{i}, and
-     * (2) that the return_data of K_{i-1} was calldata to K_{i}. (Note that kernel circuits have two databus calldata
-     * columns). The relevant databus column commitments are extracted from non-accumulator verifier instances (which
-     * contain all witness polynomial commitments extracted from a proof in oink).
+     * perform two databus consistency checks: (1) that the return_data of app circuit A_{i} was secondary calldata to
+     * K_{i}, and (2) that the return_data of K_{i-1} was calldata to K_{i}.
      *
-     * @param instances Completed verifier instances corresponding to prover instances that have been folded
+     * @param commitments Witness polynomial commitments for an instance that has been accumulated
+     * @param public_inputs The public inputs of that instance
+     * @param propagation_data Data indicating what databus commitments are present on the public inputs of the instance
      */
     void execute(WitnessCommitments& commitments,
                  std::vector<Fr>& public_inputs,
                  DatabusPropagationData& propagation_data)
     {
-        // Is this data coming from a kernel? Only kernels can contain commitments propagated via public inputs
-        bool is_kernel_instance = propagation_data.is_kernel;
+        // Flag indicating whether the input data corresponds to a kernel instance (else, an app instance). This is
+        // used to indicate whether the return data commitment being propagated belongs to a kernel or an app so that it
+        // can be checked against the appropriate calldata commitment in a subsequent round.
+        bool is_kernel_data = propagation_data.is_kernel;
 
         // Assert equality between return data commitments propagated via the public inputs and the corresponding
         // calldata commitment
-        if (propagation_data.contains_app_return_data_commitment) {
-            ASSERT(is_kernel_instance);
-            // Assert equality between the app return data commitment and the kernel secondary calldata commitment
+        if (propagation_data.contains_app_return_data_commitment) { // public inputs contain [R]_app
+            ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
             size_t start_idx = propagation_data.app_return_data_public_input_idx;
             Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+            // App return data should correspond to the secondary calldata of the subsequent kernel
             assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
         }
 
-        if (propagation_data.contains_kernel_return_data_commitment) {
-            ASSERT(is_kernel_instance);
-            // Assert equality between the previous kernel return data commitment and the kernel calldata commitment
+        if (propagation_data.contains_kernel_return_data_commitment) { // pub inputs contain [R]_kernel
+            ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
             size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
             Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+            // Previous kernel return data should correspond to the calldata of the subsequent kernel
             assert_equality_of_commitments(kernel_return_data, commitments.calldata);
         }
 
         // Propagate the return data commitment via the public inputs mechanism
-        propagate_commitment_via_public_inputs(commitments.return_data, is_kernel_instance);
+        propagate_commitment_via_public_inputs(commitments.return_data, is_kernel_data);
     };
 
     /**

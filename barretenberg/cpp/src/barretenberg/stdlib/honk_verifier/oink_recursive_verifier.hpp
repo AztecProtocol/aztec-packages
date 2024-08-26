@@ -33,7 +33,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
 
     std::shared_ptr<Instance> instance;
     Builder* builder;
-    std::shared_ptr<Transcript> transcript{ nullptr };
+    std::shared_ptr<Transcript> transcript;
     std::string domain_separator; // used in PG to distinguish between instances in transcript
 };
 
