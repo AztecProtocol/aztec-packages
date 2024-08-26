@@ -1,4 +1,4 @@
-import { Tx, TxHash } from "@aztec/circuit-types";
+import { Tx, TxHash } from '@aztec/circuit-types';
 
 export enum ReqRespType {
   Status = 'status',
@@ -42,15 +42,13 @@ interface RequestResponsePair<Req, Res> {
   };
 }
 
-
 /**
  * Sub protocol map determines the request and response types for each
  * Req Resp protocol
  */
 export type SubProtocolMap = {
   [S in SubProtocol]: RequestResponsePair<any, any>;
-}
-
+};
 
 /**
  * A mapping from each protocol to their request and response types
@@ -58,14 +56,14 @@ export type SubProtocolMap = {
 export const subProtocolMap: SubProtocolMap = {
   [PING_PROTOCOL]: {
     request: RequestableBuffer,
-    response: RequestableBuffer
+    response: RequestableBuffer,
   },
   [STATUS_PROTOCOL]: {
     request: RequestableBuffer,
-    response: RequestableBuffer
+    response: RequestableBuffer,
   },
   [TX_REQ_PROTOCOL]: {
     request: TxHash,
-    response: Tx
+    response: Tx,
   },
-}
+};

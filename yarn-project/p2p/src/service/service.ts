@@ -3,7 +3,8 @@ import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/circuit
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
-import { SubProtocol, SubProtocolMap } from './reqresp/interface.js';
+
+import { type SubProtocol, type SubProtocolMap } from './reqresp/interface.js';
 
 export enum PeerDiscoveryState {
   RUNNING = 'running',
@@ -39,7 +40,10 @@ export interface P2PService {
    * @param request - The request type, corresponding to the protocol
    * @returns The response type, corresponding to the protocol
    */
-  sendRequest<Protocol extends SubProtocol>(protocol: Protocol, request: InstanceType<SubProtocolMap[Protocol]['request']>): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
+  sendRequest<Protocol extends SubProtocol>(
+    protocol: Protocol,
+    request: InstanceType<SubProtocolMap[Protocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation>): void;

@@ -1,9 +1,10 @@
+import { TxHash, mockTx } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
-import { TxHash, mockTx } from '@aztec/circuit-types';
-import { createNodes, startNodes, connectToPeers, stopNodes, SUB_PROTOCOL_HANDLERS } from '../../mocks/index.js';
+import { describe, expect, it } from '@jest/globals';
 
+import { SUB_PROTOCOL_HANDLERS, connectToPeers, createNodes, startNodes, stopNodes } from '../../mocks/index.js';
+import { PING_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
 
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
@@ -70,19 +71,19 @@ describe('ReqResp', () => {
     await stopNodes(nodes);
   });
 
-  describe("TX REQ PROTOCOL", () => {
-    it("Can request a Tx from TxHash", async () => {
+  describe('TX REQ PROTOCOL', () => {
+    it('Can request a Tx from TxHash', async () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
       const protocolHandlers = SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[TX_REQ_PROTOCOL] = async (message: Buffer): Promise<Uint8Array> => {
+      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Uint8Array> => {
         const receivedHash = TxHash.fromBuffer(message);
         if (txHash.equals(receivedHash)) {
           return Promise.resolve(Uint8Array.from(tx.toBuffer()));
         }
         return Promise.resolve(Uint8Array.from(Buffer.from('')));
-      }
+      };
 
       const nodes = await createNodes(2);
 
@@ -97,15 +98,15 @@ describe('ReqResp', () => {
       await stopNodes(nodes);
     });
 
-    it("Does not crash if tx hash returns undefined", async () => {
+    it('Does not crash if tx hash returns undefined', async () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
       const protocolHandlers = SUB_PROTOCOL_HANDLERS;
       // Return nothing
-      protocolHandlers[TX_REQ_PROTOCOL] = async (_message: Buffer): Promise<Uint8Array> => {
+      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Uint8Array> => {
         return Promise.resolve(Uint8Array.from(Buffer.from('')));
-      }
+      };
 
       const nodes = await createNodes(2);
 
@@ -118,7 +119,6 @@ describe('ReqResp', () => {
       expect(res).toBeUndefined();
 
       await stopNodes(nodes);
-
-    })
+    });
   });
 });

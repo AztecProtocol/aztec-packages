@@ -1,12 +1,12 @@
-import { noise } from "@chainsafe/libp2p-noise";
-import { yamux } from "@chainsafe/libp2p-yamux";
-import { bootstrap } from "@libp2p/bootstrap";
-import { tcp } from "@libp2p/tcp";
-import { Libp2p, Libp2pOptions, createLibp2p } from "libp2p";
-import { ReqResp, SubProtocolHandlers } from "../service/reqresp/reqresp.js";
-import { pingHandler, statusHandler } from "../service/reqresp/handlers.js";
-import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from "../service/reqresp/interface.js";
+import { noise } from '@chainsafe/libp2p-noise';
+import { yamux } from '@chainsafe/libp2p-yamux';
+import { bootstrap } from '@libp2p/bootstrap';
+import { tcp } from '@libp2p/tcp';
+import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
+import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
+import { ReqResp, type SubProtocolHandlers } from '../service/reqresp/reqresp.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -34,7 +34,6 @@ export async function createLibp2pNode(boostrapAddrs: string[] = []): Promise<Li
   return await createLibp2p(options);
 }
 
-
 /**
  * A p2p / req resp node pairing the req node will always contain the p2p node.
  * they are provided as a pair to allow access the p2p node directly
@@ -48,7 +47,7 @@ export type ReqRespNode = {
 export const SUB_PROTOCOL_HANDLERS: SubProtocolHandlers = {
   [PING_PROTOCOL]: pingHandler,
   [STATUS_PROTOCOL]: statusHandler,
-  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from("tx"))),
+  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from('tx'))),
 };
 
 /**

@@ -1,4 +1,4 @@
-import { Tx, type L2BlockSource, TxHash } from '@aztec/circuit-types';
+import { type L2BlockSource, TxHash } from '@aztec/circuit-types';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
@@ -7,10 +7,10 @@ import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
+import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import { type TxPool } from '../tx_pool/index.js';
 import { getPublicIp, splitAddressPort } from '../util.js';
-import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
-import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 
 export * from './p2p_client.js';
 
@@ -65,26 +65,32 @@ export const createP2PClient = async (
 
     // Create peer discovery service
     const peerId = await createLibP2PPeerId(config.peerIdPrivateKey);
-    console.log(`Peer id: ${peerId}`);
     const discoveryService = new DiscV5Service(peerId, config);
 
     // TODO: this must go somewhere else - AHHHHHHHHHHH - this whole thing needs a layercaking
-    const txHandler = async (msg: Buffer): Promise<Uint8Array> => {
-      console.log('Received tx request');
+    const txHandler = (msg: Buffer): Promise<Uint8Array> => {
       const txHash = TxHash.fromBuffer(msg);
       const foundTx = txPool.getTxByHash(txHash);
-      return Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
-    }
+      const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
+      return Promise.resolve(asUint8Array);
+    };
 
     const requestResponseHandlers = {
       [PING_PROTOCOL]: pingHandler,
       [STATUS_PROTOCOL]: statusHandler,
       [TX_REQ_PROTOCOL]: txHandler,
-    }
-
+    };
 
     // TODO: pass the reqresp handlers in here - using callbacks for the proof of concept
-    p2pService = await LibP2PService.new(config, discoveryService, peerId, txPool, attestationsPool, store, requestResponseHandlers);
+    p2pService = await LibP2PService.new(
+      config,
+      discoveryService,
+      peerId,
+      txPool,
+      attestationsPool,
+      store,
+      requestResponseHandlers,
+    );
   } else {
     p2pService = new DummyP2PService();
   }

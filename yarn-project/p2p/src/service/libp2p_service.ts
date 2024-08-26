@@ -29,9 +29,9 @@ import { type TxPool } from '../tx_pool/index.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
+import { type SubProtocol, type SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
+import { DEFAULT_SUB_PROTOCOL_HANDLERS, ReqResp, type SubProtocolHandlers } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { DEFAULT_SUB_PROTOCOL_HANDLERS, ReqResp, SubProtocolHandlers } from './reqresp/reqresp.js';
-import { SubProtocol, SubProtocolHandler, SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -133,7 +133,7 @@ export class LibP2PService implements P2PService {
       this.peerManager.discover();
     }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
-    this.reqresp.start(this.requestResponseHandlers);
+    await this.reqresp.start(this.requestResponseHandlers);
   }
 
   /**
@@ -220,7 +220,6 @@ export class LibP2PService implements P2PService {
       },
     });
 
-
     return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool, requestResponseHandlers);
   }
 
@@ -230,11 +229,13 @@ export class LibP2PService implements P2PService {
    * @param request The request type to send
    * @returns
    */
-  async sendRequest<Protocol extends SubProtocol>(protocol: Protocol, request: InstanceType<SubProtocolMap[Protocol]['request']>): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
+  async sendRequest<Protocol extends SubProtocol>(
+    protocol: Protocol,
+    request: InstanceType<SubProtocolMap[Protocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
     const pair = subProtocolMap[protocol];
 
     // TODO: Can the type be retreived from a mapping based on the subprotocol
-    console.log(`Sending request: ${protocol}`);
     const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
     if (!res) {
       return undefined;
@@ -346,9 +347,6 @@ export class LibP2PService implements P2PService {
 
   private async sendToPeers<T extends Gossipable>(message: T) {
     const parent = message.constructor as typeof Gossipable;
-
-    console.log("sendign to peers ids");
-    console.log(this.node.getPeers())
 
     const identifier = message.p2pMessageIdentifier().toString();
     this.logger.verbose(`Sending message ${identifier} to peers`);

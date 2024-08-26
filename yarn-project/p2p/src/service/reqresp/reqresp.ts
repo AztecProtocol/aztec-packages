@@ -6,8 +6,13 @@ import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
-import { pingHandler, statusHandler } from './handlers.js';
-import { PING_PROTOCOL, STATUS_PROTOCOL, SubProtocol, SubProtocolHandler, TX_REQ_PROTOCOL } from './interface.js';
+import {
+  PING_PROTOCOL,
+  STATUS_PROTOCOL,
+  type SubProtocol,
+  type SubProtocolHandler,
+  TX_REQ_PROTOCOL,
+} from './interface.js';
 
 export type SubProtocolHandlers = Record<SubProtocol, SubProtocolHandler>;
 
@@ -18,14 +23,12 @@ export type SubProtocolHandlers = Record<SubProtocol, SubProtocolHandler>;
 // HMMM???? - messy haha!
 const defaultHandler = (_msg: any): Promise<Uint8Array> => {
   return Promise.resolve(Uint8Array.from(Buffer.from('default')));
-}
+};
 export const DEFAULT_SUB_PROTOCOL_HANDLERS: SubProtocolHandlers = {
   [PING_PROTOCOL]: defaultHandler,
   [STATUS_PROTOCOL]: defaultHandler,
   [TX_REQ_PROTOCOL]: defaultHandler,
 };
-
-
 
 export class ReqResp {
   protected readonly logger: Logger;
