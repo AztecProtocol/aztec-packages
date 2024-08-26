@@ -89,7 +89,7 @@ $$
 new\_nullifier > low\_nullifier_{\textsf{value}} \: \&\&  \: ( new\_nullifier < low\_nullifier_{\textsf{next\_value}} \: \| \:  low\_nullifier_{\textsf{next\_value}} == 0 )
 $$
 
-4. Update the low nullifier pointers
+4. Update the low nullifier pointers.
 
    $$
    low\_nullifier_{\textsf{next\_index}} = new\_insertion\_index
@@ -99,8 +99,8 @@ $$
    low\_nullifier_{\textsf{next\_value}} = new\_nullifier
    $$
 
-5. Perform insertion of new updated low nullifier (yields new root)
-6. Update pointers on new leaf. Note: low_nullifier is from before update in step 4
+5. Perform insertion of new updated low nullifier (yields new root).
+6. Update pointers on new leaf. Note: low_nullifier is from before update in step 4.
 
 $$
 new\_nullifier\_leaf_{\textsf{value}} = new\_nullifier
@@ -114,7 +114,7 @@ $$
 new\_nullifier\_leaf_{\textsf{next\_index}} = low\_nullifier_{\textsf{next\_index}}
 $$
 
-7. Perform insertion of new leaf (yields new root)
+7. Perform insertion of new leaf (yields new root).
 
 #### Number of insertion constraints, in total:
 
@@ -239,7 +239,7 @@ Some fun engineering problems occur when we inserting a subtree in circuits when
 - `subtree_insertion_sibling_path`: A sibling path to check our subtree against the root
 
 Protocol without batched insertion:
-Before adding a nullifier to the pending insertion tree, we check for its non membership using the previously defined protocol by consuming the circuit inputs:
+Before adding a nullifier to the pending insertion tree, we check for its non membership using the previously defined protocol by consuming the circuit inputs.
 Pseudocode:
 
 ```cpp
