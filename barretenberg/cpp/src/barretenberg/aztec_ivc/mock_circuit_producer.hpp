@@ -91,20 +91,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     MockDatabusProducer mock_databus;
 
-    static ClientCircuit create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
-    {
-        ClientCircuit circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in AztecIVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
-
   public:
     /**
      * @brief Create a the next circuit (app/kernel) in a mocked private function execution stack
@@ -116,18 +102,14 @@ class PrivateFunctionExecutionMockCircuitProducer {
         bool is_kernel = (circuit_counter % 2 == 0); // Every other circuit is a kernel, starting from the second
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
-        // ClientCircuit circuit;
         if (is_kernel) {
-            // circuit = create_mock_circuit(ivc);
             GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
-            // mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
-            ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
+            mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
+            ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
         } else {
-            // circuit = create_mock_circuit(ivc);
-            // bool use_large_circuit = (circuit_counter == 1);                            // first circuit is size 2^19
-            bool use_large_circuit = false;                                             // first circuit is size 2^19
+            bool use_large_circuit = (circuit_counter == 1);                            // first circuit is size 2^19
             GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-            // mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
+            mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
         }
         return circuit;
     }

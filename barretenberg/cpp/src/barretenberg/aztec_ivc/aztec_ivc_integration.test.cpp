@@ -42,7 +42,7 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
     MockCircuitProducer circuit_producer;
 
     // Construct and accumulate a series of mocked private function execution circuits
-    size_t NUM_CIRCUITS = 2;
+    size_t NUM_CIRCUITS = 6;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
