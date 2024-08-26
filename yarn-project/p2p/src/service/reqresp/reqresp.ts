@@ -7,7 +7,7 @@ import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { pingHandler, statusHandler } from './handlers.js';
-import { PING_PROTOCOL, STATUS_PROTOCOL, SubProtocol, SubProtocolHandler } from './interface.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL, type SubProtocol, type SubProtocolHandler } from './interface.js';
 
 /**
  * A mapping from a protocol to a handler function
