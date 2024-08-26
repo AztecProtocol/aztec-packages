@@ -15,13 +15,11 @@ import {Errors} from "../../src/core/libraries/Errors.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 
 // Portals
 import {TokenPortal} from "./TokenPortal.sol";
 import {UniswapPortal} from "./UniswapPortal.sol";
-
-// Portal tokens
-import {PortalERC20} from "./PortalERC20.sol";
 
 contract UniswapPortalTest is Test {
   using Hash for DataStructures.L2ToL1Msg;
@@ -31,6 +29,8 @@ contract UniswapPortalTest is Test {
 
   Rollup internal rollup;
   Registry internal registry;
+
+  IOutbox internal outbox;
   bytes32 internal l2TokenAddress = bytes32(uint256(0x1));
   bytes32 internal l2UniswapAddress = bytes32(uint256(0x2));
 
@@ -45,17 +45,18 @@ contract UniswapPortalTest is Test {
   bytes32 internal aztecRecipient = bytes32(uint256(0x3));
   bytes32 internal secretHashForRedeemingMintedNotes = bytes32(uint256(0x4));
 
+  uint256 internal l2BlockNumber = 69;
+
   function setUp() public {
     // fork mainnet
     uint256 forkId = vm.createFork(vm.rpcUrl("mainnet_fork"));
     vm.selectFork(forkId);
 
-    registry = new Registry();
-    PortalERC20 portalERC20 = new PortalERC20();
-    rollup =
-      new Rollup(registry, new AvailabilityOracle(), IERC20(address(portalERC20)), bytes32(0));
-    registry.upgrade(address(rollup), address(rollup.INBOX()), address(rollup.OUTBOX()));
-    portalERC20.mint(address(rollup), 1000000);
+    registry = new Registry(address(this));
+    rollup = new Rollup(
+      registry, new AvailabilityOracle(), IFeeJuicePortal(address(0)), bytes32(0), address(this)
+    );
+    registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);
@@ -66,8 +67,14 @@ contract UniswapPortalTest is Test {
     uniswapPortal = new UniswapPortal();
     uniswapPortal.initialize(address(registry), l2UniswapAddress);
 
+    // Modify the proven block count
+    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
+    assertEq(rollup.provenBlockCount(), l2BlockNumber + 1);
+
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
+
+    outbox = rollup.OUTBOX();
   }
 
   /**
@@ -169,8 +176,6 @@ contract UniswapPortalTest is Test {
     (bytes32[] memory withdrawSiblingPath,) = tree.computeSiblingPath(0);
     (bytes32[] memory swapSiblingPath,) = tree.computeSiblingPath(1);
 
-    IOutbox outbox = registry.getOutbox();
-
     vm.prank(address(rollup));
     outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
 
@@ -180,7 +185,6 @@ contract UniswapPortalTest is Test {
   // Creates a withdraw transaction without a designated caller.
   // Should fail when uniswap portal tries to consume it since it tries using a designated caller.
   function testRevertIfWithdrawMessageHasNoDesignatedCaller() public {
-    uint256 l2BlockNumber = 69;
     bytes32 l2ToL1MessageToInsert = _createDaiWithdrawMessage(address(uniswapPortal), address(0));
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
       _addMessagesToOutbox(l2ToL1MessageToInsert, bytes32(uint256(0x1)), l2BlockNumber);
@@ -235,7 +239,6 @@ contract UniswapPortalTest is Test {
     vm.assume(_recipient != address(uniswapPortal));
 
     // malformed withdraw message (wrong recipient)
-    uint256 l2BlockNumber = 69;
     bytes32 l2ToL1MessageToInsert = _createDaiWithdrawMessage(_recipient, address(uniswapPortal));
 
     (, bytes32[] memory withdrawSiblingPath, bytes32[] memory swapSiblingPath) =
@@ -288,8 +291,6 @@ contract UniswapPortalTest is Test {
   }
 
   function testRevertIfSwapParamsDifferentToOutboxMessage() public {
-    uint256 l2BlockNumber = 69;
-
     bytes32 daiWithdrawMessageHash =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
@@ -353,8 +354,6 @@ contract UniswapPortalTest is Test {
   }
 
   function testSwapWithDesignatedCaller() public {
-    uint256 l2BlockNumber = 69;
-
     bytes32 daiWithdrawMessageHash =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
     bytes32 swapMessageHash = _createUniswapSwapMessagePublic(aztecRecipient, address(this));
@@ -392,14 +391,12 @@ contract UniswapPortalTest is Test {
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there the message should be nullified at index 0 and 1
-    IOutbox outbox = registry.getOutbox();
     assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 0));
     assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 1));
   }
 
   function testSwapCalledByAnyoneIfDesignatedCallerNotSet(address _caller) public {
     vm.assume(_caller != address(uniswapPortal));
-    uint256 l2BlockNumber = 69;
 
     bytes32 daiWithdrawMessageHash =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
@@ -440,14 +437,12 @@ contract UniswapPortalTest is Test {
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
     // there should be no message in the outbox:
-    IOutbox outbox = registry.getOutbox();
     assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 0));
     assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 1));
   }
 
   function testRevertIfSwapWithDesignatedCallerCalledByWrongCaller(address _caller) public {
     vm.assume(_caller != address(this));
-    uint256 l2BlockNumber = 69;
 
     bytes32 daiWithdrawMessageHash =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
@@ -549,8 +544,6 @@ contract UniswapPortalTest is Test {
   }
 
   function testRevertIfSwapMessageWasForDifferentPublicOrPrivateFlow() public {
-    uint256 l2BlockNumber = 69;
-
     bytes32 daiWithdrawMessageHash =
       _createDaiWithdrawMessage(address(uniswapPortal), address(uniswapPortal));
 

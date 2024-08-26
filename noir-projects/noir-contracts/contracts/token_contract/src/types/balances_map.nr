@@ -1,11 +1,12 @@
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map, Point};
 use dep::aztec::{
-    context::{PrivateContext, UnconstrainedContext}, hash::pedersen_hash,
+    context::{PrivateContext, UnconstrainedContext},
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{
     note_getter::view_notes, note_getter_options::SortOrder,
     note_emission::{NoteEmission, OuterNoteEmission}
-}
+},
+    keys::{getters::get_current_public_keys, public_keys::NpkM}
 };
 use crate::types::{token_note::{TokenNote, OwnedNote}};
 
@@ -61,17 +62,14 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress,
+        owner_npk_m: NpkM,
         addend: U128
     ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
-            let context = self.map.context;
-            let header = context.get_header();
-
             // We fetch the nullifier public key hash from the registry / from our PXE
-            let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
-            let mut addend_note = T::new(addend, owner_npk_m_hash);
+            let mut addend_note = T::new(addend, owner_npk_m.hash());
 
             // docs:start:insert
             OuterNoteEmission::new(Option::some(self.map.at(owner).insert(&mut addend_note)))
@@ -82,6 +80,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     pub fn sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,
         owner: AztecAddress,
+        owner_npk_m: NpkM,
         amount: U128
     ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
         let subtracted = self.try_sub(owner, amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
@@ -89,17 +88,17 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
-        self.add(owner, subtracted - amount)
+        self.add(owner, owner_npk_m, subtracted - amount)
     }
 
     // Attempts to remove 'target_amount' from the owner's balance. try_sub returns how much was actually subtracted
     // (i.e. the sum of the value of nullified notes), but this subtracted amount may be more or less than the target
     // amount.
     // This may seem odd, but is unfortunately unavoidable due to the number of notes available and their amounts being
-    // unknown. What try_sub does is a best-effort attempt to consume as few notes as possible that add up to more than 
+    // unknown. What try_sub does is a best-effort attempt to consume as few notes as possible that add up to more than
     // `target_amount`.
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
-    // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of 
+    // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
     pub fn try_sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
         self: Self,

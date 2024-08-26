@@ -38,7 +38,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/foundation/abi';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -90,10 +90,11 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 
 const { PXE_URL = '' } = process.env;
 
-const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+const telemetryPromise = createAndStartTelemetryClient(getTelemetryConfig());
 if (typeof afterAll === 'function') {
   afterAll(async () => {
-    await telemetry.stop();
+    const client = await telemetryPromise;
+    await client.stop();
   });
 }
 
@@ -101,10 +102,17 @@ const getAztecUrl = () => {
   return PXE_URL;
 };
 
+export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
+  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
+  const privKeyRaw = hdAccount.getHdKey().privateKey;
+  return privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+};
+
 export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
+  args: { salt?: number } = {},
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -140,6 +148,7 @@ export const setupL1Contracts = async (
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
+    salt: args.salt,
   });
 
   return l1Data;
@@ -319,6 +328,7 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
+  enableValidators = false,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
@@ -349,20 +359,27 @@ export async function setup(
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+  const publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+  const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, hdAccount, logger));
+    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount, logger));
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+  // Run the test with validators enabled
+  if (enableValidators) {
+    const validatorPrivKey = getPrivateKeyFromIndex(1);
+    config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+  }
+  config.disableValidator = !enableValidators;
 
   logger.verbose('Creating and synching an aztec node...');
 
@@ -378,6 +395,8 @@ export async function setup(
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1PublishRetryIntervalMS = 100;
+
+  const telemetry = await telemetryPromise;
   const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
   const sequencer = aztecNode.getSequencer();
 
@@ -725,4 +744,15 @@ export async function deployCanonicalAuthRegistry(deployer: Wallet) {
   expect(getContractClassFromArtifact(authRegistry.artifact).id).toEqual(authRegistry.instance.contractClassId);
   await expect(deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalAuthRegistry.instance.address)).resolves.toBeDefined();
+}
+
+export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
+  targetBlock ??= await node.getBlockNumber();
+
+  await retryUntil(
+    async () => (await node.getProvenBlockNumber()) >= targetBlock,
+    'proven chain status',
+    timeoutSec,
+    intervalSec,
+  );
 }

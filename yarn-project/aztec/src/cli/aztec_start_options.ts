@@ -3,6 +3,7 @@ import { sequencerClientConfigMappings } from '@aztec/aztec-node';
 import { botConfigMappings } from '@aztec/bot';
 import {
   type ConfigMapping,
+  type EnvVar,
   booleanConfigHelper,
   filterConfigMappings,
   isBooleanConfigValue,
@@ -21,7 +22,7 @@ export interface AztecStartOption {
   description: string;
   defaultValue: any | undefined;
   printDefault?: (val: any) => string;
-  envVar: string | undefined;
+  envVar: EnvVar | undefined;
   parseVal?: (val: string) => any;
 }
 
@@ -45,7 +46,7 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 };
 
 // These are options used by multiple modules so should be inputted once
-export const universalOptions = ['l1RpcUrl', 'l1ChainId', 'l1Contracts', 'p2pEnabled'];
+export const universalOptions = ['l1RpcUrl', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
@@ -71,14 +72,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   API: [
     {
-      flag: '--port',
+      flag: '--port <value>',
       description: 'Port to run the Aztec Services on on',
       defaultValue: 8080,
       envVar: 'AZTEC_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
-      flag: '--api-prefix',
+      flag: '--api-prefix <value>',
       description: 'Prefix for API routes on any service that is started',
       defaultValue: '',
       envVar: 'API_PREFIX',
@@ -158,16 +159,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
+      flag: '--data-directory <value>',
+      description: 'Where to store data. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'DATA_DIRECTORY',
+    },
+    {
       flag: '--node.archiverUrl <value>',
       description: 'URL for an archiver service',
       defaultValue: undefined,
       envVar: 'ARCHIVER_URL',
-    },
-    {
-      flag: '--node.dataDirectory <value>',
-      description: 'Where to store node data. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'NODE_DATA_DIRECTORY',
     },
     {
       flag: '--node.deployAztecContracts',
@@ -220,6 +221,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec PXE with options',
       defaultValue: undefined,
       envVar: undefined,
+    },
+    {
+      flag: '--pxe.dataDirectory <value>',
+      description: 'Where to store PXE data. If not set, will store in memory',
+      defaultValue: undefined,
+      envVar: 'PXE_DATA_DIRECTORY',
     },
     ...getOptions('pxe', allPxeConfigMappings),
   ],
@@ -294,13 +301,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec TXE with options',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--txe.port <value>',
-      description: 'Port to run TXE on',
-      defaultValue: 8081,
-      envVar: 'TXE_PORT',
-      parseVal: val => parseInt(val, 10),
     },
   ],
 };

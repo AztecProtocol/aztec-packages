@@ -20,18 +20,15 @@ variable "NODE_P2P_PRIVATE_KEYS" {
 }
 
 variable "L1_CHAIN_ID" {
-  type    = string
-  default = 677692
+  type = string
 }
 
 variable "NODE_P2P_TCP_PORT" {
-  type    = number
-  default = 40000
+  type = number
 }
 
 variable "NODE_P2P_UDP_PORT" {
-  type    = number
-  default = 45000
+  type = number
 }
 
 variable "DOCKERHUB_ACCOUNT" {
@@ -50,12 +47,12 @@ variable "SEQ_MIN_TX_PER_BLOCK" {
 
 variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
   type    = string
-  default = 60
+  default = 0
 }
 
 variable "SEQ_MIN_SECONDS_BETWEEN_BLOCKS" {
   type    = string
-  default = 30
+  default = 0
 }
 
 variable "P2P_MIN_PEERS" {
@@ -89,6 +86,5 @@ variable "BOOTSTRAP_NODES" {
 }
 
 variable "NODE_LB_RULE_PRIORITY" {
-  type    = number
-  default = 4000
+  type = number
 }

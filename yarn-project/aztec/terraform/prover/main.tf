@@ -43,17 +43,17 @@ data "terraform_remote_state" "aztec-network_iac" {
   }
 }
 
-data "terraform_remote_state" "aztec-network_node" {
+data "terraform_remote_state" "aztec-network_prover-node" {
   backend = "s3"
   config = {
     bucket = "aztec-terraform"
-    key    = "${var.DEPLOY_TAG}/aztec-node"
+    key    = "${var.DEPLOY_TAG}/aztec-prover-node"
     region = "eu-west-2"
   }
 }
 
 locals {
-  node_count        = data.terraform_remote_state.aztec-network_node.outputs.node_count
+  node_count        = data.terraform_remote_state.aztec-network_prover-node.outputs.node_count
   agents_per_prover = var.AGENTS_PER_PROVER
 }
 
@@ -259,7 +259,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       },
       {
         "name": "AZTEC_NODE_URL",
-        "value": "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}"
+        "value": "http://${var.DEPLOY_TAG}-aztec-prover-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-prover-node-${count.index + 1}/${var.API_KEY}"
       },
       {
         "name": "PROVER_AGENT_ENABLED",
@@ -274,8 +274,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "${var.PROVING_ENABLED}"
       },
       {
-        "name": "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "value": "http://aztec-otel.local:4318"
+        "name": "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "value": "http://aztec-otel.local:4318/v1/metrics"
       },
       {
         "name": "OTEL_SERVICE_NAME",
@@ -284,6 +284,10 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       {
         "name": "NETWORK_NAME",
         "value": "${var.DEPLOY_TAG}"
+      },
+      { 
+        "name": "LOG_JSON", 
+        "value": "1" 
       }
     ],
     "logConfiguration": {
@@ -307,6 +311,7 @@ resource "aws_ecs_service" "aztec-proving-agent" {
   desired_count                      = local.agents_per_prover
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
+  enable_execute_command             = true
   #platform_version                   = "1.4.0"
 
   # Associate the EC2 capacity provider

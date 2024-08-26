@@ -1389,8 +1389,6 @@ fn module_def_id_from_reference_id(reference_id: ReferenceId) -> Option<ModuleDe
         | ReferenceId::Local(_)
         | ReferenceId::Reference(_, _) => None,
     }
-
-    true
 }
 
 fn is_visible(

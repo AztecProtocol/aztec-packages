@@ -17,6 +17,7 @@ import {
   type PXE,
   type PXEInfo,
   type PrivateKernelProver,
+  type SiblingPath,
   SimulatedTx,
   SimulationError,
   TaggedLog,
@@ -27,12 +28,15 @@ import {
   type TxReceipt,
   UnencryptedTxL2Logs,
   UniqueNote,
+  getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
   type CompleteAddress,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
+  computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -269,6 +273,13 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
+      if (
+        // Computed address from the instance does not match address inside instance
+        !computeContractAddressFromInstance(instance).equals(instance.address)
+      ) {
+        throw new Error('Added a contract in which the address does not match the contract instance.');
+      }
+
       await this.db.addContractArtifact(contractClassId, artifact);
       await this.node.addContractArtifact(instance.address, artifact);
     } else {
@@ -353,6 +364,14 @@ export class PXEService implements PXE {
       );
     });
     return Promise.all(extendedNotes);
+  }
+
+  public async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
   public async addNote(note: ExtendedNote, scope?: AztecAddress) {
@@ -513,12 +532,19 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
+    skipTxValidation: boolean = true, // TODO(#7956): make the default be false
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
       const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender, scopes);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+      }
+
+      if (!skipTxValidation) {
+        if (!(await this.node.isValidTx(simulatedTx.tx))) {
+          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+        }
       }
 
       // We log only if the msgSender is undefined, as simulating with a different msgSender
@@ -610,18 +636,21 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
-    ]);
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.node.getNodeVersion(),
+        this.node.getVersion(),
+        this.node.getChainId(),
+        this.node.getEncodedEnr(),
+        this.node.getL1ContractAddresses(),
+        this.node.getProtocolContractAddresses(),
+      ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
       protocolVersion,
+      enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
     };

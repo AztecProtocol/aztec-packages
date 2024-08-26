@@ -37,6 +37,9 @@ impl Type {
     fn get_trait_impl(self, constraint: TraitConstraint) -> Option<TraitImpl> {}
     // docs:end:get_trait_impl
 
+    #[builtin(type_get_trait_impl)]
+    fn get_trait_impl(self, constraint: TraitConstraint) -> Option<TraitImpl> {}
+
     #[builtin(type_implements)]
 // docs:start:implements
     fn implements(self, constraint: TraitConstraint) -> bool {}

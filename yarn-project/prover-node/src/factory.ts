@@ -3,7 +3,7 @@ import { type AztecNode } from '@aztec/circuit-types';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/utils';
 import { createProverClient } from '@aztec/prover-client';
-import { getL1Publisher } from '@aztec/sequencer-client';
+import { L1Publisher } from '@aztec/sequencer-client';
 import { createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -35,7 +35,7 @@ export async function createProverNode(
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
-  const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, store, archiver);
+  const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, store, archiver, telemetry);
   await worldStateSynchronizer.start();
 
   const simulationProvider = await createSimulationProvider(config, log);
@@ -43,7 +43,7 @@ export async function createProverNode(
   const prover = await createProverClient(config, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = getL1Publisher(config, telemetry);
+  const publisher = new L1Publisher(config, telemetry);
 
   const txProvider = deps.aztecNodeTxProvider
     ? new AztecNodeTxProvider(deps.aztecNodeTxProvider)
@@ -59,5 +59,9 @@ export async function createProverNode(
     txProvider,
     simulationProvider,
     telemetry,
+    {
+      disableAutomaticProving: config.proverNodeDisableAutomaticProving,
+      maxPendingJobs: config.proverNodeMaxPendingJobs,
+    },
   );
 }

@@ -18,7 +18,7 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    await t.deployVerifier();
+    // await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
 
@@ -63,8 +63,8 @@ describe('full_prover', () => {
       const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
       const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
       await Promise.all([
-        sentPrivateTx.wait({ timeout: 1200, interval: 10 }),
-        sentPublicTx.wait({ timeout: 1200, interval: 10 }),
+        sentPrivateTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 }),
+        sentPublicTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 }),
       ]);
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
@@ -79,7 +79,8 @@ describe('full_prover', () => {
           // fail the test. User asked for fixtures but we don't have any
           throw new Error('No block result found in test data');
         }
-
+        // TODO(#6624): Note that with honk proofs the below writes incorrect test data to file.
+        // The serialisation does not account for the prepended fields (circuit size, PI size, PI offset) in new Honk proofs, so the written data is shifted.
         writeTestData(
           'yarn-project/end-to-end/src/fixtures/dumps/block_result.json',
           JSON.stringify({

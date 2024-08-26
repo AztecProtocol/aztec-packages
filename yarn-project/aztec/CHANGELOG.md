@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.50.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.50.0...aztec-package-v0.50.1) (2024-08-23)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.50.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.2...aztec-package-v0.50.0) (2024-08-22)
+
+
+### Features
+
+* Add a prover-node to the proving e2e tests ([#7952](https://github.com/AztecProtocol/aztec-packages/issues/7952)) ([ec5a5fb](https://github.com/AztecProtocol/aztec-packages/commit/ec5a5fb8fd9c344bcb0d33a4e9f07300d3317bf2))
+* Add max pending txs to bot ([#8046](https://github.com/AztecProtocol/aztec-packages/issues/8046)) ([7f5517e](https://github.com/AztecProtocol/aztec-packages/commit/7f5517ecf19e720176d4e97e07f7be557b6705d9))
+* Deterministic deployments for L1 ([#8031](https://github.com/AztecProtocol/aztec-packages/issues/8031)) ([abc6b19](https://github.com/AztecProtocol/aztec-packages/commit/abc6b19b9483b02aa233ce844f01cfb876102531))
+* Introduce validator client ([#7854](https://github.com/AztecProtocol/aztec-packages/issues/7854)) ([e3be8e6](https://github.com/AztecProtocol/aztec-packages/commit/e3be8e6cd23fa7b7cdf341da720decd21a5d8c44))
+* JSON logging ([#8095](https://github.com/AztecProtocol/aztec-packages/issues/8095)) ([048fa12](https://github.com/AztecProtocol/aztec-packages/commit/048fa12cf21de3067908c2e03b2245ef8e674d46))
+
+
+### Bug Fixes
+
+* Port option & extracting correct namespaced options ([#8097](https://github.com/AztecProtocol/aztec-packages/issues/8097)) ([e74c83e](https://github.com/AztecProtocol/aztec-packages/commit/e74c83e581380fa344d1dc1cd783beb1b2d11e0e))
+* Txe port and aztec start options ([#8071](https://github.com/AztecProtocol/aztec-packages/issues/8071)) ([23778c5](https://github.com/AztecProtocol/aztec-packages/commit/23778c5a0ac4fe512cde3a4b66df65f588cad305))
+
+
+### Miscellaneous
+
+* Configuration for bot on various networks ([#8063](https://github.com/AztecProtocol/aztec-packages/issues/8063)) ([453a096](https://github.com/AztecProtocol/aztec-packages/commit/453a096378df57b0280be9aa52697da434e1a457))
+* Merge devnet fixes back to master ([#8149](https://github.com/AztecProtocol/aztec-packages/issues/8149)) ([6be2183](https://github.com/AztecProtocol/aztec-packages/commit/6be21831764243ea42ef932aac3b79f20b483a40))
+* Merge Provernet back to master ([#8070](https://github.com/AztecProtocol/aztec-packages/issues/8070)) ([82f3dc7](https://github.com/AztecProtocol/aztec-packages/commit/82f3dc7320e05878cbd55136f1d88f87f14b2468))
+
+## [0.49.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.1...aztec-package-v0.49.2) (2024-08-15)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.49.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.49.0...aztec-package-v0.49.1) (2024-08-15)
+
+
+### Miscellaneous
+
+* Sync alphanet back to master ([#7970](https://github.com/AztecProtocol/aztec-packages/issues/7970)) ([523724d](https://github.com/AztecProtocol/aztec-packages/commit/523724d35a874eea8355e9f7b080a9d84985808d))
+
+## [0.49.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.48.0...aztec-package-v0.49.0) (2024-08-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* Sequencer no longer proves ([#7860](https://github.com/AztecProtocol/aztec-packages/issues/7860))
+
+### Miscellaneous
+
+* Enable execute command on aws ecs services ([#7975](https://github.com/AztecProtocol/aztec-packages/issues/7975)) ([4331bc6](https://github.com/AztecProtocol/aztec-packages/commit/4331bc615427970fe99b1c9a29038a55cd7d9071))
+* Sequencer no longer proves ([#7860](https://github.com/AztecProtocol/aztec-packages/issues/7860)) ([7168290](https://github.com/AztecProtocol/aztec-packages/commit/71682901b04215d78c613f627a0a46a642001019))
+* Terraform template for prover-node ([#7846](https://github.com/AztecProtocol/aztec-packages/issues/7846)) ([546f946](https://github.com/AztecProtocol/aztec-packages/commit/546f9463f2fbc37ba43dbcd8d11cedfae52d480b))
+
 ## [0.48.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.47.1...aztec-package-v0.48.0) (2024-08-12)
 
 

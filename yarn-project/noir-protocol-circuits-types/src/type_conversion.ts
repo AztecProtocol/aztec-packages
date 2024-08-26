@@ -4,8 +4,10 @@ import {
   BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   CallContext,
-  type CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -15,6 +17,7 @@ import {
   type EmptyNestedData,
   EncryptedLogHash,
   EthAddress,
+  FeeRecipient,
   Fr,
   FunctionData,
   FunctionSelector,
@@ -69,6 +72,7 @@ import {
   PartialStateReference,
   type PendingReadHint,
   Point,
+  type PreviousRollupBlockData,
   type PreviousRollupData,
   PrivateAccumulatedData,
   type PrivateCallData,
@@ -122,6 +126,7 @@ import {
   type SettledReadHint,
   type StateDiffHints,
   StateReference,
+  type TransientDataIndexHint,
   TxContext,
   type TxRequest,
   type VerificationKeyAsFields,
@@ -134,14 +139,17 @@ import type {
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
   BaseRollupInputs as BaseRollupInputsNoir,
+  BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
+  BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
+  BlockRootRollupInputs as BlockRootRollupInputsNoir,
   CallContext as CallContextNoir,
-  CombineHints as CombineHintsNoir,
   CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
   EncryptedLogHash as EncryptedLogHashNoir,
+  FeeRecipient as FeeRecipientNoir,
   Field,
   FixedLengthArray,
   FunctionData as FunctionDataNoir,
@@ -183,6 +191,7 @@ import type {
   RootParityInput as ParityRootParityInputNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PendingReadHint as PendingReadHintNoir,
+  PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateAccumulatedData as PrivateAccumulatedDataNoir,
   PrivateCallData as PrivateCallDataNoir,
@@ -234,6 +243,7 @@ import type {
   StateReference as StateReferenceNoir,
   StorageRead as StorageReadNoir,
   StorageUpdateRequest as StorageUpdateRequestNoir,
+  TransientDataIndexHint as TransientDataIndexHintNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
 } from './types/index.js';
@@ -1632,32 +1642,47 @@ export function mapPrivateKernelInnerCircuitPrivateInputsToNoir(
   };
 }
 
+function mapTransientDataIndexHintToNoir(indexHint: TransientDataIndexHint): TransientDataIndexHintNoir {
+  return {
+    nullifier_index: mapNumberToNoir(indexHint.nullifierIndex),
+    note_hash_index: mapNumberToNoir(indexHint.noteHashIndex),
+  };
+}
+
 function mapPrivateKernelResetHintsToNoir<
   NH_RR_PENDING extends number,
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
   KEY_VALIDATION_REQUESTS extends number,
+  NUM_TRANSIENT_DATA_HINTS extends number,
 >(
   inputs: PrivateKernelResetHints<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS
+    KEY_VALIDATION_REQUESTS,
+    NUM_TRANSIENT_DATA_HINTS
   >,
-): PrivateKernelResetHintsNoir<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
+): PrivateKernelResetHintsNoir<
+  NH_RR_PENDING,
+  NH_RR_SETTLED,
+  NLL_RR_PENDING,
+  NLL_RR_SETTLED,
+  KEY_VALIDATION_REQUESTS,
+  NUM_TRANSIENT_DATA_HINTS
+> {
   return {
-    transient_nullifier_indexes_for_note_hashes: mapTuple(
-      inputs.transientNullifierIndexesForNoteHashes,
-      mapNumberToNoir,
-    ),
-    transient_note_hash_indexes_for_nullifiers: mapTuple(inputs.transientNoteHashIndexesForNullifiers, mapNumberToNoir),
     note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     key_validation_hints: inputs.keyValidationHints.map(mapKeyValidationHintToNoir) as FixedLengthArray<
       KeyValidationHintNoir,
       KEY_VALIDATION_REQUESTS
+    >,
+    transient_data_index_hints: inputs.transientDataIndexHints.map(mapTransientDataIndexHintToNoir) as FixedLengthArray<
+      TransientDataIndexHintNoir,
+      NUM_TRANSIENT_DATA_HINTS
     >,
     validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
@@ -1669,6 +1694,7 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
   KEY_VALIDATION_REQUESTS extends number,
+  NUM_TRANSIENT_DATA_HINTS extends number,
   TAG extends string,
 >(
   inputs: PrivateKernelResetCircuitPrivateInputs<
@@ -1677,6 +1703,7 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
     KEY_VALIDATION_REQUESTS,
+    NUM_TRANSIENT_DATA_HINTS,
     TAG
   >,
 ): PrivateKernelResetCircuitPrivateInputsNoir<
@@ -1684,7 +1711,8 @@ export function mapPrivateKernelResetCircuitPrivateInputsToNoir<
   NH_RR_SETTLED,
   NLL_RR_PENDING,
   NLL_RR_SETTLED,
-  KEY_VALIDATION_REQUESTS
+  KEY_VALIDATION_REQUESTS,
+  NUM_TRANSIENT_DATA_HINTS
 > {
   return {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
@@ -1717,38 +1745,6 @@ export function mapPublicKernelCircuitPrivateInputsToNoir(
   };
 }
 
-export function mapCombineHintsToNoir(combineHints: CombineHints): CombineHintsNoir {
-  return {
-    sorted_note_hashes: mapTuple(combineHints.sortedNoteHashes, mapScopedNoteHashToNoir),
-    sorted_note_hashes_indexes: mapTuple(combineHints.sortedNoteHashesIndexes, mapNumberToNoir),
-    sorted_note_encrypted_logs_hashes: mapTuple(combineHints.sortedNoteEncryptedLogsHashes, mapLogHashToNoir),
-    sorted_note_encrypted_logs_hashes_indexes: mapTuple(
-      combineHints.sortedNoteEncryptedLogsHashesIndexes,
-      mapNumberToNoir,
-    ),
-    sorted_encrypted_logs_hashes: mapTuple(combineHints.sortedEncryptedLogsHashes, mapScopedLogHashToNoir),
-    sorted_encrypted_logs_hashes_indexes: mapTuple(combineHints.sortedEncryptedLogsHashesIndexes, mapNumberToNoir),
-    sorted_unencrypted_logs_hashes: mapTuple(combineHints.sortedUnencryptedLogsHashes, mapScopedLogHashToNoir),
-    sorted_unencrypted_logs_hashes_indexes: mapTuple(combineHints.sortedUnencryptedLogsHashesIndexes, mapNumberToNoir),
-    sorted_public_data_update_requests: mapTuple(
-      combineHints.sortedPublicDataUpdateRequests,
-      mapPublicDataUpdateRequestToNoir,
-    ),
-    sorted_public_data_update_requests_indexes: mapTuple(
-      combineHints.sortedPublicDataUpdateRequestsIndexes,
-      mapNumberToNoir,
-    ),
-    deduped_public_data_update_requests: mapTuple(
-      combineHints.dedupedPublicDataUpdateRequests,
-      mapPublicDataUpdateRequestToNoir,
-    ),
-    deduped_public_data_update_requests_runs: mapTuple(
-      combineHints.dedupedPublicDataUpdateRequestsRuns,
-      mapNumberToNoir,
-    ),
-  };
-}
-
 export function mapPublicKernelTailCircuitPrivateInputsToNoir(
   inputs: PublicKernelTailCircuitPrivateInputs,
 ): PublicKernelTailCircuitPrivateInputsNoir {
@@ -1761,7 +1757,6 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
-    combine_hints: mapCombineHintsToNoir(inputs.combineHints),
   };
 }
 
@@ -1856,6 +1851,17 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
   return new GasFees(mapFieldFromNoir(gasFees.fee_per_da_gas), mapFieldFromNoir(gasFees.fee_per_l2_gas));
 }
 
+export function mapFeeRecipientToNoir(feeRecipient: FeeRecipient): FeeRecipientNoir {
+  return {
+    recipient: mapEthAddressToNoir(feeRecipient.recipient),
+    value: mapFieldToNoir(feeRecipient.value),
+  };
+}
+
+export function mapFeeRecipientFromNoir(feeRecipient: FeeRecipientNoir): FeeRecipient {
+  return new FeeRecipient(mapEthAddressFromNoir(feeRecipient.recipient), mapFieldFromNoir(feeRecipient.value));
+}
+
 /**
  * Maps a constant rollup data to a noir constant rollup data.
  * @param constantRollupData - The circuits.js constant rollup data.
@@ -1940,6 +1946,28 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
 }
 
 /**
+ * Maps block root or block merge rollup public inputs to a noir block root or block merge rollup public inputs.
+ * @param blockRootOrBlockMergePublicInputs - The block root or block merge rollup public inputs.
+ * @returns The noir block root or block merge rollup public inputs.
+ */
+export function mapBlockRootOrBlockMergePublicInputsToNoir(
+  blockRootOrBlockMergePublicInputs: BlockRootOrBlockMergePublicInputs,
+): BlockRootOrBlockMergePublicInputsNoir {
+  return {
+    previous_archive: mapAppendOnlyTreeSnapshotToNoir(blockRootOrBlockMergePublicInputs.previousArchive),
+    new_archive: mapAppendOnlyTreeSnapshotToNoir(blockRootOrBlockMergePublicInputs.newArchive),
+    previous_block_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.previousBlockHash),
+    end_block_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.endBlockHash),
+    start_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.startGlobalVariables),
+    end_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.endGlobalVariables),
+    out_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.outHash),
+    fees: mapTuple(blockRootOrBlockMergePublicInputs.fees, mapFeeRecipientToNoir),
+    vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
+    prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
+  };
+}
+
+/**
  * Maps a public call stack item to noir.
  * @param publicCallStackItem - The public call stack item.
  * @returns The noir public call stack item.
@@ -1986,6 +2014,28 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
 }
 
 /**
+ * Maps a block root or block merge rollup public inputs from noir to the circuits.js type.
+ * @param blockRootOrBlockMergePublicInputs - The noir lock root or block merge  rollup public inputs.
+ * @returns The circuits.js block root or block merge  rollup public inputs.
+ */
+export function mapBlockRootOrBlockMergePublicInputsFromNoir(
+  blockRootOrBlockMergePublicInputs: BlockRootOrBlockMergePublicInputsNoir,
+): BlockRootOrBlockMergePublicInputs {
+  return new BlockRootOrBlockMergePublicInputs(
+    mapAppendOnlyTreeSnapshotFromNoir(blockRootOrBlockMergePublicInputs.previous_archive),
+    mapAppendOnlyTreeSnapshotFromNoir(blockRootOrBlockMergePublicInputs.new_archive),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.previous_block_hash),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.end_block_hash),
+    mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.start_global_variables),
+    mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.end_global_variables),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
+    mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, 32, mapFeeRecipientFromNoir),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
+    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
+  );
+}
+
+/**
  * Maps a previous rollup data from the circuits.js type to noir.
  * @param previousRollupData - The circuits.js previous rollup data.
  * @returns The noir previous rollup data.
@@ -1994,6 +2044,27 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
   return {
     base_or_merge_rollup_public_inputs: mapBaseOrMergeRollupPublicInputsToNoir(
       previousRollupData.baseOrMergeRollupPublicInputs,
+    ),
+    proof: mapRecursiveProofToNoir(previousRollupData.proof),
+    vk: mapVerificationKeyToNoir(previousRollupData.vk),
+    vk_witness: {
+      leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
+      sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
+    },
+  };
+}
+
+/**
+ * Maps a previous rollup data from the circuits.js type to noir.
+ * @param previousRollupData - The circuits.js previous rollup data.
+ * @returns The noir previous rollup data.
+ */
+export function mapPreviousRollupBlockDataToNoir(
+  previousRollupData: PreviousRollupBlockData,
+): PreviousRollupBlockDataNoir {
+  return {
+    block_root_or_block_merge_public_inputs: mapBlockRootOrBlockMergePublicInputsToNoir(
+      previousRollupData.blockRootOrBlockMergePublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
     vk: mapVerificationKeyToNoir(previousRollupData.vk),
@@ -2040,11 +2111,11 @@ export function mapRootRollupParityInputToNoir(
 }
 
 /**
- * Naos the root rollup inputs to noir.
- * @param rootRollupInputs - The circuits.js root rollup inputs.
- * @returns The noir root rollup inputs.
+ * Maps the block root rollup inputs to noir.
+ * @param rootRollupInputs - The circuits.js block root rollup inputs.
+ * @returns The noir block root rollup inputs.
  */
-export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
+export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollupInputs): BlockRootRollupInputsNoir {
   return {
     previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
     l1_to_l2_roots: mapRootRollupParityInputToNoir(rootRollupInputs.l1ToL2Roots),
@@ -2058,6 +2129,19 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
     ),
     start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
     new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
+    previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
+    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
+  };
+}
+
+/**
+ * Maps the root rollup inputs to noir.
+ * @param rootRollupInputs - The circuits.js root rollup inputs.
+ * @returns The noir root rollup inputs.
+ */
+export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
+  return {
+    previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }
@@ -2096,9 +2180,15 @@ export function mapRootRollupPublicInputsFromNoir(
   rootRollupPublicInputs: RootRollupPublicInputsNoir,
 ): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
-    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.archive),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.previous_archive),
+    mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_archive),
+    mapFieldFromNoir(rootRollupPublicInputs.previous_block_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.end_block_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
+    mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
+    mapFieldFromNoir(rootRollupPublicInputs.out_hash),
+    mapTupleFromNoir(rootRollupPublicInputs.fees, 32, mapFeeRecipientFromNoir),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
-    mapHeaderFromNoir(rootRollupPublicInputs.header),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
   );
 }
@@ -2219,6 +2309,17 @@ export function mapPartialStateReferenceFromNoir(
 export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs): MergeRollupInputsNoir {
   return {
     previous_rollup_data: mapTuple(mergeRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
+  };
+}
+
+/**
+ * Maps the block merge rollup inputs to noir.
+ * @param mergeRollupInputs - The circuits.js block merge rollup inputs.
+ * @returns The noir block merge rollup inputs.
+ */
+export function mapBlockMergeRollupInputsToNoir(mergeRollupInputs: BlockMergeRollupInputs): BlockMergeRollupInputsNoir {
+  return {
+    previous_rollup_data: mapTuple(mergeRollupInputs.previousRollupData, mapPreviousRollupBlockDataToNoir),
   };
 }
 
