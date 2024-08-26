@@ -42,6 +42,7 @@ template <typename Fr> struct PolynomialSpan {
  */
 template <typename Fr> class Polynomial {
   public:
+    using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
