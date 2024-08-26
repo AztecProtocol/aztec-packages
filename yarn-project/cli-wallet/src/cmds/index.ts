@@ -328,7 +328,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '--no-wait',
       'Wait for the brigded funds to be available in L2, polling every 60 seconds (default, override with --delay',
     )
-    .option('--interval <number>', 'The polling interval in seconds for the bridged funds', '60')
+    .addOption(
+      new Option('--interval <number>', 'The polling interval in seconds for the bridged funds')
+        .default('60')
+        .conflicts('wait'),
+    )
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1RpcUrl, l1ChainId, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
@@ -414,7 +418,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description(
       'Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account',
     )
-    .argument('<functionName>', 'Name of function to simulate')
+    .argument('<functionName>', 'Name of function to authorize')
     .argument('<caller>', 'Account to be authorized to perform the action', address =>
       aliasedAddressParser('accounts', address, db),
     )
@@ -461,7 +465,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description(
       'Authorizes a public call on the caller, so they can perform an action on behalf of the provided account',
     )
-    .argument('<functionName>', 'Name of function to simulate')
+    .argument('<functionName>', 'Name of function to authorize')
     .argument('<caller>', 'Account to be authorized to perform the action', address =>
       aliasedAddressParser('accounts', address, db),
     )
@@ -474,9 +478,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createTypeOption(false))
-    .addOption(
-      createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
-    )
     .action(async (functionName, caller, _options, command) => {
       const { authorizeAction } = await import('./authorize_action.js');
       const options = command.optsWithGlobals();
@@ -489,7 +490,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         type,
         secretKey,
         publicKey,
-        alias,
       } = options;
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
