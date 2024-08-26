@@ -23,7 +23,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
         std::shared_ptr<ProverInstance> accumulator;
-        LegacyPolynomial<FF> perturbator;
+        Polynomial<FF> perturbator;
         std::vector<FF> gate_challenges;
         std::vector<FF> deltas;
         CombinerQuotient combiner_quotient;

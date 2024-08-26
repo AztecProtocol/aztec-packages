@@ -112,7 +112,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
     // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
     auto quotient = batched_polynomial;
-    quotient.at(0) = quotient[0] - batched_eval;
+    quotient.at(0) -= batched_eval;
     quotient.factor_roots(kappa);
 
     auto quotient_commitment = pcs_commitment_key->commit(quotient);

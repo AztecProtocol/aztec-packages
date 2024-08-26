@@ -160,8 +160,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      *
      *
      */
-    static LegacyPolynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator,
-                                                    const std::vector<FF>& deltas)
+    static Polynomial<FF> compute_perturbator(std::shared_ptr<Instance> accumulator, const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();
         auto full_honk_evaluations = compute_full_honk_evaluations(
@@ -169,7 +168,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         const auto betas = accumulator->gate_challenges;
         assert(betas.size() == deltas.size());
         auto coeffs = construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
-        return LegacyPolynomial<FF>(coeffs);
+        return Polynomial<FF>(coeffs);
     }
 
     /**
