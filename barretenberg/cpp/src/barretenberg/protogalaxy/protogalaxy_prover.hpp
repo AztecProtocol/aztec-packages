@@ -6,22 +6,21 @@ namespace bb {
 
 template <class ProverInstances_> class ProtoGalaxyProver_ {
   public:
-    struct State {
-        using FF = typename ProverInstances_::FF;
-        using ProverInstance = typename ProverInstances_::Instance;
-        using Flavor = typename ProverInstances_::Flavor;
-        static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
-        using CombinerQuotient = Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
-        using TupleOfTuplesOfUnivariates =
-            typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
-        using OptimisedTupleOfTuplesOfUnivariates =
-            typename Flavor::template OptimisedProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
-        using RelationParameters = bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
-        using OptimisedRelationParameters = bb::RelationParameters<
-            Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
-        using CombinedRelationSeparator =
-            std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
+    using ProverInstance = typename ProverInstances_::Instance;
+    using Flavor = typename ProverInstances_::Flavor;
+    using FF = typename ProverInstances_::Flavor::FF;
+    static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
+    using CombinerQuotient = Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
+    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
+    using OptimisedTupleOfTuplesOfUnivariates =
+        typename Flavor::template OptimisedProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
+    using RelationParameters = bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
+    using OptimisedRelationParameters =
+        bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
+    using CombinedRelationSeparator =
+        std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
+    struct State {
         std::shared_ptr<ProverInstance> accumulator;
         LegacyPolynomial<FF> perturbator;       // computed then evaluated at a challenge
         std::vector<FF> gate_challenges;        // use to compute pow_polynomial
@@ -37,24 +36,21 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators; // WORKTODO: delete
         FoldingResult<typename ProverInstances_::Flavor> result;               // WORKTODO: move out
     };
-
-    using ProverInstances = ProverInstances_;
-    using Flavor = typename ProverInstances::Flavor;
     using Transcript = typename Flavor::Transcript;
-    using FF = typename Flavor::FF;
-    using Instance = typename ProverInstances::Instance;
+    using Instance = typename ProverInstances_::Instance;
     using CommitmentKey = typename Flavor::CommitmentKey;
+    using ProverInstances = ProverInstances_;
 
-    static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = ProverInstances_::NUM_SUBRELATIONS;
 
-    ProverInstances instances;
+    ProverInstances_ instances;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::shared_ptr<CommitmentKey> commitment_key;
     State state;
 
     ProtoGalaxyProver_() = default;
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(ProverInstances(insts))
+        : instances(ProverInstances_(insts))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(instances[1]->proving_key.commitment_key){};
 
@@ -96,9 +92,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new
      * accumulator
      */
-    std::shared_ptr<Instance> compute_next_accumulator(ProverInstances&,
-                                                       State::CombinerQuotient&,
-                                                       State::OptimisedRelationParameters&,
+    std::shared_ptr<Instance> compute_next_accumulator(ProverInstances_&,
+                                                       CombinerQuotient&,
+                                                       OptimisedRelationParameters&,
                                                        FF& challenge,
                                                        const FF& perturbator_evaluation);
 
@@ -106,7 +102,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Create inputs to folding protocol (an Oink interaction).
      * @details Finalise the prover instances that will be folded: complete computation of all the witness polynomials
      * and compute commitments. Send commitments to the verifier and retrieve challenges.
-     *
      */
     void run_oink_prover_on_each_instance();
 
@@ -124,15 +119,17 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Steps 6 - 11 of the paper.
      * @details Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient
      * will be sent to the verifier.
-     *
      */
-    void combiner_quotient_round();
+    /*gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */
+    std::tuple<std::vector<FF>, CombinedRelationSeparator, OptimisedRelationParameters, FF, CombinerQuotient>
+    combiner_quotient_round(const std::vector<FF>& gate_challenges,
+                            const std::vector<FF>& deltas,
+                            const ProverInstances_& instances);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
      * @details Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
      * parameters set.
-     *
      */
     void update_target_sum_and_fold();
 };

@@ -56,8 +56,9 @@ BENCHMARK_CAPTURE(bench_round_mega, preparation, [](auto& prover) { prover.run_o
 BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) {
     prover.perturbator_round(prover.state.accumulator);
 }) -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) {
+    prover.combiner_quotient_round(prover.state.accumulator->gate_challenges, prover.state.deltas, prover.instances);
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, accumulator_update, [](auto& prover) { prover.update_target_sum_and_fold(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 

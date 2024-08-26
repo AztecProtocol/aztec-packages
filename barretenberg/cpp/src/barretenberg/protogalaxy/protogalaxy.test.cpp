@@ -274,10 +274,10 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
         ProverInstances instances{ { instance1, instance2 } };
         auto relation_parameters =
-            Fun::template compute_extended_relation_parameters<typename FoldingProver::State::RelationParameters>(
+            Fun::template compute_extended_relation_parameters<typename FoldingProver::RelationParameters>(instances);
+        auto optimised_relation_parameters =
+            Fun::template compute_extended_relation_parameters<typename FoldingProver::OptimisedRelationParameters>(
                 instances);
-        auto optimised_relation_parameters = Fun::template compute_extended_relation_parameters<
-            typename FoldingProver::State::OptimisedRelationParameters>(instances);
 
         bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
         EXPECT_EQ(relation_parameters.eta, expected_eta);

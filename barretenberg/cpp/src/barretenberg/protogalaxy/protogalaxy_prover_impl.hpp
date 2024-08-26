@@ -25,8 +25,8 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
 template <class ProverInstances>
 std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     ProverInstances& instances,
-    State::CombinerQuotient& combiner_quotient,
-    State::OptimisedRelationParameters& univariate_relation_parameters,
+    CombinerQuotient& combiner_quotient,
+    OptimisedRelationParameters& univariate_relation_parameters,
     FF& challenge,
     const FF& perturbator_evaluation)
 {
@@ -129,32 +129,45 @@ ProtoGalaxyProver_<ProverInstances>::perturbator_round(
     return std::make_tuple(std::move(deltas), std::move(perturbator));
 };
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
+template <class ProverInstances>
+std::tuple<std::vector<typename ProverInstances::Flavor::FF>,
+           typename ProtoGalaxyProver_<ProverInstances>::CombinedRelationSeparator,
+           typename ProtoGalaxyProver_<ProverInstances>::OptimisedRelationParameters,
+           typename ProverInstances::Flavor::FF,
+           typename ProtoGalaxyProver_<ProverInstances>::CombinerQuotient>
+ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
+                                                             const std::vector<FF>& deltas,
+                                                             const ProverInstances& instances)
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
-    auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-    state.gate_challenges =
-        update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
-    state.alphas = Fun::compute_and_extend_alphas(instances);
-    PowPolynomial<FF> pow_polynomial{ state.gate_challenges, instances[0]->proving_key.log_circuit_size };
-    state.optimised_relation_parameters =
-        Fun::template compute_extended_relation_parameters<typename State::OptimisedRelationParameters>(instances);
-    auto combiner = Fun::compute_combiner(instances,
-                                          pow_polynomial,
-                                          state.optimised_relation_parameters,
-                                          state.alphas,
-                                          state.optimised_univariate_accumulators);
+    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
-    state.perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
-    state.combiner_quotient = Fun::compute_combiner_quotient(state.perturbator_evaluation, combiner);
+    std::vector<FF> updated_gate_challenges = update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
+    CombinedRelationSeparator alphas = Fun::compute_and_extend_alphas(instances);
+    PowPolynomial<FF> pow_polynomial{ updated_gate_challenges, instances[0]->proving_key.log_circuit_size };
+    OptimisedRelationParameters optimised_relation_parameters =
+        Fun::template compute_extended_relation_parameters<OptimisedRelationParameters>(instances);
+
+    OptimisedTupleOfTuplesOfUnivariates accumulators;
+    auto combiner =
+        Fun::compute_combiner(instances, pow_polynomial, optimised_relation_parameters, alphas, accumulators);
+
+    FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
+    CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
-        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), state.combiner_quotient.value_at(idx));
+        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
-};
+
+    return std::make_tuple(std::move(updated_gate_challenges),
+                           std::move(alphas),
+                           std::move(optimised_relation_parameters),
+                           std::move(perturbator_evaluation),
+                           std::move(combiner_quotient));
+}
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::update_target_sum_and_fold()
 {
@@ -187,9 +200,12 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 
     std::tie(state.deltas, state.perturbator) = perturbator_round(state.accumulator);
 
-    /* state.*/
-    /* gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */
-    /* = */ combiner_quotient_round(/* gate challenges, deltas, instances */);
+    std::tie(state.gate_challenges,
+             state.alphas,
+             state.optimised_relation_parameters,
+             state.perturbator_evaluation,
+             state.combiner_quotient) =
+        combiner_quotient_round(state.accumulator->gate_challenges, state.deltas, instances);
 
     /* result =  */ update_target_sum_and_fold(
         /* instances, combiner_quotient, optimised_relation_parameters, perturbator_evaluation */);
