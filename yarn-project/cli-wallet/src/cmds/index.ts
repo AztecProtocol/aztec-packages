@@ -457,6 +457,49 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('authorize-action')
+    .description(
+      'Authorizes a public call on the caller, so they can perform an action on behalf of the provided account',
+    )
+    .argument('<functionName>', 'Name of function to simulate')
+    .argument('<caller>', 'Account to be authorized to perform the action', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .addOption(pxeOption)
+    .addOption(createArgsOption(false, db))
+    .addOption(createContractAddressOption(db))
+    .addOption(createArtifactOption(db))
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createTypeOption(false))
+    .addOption(
+      createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
+    )
+    .action(async (functionName, caller, _options, command) => {
+      const { authorizeAction } = await import('./authorize_action.js');
+      const options = command.optsWithGlobals();
+      const {
+        args,
+        contractArtifact: artifactPathPromise,
+        contractAddress,
+        from: parsedFromAddress,
+        rpcUrl,
+        type,
+        secretKey,
+        publicKey,
+        alias,
+      } = options;
+
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const wallet = await getWalletWithScopes(account, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      await authorizeAction(wallet, functionName, caller, args, artifactPath, contractAddress, log);
+    });
+
+  program
     .command('add-authwit')
     .description(
       'Adds an authorization witness to the provided account, granting PXE access to the notes of the authorizer so that it can be verified',

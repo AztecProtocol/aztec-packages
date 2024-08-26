@@ -7,7 +7,7 @@ test_title "Private transfer on behalf of other"
 MINT_AMOUNT=42
 TRANSFER_AMOUNT=21
 
-source $TEST_FOLDER/token_utils/create_main_and_mint.sh $MINT_AMOUNT
+source $TEST_FOLDER/token_utils/create_main_and_mint_private.sh $MINT_AMOUNT
 
 aztec-wallet create-account -a operator
 

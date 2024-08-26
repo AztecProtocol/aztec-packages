@@ -2,7 +2,7 @@ import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@a
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
-export async function createAuthwit(
+export async function authorizeAction(
   wallet: AccountWalletWithSecretKey,
   functionName: string,
   caller: AztecAddress,
@@ -18,18 +18,18 @@ export async function createAuthwit(
     log,
   );
 
-  if (!isPrivate) {
+  if (isPrivate) {
     throw new Error(
-      'Cannot create an authwit for a public function. To allow a third party to call a public function, please authorized the action via the authorize-action command',
+      'Cannot authorize private function. To allow a third party to call a private function, please create an authorization witness via the create-authwit command',
     );
   }
 
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const action = contract.methods[functionName](...functionArgs);
 
-  const witness = await wallet.createAuthWit({ caller, action });
+  const witness = await wallet.setPublicAuthWit({ caller, action }, true).send().wait();
 
-  log(`Created authorization witness for action ${functionName} on contract ${contractAddress} for caller ${caller}`);
+  log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 
   return witness;
 }
