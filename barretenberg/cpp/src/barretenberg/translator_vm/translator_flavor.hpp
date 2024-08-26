@@ -787,8 +787,14 @@ class TranslatorFlavor {
         // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
         ProverPolynomials(size_t circuit_size)
         {
+            for (auto& poly : get_to_be_shifted()) {
+                poly = Polynomial{ /*memory size*/ circuit_size - 1, /*degree + 1*/ circuit_size, /* offset */ 1 };
+            }
             for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ circuit_size, circuit_size };
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
+                }
             }
             set_shifted();
         }
