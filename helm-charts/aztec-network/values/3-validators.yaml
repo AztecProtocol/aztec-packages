@@ -1,0 +1,2 @@
+validator:
+  replicas: 3

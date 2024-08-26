@@ -3,7 +3,6 @@
 # Logs latest block numbers every 10 seconds.
 name: aztec-provernet
 services:
-
   # Anvil instance that serves as L1
   ethereum:
     image: ghcr.io/foundry-rs/foundry@sha256:29ba6e34379e79c342ec02d437beb7929c9e254261e8032b17e187be71a2609f
@@ -34,11 +33,10 @@ services:
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       ASSUME_PROVEN_UNTIL_BLOCK_NUMBER: "${ASSUME_PROVEN_UNTIL_BLOCK_NUMBER:-4}"
       P2P_ENABLED: false
-      IS_DEV_NET: true
     volumes:
       - ./log/aztec-node/:/usr/src/yarn-project/aztec/log:rw
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/status" ]
+      test: ["CMD", "curl", "-f", "http://localhost/status"]
       interval: 3s
       timeout: 30s
       start_period: 10s
@@ -71,7 +69,6 @@ services:
       PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
-      IS_DEV_NET: true
     volumes:
       - ./log/aztec-bot/:/usr/src/yarn-project/aztec/log:rw
       - ./cache/bb-crs/:/root/.bb-crs:rw
@@ -80,12 +77,12 @@ services:
       aztec-node:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/status" ]
+      test: ["CMD", "curl", "-f", "http://localhost/status"]
       interval: 3s
       timeout: 30s
       start_period: 10s
     restart: on-failure:5
-    command: [ "start", "--bot", "--pxe" ]
+    command: ["start", "--bot", "--pxe"]
 
   # Prover node that listens for unproven blocks on L1, and generates and submits block proofs
   # Requires one or more agents to be connected for actually generating proofs
@@ -105,18 +102,17 @@ services:
       PROVER_PUBLISHER_PRIVATE_KEY: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       ASSUME_PROVEN_UNTIL_BLOCK_NUMBER: "${ASSUME_PROVEN_UNTIL_BLOCK_NUMBER:-4}"
-      IS_DEV_NET: true
     volumes:
       - ./log/aztec-prover/:/usr/src/yarn-project/aztec/log:rw
     depends_on:
       aztec-node:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/status" ]
+      test: ["CMD", "curl", "-f", "http://localhost/status"]
       interval: 3s
       timeout: 30s
       start_period: 10s
-    command: [ "start", "--prover-node", "--archiver" ]
+    command: ["start", "--prover-node", "--archiver"]
     restart: on-failure:5
 
   # Prover agent that connects to the prover-node for fetching proving jobs and executing them
@@ -135,7 +131,6 @@ services:
       PROVER_TEST_DELAY_MS: "${PROVER_TEST_DELAY_MS:-0}"
       PROVER_AGENT_CONCURRENCY: 2
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
-      IS_DEV_NET: true
     volumes:
       - ./log/aztec-prover-agent/:/usr/src/yarn-project/aztec/log:rw
       - ./cache/bb-crs/:/root/.bb-crs:rw
@@ -143,7 +138,7 @@ services:
     depends_on:
       aztec-prover:
         condition: service_healthy
-    command: [ "start", "--prover" ]
+    command: ["start", "--prover"]
     restart: on-failure:5
 
   # Simple watcher that logs the latest block numbers every few seconds using the CLI and the bot's PXE
@@ -155,7 +150,7 @@ services:
     depends_on:
       aztec-bot:
         condition: service_healthy
-    entrypoint: '/bin/bash -c'
+    entrypoint: "/bin/bash -c"
     command: >
       'while true; do node --no-warnings ./node_modules/.bin/aztec block-number -u http://aztec-bot | head -n2; sleep 10; done'
     restart: on-failure:5

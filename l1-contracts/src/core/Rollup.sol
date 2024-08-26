@@ -66,7 +66,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   // @note  This should not exists, but we have it now to ensure we will not be killing the devnet with our
   //        timeliness requirements.
-  bool public isDevNet = Constants.IS_DEV_NET == 1;
+  bool public isDevNet = true;
 
   // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.

@@ -278,26 +278,10 @@ export const deployL1Contracts = async (
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
-  let inboxAddress!: EthAddress;
-  {
-    const rollup = getContract({
-      address: getAddress(rollupAddress.toString()),
-      abi: contractsToDeploy.rollup.contractAbi,
-      client: publicClient,
-    });
-    inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
-  }
+  const inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
   logger.info(`Inbox available at ${inboxAddress}`);
 
-  let outboxAddress!: EthAddress;
-  {
-    const rollup = getContract({
-      address: getAddress(rollupAddress.toString()),
-      abi: contractsToDeploy.rollup.contractAbi,
-      client: publicClient,
-    });
-    outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
-  }
+  const outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
   logger.info(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.

@@ -10,7 +10,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-export { sequencerClientConfigMappings, SequencerClientConfig } from '@aztec/sequencer-client';
+export { SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
 
 /**
  * The configuration the aztec node.
@@ -44,7 +44,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(true),
   },
 };
 

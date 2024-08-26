@@ -85,6 +85,8 @@ spec:
               value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
+            - name: VALIDATOR_DISABLED
+              value: "{{ .Values.bootNode.validatorDisabled }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pPort }}"
             - name: P2P_UDP_ANNOUNCE_ADDR

@@ -45,6 +45,10 @@ import { type L1Publisher, type MetadataForSlot } from '../publisher/l1-publishe
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
 
+const mockedSignatures = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27, false);
+
+const getAttestations = () => [mockedSignatures];
+
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
   let validatorClient: MockProxy<ValidatorClient>;
@@ -111,6 +115,8 @@ describe('sequencer', () => {
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeOperations>();
     blockSimulator = mock<BlockSimulator>();
+
+    validatorClient = mock<ValidatorClient>();
 
     p2p = mock<P2P>({
       getStatus: () => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block: lastBlockNumber }),
@@ -648,5 +654,9 @@ class TestSubject extends Sequencer {
 
   public override initialSync(): Promise<void> {
     return super.initialSync();
+  }
+
+  public override collectAttestations(_block: L2Block): Promise<Signature[] | undefined> {
+    return Promise.resolve(getAttestations());
   }
 }

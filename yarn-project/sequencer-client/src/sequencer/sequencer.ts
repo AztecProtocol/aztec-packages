@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress, type GlobalVariables, type Header, IS_DEV_NET } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -552,20 +552,7 @@ export class Sequencer {
   }
 
   protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
-    // @todo  This should collect attestations properly and fix the ordering of them to make sense
-    //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
-    //        It is assuming that there will only be ONE (1) validator, so only one attestation
-    //        is needed.
-    // @note  This is quite a sin, but I'm committing war crimes in this code already.
-    //            _ ._  _ , _ ._
-    //          (_ ' ( `  )_  .__)
-    //       ( (  (    )   `)  ) _)
-    //      (__ (_   (_ . _) _) ,__)
-    //           `~~`\ ' . /`~~`
-    //                ;   ;
-    //                /   \
-    //  _____________/_ __ \_____________
-    if (IS_DEV_NET || !this.validatorClient) {
+    if (!this.validatorClient) {
       return undefined;
     }
 
