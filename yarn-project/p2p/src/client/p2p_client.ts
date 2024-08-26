@@ -15,7 +15,8 @@ import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
+import { PING_PROTOCOL, STATUS_PROTOCOL, TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
+import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -186,6 +187,7 @@ export class P2PClient implements P2P {
 
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+
   }
 
   /**
@@ -237,6 +239,7 @@ export class P2PClient implements P2P {
       }
     };
 
+
     this.runningPromise = Promise.all([processLatest(), processProven()]).then(() => {});
     this.latestBlockDownloader.start(syncedLatestBlock);
     this.provenBlockDownloader.start(syncedLatestBlock);
@@ -276,14 +279,13 @@ export class P2PClient implements P2P {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
-  // Define the request tx hash response method
-  private requestTxByHashResponse = (txHash: TxHash): Tx | undefined => {
-    return this.getTxByHash(txHash);
-  }
 
   public requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     // Underlying I want to use the libp2p service to just have a request method where the subprotocol is defined here
-    return this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+    console.log(`Requesting tx by hash: ${txHash}`);
+    const response = this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+    response.then((res) => console.log("Response::",  res));
+    return response;
   }
 
   /**
@@ -314,7 +316,7 @@ export class P2PClient implements P2P {
    * @param txHash - Hash of the transaction to look for in the pool.
    * @returns A single tx or undefined.
    */
-  getTxByHash(txHash: TxHash): Tx | undefined {
+  getTxByHash(txHash: TxHash): Tx | undefined{
     return this.txPool.getTxByHash(txHash);
   }
 

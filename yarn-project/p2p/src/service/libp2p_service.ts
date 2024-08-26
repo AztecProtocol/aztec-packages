@@ -30,8 +30,8 @@ import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
-import { ReqResp } from './reqresp/reqresp.js';
-import { ReqRespTypes, SubProtocol, SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
+import { DEFAULT_SUB_PROTOCOL_HANDLERS, ReqResp, SubProtocolHandlers } from './reqresp/reqresp.js';
+import { SubProtocol, SubProtocolHandler, SubProtocolMap, subProtocolMap } from './reqresp/interface.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -66,6 +66,7 @@ export class LibP2PService implements P2PService {
   private reqresp: ReqResp;
 
   private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
+  // private reqRespHandlers: SubProtocolHandlers | undefined;
 
   constructor(
     private config: P2PConfig,
@@ -73,6 +74,7 @@ export class LibP2PService implements P2PService {
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
+    private requestResponseHandlers: SubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
@@ -131,7 +133,7 @@ export class LibP2PService implements P2PService {
       this.peerManager.discover();
     }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
-    this.reqresp.start();
+    this.reqresp.start(this.requestResponseHandlers);
   }
 
   /**
@@ -166,6 +168,7 @@ export class LibP2PService implements P2PService {
     txPool: TxPool,
     attestationPool: AttestationPool,
     store: AztecKVStore,
+    requestResponseHandlers: SubProtocolHandlers,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
@@ -218,7 +221,7 @@ export class LibP2PService implements P2PService {
     });
 
 
-    return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool);
+    return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool, requestResponseHandlers);
   }
 
   /**
@@ -231,6 +234,7 @@ export class LibP2PService implements P2PService {
     const pair = subProtocolMap[protocol];
 
     // TODO: Can the type be retreived from a mapping based on the subprotocol
+    console.log(`Sending request: ${protocol}`);
     const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
     if (!res) {
       return undefined;
@@ -243,6 +247,11 @@ export class LibP2PService implements P2PService {
     this.blockReceivedCallback = callback;
     this.logger.verbose('Block received callback registered');
   }
+
+  // public registerRequestResponseHandlers(handlers: SubProtocolHandlers) {
+  //   this.reqRespHandlers = handlers;
+  //   this.logger.verbose("Request response protocol handlers registered");
+  // }
 
   /**
    * Subscribes to a topic.
@@ -337,6 +346,9 @@ export class LibP2PService implements P2PService {
 
   private async sendToPeers<T extends Gossipable>(message: T) {
     const parent = message.constructor as typeof Gossipable;
+
+    console.log("sendign to peers ids");
+    console.log(this.node.getPeers())
 
     const identifier = message.p2pMessageIdentifier().toString();
     this.logger.verbose(`Sending message ${identifier} to peers`);

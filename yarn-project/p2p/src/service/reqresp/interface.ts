@@ -14,7 +14,7 @@ export const TX_REQ_PROTOCOL = '/aztec/tx_req/0.1.0';
 
 export type SubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL | typeof TX_REQ_PROTOCOL;
 
-export type SubProtocolHandler = (msg: string) => Uint8Array;
+export type SubProtocolHandler = (msg: Buffer) => Promise<Uint8Array>;
 
 /**
  * RequestableBuffer is a wrapper around a buffer that allows it to be

@@ -4,6 +4,7 @@ import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
+import { SubProtocol, SubProtocolMap } from './reqresp/interface.js';
 
 /**
  * A dummy implementation of the P2P Service.
@@ -41,6 +42,10 @@ export class DummyP2PService implements P2PService {
    * Register a callback into the validator client for when a block proposal is received
    */
   public registerBlockReceivedCallback(_: (block: BlockProposal) => Promise<BlockAttestation>) {}
+
+  async sendRequest<Protocol extends SubProtocol>(protocol: Protocol, request: InstanceType<SubProtocolMap[Protocol]['request']>): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
+    return undefined;
+  }
 }
 
 /**
