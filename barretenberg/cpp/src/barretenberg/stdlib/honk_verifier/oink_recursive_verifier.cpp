@@ -27,21 +27,12 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
     , domain_separator(std::move(domain_separator))
 {}
 
-/**
- * @brief This function constructs a recursive oink verifier circuit for an oink proof.
- *
- */
 template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify_proof(OinkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
     verify();
 }
 
-/**
- * @brief This function constructs a recursive oink verifier circuit for an oink proof assumed to be contained in the
- * transcript.
- *
- */
 template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
