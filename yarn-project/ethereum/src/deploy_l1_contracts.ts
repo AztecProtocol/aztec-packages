@@ -21,6 +21,7 @@ import {
   http,
   numberToHex,
   padHex,
+  zeroAddress,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -88,7 +89,7 @@ export interface L1ContractArtifactsForDeployment {
    */
   feeJuice: ContractArtifacts;
   /**
-   * Gas portal contract artifacts. Optional for now as gas is not strictly enforced
+   * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
 }
@@ -183,12 +184,7 @@ export const deployL1Contracts = async (
 
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.feeJuicePortal.contractAbi,
-    contractsToDeploy.feeJuicePortal.contractBytecode,
-  );
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
 
   logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
 
@@ -212,31 +208,30 @@ export const deployL1Contracts = async (
   await publicClient.waitForTransactionReceipt({ hash: receipt });
   logger.info(`Funded fee juice portal contract with Fee Juice`);
 
-  await publicClient.waitForTransactionReceipt({
-    hash: await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]),
-  });
+  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
+    await publicClient.waitForTransactionReceipt({
+      hash: await feeJuicePortal.write.initialize([
+        registryAddress.toString(),
+        feeJuiceAddress.toString(),
+        args.l2FeeJuiceAddress.toString(),
+      ]),
+    });
+    logger.verbose(`Fee juice portal initialized with registry ${registryAddress.toString()}`);
+  } else {
+    logger.verbose(`Fee juice portal is already initialized`);
+  }
 
   logger.info(
     `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  const rollupAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.rollup.contractAbi,
-    contractsToDeploy.rollup.contractBytecode,
-    [
-      getAddress(registryAddress.toString()),
-      getAddress(availabilityOracleAddress.toString()),
-      getAddress(feeJuicePortalAddress.toString()),
-      args.vkTreeRoot.toString(),
-      account.address.toString(),
-    ],
-  );
+  const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
+    getAddress(registryAddress.toString()),
+    getAddress(availabilityOracleAddress.toString()),
+    getAddress(feeJuicePortalAddress.toString()),
+    args.vkTreeRoot.toString(),
+    account.address.toString(),
+  ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 
   // Set initial blocks as proven if requested
