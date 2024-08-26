@@ -505,9 +505,15 @@ class ECCVMFlavor {
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             const size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
+            for (auto& poly : get_to_be_shifted()) {
+                poly =
+                    Polynomial{ /*memory size*/ dyadic_num_rows - 1, /*degree + 1*/ dyadic_num_rows, /* offset */ 1 };
+            }
             // allocate polynomials; define lagrange and lookup read count polynomials
             for (auto& poly : get_all()) {
-                poly = Polynomial(dyadic_num_rows, dyadic_num_rows);
+                if (poly.is_empty()) {
+                    poly = Polynomial(dyadic_num_rows);
+                }
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
