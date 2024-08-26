@@ -94,9 +94,9 @@ template <class Builder> class DataBusDepot {
      * @param public_inputs The public inputs of that instance
      * @param propagation_data Data about the presence of databus commitments on the public inputs of the instance
      */
-    void execute(WitnessCommitments& commitments,
-                 std::vector<Fr>& public_inputs,
-                 DatabusPropagationData& propagation_data)
+    void execute(const WitnessCommitments& commitments,
+                 const std::vector<Fr>& public_inputs,
+                 const DatabusPropagationData& propagation_data)
     {
         // Flag indicating whether the input data corresponds to a kernel instance (else, an app instance). This is
         // used to indicate whether the return data commitment being propagated belongs to a kernel or an app so that it
@@ -134,7 +134,7 @@ template <class Builder> class DataBusDepot {
      * @param commitment
      * @param is_kernel Indicates whether the return data being propagated is from a kernel or an app
      */
-    void propagate_commitment_via_public_inputs(Commitment& commitment, bool is_kernel = false)
+    void propagate_commitment_via_public_inputs(const Commitment& commitment, bool is_kernel = false)
     {
         auto context = commitment.get_context();
 
@@ -161,11 +161,11 @@ template <class Builder> class DataBusDepot {
      * @param return_data_commitment_limbs_start_idx Start index for range where commitment limbs are stored
      * @return Commitment
      */
-    Commitment reconstruct_commitment_from_public_inputs(const std::span<Fr> public_inputs,
-                                                         size_t& return_data_commitment_limbs_start_idx)
+    Commitment reconstruct_commitment_from_public_inputs(std::span<const Fr> public_inputs,
+                                                         const size_t& return_data_commitment_limbs_start_idx)
     {
         // Extract from the public inputs the limbs needed reconstruct a commitment
-        std::span<Fr, NUM_FR_LIMBS_PER_COMMITMENT> return_data_commitment_limbs{
+        std::span<const Fr, NUM_FR_LIMBS_PER_COMMITMENT> return_data_commitment_limbs{
             public_inputs.data() + return_data_commitment_limbs_start_idx, NUM_FR_LIMBS_PER_COMMITMENT
         };
         return reconstruct_commitment_from_fr_limbs(return_data_commitment_limbs);
@@ -178,10 +178,10 @@ template <class Builder> class DataBusDepot {
      * @param limbs
      * @return Commitment
      */
-    Commitment reconstruct_commitment_from_fr_limbs(std::span<Fr, NUM_FR_LIMBS_PER_COMMITMENT> limbs)
+    Commitment reconstruct_commitment_from_fr_limbs(std::span<const Fr, NUM_FR_LIMBS_PER_COMMITMENT> limbs)
     {
-        std::span<Fr, NUM_FR_LIMBS_PER_FQ> x_limbs{ limbs.data(), NUM_FR_LIMBS_PER_FQ };
-        std::span<Fr, NUM_FR_LIMBS_PER_FQ> y_limbs{ limbs.data() + NUM_FR_LIMBS_PER_FQ, NUM_FR_LIMBS_PER_FQ };
+        std::span<const Fr, NUM_FR_LIMBS_PER_FQ> x_limbs{ limbs.data(), NUM_FR_LIMBS_PER_FQ };
+        std::span<const Fr, NUM_FR_LIMBS_PER_FQ> y_limbs{ limbs.data() + NUM_FR_LIMBS_PER_FQ, NUM_FR_LIMBS_PER_FQ };
         const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
         const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
 
@@ -194,7 +194,7 @@ template <class Builder> class DataBusDepot {
      * @param limbs
      * @return Fq
      */
-    Fq reconstruct_fq_from_fr_limbs(std::span<Fr, NUM_FR_LIMBS_PER_FQ>& limbs)
+    Fq reconstruct_fq_from_fr_limbs(std::span<const Fr, NUM_FR_LIMBS_PER_FQ>& limbs)
     {
         const Fr l0 = limbs[0];
         const Fr l1 = limbs[1];
@@ -207,7 +207,7 @@ template <class Builder> class DataBusDepot {
         return Fq(l0, l1, l2, l3, /*can_overflow=*/false);
     }
 
-    void assert_equality_of_commitments(Commitment& P0, Commitment& P1)
+    void assert_equality_of_commitments(const Commitment& P0, const Commitment& P1)
     {
         if (P0.get_value() != P1.get_value()) { // debug print indicating consistency check failure
             info("DataBusDepot: Databus consistency check failed!");
@@ -222,7 +222,7 @@ template <class Builder> class DataBusDepot {
      * @param point A biggroup element
      * @return std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT>
      */
-    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(Commitment& point)
+    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
     {
         return { point.x.binary_basis_limbs[0].element.normalize().witness_index,
                  point.x.binary_basis_limbs[1].element.normalize().witness_index,

@@ -64,8 +64,8 @@ class AztecIVC {
     };
 
     enum class QUEUE_TYPE { OINK, PG };
-    struct FoldingVerifierInputs {
-        FoldProof proof;
+    struct RecursiveVerifierInputs {
+        std::vector<FF> proof; // oink or PG
         std::shared_ptr<VerificationKey> instance_vk;
         QUEUE_TYPE type;
     };
@@ -85,7 +85,7 @@ class AztecIVC {
     std::shared_ptr<VerificationKey> instance_vk;           // verification key for instance to be folded
 
     // Set of pairs of {fold_proof, verification_key} to be recursively verified
-    std::vector<FoldingVerifierInputs> verification_queue;
+    std::vector<RecursiveVerifierInputs> verification_queue;
     // Set of merge proofs to be recursively verified
     std::vector<MergeProof> merge_verification_queue;
 
