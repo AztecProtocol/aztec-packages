@@ -21,7 +21,7 @@ env:
   PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
 
   ETHEREUM_HOST: "https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}"
-  L1_CHAIN_ID: "11155111" # Sepolia Chain ID
+  L1_CHAIN_ID: "11155111"
 
 jobs:
   setup:
