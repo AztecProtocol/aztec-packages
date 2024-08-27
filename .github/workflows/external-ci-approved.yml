@@ -25,8 +25,9 @@ jobs:
 
     - name: Create or update the mirrored branch
       run: |
+        HASH=$(git rev-parse HEAD)
         git checkout -b mirrored/${{ github.head_ref }} || git checkout mirrored/${{ github.head_ref }}
-        git reset --hard ${{ github.head_ref }}
+        git reset --hard $HASH
         git push origin mirrored/${{ github.head_ref }} --force
 
     - name: Create or update the mirrored pull request
