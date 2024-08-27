@@ -5,6 +5,7 @@
 
 namespace bb {
 
+void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
 struct OriginTag {
     static constexpr size_t CONSTANT = 0;
     // Parent tag uses a concrete index, not bits for now, since we never expect the values to meet
@@ -12,6 +13,7 @@ struct OriginTag {
     numeric::uint256_t child_tag;
     OriginTag() = default;
     OriginTag(const OriginTag& other) = default;
+    OriginTag(OriginTag&& other) = default;
     OriginTag& operator=(const OriginTag& other) = default;
     OriginTag& operator=(OriginTag&& other) noexcept
     {
@@ -31,6 +33,7 @@ struct OriginTag {
         if (tag_a.parent_tag != tag_b.parent_tag && (tag_a.parent_tag != 0U) && (tag_b.parent_tag != 0U)) {
             throw_or_abort("Tags from different transcripts were involved in the same computation");
         }
+        check_child_tags(tag_a.child_tag, tag_b.child_tag);
         parent_tag = tag_a.parent_tag;
         child_tag = tag_a.child_tag | tag_b.child_tag;
     }
@@ -42,9 +45,11 @@ struct OriginTag {
             if (parent_tag != next_tag.parent_tag && (parent_tag != 0U) && (next_tag.parent_tag != 0U)) {
                 throw_or_abort("Tags from different transcripts were involved in the same computation");
             }
+            check_child_tags(child_tag, next_tag.child_tag);
             child_tag |= next_tag.child_tag;
         }
     }
+    ~OriginTag() = default;
 };
 } // namespace bb
 template <typename T>
