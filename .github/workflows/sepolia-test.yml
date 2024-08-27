@@ -20,8 +20,8 @@ env:
   # Address 0xE3b8F9F23b8D4BD7d437218Bff3bcED1ce5E70B3
   PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
 
-  ETHEREUM_HOST: 'https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}';
-  L1_CHAIN_ID: '11155111' # Sepolia Chain ID
+  ETHEREUM_HOST: "https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}"
+  L1_CHAIN_ID: "11155111" # Sepolia Chain ID
 
 jobs:
   setup:
