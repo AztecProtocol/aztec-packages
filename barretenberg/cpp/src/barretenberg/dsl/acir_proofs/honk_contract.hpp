@@ -43,14 +43,14 @@ library FrLib
         // Call the modexp precompile to invert in the field
         assembly
         {
-            let free := mload(0x40) 
-            mstore(free, 0x20) 
-            mstore(add(free, 0x20), 0x20) 
+            let free := mload(0x40)
+            mstore(free, 0x20)
+            mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), v)
-            mstore(add(free, 0x80), sub(MODULUS, 2)) 
+            mstore(add(free, 0x80), sub(MODULUS, 2))
             mstore(add(free, 0xa0), MODULUS)
-            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20) 
+            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
                 revert(0, 0)
             }
@@ -68,17 +68,17 @@ library FrLib
         // Call the modexp precompile to invert in the field
         assembly
         {
-            let free := mload(0x40) 
-            mstore(free, 0x20) 
-            mstore(add(free, 0x20), 0x20) 
+            let free := mload(0x40)
+            mstore(free, 0x20)
+            mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), b)
-            mstore(add(free, 0x80), v) 
-            mstore(add(free, 0xa0), MODULUS) 
-            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20) 
-            if iszero(success) { 
-                revert(0, 0) 
-            } 
+            mstore(add(free, 0x80), v)
+            mstore(add(free, 0xa0), MODULUS)
+            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
+            if iszero(success) {
+                revert(0, 0)
+            }
             result := mload(0x00)
         }
 
@@ -131,15 +131,18 @@ function equal(Fr a, Fr b) pure returns(bool)
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
 
-uint256 constant NUMBER_OF_SUBRELATIONS = 18;
-uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
-uint256 constant NUMBER_OF_ENTITIES = 42;
-uint256 constant NUMBER_OF_ALPHAS = 17;
+uint256 constant NUMBER_OF_SUBRELATIONS = 26;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
+uint256 constant NUMBER_OF_ENTITIES = 44;
+
+// Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
+uint256 constant NUMBER_OF_ALPHAS = 25;
 
 // Prime field order
-uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
-uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
+uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order, F_r
 
+// WORKTODO(Mara): Change name ?
 // ENUM FOR WIRES
 enum WIRE {
     Q_M,
@@ -153,6 +156,8 @@ enum WIRE {
     Q_ELLIPTIC,
     Q_AUX,
     Q_LOOKUP,
+    Q_POSEIDON2_EXTERNAL,
+    Q_POSEIDON2_INTERNAL,
     SIGMA_1,
     SIGMA_2,
     SIGMA_3,
@@ -192,6 +197,7 @@ library Honk {
         uint256 y;
     }
 
+    // TODO(md): temporary work around transcript fields
     struct G1ProofPoint {
         uint256 x_0;
         uint256 x_1;
@@ -216,6 +222,8 @@ library Honk {
         G1Point qAux; // Auxillary
         G1Point qElliptic; // Auxillary
         G1Point qLookup; // Lookup
+        G1Point qPoseidon2External;
+        G1Point qPoseidon2Internal;
         // Copy cnstraints
         G1Point s1;
         G1Point s2;
@@ -1536,7 +1544,7 @@ contract HonkVerifier is IVerifier
             let count := 0x01
             for {} lt(count, limit) { count := add(count, 1) } {
                 // Get loop offsets
-                let base_base := add(base, mul(count, 0x20)) 
+                let base_base := add(base, mul(count, 0x20))
                 let scalar_base := add(scalars, mul(count, 0x20))
 
                 mstore(add(free, 0x40), mload(mload(base_base)))
@@ -1544,7 +1552,7 @@ contract HonkVerifier is IVerifier
                 // Add scalar
                 mstore(add(free, 0x80), mload(scalar_base))
 
-                success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40)) 
+                success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
                 success := and(success, staticcall(gas(), 6, free, 0x80, free, 0x40))
             }
 
@@ -1575,7 +1583,7 @@ contract HonkVerifier is IVerifier
             let count := 0x01
             for {} lt(count, limit){ count := add(count, 1) } {
                 // Get loop offsets
-                let base_base := add(base, mul(count, 0x20)) 
+                let base_base := add(base, mul(count, 0x20))
                 let scalar_base := add(scalars, mul(count, 0x20))
 
                 mstore(add(free, 0x40), mload(mload(base_base)))

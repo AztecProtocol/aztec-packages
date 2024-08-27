@@ -4,6 +4,7 @@ pragma solidity >=0.8.21;
 
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {BlakeHonkVerificationKey as VK, N, LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "../keys/BlakeHonkVerificationKey.sol";
+import {PoseidonParamsLib as PoseidonParamsLib, PoseidonParams as PoseidonParams} from "../PoseidonParams.sol";
 
 import {
     Honk,
@@ -413,7 +414,7 @@ contract BlakeHonkVerifier is IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
+            for (uint256 i = 0; i < publicInputs.length; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -541,9 +542,9 @@ contract BlakeHonkVerifier is IVerifier {
         accumulateDeltaRangeRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-
-        // Apply alpha challenges to challenge evaluations
-        // Returns grand honk realtion evaluation
+        accumulatePoseidonExternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulatePoseidonInternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        // batch the subrelations with the alpha challenges to obtain the full honk relation
         accumulator = scaleAndBatchSubrelations(evaluations, tp.alphas);
     }
 
@@ -854,9 +855,9 @@ contract BlakeHonkVerifier is IVerifier {
 
     function accumulateAuxillaryRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp,
+        Transcript memory tp, // sooo we take the relation parameters, if needed, from tramscript
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
+        Fr domainSep // i guess this is the scaling factor?
     ) internal pure {
         AuxParams memory ap;
 
@@ -1085,6 +1086,120 @@ contract BlakeHonkVerifier is IVerifier {
         evals[12] = ap.auxiliary_identity;
     }
 
+    // Big todo for poseidon params, reduce them
+    struct PoseidonExternalParams {
+        Fr s1;
+        Fr s2;
+        Fr s3;
+        Fr s4;
+        Fr u1;
+        Fr u2;
+        Fr u3;
+        Fr u4;
+        Fr t0;
+        Fr t1;
+        Fr t2;
+        Fr t3;
+        Fr v1;
+        Fr v2;
+        Fr v3;
+        Fr v4;
+        Fr q_pos_by_scaling;
+    }
+
+    function accumulatePoseidonExternalRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp, // I think this is not needed
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep // i guess this is the scaling factor?
+    ) internal pure {
+        PoseidonExternalParams memory ep;
+
+        ep.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
+        ep.s2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_R);
+        ep.s3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_O);
+        ep.s4 = wire(p, WIRE.W_4) + wire(p, WIRE.Q_4);
+
+        ep.u1 = ep.s1 * ep.s1 * ep.s1 * ep.s1 * ep.s1;
+        ep.u2 = ep.s2 * ep.s2 * ep.s2 * ep.s2 * ep.s2;
+        ep.u3 = ep.s3 * ep.s3 * ep.s3 * ep.s3 * ep.s3;
+        ep.u4 = ep.s4 * ep.s4 * ep.s4 * ep.s4 * ep.s4;
+        // matrix mul v = M_E * u with 14 additions
+        ep.t0 = ep.u1 + ep.u2; // u_1 + u_2
+        ep.t1 = ep.u3 + ep.u4; // u_3 + u_4
+        ep.t2 = ep.u2 + ep.u2 + ep.t1; // 2u_2
+        // ep.t2 += ep.t1; // 2u_2 + u_3 + u_4
+        ep.t3 = ep.u4 + ep.u4 + ep.t0; // 2u_4
+        // ep.t3 += ep.t0; // u_1 + u_2 + 2u_4
+        ep.v4 = ep.t1 + ep.t1;
+        ep.v4 = ep.v4 + ep.v4 + ep.t3;
+        // ep.v4 += ep.t3; // u_1 + u_2 + 4u_3 + 6u_4
+        ep.v2 = ep.t0 + ep.t0;
+        ep.v2 = ep.v2 + ep.v2 + ep.t2;
+        // ep.v2 += ep.t2; // 4u_1 + 6u_2 + u_3 + u_4
+        ep.v1 = ep.t3 + ep.v2; // 5u_1 + 7u_2 + u_3 + 3u_4
+        ep.v3 = ep.t2 + ep.v4; // u_1 + 3u_2 + 5u_3 + 7u_4
+
+        ep.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_EXTERNAL) * domainSep;
+        evals[18] = evals[18] + ep.q_pos_by_scaling * (ep.v1 - wire(p, WIRE.W_L_SHIFT));
+
+        evals[19] = evals[19] + ep.q_pos_by_scaling * (ep.v2 - wire(p, WIRE.W_R_SHIFT));
+
+        evals[20] = evals[20] + ep.q_pos_by_scaling * (ep.v3 - wire(p, WIRE.W_O_SHIFT));
+
+        evals[21] = evals[21] + ep.q_pos_by_scaling * (ep.v4 - wire(p, WIRE.W_4_SHIFT));
+    }
+
+    struct PoseidonInternalParams {
+        Fr u1;
+        Fr u2;
+        Fr u3;
+        Fr u4;
+        Fr u_sum;
+        Fr v1;
+        Fr v2;
+        Fr v3;
+        Fr v4;
+        Fr s1;
+        Fr q_pos_by_scaling;
+    }
+
+    function accumulatePoseidonInternalRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp, // I think this is not needed
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep // i guess this is the scaling factor?
+    ) internal pure {
+        PoseidonInternalParams memory ip;
+        PoseidonParams memory params = PoseidonParamsLib.loadPoseidionParams();
+
+        // add round constants
+        ip.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
+
+        // apply s-box round
+        ip.u1 = ip.s1 * ip.s1 * ip.s1 * ip.s1 * ip.s1;
+        ip.u2 = wire(p, WIRE.W_R);
+        ip.u3 = wire(p, WIRE.W_O);
+        ip.u4 = wire(p, WIRE.W_4);
+
+        // matrix mul with v = M_I * u 4 muls and 7 additions
+        ip.u_sum = ip.u1 + ip.u2 + ip.u3 + ip.u4;
+
+        ip.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_INTERNAL) * domainSep;
+
+        ip.v1 = ip.u1 * params.internal_matrix_diagonal[0] + ip.u_sum;
+        evals[22] = evals[22] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
+
+        ip.v2 = ip.u2 * params.internal_matrix_diagonal[1] + ip.u_sum;
+        evals[23] = evals[23] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
+
+        ip.v3 = ip.u3 * params.internal_matrix_diagonal[2] + ip.u_sum;
+        evals[24] = evals[24] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
+
+        ip.v4 = ip.u4 * params.internal_matrix_diagonal[3] + ip.u_sum;
+        evals[25] = evals[25] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
+    }
+
     function scaleAndBatchSubrelations(
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
         Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
@@ -1117,6 +1232,7 @@ contract BlakeHonkVerifier is IVerifier {
         Honk.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
 
         // KZG pairing accumulator
+        // WORKTODO: concerned that this is zero - it is multiplied by a point later on
         Fr evaluation = Fr.wrap(0);
         verified = zkgReduceVerify(proof, tp, evaluation, c_zeta_Z);
     }
@@ -1203,41 +1319,43 @@ contract BlakeHonkVerifier is IVerifier {
         commitments[9] = vk.qElliptic;
         commitments[10] = vk.qAux;
         commitments[11] = vk.qLookup;
-        commitments[12] = vk.s1;
-        commitments[13] = vk.s2;
-        commitments[14] = vk.s3;
-        commitments[15] = vk.s4;
-        commitments[16] = vk.id1;
-        commitments[17] = vk.id2;
-        commitments[18] = vk.id3;
-        commitments[19] = vk.id4;
-        commitments[20] = vk.t1;
-        commitments[21] = vk.t2;
-        commitments[22] = vk.t3;
-        commitments[23] = vk.t4;
-        commitments[24] = vk.lagrangeFirst;
-        commitments[25] = vk.lagrangeLast;
+        commitments[12] = vk.qPoseidon2External;
+        commitments[13] = vk.qPoseidon2Internal;
+        commitments[14] = vk.s1;
+        commitments[15] = vk.s2;
+        commitments[16] = vk.s3;
+        commitments[17] = vk.s4;
+        commitments[18] = vk.id1;
+        commitments[19] = vk.id2;
+        commitments[20] = vk.id3;
+        commitments[21] = vk.id4;
+        commitments[22] = vk.t1;
+        commitments[23] = vk.t2;
+        commitments[24] = vk.t3;
+        commitments[25] = vk.t4;
+        commitments[26] = vk.lagrangeFirst;
+        commitments[27] = vk.lagrangeLast;
 
         // Accumulate proof points
-        commitments[26] = convertProofPoint(proof.w1);
-        commitments[27] = convertProofPoint(proof.w2);
-        commitments[28] = convertProofPoint(proof.w3);
-        commitments[29] = convertProofPoint(proof.w4);
-        commitments[30] = convertProofPoint(proof.zPerm);
-        commitments[31] = convertProofPoint(proof.lookupInverses);
-        commitments[32] = convertProofPoint(proof.lookupReadCounts);
-        commitments[33] = convertProofPoint(proof.lookupReadTags);
+        commitments[28] = convertProofPoint(proof.w1);
+        commitments[29] = convertProofPoint(proof.w2);
+        commitments[30] = convertProofPoint(proof.w3);
+        commitments[31] = convertProofPoint(proof.w4);
+        commitments[32] = convertProofPoint(proof.zPerm);
+        commitments[33] = convertProofPoint(proof.lookupInverses);
+        commitments[34] = convertProofPoint(proof.lookupReadCounts);
+        commitments[35] = convertProofPoint(proof.lookupReadTags);
 
         // to be Shifted
-        commitments[34] = vk.t1;
-        commitments[35] = vk.t2;
-        commitments[36] = vk.t3;
-        commitments[37] = vk.t4;
-        commitments[38] = convertProofPoint(proof.w1);
-        commitments[39] = convertProofPoint(proof.w2);
-        commitments[40] = convertProofPoint(proof.w3);
-        commitments[41] = convertProofPoint(proof.w4);
-        commitments[42] = convertProofPoint(proof.zPerm);
+        commitments[36] = vk.t1;
+        commitments[37] = vk.t2;
+        commitments[38] = vk.t3;
+        commitments[39] = vk.t4;
+        commitments[40] = convertProofPoint(proof.w1);
+        commitments[41] = convertProofPoint(proof.w2);
+        commitments[42] = convertProofPoint(proof.w3);
+        commitments[43] = convertProofPoint(proof.w4);
+        commitments[44] = convertProofPoint(proof.zPerm);
 
         // Add scalar contributions
         // Add contributions: scalar * [q_k],  k = 0,...,log_N, where
