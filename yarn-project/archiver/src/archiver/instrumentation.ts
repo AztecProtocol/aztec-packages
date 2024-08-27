@@ -17,6 +17,8 @@ export class ArchiverInstrumentation {
   private syncDuration: Histogram;
   private proofsSubmitted: Histogram;
 
+  private log = createDebugLogger('aztec:archiver:instrumentation');
+
   constructor(private telemetry: TelemetryClient) {
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
@@ -66,6 +68,7 @@ export class ArchiverInstrumentation {
 
   public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
     for (const log of logs) {
+      this.log.debug('Recording proof verified event', log);
       this.proofsSubmitted.record(Number(log.delay), {
         [Attributes.ROLLUP_PROVER_ID]: log.proverId,
         [Attributes.BLOCK_NUMBER]: Number(log.l2BlockNumber),
