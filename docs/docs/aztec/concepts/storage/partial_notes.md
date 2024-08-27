@@ -90,13 +90,13 @@ We can see the complete implementation of creating and completing partial notes 
 
 #### `setup_refund`
 
-#include_code setup_refund noir-projects/noir-contracts/contracts/token_contract/src/contract/token_contract.nr rust
+#include_code setup_refund noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 The `setup_refund` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`). This ensures that the partial notes will be completed and the fee payer will be paid and the user refund will be issued.
 
 #### `complete_refund`
 
-#include_code complete_refund noir-projects/noir-contracts/contracts/token_contract/src/contract/token_contract.nr rust
+#include_code complete_refund noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ## Future work
 
