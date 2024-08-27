@@ -88,62 +88,48 @@ class ProofSurgeon {
         return public_input_witnesses;
     }
 
-    // struct RecursionConstraintInputs {
-    //     std::vector<uint32_t> proof_indices;
-    //     std::vector<uint32_t> key_indices;
-    //     std::vector<uint32_t> public_inputs_indices;
-    // };
+    struct RecursionWitnessData {
+        std::vector<uint32_t> key_indices;
+        std::vector<uint32_t> proof_indices;
+        std::vector<uint32_t> public_inputs_indices;
+    };
 
-    // static RecursionConstraintInputs construct_constraint_input_indices(std::vector<bb::fr>& proof_witnesses,
-    //                                                                     const std::vector<bb::fr>& key_witnesses,
-    //                                                                     const size_t num_inner_public_inputs,
-    //                                                                     const size_t witness_offset)
-    // {
-    //     std::vector<uint32_t> proof_indices;
-    //     std::vector<uint32_t> key_indices;
-    //     std::vector<uint32_t> public_inputs_indices;
+    static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
+                                                                std::vector<bb::fr>& proof_witnesses,
+                                                                const std::vector<bb::fr>& key_witnesses,
+                                                                const size_t num_public_inputs)
+    {
+        const size_t num_public_inputs_sans_agg = num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
 
-    //     // where the inner public inputs start (after circuit_size, num_pub_inputs, pub_input_offset)
-    //     const size_t public_input_offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        std::vector<bb::fr> public_input_witnesses =
+            extract_and_remove_public_inputs_from_proof(proof_witnesses, num_public_inputs_sans_agg);
 
-    //     // This is the structure of proof_witnesses and key_witnesses concatenated, which is what we end up putting
-    //     // in witness:
-    //     // [ circuit size, num_pub_inputs, pub_input_offset, public_input_0, public_input_1, agg_obj_0, agg_obj_1,
-    //     ...,
-    //     // agg_obj_15, rest of proof..., vkey_0, vkey_1, vkey_2, vkey_3...]
+        std::vector<uint32_t> proof_indices;
+        std::vector<uint32_t> key_indices;
+        std::vector<uint32_t> public_inputs_indices;
 
-    //     // points to public_input_0
-    //     const uint32_t public_input_start_idx = static_cast<uint32_t>(public_input_offset + witness_offset);
+        for (size_t i = 0; i < HONK_RECURSION_PUBLIC_INPUT_OFFSET; ++i) {
+            witness.push_back(proof_witnesses[i]);
+            proof_indices.push_back(static_cast<uint32_t>(witness.size() - 1));
+        }
 
-    //     // points to agg_obj_0
-    //     const uint32_t proof_indices_start_idx =
-    //         static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE);
+        for (const auto& value : public_input_witnesses) {
+            witness.push_back(value);
+            public_inputs_indices.push_back(static_cast<uint32_t>(witness.size() - 1));
+        }
 
-    //     // points to vkey_0 (would point to vkey_3 without the -inner_public_input_offset)
-    //     const uint32_t key_indices_start_idx =
-    //         static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size() - public_input_offset);
+        for (size_t i = HONK_RECURSION_PUBLIC_INPUT_OFFSET; i < proof_witnesses.size(); ++i) {
+            witness.push_back(proof_witnesses[i]);
+            proof_indices.push_back(static_cast<uint32_t>(witness.size() - 1));
+        }
 
-    //     // go over circuit size, num_pub_inputs, pub_offset
-    //     for (size_t i = 0; i < public_input_offset; ++i) {
-    //         proof_indices.emplace_back(static_cast<uint32_t>(i + witness_offset));
-    //     }
-    //     // goes over agg_obj_0, agg_obj_1, ..., agg_obj_15 and rest of proof
-    //     for (size_t i = 0; i < proof_witnesses.size() - public_input_offset; ++i) {
-    //         proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
-    //     }
-    //     const size_t key_size = key_witnesses.size();
-    //     for (size_t i = 0; i < key_size; ++i) {
-    //         key_indices.emplace_back(static_cast<uint32_t>(i + key_indices_start_idx));
-    //     }
-    //     // We keep the nested aggregation object attached to the proof,
-    //     // thus we do not explicitly have to keep the public inputs while setting up the initial recursion
-    //     // constraint. They will later be attached as public inputs when creating the circuit.
-    //     for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
-    //         public_inputs_indices.push_back(static_cast<uint32_t>(i + public_input_start_idx));
-    //     }
+        for (const auto& value : key_witnesses) {
+            witness.push_back(value);
+            key_indices.push_back(static_cast<uint32_t>(witness.size() - 1));
+        }
 
-    //     return { proof_indices, key_indices, public_inputs_indices };
-    // }
+        return { key_indices, proof_indices, public_inputs_indices };
+    }
 };
 
 } // namespace acir_format
