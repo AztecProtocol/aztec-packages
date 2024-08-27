@@ -1,7 +1,7 @@
 name: Run public testnet test
 on:
   schedule:
-    - cron: "00 12 * * 1-5"
+    - cron: "30 16 * * 1-5"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -65,8 +65,7 @@ jobs:
         timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
         with:
-          # big machine since we're doing proving
-          runner_type: "64core-tester-x86"
+          runner_type: "8core-tester-x86"
           builder_type: builder-x86
           # these are copied to the tester and expected by the earthly command below
           # if they fail to copy, it will try to build them on the tester and fail
