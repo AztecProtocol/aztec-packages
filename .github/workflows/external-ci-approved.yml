@@ -25,16 +25,15 @@ jobs:
 
     - name: Create or update the mirrored branch
       run: |
-        HASH=$(git rev-parse HEAD)
         git checkout -b mirrored/${{ github.head_ref }} || git checkout mirrored/${{ github.head_ref }}
-        git reset --hard $HASH
+        git reset --hard ${{ github.head_ref }}
         git push origin mirrored/${{ github.head_ref }} --force
 
     - name: Create or update the mirrored pull request
       uses: peter-evans/create-pull-request@v5
       with:
         token:  ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        base: mirrored/${{ github.head_ref }}
+        base: master
         head: ${{ github.head_ref }}
         title: "Mirror PR: ${{ github.event.pull_request.title }}"
         body: "This PR has been created because #${{ github.event.pull_request.number }} has been labeled external-ci-approved. It will sync on every-reapply."
