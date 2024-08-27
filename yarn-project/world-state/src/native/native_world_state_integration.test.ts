@@ -1,4 +1,11 @@
-import { L2Block, MerkleTreeId, PublicDataWrite, TxEffect } from '@aztec/circuit-types';
+import {
+  type FrTreeId,
+  type IndexedTreeId,
+  L2Block,
+  MerkleTreeId,
+  PublicDataWrite,
+  TxEffect,
+} from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   Fr,
@@ -15,13 +22,13 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { elapsed } from '@aztec/foundation/timer';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { MerkleTreeDb } from '../world-state-db/merkle_tree_db.js';
-import { FrTreeId, type IndexedTreeId } from '../world-state-db/merkle_tree_operations.js';
+import { type MerkleTreeDb } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { NativeWorldStateService } from './native_world_state.js';
 
@@ -36,13 +43,6 @@ describe('NativeWorldState', () => {
     .filter((x): x is MerkleTreeId => typeof x === 'number')
     .map(x => [MerkleTreeId[x], x] as const);
 
-  const frTrees = [
-    [MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE], MerkleTreeId.NOTE_HASH_TREE],
-    [MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGE_TREE], MerkleTreeId.L1_TO_L2_MESSAGE_TREE][
-      (MerkleTreeId[MerkleTreeId.ARCHIVE], MerkleTreeId.ARCHIVE)
-    ],
-  ] as const;
-
   beforeAll(async () => {
     nativeDataDir = await mkdtemp(join(tmpdir(), 'native_world_state_test-'));
     legacyDataDir = await mkdtemp(join(tmpdir(), 'js_world_state_test-'));
@@ -55,7 +55,7 @@ describe('NativeWorldState', () => {
 
   beforeAll(async () => {
     nativeWS = await NativeWorldStateService.create(nativeDataDir);
-    legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir));
+    legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
   });
 
   describe('Initial state', () => {
@@ -65,7 +65,7 @@ describe('NativeWorldState', () => {
         [...t, true],
       ]),
     )('tree %s is the same', async (_, treeId, includeUncommitted) => {
-      assertSameTree(treeId, includeUncommitted);
+      await assertSameTree(treeId, includeUncommitted);
     });
 
     it.each([false, true])('includeUncommitted=%s state is the same', async includeUncommitted => {
@@ -201,12 +201,12 @@ describe('NativeWorldState', () => {
   describe('Block synch', () => {
     it('syncs a new block from empty state', async () => {
       await assertSameState(false);
-      const [blockMS, { block, messages }] = await elapsed(mockBlock(1));
+      const [_blockMS, { block, messages }] = await elapsed(mockBlock(1));
 
-      const [nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
-      const [legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
+      const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
+      const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
 
-      console.log(`Native: ${nativeMs} ms, Legacy: ${legacyMs} ms. Generating mock block took ${blockMS} ms`);
+      // console.log(`Native: ${nativeMs} ms, Legacy: ${legacyMs} ms. Generating mock block took ${blockMS} ms`);
 
       await assertSameState(false);
     }, 15_000);
@@ -228,7 +228,7 @@ describe('NativeWorldState', () => {
   }
 
   async function mockBlock(blockNum = 1, merkleTrees?: MerkleTreeDb) {
-    merkleTrees ??= await MerkleTrees.new(openTmpStore());
+    merkleTrees ??= await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient());
     const l2Block = L2Block.random(blockNum, 2); // 2 txs
     const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
 

@@ -1,14 +1,6 @@
-import { MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
-import {
-  AppendOnlyTreeSnapshot,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type NullifierLeaf,
-  type PublicDataTreeLeaf,
-  StateReference,
-  type UInt32,
-} from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Fr, INITIAL_L2_BLOCK_NUM, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 export type MessageHeaderInit = {
   /** The message ID. Optional, if not set defaults to 0 */
@@ -234,7 +226,7 @@ export function worldStateRevision(includeUncommittedOrBlock: false | true | num
   }
 }
 
-type TreeStateReference = readonly [Buffer, number | BigInt];
+type TreeStateReference = readonly [Buffer, number | bigint];
 type BlockStateReference = Map<Exclude<MerkleTreeId, MerkleTreeId.ARCHIVE>, TreeStateReference>;
 
 export function treeStateReferenceToSnapshot([root, size]: TreeStateReference): AppendOnlyTreeSnapshot {

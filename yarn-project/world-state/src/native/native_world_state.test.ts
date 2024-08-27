@@ -8,11 +8,11 @@ import {
   MessageHeader,
   TypedMessage,
   WorldStateMessageType,
-  WorldStateRequest,
-  WorldStateResponse,
+  type WorldStateRequest,
+  type WorldStateResponse,
   worldStateRevision,
 } from './message.js';
-import { NativeInstance, NativeWorldStateService } from './native_world_state.js';
+import { type NativeInstance, NativeWorldStateService } from './native_world_state.js';
 
 describe('NativeWorldState', () => {
   let call: jest.MockedFunction<NativeInstance['call']>;

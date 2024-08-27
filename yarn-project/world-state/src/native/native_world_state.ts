@@ -1,9 +1,17 @@
-import { type L2Block, MerkleTreeId, SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
-  ContentCommitment,
+  type BatchInsertionResult,
+  type HandleL2BlockAndMessagesResult,
+  type IndexedTreeId,
+  type L2Block,
+  MerkleTreeId,
+  type MerkleTreeLeafType,
+  type MerkleTreeOperations,
+  SiblingPath,
+  type TreeInfo,
+  TxEffect,
+} from '@aztec/circuit-types';
+import {
   Fr,
-  GlobalVariables,
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -17,28 +25,20 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { SerialQueue } from '@aztec/foundation/fifo';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import type { BatchInsertionResult } from '@aztec/merkle-tree';
 
 import bindings from 'bindings';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
 import { type MerkleTreeDb, type TreeSnapshots } from '../world-state-db/merkle_tree_db.js';
-import {
-  type HandleL2BlockAndMessagesResult,
-  type IndexedTreeId,
-  type MerkleTreeLeafType,
-  MerkleTreeOperations,
-  type TreeInfo,
-} from '../world-state-db/merkle_tree_operations.js';
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import {
   MessageHeader,
-  SerializedIndexedLeaf,
-  SerializedLeafValue,
+  type SerializedIndexedLeaf,
+  type SerializedLeafValue,
   TypedMessage,
   WorldStateMessageType,
   type WorldStateRequest,
@@ -98,9 +98,10 @@ export class NativeWorldStateService implements MerkleTreeDb {
   protected async init() {
     const archive = await this.getTreeInfo(MerkleTreeId.ARCHIVE, false);
     if (archive.size === 0n) {
-      const header = await this.buildInitialHeader(true);
-      await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      await this.commit();
+      // TODO (alexg) move this to the native module
+      // const header = await this.buildInitialHeader(true);
+      // await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
+      // await this.commit();
     }
   }
 
@@ -108,15 +109,20 @@ export class NativeWorldStateService implements MerkleTreeDb {
     return new MerkleTreeOperationsFacade(this, true);
   }
 
-  async buildInitialHeader(ic: boolean = false): Promise<Header> {
-    const state = await this.getStateReference(ic);
-    return new Header(
-      AppendOnlyTreeSnapshot.zero(),
-      ContentCommitment.empty(),
-      state,
-      GlobalVariables.empty(),
-      Fr.ZERO,
-    );
+  // async buildInitialHeader(ic: boolean = false): Promise<Header> {
+  //   const state = await this.getStateReference(ic);
+  //   return new Header(
+  //     AppendOnlyTreeSnapshot.zero(),
+  //     ContentCommitment.empty(),
+  //     state,
+  //     GlobalVariables.empty(),
+  //     Fr.ZERO,
+  //   );
+  // }
+
+  public getInitialHeader(): Header {
+    // TODO (alexg) implement this
+    return Header.empty();
   }
 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
@@ -251,7 +257,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
     return new SiblingPath(siblingPath.length, siblingPath);
   }
 
-  getSnapshot(block: number): Promise<TreeSnapshots> {
+  getSnapshot(_block: number): Promise<TreeSnapshots> {
     return Promise.reject(new Error('getSnapshot not implemented'));
   }
 
@@ -336,15 +342,15 @@ export class NativeWorldStateService implements MerkleTreeDb {
     });
   }
 
-  async updateLeaf<ID extends IndexedTreeId>(
-    treeId: ID,
-    leaf: NullifierLeafPreimage | Buffer,
-    index: bigint,
+  updateLeaf<ID extends IndexedTreeId>(
+    _treeId: ID,
+    _leaf: NullifierLeafPreimage | Buffer,
+    _index: bigint,
   ): Promise<void> {
-    throw new Error('Method not implemented');
+    return Promise.reject(new Error('Method not implemented'));
   }
 
-  private async call<T extends WorldStateMessageType>(
+  private call<T extends WorldStateMessageType>(
     messageType: T,
     body: WorldStateRequest[T],
   ): Promise<WorldStateResponse[T]> {
@@ -393,6 +399,14 @@ export class NativeWorldStateService implements MerkleTreeDb {
 
   public async stop(): Promise<void> {
     await this.queue.end();
+  }
+
+  public delete(): Promise<void> {
+    return Promise.reject(new Error('Method not implemented'));
+  }
+
+  public fork(): Promise<MerkleTreeDb> {
+    return Promise.reject(new Error('Method not implemented'));
   }
 }
 

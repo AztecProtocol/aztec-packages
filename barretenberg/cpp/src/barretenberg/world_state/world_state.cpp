@@ -3,7 +3,7 @@
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/functions.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
@@ -28,7 +28,7 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "nullifier_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, IntegerKeyCmp);
+        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
         auto store = std::make_unique<NullifierStore>(name, NULLIFIER_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<NullifierTree>(*store, _workers, 128);
         _trees.insert(
@@ -37,7 +37,7 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "note_hash_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, IntegerKeyCmp);
+        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
         auto store = std::make_unique<FrStore>(name, NOTE_HASH_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         _trees.insert(
@@ -46,7 +46,7 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "public_data_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, IntegerKeyCmp);
+        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
         auto store = std::make_unique<PublicDataStore>(name, PUBLIC_DATA_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, 128);
         _trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE,
@@ -55,7 +55,7 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "message_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, IntegerKeyCmp);
+        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
         auto store = std::make_unique<FrStore>(name, L1_TO_L2_MSG_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         _trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
@@ -64,7 +64,7 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "archive_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, IntegerKeyCmp);
+        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
         auto store = std::make_unique<FrStore>(name, ARCHIVE_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         _trees.insert(
