@@ -230,11 +230,11 @@ template <typename Fr> class Polynomial {
      * We abuse precedent a bit to differentiate at() and operator[] as mutable and immutable, respectively.
      * This means at() can only index within start_index()..end_index() unlike operator[] which can index
      * 0..virtual_size
-     * We do not provide a const version to dissuade its use in an immutable context.
      * @param index the index, to be subtracted by start_index() and read into the array memory
      * @return Fr& a mutable reference.
      */
     Fr& at(size_t index) { return coefficients_[index]; }
+    const Fr& at(size_t index) const { return coefficients_[index]; }
 
     Fr operator[](size_t i) { return get(i); }
     Fr operator[](size_t i) const { return get(i); }

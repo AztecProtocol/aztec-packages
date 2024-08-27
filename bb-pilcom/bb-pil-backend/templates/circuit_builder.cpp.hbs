@@ -24,7 +24,7 @@ namespace bb {
 
     for (size_t i = 0; i < rows.size(); i++) {
         {{#each all_cols_without_inverses as |poly|}}
-        polys.{{poly}}[i] = rows[i].{{poly}};
+        polys.{{poly}}.at(i) = rows[i].{{poly}};
         {{/each}}
     }
 
@@ -121,5 +121,5 @@ bool {{name}}CircuitBuilder::check_circuit() const {
 
     return errors.empty();
 }
-    
+
 }  // namespace bb
