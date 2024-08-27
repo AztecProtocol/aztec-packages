@@ -93,13 +93,6 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
-  setup-arm:
-    uses: ./.github/workflows/setup-runner.yml
-    with:
-      username: ${{ github.actor }}
-      runner_type: builder-arm
-    secrets: inherit
-
   # Set network specific variables as outputs from this job to be referenced in later jobs
   set-network:
     needs: setup
@@ -312,14 +305,11 @@ jobs:
         if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
         run: |
           docker pull aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64
-          docker pull aztecprotocol/aztec-nargo:${{ github.sha }}-arm64
 
           docker manifest create aztecprotocol/aztec-nargo:${{ env.DEPLOY_TAG }} \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64 \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-arm64
+            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64
           docker manifest create aztecprotocol/aztec-nargo:${{ github.sha }} \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64 \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-arm64
+            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64
 
           docker manifest push aztecprotocol/aztec-nargo:${{ env.DEPLOY_TAG }}
           docker manifest push aztecprotocol/aztec-nargo:${{ github.sha }}
