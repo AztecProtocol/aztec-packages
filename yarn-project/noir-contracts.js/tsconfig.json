@@ -3,8 +3,7 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo",
-    "verbatimModuleSyntax": true
+    "tsBuildInfoFile": ".tsbuildinfo"
   },
   "references": [
     {
