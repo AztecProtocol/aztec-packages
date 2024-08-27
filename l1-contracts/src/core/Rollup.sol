@@ -612,6 +612,16 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
     }
 
+    if (timestamp > block.timestamp) {
+      // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
+      //        from the value that we have in the constants.
+      //        When you are encountering this, it will likely be as the sequencer expects to be able to include
+      //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
+      //        from the last block. However, if the actual will only be 1 second in the future, you will end up
+      //        expecting this value to be in the future.
+      revert Errors.Rollup__TimestampInFuture(block.timestamp, timestamp);
+    }
+
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
     if (!AVAILABILITY_ORACLE.isAvailable(_header.contentCommitment.txsEffectsHash)) {
       revert Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash);
