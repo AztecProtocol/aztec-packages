@@ -326,10 +326,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--json', 'Output the claim in JSON format')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
-    .option(
-      '--no-wait',
-      'Wait for the brigded funds to be available in L2, polling every 60 seconds (default, override with --delay)',
-    )
+    .option('--no-wait', 'Wait for the brigded funds to be available in L2, polling every 60 seconds')
     .addOption(
       new Option('--interval <number>', 'The polling interval in seconds for the bridged funds')
         .default('60')
