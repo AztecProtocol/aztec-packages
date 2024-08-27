@@ -64,3 +64,5 @@ export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
 export const MERKLE_TREE_NAME = 'aztec.merkle_tree.name';
 /** The prover-id in a root rollup proof. */
 export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
+/** Whether the proof submission was timed out (delayed more than 20 min) */
+export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';

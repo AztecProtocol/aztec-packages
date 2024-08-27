@@ -6,6 +6,7 @@ import {
   type Histogram,
   Metrics,
   type TelemetryClient,
+  type UpDownCounter,
   ValueType,
   exponentialBuckets,
   millisecondBuckets,
@@ -15,7 +16,8 @@ export class ArchiverInstrumentation {
   private blockHeight: Gauge;
   private blockSize: Gauge;
   private syncDuration: Histogram;
-  private proofsSubmitted: Histogram;
+  private proofsSubmittedDelay: Histogram;
+  private proofsSubmittedCount: UpDownCounter;
 
   private log = createDebugLogger('aztec:archiver:instrumentation');
 
@@ -40,7 +42,12 @@ export class ArchiverInstrumentation {
       },
     });
 
-    this.proofsSubmitted = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY, {
+    this.proofsSubmittedCount = meter.createUpDownCounter(Metrics.ARCHIVER_ROLLUP_PROOF_COUNT, {
+      description: 'Number of proofs submitted',
+      valueType: ValueType.INT,
+    });
+
+    this.proofsSubmittedDelay = meter.createHistogram(Metrics.ARCHIVER_ROLLUP_PROOF_DELAY, {
       unit: 'ms',
       description: 'Time after a block is submitted until its proof is published',
       valueType: ValueType.INT,
@@ -69,9 +76,12 @@ export class ArchiverInstrumentation {
   public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
     for (const log of logs) {
       this.log.debug('Recording proof verified event', log);
-      this.proofsSubmitted.record(Number(log.delay), {
+      this.proofsSubmittedCount.add(1, {
         [Attributes.ROLLUP_PROVER_ID]: log.proverId,
-        [Attributes.BLOCK_NUMBER]: Number(log.l2BlockNumber),
+        [Attributes.PROOF_TIMED_OUT]: log.delay > 20n * 60n * 1000n,
+      });
+      this.proofsSubmittedDelay.record(Math.ceil(Number(log.delay)), {
+        [Attributes.ROLLUP_PROVER_ID]: log.proverId,
       });
     }
   }
