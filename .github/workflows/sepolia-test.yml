@@ -1,5 +1,6 @@
 name: Run public testnet test
 on:
+  workflow_dispatch:
   schedule:
     - cron: "30 16 * * 1-5"
 
@@ -61,6 +62,9 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
+        with:
+          # must be globally unique for build x runner
+          concurrency_key: public-testnet-x86
       - name: Setup and Test
         timeout-minutes: 40
         uses: ./.github/ensure-tester-with-images
