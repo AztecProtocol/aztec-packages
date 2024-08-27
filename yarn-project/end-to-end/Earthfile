@@ -242,7 +242,7 @@ e2e-token-contract:
   DO +E2E_TEST --test=./src/e2e_token_contract
 
 e2e-public-testnet:
-  ARG L1_CHAIN_ID
+  ARG L1_CHAIN_ID="31337"
   ARG ETHEREUM_HOST
   ARG SEQ_PUBLISHER_PRIVATE_KEY
   ARG PROVER_PUBLISHER_PRIVATE_KEY
