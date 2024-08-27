@@ -382,7 +382,7 @@ export class ${input.name}Contract extends ContractBase {
   ${notesGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
-  declare public methods: {
+  public declare methods: {
     ${methods.join('\n')}
   };
 
