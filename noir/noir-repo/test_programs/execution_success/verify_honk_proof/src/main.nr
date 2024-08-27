@@ -5,7 +5,7 @@ global HONK_IDENTIFIER : u32 = 1;
 fn main(
     verification_key: [Field; 128],
     // This is the proof without public inputs attached.
-    // 
+    //
     // This means: the size of this does not change with the number of public inputs.
     proof: [Field; SIZE_OF_PROOF_IF_LOGN_IS_28],
     public_inputs: pub [Field; 1],
@@ -13,10 +13,5 @@ fn main(
     // I believe we want to eventually make it public too though.
     key_hash: Field
 ) {
-    std::verify_proof(
-        verification_key,
-        proof,
-        public_inputs,
-        key_hash
-    );
+    std::verify_proof(verification_key, proof, public_inputs, key_hash);
 }
