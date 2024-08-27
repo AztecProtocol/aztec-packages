@@ -129,11 +129,6 @@ pub struct CompileOptions {
     /// This check should always be run on production code.
     #[arg(long)]
     pub skip_underconstrained_check: bool,
-
-    /// A workspace is compiled in parallel by default. This flag will compile it sequentially.
-    /// This flag is often only needed by large projects whose compilation overflows the stack.
-    #[arg(long)]
-    pub sequential: bool,
 }
 
 pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {

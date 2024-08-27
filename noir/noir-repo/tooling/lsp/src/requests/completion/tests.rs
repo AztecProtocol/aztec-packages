@@ -310,7 +310,7 @@ mod completion_tests {
                 mod something_else {}
                 use crate::s>|<
             }
-
+            
         "#;
         assert_completion(src, vec![module_completion_item("something")]).await;
     }
@@ -322,7 +322,7 @@ mod completion_tests {
                 mod something_else {}
                 use crate::something::s>|<
             }
-
+            
         "#;
         assert_completion(src, vec![module_completion_item("something_else")]).await;
     }
