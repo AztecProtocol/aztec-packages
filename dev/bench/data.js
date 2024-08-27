@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724709243316,
+  "lastUpdate": 1724764287270,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "1366153e48e0656c6f9662c728217676eced4ff0",
-          "message": "feat: Added indirect const instruction",
-          "timestamp": "2024-08-19T11:55:39Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8065/commits/1366153e48e0656c6f9662c728217676eced4ff0"
-        },
-        "date": 1724072571806,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13371.703382000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10007.189639999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4910.581700999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4481.111881000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40168.668745999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40168669000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14607.210473000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14607211000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3801501409,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3801501409 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 211754961,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 211754961 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3097243036,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3097243036 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173332205,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173332205 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3500,6 +3432,78 @@ window.BENCHMARK_DATA = {
             "value": 173073875,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173073875 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47e83fa680f46b12cd65c26475908987f97fff4d",
+          "message": "fix(bb): eliminate recursion in accumulate* (#8205)\n\nJean is working on the AVM recursive verifier and he found that these\nfunctions were executed recursively (the compiler was indeed generating\nrecursive calls) and causing a stack overflow. This fixes that.\n* ~~Also fixed `accumulate_relation_evaluations_without_skipping` which\nwas only not skipping the first relation.~~ Tests fail with the fix,\nI've added a comment.\n* I also made some params `const&`. IIUC they were being copied before\nwhich can be massive for the type `AllValues`. Not sure about that but\nyou might want to check the callers, etc.",
+          "timestamp": "2024-08-27T14:00:30+01:00",
+          "tree_id": "48228f7a215f4460e1d28bcd247adeca1c73f09d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/47e83fa680f46b12cd65c26475908987f97fff4d"
+        },
+        "date": 1724764280203,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13497.53438000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10433.232167000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5095.946416000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4660.768961000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39514.393355,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39514393000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14675.655707,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14675655000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3780309344,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3780309344 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 207605461,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 207605461 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3067587446,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3067587446 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173312509,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173312509 ns\nthreads: 1"
           }
         ]
       }
