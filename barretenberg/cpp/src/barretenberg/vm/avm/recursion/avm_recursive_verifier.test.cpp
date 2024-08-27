@@ -52,8 +52,6 @@ class AvmRecursiveTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     // Generate an extremely simple avm trace
-    // - no public inputs etc
-
     static AvmCircuitBuilder generate_avm_circuit()
     {
         AvmTraceBuilder trace_builder(generate_base_public_inputs());
@@ -63,7 +61,7 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
         trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
         trace_builder.op_return(0, 0, 0);
-        auto trace = trace_builder.finalize();
+        auto trace = trace_builder.finalize(true);
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
@@ -75,7 +73,6 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    // GTEST_SKIP() << "Skipping single test";
     AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
     AvmProver prover = composer.create_prover(circuit_builder);
@@ -89,29 +86,28 @@ TEST_F(AvmRecursiveTests, recursion)
         bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
 
     bool verified = verifier.verify_proof(proof, public_inputs_vec);
-    info("proof verified: ", verified);
-    ASSERT_TRUE(verified);
+    ASSERT_TRUE(verified) << "native proof verification failed";
 
     // Create the outer verifier, to verify the proof
     const std::shared_ptr<AvmFlavor::VerificationKey> verification_key = verifier.key;
-    // Verification key contains the commitments to things listed in the verifiercommitments class
-    // info((*verification_key).main_clk);
-
-    info("got verification key");
-
     OuterBuilder outer_circuit;
     RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
-
-    info("make recursive verifier");
 
     // Note(md): no inputs are provided here - so the verifier is under-constrained in respect to public inputs
     // If we return the pairing points then potentially they can be recursively verified nicely?? - but it is not clear
     // how aggregation will work unless we make sure the avm has the same circuit size as other things
-    recursive_verifier.verify_proof(proof);
+    auto pairing_points = recursive_verifier.verify_proof(proof);
+
+    bool pairing_points_valid = verification_key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
+                                                                                      pairing_points[1].get_value());
+
+    ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
 
     info("Recursive verifier: num gates = ", outer_circuit.num_gates);
-    info("Outer circuit failed? ", outer_circuit.failed());
-    CircuitChecker::check(outer_circuit);
+    ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
+
+    bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
+    ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
@@ -123,7 +119,14 @@ TEST_F(AvmRecursiveTests, recursion)
 
     auto recursion_proof = ultra_prover.construct_proof();
     bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);
+    EXPECT_TRUE(recursion_verified) << "recursion proof verification failed";
 
-    info("verified recursive proof, ", recursion_verified);
+    auto manifest = verifier.transcript->get_manifest();
+    auto recursive_manifest = recursive_verifier.transcript->get_manifest();
+
+    EXPECT_EQ(manifest.size(), recursive_manifest.size());
+    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+        EXPECT_EQ(recursive_manifest[i], manifest[i]);
+    }
 }
 } // namespace tests_avm

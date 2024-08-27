@@ -25,7 +25,7 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
                                    const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    void verify_proof(const HonkProof& proof);
+    std::array<typename Flavor::GroupElement, 2> verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

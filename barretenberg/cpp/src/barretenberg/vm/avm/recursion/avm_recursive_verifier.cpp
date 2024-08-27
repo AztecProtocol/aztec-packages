@@ -17,7 +17,8 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
     , builder(builder)
 {}
 
-template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor>
+std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Zeromorph = ZeroMorphVerifier_<Curve>;
@@ -28,10 +29,7 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     using Transcript = typename Flavor::Transcript;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    info("converted proof to witness");
     transcript = std::make_shared<Transcript>(stdlib_proof);
-
-    info("made transcript");
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
@@ -41,8 +39,6 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
-
-    info("got circuit size from prover: ", circuit_size);
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
@@ -61,14 +57,11 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    info("recursive beta / gamma ", beta, " | ", gamma);
 
     // Get commitments to inverses
     for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
-
-    info("got commitments from prover");
 
     // TODO(md): do we not need to hash the counts columns until the sumcheck rounds?
 
@@ -77,15 +70,11 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    info("rec: sumcheck alpha: ", alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        info(gate_challenges[idx]);
     }
-
-    info("All challenges are set!");
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
@@ -106,8 +95,7 @@ template <typename Flavor> void AvmRecursiveVerifier_<Flavor>::verify_proof(cons
 
     auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
 
-    info("pairing points size ", pairing_points.size());
-
+    return pairing_points;
     // TODO(md): call assert true on the builder type to lay down the positive boolean constraint?
 }
 
