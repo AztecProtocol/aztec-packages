@@ -2,7 +2,7 @@
 set -e
 source ../utils/setup.sh
 
-test_title "Basic flow, no aliases"
+test_title "Basic flow"
 
 AMOUNT=42
 
