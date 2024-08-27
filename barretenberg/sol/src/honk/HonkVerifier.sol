@@ -4,6 +4,7 @@ pragma solidity >=0.8.21;
 
 import {IVerifier} from "../interfaces/IVerifier.sol";
 import {Add2HonkVerificationKey as VK, N, LOG_N} from "./keys/Add2HonkVerificationKey.sol";
+import {PoseidonParamsLib as PoseidonParamsLib, PoseidonParams as PoseidonParams} from "./PoseidonParams.sol";
 
 import {
     Honk,
@@ -338,8 +339,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulatePoseidonExternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulatePoseidonInternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        // Apply alpha challenges to challenge evaluations
-        // Returns grand honk realtion evaluation
+        // batch the subrelations with the alpha challenges to obtain the full honk relation
         accumulator = scaleAndBatchSubrelations(evaluations, tp.alphas);
     }
 
@@ -881,6 +881,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         evals[12] = ap.auxiliary_identity;
     }
 
+    // Big todo for poseidon params, reduce them
     struct PoseidonExternalParams {
         Fr s1;
         Fr s2;
@@ -898,7 +899,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr v2;
         Fr v3;
         Fr v4;
-        Fr qPosByScaling;
+        Fr q_pos_by_scaling;
     }
 
     function accumulatePoseidonExternalRelation(
@@ -909,18 +910,18 @@ abstract contract BaseHonkVerifier is IVerifier {
     ) internal pure {
         PoseidonExternalParams memory ep;
 
-        ep.s1 = wire(WIRE.W_L) + wire(WIRE.Q_L);
-        ep.s2 = wire(WIRE.W_R) + wire(WIRE.Q_R);
-        ep.s3 = wire(WIRE.W_O) + wire(WIRE.Q_O);
-        ep.s4 = wire(WIRE.W_4) + wire(WIRE.Q_4);
+        ep.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
+        ep.s2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_R);
+        ep.s3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_O);
+        ep.s4 = wire(p, WIRE.W_4) + wire(p, WIRE.Q_4);
 
         ep.u1 = ep.s1 * ep.s1 * ep.s1 * ep.s1 * ep.s1;
         ep.u2 = ep.s2 * ep.s2 * ep.s2 * ep.s2 * ep.s2;
         ep.u3 = ep.s3 * ep.s3 * ep.s3 * ep.s3 * ep.s3;
         ep.u4 = ep.s4 * ep.s4 * ep.s4 * ep.s4 * ep.s4;
         // matrix mul v = M_E * u with 14 additions
-        ep.t0 = u1 + ep.u2; // u_1 + u_2
-        ep.t1 = u3 + ep.u4; // u_3 + u_4
+        ep.t0 = ep.u1 + ep.u2; // u_1 + u_2
+        ep.t1 = ep.u3 + ep.u4; // u_3 + u_4
         ep.t2 = ep.u2 + ep.u2 + ep.t1; // 2u_2
         // ep.t2 += ep.t1; // 2u_2 + u_3 + u_4
         ep.t3 = ep.u4 + ep.u4 + ep.t0; // 2u_4
@@ -934,14 +935,64 @@ abstract contract BaseHonkVerifier is IVerifier {
         ep.v1 = ep.t3 + ep.v2; // 5u_1 + 7u_2 + u_3 + 3u_4
         ep.v3 = ep.t2 + ep.v4; // u_1 + 3u_2 + 5u_3 + 7u_4
 
-        ep.q_pos_by_scaling = wire(WIRE.Q_POSEIDON2_EXTERNAL) * domainSep;
-        evals[18] = evals[18] + ep.q_pos_by_scaling * (ep.v1 + wire(WIRE.W_L_SHIFT));
+        ep.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_EXTERNAL) * domainSep;
+        evals[18] = evals[18] + ep.q_pos_by_scaling * (ep.v1 - wire(p, WIRE.W_L_SHIFT));
 
-        evals[19] = evals[19] + ep.q_pos_by_scaling * (ep.v2 + wire(WIRE.W_R_SHIFT));
+        evals[19] = evals[19] + ep.q_pos_by_scaling * (ep.v2 - wire(p, WIRE.W_R_SHIFT));
 
-        evals[20] = evals[20] + ep.q_pos_by_scaling * (ep.v3 + wire(WIRE.W_O_SHIFT));
+        evals[20] = evals[20] + ep.q_pos_by_scaling * (ep.v3 - wire(p, WIRE.W_O_SHIFT));
 
-        evals[21] += evals[21] + ep.q_pos_by_scaling * (ep.v4 + wire(WIRE.W_4_SHIFT));
+        evals[21] = evals[21] + ep.q_pos_by_scaling * (ep.v4 - wire(p, WIRE.W_4_SHIFT));
+    }
+
+    struct PoseidonInternalParams {
+        Fr u1;
+        Fr u2;
+        Fr u3;
+        Fr u4;
+        Fr u_sum;
+        Fr v1;
+        Fr v2;
+        Fr v3;
+        Fr v4;
+        Fr s1;
+        Fr q_pos_by_scaling;
+    }
+
+    function accumulatePoseidonInternalRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Transcript memory tp, // I think this is not needed
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep // i guess this is the scaling factor?
+    ) internal pure {
+        PoseidonInternalParams memory ip;
+        PoseidonParams memory params = PoseidonParamsLib.loadPoseidionParams();
+
+        // add round constants
+        ip.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
+
+        // apply s-box round
+        ip.u1 = ip.s1 * ip.s1 * ip.s1 * ip.s1 * ip.s1;
+        ip.u2 = wire(p, WIRE.W_R);
+        ip.u3 = wire(p, WIRE.W_O);
+        ip.u4 = wire(p, WIRE.W_4);
+
+        // matrix mul with v = M_I * u 4 muls and 7 additions
+        ip.u_sum = ip.u1 + ip.u2 + ip.u3 + ip.u4;
+
+        ip.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_INTERNAL) * domainSep;
+
+        ip.v1 = ip.u1 * params.internal_matrix_diagonal[0] + ip.u_sum;
+        evals[22] = evals[22] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
+
+        ip.v2 = ip.u2 * params.internal_matrix_diagonal[1] + ip.u_sum;
+        evals[23] = evals[23] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
+
+        ip.v3 = ip.u3 * params.internal_matrix_diagonal[2] + ip.u_sum;
+        evals[24] = evals[24] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
+
+        ip.v4 = ip.u4 * params.internal_matrix_diagonal[3] + ip.u_sum;
+        evals[25] = evals[25] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
     }
 
     function scaleAndBatchSubrelations(
@@ -1052,7 +1103,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // TODO: dont accumulate these into the comms array, just accumulate directly
-        ommitments[1] = vk.qm;
+        commitments[1] = vk.qm;
         commitments[2] = vk.qc;
         commitments[3] = vk.ql;
         commitments[4] = vk.qr;
