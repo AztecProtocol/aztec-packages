@@ -1,5 +1,4 @@
 import {
-  BlockAttestation,
   BlockProposal,
   type BlockSimulator,
   type L1ToL2MessageSource,
@@ -11,7 +10,6 @@ import {
   type ProvingTicket,
   Signature,
   type Tx,
-  TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
   makeProcessedTx,
@@ -23,7 +21,6 @@ import {
   Fr,
   GasFees,
   GlobalVariables,
-  IS_DEV_NET,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -46,7 +43,6 @@ import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
 
 const mockedSignatures = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27, false);
-
 const getAttestations = () => [mockedSignatures];
 
 describe('sequencer', () => {
@@ -73,23 +69,9 @@ describe('sequencer', () => {
   const gasFees = GasFees.empty();
 
   const archive = Fr.random();
-
-  const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
-
   const committee = [EthAddress.random()];
-  const getSignatures = () => (IS_DEV_NET ? undefined : [mockedSig]);
-  const getAttestations = () => {
-    if (IS_DEV_NET) {
-      return undefined;
-    }
-
-    const attestation = new BlockAttestation(block.header, archive, mockedSig);
-    (attestation as any).sender = committee[0];
-
-    return [attestation];
-  };
   const createBlockProposal = () => {
-    return new BlockProposal(block.header, archive, [TxHash.random()], mockedSig);
+    return new BlockProposal(block.header, archive, [], mockedSignatures);
   };
 
   let block: L2Block;
@@ -158,12 +140,10 @@ describe('sequencer', () => {
       create: () => blockSimulator,
     });
 
-    if (!IS_DEV_NET) {
-      validatorClient = mock<ValidatorClient>({
-        collectAttestations: mockFn().mockResolvedValue(getAttestations()),
-        createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
-      });
-    }
+    validatorClient = mock<ValidatorClient>({
+      collectAttestations: mockFn().mockResolvedValue(getAttestations()),
+      createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
+    });
 
     sequencer = new TestSubject(
       publisher,
@@ -219,7 +199,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -271,7 +251,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -322,7 +302,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -369,7 +349,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -416,7 +396,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getAttestations());
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 

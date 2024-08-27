@@ -344,29 +344,20 @@ export class Sequencer {
 
     // Related to _validateHeaderForSubmissionSequencerSelection
 
-    if (IS_DEV_NET) {
-      // If we are in devnet, make sure that we are a validator
-      if ((await this.publisher.getValidatorCount()) != 0n && !(await this.publisher.amIAValidator())) {
-        const msg = 'Not a validator in devnet';
+    // If I have a constructed a block, make sure that the slot matches the current slot number
+    if (globalVariables) {
+      if (slot !== globalVariables.slotNumber.toBigInt()) {
+        const msg = `Slot number mismatch. Expected ${slot} but got ${globalVariables.slotNumber.toBigInt()}`;
         this.log.debug(msg);
         throw new Error(msg);
       }
-    } else {
-      // If I have a constructed a block, make sure that the slot matches the current slot number
-      if (globalVariables) {
-        if (slot !== globalVariables.slotNumber.toBigInt()) {
-          const msg = `Slot number mismatch. Expected ${slot} but got ${globalVariables.slotNumber.toBigInt()}`;
-          this.log.debug(msg);
-          throw new Error(msg);
-        }
-      }
+    }
 
-      // Do not go forward with new block if not free for all or my turn
-      if (!proposer.isZero() && !proposer.equals(await this.publisher.getSenderAddress())) {
-        const msg = 'Not my turn to submit block';
-        this.log.debug(msg);
-        throw new Error(msg);
-      }
+    // Do not go forward with new block if not free for all or my turn
+    if (!proposer.isZero() && !proposer.equals(await this.publisher.getSenderAddress())) {
+      const msg = 'Not my turn to submit block';
+      this.log.debug(msg);
+      throw new Error(msg);
     }
 
     return slot;
@@ -376,25 +367,6 @@ export class Sequencer {
     if (this.isFlushing) {
       this.log.verbose(`Flushing all pending txs in new block`);
       return true;
-    }
-
-    if (IS_DEV_NET) {
-      // Compute time elapsed since the previous block
-      const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
-      const currentTime = Math.floor(Date.now() / 1000);
-      const elapsedSinceLastBlock = currentTime - lastBlockTime;
-      this.log.debug(
-        `Last block mined at ${lastBlockTime} current time is ${currentTime} (elapsed ${elapsedSinceLastBlock})`,
-      );
-
-      // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
-      // Do not go forward with new block if not enough time has passed since last block
-      if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
-        this.log.debug(
-          `Not creating block because not enough time ${this.minSecondsBetweenBlocks} has passed since last block`,
-        );
-        return false;
-      }
     }
 
     const skipCheck = this.skipMinTxsPerBlockCheck(historicalHeader);

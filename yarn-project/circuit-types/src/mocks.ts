@@ -53,7 +53,7 @@ export const mockTx = (
     hasPublicTeardownCallRequest?: boolean;
     feePayer?: AztecAddress;
   } = {},
-) => {
+): Tx => {
   const totalPublicCallRequests =
     numberOfNonRevertiblePublicCallRequests +
     numberOfRevertiblePublicCallRequests +

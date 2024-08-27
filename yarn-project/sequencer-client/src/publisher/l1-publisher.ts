@@ -1,14 +1,7 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
 import { type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import {
-  AZTEC_SLOT_DURATION,
-  ETHEREUM_SLOT_DURATION,
-  EthAddress,
-  type Header,
-  IS_DEV_NET,
-  type Proof,
-} from '@aztec/circuits.js';
+import { AZTEC_SLOT_DURATION, ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -183,10 +176,6 @@ export class L1Publisher {
     //        This effectively means that if we try to simulate for the first L1 block where we
     //        will be proposer, we will have a failure as the slot have not yet changed.
     // @todo  #8110
-
-    if (IS_DEV_NET) {
-      return false;
-    }
 
     const currentSlot = BigInt(await this.rollupContract.read.getCurrentSlot());
     return currentSlot != slot;

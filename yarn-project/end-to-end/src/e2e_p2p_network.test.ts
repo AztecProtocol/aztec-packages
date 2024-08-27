@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep } from '@aztec/aztec.js';
-import { EthAddress, IS_DEV_NET } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/circuits.js';
 import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
@@ -49,7 +49,7 @@ describe('e2e_p2p_network', () => {
 
     // Add 1 extra validator if in devnet or NUM_NODES if not.
     // Each of these will become a validator and sign attestations.
-    const limit = IS_DEV_NET ? 1 : NUM_NODES;
+    const limit = NUM_NODES;
     for (let i = 0; i < limit; i++) {
       const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(i + 1)!.toString('hex')}`);
       initialValidators.push(EthAddress.fromString(account.address));
@@ -149,7 +149,7 @@ describe('e2e_p2p_network', () => {
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
-        /*validators*/ !IS_DEV_NET,
+        /*validators*/ true,
         `./data-${i}`,
       );
       logger.info(`Node ${i} restarted`);

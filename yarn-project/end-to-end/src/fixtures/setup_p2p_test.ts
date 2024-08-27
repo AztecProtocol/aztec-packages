@@ -58,7 +58,7 @@ export async function createNode(
   tcpListenPort: number,
   bootstrapNode: string | undefined,
   publisherAddressIndex: number,
-  activateValidators: boolean = false,
+  activateValidators: boolean,
   dataDirectory?: string,
 ) {
   // We use different L1 publisher accounts in order to avoid duplicate tx nonces. We start from
