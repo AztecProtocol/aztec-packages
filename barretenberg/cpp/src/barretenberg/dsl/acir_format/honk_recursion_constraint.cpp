@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
 namespace acir_format {
@@ -27,34 +28,35 @@ using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
  * @param proof_fields
  */
 void create_dummy_vkey_and_proof(Builder& builder,
-                                 const RecursionConstraint& input,
-                                 std::vector<field_ct>& key_fields,
-                                 std::vector<field_ct>& proof_fields)
+                                 const size_t proof_size,
+                                 const size_t public_inputs_size,
+                                 const std::vector<field_ct>& key_fields,
+                                 const std::vector<field_ct>& proof_fields)
 {
-    using Flavor = UltraRecursiveFlavor_<Builder>;
+    using Flavor = UltraFlavor;
 
     // Set vkey->circuit_size correctly based on the proof size
-    size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::Commitment>();
-    size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<UltraFlavor::FF>();
-    assert((input.proof.size() - HONK_RECURSION_PUBLIC_INPUT_OFFSET - UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-            UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) %
-               (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
+    size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
+    size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<Flavor::FF>();
+    assert((proof_size - HONK_RECURSION_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+            Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) %
+               (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
            0);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size =
-        (input.proof.size() - HONK_RECURSION_PUBLIC_INPUT_OFFSET - UltraFlavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-         UltraFlavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
-        (num_frs_comm + num_frs_fr * UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+        (proof_size - HONK_RECURSION_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+         Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+        (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
     // First key field is circuit size
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
     // Second key field is number of public inputs
-    builder.assert_equal(builder.add_variable(input.public_inputs.size()), key_fields[1].witness_index);
+    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
     // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
+    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
     // Fourth key field is the whether the proof contains an aggregation object.
     builder.assert_equal(builder.add_variable(1), key_fields[4].witness_index);
     uint32_t offset = 4;
-    size_t num_inner_public_inputs = input.public_inputs.size() - bb::AGGREGATION_OBJECT_SIZE;
+    size_t num_inner_public_inputs = public_inputs_size - bb::AGGREGATION_OBJECT_SIZE;
 
     // We are making the assumption that the aggregation object are behind all the inner public inputs
     for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; i++) {
@@ -75,8 +77,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
     offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
     // first 3 things
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
-    builder.assert_equal(builder.add_variable(input.public_inputs.size()), proof_fields[1].witness_index);
-    builder.assert_equal(builder.add_variable(UltraFlavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
+    builder.assert_equal(builder.add_variable(public_inputs_size), proof_fields[1].witness_index);
+    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
@@ -134,7 +136,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
         offset += 4;
     }
-    ASSERT(offset == input.proof.size() + input.public_inputs.size());
+    ASSERT(offset == proof_size + public_inputs_size);
 }
 
 /**
@@ -171,26 +173,19 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     }
 
     std::vector<field_ct> proof_fields;
-    // Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this is how the
-    // core barretenberg library processes proofs (with the public inputs starting at the third element and not
-    // separate from the rest of the proof)
-    proof_fields.reserve(input.proof.size() + input.public_inputs.size());
-    size_t i = 0;
-    for (const auto& idx : input.proof) {
+
+    // Get the witness indices for the proof with the public inputs reinserted
+    std::vector<uint32_t> proof_indices =
+        ProofSurgeon::construct_indices_for_proof_with_public_inputs(input.proof, input.public_inputs);
+    proof_fields.reserve(proof_indices.size());
+    for (const auto& idx : proof_indices) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
-        i++;
-        if (i == HONK_RECURSION_PUBLIC_INPUT_OFFSET) {
-            for (const auto& idx : input.public_inputs) {
-                auto field = field_ct::from_witness_index(&builder, idx);
-                proof_fields.emplace_back(field);
-            }
-        }
     }
     // Populate the key fields and proof fields with dummy values to prevent issues (usually with points not being on
     // the curve).
     if (!has_valid_witness_assignments) {
-        create_dummy_vkey_and_proof(builder, input, key_fields, proof_fields);
+        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
     }
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
