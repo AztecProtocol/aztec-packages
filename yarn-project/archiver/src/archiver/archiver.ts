@@ -46,15 +46,15 @@ import { type Chain, type HttpTransport, type PublicClient, createPublicClient, 
 
 import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
-import { getL1BlockTime } from './eth_log_handlers.js';
-import { ArchiverInstrumentation } from './instrumentation.js';
 import {
-  type SingletonDataRetrieval,
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
   retrieveL1ToL2Messages,
   retrieveL2ProofVerifiedEvents,
-} from './structs/data_retrieval.js';
+} from './data_retrieval.js';
+import { getL1BlockTime } from './eth_log_handlers.js';
+import { ArchiverInstrumentation } from './instrumentation.js';
+import { type SingletonDataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
 
 /**
