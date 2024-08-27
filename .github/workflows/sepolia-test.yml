@@ -14,11 +14,14 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-  # Uncomment the following to run against Sepolia
-  # SEQ_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_SEQ_PRIVATE_KEY }}
-  # PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
-  # ETHEREUM_HOST: 'https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}';
-  # L1_CHAIN_ID: '11155111' # Sepolia Chain ID
+  # Address 0x652575Ff941e7c2850fB89f2B207efF6B06BC7B4
+  SEQ_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_SEQ_PRIVATE_KEY }}
+
+  # Address 0xE3b8F9F23b8D4BD7d437218Bff3bcED1ce5E70B3
+  PROVER_PUBLISHER_PRIVATE_KEY: ${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}
+
+  ETHEREUM_HOST: 'https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}';
+  L1_CHAIN_ID: '11155111' # Sepolia Chain ID
 
 jobs:
   setup:
