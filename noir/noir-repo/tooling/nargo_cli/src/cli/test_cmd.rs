@@ -80,23 +80,28 @@ pub(crate) fn run(args: TestCommand, config: NargoConfig) -> Result<(), CliError
         None => FunctionNameMatch::Anything,
     };
 
-    let test_reports: Vec<Vec<(String, TestStatus)>> = workspace
-        .into_iter()
-        .par_bridge()
-        .map(|package| {
-            run_tests::<Bn254BlackBoxSolver>(
-                &workspace_file_manager,
-                &parsed_files,
-                package,
-                pattern,
-                args.show_output,
-                args.oracle_resolver.as_deref(),
-                Some(workspace.root_dir.clone()),
-                Some(package.name.to_string()),
-                &args.compile_options,
-            )
-        })
-        .collect::<Result<_, _>>()?;
+    // Configure a thread pool with a larger stack size to prevent overflowing stack in large programs.
+    // Default is 2MB.
+    let pool = rayon::ThreadPoolBuilder::new().stack_size(4 * 1024 * 1024).build().unwrap();
+    let test_reports: Vec<Vec<(String, TestStatus)>> = pool.install(|| {
+        workspace
+            .into_iter()
+            .par_bridge()
+            .map(|package| {
+                run_tests::<Bn254BlackBoxSolver>(
+                    &workspace_file_manager,
+                    &parsed_files,
+                    package,
+                    pattern,
+                    args.show_output,
+                    args.oracle_resolver.as_deref(),
+                    Some(workspace.root_dir.clone()),
+                    Some(package.name.to_string()),
+                    &args.compile_options,
+                )
+            })
+            .collect::<Result<_, _>>()
+    })?;
     let test_report: Vec<(String, TestStatus)> = test_reports.into_iter().flatten().collect();
 
     if test_report.is_empty() {
@@ -141,30 +146,24 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     let plural = if count_all == 1 { "" } else { "s" };
     println!("[{}] Running {count_all} test function{plural}", package.name);
 
-    // Configure a thread pool with a larger stack size to prevent overflowing stack in large programs.
-    // Default is 2MB.
-    let pool = rayon::ThreadPoolBuilder::new().stack_size(4 * 1024 * 1024).build().unwrap();
+    let test_report: Vec<(String, TestStatus)> = test_functions
+        .into_par_iter()
+        .map(|test_name| {
+            let status = run_test::<S>(
+                file_manager,
+                parsed_files,
+                package,
+                &test_name,
+                show_output,
+                foreign_call_resolver_url,
+                root_path.clone(),
+                package_name.clone(),
+                compile_options,
+            );
 
-    let test_report: Vec<(String, TestStatus)> = pool.install(|| {
-        test_functions
-            .into_par_iter()
-            .map(|test_name| {
-                let status = run_test::<S>(
-                    file_manager,
-                    parsed_files,
-                    package,
-                    &test_name,
-                    show_output,
-                    foreign_call_resolver_url,
-                    root_path.clone(),
-                    package_name.clone(),
-                    compile_options,
-                );
-
-                (test_name, status)
-            })
-            .collect()
-    });
+            (test_name, status)
+        })
+        .collect();
 
     display_test_report(file_manager, package, compile_options, &test_report)?;
     Ok(test_report)
