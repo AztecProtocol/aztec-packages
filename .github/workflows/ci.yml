@@ -78,6 +78,7 @@ jobs:
               - barretenberg/cpp/pil/**
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
+              - barretenberg/cpp/src/barretenberg/client_ivc.{hpp,cpp}
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -125,7 +126,7 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
@@ -276,7 +277,7 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +preset-gcc
 
-  # barretenberg (prover) native and AVM (public VM) tests
+  # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
     needs: [build-images, changes]

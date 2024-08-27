@@ -9,10 +9,7 @@ import {
   createProverNodeRpcServer,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import {
-  createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
-} from '@aztec/telemetry-client/start';
+import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -32,7 +29,7 @@ export const startProverNode = async (
   }
 
   const proverConfig = {
-    ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings),
+    ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'),
     l1Contracts: extractL1ContractAddresses(options),
   };
 
@@ -70,7 +67,9 @@ export const startProverNode = async (
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
   }
 
-  const telemetry = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const telemetry = await createAndStartTelemetryClient(
+    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
+  );
   const proverNode = await createProverNode(proverConfig, { telemetry });
 
   services.push({ node: createProverNodeRpcServer(proverNode) });

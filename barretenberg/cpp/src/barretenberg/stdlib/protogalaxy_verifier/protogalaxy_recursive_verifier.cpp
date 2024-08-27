@@ -6,98 +6,11 @@ namespace bb::stdlib::recursion::honk {
 
 template <class VerifierInstances>
 void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_instance(
-    const std::shared_ptr<Instance>& inst, const std::string& domain_separator)
+    const std::shared_ptr<Instance>& inst, std::string& domain_separator)
 {
-    info("Num gates before receiving and finalizing instance:", builder->num_gates);
-    // Get circuit parameters and the public inputs
-    const auto instance_size = transcript->template receive_from_prover<FF>(domain_separator + "_circuit_size");
-    const auto public_input_size =
-        transcript->template receive_from_prover<FF>(domain_separator + "_public_input_size");
-    inst->verification_key->circuit_size = uint32_t(instance_size.get_value());
-    inst->verification_key->log_circuit_size =
-        static_cast<size_t>(numeric::get_msb(inst->verification_key->circuit_size));
-    inst->verification_key->num_public_inputs = uint32_t(public_input_size.get_value());
-    const auto pub_inputs_offset =
-        transcript->template receive_from_prover<FF>(domain_separator + "_pub_inputs_offset");
-    inst->verification_key->pub_inputs_offset = uint32_t(pub_inputs_offset.get_value());
-
-    info("Num gates before receiving public inputs:", builder->num_gates);
-    for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
-        auto public_input_i =
-            transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->public_inputs.emplace_back(public_input_i);
-    }
-    info("Num gates after receiving public inputs:", builder->num_gates);
-
-    // Get commitments to first three wire polynomials
-    auto labels = inst->commitment_labels;
-    auto& witness_commitments = inst->witness_commitments;
-    witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
-    witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
-    witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // Receive ECC op wire commitments
-        for (auto [commitment, label] : zip_view(witness_commitments.get_ecc_op_wires(), labels.get_ecc_op_wires())) {
-            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
-        }
-
-        // Receive DataBus related polynomial commitments
-        for (auto [commitment, label] :
-             zip_view(witness_commitments.get_databus_entities(), labels.get_databus_entities())) {
-            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
-        }
-    }
-
-    // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
-        domain_separator + "_eta", domain_separator + "_eta_two", domain_separator + "_eta_three");
-
-    // Receive commitments to lookup argument polynomials
-    witness_commitments.lookup_read_counts =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_counts);
-    witness_commitments.lookup_read_tags =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.lookup_read_tags);
-
-    // Receive commitments to wire 4
-    witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
-
-    info("Num gates after receiving most commitments:", builder->num_gates);
-    // Get permutation challenges and commitment to permutation and lookup grand products
-    auto [beta, gamma] =
-        transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
-
-    info("Num gates after computing beta and gamma:", builder->num_gates);
-    witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
-        domain_separator + "_" + commitment_labels.lookup_inverses);
-
-    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        for (auto [commitment, label] :
-             zip_view(witness_commitments.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
-            commitment = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + label);
-        }
-    }
-
-    witness_commitments.z_perm =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
-
-    // Compute correction terms for grand products
-    info("Num gates after receiving more commitments:", builder->num_gates);
-    const FF public_input_delta =
-        compute_public_input_delta<Flavor>(inst->public_inputs,
-                                           beta,
-                                           gamma,
-                                           inst->verification_key->circuit_size,
-                                           static_cast<size_t>(inst->verification_key->pub_inputs_offset));
-    info("Num gates after computing public input delta:", builder->num_gates);
-    inst->relation_parameters = RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
-
-    // Get the relation separation challenges
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
-    }
-    info("Num gates after generating alpha challenges:", builder->num_gates);
+    domain_separator = domain_separator + "_";
+    OinkVerifier oink_verifier{ builder, inst, transcript, domain_separator };
+    oink_verifier.verify();
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
@@ -124,14 +37,11 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
 
 template <class VerifierInstances>
 std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifier_<
-    VerifierInstances>::verify_folding_proof(const HonkProof& proof)
+    VerifierInstances>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     using Transcript = typename Flavor::Transcript;
 
-    info("Num gates init: ", builder->num_gates);
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    info("Num gates after converting proof: ", builder->num_gates);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript = std::make_shared<Transcript>(proof);
     prepare_for_folding();
     info("Num gates after preparing to fold: ", builder->num_gates);
 

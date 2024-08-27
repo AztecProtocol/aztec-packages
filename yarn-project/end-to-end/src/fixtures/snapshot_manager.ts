@@ -232,7 +232,7 @@ async function teardown(context: SubsystemsContext | undefined) {
 
 export async function createAndSyncProverNode(
   rollupAddress: EthAddress,
-  proverNodePrivateKey: Buffer,
+  proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
 ) {
@@ -255,7 +255,7 @@ export async function createAndSyncProverNode(
     proverId: new Fr(42),
     realProofs: false,
     proverAgentConcurrency: 2,
-    publisherPrivateKey: `0x${proverNodePrivateKey.toString('hex')}`,
+    publisherPrivateKey: proverNodePrivateKey,
     proverNodeMaxPendingJobs: 100,
   };
   const proverNode = await createProverNode(proverConfig, {
@@ -325,14 +325,14 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
   logger.verbose('Creating and syncing a simulated prover node...');
   const proverNode = await createAndSyncProverNode(
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    proverNodePrivateKey!,
+    `0x${proverNodePrivateKey!.toString('hex')}`,
     aztecNodeConfig,
     aztecNode,
   );
@@ -408,7 +408,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
 
   logger.verbose('Creating aztec node...');
-  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
 
   const proverNodePrivateKey = getPrivateKeyFromIndex(2);
@@ -416,7 +416,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating and syncing a simulated prover node...');
   const proverNode = await createAndSyncProverNode(
     aztecNodeConfig.l1Contracts.rollupAddress,
-    proverNodePrivateKey!,
+    `0x${proverNodePrivateKey!}`,
     aztecNodeConfig,
     aztecNode,
   );

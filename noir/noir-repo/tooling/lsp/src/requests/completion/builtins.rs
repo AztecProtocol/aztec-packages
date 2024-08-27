@@ -1,4 +1,83 @@
+use lsp_types::CompletionItemKind;
 use noirc_frontend::token::Keyword;
+use strum::IntoEnumIterator;
+
+use super::{
+    completion_items::{simple_completion_item, snippet_completion_item},
+    kinds::FunctionCompletionKind,
+    name_matches, NodeFinder,
+};
+
+impl<'a> NodeFinder<'a> {
+    pub(super) fn builtin_functions_completion(
+        &mut self,
+        prefix: &str,
+        function_completion_kind: FunctionCompletionKind,
+    ) {
+        for keyword in Keyword::iter() {
+            if let Some(func) = keyword_builtin_function(&keyword) {
+                if name_matches(func.name, prefix) {
+                    let description = Some(func.description.to_string());
+                    let label;
+                    let insert_text;
+                    match function_completion_kind {
+                        FunctionCompletionKind::Name => {
+                            label = func.name.to_string();
+                            insert_text = func.name.to_string();
+                        }
+                        FunctionCompletionKind::NameAndParameters => {
+                            label = format!("{}(…)", func.name);
+                            insert_text = format!("{}({})", func.name, func.parameters);
+                        }
+                    }
+
+                    self.completion_items.push(snippet_completion_item(
+                        label,
+                        CompletionItemKind::FUNCTION,
+                        insert_text,
+                        description,
+                    ));
+                }
+            }
+        }
+    }
+
+    pub(super) fn builtin_values_completion(&mut self, prefix: &str) {
+        for keyword in ["false", "true"] {
+            if name_matches(keyword, prefix) {
+                self.completion_items.push(simple_completion_item(
+                    keyword,
+                    CompletionItemKind::KEYWORD,
+                    Some("bool".to_string()),
+                ));
+            }
+        }
+    }
+
+    pub(super) fn builtin_types_completion(&mut self, prefix: &str) {
+        for keyword in Keyword::iter() {
+            if let Some(typ) = keyword_builtin_type(&keyword) {
+                if name_matches(typ, prefix) {
+                    self.completion_items.push(simple_completion_item(
+                        typ,
+                        CompletionItemKind::STRUCT,
+                        Some(typ.to_string()),
+                    ));
+                }
+            }
+        }
+
+        for typ in builtin_integer_types() {
+            if name_matches(typ, prefix) {
+                self.completion_items.push(simple_completion_item(
+                    typ,
+                    CompletionItemKind::STRUCT,
+                    Some(typ.to_string()),
+                ));
+            }
+        }
+    }
+}
 
 pub(super) fn builtin_integer_types() -> [&'static str; 8] {
     ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64"]
@@ -16,6 +95,7 @@ pub(super) fn keyword_builtin_type(keyword: &Keyword) -> Option<&'static str> {
         Keyword::TraitDefinition => Some("TraitDefinition"),
         Keyword::TraitImpl => Some("TraitImpl"),
         Keyword::TypeType => Some("Type"),
+        Keyword::UnresolvedType => Some("UnresolvedType"),
 
         Keyword::As
         | Keyword::Assert
@@ -53,6 +133,7 @@ pub(super) fn keyword_builtin_type(keyword: &Keyword) -> Option<&'static str> {
         | Keyword::Type
         | Keyword::Unchecked
         | Keyword::Unconstrained
+        | Keyword::Unsafe
         | Keyword::Use
         | Keyword::Where
         | Keyword::While => None,
@@ -122,6 +203,8 @@ pub(super) fn keyword_builtin_function(keyword: &Keyword) -> Option<BuiltInFunct
         | Keyword::TypeType
         | Keyword::Unchecked
         | Keyword::Unconstrained
+        | Keyword::UnresolvedType
+        | Keyword::Unsafe
         | Keyword::Use
         | Keyword::Where
         | Keyword::While => None,

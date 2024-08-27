@@ -117,7 +117,9 @@ global BASE_PARITY_INDEX: u32 = 18;
 global ROOT_PARITY_INDEX: u32 = 19;
 global BASE_ROLLUP_INDEX: u32 = 20;
 global MERGE_ROLLUP_INDEX: u32 = 21;
-global ROOT_ROLLUP_INDEX: u32 = 22;
+global BLOCK_ROOT_ROLLUP_INDEX: u32 = 22;
+global BLOCK_MERGE_ROLLUP_INDEX: u32 = 23;
+global ROOT_ROLLUP_INDEX: u32 = 24;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
@@ -132,8 +134,14 @@ global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
+// AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
+global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 1;
+global AZTEC_EPOCH_DURATION: u32 = 48;
 global IS_DEV_NET: bool = true;
-// The following and the value in `deploy_l1_contracts´ must match. We should not have the code both places, but 
+// The following is taken from building a block and looking at the `lastArchive` value in it.
+// You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
+global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
+// The following and the value in `deploy_l1_contracts´ must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
 
@@ -259,6 +267,8 @@ global CONSTANT_ROLLUP_DATA_LENGTH = APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 1 + GLOB
 
 // + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees
 global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = CONSTANT_ROLLUP_DATA_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH + 5;
+// + 64 for 32 * FeeRecipient { recipient, value }, + 4 for previous_block_hash, end_block_hash, out_hash, vk_tree_root + 1 temporarily for prover_id
+global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 2 * GLOBAL_VARIABLES_LENGTH + 69;
 
 global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
@@ -275,11 +285,11 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 409;
-global NESTED_RECURSIVE_PROOF_LENGTH = 409;
+global RECURSIVE_PROOF_LENGTH = 439;
+global NESTED_RECURSIVE_PROOF_LENGTH = 439;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 120;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
@@ -325,6 +335,7 @@ global GENERATOR_INDEX__PARTIAL_ADDRESS: u32 = 27;
 global GENERATOR_INDEX__BLOCK_HASH: u32 = 28;
 global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
 global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
+global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
 // Indices with size ≤ 16
 global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;

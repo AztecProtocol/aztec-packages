@@ -21,6 +21,7 @@ import {
   http,
   numberToHex,
   padHex,
+  zeroAddress,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -88,7 +89,7 @@ export interface L1ContractArtifactsForDeployment {
    */
   feeJuice: ContractArtifacts;
   /**
-   * Gas portal contract artifacts. Optional for now as gas is not strictly enforced
+   * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
 }
@@ -151,7 +152,7 @@ export const deployL1Contracts = async (
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
   // The code is same as `setBlockInterval` in `cheat_codes.ts`
-  const rpcCall = async (rpcUrl: string, method: string, params: any[]) => {
+  const rpcCall = async (method: string, params: any[]) => {
     const paramsString = JSON.stringify(params);
     const content = {
       body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
@@ -160,12 +161,14 @@ export const deployL1Contracts = async (
     };
     return await (await fetch(rpcUrl, content)).json();
   };
-  const interval = 12;
-  const res = await rpcCall(rpcUrl, 'anvil_setBlockTimestampInterval', [interval]);
-  if (res.error) {
-    throw new Error(`Error setting block interval: ${res.error.message}`);
+  if (chain.id == foundry.id) {
+    const interval = 12;
+    const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    if (res.error) {
+      throw new Error(`Error setting block interval: ${res.error.message}`);
+    }
+    logger.info(`Set block interval to ${interval}`);
   }
-  logger.info(`Set block interval to ${interval}`);
 
   logger.info(`Deploying contracts from ${account.address.toString()}...`);
 
@@ -183,12 +186,7 @@ export const deployL1Contracts = async (
 
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const feeJuicePortalAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.feeJuicePortal.contractAbi,
-    contractsToDeploy.feeJuicePortal.contractBytecode,
-  );
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
 
   logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
 
@@ -207,45 +205,67 @@ export const deployL1Contracts = async (
 
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
   //        because there is circular dependency hell. This is a temporary solution. #3342
+  // @todo  #8084
   const FEE_JUICE_INITIAL_MINT = 20000000000;
   const receipt = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
   await publicClient.waitForTransactionReceipt({ hash: receipt });
   logger.info(`Funded fee juice portal contract with Fee Juice`);
 
-  await publicClient.waitForTransactionReceipt({
-    hash: await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]),
-  });
+  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
+    await publicClient.waitForTransactionReceipt({
+      hash: await feeJuicePortal.write.initialize([
+        registryAddress.toString(),
+        feeJuiceAddress.toString(),
+        args.l2FeeJuiceAddress.toString(),
+      ]),
+    });
+    logger.verbose(`Fee juice portal initialized with registry ${registryAddress.toString()}`);
+  } else {
+    logger.verbose(`Fee juice portal is already initialized`);
+  }
 
   logger.info(
     `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  const rollupAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.rollup.contractAbi,
-    contractsToDeploy.rollup.contractBytecode,
-    [
-      getAddress(registryAddress.toString()),
-      getAddress(availabilityOracleAddress.toString()),
-      getAddress(feeJuicePortalAddress.toString()),
-      args.vkTreeRoot.toString(),
-      account.address.toString(),
-    ],
-  );
+  const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
+    getAddress(registryAddress.toString()),
+    getAddress(availabilityOracleAddress.toString()),
+    getAddress(feeJuicePortalAddress.toString()),
+    args.vkTreeRoot.toString(),
+    account.address.toString(),
+  ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
+
+  const rollup = getContract({
+    address: getAddress(rollupAddress.toString()),
+    abi: contractsToDeploy.rollup.contractAbi,
+    client: walletClient,
+  });
+
+  // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+  //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+  try {
+    // Need to get the time
+    const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
+
+    if (BigInt(currentSlot) === 0n) {
+      const ts = Number(await rollup.read.getTimestampForSlot([1]));
+      await rpcCall('evm_setNextBlockTimestamp', [ts]);
+      await rpcCall('hardhat_mine', [1]);
+      const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
+
+      if (BigInt(currentSlot) !== 1n) {
+        throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+      }
+      logger.info(`Jumped to slot 1`);
+    }
+  } catch (e) {
+    throw new Error(`Error jumping time: ${e}`);
+  }
 
   // Set initial blocks as proven if requested
   if (args.assumeProvenUntil && args.assumeProvenUntil > 0) {
-    const rollup = getContract({
-      address: getAddress(rollupAddress.toString()),
-      abi: contractsToDeploy.rollup.contractAbi,
-      client: walletClient,
-    });
     await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(args.assumeProvenUntil)], { account });
     logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenUntil}`);
   }

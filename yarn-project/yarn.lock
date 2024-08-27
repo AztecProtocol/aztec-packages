@@ -1018,6 +1018,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
+    "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -1208,6 +1209,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@types/jest": ^29.5.0
