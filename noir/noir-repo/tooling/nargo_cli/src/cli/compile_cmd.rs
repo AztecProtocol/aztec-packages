@@ -181,58 +181,29 @@ fn compile_programs(
             .map(|p| p.into())
     };
 
+    let compile_package = |package| {
+        let (program, warnings) = compile_program(
+            file_manager,
+            parsed_files,
+            workspace,
+            package,
+            compile_options,
+            load_cached_program(package),
+        )?;
+
+        let target_width =
+            get_target_width(package.expression_width, compile_options.expression_width);
+        let program = nargo::ops::transform_program(program, target_width);
+
+        save_program_to_file(&program.into(), &package.name, workspace.target_directory_path());
+
+        Ok(((), warnings))
+    };
+
     let program_results: Vec<CompilationResult<()>> = if compile_options.sequential {
-        binary_packages
-            .iter()
-            .map(|package| {
-                let (program, warnings) = compile_program(
-                    file_manager,
-                    parsed_files,
-                    workspace,
-                    package,
-                    compile_options,
-                    load_cached_program(package),
-                )?;
-
-                let target_width =
-                    get_target_width(package.expression_width, compile_options.expression_width);
-                let program = nargo::ops::transform_program(program, target_width);
-
-                save_program_to_file(
-                    &program.into(),
-                    &package.name,
-                    workspace.target_directory_path(),
-                );
-
-                Ok(((), warnings))
-            })
-            .collect()
+        binary_packages.iter().map(compile_package).collect()
     } else {
-        binary_packages
-            .par_iter()
-            .map(|package| {
-                let (program, warnings) = compile_program(
-                    file_manager,
-                    parsed_files,
-                    workspace,
-                    package,
-                    compile_options,
-                    load_cached_program(package),
-                )?;
-
-                let target_width =
-                    get_target_width(package.expression_width, compile_options.expression_width);
-                let program = nargo::ops::transform_program(program, target_width);
-
-                save_program_to_file(
-                    &program.into(),
-                    &package.name,
-                    workspace.target_directory_path(),
-                );
-
-                Ok(((), warnings))
-            })
-            .collect()
+        binary_packages.par_iter().map(compile_package).collect()
     };
 
     // Collate any warnings/errors which were encountered during compilation.
