@@ -20,7 +20,7 @@ export async function createAuthwit(
 
   if (!isPrivate) {
     throw new Error(
-      'Cannot create an authwit for a public function. To allow a third party to call a public function, please authorized the action via the authorize-action command',
+      'Cannot create an authwit for a public function. To allow a third party to call a public function, please authorize the action via the authorize-action command',
     );
   }
 
