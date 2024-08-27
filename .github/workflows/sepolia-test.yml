@@ -2,7 +2,7 @@ name: Run public testnet test
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 16 * * 1-5"
+    - cron: "00 08 * * 1-5"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
