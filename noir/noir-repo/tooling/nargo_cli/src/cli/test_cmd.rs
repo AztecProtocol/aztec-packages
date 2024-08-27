@@ -141,24 +141,30 @@ fn run_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
     let plural = if count_all == 1 { "" } else { "s" };
     println!("[{}] Running {count_all} test function{plural}", package.name);
 
-    let test_report: Vec<(String, TestStatus)> = test_functions
-        .into_par_iter()
-        .map(|test_name| {
-            let status = run_test::<S>(
-                file_manager,
-                parsed_files,
-                package,
-                &test_name,
-                show_output,
-                foreign_call_resolver_url,
-                root_path.clone(),
-                package_name.clone(),
-                compile_options,
-            );
+    // Configure a thread pool with a larger stack size to prevent overflowing stack in large programs.
+    // Default is 2MB.
+    let pool = rayon::ThreadPoolBuilder::new().stack_size(4 * 1024 * 1024).build().unwrap();
 
-            (test_name, status)
-        })
-        .collect();
+    let test_report: Vec<(String, TestStatus)> = pool.install(|| {
+        test_functions
+            .into_par_iter()
+            .map(|test_name| {
+                let status = run_test::<S>(
+                    file_manager,
+                    parsed_files,
+                    package,
+                    &test_name,
+                    show_output,
+                    foreign_call_resolver_url,
+                    root_path.clone(),
+                    package_name.clone(),
+                    compile_options,
+                );
+
+                (test_name, status)
+            })
+            .collect()
+    });
 
     display_test_report(file_manager, package, compile_options, &test_report)?;
     Ok(test_report)
