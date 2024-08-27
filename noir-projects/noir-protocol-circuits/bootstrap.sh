@@ -20,9 +20,7 @@ node ./generate_variants.js
 
 echo "Compiling protocol circuits..."
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-# TODO: We currently have to compile the protocol circuits sequentially as otherwise we get a stack overflow
-# We should move back to compiling them in parallel.
-$NARGO compile --silence-warnings --sequential
+$NARGO compile --silence-warnings
 
 BB_HASH=${BB_HASH:-$(cd ../../ && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)}
 echo Using BB hash $BB_HASH
