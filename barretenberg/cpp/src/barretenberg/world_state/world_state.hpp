@@ -29,7 +29,7 @@ namespace bb::world_state {
 
 using crypto::merkle_tree::index_t;
 
-using HashPolicy = crypto::merkle_tree::PedersenHashPolicy;
+using HashPolicy = crypto::merkle_tree::Poseidon2HashPolicy;
 
 using FrStore = crypto::merkle_tree::CachedTreeStore<crypto::merkle_tree::LMDBStore, fr>;
 using FrTree = crypto::merkle_tree::AppendOnlyTree<FrStore, HashPolicy>;
