@@ -30,11 +30,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         FF perturbator_evaluation;              // computed then evaluated in computation of next target sum
         RelationParameters relation_parameters; // used for combiner; folded
                                                 // WORKTODO: deprecated
-        OptimisedRelationParameters optimised_relation_parameters;             // used for combiner; folded
-        CombinedRelationSeparator alphas;                                      // used for combiner; folded
-        TupleOfTuplesOfUnivariates univariate_accumulators;                    // WORKTODO: delete
-        OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators; // WORKTODO: delete
-        FoldingResult<Flavor> result;                                          // WORKTODO: move out
+        OptimisedRelationParameters optimised_relation_parameters; // used for combiner; folded
+        CombinedRelationSeparator alphas;                          // used for combiner; folded
     };
     using Transcript = typename Flavor::Transcript;
     using Instance = typename ProverInstances_::Instance;

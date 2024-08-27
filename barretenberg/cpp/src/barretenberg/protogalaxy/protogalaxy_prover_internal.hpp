@@ -332,6 +332,27 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         return batch_over_relations(deoptimized_univariates, alphas);
     }
 
+    template <typename Parameters>
+    static ExtendedUnivariateWithRandomization compute_combiner_no_skip_zero_computations(
+        const ProverInstances& instances,
+        const PowPolynomial<FF>& pow_betas,
+        const Parameters& relation_parameters,
+        const CombinedRelationSeparator& alphas)
+    {
+        TupleOfTuplesOfUnivariates accumulators;
+        return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
+    }
+
+    template <typename Parameters>
+    static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
+                                                                const PowPolynomial<FF>& pow_betas,
+                                                                const Parameters& relation_parameters,
+                                                                const CombinedRelationSeparator& alphas)
+    {
+        OptimisedTupleOfTuplesOfUnivariates accumulators;
+        return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
+    }
+
     /**
      * @brief Convert univariates from optimised form to regular
      *
