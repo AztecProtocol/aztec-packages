@@ -23,7 +23,8 @@ using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
  * aggregation object, and commitments.
  *
  * @param builder
- * @param input
+ * @param proof_size Size of proof with NO public inputs
+ * @param public_inputs_size Total size of public inputs including aggregation object
  * @param key_fields
  * @param proof_fields
  */
@@ -34,9 +35,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& proof_fields)
 {
     using Flavor = UltraFlavor;
-
-    proof_size -= bb::AGGREGATION_OBJECT_SIZE;
-    public_inputs_size += bb::AGGREGATION_OBJECT_SIZE;
 
     // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
@@ -57,7 +55,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Third key field is the pub inputs offset
     builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
     // Fourth key field is the whether the proof contains an aggregation object.
-    builder.assert_equal(builder.add_variable(1), key_fields[4].witness_index);
+    builder.assert_equal(builder.add_variable(1), key_fields[4].witness_index); // WORKTODO: 4 = bug?
     uint32_t offset = 4;
     size_t num_inner_public_inputs = public_inputs_size - bb::AGGREGATION_OBJECT_SIZE;
 
@@ -188,7 +186,12 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
-        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
+        // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
+        // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::AGGREGATION_OBJECT_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + bb::AGGREGATION_OBJECT_SIZE;
+        create_dummy_vkey_and_proof(
+            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }
 
     // Recursively verify the proof
