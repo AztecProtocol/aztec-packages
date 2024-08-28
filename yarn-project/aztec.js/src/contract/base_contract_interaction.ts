@@ -20,6 +20,8 @@ export type SendMethodOptions = {
   estimateGas?: boolean;
   /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
   nonce?: Fr;
+  /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
+  cancellable?: boolean;
 };
 
 /**

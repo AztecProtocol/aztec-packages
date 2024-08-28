@@ -38,9 +38,9 @@ contract EcdsaKAccount {
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload);
+        actions.entrypoint(app_payload, fee_payload, cancellable);
     }
 
     #[aztec(private)]

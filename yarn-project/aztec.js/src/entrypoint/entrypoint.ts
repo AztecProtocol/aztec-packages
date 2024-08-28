@@ -20,6 +20,8 @@ export type ExecutionRequestInit = {
   fee?: FeeOptions;
   /** An optional nonce. Used to repeat a previous tx with a higher fee so that the first one is cancelled */
   nonce?: Fr;
+  /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
+  cancellable?: boolean;
 };
 
 /** Creates transaction execution requests out of a set of function calls. */

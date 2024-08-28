@@ -1,6 +1,7 @@
-import { type AuthWitness } from '@aztec/circuit-types';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
+import { type AuthWitness, TxHash } from '@aztec/circuit-types';
+import { type AztecAddress, Fr, Gas, GasSettings } from '@aztec/circuits.js';
 import { type LogFn } from '@aztec/foundation/log';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type AccountType } from '../utils/accounts.js';
@@ -71,9 +72,9 @@ export class WalletDB {
     if (alias) {
       await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
     }
-    await this.#accounts.set(`${address.toString()}-type`, Buffer.from(type));
-    await this.#accounts.set(`${address.toString()}-sk`, secretKey.toBuffer());
-    await this.#accounts.set(`${address.toString()}-salt`, salt.toBuffer());
+    await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
+    await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
+    await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
     if (type === 'ecdsasecp256r1ssh' && publicKey) {
       const publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
       await this.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
@@ -101,13 +102,37 @@ export class WalletDB {
     log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
-  async storeTx({ txHash, nonce }: { txHash: string; nonce: Fr }, log: LogFn, alias?: string) {
+  async storeTx(
+    {
+      txHash,
+      nonce,
+      cancellable,
+      gasSettings,
+    }: { txHash: TxHash; nonce: Fr; cancellable: boolean; gasSettings: GasSettings },
+    log: LogFn,
+    alias?: string,
+  ) {
     if (alias) {
-      await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash));
+      await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
     }
-    await this.#transactions.set(`${txHash}:nonce`, nonce.toBuffer());
-    await this.#aliases.set(`transactions:last`, Buffer.from(txHash));
+    await this.#transactions.set(`${txHash.toString()}:nonce`, nonce.toBuffer());
+    await this.#transactions.set(`${txHash.toString()}:cancellable`, Buffer.from(cancellable ? 'true' : 'false'));
+    await this.#transactions.set(`${txHash.toString()}:gasSettings`, gasSettings.toBuffer());
+    await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+  }
+
+  retrieveTxData(txHash: TxHash) {
+    const nonceBuffer = this.#transactions.get(`${txHash.toString()}:nonce`);
+    if (!nonceBuffer) {
+      throw new Error(
+        `Could not find ${txHash.toString()}:nonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
+      );
+    }
+    const nonce = Fr.fromBuffer(nonceBuffer);
+    const cancellable = this.#transactions.get(`${txHash.toString()}:cancellable`)!.toString() === 'true';
+    const gasBuffer = this.#transactions.get(`${txHash.toString()}:gasSettings`)!;
+    return { txHash, nonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
   }
 
   tryRetrieveAlias(arg: string) {
@@ -146,12 +171,12 @@ export class WalletDB {
 
   async storeAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string, metadata: Buffer) {
     const { address } = this.retrieveAccount(aliasOrAddress);
-    await this.#accounts.set(`${address.toString()}-${metadataKey}`, metadata);
+    await this.#accounts.set(`${address.toString()}:${metadataKey}`, metadata);
   }
 
   retrieveAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string) {
     const { address } = this.retrieveAccount(aliasOrAddress);
-    const result = this.#accounts.get(`${address.toString()}-${metadataKey}`);
+    const result = this.#accounts.get(`${address.toString()}:${metadataKey}`);
     if (!result) {
       throw new Error(`Could not find metadata with key ${metadataKey} for account ${aliasOrAddress}`);
     }
@@ -159,13 +184,13 @@ export class WalletDB {
   }
 
   retrieveAccount(address: AztecAddress | string) {
-    const secretKeyBuffer = this.#accounts.get(`${address.toString()}-sk`);
+    const secretKeyBuffer = this.#accounts.get(`${address.toString()}:sk`);
     if (!secretKeyBuffer) {
-      throw new Error(`Could not find ${address}-sk. Account "${address.toString}" does not exist on this wallet.`);
+      throw new Error(`Could not find ${address}:sk. Account "${address.toString}" does not exist on this wallet.`);
     }
     const secretKey = Fr.fromBuffer(secretKeyBuffer);
-    const salt = Fr.fromBuffer(this.#accounts.get(`${address.toString()}-salt`)!);
-    const type = this.#accounts.get(`${address.toString()}-type`)!.toString('utf8') as AccountType;
+    const salt = Fr.fromBuffer(this.#accounts.get(`${address.toString()}:salt`)!);
+    const type = this.#accounts.get(`${address.toString()}:type`)!.toString('utf8') as AccountType;
     return { address, secretKey, salt, type };
   }
 

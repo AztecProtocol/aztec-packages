@@ -35,6 +35,7 @@ import {
   createArtifactOption,
   createContractAddressOption,
   createTypeOption,
+  parsePaymentMethod,
 } from '../utils/options/index.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger, db?: WalletDB) {
@@ -229,7 +230,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .addOption(createTypeOption(false))
-    .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
+    .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
+    .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
 
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
     const { send } = await import('./send.js');
@@ -239,12 +241,13 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       contractArtifact: artifactPathPromise,
       contractAddress,
       from: parsedFromAddress,
-      noWait,
+      wait,
       rpcUrl,
       type,
       secretKey,
       publicKey,
       alias,
+      cancel,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
@@ -259,12 +262,14 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       args,
       artifactPath,
       contractAddress,
-      !noWait,
+      wait,
+      cancel,
       FeeOpts.fromCli(options, log, db),
       log,
     );
     if (db && sentTx) {
-      await db.storeTx(sentTx, log, alias);
+      const txAlias = alias ? alias : `${functionName}-${sentTx.nonce.toString().slice(-4)}`;
+      await db.storeTx(sentTx, log, txAlias);
     }
   });
 
@@ -546,20 +551,49 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
           aliases.map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
+            cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
             status: await checkTx(client, TxHash.fromString(value), true, log),
           })),
         );
         log(`Recent transactions:`);
         log('');
-        log(`${'Alias'.padEnd(32, ' ')} | ${'TxHash'.padEnd(64, ' ')} | Status`);
-        log(''.padEnd(32 + 64 + 24, '-'));
-        for (const { alias, txHash, status } of dataRows) {
-          log(`${alias.padEnd(32, ' ')} | ${txHash} | ${status}`);
-          log(''.padEnd(32 + 64 + 24, '-'));
+        log(`${'Alias'.padEnd(32, ' ')} | ${'TxHash'.padEnd(64, ' ')} | ${'Cancellable'.padEnd(12, ' ')} | Status`);
+        log(''.padEnd(32 + 64 + 12 + 20, '-'));
+        for (const { alias, txHash, status, cancellable } of dataRows) {
+          log(`${alias.padEnd(32, ' ')} | ${txHash} | ${cancellable.toString()?.padEnd(12, ' ')} | ${status}`);
+          log(''.padEnd(32 + 64 + 12 + 20, '-'));
         }
       } else {
         log('Recent transactions are not available, please provide a specific transaction hash');
       }
+    });
+
+  program
+    .command('cancel-tx')
+    .description('Cancels a peding tx by reusing its nonce with a higher fee and an empty payload')
+    .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, db))
+    .addOption(pxeOption)
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createTypeOption(false))
+    .addOption(FeeOpts.paymentMethodOption().default('method=none'))
+    .action(async (txHash, options) => {
+      const { cancelTx } = await import('./cancel_tx.js');
+      const { from: parsedFromAddress, rpcUrl, type, secretKey, publicKey, payment } = options;
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const wallet = await getWalletWithScopes(account, db);
+
+      const txData = db?.retrieveTxData(txHash);
+
+      if (!txData) {
+        throw new Error('Transaction data not found in the database, cannnot reuse nonce');
+      }
+      const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
+
+      cancelTx(wallet, txData, paymentMethod, log);
     });
 
   return program;
