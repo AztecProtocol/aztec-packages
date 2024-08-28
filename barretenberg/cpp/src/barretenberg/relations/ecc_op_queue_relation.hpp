@@ -69,10 +69,18 @@ template <typename FF_> class EccOpQueueRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
+        OriginTag original_tag;
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
         auto w_3 = View(in.w_o);
         auto w_4 = View(in.w_4);
+        // w_4 violates Transcript Security Policy but there should be no way to exploit it, so we need to disable
+        // the check here temporarily
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            original_tag = w_4.get_origin_tag();
+            auto benign_tag = w_1.get_origin_tag();
+            w_4.set_origin_tag(benign_tag);
+        }
         auto op_wire_1 = View(in.ecc_op_wire_1);
         auto op_wire_2 = View(in.ecc_op_wire_2);
         auto op_wire_3 = View(in.ecc_op_wire_3);
@@ -118,6 +126,9 @@ template <typename FF_> class EccOpQueueRelationImpl {
         // Contribution (8)
         tmp = op_wire_4 * complement_ecc_op_by_scaling;
         std::get<7>(accumulators) += tmp;
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            w_4.set_origin_tag(original_tag);
+        }
     };
 };
 

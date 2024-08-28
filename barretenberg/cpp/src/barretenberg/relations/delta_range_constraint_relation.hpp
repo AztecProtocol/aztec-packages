@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/transcript/tag.hpp"
 
 namespace bb {
 
@@ -58,6 +59,8 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         BB_OP_COUNT_TIME_NAME("DeltaRange::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+
+        OriginTag original_tag;
         auto w_1 = View(in.w_l);
         auto w_2 = View(in.w_r);
         auto w_3 = View(in.w_o);
@@ -67,7 +70,13 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
 
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
-
+        // w_4 violates Transcript Security Policy but there should be no way to exploit it, so we need to disable
+        // the check here temporarily
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            original_tag = w_4.get_origin_tag();
+            auto benign_tag = w_1.get_origin_tag();
+            w_4.set_origin_tag(benign_tag);
+        }
         // Compute wire differences
         auto delta_1 = w_2 - w_1;
         auto delta_2 = w_3 - w_2;
@@ -101,6 +110,9 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         tmp_4 *= q_delta_range;
         tmp_4 *= scaling_factor;
         std::get<3>(accumulators) += tmp_4;
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            w_4.set_origin_tag(original_tag);
+        }
     };
 };
 

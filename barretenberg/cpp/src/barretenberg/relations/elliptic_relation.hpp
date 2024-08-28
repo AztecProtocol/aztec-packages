@@ -2,6 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/transcript/tag.hpp"
 
 namespace bb {
 
@@ -64,6 +65,8 @@ template <typename FF_> class EllipticRelationImpl {
 
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+
+        OriginTag original_tag;
         auto x_1 = View(in.w_r);
         auto y_1 = View(in.w_o);
 
@@ -75,6 +78,14 @@ template <typename FF_> class EllipticRelationImpl {
         auto q_sign = View(in.q_l);
         auto q_elliptic = View(in.q_elliptic);
         auto q_is_double = View(in.q_m);
+
+        // w_4 violates Transcript Security Policy but there should be no way to exploit it, so we need to disable
+        // the check here temporarily
+        if constexpr (requires { y_2.get_origin_tag(); }) {
+            original_tag = y_2.get_origin_tag();
+            auto benign_tag = x_2.get_origin_tag();
+            y_2.set_origin_tag(benign_tag);
+        }
 
         // Contribution (1) point addition, x-coordinate check
         // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
@@ -113,6 +124,9 @@ template <typename FF_> class EllipticRelationImpl {
         auto x1_sqr_mul_3 = x1_mul_3 * x_1;
         auto y_double_identity = x1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y1_plus_y3);
         std::get<1>(accumulators) += y_double_identity * q_elliptic_q_double_scaling;
+        if constexpr (requires { y_2.get_origin_tag(); }) {
+            y_2.set_origin_tag(original_tag);
+        }
     };
 };
 

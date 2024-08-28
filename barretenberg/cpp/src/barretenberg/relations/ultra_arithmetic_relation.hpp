@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/transcript/tag.hpp"
 
 namespace bb {
 
@@ -83,6 +84,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
                                   const FF& scaling_factor)
     {
         BB_OP_COUNT_TIME_NAME("Arithmetic::accumulate");
+        OriginTag original_tag;
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
             using View = typename Accumulator::View;
@@ -101,12 +103,25 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 
             static const FF neg_half = FF(-2).invert();
 
+            // w_4 violates Transcript Security Policy but there should be no way to exploit it, so we need to disable
+            // the check here temporarily
+            if constexpr (requires { w_4.get_origin_tag(); }) {
+                original_tag = w_4.get_origin_tag();
+                auto benign_tag = w_l.get_origin_tag();
+                w_4.set_origin_tag(benign_tag);
+                w_4_shift.set_origin_tag(benign_tag);
+            }
+
             auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
             tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
             tmp += (q_arith - 1) * w_4_shift;
             tmp *= q_arith;
             tmp *= scaling_factor;
             std::get<0>(evals) += tmp;
+            if constexpr (requires { w_4.get_origin_tag(); }) {
+                w_4.set_origin_tag(original_tag);
+                w_4_shift.set_origin_tag(original_tag);
+            }
         }
         {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
@@ -117,12 +132,22 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             auto q_m = View(in.q_m);
             auto q_arith = View(in.q_arith);
 
+            if constexpr (requires { w_4.get_origin_tag(); }) {
+                original_tag = w_4.get_origin_tag();
+                auto benign_tag = w_l.get_origin_tag();
+                w_4.set_origin_tag(benign_tag);
+            }
+
             auto tmp = w_l + w_4 - w_l_shift + q_m;
             tmp *= (q_arith - 2);
             tmp *= (q_arith - 1);
             tmp *= q_arith;
             tmp *= scaling_factor;
             std::get<1>(evals) += tmp;
+
+            if constexpr (requires { w_4.get_origin_tag(); }) {
+                w_4.set_origin_tag(original_tag);
+            }
         };
     };
 };

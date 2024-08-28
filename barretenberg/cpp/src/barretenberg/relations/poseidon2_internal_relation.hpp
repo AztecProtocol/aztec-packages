@@ -63,6 +63,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         BB_OP_COUNT_TIME_NAME("PoseidonInt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
+        OriginTag original_tag;
         auto w_l = View(in.w_l);
         auto w_r = View(in.w_r);
         auto w_o = View(in.w_o);
@@ -73,7 +74,14 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         auto w_4_shift = View(in.w_4_shift);
         auto q_l = View(in.q_l);
         auto q_poseidon2_internal = View(in.q_poseidon2_internal);
-
+        // w_4 violates Transcript Security Policy but there should be no way to exploit it, so we need to disable
+        // the check here temporarily
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            original_tag = w_4.get_origin_tag();
+            auto benign_tag = w_l.get_origin_tag();
+            w_4.set_origin_tag(benign_tag);
+            w_4_shift.set_origin_tag(benign_tag);
+        }
         // add round constants
         auto s1 = w_l + q_l;
 
@@ -109,6 +117,10 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         v4 += sum;
         tmp = q_pos_by_scaling * (v4 - w_4_shift);
         std::get<3>(evals) += tmp;
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            w_4.set_origin_tag(original_tag);
+            w_4_shift.set_origin_tag(original_tag);
+        }
     };
 }; // namespace bb
 

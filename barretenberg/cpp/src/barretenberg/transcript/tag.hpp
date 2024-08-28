@@ -11,6 +11,7 @@ struct OriginTag {
     // Parent tag uses a concrete index, not bits for now, since we never expect the values to meet
     size_t parent_tag;
     numeric::uint256_t child_tag;
+    bool instant_death = false;
     OriginTag() = default;
     OriginTag(const OriginTag& other) = default;
     OriginTag(OriginTag&& other) = default;
@@ -19,6 +20,7 @@ struct OriginTag {
     {
         parent_tag = other.parent_tag;
         child_tag = other.child_tag;
+        instant_death = other.instant_death;
         return *this;
     }
     OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
@@ -30,6 +32,9 @@ struct OriginTag {
 
     OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     {
+        if (tag_a.instant_death || tag_b.instant_death) {
+            throw_or_abort("Touched an element that should not have been touched");
+        }
         if (tag_a.parent_tag != tag_b.parent_tag && (tag_a.parent_tag != 0U) && (tag_b.parent_tag != 0U)) {
             throw_or_abort("Tags from different transcripts were involved in the same computation");
         }
@@ -41,7 +46,13 @@ struct OriginTag {
     {
         parent_tag = tag.parent_tag;
         child_tag = tag.child_tag;
+        if (tag.instant_death) {
+            throw_or_abort("Touched an element that should not have been touched");
+        }
         for (const auto& next_tag : { rest... }) {
+            if (next_tag.instant_death) {
+                throw_or_abort("Touched an element that should not have been touched");
+            }
             if (parent_tag != next_tag.parent_tag && (parent_tag != 0U) && (next_tag.parent_tag != 0U)) {
                 throw_or_abort("Tags from different transcripts were involved in the same computation");
             }

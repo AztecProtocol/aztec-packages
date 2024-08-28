@@ -81,6 +81,8 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
+    // This has to be removed once we have an actual recursion separator
+    recursion_separator.set_origin_tag(OriginTag(nested_pairing_points[0].get_origin_tag().parent_tag, 127, false));
     agg_obj.aggregate(nested_agg_obj, recursion_separator);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported

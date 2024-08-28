@@ -120,6 +120,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
+        OriginTag original_tag;
         const auto& eta = ParameterView(params.eta);
         const auto& eta_two = ParameterView(params.eta_two);
         const auto& eta_three = ParameterView(params.eta_three);
@@ -141,7 +142,14 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto q_c = View(in.q_c);
         auto q_arith = View(in.q_arith);
         auto q_aux = View(in.q_aux);
-
+        // w_4 violates Transcript Security Policye but there should be no way to exploit it, so we need to disable
+        // the check here temporarily. We switch it back for the eta combination
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            original_tag = w_4.get_origin_tag();
+            auto benign_tag = w_1.get_origin_tag();
+            w_4.set_origin_tag(benign_tag);
+            w_4_shift.set_origin_tag(benign_tag);
+        }
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
@@ -245,6 +253,10 @@ template <typename FF_> class AuxiliaryRelationImpl {
          *
          * For ROM gates, qc = 0
          */
+
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            w_4.set_origin_tag(original_tag);
+        }
         auto memory_record_check = w_3 * eta_three;
         memory_record_check += w_2 * eta_two;
         memory_record_check += w_1 * eta;
@@ -267,6 +279,9 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * 3. if, at gate i, index_i == index_{i + 1}, then value1_i == value1_{i + 1} and value2_i == value2_{i + 1}
          *
          */
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            w_4.set_origin_tag(w_1.get_origin_tag());
+        }
         auto index_delta = w_1_shift - w_1;
         auto record_delta = w_4_shift - w_4;
 
@@ -302,6 +317,10 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
          * with a WRITE operation.
          */
+        if constexpr (requires { w_4.get_origin_tag(); }) {
+            w_4.set_origin_tag(original_tag);
+            w_4_shift.set_origin_tag(original_tag);
+        }
         auto access_type = (w_4 - partial_record_check);             // will be 0 or 1 for honest Prover; deg 1 or 2
         auto access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 4
 

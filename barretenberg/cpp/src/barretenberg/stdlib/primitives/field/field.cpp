@@ -361,7 +361,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
             ctx->failure("field_t::pow exponent accumulator incorrect");
         }
         constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-        return get_value().pow(exponent_value & MASK_32_BITS);
+        auto result = field_t(get_value().pow(exponent_value & MASK_32_BITS));
+        result.set_origin_tag(OriginTag(get_origin_tag(), exponent.get_origin_tag()));
+        return result;
     }
 
     bool exponent_constant = exponent.is_constant();

@@ -39,6 +39,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
+    using RecursiveTranscript = typename RecursiveVerifier::Transcript;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     /**
@@ -294,6 +295,98 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // We expect the circuit check to fail due to the bad proof
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
+
+    static void test_full_relation_tags()
+    {
+        using FF_ct = typename RecursiveFlavor::FF;
+        using Fr = bb::fr;
+        using CommitmentLabels = typename RecursiveFlavor::CommitmentLabels;
+        const size_t NUM_PUBLIC_INPUTS = 2;
+        HonkProof proof;
+        proof.insert(proof.begin(), 300, Fr(0));
+        typename RecursiveFlavor::AllValues evaluations;
+        RelationParameters<FF_ct> relation_parameters;
+        CommitmentLabels labels;
+        OuterBuilder builder;
+        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof);
+        std::string domain_separator = "";
+        auto transcript = std::make_shared<RecursiveTranscript>(stdlib_proof);
+
+        std::vector<FF_ct> public_inputs;
+        for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
+            public_inputs.emplace_back(transcript->template receive_from_prover<FF_ct>(
+                domain_separator + "public_input_" + std::to_string(i)));
+        }
+        evaluations.w_l = transcript->template receive_from_prover<FF_ct>("w_l");
+        evaluations.w_r = transcript->template receive_from_prover<FF_ct>("w_r");
+        evaluations.w_o = transcript->template receive_from_prover<FF_ct>("w_o");
+
+        if constexpr (IsGoblinFlavor<RecursiveFlavor>) {
+            // Receive ECC op wire commitments
+            for (auto [element, label] : zip_view(evaluations.get_ecc_op_wires(), labels.get_ecc_op_wires())) {
+                element = transcript->template receive_from_prover<FF_ct>(label);
+            }
+
+            // Receive DataBus related polynomial commitments
+            for (auto [element, label] : zip_view(evaluations.get_databus_entities(), labels.get_databus_entities())) {
+                element = transcript->template receive_from_prover<FF_ct>(label);
+            }
+        }
+
+        // Get eta challenges; used in RAM/ROM memory records and log derivative lookup argument
+        auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF_ct>(
+            domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+
+        // Get commitments to lookup argument polynomials and fourth wire
+        evaluations.lookup_read_counts =
+            transcript->template receive_from_prover<FF_ct>(domain_separator + labels.lookup_read_counts);
+        evaluations.lookup_read_tags =
+            transcript->template receive_from_prover<FF_ct>(domain_separator + labels.lookup_read_tags);
+        evaluations.w_4 = transcript->template receive_from_prover<FF_ct>(domain_separator + labels.w_4);
+
+        // Get permutation challenges
+        auto [beta, gamma] =
+            transcript->template get_challenges<FF_ct>(domain_separator + "beta", domain_separator + "gamma");
+
+        evaluations.lookup_inverses =
+            transcript->template receive_from_prover<FF_ct>(domain_separator + labels.lookup_inverses);
+
+        // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
+        if constexpr (IsGoblinFlavor<RecursiveFlavor>) {
+            for (auto [element, label] : zip_view(evaluations.get_databus_inverses(), labels.get_databus_inverses())) {
+                element = transcript->template receive_from_prover<FF_ct>(domain_separator + label);
+            }
+        }
+        const size_t circuit_size = 2048;
+        const size_t pub_inputs_offset = 16;
+        const FF_ct public_input_delta =
+            compute_public_input_delta<RecursiveFlavor>(public_inputs, beta, gamma, circuit_size, pub_inputs_offset);
+
+        relation_parameters = RelationParameters<FF_ct>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
+
+        // Get commitment to permutation and lookup grand products
+        evaluations.z_perm = transcript->template receive_from_prover<FF_ct>(domain_separator + labels.z_perm);
+
+        typename RecursiveFlavor::RelationSeparator alphas;
+        for (size_t idx = 0; idx < alphas.size(); idx++) {
+            alphas[idx] = transcript->template get_challenge<FF_ct>(domain_separator + "alpha_" + std::to_string(idx));
+        }
+
+        FF_ct pow_evaluation = transcript->template get_challenge<FF_ct>("Sumcheck:gate_challenge");
+
+        for (auto [element, shifted_element] : zip_view(evaluations.get_to_be_shifted(), evaluations.get_shifted())) {
+            shifted_element = element;
+        }
+        FF_ct libra_evaluation = transcript->template receive_from_prover<FF_ct>("libra_evaluation");
+
+        // auto sumcheck = SumcheckVerifier<RecursiveFlavor>(log_circuit_size, transcript, ff_ct(0));
+        SumcheckVerifierRound<RecursiveFlavor> round;
+        std::vector temp = { FF_ct(0) };
+        PowPolynomial<FF_ct> pow_polynomial(temp);
+        pow_polynomial.partial_evaluation_result = pow_evaluation;
+        round.compute_full_honk_relation_purported_value(
+            evaluations, relation_parameters, pow_polynomial, alphas, libra_evaluation);
+    }
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
@@ -334,5 +427,10 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
 };
+
+TYPED_TEST(RecursiveVerifierTest, RelationTags)
+{
+    TestFixture::test_full_relation_tags();
+}
 
 } // namespace bb::stdlib::recursion::honk

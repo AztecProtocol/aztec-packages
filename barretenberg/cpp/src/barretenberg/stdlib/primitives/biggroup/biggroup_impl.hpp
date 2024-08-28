@@ -753,11 +753,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 {
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
     OriginTag tag{};
-    for (auto& point : _points) {
-        tag = OriginTag(tag, point.get_origin_tag());
-    }
-    for (auto& scalar : _scalars) {
-        tag = OriginTag(tag, scalar.get_origin_tag());
+    for (size_t i = 0; i < scalars.size(); i++) {
+        tag = OriginTag(tag, OriginTag(points[i].get_origin_tag(), scalars[i].get_origin_tag()));
     }
 
     if constexpr (IsSimulator<C>) {

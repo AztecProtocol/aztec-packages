@@ -778,6 +778,23 @@ template <typename Flavor> class SumcheckVerifier {
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
+
+        // Additional relation parameters that are used by translator violate Transcript Security Policy, because they
+        // are derived from submitted values earlier, while sumcheck evaluations are submitted afterwards. So we need to
+        // transplant the tags from evaluations into these parameters
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            auto sumcheck_evaluations_tag = transcript_evaluations[0].get_origin_tag();
+            for (size_t i = 0; i < relation_parameters.batching_challenge_v.size(); i++) {
+                for (size_t j = 0; j < relation_parameters.batching_challenge_v[i].size(); j++) {
+                    relation_parameters.batching_challenge_v[i][j].set_origin_tag(sumcheck_evaluations_tag);
+                }
+            }
+            for (size_t i = 0; i < relation_parameters.evaluation_input_x.size(); i++) {
+                relation_parameters.evaluation_input_x[i].set_origin_tag(sumcheck_evaluations_tag);
+                relation_parameters.accumulated_result[i].set_origin_tag(sumcheck_evaluations_tag);
+            }
+        }
+
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
