@@ -1,9 +1,11 @@
 import { type ProvingJobSource } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
+  AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  EthAddress,
   Fr,
   Header,
   KernelCircuitPublicInputs,
@@ -25,6 +27,7 @@ import {
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
+import { type ProverAgent } from './prover-agent.js';
 import { ProvingError } from './proving-error.js';
 
 export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcServer {
@@ -94,4 +97,25 @@ export function createProvingJobSourceClient(
     namespace,
     fetch,
   ) as ProvingJobSource;
+}
+
+/**
+ * Wrap a ProverAgent instance with a JSON RPC HTTP server.
+ * @param node - The ProverNode
+ * @returns An JSON-RPC HTTP server
+ */
+export function createProverAgentRpcServer(agent: ProverAgent) {
+  const rpc = new JsonRpcServer(
+    agent,
+    {
+      AztecAddress,
+      EthAddress,
+      Fr,
+      Header,
+    },
+    {},
+    // disable methods
+    ['start', 'stop', 'setCircuitProver', 'work', 'getProof'],
+  );
+  return rpc;
 }
