@@ -28,12 +28,15 @@ using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
  * @param proof_fields
  */
 void create_dummy_vkey_and_proof(Builder& builder,
-                                 const size_t proof_size,
-                                 const size_t public_inputs_size,
+                                 size_t proof_size,
+                                 size_t public_inputs_size,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
     using Flavor = UltraFlavor;
+
+    proof_size -= bb::AGGREGATION_OBJECT_SIZE;
+    public_inputs_size += bb::AGGREGATION_OBJECT_SIZE;
 
     // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
