@@ -7,7 +7,6 @@ global Ga3 = Point { x: 0x0edb1e293c3ce91bfc04e3ceaa50d2c541fa9d091c72eb403efb1c
 global Ga4 = Point { x: 0x041223147b680850dc82e8a55a952d4df20256fe0593d949a9541ca00f0abf15, y: 0x0a8c72e60d0e60f5d804549d48f3044d06140b98ed717a9b532af630c1530791, is_infinite: false };
 global g1 = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
-// fn main(x: Field) -> pub Field {
 fn main() -> pub Field {
     let mut p1 = Ga1;
     for _ in 0..1000 {
