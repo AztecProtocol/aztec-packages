@@ -1,6 +1,6 @@
+#include "barretenberg/ecc/scalar_multiplication/sorted_msm.hpp"
 #include <algorithm>
 #include <execution>
-#include "barretenberg/ecc/scalar_multiplication/sorted_msm.hpp"
 
 namespace bb {
 
