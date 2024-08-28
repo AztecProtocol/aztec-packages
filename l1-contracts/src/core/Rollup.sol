@@ -444,29 +444,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     uint256 _currentTime,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
-    // @note  This is a convenience function to allow for easier testing of the header validation
-    //        without having to go through the entire process of submitting a block.
-    //        This is not used in production code.
-
     HeaderLib.Header memory header = HeaderLib.decode(_header);
     _validateHeader(header, _signatures, _digest, _currentTime, _flags);
-  }
-
-  function _validateHeader(
-    HeaderLib.Header memory _header,
-    SignatureLib.Signature[] memory _signatures,
-    bytes32 _digest,
-    uint256 _currentTime,
-    DataStructures.ExecutionFlags memory _flags
-  ) internal view {
-    // @note  This is a convenience function to allow for easier testing of the header validation
-    //        without having to go through the entire process of submitting a block.
-    //        This is not used in production code.
-
-    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
-    _validateHeaderForSubmissionSequencerSelection(
-      _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
-    );
   }
 
   /**
@@ -590,6 +569,29 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
+   * @notice  Validates the header for submission
+   *
+   * @param _header - The proposed block header
+   * @param _signatures - The signatures for the attestations
+   * @param _digest - The digest that signatures signed
+   * @param _currentTime - The time of execution
+   * @dev                - This value is provided to allow for simple simulation of future
+   * @param _flags - Flags specific to the execution, whether certain checks should be skipped
+   */
+  function _validateHeader(
+    HeaderLib.Header memory _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
+    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
+    _validateHeaderForSubmissionSequencerSelection(
+      _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
+    );
+  }
+
+  /**
    * @notice  Validate a header for submission to the pending chain (sequencer selection checks)
    *
    *          These validation checks are directly related to Leonidas.
@@ -701,6 +703,16 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     uint256 timestamp = getTimestampForSlot(slot);
     if (_header.globalVariables.timestamp != timestamp) {
       revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
+    }
+
+    if (timestamp > _currentTime) {
+      // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
+      //        from the value that we have in the constants.
+      //        When you are encountering this, it will likely be as the sequencer expects to be able to include
+      //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
+      //        from the last block. However, if the actual will only be 1 second in the future, you will end up
+      //        expecting this value to be in the future.
+      revert Errors.Rollup__TimestampInFuture(_currentTime, timestamp);
     }
 
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
