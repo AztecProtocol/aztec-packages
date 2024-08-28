@@ -203,6 +203,7 @@ export class Sequencer {
       try {
         slot = await this.canProposeBlock(historicalHeader, undefined, chainTipArchive);
       } catch (err) {
+        this.log.debug(String(err));
         this.log.debug(`Cannot propose for block ${newBlockNumber}`);
         return;
       }
@@ -289,15 +290,23 @@ export class Sequencer {
     //        Also, we are logging debug messages for checks that fail to make it easier to debug, as we are usually
     //        catching the errors.
 
-    const { proposer, slot, pendingBlockNumber, archive } = await this.publisher.getMetadataForSlotAtNextEthBlock();
+    this.log.debug('A');
+    const { proposer, slot, pendingBlockNumber, archive } = await this.publisher
+      .getMetadataForSlotAtNextEthBlock()
+      .catch(err => {
+        this.log.debug(err);
+        throw new Error('Could not get metadata for slot');
+      });
 
-    if (await this.publisher.willSimulationFail(slot)) {
+    this.log.debug('B');
+    if (this.publisher.willSimulationFail(slot)) {
       // @note  See comment in willSimulationFail for more information
       const msg = `Simulation will fail for slot ${slot}`;
       this.log.debug(msg);
       throw new Error(msg);
     }
 
+    this.log.debug('C');
     // If our tip of the chain is different from the tip on L1, we should not propose a block
     // @note  This will change along with the data publication changes.
     if (tipArchive && !archive.equals(tipArchive)) {
@@ -316,6 +325,7 @@ export class Sequencer {
       throw new Error(msg);
     }
 
+    this.log.debug('D');
     // If I have constructed a block, make sure that the block number matches the next pending block number
     if (globalVariables) {
       if (globalVariables.blockNumber.toBigInt() !== pendingBlockNumber + 1n) {
@@ -326,7 +336,12 @@ export class Sequencer {
         throw new Error(msg);
       }
 
-      const currentBlockNumber = await this.l2BlockSource.getBlockNumber();
+      this.log.debug('E');
+      const currentBlockNumber = await this.l2BlockSource.getBlockNumber().catch(err => {
+        this.log.debug(err);
+        throw new Error('Could not get current block number');
+      });
+      this.log.debug('F');
       if (currentBlockNumber + 1 !== globalVariables.blockNumber.toNumber()) {
         this.metrics.recordCancelledBlock();
         const msg = 'New block was emitted while building block';
@@ -335,12 +350,14 @@ export class Sequencer {
       }
     }
 
+    this.log.debug('G');
     // Do not go forward if there was already a block for the slot
     if (historicalHeader && historicalHeader.globalVariables.slotNumber.toBigInt() === slot) {
       const msg = `Block already exists for slot ${slot}`;
       this.log.debug(msg);
       throw new Error(msg);
     }
+    this.log.debug('H');
 
     // Related to _validateHeaderForSubmissionSequencerSelection
 
@@ -353,13 +370,18 @@ export class Sequencer {
       }
     }
 
+    this.log.debug('I');
     // Do not go forward with new block if not free for all or my turn
-    if (!proposer.isZero() && !proposer.equals(await this.publisher.getSenderAddress())) {
-      const msg = 'Not my turn to submit block';
-      this.log.debug(msg);
-      throw new Error(msg);
+    if (!proposer.isZero()) {
+      const publisherAddress = await this.publisher.getSenderAddress();
+      if (!proposer.equals(publisherAddress)) {
+        const msg = 'Not my turn to submit block';
+        this.log.debug(msg);
+        throw new Error(msg);
+      }
     }
 
+    this.log.debug('J');
     return slot;
   }
 

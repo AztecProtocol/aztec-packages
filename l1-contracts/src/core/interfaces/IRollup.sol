@@ -70,4 +70,5 @@ interface IRollup {
   function archive() external view returns (bytes32);
   function isBlockProven(uint256 _blockNumber) external view returns (bool);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function getGenesisTime() external view returns (uint256);
 }

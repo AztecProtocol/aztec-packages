@@ -336,7 +336,6 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
-  enableValidators = false,
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
@@ -403,11 +402,10 @@ export async function setup(
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   // Run the test with validators enabled
-  if (enableValidators) {
-    const validatorPrivKey = getPrivateKeyFromIndex(1);
-    config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
-  }
-  config.disableValidator = !enableValidators;
+  // if (!config.disableValidator ) {
+  //   const validatorPrivKey = getPrivateKeyFromIndex(1);
+  //   config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+  // }
 
   logger.verbose('Creating and synching an aztec node...');
 

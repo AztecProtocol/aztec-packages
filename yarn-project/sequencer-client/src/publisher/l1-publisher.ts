@@ -109,6 +109,7 @@ export class L1Publisher {
   private timeTraveler: boolean;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
+  private genesisTime!: bigint; // the time of the genesis block. used to compute slots
   private log = createDebugLogger('aztec:sequencer:publisher');
 
   private availabilityOracleContract: GetContractReturnType<
@@ -124,7 +125,7 @@ export class L1Publisher {
 
   private ethCheatCodes: EthCheatCodes;
 
-  constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
+  private constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.timeTraveler = config?.timeTraveler ?? false;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
@@ -157,6 +158,20 @@ export class L1Publisher {
     this.ethCheatCodes = new EthCheatCodes(rpcUrl);
   }
 
+  static async new(config: TxSenderConfig & PublisherConfig, telemetryClient: TelemetryClient): Promise<L1Publisher> {
+    const publisher = new L1Publisher(config, telemetryClient);
+    publisher.genesisTime = await publisher.rollupContract.read.getGenesisTime();
+    return publisher;
+  }
+
+  public computeSlot(timestamp: bigint): bigint {
+    return BigInt((timestamp - this.genesisTime) / BigInt(AZTEC_SLOT_DURATION));
+  }
+
+  public currentSlot(): bigint {
+    return this.computeSlot(BigInt(Date.now() / 1000));
+  }
+
   public async amIAValidator(): Promise<boolean> {
     return await this.rollupContract.read.isValidator([this.account.address]);
   }
@@ -169,16 +184,14 @@ export class L1Publisher {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  public async willSimulationFail(slot: bigint): Promise<boolean> {
-    // @note  When simulating or estimating gas, `viem` will use the CURRENT state of the chain
-    //        and not the state in the next block. Meaning that the timestamp will be the same as
-    //        the previous block, which means that the slot will also be the same.
-    //        This effectively means that if we try to simulate for the first L1 block where we
-    //        will be proposer, we will have a failure as the slot have not yet changed.
-    // @todo  #8110
-
-    const currentSlot = BigInt(await this.rollupContract.read.getCurrentSlot());
-    return currentSlot != slot;
+  public willSimulationFail(slot: bigint): boolean {
+    const rollupCurrentSlot = this.currentSlot();
+    if (BigInt(rollupCurrentSlot) !== slot) {
+      this.log.info(`Simulation will fail for slot ${slot} as current slot is ${rollupCurrentSlot}`);
+      return true;
+    } else {
+      return false;
+    }
   }
 
   // @note Assumes that all ethereum slots have blocks
@@ -236,8 +249,7 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    if (await this.willSimulationFail(block.header.globalVariables.slotNumber.toBigInt())) {
-      // @note  See comment in willSimulationFail for more information
+    if (this.willSimulationFail(block.header.globalVariables.slotNumber.toBigInt())) {
       this.log.info(`Simulation will fail for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
       return false;
     }

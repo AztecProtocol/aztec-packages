@@ -43,7 +43,7 @@ export async function createProverNode(
   const prover = await createProverClient(config, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = new L1Publisher(config, telemetry);
+  const publisher = await L1Publisher.new(config, telemetry);
 
   const txProvider = deps.aztecNodeTxProvider
     ? new AztecNodeTxProvider(deps.aztecNodeTxProvider)

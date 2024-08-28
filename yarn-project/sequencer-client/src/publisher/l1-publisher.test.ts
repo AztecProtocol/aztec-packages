@@ -46,6 +46,7 @@ interface MockRollupContractWrite {
 interface MockRollupContractRead {
   archive: () => Promise<`0x${string}`>;
   getCurrentSlot(): Promise<bigint>;
+  getGenesisTime(): Promise<bigint>;
 }
 
 class MockRollupContract {
@@ -84,7 +85,7 @@ describe('L1Publisher', () => {
 
   let publisher: L1Publisher;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     l2Block = L2Block.random(42);
 
     header = l2Block.header.toBuffer();
@@ -109,6 +110,7 @@ describe('L1Publisher', () => {
     rollupContractWrite = mock<MockRollupContractWrite>();
     rollupContractSimulate = mock<MockRollupContractWrite>();
     rollupContractRead = mock<MockRollupContractRead>();
+    rollupContractRead.getGenesisTime.mockResolvedValue(0n);
     rollupContract = new MockRollupContract(rollupContractWrite, rollupContractSimulate, rollupContractRead);
 
     availabilityOracleWrite = mock<MockAvailabilityOracleWrite>();
@@ -134,7 +136,7 @@ describe('L1Publisher', () => {
       timeTraveller: false,
     } as unknown as TxSenderConfig & PublisherConfig;
 
-    publisher = new L1Publisher(config, new NoopTelemetryClient());
+    publisher = await L1Publisher.new(config, new NoopTelemetryClient());
 
     (publisher as any)['availabilityOracleContract'] = availabilityOracle;
     (publisher as any)['rollupContract'] = rollupContract;

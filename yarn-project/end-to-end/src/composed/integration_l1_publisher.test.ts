@@ -162,7 +162,7 @@ describe('L1Publisher integration', () => {
     builder = await TxProver.new(config, new NoopTelemetryClient());
     prover = builder.createBlockProver(builderDb.asLatest());
 
-    publisher = new L1Publisher(
+    publisher = await L1Publisher.new(
       {
         l1RpcUrl: config.l1RpcUrl,
         requiredConfirmations: 1,

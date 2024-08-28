@@ -66,7 +66,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   // @note  This should not exists, but we have it now to ensure we will not be killing the devnet with our
   //        timeliness requirements.
-  bool public isDevNet = true;
+  bool public isDevNet = false;
 
   // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
@@ -375,6 +375,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    */
   function archiveAt(uint256 _blockNumber) external view override(IRollup) returns (bytes32) {
     return blocks[_blockNumber].archive;
+  }
+
+  function getGenesisTime() external view override(IRollup) returns (uint256) {
+    return Leonidas.GENESIS_TIME;
   }
 
   /**
