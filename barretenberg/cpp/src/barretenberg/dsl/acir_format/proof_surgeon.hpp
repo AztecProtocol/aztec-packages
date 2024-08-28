@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
-// #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -8,11 +7,10 @@
 
 namespace acir_format {
 
+// Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
+static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
+
 class ProofSurgeon {
-
-    // Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
-    static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
-
   public:
     /**
      * @brief Reconstruct a bberg style proof from a acir style proof + public inputs
