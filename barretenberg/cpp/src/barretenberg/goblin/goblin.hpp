@@ -58,7 +58,7 @@ class GoblinProver {
     // on the first call to accumulate there is no merge proof to verify
     bool merge_proof_exists{ false };
 
-    std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_prover->key; }
+    std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
     std::shared_ptr<TranslatorProvingKey> get_translator_proving_key() const { return translator_prover->key; }
 
   private:
@@ -67,6 +67,7 @@ class GoblinProver {
     std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
+    std::shared_ptr<ECCVMProvingKey> eccvm_key;
 
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
@@ -171,11 +172,26 @@ class GoblinProver {
      */
     void prove_eccvm()
     {
-        eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
-        goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
-        goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
-    };
+        {
+            ZoneScopedN("Create ECCVMBuilder");
+            eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        }
+
+        {
+            ZoneScopedN("Create ECCVMProver");
+            eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
+        }
+        eccvm_builder = nullptr;
+        {
+            ZoneScopedN("Construct ECCVM Proof");
+            goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
+        }
+
+        {
+            ZoneScopedN("Assign Translation Evaluations");
+            goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
+        }
+    }
 
     /**
      * @brief Construct a translator proof
@@ -183,11 +199,28 @@ class GoblinProver {
      */
     void prove_translator()
     {
-        translator_builder = std::make_unique<TranslatorBuilder>(
-            eccvm_prover->translation_batching_challenge_v, eccvm_prover->evaluation_challenge_x, op_queue);
-        translator_prover = std::make_unique<TranslatorProver>(*translator_builder, eccvm_prover->transcript);
-        goblin_proof.translator_proof = translator_prover->construct_proof();
-    };
+        fq translation_batching_challenge_v = eccvm_prover->translation_batching_challenge_v;
+        fq evaluation_challenge_x = eccvm_prover->evaluation_challenge_x;
+        std::shared_ptr<Transcript> transcript = eccvm_prover->transcript;
+        eccvm_key = eccvm_prover->key;
+        eccvm_prover = nullptr;
+        {
+            ZoneScopedN("Create TranslatorBuilder");
+            translator_builder =
+                std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
+        }
+
+        {
+            ZoneScopedN("Create TranslatorProver");
+            translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
+        }
+        translator_builder = nullptr;
+
+        {
+            ZoneScopedN("Construct Translator Proof");
+            goblin_proof.translator_proof = translator_prover->construct_proof();
+        }
+    }
 
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
