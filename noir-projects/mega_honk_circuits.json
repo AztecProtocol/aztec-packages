@@ -1,4 +1,6 @@
 [
   "private_kernel.*",
-  "empty_nested"
+  "empty_nested",
+  "curve_add_profiling",
+  "msm_profiling"
 ]
