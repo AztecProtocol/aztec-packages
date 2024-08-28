@@ -278,7 +278,7 @@ export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
  * @returns A public data read.
  */
 export function makePublicDataRead(seed = 1): PublicDataRead {
-  return new PublicDataRead(fr(seed), fr(seed + 1));
+  return new PublicDataRead(fr(seed), fr(seed + 1), 0);
 }
 
 /**
@@ -286,7 +286,7 @@ export function makePublicDataRead(seed = 1): PublicDataRead {
  * @returns An empty public data read.
  */
 export function makeEmptyPublicDataRead(): PublicDataRead {
-  return new PublicDataRead(fr(0), fr(0));
+  return new PublicDataRead(fr(0), fr(0), 0);
 }
 
 /**

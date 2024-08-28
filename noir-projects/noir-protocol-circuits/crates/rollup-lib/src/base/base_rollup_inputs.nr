@@ -15,8 +15,7 @@ use dep::types::{
     storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
-    public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
-    kernel_data::KernelData
+    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
@@ -467,7 +466,7 @@ mod tests {
     use dep::types::{
         abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
+        nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
         accumulated_data::CombinedAccumulatedData, gas::Gas
     },

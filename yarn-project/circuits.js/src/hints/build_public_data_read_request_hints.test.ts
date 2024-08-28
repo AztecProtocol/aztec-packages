@@ -34,7 +34,8 @@ describe('buildPublicDataReadRequestHints', () => {
     hint.value = new Fr(value);
     return hint;
   };
-  const makePublicDataRead = (leafSlot: number, value: number) => new PublicDataRead(new Fr(leafSlot), new Fr(value));
+  const makePublicDataRead = (leafSlot: number, value: number) =>
+    new PublicDataRead(new Fr(leafSlot), new Fr(value), nextCounter());
   const makePendingHint = (readRequestIndex: number, hintIndex: number) =>
     new PendingReadHint(readRequestIndex, hintIndex);
   const makeLeafDataHint = (readRequestIndex: number, hintIndex: number) =>

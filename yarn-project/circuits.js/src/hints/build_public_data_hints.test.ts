@@ -40,7 +40,8 @@ describe('buildPublicDataHints', () => {
     new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(11), 0n),
   ];
 
-  const makePublicDataRead = (leafSlot: number, value: number) => new PublicDataRead(new Fr(leafSlot), new Fr(value));
+  const makePublicDataRead = (leafSlot: number, value: number) =>
+    new PublicDataRead(new Fr(leafSlot), new Fr(value), nextSideEffectCounter());
   const makePublicDataWrite = (leafSlot: number, value: number) =>
     new PublicDataUpdateRequest(new Fr(leafSlot), new Fr(value), nextSideEffectCounter());
 

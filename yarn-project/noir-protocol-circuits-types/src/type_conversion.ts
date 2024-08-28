@@ -1052,7 +1052,11 @@ export function mapPublicDataUpdateRequestToNoir(
  * @returns The parsed public data read.
  */
 export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
-  return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_slot), mapFieldFromNoir(publicDataRead.value));
+  return new PublicDataRead(
+    mapFieldFromNoir(publicDataRead.leaf_slot),
+    mapFieldFromNoir(publicDataRead.value),
+    mapNumberFromNoir(publicDataRead.counter),
+  );
 }
 
 /**
@@ -1064,6 +1068,7 @@ export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicD
   return {
     leaf_slot: mapFieldToNoir(publicDataRead.leafSlot),
     value: mapFieldToNoir(publicDataRead.value),
+    counter: mapNumberToNoir(publicDataRead.counter),
   };
 }
 

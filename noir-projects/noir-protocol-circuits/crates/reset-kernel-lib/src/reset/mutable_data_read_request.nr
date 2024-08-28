@@ -15,7 +15,7 @@ impl LeafDataReadHint {
     }
 }
 
-fn validate_pending_read_requests<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS>(
+fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32>(
     read_requests: [PublicDataRead; READ_REQUEST_LEN],
     data_writes: [PublicDataUpdateRequest; PENDING_VALUE_LEN],
     hints: [PendingReadHint; NUM_PENDING_READS]
@@ -31,16 +31,16 @@ fn validate_pending_read_requests<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDI
             assert(
                 read_request.value.eq(pending_value.new_value), "Hinted value of data write does not match read request"
             );
-            // TODO: Add counters and verify the following:
-            // assert(
-            //     read_request.counter > pending_value.counter, "Read request counter must be greater than the counter of the data write"
-            // );
+            assert(
+                read_request.counter > pending_value.counter, "Read request counter must be greater than the counter of the data write"
+            );
+            // TODO
             // assert((read_request.counter < pending_value.next_counter) | (pending_value.next_counter == 0), "Read request counter must be less than the counter of the next data write");
         }
     }
 }
 
-fn validate_leaf_data_read_requests<READ_REQUEST_LEN, NUM_LEAF_DATA_HINTS, H, NUM_LEAF_DATA_READS>(
+fn validate_leaf_data_read_requests<let READ_REQUEST_LEN: u32, let NUM_LEAF_DATA_HINTS: u32, H, let NUM_LEAF_DATA_READS: u32>(
     read_requests: [PublicDataRead; READ_REQUEST_LEN],
     leaf_data_hints: [H; NUM_LEAF_DATA_HINTS],
     hints: [LeafDataReadHint; NUM_LEAF_DATA_READS]
@@ -54,13 +54,15 @@ fn validate_leaf_data_read_requests<READ_REQUEST_LEN, NUM_LEAF_DATA_HINTS, H, NU
                 read_request.leaf_slot == data_hint.leaf_slot(), "Hinted slot does not match read request"
             );
             assert(read_request.value == data_hint.value(), "Hinted value does not match read request");
-            // TODO: Add counters and verify the following:
-            // assert((read_request.counter < data_hint.override_counter) | (data_hint.override_counter == 0), "Hinted leaf is overridden before the read request");
+            assert(
+                (read_request.counter < data_hint.override_counter())
+                | (data_hint.override_counter() == 0), "Hinted leaf is overridden before the read request"
+            );
         }
     }
 }
 
-fn ensure_all_read_requests_are_verified<READ_REQUEST_LEN, NUM_PENDING_READS, NUM_LEAF_DATA_READS>(
+fn ensure_all_read_requests_are_verified<let READ_REQUEST_LEN: u32, let NUM_PENDING_READS: u32, let NUM_LEAF_DATA_READS: u32>(
     read_requests: [PublicDataRead; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
@@ -85,7 +87,14 @@ fn ensure_all_read_requests_are_verified<READ_REQUEST_LEN, NUM_PENDING_READS, NU
     }
 }
 
-pub fn reset_mutable_data_read_requests<READ_REQUEST_LEN, PENDING_VALUE_LEN, H, NUM_LEAF_DATA_HINTS, NUM_PENDING_READS, NUM_LEAF_DATA_READS>(
+pub fn reset_mutable_data_read_requests<
+    let READ_REQUEST_LEN: u32,
+    let PENDING_VALUE_LEN: u32,
+    H,
+    let NUM_LEAF_DATA_HINTS: u32,
+    let NUM_PENDING_READS: u32,
+    let NUM_LEAF_DATA_READS: u32
+>(
     read_requests: [PublicDataRead; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     data_writes: [PublicDataUpdateRequest; PENDING_VALUE_LEN],
@@ -121,6 +130,7 @@ mod tests {
     struct TestLeafDataHint {
         leaf_slot: Field,
         value: Field,
+        override_counter: u32,
     }
 
     impl LeafDataHint for TestLeafDataHint {
@@ -131,45 +141,58 @@ mod tests {
         fn value(self) -> Field {
             self.value
         }
-        
-        fn override_counter(_self: Self) -> u32 {
-            0
+
+        fn override_counter(self) -> u32 {
+            self.override_counter
         }
     }
 
     global data_writes = [
-        PublicDataUpdateRequest { leaf_slot: 22, new_value: 200, counter: 0 },
-        PublicDataUpdateRequest { leaf_slot: 11, new_value: 100, counter: 1 },
-        PublicDataUpdateRequest { leaf_slot: 33, new_value: 300, counter: 2 },
-        PublicDataUpdateRequest { leaf_slot: 44, new_value: 400, counter: 3 }
+        PublicDataUpdateRequest { leaf_slot: 22, new_value: 200, counter: 10 },
+        PublicDataUpdateRequest { leaf_slot: 11, new_value: 100, counter: 20 },
+        PublicDataUpdateRequest { leaf_slot: 33, new_value: 300, counter: 30 },
+        PublicDataUpdateRequest { leaf_slot: 44, new_value: 400, counter: 40 }
     ];
 
     global leaf_data_hints = [
-        TestLeafDataHint { leaf_slot: 7, value: 70 },
-        TestLeafDataHint { leaf_slot: 6, value: 60 },
-        TestLeafDataHint { leaf_slot: 5, value: 50 },
+        TestLeafDataHint { leaf_slot: 7, value: 70, override_counter: 0 },
+        TestLeafDataHint { leaf_slot: 6, value: 60, override_counter: 90 },
+        TestLeafDataHint { leaf_slot: 5, value: 50, override_counter: 0 },
     ];
 
-    fn create_pending_read_requests<N>(data_write_indices: [u32; N]) -> ([PublicDataRead; N], [PendingReadHint; N]) {
-        let read_requests = data_write_indices.map(
-            |data_write_index: u32| PublicDataRead { leaf_slot: data_writes[data_write_index].leaf_slot, value: data_writes[data_write_index].new_value }
-        );
+    fn create_pending_read_requests<let N: u32>(data_write_indices: [u32; N]) -> ([PublicDataRead; N], [PendingReadHint; N]) {
+        let mut read_requests = BoundedVec::new();
         let mut hints = BoundedVec::new();
+        let last_counter = 1 + data_writes[data_writes.len() - 1].counter();
         for i in 0..N {
-            hints.push(PendingReadHint { read_request_index: i, pending_value_index: data_write_indices[i] });
+            let pending_value_index = data_write_indices[i];
+            read_requests.push(
+                PublicDataRead {
+                leaf_slot: data_writes[pending_value_index].leaf_slot,
+                value: data_writes[pending_value_index].new_value,
+                counter: last_counter + i
+            }
+            );
+            hints.push(PendingReadHint { read_request_index: i, pending_value_index });
         }
-        (read_requests, hints.storage)
+        (read_requests.storage, hints.storage)
     }
 
-    fn create_leaf_data_read_requests<N>(data_hint_indices: [u32; N]) -> ([PublicDataRead; N], [LeafDataReadHint; N]) {
-        let read_requests = data_hint_indices.map(
-            |data_hint_index: u32| PublicDataRead { leaf_slot: leaf_data_hints[data_hint_index].leaf_slot, value: leaf_data_hints[data_hint_index].value }
-        );
+    fn create_leaf_data_read_requests<let N: u32>(data_hint_indices: [u32; N]) -> ([PublicDataRead; N], [LeafDataReadHint; N]) {
+        let mut read_requests = BoundedVec::new();
         let mut hints = BoundedVec::new();
         for i in 0..N {
-            hints.push(LeafDataReadHint { read_request_index: i, data_hint_index: data_hint_indices[i] });
+            let data_hint_index = data_hint_indices[i];
+            read_requests.push(
+                PublicDataRead {
+                leaf_slot: leaf_data_hints[data_hint_index].leaf_slot,
+                value: leaf_data_hints[data_hint_index].value,
+                counter: 80 + i
+            }
+            );
+            hints.push(LeafDataReadHint { read_request_index: i, data_hint_index });
         }
-        (read_requests, hints.storage)
+        (read_requests.storage, hints.storage)
     }
 
     #[test]
@@ -186,7 +209,7 @@ mod tests {
 
     #[test]
     fn reset_pending_reads_skips_nada() {
-        let read_requests = [PublicDataRead { leaf_slot: 88, value: 9999 }];
+        let read_requests = [PublicDataRead { leaf_slot: 88, value: 9999, counter: 2 }];
         let hints = [PendingReadHint::nada(1)];
         validate_pending_read_requests(read_requests, data_writes, hints);
     }
@@ -205,6 +228,13 @@ mod tests {
         validate_pending_read_requests(read_requests, data_writes, hints);
     }
 
+    #[test(should_fail_with="Read request counter must be greater than the counter of the data write")]
+    fn reset_pending_reads_value_write_after_fails() {
+        let mut (read_requests, hints) = create_pending_read_requests([1]);
+        read_requests[0].counter = data_writes[1].counter - 1;
+        validate_pending_read_requests(read_requests, data_writes, hints);
+    }
+
     #[test]
     fn reset_leaf_data_reads_succeeds() {
         let (read_requests, hints) = create_leaf_data_read_requests([2, 1, 0]);
@@ -219,7 +249,7 @@ mod tests {
 
     #[test]
     fn reset_leaf_data_reads_skips_nada() {
-        let read_requests = [PublicDataRead { leaf_slot: 88, value: 9999 }];
+        let read_requests = [PublicDataRead { leaf_slot: 88, value: 9999, counter: 2 }];
         let hints = [LeafDataReadHint::nada(1)];
         validate_leaf_data_read_requests(read_requests, leaf_data_hints, hints);
     }
@@ -236,6 +266,14 @@ mod tests {
         let mut (read_requests, hints) = create_leaf_data_read_requests([1]);
         read_requests[0].value += 1;
         validate_leaf_data_read_requests(read_requests, leaf_data_hints, hints);
+    }
+
+    #[test(should_fail_with=""Hinted leaf is overridden before the read request")]
+    fn reset_leaf_reads_overridden_value_fails() {
+        let mut leaf_data_hints_with_override_counter = leaf_data_hints;
+        let mut (read_requests, hints) = create_leaf_data_read_requests([1]);
+        leaf_data_hints_with_override_counter[1].override_counter = read_requests[0].counter - 1;
+        validate_leaf_data_read_requests(read_requests, leaf_data_hints_with_override_counter, hints);
     }
 
     #[test]
