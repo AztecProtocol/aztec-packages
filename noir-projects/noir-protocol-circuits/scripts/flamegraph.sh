@@ -87,8 +87,10 @@ done
 # At last, generate the flamegraph.
 # If it's a mega honk circuit, we need to set the backend_gates_command argument to "gates_mega_honk".
 if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
+    echo "Generating flamegraph for mega honk circuit"
     $PROFILER gates-flamegraph --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" --backend-gates-command "gates_mega_honk" -- -h
 else
+    echo "Generating flamegraph for non-mega honk circuit"
     $PROFILER gates-flamegraph --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb"  --output "$DEST" -- -h
 fi
 
