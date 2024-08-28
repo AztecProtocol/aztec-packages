@@ -25,6 +25,10 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
     using RelationSeparator = typename Flavor::RelationSeparator;
+    static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
+    using UnivariateRelationParameters = bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
+    using OptimisedUnivariateRelationParameters =
+        bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
     using CombinedRelationSeparator =
         std::array<Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
@@ -332,22 +336,21 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         return batch_over_relations(deoptimized_univariates, alphas);
     }
 
-    template <typename Parameters>
     static ExtendedUnivariateWithRandomization compute_combiner_no_skip_zero_computations(
         const ProverInstances& instances,
         const PowPolynomial<FF>& pow_betas,
-        const Parameters& relation_parameters,
+        const UnivariateRelationParameters& relation_parameters,
         const CombinedRelationSeparator& alphas)
     {
         TupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
     }
 
-    template <typename Parameters>
-    static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                                const PowPolynomial<FF>& pow_betas,
-                                                                const Parameters& relation_parameters,
-                                                                const CombinedRelationSeparator& alphas)
+    static ExtendedUnivariateWithRandomization compute_combiner(
+        const ProverInstances& instances,
+        const PowPolynomial<FF>& pow_betas,
+        const OptimisedUnivariateRelationParameters& relation_parameters,
+        const CombinedRelationSeparator& alphas)
     {
         OptimisedTupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);

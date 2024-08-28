@@ -177,7 +177,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
             ASSERT(false);
         }
     }
-    /* instances =  */ run_oink_prover_on_each_instance(/* instances */);
+    run_oink_prover_on_each_instance();
 
     std::tie(state.deltas, state.perturbator) = perturbator_round(state.accumulator);
 

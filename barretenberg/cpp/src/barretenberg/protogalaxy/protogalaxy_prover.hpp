@@ -22,14 +22,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     struct State {
         std::shared_ptr<ProverInstance> accumulator;
-        LegacyPolynomial<FF> perturbator;       // computed then evaluated at a challenge
-        std::vector<FF> gate_challenges;        // use to compute pow_polynomial
-                                                // WORKTODO: move into accumulator
-        std::vector<FF> deltas;                 // used to compute perturbator; used to update gate challenge
-        CombinerQuotient combiner_quotient;     // computed then evaluated in computation of next target sum
-        FF perturbator_evaluation;              // computed then evaluated in computation of next target sum
-        RelationParameters relation_parameters; // used for combiner; folded
-                                                // WORKTODO: deprecated
+        LegacyPolynomial<FF> perturbator;   // computed then evaluated at a challenge
+        std::vector<FF> gate_challenges;    // use to compute pow_polynomial
+                                            // WORKTODO: move into accumulator
+        std::vector<FF> deltas;             // used to compute perturbator; used to update gate challenge
+        CombinerQuotient combiner_quotient; // computed then evaluated in computation of next target sum
+        FF perturbator_evaluation;          // computed then evaluated in computation of next target sum
         OptimisedRelationParameters optimised_relation_parameters; // used for combiner; folded
         CombinedRelationSeparator alphas;                          // used for combiner; folded
     };
