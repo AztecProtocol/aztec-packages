@@ -55,7 +55,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Third key field is the pub inputs offset
     builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
     // Fourth key field is the whether the proof contains an aggregation object.
-    builder.assert_equal(builder.add_variable(1), key_fields[4].witness_index); // WORKTODO: 4 = bug?
+    builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
     uint32_t offset = 4;
     size_t num_inner_public_inputs = public_inputs_size - bb::AGGREGATION_OBJECT_SIZE;
 
