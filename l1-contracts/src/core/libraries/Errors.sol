@@ -10,6 +10,9 @@ pragma solidity >=0.8.18;
  * when there are multiple contracts that could have thrown the error.
  */
 library Errors {
+  // DEVNET related
+  error DevNet__NoPruningAllowed(); // 0x6984c590
+
   // Inbox
   error Inbox__Unauthorized(); // 0xe5336a6b
   error Inbox__ActorTooLarge(bytes32 actor); // 0xa776a06e
@@ -84,7 +87,7 @@ library Errors {
   error Leonidas__EpochNotSetup(); // 0xcf4e597e
   error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
   error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
-  error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0x2e7debe9
+  error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

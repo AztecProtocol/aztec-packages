@@ -77,7 +77,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     IAvailabilityOracle _availabilityOracle,
     IFeeJuicePortal _fpcJuicePortal,
     bytes32 _vkTreeRoot,
-    address _ares
+    address _ares,
+    address[] memory _validators
   ) Leonidas(_ares) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
@@ -89,10 +90,18 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     VERSION = 1;
 
     // Genesis block
-    blocks[0] =
-      BlockLog({archive: bytes32(0), blockHash: bytes32(0), slotNumber: 0, isProven: true});
+    blocks[0] = BlockLog({
+      archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      blockHash: bytes32(0),
+      slotNumber: 0,
+      isProven: true
+    });
     pendingBlockCount = 1;
     provenBlockCount = 1;
+
+    for (uint256 i = 0; i < _validators.length; i++) {
+      _addValidator(_validators[i]);
+    }
   }
 
   /**
@@ -101,6 +110,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
   function prune() external override(IRollup) {
+    if (isDevNet) {
+      revert Errors.DevNet__NoPruningAllowed();
+    }
+
     if (pendingBlockCount == provenBlockCount) {
       revert Errors.Rollup__NothingToPrune();
     }
@@ -150,7 +163,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _devNet - Whether or not the contract is in devnet mode
    */
-  function setDevNet(bool _devNet) external override(ITestRollup) {
+  function setDevNet(bool _devNet) external override(ITestRollup) onlyOwner {
     isDevNet = _devNet;
   }
 
@@ -161,7 +174,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _verifier - The new verifier contract
    */
-  function setVerifier(address _verifier) external override(ITestRollup) {
+  function setVerifier(address _verifier) external override(ITestRollup) onlyOwner {
     verifier = IVerifier(_verifier);
   }
 
@@ -172,7 +185,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _vkTreeRoot - The new vkTreeRoot to be used by proofs
    */
-  function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) {
+  function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
     vkTreeRoot = _vkTreeRoot;
   }
 
@@ -520,7 +533,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       }
 
       if (!isValidator(msg.sender)) {
-        revert Errors.Leonidas__InvalidProposer(address(0), msg.sender);
+        revert Errors.Leonidas__InvalidProposer(getValidatorAt(0), msg.sender);
       }
       return;
     }
@@ -579,9 +592,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       );
     }
 
-    // TODO(#4148) Proper genesis state. If the state is empty, we allow anything for now.
     bytes32 tipArchive = archive();
-    if (tipArchive != bytes32(0) && tipArchive != _header.lastArchive.root) {
+    if (tipArchive != _header.lastArchive.root) {
       revert Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root);
     }
 

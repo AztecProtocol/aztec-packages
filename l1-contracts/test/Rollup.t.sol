@@ -65,7 +65,8 @@ contract RollupTest is DecoderBase {
       availabilityOracle,
       IFeeJuicePortal(address(feeJuicePortal)),
       bytes32(0),
-      address(this)
+      address(this),
+      new address[](0)
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -78,6 +79,13 @@ contract RollupTest is DecoderBase {
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
+    if (rollup.isDevNet()) {
+      vm.expectRevert(abi.encodeWithSelector(Errors.DevNet__NoPruningAllowed.selector));
+      rollup.prune();
+
+      return;
+    }
+
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
 
@@ -94,6 +102,10 @@ contract RollupTest is DecoderBase {
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
+    if (rollup.isDevNet()) {
+      return;
+    }
+
     _testBlock("mixed_block_1", false);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -157,6 +169,9 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+
+    // Progress time as necessary
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
     assembly {
       mstore(add(header, add(0x20, 0x0248)), feeAmount)
@@ -302,6 +317,9 @@ contract RollupTest is DecoderBase {
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
     rollup.setAssumeProvenUntilBlockNumber(2);
+    assertEq(rollup.pendingBlockCount(), 1, "Invalid pending block count");
+    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+
     _testBlock("mixed_block_1", false);
     _testBlock("mixed_block_2", false);
 
@@ -310,6 +328,9 @@ contract RollupTest is DecoderBase {
   }
 
   function testSetAssumeProvenAfterBlocksProcessed() public setUpFor("mixed_block_1") {
+    assertEq(rollup.pendingBlockCount(), 1, "Invalid pending block count");
+    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+
     _testBlock("mixed_block_1", false);
     _testBlock("mixed_block_2", false);
     rollup.setAssumeProvenUntilBlockNumber(2);
