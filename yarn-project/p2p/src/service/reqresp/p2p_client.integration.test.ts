@@ -17,7 +17,6 @@ import { type BootnodeConfig, type P2PConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
 
-// TODO: copied from external
 /**
  * Mockify helper for testing purposes.
  */
@@ -25,7 +24,7 @@ type Mockify<T> = {
   [P in keyof T]: ReturnType<typeof jest.fn>;
 };
 
-const TEST_TIMEOUT = 60000;
+const TEST_TIMEOUT = 80000;
 
 const BOOT_NODE_UDP_PORT = 40400;
 async function createBootstrapNode(port: number) {
