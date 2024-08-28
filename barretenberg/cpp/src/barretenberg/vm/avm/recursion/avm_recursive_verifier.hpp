@@ -14,7 +14,6 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
 
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PCS = typename Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;

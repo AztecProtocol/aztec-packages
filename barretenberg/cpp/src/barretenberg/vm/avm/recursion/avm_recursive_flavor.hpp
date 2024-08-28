@@ -27,7 +27,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     using NativeFlavor = AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
+    // Native one is used!
+    using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
 
     using Relations = AvmFlavor::Relations_<FF>;
 
@@ -36,25 +37,14 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = NativeFlavor::NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
-    // TODO(md): can be inherited?
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-
-    // TODO(md): need?
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = FF;
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    // TODO(md): inherited?
     // define the containers for storing the contributions from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
@@ -70,20 +60,13 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     class VerificationKey : public VerificationKey_<AvmFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        }
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = native_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
-            // this->pub_inputs_offset = native_key->pub_inputs_offset;
+
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
@@ -92,7 +75,6 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     using WitnessCommitments = AvmFlavor::WitnessEntities<Commitment>;
     using CommitmentLabels = AvmFlavor::CommitmentLabels;
-    // Note(md): template types differ here
     using VerifierCommitments = AvmFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
