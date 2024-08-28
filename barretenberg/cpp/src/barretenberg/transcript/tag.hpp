@@ -60,6 +60,7 @@ struct OriginTag {
             child_tag |= next_tag.child_tag;
         }
     }
+    void poison() { instant_death = true; }
     ~OriginTag() = default;
 };
 } // namespace bb
