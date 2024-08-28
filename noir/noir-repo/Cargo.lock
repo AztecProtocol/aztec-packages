@@ -450,8 +450,11 @@ name = "aztec_macros"
 version = "0.33.0"
 dependencies = [
  "acvm",
+ "bn254_blackbox_solver",
  "convert_case 0.6.0",
+ "hex",
  "iter-extended",
+ "itertools 0.10.5",
  "noirc_errors",
  "noirc_frontend",
  "regex",
