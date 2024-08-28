@@ -16,11 +16,11 @@ pub fn get_bridge_gas_msg_hash(owner: AztecAddress, amount: Field) -> Field {
         hash_bytes[i + 36] = amount_bytes[i];
     }
 
-    // Function selector: 0x3e87b9be keccak256('mint_public(bytes32,uint256)')
-    hash_bytes[0] = 0x3e;
-    hash_bytes[1] = 0x87;
-    hash_bytes[2] = 0xb9;
-    hash_bytes[3] = 0xbe;
+    // Function selector: 0xd7f8da85 poseidon2HashBytes('mint_public(bytes32,uint256)')
+    hash_bytes[0] = 0xd7;
+    hash_bytes[1] = 0xf8;
+    hash_bytes[2] = 0xda;
+    hash_bytes[3] = 0x85;
 
     let content_hash = sha256_to_field(hash_bytes);
     content_hash

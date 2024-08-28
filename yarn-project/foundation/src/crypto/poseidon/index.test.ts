@@ -1,5 +1,5 @@
 import { Fr } from '../../fields/fields.js';
-import { poseidon2Permutation } from './index.js';
+import { poseidon2HashBytes, poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {
   it('test vectors from cpp should match', () => {
@@ -20,5 +20,13 @@ describe('poseidon2Permutation', () => {
       new Fr(0x0810e7e9a1c236aae4ebff7d3751d9f7346dc443d1de863977d2b81fe8c557f4n),
       new Fr(0x1f4a188575e29985b6f8ad03afc1f0759488f8835aafb6e19e06160fb64d3d4an),
     ]);
+  });
+});
+
+describe('poseidon2HashBytes', () => {
+  it('test', () => {
+    const buf = Buffer.from('IS_VALID()');
+    const hash = poseidon2HashBytes(buf);
+    expect(hash.slice(0, 4).toString('hex')).toEqual('47dacd73');
   });
 });

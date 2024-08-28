@@ -53,14 +53,14 @@ impl FunctionSelector {
 
     pub fn from_signature<let N: u32>(signature: str<N>) -> Self {
         let bytes = signature.as_bytes();
-        let hash = std::hash::keccak256(bytes, bytes.len() as u32);
+        let hash = crate::hash::poseidon2_hash_bytes(bytes);
 
-        let mut selector_be_bytes = [0; SELECTOR_SIZE];
+        let mut selector_bytes = [0; SELECTOR_SIZE];
         for i in 0..SELECTOR_SIZE {
-            selector_be_bytes[i] = hash[i];
+            selector_bytes[i] = hash[i];
         }
 
-        FunctionSelector::from_field(field_from_bytes(selector_be_bytes, true))
+        FunctionSelector::from_field(field_from_bytes(selector_bytes, true))
     }
 
     pub fn zero() -> Self {
