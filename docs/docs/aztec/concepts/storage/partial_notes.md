@@ -4,7 +4,7 @@ description: Describes how partial notes are used in Aztec
 tags: [notes, storage]
 ---
 
-Partial notes are a concept that allow users to commit to an encrypted value, and allow a counterparty to update that value without knowing the specific details of the encrypted value.
+Partial notes are a concept that allows users to commit to an encrypted value, and allows a counterparty to update that value without knowing the specific details of the encrypted value.
 To do this, we leverage the following properties of elliptic curve operations:
 
 1. `x_1 * G + x_2 * G` equals `(x_1 + x_2) * G` and
@@ -15,9 +15,11 @@ Property 1 allows us to be continually adding to a point on elliptic curve and p
 Before getting to partial notes let's recap what is the flow of standard notes.
 
 ## Note lifecycle recap
+
 The standard note flow is as follows:
+
 1. Create a note in your contract,
-2. compute the note hash/commitment,
+2. compute the note hash,
 3. emit the note hash,
 4. emit the note (note hash preimage) as an encrypted note log,
 5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block on-chain,
@@ -31,6 +33,7 @@ The standard note flow is as follows:
 Now let's do the same for partial notes.
 
 ## Partial notes life cycle
+
 1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `TokenNote`),
 2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`,
 3. pass the note hiding point to a public function,
@@ -38,9 +41,10 @@ Now let's do the same for partial notes.
 5. get the note hash by finalizing the note hiding point (the note hash is the x coordinate of the point),
 6. emit the note hash,
 7. manually construct the note in your application and add it to your node (PXE) --> this currently has to be done manually and not automatically via encrypted note logs because we have not yet implemented partial notes delivery (tracked in [issue #8238](https://github.com/AztecProtocol/aztec-packages/issues/8238))
-8. from this point on the partial note is equal normal note and hence the rest of the life cycle is the same.
+8. from this point on the flow of partial notes is the same as for normal notes.
 
 ## Use cases
+
 Why is this useful?
 
 Consider the case where a user wants to pay for a transaction fee, using a [fee-payment contract](../../../protocol-specs/gas-and-fees/index.md) and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
@@ -68,10 +72,10 @@ The trouble is that the FPC doesn't know if Alice is going to run public functio
 
 And we can't use the normal flow to create a transaction fee refund note for Alice, since that demands we have Alice's address in public.
 
-So we define a new type of note with its `compute_note_content_hash` defined as the x-coordinate of the following point:
+So we define a new type of note with its `compute_note_hiding_point` defined as:
 
 $$
-\text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness}
+\text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness} + \text{slot}*G_{slot}
 $$
 
 Suppose Alice is willing to pay up to a set amount in bananas for her transaction. (Note, this amount gets passed into public so that when `transaction_fee` is known the FPC can verify that it isn't losing money. Wallets are expected to choose common values here, e.g. powers of 10).
@@ -79,7 +83,7 @@ Suppose Alice is willing to pay up to a set amount in bananas for her transactio
 Then we can subtract the set amount from Alice's balance of private bananas, and create a point in private like:
 
 $$
-P_a' := \text{funded amount}*G_{amount} + \text{alice address}*G_{address} + \text{rand}_a*G_{randomness}
+P_a' := \text{alice address}*G_{address} + \text{rand}_a*G_{randomness} + \text{Alice note slot}*G_{slot}
 $$
 
 We also need to create a point for the owner of the FPC (whom we call Bob) to receive the transaction fee, which will also need randomness.
@@ -91,27 +95,25 @@ We need to use different randomness for Bob's note here to avoid potential priva
 :::
 
 $$
-P_b' := \text{bob address}*G_{address} + \text{rand}_b*G_{randomness}
+P_b' := \text{bob address}*G_{address} + \text{rand}_b*G_{randomness} + \text{Bob note slot}*G_{slot}
 $$
 
 Here, the $P'$s "partially encode" the notes that we are _going to create_ for Alice and Bob. So we can use points as "Partial Notes".
 
-We pass these points to public, and at the end of public execution, we compute another point $P_{fee} := (\text{transaction fee}) * G_{amount}$.
+We pass these points and the funded amount to public, and at the end of public execution, we compute tx fee point $P_{fee} := (\text{transaction fee}) * G_{amount}$ and refund point $P_{refund} := (\text{funded_amount - transaction_fee}) * G_{amount}$
 
 Then, we arrive at the point that corresponds to the complete note by
 
 $$
-P_a := P_a'-P_{fee} = (\text{funded amount} - \text{transaction fee})*G_{amount} + \text{alice address}*G_{address} +\text{rand}_a*G_{randomness}
+P_a := P_a'+P_{refund} = (\text{funded amount} - \text{transaction fee})*G_{amount} + \text{alice address}*G_{address} +\text{rand}_a*G_{randomness} + \text{Alice note slot}*G_{slot}
 $$
 
 $$
-P_b := P_b'+P_{fee} = (\text{transaction fee})*G_{amount} + \text{bob address}*G_{address} +\text{rand}_b*G_{randomness}
+P_b := P_b'+P_{fee} = (\text{transaction fee})*G_{amount} + \text{bob address}*G_{address} +\text{rand}_b*G_{randomness} + \text{Bob note slot}*G_{slot}
 $$
 
-Then we just emit `P_a.x` and `P_b.x` as a note hashes in the proper slot, and we're done! Alice can reconstruct the expected note preimage since she knows the expected refund and randomness and add it to her PXE.
-
-How do we know the proper slot? By storing all the notes in a `PrivateSet` as opposed to a `Map<AztecAddress, PrivateSet>`. So all the notes have the same storage slot.
-See the very bottom of this doc for a link to a suggestion from Mike, that might enable the more familiar paradigm of mappings and storage slots.
+Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
+(Now Alice and Bob need to manually add the notes to their PXEs since [issue #8238](https://github.com/AztecProtocol/aztec-packages/issues/8238) remains to be implemented.)
 
 ### Private Fee Payment Implementation
 
