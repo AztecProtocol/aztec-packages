@@ -1,4 +1,5 @@
 #pragma once
+#include <execution>
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
