@@ -10,11 +10,6 @@ use dep::aztec::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-trait OwnedNote {
-    fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
-    fn get_amount(self) -> U128;
-}
-
 global UINT_NOTE_LEN: Field = 3; // 3 plus a header.
 global UINT_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
@@ -65,16 +60,16 @@ impl NoteInterface<UINT_NOTE_LEN, UINT_NOTE_BYTES_LEN> for UintNote {
 impl UintNote {
     // TODO: Merge this func with `compute_note_hiding_point`. I (benesjan) didn't do it in the initial PR to not have
     // to modify macros and all the related funcs in it.
-    fn to_note_hiding_point(self) -> IntNoteHidingPoint {
-        IntNoteHidingPoint::new(self.compute_note_hiding_point())
+    fn to_note_hiding_point(self) -> UintNoteHidingPoint {
+        UintNoteHidingPoint::new(self.compute_note_hiding_point())
     }
 }
 
-struct IntNoteHidingPoint {
+struct UintNoteHidingPoint {
   inner: Point
 }
 
-impl IntNoteHidingPoint {
+impl UintNoteHidingPoint {
     fn new(point: Point) -> Self {
         Self { inner: point }
     }
@@ -100,7 +95,7 @@ impl IntNoteHidingPoint {
     }
 }
 
-impl Serialize<POINT_LENGTH> for IntNoteHidingPoint {
+impl Serialize<POINT_LENGTH> for UintNoteHidingPoint {
     fn serialize(self) -> [Field; POINT_LENGTH] {
         self.inner.serialize()
     }
@@ -111,20 +106,5 @@ impl Eq for UintNote {
         (self.value == other.value) &
         (self.npk_m_hash == other.npk_m_hash) &
         (self.randomness == other.randomness)
-    }
-}
-
-impl OwnedNote for UintNote {
-    fn new(amount: U128, owner_npk_m_hash: Field) -> Self {
-        Self {
-            value: amount,
-            npk_m_hash: owner_npk_m_hash,
-            randomness: unsafe_rand(),
-            header: NoteHeader::empty(),
-        }
-    }
-
-    fn get_amount(self) -> U128 {
-        self.value
     }
 }
