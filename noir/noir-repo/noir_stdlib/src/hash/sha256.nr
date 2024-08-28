@@ -69,7 +69,7 @@ fn verify_msg_block<let N: u32>(
                 msg_byte_ptr = 0;
             }
         } else {
-            // Need to assert over the msg block in the else case as well
+            // Need to assert over the msg block in the else case as well 
             if N < 64 {
                 assert_eq(msg_block[msg_byte_ptr], 0);
             } else {
@@ -118,7 +118,7 @@ pub fn sha256_var<let N: u32>(msg: [u8; N], message_size: u64) -> [u8; 32] {
 
     let last_block = msg_block;
     // Pad the rest such that we have a [u32; 2] block at the end representing the length
-    // of the message, and a block of 1 0 ... 0 following the message (i.e. [1 << 7, 0, ..., 0]).
+    // of the message, and a block of 1 0 ... 0 following the message (i.e. [1 << 7, 0, ..., 0]).    
     msg_block[msg_byte_ptr] = 1 << 7;
     msg_byte_ptr = msg_byte_ptr + 1;
     unsafe {
