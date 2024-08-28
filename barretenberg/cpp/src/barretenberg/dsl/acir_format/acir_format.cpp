@@ -334,15 +334,13 @@ void process_honk_recursion_constraints(Builder& builder,
         stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
 
     // Add recursion constraints
-    for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); ++i) {
-        auto& constraint = constraint_system.honk_recursion_constraints.at(i);
-
-        ProofSurgeon::move_aggregation_object_from_proof_to_public_inputs(constraint.proof, constraint.public_inputs);
-
+    size_t idx = 0;
+    for (auto& constraint : constraint_system.honk_recursion_constraints) {
         current_aggregation_object = create_honk_recursion_constraints(
             builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+
         gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.honk_recursion_constraints.at(i));
+                                constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
 
     // Now that the circuit has been completely built, we add the output aggregation as public
