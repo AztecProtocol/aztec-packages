@@ -8,6 +8,10 @@ on:
         description: "Don't rebuild images"
         required: false
         type: boolean
+      no_deploy:
+        description: "Skip deployment (only release images)"
+        required: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -367,6 +371,7 @@ jobs:
           terraform_version: 1.7.5
 
   terraform-deploy:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [build-end, set-network]
     env:
@@ -477,6 +482,7 @@ jobs:
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.pxe_data_store"
 
   bootstrap:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [terraform-deploy, set-network]
     env:
@@ -530,6 +536,7 @@ jobs:
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/basic_contracts.json
 
   deploy-faucet:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [terraform-deploy, bootstrap, set-network]
     env:
@@ -571,6 +578,7 @@ jobs:
           terraform apply -input=false -auto-approve
 
   enable-proving:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [deploy-faucet, set-network]
     env:
