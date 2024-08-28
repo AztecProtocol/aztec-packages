@@ -89,7 +89,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             relation_parameters.lookup_grand_product_delta =
                 FF::from_witness(builder, instance->relation_parameters.lookup_grand_product_delta);
         }
-        info("Num gates at the end of instance creation: ", builder->num_gates);
+        info("Num gates at the end of instance creation:               ", builder->num_gates);
     }
 
     /**

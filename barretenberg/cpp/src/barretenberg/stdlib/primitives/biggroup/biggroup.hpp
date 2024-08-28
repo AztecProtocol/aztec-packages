@@ -58,9 +58,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
-        info("    Num gates before validating on curve: ", ctx->num_gates);
+        // info("    Num gates before validating on curve: ", ctx->num_gates);
+        // if constexpr (!IsMegaBuilder<Builder>) {
         out.validate_on_curve();
-        info("    Num gates after validating on curve: ", ctx->num_gates);
+        // }
+        // info("    Num gates after validating on curve: ", ctx->num_gates);
         return out;
     }
 
@@ -68,11 +70,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     {
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
         Fq _b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
-        info("    Num gates after instantiating bigfield elt: ", get_context()->num_gates);
+        // info("    Num gates after instantiating bigfield elt: ", get_context()->num_gates);
         Fq _x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), x);
-        info("    Num gates after instantiating bigfield elt: ", get_context()->num_gates);
+        // info("    Num gates after instantiating bigfield elt: ", get_context()->num_gates);
         Fq _y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), y);
-        info("    Num gates after instantiating bigfield elt: ", get_context()->num_gates);
+        // info("    Num gates after instantiating bigfield elt: ", get_context()->num_gates);
         if constexpr (!NativeGroup::has_a) {
             // we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when calling mult_madd
             Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { _b }, true);
@@ -82,7 +84,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             // we validate y^2 = x^3 + ax + b by setting "fix_remainder_zero = true" when calling mult_madd
             Fq::mult_madd({ _x.sqr(), _x, _y }, { _x, _a, -_y }, { _b }, true);
         }
-        info("    Num gates after checking curve equation: ", get_context()->num_gates);
+        // info("    Num gates after checking curve equation: ", get_context()->num_gates);
     }
 
     static element one(Builder* ctx)

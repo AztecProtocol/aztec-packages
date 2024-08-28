@@ -9,8 +9,11 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
     const std::shared_ptr<Instance>& inst, std::string& domain_separator)
 {
     domain_separator = domain_separator + "_";
+    info("Num gates before oink verifier creation:  ", builder->num_gates);
     OinkVerifier oink_verifier{ builder, inst, transcript, domain_separator };
+    info("Num gates before oink verify:             ", builder->num_gates);
     oink_verifier.verify();
+    info("Num gates after oink verify:              ", builder->num_gates);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
@@ -43,14 +46,14 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
 
     transcript = std::make_shared<Transcript>(proof);
     prepare_for_folding();
-    info("Num gates after preparing to fold: ", builder->num_gates);
+    info("Num gates after preparing to fold:                               ", builder->num_gates);
 
     auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
-    info("Num gates before computing round challenge pows: ", builder->num_gates);
+    info("Num gates before computing round challenge pows:                 ", builder->num_gates);
     auto deltas =
         compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
-    info("Num gates after computing round challenge pows: ", builder->num_gates);
+    info("Num gates after computing round challenge pows:                  ", builder->num_gates);
 
     std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
     if (accumulator->is_accumulator) {
@@ -59,14 +62,14 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
     }
-    info("Num gates after receiving perturbator coefficients: ", builder->num_gates);
+    info("Num gates after receiving perturbator coefficients:              ", builder->num_gates);
 
     perturbator_coeffs[0] = accumulator->target_sum;
 
     FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
     auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
-    info("Num gates after evaluating the perturbator: ", builder->num_gates);
+    info("Num gates after evaluating the perturbator:                      ", builder->num_gates);
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
     for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
@@ -77,7 +80,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         combiner_quotient_evals);
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge); // fine recursive i think
-    info("Num gates after evaluating combiner quotient: ", builder->num_gates);
+    info("Num gates after evaluating combiner quotient:                    ", builder->num_gates);
 
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
@@ -104,14 +107,14 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     // Compute next folding parameters
     next_accumulator->target_sum =
         perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-    info("Num gates after computing new target sum: ", builder->num_gates);
+    info("Num gates after computing new target sum:                        ", builder->num_gates);
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-    info("Num gates after computing gate challenges: ", builder->num_gates);
+    info("Num gates after computing gate challenges:                       ", builder->num_gates);
 
     // Compute ϕ
     fold_commitments(lagranges, instances, next_accumulator);
-    info("Num gates after folding commitments: ", builder->num_gates);
+    info("Num gates after folding commitments:                             ", builder->num_gates);
 
     size_t alpha_idx = 0;
     for (auto& alpha : next_accumulator->alphas) {
@@ -123,7 +126,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         }
         alpha_idx++;
     }
-    info("Num gates after updating alphas: ", builder->num_gates);
+    info("Num gates after updating alphas:                                 ", builder->num_gates);
 
     auto& expected_parameters = next_accumulator->relation_parameters;
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
@@ -138,7 +141,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
         expected_parameters.lookup_grand_product_delta +=
             instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
-    info("(final): Num gates after folding relation parameters: ", builder->num_gates);
+    info("(final): Num gates after folding relation parameters:            ", builder->num_gates);
     return next_accumulator;
 }
 
