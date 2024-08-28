@@ -15,10 +15,10 @@ export async function cancelTx(
   log: LogFn,
 ) {
   const receipt = await wallet.getTxReceipt(txHash);
-  // if (receipt.status !== TxStatus.PENDING || !cancellable) {
-  //   log(`Transaction is in status ${receipt.status} and cannot be cancelled`);
-  //   return;
-  // }
+  if (receipt.status !== TxStatus.PENDING || !cancellable) {
+    log(`Transaction is in status ${receipt.status} and cannot be cancelled`);
+    return;
+  }
 
   const fee: FeeOptions = {
     paymentMethod,
