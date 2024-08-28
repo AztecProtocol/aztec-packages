@@ -1,9 +1,3 @@
-// Notes:
-// We want the recursive verifier for this proof to be an ultra honk type proof
-// that will be aggregated in the rolup circuits
-//
-// We also want noir to be able to absorb these proofs
-
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"

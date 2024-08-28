@@ -1,10 +1,6 @@
-// As this adds the honk_stdlib_recursion module to the cmake lists, we probably
-// want to make vm recursion its own module
-
+#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -12,7 +8,6 @@
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
 #include "barretenberg/vm/avm/generated/composer.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
-#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
@@ -61,11 +56,11 @@ class AvmRecursiveTests : public ::testing::Test {
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
         trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
         trace_builder.op_return(0, 0, 0);
-        auto trace = trace_builder.finalize(true);
+        auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 
         builder.set_trace(std::move(trace));
         builder.check_circuit();
-        info("inner builder - num gates: ", builder.get_num_gates());
+        vinfo("inner builder - num gates: ", builder.get_num_gates());
 
         return builder;
     }
@@ -80,7 +75,6 @@ TEST_F(AvmRecursiveTests, recursion)
 
     HonkProof proof = prover.construct_proof();
 
-    // NOTE(md): got to do something about these public inputs
     auto public_inputs = generate_base_public_inputs();
     std::vector<std::vector<InnerFF>> public_inputs_vec =
         bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
@@ -93,9 +87,6 @@ TEST_F(AvmRecursiveTests, recursion)
     OuterBuilder outer_circuit;
     RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
 
-    // Note(md): no inputs are provided here - so the verifier is under-constrained in respect to public inputs
-    // If we return the pairing points then potentially they can be recursively verified nicely?? - but it is not clear
-    // how aggregation will work unless we make sure the avm has the same circuit size as other things
     auto pairing_points = recursive_verifier.verify_proof(proof);
 
     bool pairing_points_valid = verification_key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
@@ -103,7 +94,7 @@ TEST_F(AvmRecursiveTests, recursion)
 
     ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
 
-    info("Recursive verifier: num gates = ", outer_circuit.num_gates);
+    vinfo("Recursive verifier: num gates = ", outer_circuit.num_gates);
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);

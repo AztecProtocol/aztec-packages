@@ -45,15 +45,6 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    //     // Note(md): inherited from eccvm recursion
-    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1017): This is a hack to ensure zero commitments
-    //     // are still on curve as the transcript doesn't currently support a point at infinity representation for
-    //     // cycle_group
-    //     if (!comm.get_value().on_curve()) {
-    //         comm.set_point_at_infinity(true);
-    //     }
-    // }
-
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -62,8 +53,6 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
     for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
-
-    // TODO(md): do we not need to hash the counts columns until the sumcheck rounds?
 
     // unconstrained
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
@@ -79,10 +68,11 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    info("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
-
-    // TODO(md): when calling `get_commitments` do the values get constrained in their origin? check that the zip_view
-    // does in fact use the verifier type to get it?
+    // TODO(md): call assert true on the builder type to lay down the positive boolean constraint?
+    // using bool_ct = stdlib::bool_t<Builder>;
+    // bool_ct is_true = bool_ct(1);
+    // sumcheck_verified.must_imply(is_true, "sumcheck verification failed");
+    vinfo("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
 
     auto multivariate_to_univariate_opening_claim = Zeromorph::verify(circuit_size,
                                                                       commitments.get_unshifted(),
@@ -96,7 +86,9 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
     auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
 
     return pairing_points;
-    // TODO(md): call assert true on the builder type to lay down the positive boolean constraint?
+
+    // Probably we will have to return an aggregation object (see ultra_recursive_verifier.cpp) once we interface
+    // with noir for public_kernel integration. Follow, the same recipe as in ultra_recursive_verifier.cpp in this case.
 }
 
 template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
