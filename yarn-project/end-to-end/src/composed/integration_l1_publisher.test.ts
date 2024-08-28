@@ -21,6 +21,7 @@ import {
 import {
   ETHEREUM_SLOT_DURATION,
   EthAddress,
+  GENESIS_ARCHIVE_ROOT,
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
@@ -37,11 +38,11 @@ import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { AvailabilityOracleAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
-import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
 
@@ -84,11 +85,9 @@ describe('L1Publisher integration', () => {
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;
-  let inboxAddress: Address;
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -115,10 +114,10 @@ describe('L1Publisher integration', () => {
   // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
-  const setTimeToNextSlot = async () => {
+  const progressTimeBySlot = async (slotsToJump = 1n) => {
     const currentTime = (await publicClient.getBlock()).timestamp;
     const currentSlot = await rollup.read.getCurrentSlot();
-    const timestamp = (await rollup.read.getTimestampForSlot([currentSlot + 1n])) - BigInt(ETHEREUM_SLOT_DURATION);
+    const timestamp = await rollup.read.getTimestampForSlot([currentSlot + slotsToJump]);
     if (timestamp > currentTime) {
       await ethCheatCodes.warp(Number(timestamp));
     }
@@ -135,7 +134,6 @@ describe('L1Publisher integration', () => {
     ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
-    inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
     // Set up contract instances
@@ -144,11 +142,6 @@ describe('L1Publisher integration', () => {
       abi: RollupAbi,
       client: publicClient,
     });
-    inbox = getContract({
-      address: inboxAddress,
-      abi: InboxAbi,
-      client: walletClient,
-    });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
@@ -156,7 +149,7 @@ describe('L1Publisher integration', () => {
     });
 
     const tmpStore = openTmpStore();
-    builderDb = await MerkleTrees.new(tmpStore);
+    builderDb = await MerkleTrees.new(tmpStore, new NoopTelemetryClient());
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
@@ -169,7 +162,7 @@ describe('L1Publisher integration', () => {
     builder = await TxProver.new(config, new NoopTelemetryClient());
     prover = builder.createBlockProver(builderDb.asLatest());
 
-    publisher = getL1Publisher(
+    publisher = new L1Publisher(
       {
         l1RpcUrl: config.l1RpcUrl,
         requiredConfirmations: 1,
@@ -177,6 +170,7 @@ describe('L1Publisher integration', () => {
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
+        timeTraveler: true,
       },
       new NoopTelemetryClient(),
     );
@@ -186,7 +180,9 @@ describe('L1Publisher integration', () => {
 
     prevHeader = builderDb.getInitialHeader();
 
-    await setTimeToNextSlot();
+    // We jump to the next epoch such that the committee can be setup.
+    const timeToJump = await rollup.read.EPOCH_DURATION();
+    await progressTimeBySlot(timeToJump);
   });
 
   const makeEmptyProcessedTx = () =>
@@ -353,7 +349,7 @@ describe('L1Publisher integration', () => {
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
     // random recipient address, just kept consistent for easy testing ts/sol.
@@ -363,9 +359,6 @@ describe('L1Publisher integration', () => {
 
     let currentL1ToL2Messages: Fr[] = [];
     let nextL1ToL2Messages: Fr[] = [];
-
-    // We store which tree is about to be consumed so that we can later check the value advanced
-    let toConsume = await inbox.read.toConsume();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       // @note  Make sure that the state is up to date before we start building.
@@ -409,7 +402,7 @@ describe('L1Publisher integration', () => {
 
       const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-      const [emptyRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+      const [emptyRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
       // Check that we have not yet written a root to this blocknumber
       expect(BigInt(emptyRoot)).toStrictEqual(0n);
@@ -439,15 +432,11 @@ describe('L1Publisher integration', () => {
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.header.hash().toBuffer().toString('hex')}`,
           `0x${block.body.toBuffer().toString('hex')}`,
         ],
       });
       expect(ethTx.input).toEqual(expectedData);
-
-      // Check a tree have been consumed from the inbox
-      const newToConsume = await inbox.read.toConsume();
-      expect(newToConsume).toEqual(toConsume + 1n);
-      toConsume = newToConsume;
 
       const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
 
@@ -462,24 +451,30 @@ describe('L1Publisher integration', () => {
       await tree.appendLeaves(l2ToL1MsgsArray);
 
       const expectedRoot = tree.getRoot(true);
-      const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+      const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
       // check that values are inserted into the outbox
-      expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
+      expect(Fr.ZERO.toString()).toEqual(returnedRoot);
+
+      const actualRoot = await ethCheatCodes.load(
+        EthAddress.fromString(outbox.address),
+        ethCheatCodes.keccak256(0n, 1n + BigInt(i)),
+      );
+      expect(`0x${expectedRoot.toString('hex')}`).toEqual(new Fr(actualRoot).toString());
 
       // There is a 1 block lag between before messages get consumed from the inbox
       currentL1ToL2Messages = nextL1ToL2Messages;
       // We wipe the messages from previous iteration
       nextL1ToL2Messages = [];
 
-      // @todo @LHerskind need to make sure that time have progressed to the next slot!
-      await setTimeToNextSlot();
+      // Make sure that time have progressed to the next slot!
+      await progressTimeBySlot();
     }
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
 
@@ -539,6 +534,7 @@ describe('L1Publisher integration', () => {
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.header.hash().toBuffer().toString('hex')}`,
                 `0x${block.body.toBuffer().toString('hex')}`,
               ],
             })
@@ -548,11 +544,12 @@ describe('L1Publisher integration', () => {
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.header.hash().toBuffer().toString('hex')}`,
               ],
             });
       expect(ethTx.input).toEqual(expectedData);
 
-      await setTimeToNextSlot();
+      await progressTimeBySlot();
     }
   });
 });

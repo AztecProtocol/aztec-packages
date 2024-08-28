@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../aztec.js"
+    },
+    {
       "path": "../bb-prover"
     },
     {
@@ -50,6 +53,9 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

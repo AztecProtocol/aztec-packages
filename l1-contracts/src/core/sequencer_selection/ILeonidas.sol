@@ -17,11 +17,14 @@ interface ILeonidas {
   function getCurrentSlot() external view returns (uint256);
   function isValidator(address _validator) external view returns (bool);
   function getValidatorCount() external view returns (uint256);
+  function getValidatorAt(uint256 _index) external view returns (address);
 
   // Consider removing below this point
   function getTimestampForSlot(uint256 _slotNumber) external view returns (uint256);
 
   // Likely removal of these to replace with a size and indiviual getter
+  // Get the current epoch committee
+  function getCurrentEpochCommittee() external view returns (address[] memory);
   function getEpochCommittee(uint256 _epoch) external view returns (address[] memory);
   function getValidators() external view returns (address[] memory);
 }

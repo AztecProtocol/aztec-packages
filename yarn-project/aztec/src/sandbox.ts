@@ -132,6 +132,7 @@ export async function deployContractsToL1(
       l2FeeJuiceAddress: FeeJuiceAddress,
       vkTreeRoot: getVKTreeRoot(),
       assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
+      salt: undefined,
     }),
   );
 
@@ -160,12 +161,16 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
+  if (!aztecNodeConfig.validatorPrivateKey || aztecNodeConfig.validatorPrivateKey === NULL_KEY) {
+    const privKey = hdAccount.getHdKey().privateKey;
+    aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+  }
 
   if (!aztecNodeConfig.p2pEnabled) {
     await deployContractsToL1(aztecNodeConfig, hdAccount);
   }
 
-  const client = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
   const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 

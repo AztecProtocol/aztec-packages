@@ -3,12 +3,12 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
-#include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include <algorithm>
 
 namespace bb {
@@ -42,10 +42,13 @@ class AztecIVC {
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
-    using GURecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
+    using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
+    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstances::Instance;
+    using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+    using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
 
@@ -60,9 +63,11 @@ class AztecIVC {
         MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
 
-    struct FoldingVerifierInputs {
-        FoldProof proof;
+    enum class QUEUE_TYPE { OINK, PG };
+    struct RecursiveVerifierInputs {
+        std::vector<FF> proof; // oink or PG
         std::shared_ptr<VerificationKey> instance_vk;
+        QUEUE_TYPE type;
     };
 
     // Utility for tracking the max size of each block across the full IVC
@@ -80,7 +85,7 @@ class AztecIVC {
     std::shared_ptr<VerificationKey> instance_vk;           // verification key for instance to be folded
 
     // Set of pairs of {fold_proof, verification_key} to be recursively verified
-    std::vector<FoldingVerifierInputs> verification_queue;
+    std::vector<RecursiveVerifierInputs> verification_queue;
     // Set of merge proofs to be recursively verified
     std::vector<MergeProof> merge_verification_queue;
 
@@ -90,16 +95,12 @@ class AztecIVC {
     // A flag indicating whether or not to construct a structured trace in the ProverInstance
     TraceStructure trace_structure = TraceStructure::NONE;
 
-    size_t circuit_count = 0; // the number of circuits processed into the IVC
-    bool is_kernel = false;   // is the present circuit a kernel
+    bool initialized = false; // Is the IVC accumulator initialized
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     // Perform prover work for accumulation (e.g. PG folding, merge proving)
-    void execute_accumulation_prover(ClientCircuit& circuit,
-                                     const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
-
     void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
 
     Proof prove();
@@ -115,7 +116,5 @@ class AztecIVC {
     bool prove_and_verify();
 
     HonkProof decider_prove() const;
-
-    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(std::vector<ClientCircuit>);
 };
 } // namespace bb

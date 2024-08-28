@@ -94,7 +94,7 @@ struct AcirFormat {
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
-    std::vector<HonkRecursionConstraint> honk_recursion_constraints;
+    std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -102,12 +102,8 @@ struct AcirFormat {
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>,
-                bb::ContainerSlabAllocator<bb::poly_triple_<bb::curve::BN254::ScalarField>>>
-        poly_triple_constraints;
-    std::vector<bb::mul_quad_<bb::curve::BN254::ScalarField>,
-                bb::ContainerSlabAllocator<bb::mul_quad_<bb::curve::BN254::ScalarField>>>
-        quad_constraints;
+    bb::SlabVector<bb::poly_triple_<bb::curve::BN254::ScalarField>> poly_triple_constraints;
+    bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // Number of gates added to the circuit per original opcode.
@@ -148,7 +144,7 @@ struct AcirFormat {
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
 
-using WitnessVector = std::vector<bb::fr, bb::ContainerSlabAllocator<bb::fr>>;
+using WitnessVector = bb::SlabVector<bb::fr>;
 using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
@@ -203,5 +199,50 @@ void build_constraints(
     bool collect_gates_per_opcode = false); // honk_recursion means we will honk to recursively verify this
                                             // circuit. This distinction is needed to not add the default
                                             // aggregation object when we're not using the honk RV.
+
+/**
+ * @brief Utility class for tracking the gate count of acir constraints
+ *
+ */
+template <typename Builder> class GateCounter {
+  public:
+    GateCounter(Builder* builder, bool collect_gates_per_opcode)
+        : builder(builder)
+        , collect_gates_per_opcode(collect_gates_per_opcode)
+    {}
+
+    size_t compute_diff()
+    {
+        if (!collect_gates_per_opcode) {
+            return 0;
+        }
+        size_t new_gate_count = builder->get_num_gates();
+        size_t diff = new_gate_count - prev_gate_count;
+        prev_gate_count = new_gate_count;
+        return diff;
+    }
+
+    void track_diff(std::vector<size_t>& gates_per_opcode, size_t opcode_index)
+    {
+        if (collect_gates_per_opcode) {
+            gates_per_opcode[opcode_index] = compute_diff();
+        }
+    }
+
+  private:
+    Builder* builder;
+    bool collect_gates_per_opcode;
+    size_t prev_gate_count{};
+};
+
+void process_plonk_recursion_constraints(Builder& builder,
+                                         AcirFormat& constraint_system,
+                                         bool has_valid_witness_assignments,
+                                         GateCounter<Builder>& gate_counter);
+void process_honk_recursion_constraints(Builder& builder,
+                                        AcirFormat& constraint_system,
+                                        bool has_valid_witness_assignments,
+                                        bool honk_recursion,
+                                        GateCounter<Builder>& gate_counter);
 
 } // namespace acir_format

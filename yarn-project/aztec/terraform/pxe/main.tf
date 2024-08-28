@@ -150,6 +150,10 @@ resource "aws_ecs_task_definition" "aztec-pxe" {
         {
           name  = "PXE_PROVER_ENABLED"
           value = tostring(var.PROVING_ENABLED)
+        },
+        {
+          name  = "LOG_JSON"
+          value = "1"
         }
       ]
       mountPoints = [
@@ -179,6 +183,7 @@ resource "aws_ecs_service" "aztec-pxe" {
   deployment_minimum_healthy_percent = 0
   platform_version                   = "1.4.0"
   force_new_deployment               = true
+  enable_execute_command             = true
 
   network_configuration {
     subnets = [

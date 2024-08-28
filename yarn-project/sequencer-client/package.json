@@ -24,6 +24,7 @@
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --config jest.integration.config.json"
   },
   "dependencies": {
+    "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
@@ -39,6 +40,7 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "@noir-lang/types": "portal:../../noir/packages/types",

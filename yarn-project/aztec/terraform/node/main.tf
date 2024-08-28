@@ -149,21 +149,9 @@ resource "aws_ecs_task_definition" "aztec-node" {
 
   container_definitions = jsonencode([
     {
-      name      = "init-container"
-      image     = "amazonlinux:latest"
-      essential = false
-      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}/data ${local.data_dir}/node_${count.index + 1}/temp"]
-      mountPoints = [
-        {
-          containerPath = local.data_dir
-          sourceVolume  = "efs-data-store"
-        }
-      ]
-    },
-    {
       name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
       image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
-      command           = ["start", "--node", "--archiver", "--sequencer", "--prover"]
+      command           = ["start", "--node", "--archiver", "--sequencer"]
       essential         = true
       memoryReservation = 3776
       portMappings = [
@@ -209,6 +197,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "${local.data_dir}/node_${count.index + 1}/data"
         },
         {
+          name  = "IS_DEV_NET"
+          value = "true"
+        },
+        {
           name  = "ARCHIVER_POLLING_INTERVAL"
           value = "10000"
         },
@@ -234,6 +226,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
+          value = local.sequencer_private_keys[count.index]
+        },
+        {
+          name  = "VALIDATOR_PRIVATE_KEY"
           value = local.sequencer_private_keys[count.index]
         },
         {
@@ -341,8 +337,8 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.PROVING_ENABLED)
         },
         {
-          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
-          value = "http://aztec-otel.local:4318"
+          name  = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+          value = "http://aztec-otel.local:4318/v1/metrics"
         },
         {
           name  = "OTEL_SERVICE_NAME"
@@ -361,9 +357,17 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "info"
         },
         {
+          name  = "LOG_JSON",
+          value = "1"
+        },
+        {
           name  = "NETWORK_NAME",
           value = "${var.DEPLOY_TAG}"
-        }
+        },
+        {
+          name  = "VALIDATOR_DISABLED",
+          value = "1"
+        },
       ]
       mountPoints = [
         {
@@ -372,10 +376,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         }
       ]
       dependsOn = [
-        {
-          containerName = "init-container"
-          condition     = "COMPLETE"
-        }
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -398,6 +398,7 @@ resource "aws_ecs_service" "aztec-node" {
   deployment_minimum_healthy_percent = 0
   platform_version                   = "1.4.0"
   force_new_deployment               = true
+  enable_execute_command             = true
 
 
   network_configuration {

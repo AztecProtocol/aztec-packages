@@ -43,7 +43,7 @@ contract Leonidas is Ownable, ILeonidas {
     uint256 nextSeed;
   }
 
-  // @note @LHerskind - The multiple cause pain and suffering in the E2E tests as we introduce
+  // @note  @LHerskind  The multiple cause pain and suffering in the E2E tests as we introduce
   //                    a timeliness requirement into the publication that did not exists before,
   //                    and at the same time have a setup that will impact the time at every tx
   //                    because of auto-mine. By using just 1, we can make our test work
@@ -51,14 +51,16 @@ contract Leonidas is Ownable, ILeonidas {
   //                    transactions is slower than an actual ethereum slot.
   //
   //                    The value should be a higher multiple for any actual chain
-  uint256 public constant SLOT_DURATION = Constants.ETHEREUM_SLOT_DURATION * 1;
+  // @todo  #8019
+  uint256 public constant SLOT_DURATION = Constants.AZTEC_SLOT_DURATION;
 
   // The duration of an epoch in slots
-  // @todo @LHerskind - This value should be updated when we are not blind.
-  uint256 public constant EPOCH_DURATION = 32;
+  // @todo  @LHerskind - This value should be updated when we are not blind.
+  // @todo  #8020
+  uint256 public constant EPOCH_DURATION = Constants.AZTEC_EPOCH_DURATION;
 
   // The target number of validators in a committee
-  // @todo @LHerskind - This value should be updated when we are not blind.
+  // @todo #8021
   uint256 public constant TARGET_COMMITTEE_SIZE = EPOCH_DURATION;
 
   // The time that the contract was deployed
@@ -94,7 +96,7 @@ contract Leonidas is Ownable, ILeonidas {
    */
   function addValidator(address _validator) external override(ILeonidas) onlyOwner {
     setupEpoch();
-    validatorSet.add(_validator);
+    _addValidator(_validator);
   }
 
   /**
@@ -130,6 +132,43 @@ contract Leonidas is Ownable, ILeonidas {
     return epochs[_epoch].committee;
   }
 
+  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
+    uint256 epochNumber = getEpochAt(_ts);
+    if (epochNumber == 0) {
+      return new address[](0);
+    }
+
+    Epoch storage epoch = epochs[epochNumber];
+
+    if (epoch.sampleSeed != 0) {
+      uint256 committeeSize = epoch.committee.length;
+      if (committeeSize == 0) {
+        return new address[](0);
+      }
+      return epoch.committee;
+    }
+
+    // Allow anyone if there is no validator set
+    if (validatorSet.length() == 0) {
+      return new address[](0);
+    }
+
+    // Emulate a sampling of the validators
+    uint256 sampleSeed = _getSampleSeed(epochNumber);
+    return _sampleValidators(epochNumber, sampleSeed);
+  }
+
+  /**
+   * @notice  Get the validator set for the current epoch
+   *
+   * @dev Makes a call to setupEpoch under the hood, this should ONLY be called as a view function, and not from within
+   *      this contract.
+   * @return The validator set for the current epoch
+   */
+  function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
+    return getCommitteeAt(block.timestamp);
+  }
+
   /**
    * @notice  Get the validator set
    *
@@ -148,6 +187,15 @@ contract Leonidas is Ownable, ILeonidas {
    */
   function getValidatorCount() public view override(ILeonidas) returns (uint256) {
     return validatorSet.length();
+  }
+
+  /**
+   * @notice  Get the number of validators in the validator set
+   *
+   * @return The number of validators in the validator set
+   */
+  function getValidatorAt(uint256 _index) public view override(ILeonidas) returns (address) {
+    return validatorSet.at(_index);
   }
 
   /**
@@ -279,6 +327,14 @@ contract Leonidas is Ownable, ILeonidas {
     uint256 sampleSeed = _getSampleSeed(epochNumber);
     address[] memory committee = _sampleValidators(epochNumber, sampleSeed);
     return committee[_computeProposerIndex(epochNumber, slot, sampleSeed, committee.length)];
+  }
+
+  /**
+   * @notice  Adds a validator to the set WITHOUT setting up the epoch
+   * @param _validator - The validator to add
+   */
+  function _addValidator(address _validator) internal {
+    validatorSet.add(_validator);
   }
 
   /**

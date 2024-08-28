@@ -1,4 +1,5 @@
 import debug from 'debug';
+import { inspect } from 'util';
 
 import { type LogData, type LogFn } from './log_fn.js';
 
@@ -11,7 +12,7 @@ const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : 
 export type LogLevel = (typeof LogLevels)[number];
 
 const envLogLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel;
-export const currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
+export let currentLevel = LogLevels.includes(envLogLevel) ? envLogLevel : DefaultLogLevel;
 
 const namespaces = process.env.DEBUG ?? 'aztec:*';
 debug.enable(namespaces);
@@ -64,6 +65,11 @@ export function onLog(handler: LogHandler) {
   logHandlers.push(handler);
 }
 
+/** Overrides current log level. */
+export function setLevel(level: LogLevel) {
+  currentLevel = level;
+}
+
 /**
  * Logs args to npm debug if enabled or log level is debug, console.error otherwise.
  * @param debug - Instance of npm debug.
@@ -88,8 +94,7 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, msg: string, data?
  * @returns A string with both the log message and the error message.
  */
 function fmtErr(msg: string, err?: Error | unknown): string {
-  const errStr = err && [(err as Error).name, (err as Error).message].filter(x => !!x).join(' ');
-  return err ? `${msg}: ${errStr || err}` : msg;
+  return err ? `${msg}: ${inspect(err)}` : msg;
 }
 
 /**

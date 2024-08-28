@@ -27,7 +27,7 @@ export const startNode = async (
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
   // All options that are relevant to the Aztec Node
   const nodeConfig = {
-    ...extractRelevantOptions(options, aztecNodeConfigMappings),
+    ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
     l1Contracts: extractL1ContractAddresses(options),
   };
 
@@ -90,8 +90,8 @@ export const startNode = async (
     }
   }
 
-  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings);
-  const telemetryClient = createAndStartTelemetryClient(telemetryConfig);
+  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
+  const telemetryClient = await createAndStartTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node.
   const node = await createAztecNode(nodeConfig, telemetryClient);
@@ -113,7 +113,7 @@ export const startNode = async (
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    await addBot(options, services, signalHandlers, { pxe });
+    await addBot(options, services, signalHandlers, { pxe, node });
   }
 
   return services;

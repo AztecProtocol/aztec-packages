@@ -1,10 +1,12 @@
+import { type AuthWitness } from '@aztec/circuit-types';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type AccountType } from '../utils/accounts.js';
+import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
 
-export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions'] as const;
+export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
 export type AliasType = (typeof Aliases)[number];
 
 export class WalletDB {
@@ -71,7 +73,8 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}-sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}-salt`, salt.toBuffer());
     if (type === 'ecdsasecp256r1ssh' && publicKey) {
-      await this.storeAccountMetadata(address, 'publicSigningKey', Buffer.from(publicKey));
+      const publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
+      await this.storeAccountMetadata(address, 'publicSigningKey', publicSigningKey);
     }
     await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
@@ -88,6 +91,14 @@ export class WalletDB {
     log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
+  async storeAuthwitness(authWit: AuthWitness, log: LogFn, alias?: string) {
+    if (alias) {
+      await this.#aliases.set(`authwits:${alias}`, Buffer.from(authWit.toString()));
+    }
+    await this.#aliases.set(`authwits:last`, Buffer.from(authWit.toString()));
+    log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+  }
+
   async storeTxHash(txHash: string, log: LogFn, alias?: string) {
     if (alias) {
       await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash));
@@ -97,13 +108,37 @@ export class WalletDB {
   }
 
   tryRetrieveAlias(arg: string) {
+    try {
+      return this.retrieveAlias(arg);
+    } catch (e) {
+      return arg;
+    }
+  }
+
+  retrieveAlias(arg: string) {
     if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
       const [type, ...alias] = arg.split(':');
       const data = this.#aliases.get(`${type}:${alias.join(':') ?? 'last'}`);
-      return data ? data.toString() : arg;
+      if (!data) {
+        throw new Error(`Could not find alias ${arg}`);
+      }
+      return data.toString();
+    } else {
+      throw new Error(`Aliases must start with one of ${Aliases.join(', ')}`);
     }
+  }
 
-    return arg;
+  listAliases(type?: AliasType) {
+    const result = [];
+    if (type && !Aliases.includes(type)) {
+      throw new Error(`Unknown alias type ${type}`);
+    }
+    for (const [key, value] of this.#aliases.entries()) {
+      if (!type || key.startsWith(`${type}:`)) {
+        result.push({ key, value: value.toString() });
+      }
+    }
+    return result;
   }
 
   async storeAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string, metadata: Buffer) {

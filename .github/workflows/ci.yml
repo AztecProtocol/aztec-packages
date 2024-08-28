@@ -78,6 +78,7 @@ jobs:
               - barretenberg/cpp/pil/**
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
+              - barretenberg/cpp/src/barretenberg/client_ivc.{hpp,cpp}
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -125,7 +126,7 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
@@ -159,6 +160,35 @@ jobs:
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
+
+  # all the network end-to-end tests for aztec (not required to merge)
+  network-e2e:
+    needs: [build, changes]
+    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+      - name: Setup and Test
+        uses: ./.github/ensure-tester-with-images
+        timeout-minutes: 45
+        with:
+          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+          tester_ttl: 40
+          run: |
+            set -eux
+            cd ./yarn-project/end-to-end/
+            ./scripts/setup_local_k8s.sh
+            export FORCE_COLOR=1
+            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
+            ../../scripts/earthly-ci --exec-stats -P --no-output ./+network-transfer
 
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
@@ -276,7 +306,7 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +preset-gcc
 
-  # barretenberg (prover) native and AVM (public VM) tests
+  # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
     needs: [build-images, changes]
@@ -577,6 +607,7 @@ jobs:
       # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
       # This also creates an alert if benchmarks exceed the threshold specified below.
       - name: Store benchmark result
+        if: ${{ github.ref == 'refs/heads/master' }}
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -591,6 +622,7 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @codygunton"
+          max-items-in-chart: 50
 
   boxes:
     needs: build
