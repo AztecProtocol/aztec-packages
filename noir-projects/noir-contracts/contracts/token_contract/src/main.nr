@@ -491,18 +491,22 @@ contract Token {
     /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
     /// were the same we could fingerprint the user by doing the following:
     ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
-    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness) - G_npk * fee_payer_npk =
+    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness + G_slot * fee_payer_slot)
+    ///                                - G_npk * fee_payer_npk - G_slot * fee_payer_slot =
     ///                              = G_rnd * randomness
     ///      2) user_fingerprint = user_point - randomness_influence =
-    ///                          = (G_npk * user_npk + G_rnd * randomness) - G_rnd * randomness =
-    ///                          = G_npk * user_npk
+    ///                          = (G_npk * user_npk + G_rnd * randomness + G_slot * user_slot) - G_rnd * randomness =
+    ///                          = G_npk * user_npk + G_slot * user_slot
     ///      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint
     ///         and link that the 2 transactions were made by the same user. Given that it's expected that only
     ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
-    ///         by trying different fee payer npk values of these known contracts is a feasible attack.
+    ///         by trying different fee payers is a feasible attack.
     ///
-    /// `fee_payer_point` and `user_point` above are public information because they are passed as args to the public
-    /// `complete_refund(...)` function.
+    /// Note 1: fee_payer_npk is publicly available in a key registry contract under a fee_payer address. So if we have
+    ///         a known set of fee payer contract addresses getting fee_payer_npk and fee_payer_slot is trivial (slot
+    ///         is derived in a `Map<...>` as a hash of balances map slot and a fee payer address).
+    /// Note 2: fee_payer_point and user_point above are public information because they are passed as args to
+    ///         the public `complete_refund(...)` function.
     // docs:start:setup_refund
     #[aztec(private)]
     fn setup_refund(
