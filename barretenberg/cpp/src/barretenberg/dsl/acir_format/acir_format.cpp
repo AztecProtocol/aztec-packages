@@ -337,7 +337,8 @@ void process_honk_recursion_constraints(Builder& builder,
     for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); ++i) {
         auto& constraint = constraint_system.honk_recursion_constraints.at(i);
 
-        ProofSurgeon::move_aggregation_object_from_proof_to_public_inputs(constraint.proof, constraint.public_inputs);
+        // ProofSurgeon::move_aggregation_object_from_proof_to_public_inputs(constraint.proof,
+        // constraint.public_inputs);
 
         current_aggregation_object = create_honk_recursion_constraints(
             builder, constraint, current_aggregation_object, has_valid_witness_assignments);
