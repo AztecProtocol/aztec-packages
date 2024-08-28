@@ -202,9 +202,10 @@ impl<'a> InlayHintCollector<'a> {
             }
             StatementKind::Comptime(statement) => self.collect_in_statement(statement),
             StatementKind::Semi(expression) => self.collect_in_expression(expression),
-            StatementKind::Break => (),
-            StatementKind::Continue => (),
-            StatementKind::Error => (),
+            StatementKind::Break
+            | StatementKind::Continue
+            | StatementKind::Interned(_)
+            | StatementKind::Error => (),
         }
     }
 
@@ -293,6 +294,9 @@ impl<'a> InlayHintCollector<'a> {
             ExpressionKind::Comptime(block_expression, _span) => {
                 self.collect_in_block_expression(block_expression);
             }
+            ExpressionKind::Unsafe(block_expression, _span) => {
+                self.collect_in_block_expression(block_expression);
+            }
             ExpressionKind::AsTraitPath(path) => {
                 self.collect_in_ident(&path.impl_item, true);
             }
@@ -300,6 +304,7 @@ impl<'a> InlayHintCollector<'a> {
             | ExpressionKind::Variable(..)
             | ExpressionKind::Quote(..)
             | ExpressionKind::Resolved(..)
+            | ExpressionKind::Interned(..)
             | ExpressionKind::Error => (),
         }
     }
@@ -589,7 +594,11 @@ fn push_type_parts(typ: &Type, parts: &mut Vec<InlayHintLabelPart>, files: &File
                 parts.push(string_part(">"));
             }
         }
-        Type::Function(args, return_type, _env) => {
+        Type::Function(args, return_type, _env, unconstrained) => {
+            if *unconstrained {
+                parts.push(string_part("unconstrained "));
+            }
+
             parts.push(string_part("fn("));
             for (index, arg) in args.iter().enumerate() {
                 push_type_parts(arg, parts, files);
@@ -685,7 +694,9 @@ fn get_expression_name(expression: &Expression) -> Option<String> {
         | ExpressionKind::Unquote(..)
         | ExpressionKind::Comptime(..)
         | ExpressionKind::Resolved(..)
+        | ExpressionKind::Interned(..)
         | ExpressionKind::Literal(..)
+        | ExpressionKind::Unsafe(..)
         | ExpressionKind::Error => None,
     }
 }
@@ -714,9 +725,9 @@ mod inlay_hints_tests {
             InlayHintParams {
                 work_done_progress_params: WorkDoneProgressParams { work_done_token: None },
                 text_document: TextDocumentIdentifier { uri: noir_text_document },
-                range: lsp_types::Range {
-                    start: lsp_types::Position { line: start_line, character: 0 },
-                    end: lsp_types::Position { line: end_line, character: 0 },
+                range: Range {
+                    start: Position { line: start_line, character: 0 },
+                    end: Position { line: end_line, character: 0 },
                 },
             },
         )

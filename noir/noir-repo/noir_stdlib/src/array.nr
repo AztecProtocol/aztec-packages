@@ -3,6 +3,7 @@ use crate::option::Option;
 use crate::convert::From;
 
 impl<T, let N: u32> [T; N] {
+    /// Returns the length of the slice.
     #[builtin(array_len)]
     pub fn len(self) -> u32 {}
 
@@ -11,14 +12,20 @@ impl<T, let N: u32> [T; N] {
     }
 
     pub fn sort_via<Env>(self, ordering: fn[Env](T, T) -> bool) -> Self {
-        let sorted_index = self.get_sorting_index(ordering);
-        let mut result = self;
-        // Ensure the indexes are correct
-        for i in 0..N {
-            let pos = find_index(sorted_index, i);
-            assert(sorted_index[pos] == i);
-        }
+        let sorted_index = unsafe {
+            // Safety: These indices are asserted to be the sorted element indices via `find_index`
+            let sorted_index: [u32; N] = self.get_sorting_index(ordering);
+
+            for i in 0..N {
+                let pos = find_index(sorted_index, i);
+                assert(sorted_index[pos] == i);
+            }
+
+            sorted_index
+        };
+
         // Sort the array using the indexes
+        let mut result = self;
         for i in 0..N {
             result[i] = self[sorted_index[i]];
         }
