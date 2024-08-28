@@ -114,7 +114,7 @@ TYPED_TEST(GeminiTest, Single)
     const size_t log_n = 4;
 
     auto u = this->random_evaluation_point(log_n);
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial<Fr>::random(n);
     auto commitment = this->commit(poly);
     auto eval = poly.evaluate_mle(u);
 
@@ -145,7 +145,7 @@ TYPED_TEST(GeminiTest, SingleShift)
     auto u = this->random_evaluation_point(log_n);
 
     // shiftable polynomial must have 0 as last coefficient
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial<Fr>::random(n);
     poly.at(0) = Fr::zero();
 
     auto commitment = this->commit(poly);
@@ -177,8 +177,8 @@ TYPED_TEST(GeminiTest, Double)
 
     auto u = this->random_evaluation_point(log_n);
 
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
+    auto poly1 = Polynomial<Fr>::random(n);
+    auto poly2 = Polynomial<Fr>::random(n);
 
     auto commitment1 = this->commit(poly1);
     auto commitment2 = this->commit(poly2);
@@ -205,6 +205,7 @@ TYPED_TEST(GeminiTest, Double)
 TYPED_TEST(GeminiTest, DoubleWithShift)
 {
     using Fr = typename TypeParam::ScalarField;
+    using Polynomial = typename bb::Polynomial<Fr>;
     using GroupElement = typename TypeParam::Element;
 
     const size_t n = 16;
@@ -212,8 +213,8 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     auto u = this->random_evaluation_point(log_n);
 
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n).unshifted(); // make 'shiftable'
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, 1); // make 'shiftable'
 
     auto commitment1 = this->commit(poly1);
     auto commitment2 = this->commit(poly2);

@@ -72,8 +72,9 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        const size_t degree = polynomial.size();
-        if (degree > srs->get_monomial_size()) {
+        const size_t degree = polynomial.end_index();
+        // Be strict and check the full degree
+        if (degree >= srs->get_monomial_size()) {
             info("Attempting to commit to a polynomial of degree ",
                  degree,
                  " with an SRS of size ",

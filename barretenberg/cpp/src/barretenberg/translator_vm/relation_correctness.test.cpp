@@ -57,8 +57,15 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
-    for (Polynomial& prover_poly : prover_polynomials.get_all()) {
+    // ensure we can shift these
+    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
         prover_poly = Polynomial{ full_circuit_size };
+    }
+
+    for (Polynomial& prover_poly : prover_polynomials.get_all()) {
+        if (prover_poly.is_empty()) {
+            prover_poly = Polynomial{ full_circuit_size };
+        }
     }
 
     // Fill in lagrange polynomials used in the permutation relation
@@ -67,7 +74,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = 0; i < mini_circuit_size; i++) {
+        for (size_t i = polynomial.start_index(); i < mini_circuit_size; i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
     };
@@ -136,11 +143,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_2);
     fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
 
-    // ensure we can shift these
-    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
-        prover_poly = prover_poly.unshifted().share();
-    }
-
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     compute_translator_range_constraint_ordered_polynomials<Flavor>(prover_polynomials, mini_circuit_size);
 
@@ -156,7 +158,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     using Relations = typename Flavor::Relations;
 
-    std::cout << prover_polynomials.z_perm << std::endl;
     // Check that permutation relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(full_circuit_size, prover_polynomials, params);
 }
@@ -178,8 +179,13 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
 
     ProverPolynomials prover_polynomials;
     // Allocate polynomials
-    for (Polynomial& polynomial : prover_polynomials.get_all()) {
-        polynomial = Polynomial{ circuit_size };
+    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
+        prover_poly = Polynomial{ circuit_size - 1, circuit_size, /* start index for shiftability */ 1 };
+    }
+    for (Polynomial& prover_poly : prover_polynomials.get_all()) {
+        if (prover_poly.is_empty()) {
+            prover_poly = Polynomial{ circuit_size };
+        }
     }
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
@@ -222,11 +228,6 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
                   prover_polynomials.ordered_range_constraints_0.coeffs().end(),
                   polynomial_pointers[i + 1]->coeffs().begin());
     });
-
-    // ensure we can shift these
-    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
-        prover_poly = prover_poly.unshifted().share();
-    }
 
     // Get shifted polynomials
     prover_polynomials.ordered_range_constraints_0_shift = prover_polynomials.ordered_range_constraints_0.shifted();
@@ -281,9 +282,14 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
+    auto to_be_shifted_ids = prover_polynomial_ids.get_to_be_shifted();
     std::unordered_set<size_t> shifted_id_set;
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
+    }
+    for (auto& id : to_be_shifted_ids) {
+        // allow shifting
+        polynomial_container[id] = Polynomial{ circuit_size - 1, circuit_size, 1 };
     }
     // Assign to non-shifted prover polynomials
     auto polynomial_get_all = prover_polynomials.get_all();
@@ -296,9 +302,8 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     // Assign to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
-        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        auto to_be_shifted_id = to_be_shifted_ids[i];
         // Ensure we can shift this
-        polynomial_container[to_be_shifted_id] = polynomial_container[to_be_shifted_id].unshifted().share();
         polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
@@ -383,9 +388,14 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
+    auto to_be_shifted_ids = prover_polynomial_ids.get_to_be_shifted();
     std::unordered_set<size_t> shifted_id_set;
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
+    }
+    for (auto& id : to_be_shifted_ids) {
+        // allow shifting
+        polynomial_container[id] = Polynomial{ circuit_size - 1, circuit_size, 1 };
     }
     // Assign spans to non-shifted prover polynomials
     for (size_t i = 0; i < polynomial_get_all.size(); i++) {
@@ -397,9 +407,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     // Assign shifted spans to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
-        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        auto to_be_shifted_id = to_be_shifted_ids[i];
         // Ensure we can shift this
-        polynomial_container[to_be_shifted_id] = polynomial_container[to_be_shifted_id].unshifted().share();
         polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 
@@ -808,9 +817,14 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
     // Get ids of shifted polynomials and put them in a set
     auto shifted_ids = prover_polynomial_ids.get_shifted();
+    auto to_be_shifted_ids = prover_polynomial_ids.get_to_be_shifted();
     std::unordered_set<size_t> shifted_id_set;
     for (auto& id : shifted_ids) {
         shifted_id_set.emplace(id);
+    }
+    for (auto& id : to_be_shifted_ids) {
+        // allow shifting
+        polynomial_container[id] = Polynomial{ circuit_size - 1, circuit_size, 1 };
     }
     // Assign to non-shifted prover polynomials
     for (size_t i = 0; i < polynomial_get_all.size(); i++) {
@@ -822,9 +836,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     // Assign to shifted prover polynomials using ids
     for (size_t i = 0; i < shifted_ids.size(); i++) {
         auto shifted_id = shifted_ids[i];
-        auto to_be_shifted_id = prover_polynomial_ids.get_to_be_shifted()[i];
+        auto to_be_shifted_id = to_be_shifted_ids[i];
         // Ensure we can shift this
-        polynomial_container[to_be_shifted_id] = polynomial_container[to_be_shifted_id].unshifted().share();
         polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
     }
 

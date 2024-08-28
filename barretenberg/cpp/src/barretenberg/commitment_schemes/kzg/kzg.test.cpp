@@ -30,7 +30,7 @@ TYPED_TEST(KZGTest, single)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
 
-    auto witness = this->random_polynomial(n);
+    auto witness = Polynomial<Fr>::random(n);
     g1::element commitment = this->commit(witness);
 
     auto challenge = Fr::random_element();
@@ -73,8 +73,8 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     const auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n).unshifted(); // shiftable
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, 1); // make 'shiftable'
 
     GroupElement commitment1 = this->commit(poly1);
     GroupElement commitment2 = this->commit(poly2);

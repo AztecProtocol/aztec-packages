@@ -127,14 +127,6 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief Returns a Polynomial the right-shift of self.
-     *
-     * @details If the n coefficients of self are (a₁, …, aₙ₋₁),
-     * we returns the view of the n-1 coefficients (0, a₁, …, aₙ₋₁).
-     */
-    Polynomial unshifted() const;
-
-    /**
      * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)
      * at u = (u₀,…,uₘ₋₁)
      *
@@ -196,7 +188,7 @@ template <typename Fr> class Polynomial {
      * @param other q(X)
      * @param scaling_factor scaling factor by which all coefficients of q(X) are multiplied
      */
-    void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor);
+    void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
 
     /**
      * @brief adds the polynomial q(X) 'other'.
@@ -239,23 +231,25 @@ template <typename Fr> class Polynomial {
     Fr operator[](size_t i) { return get(i); }
     Fr operator[](size_t i) const { return get(i); }
 
-    static Polynomial random(size_t size) { return random(size, size); }
-
-    static Polynomial random(size_t size, size_t virtual_size)
+    static Polynomial random(size_t size, size_t start_index = 0)
     {
-        Polynomial p(size, virtual_size, DontZeroMemory::FLAG);
+        return random(size - start_index, size, start_index);
+    }
+
+    static Polynomial random(size_t size, size_t virtual_size, size_t start_index)
+    {
+        Polynomial p(size, virtual_size, start_index, DontZeroMemory::FLAG);
         std::generate_n(p.coefficients_.data(), size, []() { return Fr::random_element(); });
         return p;
     }
 
     /**
-     * @brief Copys the polynomial, but with a lowers start_index() by 'left_expand'.
+     * @brief Copys the polynomial, but with the whole address space usable.
      * The value of the polynomial remains the same, but defined memory region differs.
      *
-     * @param shift the lower to shift our start_index() by upon copying.
      * @return a polynomial with a larger size() but same virtual_size()
      */
-    Polynomial expand(size_t left_expand) const;
+    Polynomial full() const;
 
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }
@@ -318,7 +312,7 @@ template <typename Fr> class Polynomial {
     void allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index);
 
     // safety check for in place operations
-    bool in_place_operation_viable(size_t domain_size = 0) { return (size() >= domain_size); }
+    bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
 
     // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
     // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
