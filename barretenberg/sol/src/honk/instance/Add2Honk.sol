@@ -5,8 +5,6 @@
 // Copyright 2024 Aztec Labs
 pragma solidity >=0.8.21;
 
-import "forge-std/console.sol";
-
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {Add2HonkVerificationKey as VK, N, LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "../keys/Add2HonkVerificationKey.sol";
 import {PoseidonParamsLib as PoseidonParamsLib, PoseidonParams as PoseidonParams} from "../PoseidonParams.sol";
@@ -28,7 +26,10 @@ import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.so
 // Field arithmetic libraries
 import {Fr, FrLib} from "../Fr.sol";
 
+import {logFr} from "../utils.sol";
+
 // Transcript library to generate fiat shamir challenges
+
 struct Transcript {
     Fr eta;
     Fr etaTwo;
@@ -103,9 +104,7 @@ library TranscriptLib {
         eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         etaTwo = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(eta))));
         etaThree = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(etaTwo))));
-        console.log("eta ", eta);
-        console.log("eta two", etaTwo);
-        console.log("eta three", etaThree);
+        logFr("eta :", eta);
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
