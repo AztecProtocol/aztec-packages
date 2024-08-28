@@ -389,6 +389,10 @@ export class Sequencer {
     proposalHeader: Header,
     historicalHeader: Header | undefined,
   ): Promise<void> {
+    if (!(await this.publisher.validateBlockForSubmission(proposalHeader))) {
+      return;
+    }
+
     const newGlobalVariables = proposalHeader.globalVariables;
 
     this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
@@ -422,8 +426,8 @@ export class Sequencer {
       await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
     }
 
-    await this.publisher.validateBlockForSubmission(proposalHeader);
     if (
+      !(await this.publisher.validateBlockForSubmission(proposalHeader)) ||
       !this.shouldProposeBlock(historicalHeader, {
         validTxsCount: validTxs.length,
         processedTxsCount: processedTxs.length,
@@ -447,7 +451,9 @@ export class Sequencer {
     // Block is ready, now finalise
     const { block } = await blockBuilder.finaliseBlock();
 
-    await this.publisher.validateBlockForSubmission(block.header);
+    if (!(await this.publisher.validateBlockForSubmission(block.header))) {
+      return;
+    }
 
     const workDuration = workTimer.ms();
     this.log.verbose(

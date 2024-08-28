@@ -1,14 +1,6 @@
-import { EthCheatCodes } from '@aztec/aztec.js';
 import { type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import {
-  AZTEC_SLOT_DURATION,
-  ETHEREUM_SLOT_DURATION,
-  EthAddress,
-  GENESIS_ARCHIVE_ROOT,
-  type Header,
-  type Proof,
-} from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, EthAddress, GENESIS_ARCHIVE_ROOT, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -103,15 +95,6 @@ export type MetadataForSlot = {
   archive: Buffer;
 };
 
-// @note  If we want to simulate in the future, we have to skip the viem simulations and use `reads` instead
-//        This is because the viem simulations are not able to simulate the future, only the current state.
-//        This means that we will be simulating as if `block.timestamp` is the same for the next block
-//        as for the last block.
-//        Nevertheless, it can be quite useful for figuring out why exactly the transaction is failing
-//        as a middle ground right now, we will be skipping the simulation and just sending the transaction
-//        but only after we have done a successful run of the `validateHeader` for the timestamp in the future.
-const SKIP_SIMULATION = true;
-
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
@@ -121,9 +104,17 @@ const SKIP_SIMULATION = true;
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
 export class L1Publisher {
+  // @note  If we want to simulate in the future, we have to skip the viem simulations and use `reads` instead
+  //        This is because the viem simulations are not able to simulate the future, only the current state.
+  //        This means that we will be simulating as if `block.timestamp` is the same for the next block
+  //        as for the last block.
+  //        Nevertheless, it can be quite useful for figuring out why exactly the transaction is failing
+  //        as a middle ground right now, we will be skipping the simulation and just sending the transaction
+  //        but only after we have done a successful run of the `validateHeader` for the timestamp in the future.
+  public static SKIP_SIMULATION = true;
+
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
-  private timeTraveler: boolean;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
   private log = createDebugLogger('aztec:sequencer:publisher');
@@ -139,11 +130,8 @@ export class L1Publisher {
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private account: PrivateKeyAccount;
 
-  private ethCheatCodes: EthCheatCodes;
-
   constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
-    this.timeTraveler = config?.timeTraveler ?? false;
     this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
@@ -170,22 +158,21 @@ export class L1Publisher {
       abi: RollupAbi,
       client: walletClient,
     });
-
-    this.ethCheatCodes = new EthCheatCodes(rpcUrl);
-  }
-
-  public async amIAValidator(): Promise<boolean> {
-    return await this.rollupContract.read.isValidator([this.account.address]);
-  }
-
-  public async getValidatorCount(): Promise<bigint> {
-    return BigInt(await this.rollupContract.read.getValidatorCount());
   }
 
   public getSenderAddress(): Promise<EthAddress> {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
+  /**
+   * @notice  Calls `canProposeAtTime` with the time of the next Ethereum block and the sender address
+   *
+   * @dev     Throws if unable to propose
+   *
+   * @param archive - The archive that we expect to be current state
+   * @return slot - The L2 slot number  of the next Ethereum block,
+   * @return blockNumber - The L2 block number of the next L2 block
+   */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
     const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
@@ -200,7 +187,7 @@ export class L1Publisher {
     header: Header,
     digest: Buffer = new Fr(GENESIS_ARCHIVE_ROOT).toBuffer(),
     attestations: Signature[] = [],
-  ): Promise<void> {
+  ): Promise<boolean> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
 
     const formattedAttestations = attestations.map(attest => attest.toViemSignature());
@@ -216,6 +203,7 @@ export class L1Publisher {
 
     try {
       await this.rollupContract.read.validateHeader(args, { account: this.account });
+      return true;
     } catch (error: unknown) {
       // Specify the type of error
       if (error instanceof ContractFunctionRevertedError) {
@@ -224,7 +212,7 @@ export class L1Publisher {
       } else {
         this.log.debug(`Unexpected error during validation: ${error}`);
       }
-      throw error; // Re-throw the error if needed
+      return false;
     }
   }
 
@@ -287,7 +275,9 @@ export class L1Publisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    await this.validateBlockForSubmission(block.header, block.archive.root.toBuffer(), attestations);
+    if (!(await this.validateBlockForSubmission(block.header, block.archive.root.toBuffer(), attestations))) {
+      return false;
+    }
 
     const processTxArgs = {
       header: block.header.toBuffer(),
@@ -332,8 +322,6 @@ export class L1Publisher {
         this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
         this.metrics.recordProcessBlockTx(timer.ms(), stats);
 
-        await this.commitTimeJump(block.header.globalVariables.slotNumber.toBigInt() + 1n);
-
         return true;
       }
 
@@ -345,49 +333,6 @@ export class L1Publisher {
 
     this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
     return false;
-  }
-
-  async commitTimeJump(slot: bigint) {
-    // @note  So, we are cheating a bit here. Since the tests are running anvil auto-mine
-    //        no blocks are coming around unless we do something, and since we cannot push
-    //        more blocks within the same slot (when `IS_DEV_NET = false`), we can just
-    //        fast forward the anvil chain such that the next block will be the one we need.
-    //        this means that we are forwarding to time of the next slot - 12 seconds such that
-    //        the NEXT ethereum block will be within the new slot.
-    //        If the slot duration of L2 is just 1 L1 slot, then this will not do anything, as
-    //        the time to jump to is current time.
-    //
-    //        Time jumps only allowed into the future.
-    //
-    //        If this is run on top of a real chain, the time lords will catch you.
-    //
-    // @todo  #8153
-
-    if (!this.timeTraveler) {
-      return;
-    }
-
-    // If the aztec slot duration is same length as the ethereum slot duration, we don't need to do anything
-    if ((ETHEREUM_SLOT_DURATION as number) === (AZTEC_SLOT_DURATION as number)) {
-      return;
-    }
-
-    const [currentTime, timeStampForSlot] = await Promise.all([
-      this.ethCheatCodes.timestamp(),
-      this.rollupContract.read.getTimestampForSlot([slot]),
-    ]);
-
-    // @note  We progress the time to the next slot AND mine the block.
-    //        This means that the next effective block will be ETHEREUM_SLOT_DURATION after that.
-    //        This will cause issues if slot duration is equal to one (1) L1 slot, and sequencer selection is run
-    //        The reason is that simulations on ANVIL cannot be run with timestamp + x, so we need to "BE" there.
-    // @todo  #8110
-    const timestamp = timeStampForSlot; //  - BigInt(ETHEREUM_SLOT_DURATION);
-
-    if (timestamp > currentTime) {
-      this.log.info(`Committing time jump to slot ${slot}`);
-      await this.ethCheatCodes.warp(Number(timestamp));
-    }
   }
 
   public async submitProof(
@@ -472,7 +417,7 @@ export class L1Publisher {
         `0x${proof.toString('hex')}`,
       ] as const;
 
-      if (!SKIP_SIMULATION) {
+      if (!L1Publisher.SKIP_SIMULATION) {
         await this.rollupContract.simulate.submitBlockRootProof(args, {
           account: this.account,
         });
@@ -520,7 +465,7 @@ export class L1Publisher {
             attestations,
           ] as const;
 
-          if (!SKIP_SIMULATION) {
+          if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.process(args, { account: this.account });
           }
 
@@ -534,7 +479,7 @@ export class L1Publisher {
             `0x${encodedData.blockHash.toString('hex')}`,
           ] as const;
 
-          if (!SKIP_SIMULATION) {
+          if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.process(args, { account: this.account });
           }
           return await this.rollupContract.write.process(args, {
@@ -561,7 +506,7 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          if (!SKIP_SIMULATION) {
+          if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.publishAndProcess(args, {
               account: this.account,
             });
@@ -578,7 +523,7 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          if (!SKIP_SIMULATION) {
+          if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.publishAndProcess(args, {
               account: this.account,
             });
