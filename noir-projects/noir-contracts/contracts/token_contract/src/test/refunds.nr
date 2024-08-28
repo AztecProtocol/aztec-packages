@@ -5,8 +5,8 @@ use dep::aztec::{
     keys::getters::get_public_keys, prelude::NoteHeader,
     protocol_types::storage::map::derive_storage_slot_in_map,
 };
-use std::test::OracleMock;
 use dep::uint_note::uint_note::UintNote;
+use std::test::OracleMock;
 
 #[test]
 unconstrained fn setup_refund_success() {
@@ -53,7 +53,7 @@ unconstrained fn setup_refund_success() {
             value: U128::from_integer(funded_amount - 1),
             npk_m_hash: user_npk_m_hash,
             randomness: user_randomness,
-            header: NoteHeader::empty()
+            header: NoteHeader::empty(),
         },
         user_balances_slot,
         token_contract_address,
@@ -63,7 +63,7 @@ unconstrained fn setup_refund_success() {
             value: U128::from_integer(1),
             npk_m_hash: fee_payer_npk_m_hash,
             randomness: fee_payer_randomness,
-            header: NoteHeader::empty()
+            header: NoteHeader::empty(),
         },
         fee_payer_balances_slot,
         token_contract_address,

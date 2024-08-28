@@ -9,24 +9,19 @@ use dep::aztec::{
     },
 };
 
-trait OwnedNote {
-    fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
-    fn get_amount(self) -> U128;
-}
-
-// docs:start:TokenNote
-#[partial_note(quote {amount})]
-pub struct TokenNote {
+// docs:start:UintNote
+#[partial_note(quote {value})]
+pub struct UintNote {
     // The amount of tokens in the note
-    amount: U128,
+    value: U128,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
     // Randomness of the note to hide its contents
     randomness: Field,
 }
-// docs:end:TokenNote
+// docs:end:UintNote
 
-impl NullifiableNote for TokenNote {
+impl NullifiableNote for UintNote {
     // docs:start:nullifier
     fn compute_nullifier(
         self,
@@ -51,25 +46,25 @@ impl NullifiableNote for TokenNote {
     }
 }
 
-impl Eq for TokenNote {
+impl Eq for UintNote {
     fn eq(self, other: Self) -> bool {
-        (self.amount == other.amount)
+        (self.value == other.value)
             & (self.npk_m_hash == other.npk_m_hash)
             & (self.randomness == other.randomness)
     }
 }
 
-impl OwnedNote for TokenNote {
-    fn new(amount: U128, owner_npk_m_hash: Field) -> Self {
+impl UintNote {
+    pub fn new(value: U128, owner_npk_m_hash: Field) -> Self {
         // We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
         // malicious sender could use non-random values to make the note less private. But they already know the full
         // note pre-image anyway, and so the recipient already trusts them to not disclose this information. We can
         // therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
-        Self { amount, npk_m_hash: owner_npk_m_hash, randomness, header: NoteHeader::empty() }
+        Self { value, npk_m_hash: owner_npk_m_hash, randomness, header: NoteHeader::empty() }
     }
 
-    fn get_amount(self) -> U128 {
-        self.amount
+    pub fn get_value(self) -> U128 {
+        self.value
     }
 }
