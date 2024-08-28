@@ -37,4 +37,6 @@ members = [
     "crates/rollup-block-merge",
     "crates/rollup-block-root",
     "crates/rollup-root",
+    "crates/msm-profiling",
+    "crates/curve-add-profiling",
 ]
