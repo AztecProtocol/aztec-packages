@@ -93,30 +93,23 @@ class ProofSurgeon {
         std::vector<bb::fr> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 
-        // Define and reserve space for witness indices for each component
-        std::vector<uint32_t> key_indices;
-        std::vector<uint32_t> proof_indices;
-        std::vector<uint32_t> public_input_indices;
-        key_indices.reserve(key_witnesses.size());
-        proof_indices.reserve(proof_witnesses.size());
-        public_input_indices.reserve(public_input_witnesses.size());
-        witness.reserve(witness.size() + key_witnesses.size() + proof_witnesses.size() + public_input_witnesses.size());
+        // Helper to append some values to the witness vector and return their corresponding indices
+        auto add_to_witness_and_track_indices = [](bb::SlabVector<bb::fr>& witness,
+                                                   const std::vector<bb::fr>& input) -> std::vector<uint32_t> {
+            std::vector<uint32_t> indices;
+            indices.reserve(input.size());
+            auto witness_idx = static_cast<uint32_t>(witness.size());
+            for (const auto& value : input) {
+                witness.push_back(value);
+                indices.push_back(witness_idx++);
+            }
+            return indices;
+        };
 
-        // Add key, proof, and public inputs to witness, tracking the corresponding witness indices for each
-        auto witness_idx = static_cast<uint32_t>(witness.size());
-        for (const auto& value : key_witnesses) {
-            witness.push_back(value);
-            key_indices.push_back(witness_idx++);
-        }
-        for (const auto& value : proof_witnesses) {
-            witness.push_back(value);
-            proof_indices.push_back(witness_idx++);
-        }
-
-        for (const auto& value : public_input_witnesses) {
-            witness.push_back(value);
-            public_input_indices.push_back(witness_idx++);
-        }
+        // Append key, proof, and public inputs while storing the associated witness indices
+        std::vector<uint32_t> key_indices = add_to_witness_and_track_indices(witness, key_witnesses);
+        std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices(witness, proof_witnesses);
+        std::vector<uint32_t> public_input_indices = add_to_witness_and_track_indices(witness, public_input_witnesses);
 
         return { key_indices, proof_indices, public_input_indices };
     }
