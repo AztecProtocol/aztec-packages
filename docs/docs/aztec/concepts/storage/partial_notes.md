@@ -5,43 +5,6 @@ tags: [notes, storage]
 ---
 
 Partial notes are a concept that allows users to commit to an encrypted value, and allows a counterparty to update that value without knowing the specific details of the encrypted value.
-To do this, we leverage the following properties of elliptic curve operations:
-
-1. `x_1 * G + x_2 * G` equals `(x_1 + x_2) * G` and
-2. `f(x) = x * G` being a one-way function.
-
-Property 1 allows us to be continually adding to a point on elliptic curve and property 2 allows us to pass the point to a public realm without revealing anything about the point preimage.
-
-Before getting to partial notes let's recap what is the flow of standard notes.
-
-## Note lifecycle recap
-
-The standard note flow is as follows:
-
-1. Create a note in your contract,
-2. compute the note hash,
-3. emit the note hash,
-4. emit the note (note hash preimage) as an encrypted note log,
-5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block on-chain,
-6. nodes following the network pick up the new block, update its internal state and if they have accounts attached they try decrypting all the encrypted note logs,
-7. if a node succeeds in decrypting a log it stores the note in its database,
-8. later on when we want to spend a note, a contract obtains it via oracle and stores a note hash read request within the function context (note hash read request contains a newly computed note hash),
-9. based on the note and a nullifier secret key a nullifier is computed and emitted,
-10. protocol circuits check that the note is a valid note by checking that the note hash read request corresponds to a real note in the note hash tree and that the new nullifier does not yet exist in the nullifier tree,
-11. if the conditions in point 10. are satisfied the nullifier is inserted into the nullifier tree and the note is at the end of its life.
-
-Now let's do the same for partial notes.
-
-## Partial notes life cycle
-
-1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `TokenNote`),
-2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`,
-3. pass the note hiding point to a public function,
-4. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the note hiding point (e.g. `NOTE_HIDING_POINT + G_amt * amount`),
-5. get the note hash by finalizing the note hiding point (the note hash is the x coordinate of the point),
-6. emit the note hash,
-7. manually construct the note in your application and add it to your node (PXE) --> this currently has to be done manually and not automatically via encrypted note logs because we have not yet implemented partial notes delivery (tracked in [issue #8238](https://github.com/AztecProtocol/aztec-packages/issues/8238))
-8. from this point on the flow of partial notes is the same as for normal notes.
 
 ## Use cases
 
@@ -62,11 +25,49 @@ And the fee payer is:
 
 The idea of committing to a value and allowing a counterparty to update that value without knowing the specific details of the encrypted value is a powerful concept that can be used in many different applications. For example, this could be used for updating timestamp values in private, without revealing the exact timestamp, which could be useful for many defi applications.
 
+To do this, we leverage the following properties of elliptic curve operations:
+
+1. `x_1 * G + x_2 * G` equals `(x_1 + x_2) * G` and
+2. `f(x) = x * G` being a one-way function.
+
+Property 1 allows us to be continually adding to a point on elliptic curve and property 2 allows us to pass the point to a public realm without revealing anything about the point preimage.
+
+Before getting to partial notes let's recap what is the flow of standard notes.
+
+## Note lifecycle recap
+
+The standard note flow is as follows:
+
+1. Create a note in your contract,
+2. compute the note hash,
+3. emit the note hash,
+4. emit the note (note hash preimage) as an encrypted note log,
+5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block on-chain,
+6. nodes and PXEs following the network pick up the new block, update its internal state and if they have accounts attached they search for relevant encrypted note logs,
+7. if a users PXE finds a log it stores the note in its database,
+8. later on when we want to spend a note, a contract obtains it via oracle and stores a note hash read request within the function context (note hash read request contains a newly computed note hash),
+9. based on the note and a nullifier secret key a nullifier is computed and emitted,
+10. protocol circuits check that the note is a valid note by checking that the note hash read request corresponds to a real note in the note hash tree and that the new nullifier does not yet exist in the nullifier tree,
+11. if the conditions in point 10. are satisfied the nullifier is inserted into the nullifier tree and the note is at the end of its life.
+
+Now let's do the same for partial notes.
+
+## Partial notes life cycle
+
+1. Create a partial/unfinished note in a private function of your contract --> partial here means that the values within the note are not yet considered finalized (e.g. `amount` in a `TokenNote`),
+2. compute a note hiding point of the partial note using a multi scalar multiplication on an elliptic curve. For `TokenNote` this would be done as `G_amt * amount0 + G_npk * npk_m_hash + G_rnd * randomness + G_slot * slot`, where each `G_` is a generator point for a specific field in the note,
+3. pass the note hiding point to a public function,
+4. in a public function determine the value you want to add to the note (e.g. adding a value to an amount) and add it to the note hiding point (e.g. `NOTE_HIDING_POINT + G_amt * amount`),
+5. get the note hash by finalizing the note hiding point (the note hash is the x coordinate of the point),
+6. emit the note hash,
+7. manually construct the note in your application and add it to your node (PXE) --> this currently has to be done manually and not automatically via encrypted note logs because we have not yet implemented partial notes delivery (tracked in [issue #8238](https://github.com/AztecProtocol/aztec-packages/issues/8238))
+8. from this point on the flow of partial notes is the same as for normal notes.
+
 ### Private Fee Payment Example
 
-Alice wants to use a fee-payment contract for fee abstraction, and wants to use private balances. That is, she wants to pay the FPC (fee-payment contract) some amount in an arbitrary token privately (e.g. bananas), and have the FPC pay the `transaction_fee`.
+Alice wants to use a fee-payment contract for fee abstraction, and wants to use private balances. That is, she wants to pay the FPC (fee-payment contract) some amount in an arbitrary token privately (e.g. a stablecoin), and have the FPC pay the `transaction_fee`.
 
-Alice also wants to get her refund privately in the same token (e.g. bananas).
+Alice also wants to get her refund privately in the same token (e.g. the stablecoin).
 
 The trouble is that the FPC doesn't know if Alice is going to run public functions, in which case it doesn't know what refund is due until the end of public execution.
 
@@ -78,9 +79,9 @@ $$
 \text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness} + \text{slot}*G_{slot}
 $$
 
-Suppose Alice is willing to pay up to a set amount in bananas for her transaction. (Note, this amount gets passed into public so that when `transaction_fee` is known the FPC can verify that it isn't losing money. Wallets are expected to choose common values here, e.g. powers of 10).
+Suppose Alice is willing to pay up to a set amount in stablecoins for her transaction. (Note, this amount gets passed into public so that when `transaction_fee` is known the FPC can verify that it isn't losing money. Wallets are expected to choose common values here, e.g. powers of 10).
 
-Then we can subtract the set amount from Alice's balance of private bananas, and create a point in private like:
+Then we can subtract the set amount from Alice's balance of private stablecoins, and create a point in private like:
 
 $$
 P_a' := \text{alice address}*G_{address} + \text{rand}_a*G_{randomness} + \text{Alice note slot}*G_{slot}
