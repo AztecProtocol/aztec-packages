@@ -61,6 +61,7 @@ struct OriginTag {
         }
     }
     void poison() { instant_death = true; }
+    void unpoison() { instant_death = false; }
     ~OriginTag() = default;
 };
 } // namespace bb

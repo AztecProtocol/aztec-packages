@@ -77,6 +77,33 @@ template <typename T> struct RelationParameters {
                                      initialize_relation_parameter<T>(),
                                      initialize_relation_parameter<T>() } } };
 
+    void unpoison()
+    {
+        if constexpr (requires { eta.unpoison(); }) {
+            eta.unpoison();
+            eta_two.unpoison();
+            eta_three.unpoison();
+            beta.unpoison();
+            gamma.unpoison();
+            public_input_delta.unpoison();
+            lookup_grand_product_delta.unpoison();
+            beta_sqr.unpoison();
+            beta_cube.unpoison();
+            eccvm_set_permutation_delta.unpoison();
+            for (size_t i = 0; i < NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR; i++) {
+                accumulated_result[i].unpoison();
+            }
+            for (size_t i = 0; i < NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR; i++) {
+                evaluation_input_x[i].unpoison();
+            }
+            for (size_t i = 0; i < NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR; i++) {
+                for (size_t j = 0; j < NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR; j++) {
+                    batching_challenge_v[i][j].unpoison();
+                }
+            }
+        }
+    }
+
     RefArray<T, NUM_TO_FOLD> get_to_fold()
     {
         return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
