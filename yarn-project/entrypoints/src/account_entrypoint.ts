@@ -24,8 +24,8 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee } = exec;
-    const appPayload = EntrypointPayload.fromAppExecution(calls);
+    const { calls, fee, nonce } = exec;
+    const appPayload = EntrypointPayload.fromAppExecution(calls, nonce);
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();

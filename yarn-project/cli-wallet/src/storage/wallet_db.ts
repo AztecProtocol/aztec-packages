@@ -13,6 +13,7 @@ export class WalletDB {
   #accounts!: AztecMap<string, Buffer>;
   #aliases!: AztecMap<string, Buffer>;
   #bridgedFeeJuice!: AztecMap<string, Buffer>;
+  #transactions!: AztecMap<string, Buffer>;
 
   private static instance: WalletDB;
 
@@ -28,6 +29,7 @@ export class WalletDB {
     this.#accounts = store.openMap('accounts');
     this.#aliases = store.openMap('aliases');
     this.#bridgedFeeJuice = store.openMap('bridgedFeeJuice');
+    this.#transactions = store.openMap('transactions');
   }
 
   async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, log: LogFn) {
@@ -99,10 +101,11 @@ export class WalletDB {
     log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
-  async storeTxHash(txHash: string, log: LogFn, alias?: string) {
+  async storeTx({ txHash, nonce }: { txHash: string; nonce: Fr }, log: LogFn, alias?: string) {
     if (alias) {
       await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash));
     }
+    await this.#transactions.set(`${txHash}:nonce`, nonce.toBuffer());
     await this.#aliases.set(`transactions:last`, Buffer.from(txHash));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }

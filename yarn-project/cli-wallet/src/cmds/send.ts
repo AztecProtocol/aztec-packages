@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 
@@ -25,7 +25,8 @@ export async function send(
     return;
   }
 
-  const tx = call.send({ ...(await feeOpts.toSendOpts(wallet)) });
+  const nonce = Fr.random();
+  const tx = call.send({ ...(await feeOpts.toSendOpts(wallet)), nonce });
   const txHash = (await tx.getTxHash()).toString();
   log(`\nTransaction hash: ${txHash}`);
   if (wait) {
@@ -39,7 +40,7 @@ export async function send(
     log(` Block number: ${receipt.blockNumber}`);
     log(` Block hash: ${receipt.blockHash?.toString('hex')}`);
   } else {
-    log('Transaction pending. Check status with get-tx-receipt');
+    log('Transaction pending. Check status with check-tx');
   }
-  return txHash;
+  return { txHash, nonce };
 }

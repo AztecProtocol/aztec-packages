@@ -1,5 +1,5 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { createCompatibleClient } from '@aztec/aztec.js';
+import { TxHash, createCompatibleClient } from '@aztec/aztec.js';
 import { Fr, PublicKeys } from '@aztec/circuits.js';
 import {
   ETHEREUM_HOST,
@@ -253,7 +253,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
-    const txHash = await send(
+    const sentTx = await send(
       wallet,
       functionName,
       args,
@@ -263,8 +263,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       FeeOpts.fromCli(options, log, db),
       log,
     );
-    if (db && txHash) {
-      await db.storeTxHash(txHash, log, alias);
+    if (db && sentTx) {
+      await db.storeTx(sentTx, log, alias);
     }
   });
 
@@ -526,6 +526,40 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       const wallet = await getWalletWithScopes(account, db);
       await addAuthwit(wallet, authwit, authorizer, log);
       await addScopeToWallet(wallet, authorizer, db);
+    });
+
+  program
+    .command('get-tx')
+    .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
+    .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
+    .addOption(pxeOption)
+    .action(async (txHash, options) => {
+      const { checkTx } = await import('./check_tx.js');
+      const { rpcUrl } = options;
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+
+      if (txHash) {
+        await checkTx(client, txHash, false, log);
+      } else if (db) {
+        const aliases = db.listAliases('transactions');
+        const dataRows = await Promise.all(
+          aliases.map(async ({ key, value }) => ({
+            alias: key,
+            txHash: value,
+            status: await checkTx(client, TxHash.fromString(value), true, log),
+          })),
+        );
+        log(`Recent transactions:`);
+        log('');
+        log(`${'Alias'.padEnd(32, ' ')} | ${'TxHash'.padEnd(64, ' ')} | Status`);
+        log(''.padEnd(32 + 64 + 24, '-'));
+        for (const { alias, txHash, status } of dataRows) {
+          log(`${alias.padEnd(32, ' ')} | ${txHash} | ${status}`);
+          log(''.padEnd(32 + 64 + 24, '-'));
+        }
+      } else {
+        log('Recent transactions are not available, please provide a specific transaction hash');
+      }
     });
 
   return program;

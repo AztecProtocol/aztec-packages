@@ -1,5 +1,6 @@
 use dep::aztec::{
-    context::PrivateContext, protocol_types::constants::GENERATOR_INDEX__COMBINED_PAYLOAD,
+    context::PrivateContext,
+    protocol_types::constants::{GENERATOR_INDEX__COMBINED_PAYLOAD, GENERATOR_INDEX__TX_NULLIFIER},
     hash::poseidon2_hash_with_separator
 };
 
@@ -46,6 +47,8 @@ impl AccountActions<&mut PrivateContext> {
         fee_payload.execute_calls(self.context);
         self.context.end_setup();
         app_payload.execute_calls(self.context);
+        let tx_nullifier = poseidon2_hash_with_separator([app_payload.nonce], GENERATOR_INDEX__TX_NULLIFIER);
+        self.context.push_nullifier(tx_nullifier);
     }
     // docs:end:entrypoint
 

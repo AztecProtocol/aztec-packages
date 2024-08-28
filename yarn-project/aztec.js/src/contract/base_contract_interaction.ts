@@ -1,5 +1,5 @@
 import { type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
-import { GasSettings } from '@aztec/circuits.js';
+import { Fr, GasSettings } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
@@ -18,6 +18,8 @@ export type SendMethodOptions = {
   fee?: FeeOptions;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings (will default to true later down the road). */
   estimateGas?: boolean;
+  /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
+  nonce?: Fr;
 };
 
 /**
