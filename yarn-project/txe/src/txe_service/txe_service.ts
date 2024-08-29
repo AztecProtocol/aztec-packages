@@ -308,6 +308,16 @@ export class TXEService {
     return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
+  async avmOpcodeChainId() {
+    const chainId = await (this.typedOracle as TXE).getChainId();
+    return toForeignCallResult([toSingle(chainId)]);
+  }
+
+  async avmOpcodeVersion() {
+    const version = await (this.typedOracle as TXE).getVersion();
+    return toForeignCallResult([toSingle(version)]);
+  }
+
   async packArgumentsArray(args: ForeignCallArray) {
     const packed = await this.typedOracle.packArgumentsArray(fromArray(args));
     return toForeignCallResult([toSingle(packed)]);
