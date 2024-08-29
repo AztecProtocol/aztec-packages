@@ -4,7 +4,7 @@
 
 namespace bb {
 
-template <class ProverInstances_> class ProtoGalaxyProver_ {
+template <class ProverInstances_> class ProtogalaxyProver_ {
   public:
     using ProverInstance = typename ProverInstances_::Instance;
     using Flavor = typename ProverInstances_::Flavor;
@@ -40,8 +40,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     std::shared_ptr<CommitmentKey> commitment_key;
     State state;
 
-    ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
+    ProtogalaxyProver_() = default;
+    ProtogalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
         : instances(ProverInstances_(insts))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(instances[1]->proving_key.commitment_key){};

@@ -178,7 +178,7 @@ template <typename FF> struct PowPolynomial {
 };
 /**<
  * @struct PowPolynomial
- * @brief Implementation of the methods for the \f$pow_{\ell}\f$-polynomials used in ProtoGalaxy and
+ * @brief Implementation of the methods for the \f$pow_{\ell}\f$-polynomials used in Protogalaxy and
 \f$pow_{\beta}\f$-polynomials used in Sumcheck.
  *
  * @details

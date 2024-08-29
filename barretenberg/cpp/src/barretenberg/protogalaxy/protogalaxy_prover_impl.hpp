@@ -8,10 +8,10 @@
 
 namespace bb {
 template <class ProverInstances>
-void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
+void ProtogalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    ZoneScopedN("ProtoGalaxyProver::finalise_and_send_instance");
+    ZoneScopedN("ProtogalaxyProver::finalise_and_send_instance");
     OinkProver<Flavor> oink_prover(instance, transcript, domain_separator + '_');
 
     oink_prover.prove();
@@ -23,14 +23,14 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
  * and the computation of Lagrange basis for k instances
  */
 template <class ProverInstances>
-FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::update_target_sum_and_fold(
+FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstances>::update_target_sum_and_fold(
     const ProverInstances& instances,
     const CombinerQuotient& combiner_quotient,
     const UnivariateRelationSeparator& alphas,
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
@@ -72,9 +72,9 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     return result;
 }
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
+template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
 {
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::run_oink_prover_on_each_instance");
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_instance");
     auto idx = 0;
     auto& instance = instances[0];
     auto domain_separator = std::to_string(idx);
@@ -98,10 +98,10 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_o
 
 template <class ProverInstances>
 std::tuple<std::vector<typename ProverInstances::Flavor::FF>, LegacyPolynomial<typename ProverInstances::Flavor::FF>>
-ProtoGalaxyProver_<ProverInstances>::perturbator_round(
+ProtogalaxyProver_<ProverInstances>::perturbator_round(
     const std::shared_ptr<const typename ProverInstances::Instance>& accumulator)
 {
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::perturbator_round");
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::perturbator_round");
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
@@ -125,15 +125,15 @@ ProtoGalaxyProver_<ProverInstances>::perturbator_round(
 
 template <class ProverInstances>
 std::tuple<std::vector<typename ProverInstances::Flavor::FF>,
-           typename ProtoGalaxyProver_<ProverInstances>::UnivariateRelationSeparator,
-           typename ProtoGalaxyProver_<ProverInstances>::UnivariateRelationParameters,
+           typename ProtogalaxyProver_<ProverInstances>::UnivariateRelationSeparator,
+           typename ProtogalaxyProver_<ProverInstances>::UnivariateRelationParameters,
            typename ProverInstances::Flavor::FF,
-           typename ProtoGalaxyProver_<ProverInstances>::CombinerQuotient>
-ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
+           typename ProtogalaxyProver_<ProverInstances>::CombinerQuotient>
+ProtogalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
                                                              const std::vector<FF>& deltas,
                                                              const ProverInstances& instances)
 {
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
@@ -161,7 +161,7 @@ ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
 }
 
 template <class ProverInstances>
-FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::prove()
+FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstances>::prove()
 {
     ZoneScopedN("ProtogalaxyProver::prove");
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");

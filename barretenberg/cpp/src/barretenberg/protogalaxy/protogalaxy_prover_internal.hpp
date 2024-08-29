@@ -57,9 +57,9 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
 
     /**
      * @brief Compute the values of the full Honk relation at each row in the execution trace, representing f_i(ω) in
-     * the ProtoGalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching challenges
+     * the Protogalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching challenges
      * that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse
-     * with α in ProtoGalaxy).
+     * with α in Protogalaxy).
      *
      * @details When folding Mega instances, one of the relations is linearly dependent. We define such relations
      * as acting on the entire execution trace and hence requiring to be accumulated separately as we iterate over each
@@ -72,7 +72,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                                                          const RelationParameters<FF>& relation_parameters)
 
     {
-        BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::compute_full_honk_evaluations");
+        BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_full_honk_evaluations");
         auto instance_size = instance_polynomials.get_polynomial_size();
         std::vector<FF> full_honk_evaluations(instance_size);
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
