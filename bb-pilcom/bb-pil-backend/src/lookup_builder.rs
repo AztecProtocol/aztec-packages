@@ -80,34 +80,12 @@ impl LookupBuilder for BBFiles {
             )
             .unwrap();
 
-        handlebars
-            .register_template_string(
-                "lookup_recursive.hpp",
-                std::str::from_utf8(include_bytes!("../templates/lookup_recursive.hpp.hbs"))
-                    .unwrap(),
-            )
-            .unwrap();
-
         for lookup in lookups.iter() {
             let data = create_lookup_settings_data(lookup);
             let lookup_settings = handlebars.render("lookup.hpp", &data).unwrap();
 
             let file_name = format!("{}.hpp", lookup.name);
             self.write_file(Some(&self.relations), &file_name, &lookup_settings);
-
-            // Recursive related file
-            let recursive_data = create_lookup_recursive_settings_data(lookup);
-            let recursive_settings = handlebars
-                .render("lookup_recursive.hpp", &recursive_data)
-                .unwrap();
-
-            let recursive_file_name = format!("{}_recursive{}", lookup.name, ".hpp".to_owned());
-
-            self.write_file(
-                Some(&self.relations),
-                &recursive_file_name,
-                &recursive_settings,
-            );
         }
 
         lookups
@@ -196,10 +174,6 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
         "write_term_types": write_term_types,
         "lookup_entities": lookup_entities,
     })
-}
-
-fn create_lookup_recursive_settings_data(lookup: &Lookup) -> Json {
-    json!({"lookup_name": lookup.name})
 }
 
 fn get_lookup_side<F: FieldElement>(
