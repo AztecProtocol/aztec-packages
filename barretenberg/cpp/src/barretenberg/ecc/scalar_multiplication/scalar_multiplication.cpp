@@ -911,20 +911,19 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
         return exponentiation_results[0];
     }
 
-    // const auto slice_bits = static_cast<size_t>(numeric::get_msb(static_cast<uint64_t>(num_initial_points)));
-    // const auto num_slice_points = static_cast<size_t>(1ULL << slice_bits);
+    const auto slice_bits = static_cast<size_t>(numeric::get_msb(static_cast<uint64_t>(num_initial_points)));
+    const auto num_slice_points = static_cast<size_t>(1ULL << slice_bits);
 
-    return pippenger_internal(points, scalars, num_initial_points, state, handle_edge_cases);
-
-    // if (num_slice_points != num_initial_points) {
-    //     const uint64_t leftover_points = num_initial_points - num_slice_points;
-    //     return result + pippenger(scalars + num_slice_points,
-    //                               points + static_cast<size_t>(num_slice_points * 2),
-    //                               static_cast<size_t>(leftover_points),
-    //                               state,
-    //                               handle_edge_cases);
-    // }
-    // return result;
+    Element result = pippenger_internal(points, scalars, num_slice_points, state, handle_edge_cases);
+    if (num_slice_points != num_initial_points) {
+        const uint64_t leftover_points = num_initial_points - num_slice_points;
+        return result + pippenger(scalars.subspan(num_slice_points),
+                                  points + static_cast<size_t>(num_slice_points * 2),
+                                  static_cast<size_t>(leftover_points),
+                                  state,
+                                  handle_edge_cases);
+    }
+    return result;
 }
 
 /**
