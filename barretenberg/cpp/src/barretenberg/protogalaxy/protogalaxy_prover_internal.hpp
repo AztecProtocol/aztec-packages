@@ -43,8 +43,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
     using OptimisedExtendedUnivariates =
-        typename Flavor::template OptimisedProverUnivariates<ExtendedUnivariate::LENGTH,
-                                                             /* SKIP_COUNT= */ ProverInstances::NUM - 1>;
+        typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
+                                                                          /* SKIP_COUNT= */ ProverInstances::NUM - 1>;
 
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
