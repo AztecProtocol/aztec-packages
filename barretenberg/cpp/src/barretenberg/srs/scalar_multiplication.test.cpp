@@ -288,7 +288,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
     scalar_multiplication::compute_wnaf_states<Curve>(state.point_schedule,
                                                       state.skew_table,
                                                       state.round_counts,
-                                                      { scalars, num_initial_points },
+                                                      { scalars, /*size*/ num_initial_points },
                                                       num_initial_points);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -411,7 +411,7 @@ TYPED_TEST(ScalarMultiplicationTests, DISABLED_ReduceBucketsBasic)
     scalar_multiplication::compute_wnaf_states<Curve>(state.point_schedule,
                                                       state.skew_table,
                                                       state.round_counts,
-                                                      { scalars, num_initial_points },
+                                                      { scalars, /*size*/ num_initial_points },
                                                       num_initial_points);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -522,7 +522,7 @@ TYPED_TEST(ScalarMultiplicationTests, ConstructAdditionChains)
     scalar_multiplication::compute_wnaf_states<Curve>(state.point_schedule,
                                                       state.skew_table,
                                                       state.round_counts,
-                                                      { scalars, num_initial_points },
+                                                      { scalars, /*size*/ num_initial_points },
                                                       num_initial_points);
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -734,7 +734,8 @@ TYPED_TEST(ScalarMultiplicationTests, UndersizedInputs)
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, num_points }, points, num_points, state);
+    Element result =
+        scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -771,7 +772,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerSmall)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, num_points }, points, num_points, state);
+    Element result =
+        scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -810,7 +812,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerEdgeCaseDbl)
     }
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, num_points }, points, num_points, state);
+    Element result =
+        scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -868,7 +871,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerShortInputs)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points.get(), points.get(), num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, num_points }, points.get(), num_points, state);
+    Element result =
+        scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points.get(), num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -904,8 +908,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafe)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points.get(), points.get(), num_points);
 
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
-    Element result =
-        scalar_multiplication::pippenger_unsafe<Curve>({ scalars, num_points }, points.get(), num_points, state);
+    Element result = scalar_multiplication::pippenger_unsafe<Curve>(
+        { scalars, /*size*/ num_points }, points.get(), num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -962,7 +966,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafeShortInputs)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger_unsafe<Curve>({ scalars, num_points }, points, num_points, state);
+    Element result =
+        scalar_multiplication::pippenger_unsafe<Curve>({ scalars, /*size*/ num_points }, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
@@ -999,7 +1004,8 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerOne)
     scalar_multiplication::generate_pippenger_point_table<Curve>(points, points, num_points);
     scalar_multiplication::pippenger_runtime_state<Curve> state(num_points);
 
-    Element result = scalar_multiplication::pippenger<Curve>({ scalars, num_points }, points, num_points, state);
+    Element result =
+        scalar_multiplication::pippenger<Curve>({ scalars, /*size*/ num_points }, points, num_points, state);
     result = result.normalize();
 
     aligned_free(scalars);
