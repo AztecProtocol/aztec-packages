@@ -406,14 +406,8 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
           { fr("0x2a60676faba566f0479425455775fa46964192e4b12ffcbb2179eabf7589a49d"), 1 } },
     };
 
-    BlockData block{ .block_state_ref = block_state_ref,
-                     .block_hash = fr(1),
-                     .new_notes = { 42 },
-                     .new_l1_to_l2_messages = { 43 },
-                     .new_nullifiers = { NullifierLeafValue(144) },
-                     .batches_of_public_writes = { { PublicDataLeafValue(145, 1) } } };
-
-    bool sync_res = ws.sync_block(block);
+    bool sync_res = ws.sync_block(
+        block_state_ref, fr(1), { 43 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
     EXPECT_EQ(sync_res, false);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
@@ -443,13 +437,6 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
           { fr("0x2a60676faba566f0479425455775fa46964192e4b12ffcbb2179eabf7589a49d"), 1 } },
     };
 
-    BlockData block{ .block_state_ref = block_state_ref,
-                     .block_hash = fr(1),
-                     .new_notes = { 42 },
-                     .new_l1_to_l2_messages = { 43 },
-                     .new_nullifiers = { NullifierLeafValue(144) },
-                     .batches_of_public_writes = { { PublicDataLeafValue(145, 1) } } };
-
     ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { fr(142) });
     ws.append_leaves<fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { fr(143) });
     ws.append_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(142) });
@@ -460,7 +447,8 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
         EXPECT_NE(uncommitted_state_ref.at(tree_id), snapshot);
     }
 
-    bool sync_res = ws.sync_block(block);
+    bool sync_res = ws.sync_block(
+        block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
     EXPECT_EQ(sync_res, false);
 
     assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
@@ -490,24 +478,18 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
           { fr("0x2a60676faba566f0479425455775fa46964192e4b12ffcbb2179eabf7589a49d"), 1 } },
     };
 
-    BlockData block{ .block_state_ref = block_state_ref,
-                     .block_hash = fr(1),
-                     .new_notes = { 42 },
-                     .new_l1_to_l2_messages = { 43 },
-                     .new_nullifiers = { NullifierLeafValue(144) },
-                     .batches_of_public_writes = { { PublicDataLeafValue(145, 1) } } };
-
-    ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, block.new_notes);
-    ws.append_leaves<fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, block.new_l1_to_l2_messages);
-    ws.append_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, block.new_nullifiers);
-    ws.append_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, block.batches_of_public_writes[0]);
+    ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 });
+    ws.append_leaves<fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 });
+    ws.append_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(144) });
+    ws.append_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { PublicDataLeafValue(145, 1) });
 
     auto uncommitted_state_ref = ws.get_state_reference(WorldStateRevision::uncommitted());
     for (const auto& [tree_id, snapshot] : block_state_ref) {
         EXPECT_EQ(uncommitted_state_ref.at(tree_id), snapshot);
     }
 
-    bool sync_res = ws.sync_block(block);
+    bool sync_res = ws.sync_block(
+        block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
     EXPECT_EQ(sync_res, true);
 
     assert_leaf_value(ws, WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE, 0, fr(1));
