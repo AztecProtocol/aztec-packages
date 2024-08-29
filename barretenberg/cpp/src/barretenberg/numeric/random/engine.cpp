@@ -131,9 +131,9 @@ RNG& get_debug_randomness(bool reset, std::uint_fast64_t seed)
  */
 RNG& get_randomness()
 {
-    return get_debug_randomness();
-    // static RandomEngine engine;
-    // return engine;
+    // return get_debug_randomness();
+    static RandomEngine engine;
+    return engine;
 }
 
 } // namespace bb::numeric
