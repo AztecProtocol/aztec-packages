@@ -83,9 +83,7 @@ unconstrained fn __field_to_bytes(x: Field) -> [u8; 32] {
 unconstrained fn __field_to_bignum(x: Field) -> F {
     let x_bytes = __field_to_bytes(x);
 
-    BigNum::from_byte_be(x_bytes)
-    // TODO: use this once the name has been updated in the bignum lib:
-    // BigNum::from_be_bytes(x_bytes)
+    BigNum::from_be_bytes(x_bytes)
 }
 
 unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
