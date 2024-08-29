@@ -54,9 +54,9 @@ TEST(Protogalaxy, CombinerOn2Instances)
             Fun::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
-            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_optimistic_skipping(
-                instances, pow_polynomial, univariate_relation_parameters, alphas);
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
+                instances, pow_polynomial, univariate_relation_parameters_no_skpping, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
             auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 9704UL,
                                                                           13245288UL,
@@ -70,7 +70,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
                                                                           5055956840UL,
                                                                           6869630184UL,
                                                                           9072095848UL });
-            EXPECT_EQ(result, expected_result);
+            EXPECT_EQ(result_no_skipping, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
 
@@ -134,17 +134,17 @@ TEST(Protogalaxy, CombinerOn2Instances)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
-            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
-            Fun::UnivariateRelationParameters optimised_univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_optimistic_skipping(
-                instances, pow_polynomial, univariate_relation_parameters, alphas);
-            auto optimised_result =
-                Fun::compute_combiner(instances, pow_polynomial, optimised_univariate_relation_parameters, alphas);
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            Fun::UnivariateRelationParameters univariate_relation_parameters;
+            auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
+                instances, pow_polynomial, univariate_relation_parameters_no_skpping, alphas);
+            auto result_with_skipping =
+                Fun::compute_combiner(instances, pow_polynomial, univariate_relation_parameters, alphas);
             auto expected_result =
                 Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
-            EXPECT_EQ(result, expected_result);
-            EXPECT_EQ(optimised_result, expected_result);
+            EXPECT_EQ(result_no_skipping, expected_result);
+            EXPECT_EQ(result_with_skipping, expected_result);
         }
     };
     run_test(true);
@@ -254,15 +254,15 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 precomputed_result[idx] = std::get<0>(accumulator)[0];
             }
             auto expected_result = Univariate<FF, UNIVARIATE_LENGTH>(precomputed_result);
-            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
-            Fun::UnivariateRelationParameters optimised_univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_optimistic_skipping(
-                instances, pow_polynomial, univariate_relation_parameters, alphas);
-            auto optimised_result =
-                Fun::compute_combiner(instances, pow_polynomial, optimised_univariate_relation_parameters, alphas);
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            Fun::UnivariateRelationParameters univariate_relation_parameters;
+            auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
+                instances, pow_polynomial, univariate_relation_parameters_no_skpping, alphas);
+            auto result_with_skipping =
+                Fun::compute_combiner(instances, pow_polynomial, univariate_relation_parameters, alphas);
 
-            EXPECT_EQ(result, expected_result);
-            EXPECT_EQ(optimised_result, expected_result);
+            EXPECT_EQ(result_no_skipping, expected_result);
+            EXPECT_EQ(result_with_skipping, expected_result);
         } else {
             std::vector<std::shared_ptr<ProverInstance>> instance_data(NUM_INSTANCES);
 
@@ -326,17 +326,17 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
-            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
-            Fun::UnivariateRelationParameters optimised_univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_optimistic_skipping(
-                instances, pow_polynomial, univariate_relation_parameters, alphas);
-            auto optimised_result =
-                Fun::compute_combiner(instances, pow_polynomial, optimised_univariate_relation_parameters, alphas);
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            Fun::UnivariateRelationParameters univariate_relation_parameters;
+            auto result_no_skipping = Fun::compute_combiner_no_optimistic_skipping(
+                instances, pow_polynomial, univariate_relation_parameters_no_skpping, alphas);
+            auto result_with_skipping =
+                Fun::compute_combiner(instances, pow_polynomial, univariate_relation_parameters, alphas);
             auto expected_result =
                 Univariate<FF, 12>(std::array<FF, 12>{ 0, 0, 12, 36, 72, 120, 180, 252, 336, 432, 540, 660 });
 
-            EXPECT_EQ(result, expected_result);
-            EXPECT_EQ(optimised_result, expected_result);
+            EXPECT_EQ(result_no_skipping, expected_result);
+            EXPECT_EQ(result_with_skipping, expected_result);
         }
     };
     run_test(true);

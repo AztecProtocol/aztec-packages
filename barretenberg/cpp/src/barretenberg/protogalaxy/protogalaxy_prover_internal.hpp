@@ -365,12 +365,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
 
     /**
      * @brief Convert univariates from optimised form to regular
-     *
      * @details We need to convert before we batch relations, since optimised versions don't have enough information to
      * extend the univariates to maximum length
-     *
-     * @param optimised_univariate_accumulators
-     * @param new_univariate_accumulators
      */
     template <typename TupleOfTuplesOfUnivariatePossiblyOptimistic>
     static TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimise_univariates(
@@ -383,8 +379,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         }
 
         const auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(tup));
-            element = optimised_element.convert();
+            auto& element_with_skipping = std::get<inner_idx>(std::get<outer_idx>(tup));
+            element = element_with_skipping.convert();
         };
 
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;

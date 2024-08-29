@@ -91,7 +91,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @details Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient
      * will be sent to the verifier.
      */
-    /*gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */
     std::tuple<std::vector<FF>, UnivariateRelationSeparator, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
