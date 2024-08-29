@@ -67,12 +67,12 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the linearly dependent
      * subrelation and α_j is its corresponding batching challenge.
      */
-    static std::vector<FF> compute_full_honk_evaluations(const ProverPolynomials& instance_polynomials,
-                                                         const RelationSeparator& alpha,
-                                                         const RelationParameters<FF>& relation_parameters)
+    static std::vector<FF> compute_row_evaluations(const ProverPolynomials& instance_polynomials,
+                                                   const RelationSeparator& alpha,
+                                                   const RelationParameters<FF>& relation_parameters)
 
     {
-        BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_full_honk_evaluations");
+        BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
         auto instance_size = instance_polynomials.get_polynomial_size();
         std::vector<FF> full_honk_evaluations(instance_size);
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
@@ -170,7 +170,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                                                     const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();
-        auto full_honk_evaluations = compute_full_honk_evaluations(
+        auto full_honk_evaluations = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());

@@ -95,7 +95,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
     {
         auto instance_size = accumulator->proving_key.circuit_size;
-        auto expected_honk_evals = Fun::compute_full_honk_evaluations(
+        auto expected_honk_evals = Fun::compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
         GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
@@ -148,7 +148,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         for (auto& alpha : instance->alphas) {
             alpha = FF::random_element();
         }
-        auto full_honk_evals = Fun::compute_full_honk_evaluations(
+        auto full_honk_evals = Fun::compute_row_evaluations(
             instance->proving_key.polynomials, instance->alphas, instance->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
@@ -197,7 +197,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             alpha = FF::random_element();
         }
 
-        auto full_honk_evals = Fun::compute_full_honk_evaluations(full_polynomials, alphas, relation_parameters);
+        auto full_honk_evals = Fun::compute_row_evaluations(full_polynomials, alphas, relation_parameters);
         std::vector<FF> betas(log_instance_size);
         for (size_t idx = 0; idx < log_instance_size; idx++) {
             betas[idx] = FF::random_element();
