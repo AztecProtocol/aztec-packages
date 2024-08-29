@@ -653,7 +653,7 @@ polynomials that are sent in clear.
  * ### Final Verification Step
  * - Extract \ref ClaimedEvaluations of prover polynomials \f$P_1,\ldots, P_N\f$ at the challenge point \f$
  (u_0,\ldots,u_{d-1}) \f$ from the transcript and \ref bb::SumcheckVerifierRound< Flavor
- >::compute_full_honk_relation_purported_value "compute evaluation:"
+ >::compute_full_relation_purported_value "compute evaluation:"
  \f{align}{\tilde{F}\left( P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right)\f}
  and store it at \f$ \texttt{full_honk_relation_purported_value} \f$.
  * - Compare \f$ \sigma_d \f$ against the evaluation of \f$ \tilde{F} \f$ at \f$P_1(u_0,\ldots, u_{d-1}), \ldots,
@@ -796,7 +796,7 @@ template <typename Flavor> class SumcheckVerifier {
         }
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
-        FF full_honk_purported_value = round.compute_full_honk_relation_purported_value(
+        FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alpha, full_libra_purported_value);
         bool final_check(false);
         //! [Final Verification Step]

@@ -392,7 +392,7 @@ template <typename Flavor> class SumcheckProverRound {
  *
  * The last step of the verifification requires to compute the value \f$ pow(u_0,\ldots, u_{d-1}) \cdot F
  \left(P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right) \f$ implemented as
- * - \ref compute_full_honk_relation_purported_value method needed at the last verification step.
+ * - \ref compute_full_relation_purported_value method needed at the last verification step.
  */
 template <typename Flavor> class SumcheckVerifierRound {
     using Utils = bb::RelationUtils<Flavor>;
@@ -519,11 +519,11 @@ template <typename Flavor> class SumcheckVerifierRound {
     // also copy paste in PG
     // so instead of having claimed evaluations of each relation in part  you have the actual evaluations
     // kill the pow_univariate
-    FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
-                                                  const bb::RelationParameters<FF>& relation_parameters,
-                                                  const bb::GateSeparatorPolynomial<FF>& gate_sparators,
-                                                  const RelationSeparator alpha,
-                                                  std::optional<FF> full_libra_purported_value = std::nullopt)
+    FF compute_full_relation_purported_value(ClaimedEvaluations purported_evaluations,
+                                             const bb::RelationParameters<FF>& relation_parameters,
+                                             const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+                                             const RelationSeparator alpha,
+                                             std::optional<FF> full_libra_purported_value = std::nullopt)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
