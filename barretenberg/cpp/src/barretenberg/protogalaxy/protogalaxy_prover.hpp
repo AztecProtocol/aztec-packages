@@ -46,6 +46,10 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(instances[1]->proving_key.commitment_key){};
 
+    // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
+    // FoldingParameters set and be the result of a previous round of folding.
+    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
+
     /**
      * @brief For each instance produced by a circuit, prior to folding, we need to complete the computation of its
      * prover polynomials, commit to witnesses and generate the relation parameters as well as send the public data ϕ of
@@ -55,19 +59,6 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
      * index
      */
     void run_oink_prover_on_instance(std::shared_ptr<Instance>, const std::string& domain_separator);
-
-    /**
-     * @brief Execute the folding prover.
-     *
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/753): fold goblin polynomials
-     * @return FoldingResult is a pair consisting of an accumulator and a folding proof, which is a proof that the
-     * accumulator was computed correctly.
-     */
-    BB_PROFILE FoldingResult<Flavor> prove();
-
-    // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
-    // FoldingParameters set and be the result of a previous round of folding.
-    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
     /**
      * @brief Create inputs to folding protocol (an Oink interaction).
@@ -106,5 +97,14 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
                                                      const UnivariateRelationSeparator& alphas,
                                                      const UnivariateRelationParameters& univariate_relation_parameters,
                                                      const FF& perturbator_evaluation);
+
+    /**
+     * @brief Execute the folding prover.
+     *
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/753): fold goblin polynomials
+     * @return FoldingResult is a pair consisting of an accumulator and a folding proof, which is a proof that the
+     * accumulator was computed correctly.
+     */
+    BB_PROFILE FoldingResult<Flavor> prove();
 };
 } // namespace bb
