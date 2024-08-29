@@ -14,7 +14,7 @@ class WorldStateTest : public testing::Test {
     void SetUp() override
     {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
-        _directory = randomTempDirectory();
+        _directory = random_temp_directory();
         std::filesystem::create_directories(_directory);
     }
 
