@@ -18,7 +18,8 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },"cacheVariables": {
         "DISABLE_TBB": "ON",
-        "CMAKE_CXX_FLAGS": "-DNO_TBB"
+        "CMAKE_CXX_FLAGS": "-DNO_TBB",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
