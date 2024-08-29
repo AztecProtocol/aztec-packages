@@ -516,24 +516,22 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     y
 }
 
-// Need to wait for https://github.com/noir-lang/noir-bignum/pull/9 for this to work.
-// nargo test --show-output test_main
-// #[test]
-// fn test_main() {
-//     let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+#[test]
+fn test_main() {
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
 
-//     blob[0] = BigNum { limbs: [0x1234, 0, 0] };
-//     blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
-//     blob[2] = BigNum { limbs: [0x69, 0, 0] };
+    blob[0] = BigNum { limbs: [0x1234, 0, 0] };
+    blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
+    blob[2] = BigNum { limbs: [0x69, 0, 0] };
 
-//     let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
 
-//     let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
+    let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
 
-//     println(challenge_z);
-//     println(y);
-//     println(kzg_commitment);
-// }
+    println(challenge_z);
+    println(y);
+    println(kzg_commitment);
+}
 
 #[test]
 fn test_print() {
@@ -541,13 +539,12 @@ fn test_print() {
     println(f"x: {x}");
 }
 
-// Need to wait for https://github.com/noir-lang/noir-bignum/pull/9 for this to work.
-// #[test]
-// fn test_bignum_conversions() {
-//     let x = 1000;
-//     let x_bignum = __field_to_bignum(x);
-//     println(f"x_bignum: {x_bignum}");
-// }
+#[test]
+fn test_bignum_conversions() {
+    let x = 1000;
+    let x_bignum = __field_to_bignum(x);
+    println(f"x_bignum: {x_bignum}");
+}
 
 // nargo test --show-output test_barycentric
 #[test]
