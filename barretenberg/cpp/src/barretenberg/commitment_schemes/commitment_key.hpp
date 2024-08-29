@@ -87,7 +87,7 @@ template <class Curve> class CommitmentKey {
         G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
         DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe<Curve>(
-            polynomial.data(), point_table, degree, pippenger_runtime_state);
+            polynomial.span, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
         return point;
     };
@@ -156,8 +156,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>(
-            scalars.data(), points.data(), scalars.size(), pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points.data(), pippenger_runtime_state);
     }
 };
 
