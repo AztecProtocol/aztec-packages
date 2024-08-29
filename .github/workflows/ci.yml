@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [master]
+    branches: [master, provernet]
   pull_request:
     branches-ignore: [devnet]
   workflow_dispatch:
@@ -472,6 +472,7 @@ jobs:
         with:
           concurrency_key: noir-packages-x86
       - name: "Test Noir JS packages"
+        timeout-minutes: 50
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
