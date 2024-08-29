@@ -220,7 +220,6 @@ end-to-end-base:
     ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
     ENV PROVER_AGENT_CONCURRENCY=8
     RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
-    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
 
 end-to-end:
@@ -228,6 +227,7 @@ end-to-end:
 
     COPY +anvil/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
+    RUN cp /usr/src/barretenberg/cpp/build/bin/world_state_napi.node /usr/src/yarn-project/world-state/build
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
