@@ -50,6 +50,12 @@ boxes:
     RUN yarn install-browsers
     ENTRYPOINT ["/bin/sh", "-c"]
 
+npx:
+    FROM ../build-images/+base-slim-node
+    COPY --dir +build/usr/src /usr
+    WORKDIR /usr/src/boxes
+    RUN npx . new -d -t contract -n token_contract my_token
+
 BOX_TEST_LOCAL:
   FUNCTION
   ARG box
