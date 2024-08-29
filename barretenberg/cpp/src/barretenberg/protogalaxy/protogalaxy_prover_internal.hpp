@@ -41,8 +41,9 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     using ExtendedUnivariateWithRandomization =
         Univariate<FF,
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
-    using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
-    using OptimisedExtendedUnivariates =
+    using ExtendedUnivariatesNoOptimisticSkipping =
+        typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+    using ExtendedUnivariates =
         typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
                                                                           /* SKIP_COUNT= */ ProverInstances::NUM - 1>;
 
@@ -187,7 +188,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
 
     template <size_t skip_count = 0>
     static void extend_univariates(
-        std::conditional_t<skip_count != 0, OptimisedExtendedUnivariates, ExtendedUnivariates>& extended_univariates,
+        std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>&
+            extended_univariates,
         const ProverInstances& instances,
         const size_t row_idx)
     {
@@ -289,7 +291,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuples;
         using ExtendedUnivatiatesType =
-            std::conditional_t<skip_zero_computations, OptimisedExtendedUnivariates, ExtendedUnivariates>;
+            std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
 
         // Construct univariate accumulator containers; one per thread
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);

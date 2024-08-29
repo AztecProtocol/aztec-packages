@@ -54,7 +54,7 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
 {
     using ProverInstances = ProverInstances_<Flavor>;
-    using Input = ProtogalaxyProverInternal<ProverInstances>::ExtendedUnivariates;
+    using Input = ProtogalaxyProverInternal<ProverInstances>::ExtendedUnivariatesNoOptimisticSkipping;
     using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<
         ProverInstances::NUM>;
 
