@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724880940186,
+  "lastUpdate": 1724893253697,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5f2a9bd3d968be491a12c63f812aa8d7e3bb585e",
-          "message": "feat: some fixes and cleanup in PG recursive verifier (#8053)\n\nSome minor reorganization/fixes for VerifierInstance/VerificationKey\r\nconstructors. There are lots of places where we are manually reproducing\r\nsomething resembling the VerificationKey constructor. This PR tries to\r\nsimplify some of that logic where possible and adds in handling of\r\ncomponents of the vkey that were missed in a few of these locations.\r\n(Done in prep for introducing PG verifier logic based on stdlib types).",
-          "timestamp": "2024-08-19T06:55:48-07:00",
-          "tree_id": "695e3f1968217f7a345894b87d503dc72944a0cb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5f2a9bd3d968be491a12c63f812aa8d7e3bb585e"
-        },
-        "date": 1724076834876,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13264.68577899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10047.721058 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4902.145313000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4475.744534 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39624.45476400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39624455000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14474.775829999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14474775000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3778193717,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3778193717 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208922272,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208922272 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3102197437,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3102197437 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173575761,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173575761 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3516,6 +3444,78 @@ window.BENCHMARK_DATA = {
             "value": 172553327,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 172553327 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac54f5ce82ac9ca51e35390b782c7da26d3b00da",
+          "message": "fix(bb): mac build (#8255)",
+          "timestamp": "2024-08-29T01:34:08+01:00",
+          "tree_id": "441bfdebba7fbaea6d79fcab1f90e0fe9f5f40da",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac54f5ce82ac9ca51e35390b782c7da26d3b00da"
+        },
+        "date": 1724893246087,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13726.291202999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10561.954965 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5313.71356199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4888.807434000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40167.21280699999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40167213000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 15166.263861000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15166263000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3800921463,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3800921463 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214312673,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214312673 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3144035472,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3144035472 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 176657224,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 176657224 ns\nthreads: 1"
           }
         ]
       }
