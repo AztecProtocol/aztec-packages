@@ -58,7 +58,7 @@ echo "#################################"
 
 function build_native {
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-  cmake --build --preset $PRESET --target bb world_state_napi
+  cmake --build --preset $PRESET --target bb
 }
 
 function build_wasm {
@@ -108,7 +108,7 @@ fi
 
 if [ ! -d ./srs_db/grumpkin ]; then
   # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
-  # If tests require more points, the parameter can be increased here. Note: IPA requires 
+  # If tests require more points, the parameter can be increased here. Note: IPA requires
   # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
   cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 8193
 fi
