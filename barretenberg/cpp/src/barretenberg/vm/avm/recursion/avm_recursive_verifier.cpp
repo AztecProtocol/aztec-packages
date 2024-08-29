@@ -17,6 +17,7 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
     , builder(builder)
 {}
 
+// TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
 std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
@@ -65,25 +66,23 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
+    // when called over a "circuit field" types.
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    // TODO(md): call assert true on the builder type to lay down the positive boolean constraint?
-    // using bool_ct = stdlib::bool_t<Builder>;
-    // bool_ct is_true = bool_ct(1);
-    // sumcheck_verified.must_imply(is_true, "sumcheck verification failed");
     vinfo("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
 
-    auto multivariate_to_univariate_opening_claim = Zeromorph::verify(circuit_size,
-                                                                      commitments.get_unshifted(),
-                                                                      commitments.get_to_be_shifted(),
-                                                                      claimed_evaluations.get_unshifted(),
-                                                                      claimed_evaluations.get_shifted(),
-                                                                      multivariate_challenge,
-                                                                      Commitment::one(builder),
-                                                                      transcript);
+    auto opening_claim = Zeromorph::verify(circuit_size,
+                                           commitments.get_unshifted(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           Commitment::one(builder),
+                                           transcript);
 
-    auto pairing_points = PCS::reduce_verify(multivariate_to_univariate_opening_claim, transcript);
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
     return pairing_points;
 

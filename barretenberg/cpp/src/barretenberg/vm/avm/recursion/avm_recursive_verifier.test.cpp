@@ -96,6 +96,21 @@ TEST_F(AvmRecursiveTests, recursion)
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
     ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
+    auto manifest = verifier.transcript->get_manifest();
+    auto recursive_manifest = recursive_verifier.transcript->get_manifest();
+
+    EXPECT_EQ(manifest.size(), recursive_manifest.size());
+    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+        EXPECT_EQ(recursive_manifest[i], manifest[i]);
+    }
+
+    for (auto const [key_el, rec_key_el] : zip_view(verifier.key->get_all(), recursive_verifier.key->get_all())) {
+        EXPECT_EQ(key_el, rec_key_el.get_value());
+    }
+
+    EXPECT_EQ(verifier.key->circuit_size, recursive_verifier.key->circuit_size);
+    EXPECT_EQ(verifier.key->num_public_inputs, recursive_verifier.key->num_public_inputs);
+
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
     auto ultra_instance = std::make_shared<OuterProverInstance>(
@@ -107,13 +122,5 @@ TEST_F(AvmRecursiveTests, recursion)
     auto recursion_proof = ultra_prover.construct_proof();
     bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);
     EXPECT_TRUE(recursion_verified) << "recursion proof verification failed";
-
-    auto manifest = verifier.transcript->get_manifest();
-    auto recursive_manifest = recursive_verifier.transcript->get_manifest();
-
-    EXPECT_EQ(manifest.size(), recursive_manifest.size());
-    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-        EXPECT_EQ(recursive_manifest[i], manifest[i]);
-    }
 }
 } // namespace tests_avm
