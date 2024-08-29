@@ -35,6 +35,7 @@ import {
   createArtifactOption,
   createContractAddressOption,
   createTypeOption,
+  integerArgParser,
   parsePaymentMethod,
 } from '../utils/options/index.js';
 
@@ -538,17 +539,27 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
     .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
     .addOption(pxeOption)
+    .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page'), 1)
+    .option(
+      '-s, --page-size <number>',
+      'The number of transactions to display per page',
+      value => integerArgParser(value, '--page-size'),
+      10,
+    )
     .action(async (txHash, options) => {
       const { checkTx } = await import('./check_tx.js');
-      const { rpcUrl } = options;
+      const { rpcUrl, pageSize } = options;
+      let { page } = options;
       const client = await createCompatibleClient(rpcUrl, debugLogger);
 
       if (txHash) {
         await checkTx(client, txHash, false, log);
       } else if (db) {
         const aliases = db.listAliases('transactions');
+        const totalPages = Math.ceil(aliases.length / pageSize);
+        page = Math.min(page - 1, totalPages - 1);
         const dataRows = await Promise.all(
-          aliases.map(async ({ key, value }) => ({
+          aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
             cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
@@ -563,6 +574,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
           log(`${alias.padEnd(32, ' ')} | ${txHash} | ${cancellable.toString()?.padEnd(12, ' ')} | ${status}`);
           log(''.padEnd(32 + 64 + 12 + 20, '-'));
         }
+        log(`Displaying ${Math.min(pageSize, aliases.length)} rows, page ${page + 1}/${totalPages}`);
       } else {
         log('Recent transactions are not available, please provide a specific transaction hash');
       }
