@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724965611277,
+  "lastUpdate": 1724969349149,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "f2b8a3603a08e12bfe499c0cab6cdb7f6476e568",
-          "message": "WIP chore: does parallel for nest right now?",
-          "timestamp": "2024-08-19T15:52:20Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8072/commits/f2b8a3603a08e12bfe499c0cab6cdb7f6476e568"
-        },
-        "date": 1724084588421,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13489.258459000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10035.959417999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4857.0457560000195,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4469.776982 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40601.844012999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40601845000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14599.013504,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14599013000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3773238717,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3773238717 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209594693,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209594693 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3094299917,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3094299917 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172116848,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172116848 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3540,6 +3472,78 @@ window.BENCHMARK_DATA = {
             "value": 173560697,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173560697 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e1be18fac9e671923119883f27af4226cec9c44",
+          "message": "feat(avm): integrate new range and cmp gadgets (#8165)\n\n```\r\ntime AVM_ENABLE_FULL_PROVING=1 ./bb avm_prove --avm-bytecode /tmp/bb-dY93DM/tmp-ygXEjA/avm_bytecode.bin --avm-calldata /tmp/bb-dY93DM/tmp-ygXEjA/avm_calldata.bin --avm-public-inputs /tmp/bb-dY93DM/tmp-ygXEjA/avm_public_inputs.bin --avm-hints /tmp/bb-dY93DM/tmp-ygXEjA/avm_hints.bin -o /tmp/bb-dY93DM/tmp-ygXEjA/ -v\r\nbb command is: avm_prove\r\nbytecode size: 38126\r\ncalldata size: 6\r\npublic_inputs size: 691\r\nhints.storage_value_hints size: 2\r\nhints.note_hash_exists_hints size: 0\r\nhints.nullifier_exists_hints size: 1\r\nhints.l1_to_l2_message_exists_hints size: 0\r\nhints.externalcall_hints size: 0\r\nhints.contract_instance_hints size: 0\r\ninitializing crs with size: 1048576\r\nusing cached crs of size 33554433 at \"/mnt/user-data/ilyas/.bb-crs/bn254_g1.dat\"\r\nDeserialized 3322 instructions\r\n------- GENERATING TRACE -------\r\nTrace sizes before padding:\r\n        main_trace_size: 65535\r\n        mem_trace_size: 2084\r\n        alu_trace_size: 410\r\n        range_check_size: 65536\r\n        conv_trace_size: 1\r\n        bin_trace_size: 0\r\n        sha256_trace_size: 0\r\n        poseidon2_trace_size: 0\r\n        pedersen_trace_size: 4\r\n        gas_trace_size: 890\r\n        fixed_gas_table_size: 66\r\n        slice_trace_size: 7\r\n        range_check_trace_size: 4266\r\n        cmp_trace_size: 39\r\nBuilt trace size: 65536\r\nNumber of columns: 696\r\nNumber of non-zero elements: 236111/45613056 (0%)\r\nRelation degrees:\r\n        alu: [5°: 2, 4°: 6, 3°: 11, 2°: 24, 1°: 5]\r\n        binary: [3°: 1, 2°: 9]\r\n        cmp: [4°: 3, 3°: 1, 2°: 21, 1°: 2]\r\n        conversion: [2°: 1]\r\n        gas: [4°: 2, 3°: 2, 2°: 2]\r\n        keccakf1600: [2°: 1]\r\n        kernel: [3°: 3, 2°: 41]\r\n        main: [4°: 3, 3°: 7, 2°: 101, 1°: 3]\r\n        mem: [5°: 1, 3°: 8, 2°: 41, 1°: 2]\r\n        mem_slice: [3°: 3, 2°: 7, 1°: 1]\r\n        pedersen: [2°: 1]\r\n        poseidon2: [6°: 256, 2°: 17]\r\n        range_check: [3°: 1, 2°: 15, 1°: 9]\r\n        sha256: [2°: 1]\r\nTrace size after padding: 2^16\r\n------- PROVING EXECUTION -------\r\nvk fields size: 66\r\ncircuit size: 0x0000000000000000000000000000000000000000000000000000000000010000\r\nnum of pub inputs: 0x0000000000000000000000000000000000000000000000000000000000000000\r\nproof written to: \"/tmp/bb-dY93DM/tmp-ygXEjA/proof\"\r\nvk written to: \"/tmp/bb-dY93DM/tmp-ygXEjA/vk\"\r\nvk as fields written to: \"/tmp/bb-dY93DM/tmp-ygXEjA/vk_fields.json\"\r\n------- STATS -------\r\nprove/all_ms: 6953\r\nprove/create_composer_ms: 0\r\nprove/create_prover_ms: 1988\r\nprove/create_verifier_ms: 41\r\nprove/execute_log_derivative_inverse_commitments_round_ms: 344\r\nprove/execute_log_derivative_inverse_round_ms: 205\r\nprove/execute_pcs_rounds_ms: 760\r\nprove/execute_relation_check_rounds_ms: 727\r\nprove/execute_wire_commitments_round_ms: 616\r\nprove/gen_trace_ms: 2150\r\n\r\nAVM_ENABLE_FULL_PROVING=1 ./bb avm_prove --avm-bytecode  --avm-calldata        71.13s user 69.17s system 1579% cpu 8.882 total\r\n```",
+          "timestamp": "2024-08-29T21:55:48Z",
+          "tree_id": "d6cc596db53ad6f9a5496fae182de1306d67fdef",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2e1be18fac9e671923119883f27af4226cec9c44"
+        },
+        "date": 1724969341058,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13453.888129999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10304.044625999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5078.400733999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4686.074907000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39798.389749,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39798389000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14751.836780000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14751837000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3795947645,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3795947645 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 210360908,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 210360908 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3076994897,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3076994897 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173139149,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173139149 ns\nthreads: 1"
           }
         ]
       }
