@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724924657371,
+  "lastUpdate": 1724946627318,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "3b7d0af7ee08ae8678dcff9603986da181904a93",
-          "message": "feat: Added indirect const instruction",
-          "timestamp": "2024-08-19T14:15:59Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8065/commits/3b7d0af7ee08ae8678dcff9603986da181904a93"
-        },
-        "date": 1724079227733,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13353.01675399998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9984.088103000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4955.273149000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4499.157597 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39965.094661,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39965106000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14485.970769,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14485971000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3778293603,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3778293603 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209050035,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209050035 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3112232862,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3112232862 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172850123,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172850123 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3520,6 +3452,78 @@ window.BENCHMARK_DATA = {
             "value": 172941020,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 172941020 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdd9b0677089bc54c461beddafc60db95e2456c2",
+          "message": "feat(avm): 1-slot sload/sstore (nr, ts) (#8264)\n\nAs agreed with Zac,\n* Changes the AVM opcodes to work 1-slot at a time (this is easier to handle in the circuit).\n* Bubbles up changes to aztec nr. However, this is internal to the PublicContext only, the exported interface still takes N slots/fields.\n\nOn the CPP side, I hardcoded sizes to 1. Work needs to be done to simplify things now that we can.",
+          "timestamp": "2024-08-29T16:29:40+01:00",
+          "tree_id": "4649e5a9cacdae20b2a49f0941770c50a05e4f0b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bdd9b0677089bc54c461beddafc60db95e2456c2"
+        },
+        "date": 1724946620358,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13502.585730999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10292.982155000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5136.329669000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4757.382818 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39735.570803999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39735571000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14710.145868000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14710146000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3790805228,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3790805228 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208324931,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208324931 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3061374098,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3061374098 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 172504549,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 172504549 ns\nthreads: 1"
           }
         ]
       }
