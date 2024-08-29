@@ -127,7 +127,7 @@ void generate_pippenger_point_table(typename Curve::AffineElement* points,
  *points we're multiplying. Once we have the number of rounds, `m`, we need to split our scalar into `m` bit-slices.
  *Each pippenger round will work on one bit-slice.
  *
- * Pippenger's algorithm works by, for each round, iterating over the points we're multplying. For each point, we
+ * Pippenger's algorithm works by, for each round, iterating over the points we're multiplying. For each point, we
  *examing the point's scalar multiplier and extract the bit-slice associated with the current pippenger round (we start
  *with the most significant slice). We then use the bit-slice to index a 'bucket', which we add the point into. For
  *example, if the bit slice is 01101, we add the corresponding point into bucket[13].
@@ -193,7 +193,7 @@ void generate_pippenger_point_table(typename Curve::AffineElement* points,
  * @param input_skew_table Pointer to the output array with all skews
  * @param round_counts The number of points in each round
  * @param scalars The pointer to the region with initial scalars that need to be converted into WNAF
- * @param num_initial_points The number of points before the endomorphism split
+ * @param num_initial_points The number of points before the endomorphism split. A rounded up power of 2.
  **/
 template <typename Curve>
 void compute_wnaf_states(uint64_t* point_schedule,
@@ -220,30 +220,46 @@ void compute_wnaf_states(uint64_t* point_schedule,
     }
 
     parallel_for(num_threads, [&](size_t i) {
-        Fr T0;
         uint64_t* wnaf_table = &point_schedule[(2 * i) * num_initial_points_per_thread];
-        const Fr* thread_scalars = &scalars[i * num_initial_points_per_thread];
         bool* skew_table = &input_skew_table[(2 * i) * num_initial_points_per_thread];
-        uint64_t offset = i * num_points_per_thread;
+        // Our offsets for this thread
+        const uint64_t point_offset = i * num_points_per_thread;
+        const uint64_t scalar_offset = i * num_initial_points_per_thread;
 
-        for (uint64_t j = 0; j < num_initial_points_per_thread; ++j) {
-            T0 = thread_scalars[j].from_montgomery_form();
+        // How many defined scalars are there?
+        const size_t defined_extent = std::min(scalar_offset + num_initial_points_per_thread, scalars.size());
+        const size_t defined_scalars = defined_extent > scalar_offset ? defined_extent - scalar_offset : 0;
+
+        auto wnaf_first_half = [&](const uint64_t* scalar, size_t j) {
+            wnaf::fixed_wnaf_with_counts(scalar,
+                                         &wnaf_table[j * 2],
+                                         skew_table[j * 2],
+                                         &thread_round_counts[i][0],
+                                         (j * 2 + point_offset) << 32,
+                                         num_points,
+                                         wnaf_bits);
+        };
+        auto wnaf_second_half = [&](const uint64_t* scalar, size_t j) {
+            wnaf::fixed_wnaf_with_counts(scalar,
+                                         &wnaf_table[j * 2 + 1],
+                                         skew_table[j * 2 + 1],
+                                         &thread_round_counts[i][0],
+                                         (j * 2 + point_offset + 1) << 32,
+                                         num_points,
+                                         wnaf_bits);
+        };
+        for (uint64_t j = 0; j < defined_scalars; j++) {
+            Fr T0 = scalars[scalar_offset + j].from_montgomery_form();
             Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
 
-            wnaf::fixed_wnaf_with_counts(&T0.data[0],
-                                         &wnaf_table[(j << 1UL)],
-                                         skew_table[j << 1ULL],
-                                         &thread_round_counts[i][0],
-                                         ((j << 1ULL) + offset) << 32ULL,
-                                         num_points,
-                                         wnaf_bits);
-            wnaf::fixed_wnaf_with_counts(&T0.data[2],
-                                         &wnaf_table[(j << 1UL) + 1],
-                                         skew_table[(j << 1UL) + 1],
-                                         &thread_round_counts[i][0],
-                                         ((j << 1UL) + offset + 1) << 32UL,
-                                         num_points,
-                                         wnaf_bits);
+            wnaf_first_half(&T0.data[0], j);
+            wnaf_second_half(&T0.data[2], j);
+        }
+        for (uint64_t j = defined_scalars; j < num_initial_points_per_thread; j++) {
+            // If we are trying to use a non-power-of-2
+            static const uint64_t PADDING_ZEROES[] = { 0, 0 };
+            wnaf_first_half(PADDING_ZEROES, j);
+            wnaf_second_half(PADDING_ZEROES, j);
         }
     });
 
@@ -908,14 +924,18 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
     const auto slice_bits = static_cast<size_t>(numeric::get_msb(static_cast<uint64_t>(num_initial_points)));
     const auto num_slice_points = static_cast<size_t>(1ULL << slice_bits);
 
-    Element result = pippenger_internal(points, scalars, num_slice_points, state, handle_edge_cases);
-    if (num_slice_points != num_initial_points) {
-        return result + pippenger(scalars.subspan(num_slice_points),
-                                  points + static_cast<size_t>(num_slice_points * 2),
-                                  state,
-                                  handle_edge_cases);
-    }
-    return result;
+    return pippenger_internal(points,
+                              scalars,
+                              num_slice_points == scalars.size() ? num_slice_points : num_slice_points * 2,
+                              state,
+                              handle_edge_cases);
+    // if (num_slice_points != num_initial_points) {
+    //     return result + pippenger(scalars.subspan(num_slice_points),
+    //                               points + static_cast<size_t>(num_slice_points * 2),
+    //                               state,
+    //                               handle_edge_cases);
+    // }
+    // return result;
 }
 
 /**
