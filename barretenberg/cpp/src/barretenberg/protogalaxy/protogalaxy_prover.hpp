@@ -23,8 +23,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     struct State {
         std::shared_ptr<ProverInstance> accumulator;
         LegacyPolynomial<FF> perturbator;   // computed then evaluated at a challenge
-        std::vector<FF> gate_challenges;    // use to compute pow_polynomial
-                                            // WORKTODO: move into accumulator
         std::vector<FF> deltas;             // used to compute perturbator; used to update gate challenge
         CombinerQuotient combiner_quotient; // computed then evaluated in computation of next target sum
         FF perturbator_evaluation;          // computed then evaluated in computation of next target sum
@@ -108,7 +106,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     FoldingResult<Flavor> update_target_sum_and_fold(
         const ProverInstances_& instances,
         const CombinerQuotient& combiner_quotient,
-        const std::vector<FF>& gate_challenges,
         const CombinedRelationSeparator& alphas,
         /* WORKTOO */ OptimisedRelationParameters& univariate_relation_parameters,
         const FF& perturbator_evaluation);

@@ -62,7 +62,7 @@ BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) {
 BENCHMARK_CAPTURE(bench_round_mega, fold, [](auto& prover) {
     prover.update_target_sum_and_fold(prover.instances,
                                       prover.state.combiner_quotient,
-                                      prover.state.gate_challenges,
+                                      prover.state.accumulator->gate_challenges,
                                       prover.state.alphas,
                                       prover.state.optimised_relation_parameters,
                                       prover.state.perturbator_evaluation);
