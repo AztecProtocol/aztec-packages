@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "barretenberg/common/serialize.hpp"
@@ -17,6 +18,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "lmdb_store.hpp"
+
 
 using namespace bb::stdlib;
 using namespace bb::crypto::merkle_tree;

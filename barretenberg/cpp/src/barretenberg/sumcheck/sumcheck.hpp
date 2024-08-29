@@ -431,13 +431,13 @@ polynomials that are sent in clear.
 
         std::vector<FF> libra_evaluations;
         libra_evaluations.reserve(multivariate_d);
-        zk_sumcheck_data = ZKSumcheckData<Flavor>(eval_masking_scalars,
+        zk_sumcheck_data = ZKSumcheckData<Flavor>{eval_masking_scalars,
                                                   masking_terms_evaluations,
                                                   libra_univariates,
                                                   libra_scaling_factor,
                                                   libra_challenge,
                                                   libra_running_sum,
-                                                  libra_evaluations);
+                                                  libra_evaluations};
     };
 
     /**
