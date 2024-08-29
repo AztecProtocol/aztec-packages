@@ -1,5 +1,9 @@
 import { type LogFn } from '@aztec/foundation/log';
-import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
+import {
+  type ProtocolArtifact,
+  ProtocolCircuitArtifacts,
+  type ServerProtocolArtifact,
+} from '@aztec/noir-protocol-circuits-types';
 
 import { Command } from 'commander';
 import * as fs from 'fs/promises';
@@ -26,38 +30,6 @@ export function getProgram(log: LogFn): Command {
     });
 
   program
-    .command('write-pk')
-    .description('Generates the proving key for the specified circuit')
-    .requiredOption(
-      '-w, --working-directory <string>',
-      'A directory to use for storing input/output files',
-      BB_WORKING_DIRECTORY,
-    )
-    .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
-    .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
-    .action(async options => {
-      const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
-      if (!compiledCircuit) {
-        log(`Failed to find circuit ${options.circuit}`);
-        return;
-      }
-      try {
-        await fs.access(options.workingDirectory, fs.constants.W_OK);
-      } catch (error) {
-        log(`Working directory does not exist`);
-        return;
-      }
-      await generateKeyForNoirCircuit(
-        options.bbPath,
-        options.workingDirectory,
-        options.circuit,
-        compiledCircuit,
-        'pk',
-        log,
-      );
-    });
-
-  program
     .command('write-vk')
     .description('Generates the verification key for the specified circuit')
     .requiredOption(
@@ -67,6 +39,7 @@ export function getProgram(log: LogFn): Command {
     )
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
+    .requiredOption('-f, --flavor <string>', 'The name of the verification key flavor', 'ultra_honk')
     .action(async options => {
       const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
@@ -84,7 +57,8 @@ export function getProgram(log: LogFn): Command {
         options.workingDirectory,
         options.circuit,
         compiledCircuit,
-        'vk',
+        options.flavor,
+        // (options.circuit as ServerProtocolArtifact) === 'RootRollupArtifact' ? 'ultra_keccak_honk' : 'ultra_honk',
         log,
       );
     });
