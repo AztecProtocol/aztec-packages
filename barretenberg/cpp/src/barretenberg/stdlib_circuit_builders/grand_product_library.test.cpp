@@ -57,7 +57,6 @@ template <class FF> class GrandProductTests : public testing::Test {
             .beta = beta,
             .gamma = gamma,
             .public_input_delta = 1,
-            .lookup_grand_product_delta = 1,
         };
 
         // Method 1: Compute z_perm using 'compute_grand_product_polynomial' as the prover would in practice

@@ -721,7 +721,6 @@ bool AvmCircuitBuilder::check_circuit() const
         .beta = beta,
         .gamma = gamma,
         .public_input_delta = 0,
-        .lookup_grand_product_delta = 0,
         .beta_sqr = 0,
         .beta_cube = 0,
         .eccvm_set_permutation_delta = 0,

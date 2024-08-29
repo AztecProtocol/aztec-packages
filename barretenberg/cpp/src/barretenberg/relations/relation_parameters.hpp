@@ -27,15 +27,14 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR = 1;
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
-    static constexpr int NUM_TO_FOLD = 7;
+    static constexpr int NUM_TO_FOLD = 6;
 
-    T eta = initialize_relation_parameter<T>();                        // Lookup + Aux Memory
-    T eta_two = initialize_relation_parameter<T>();                    // Lookup + Aux Memory
-    T eta_three = initialize_relation_parameter<T>();                  // Lookup + Aux Memory
-    T beta = initialize_relation_parameter<T>();                       // Permutation + Lookup
-    T gamma = initialize_relation_parameter<T>();                      // Permutation + Lookup
-    T public_input_delta = initialize_relation_parameter<T>();         // Permutation
-    T lookup_grand_product_delta = initialize_relation_parameter<T>(); // Lookup
+    T eta = initialize_relation_parameter<T>();                // Lookup + Aux Memory
+    T eta_two = initialize_relation_parameter<T>();            // Lookup + Aux Memory
+    T eta_three = initialize_relation_parameter<T>();          // Lookup + Aux Memory
+    T beta = initialize_relation_parameter<T>();               // Permutation + Lookup
+    T gamma = initialize_relation_parameter<T>();              // Permutation + Lookup
+    T public_input_delta = initialize_relation_parameter<T>(); // Permutation
     T beta_sqr = initialize_relation_parameter<T>();
     T beta_cube = initialize_relation_parameter<T>();
     // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
@@ -79,26 +78,30 @@ template <typename T> struct RelationParameters {
 
     void unpoison()
     {
-        if constexpr (requires { eta.unpoison(); }) {
-            eta.unpoison();
-            eta_two.unpoison();
-            eta_three.unpoison();
-            beta.unpoison();
-            gamma.unpoison();
-            public_input_delta.unpoison();
-            lookup_grand_product_delta.unpoison();
-            beta_sqr.unpoison();
-            beta_cube.unpoison();
-            eccvm_set_permutation_delta.unpoison();
+        if constexpr (requires { eta.get_origin_tag(); }) {
+            auto unpoison_element = [&](auto& element) {
+                auto origin_tag = element.get_origin_tag();
+                origin_tag.unpoison();
+                element.set_origin_tag(origin_tag);
+            };
+            unpoison_element(eta);
+            unpoison_element(eta_two);
+            unpoison_element(eta_three);
+            unpoison_element(beta);
+            unpoison_element(gamma);
+            unpoison_element(public_input_delta);
+            unpoison_element(beta_sqr);
+            unpoison_element(beta_cube);
+            unpoison_element(eccvm_set_permutation_delta);
             for (size_t i = 0; i < NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR; i++) {
-                accumulated_result[i].unpoison();
+                unpoison_element(accumulated_result[i]);
             }
             for (size_t i = 0; i < NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR; i++) {
-                evaluation_input_x[i].unpoison();
+                unpoison_element(evaluation_input_x[i]);
             }
             for (size_t i = 0; i < NUM_BINARY_LIMBS_IN_GOBLIN_TRANSLATOR + NUM_NATIVE_LIMBS_IN_GOBLIN_TRANSLATOR; i++) {
                 for (size_t j = 0; j < NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR; j++) {
-                    batching_challenge_v[i][j].unpoison();
+                    unpoison_element(batching_challenge_v[i][j]);
                 }
             }
         }
@@ -106,7 +109,7 @@ template <typename T> struct RelationParameters {
 
     RefArray<T, NUM_TO_FOLD> get_to_fold()
     {
-        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
+        return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     }
 
     RefArray<const T, NUM_TO_FOLD> get_to_fold() const
@@ -125,7 +128,6 @@ template <typename T> struct RelationParameters {
         result.beta_cube = result.beta_sqr * result.beta;
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();
-        result.lookup_grand_product_delta = T::random_element();
         result.eccvm_set_permutation_delta = result.gamma * (result.gamma + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr + result.beta_sqr);
@@ -150,6 +152,6 @@ template <typename T> struct RelationParameters {
         return result;
     }
 
-    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta);
+    MSGPACK_FIELDS(eta, eta_two, eta_three, beta, gamma, public_input_delta);
 };
 } // namespace bb

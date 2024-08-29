@@ -111,7 +111,6 @@ void TranslatorProver::execute_grand_product_computation_round()
     relation_parameters.beta = 0;
     relation_parameters.gamma = gamma;
     relation_parameters.public_input_delta = 0;
-    relation_parameters.lookup_grand_product_delta = 0;
     auto uint_evaluation_input = uint256_t(key->evaluation_input_x);
     relation_parameters.evaluation_input_x = { uint_evaluation_input.slice(0, NUM_LIMB_BITS),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),

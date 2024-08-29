@@ -23,7 +23,6 @@ bool ECCVMTraceChecker::check(Builder& builder, numeric::RNG* engine_ptr)
         .beta = beta,
         .gamma = gamma,
         .public_input_delta = 0,
-        .lookup_grand_product_delta = 0,
         .beta_sqr = beta_sqr,
         .beta_cube = beta_cube,
         .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
