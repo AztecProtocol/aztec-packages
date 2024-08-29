@@ -54,7 +54,7 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
      * @param domain_separator  separates the same type of data coming from difference instances by instance
      * index
      */
-    void finalise_and_send_instance(std::shared_ptr<Instance>, const std::string& domain_separator);
+    void run_oink_prover_on_instance(std::shared_ptr<Instance>, const std::string& domain_separator);
 
     /**
      * @brief Execute the folding prover.
