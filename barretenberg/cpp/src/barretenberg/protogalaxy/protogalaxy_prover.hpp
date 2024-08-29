@@ -102,11 +102,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @details Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
      * parameters set.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(
-        const ProverInstances_& instances,
-        const CombinerQuotient& combiner_quotient,
-        const UnivariateRelationSeparator& alphas,
-        /* WORKTODO */ UnivariateRelationParameters& univariate_relation_parameters,
-        const FF& perturbator_evaluation);
+    FoldingResult<Flavor> update_target_sum_and_fold(const ProverInstances_& instances,
+                                                     const CombinerQuotient& combiner_quotient,
+                                                     const UnivariateRelationSeparator& alphas,
+                                                     const UnivariateRelationParameters& univariate_relation_parameters,
+                                                     const FF& perturbator_evaluation);
 };
 } // namespace bb

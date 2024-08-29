@@ -27,7 +27,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     const ProverInstances& instances,
     const CombinerQuotient& combiner_quotient,
     const UnivariateRelationSeparator& alphas,
-    UnivariateRelationParameters& univariate_relation_parameters, // WORKTODO: const
+    const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
