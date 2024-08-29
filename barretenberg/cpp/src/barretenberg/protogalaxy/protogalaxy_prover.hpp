@@ -14,20 +14,19 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
     using OptimisedTupleOfTuplesOfUnivariates =
         typename Flavor::template OptimisedProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
-    using RelationParameters = bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
-    using OptimisedRelationParameters =
+    using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
-    using CombinedRelationSeparator =
+    using UnivariateRelationSeparator =
         std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     struct State {
         std::shared_ptr<ProverInstance> accumulator;
-        LegacyPolynomial<FF> perturbator;   // computed then evaluated at a challenge
-        std::vector<FF> deltas;             // used to compute perturbator; used to update gate challenge
-        CombinerQuotient combiner_quotient; // computed then evaluated in computation of next target sum
-        FF perturbator_evaluation;          // computed then evaluated in computation of next target sum
-        OptimisedRelationParameters optimised_relation_parameters; // used for combiner; folded
-        CombinedRelationSeparator alphas;                          // used for combiner; folded
+        LegacyPolynomial<FF> perturbator;
+        std::vector<FF> deltas;
+        CombinerQuotient combiner_quotient;
+        FF perturbator_evaluation;
+        UnivariateRelationParameters relation_parameters;
+        UnivariateRelationSeparator alphas;
     };
     using Transcript = typename Flavor::Transcript;
     using Instance = typename ProverInstances_::Instance;
@@ -93,7 +92,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * will be sent to the verifier.
      */
     /*gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient */
-    std::tuple<std::vector<FF>, CombinedRelationSeparator, OptimisedRelationParameters, FF, CombinerQuotient>
+    std::tuple<std::vector<FF>, UnivariateRelationSeparator, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
                             const ProverInstances_& instances);
@@ -106,8 +105,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     FoldingResult<Flavor> update_target_sum_and_fold(
         const ProverInstances_& instances,
         const CombinerQuotient& combiner_quotient,
-        const CombinedRelationSeparator& alphas,
-        /* WORKTOO */ OptimisedRelationParameters& univariate_relation_parameters,
+        const UnivariateRelationSeparator& alphas,
+        /* WORKTODO */ UnivariateRelationParameters& univariate_relation_parameters,
         const FF& perturbator_evaluation);
 };
 } // namespace bb

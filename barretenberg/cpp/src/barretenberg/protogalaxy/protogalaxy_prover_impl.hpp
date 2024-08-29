@@ -26,8 +26,8 @@ template <class ProverInstances>
 FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::update_target_sum_and_fold(
     const ProverInstances& instances,
     const CombinerQuotient& combiner_quotient,
-    const CombinedRelationSeparator& alphas,
-    OptimisedRelationParameters& univariate_relation_parameters,
+    const UnivariateRelationSeparator& alphas,
+    UnivariateRelationParameters& univariate_relation_parameters, // WORKTODO: const
     const FF& perturbator_evaluation)
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
@@ -125,8 +125,8 @@ ProtoGalaxyProver_<ProverInstances>::perturbator_round(
 
 template <class ProverInstances>
 std::tuple<std::vector<typename ProverInstances::Flavor::FF>,
-           typename ProtoGalaxyProver_<ProverInstances>::CombinedRelationSeparator,
-           typename ProtoGalaxyProver_<ProverInstances>::OptimisedRelationParameters,
+           typename ProtoGalaxyProver_<ProverInstances>::UnivariateRelationSeparator,
+           typename ProtoGalaxyProver_<ProverInstances>::UnivariateRelationParameters,
            typename ProverInstances::Flavor::FF,
            typename ProtoGalaxyProver_<ProverInstances>::CombinerQuotient>
 ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
@@ -140,14 +140,13 @@ ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
     FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
     std::vector<FF> updated_gate_challenges = update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    CombinedRelationSeparator alphas = Fun::compute_and_extend_alphas(instances);
+    UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(instances);
     PowPolynomial<FF> pow_polynomial{ updated_gate_challenges, instances[0]->proving_key.log_circuit_size };
-    OptimisedRelationParameters optimised_relation_parameters =
-        Fun::template compute_extended_relation_parameters<OptimisedRelationParameters>(instances);
+    UnivariateRelationParameters relation_parameters =
+        Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
     OptimisedTupleOfTuplesOfUnivariates accumulators;
-    auto combiner =
-        Fun::compute_combiner(instances, pow_polynomial, optimised_relation_parameters, alphas, accumulators);
+    auto combiner = Fun::compute_combiner(instances, pow_polynomial, relation_parameters, alphas, accumulators);
 
     FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
     CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
@@ -157,7 +156,7 @@ ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
     }
 
     return std::make_tuple(
-        updated_gate_challenges, alphas, optimised_relation_parameters, perturbator_evaluation, combiner_quotient);
+        updated_gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient);
 }
 
 template <class ProverInstances>
@@ -180,16 +179,13 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 
     std::tie(state.accumulator->gate_challenges,
              state.alphas,
-             state.optimised_relation_parameters,
+             state.relation_parameters,
              state.perturbator_evaluation,
              state.combiner_quotient) =
         combiner_quotient_round(state.accumulator->gate_challenges, state.deltas, instances);
 
-    FoldingResult<Flavor> result = update_target_sum_and_fold(instances,
-                                                              state.combiner_quotient,
-                                                              state.alphas,
-                                                              state.optimised_relation_parameters,
-                                                              state.perturbator_evaluation);
+    FoldingResult<Flavor> result = update_target_sum_and_fold(
+        instances, state.combiner_quotient, state.alphas, state.relation_parameters, state.perturbator_evaluation);
 
     return result;
 }

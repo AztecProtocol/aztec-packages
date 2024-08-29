@@ -26,10 +26,11 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     using Relations = typename Flavor::Relations;
     using RelationSeparator = typename Flavor::RelationSeparator;
     static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
-    using UnivariateRelationParameters = bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
-    using OptimisedUnivariateRelationParameters =
+    using UnivariateRelationParametersNoOptimisticSkipping =
+        bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
+    using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
-    using CombinedRelationSeparator =
+    using UnivariateRelationSeparator =
         std::array<Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
@@ -263,7 +264,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
                                                                 const PowPolynomial<FF>& pow_betas,
                                                                 const Parameters& relation_parameters,
-                                                                const CombinedRelationSeparator& alphas,
+                                                                const UnivariateRelationSeparator& alphas,
                                                                 TupleOfTuples& univariate_accumulators)
     {
         BB_OP_COUNT_TIME();
@@ -336,21 +337,24 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         return batch_over_relations(deoptimized_univariates, alphas);
     }
 
-    static ExtendedUnivariateWithRandomization compute_combiner_no_skip_zero_computations(
+    /**
+     * @brief Compute combiner using univariates that do not avoid zero computation in case of valid incoming indices.
+     * @details This is only used for testing the combiner calculation.
+     */
+    static ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
         const ProverInstances& instances,
         const PowPolynomial<FF>& pow_betas,
-        const UnivariateRelationParameters& relation_parameters,
-        const CombinedRelationSeparator& alphas)
+        const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
+        const UnivariateRelationSeparator& alphas)
     {
         TupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
     }
 
-    static ExtendedUnivariateWithRandomization compute_combiner(
-        const ProverInstances& instances,
-        const PowPolynomial<FF>& pow_betas,
-        const OptimisedUnivariateRelationParameters& relation_parameters,
-        const CombinedRelationSeparator& alphas)
+    static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
+                                                                const PowPolynomial<FF>& pow_betas,
+                                                                const UnivariateRelationParameters& relation_parameters,
+                                                                const UnivariateRelationSeparator& alphas)
     {
         OptimisedTupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
@@ -384,7 +388,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     }
 
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
-                                                                    const CombinedRelationSeparator& alpha)
+                                                                    const UnivariateRelationSeparator& alpha)
     {
         auto result = std::get<0>(std::get<0>(univariate_accumulators))
                           .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
@@ -497,9 +501,9 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * @brief Combine the relation batching parameters (alphas) from each instance into a univariate, used in the
      * computation of combiner.
      */
-    static CombinedRelationSeparator compute_and_extend_alphas(const ProverInstances& instances)
+    static UnivariateRelationSeparator compute_and_extend_alphas(const ProverInstances& instances)
     {
-        CombinedRelationSeparator result;
+        UnivariateRelationSeparator result;
         size_t alpha_idx = 0;
         for (auto& alpha : result) {
             Univariate<FF, ProverInstances::NUM> tmp;

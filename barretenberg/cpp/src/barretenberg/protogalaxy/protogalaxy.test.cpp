@@ -273,18 +273,18 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         instance2->relation_parameters.eta = 3;
 
         ProverInstances instances{ { instance1, instance2 } };
+        auto relation_parameters_no_optimistic_skipping = Fun::template compute_extended_relation_parameters<
+            typename Fun::UnivariateRelationParametersNoOptimisticSkipping>(instances);
         auto relation_parameters =
-            Fun::template compute_extended_relation_parameters<typename FoldingProver::RelationParameters>(instances);
-        auto optimised_relation_parameters =
-            Fun::template compute_extended_relation_parameters<typename FoldingProver::OptimisedRelationParameters>(
+            Fun::template compute_extended_relation_parameters<typename FoldingProver::UnivariateRelationParameters>(
                 instances);
 
         bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
-        EXPECT_EQ(relation_parameters.eta, expected_eta);
+        EXPECT_EQ(relation_parameters_no_optimistic_skipping.eta, expected_eta);
         // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
         // deriving values from them
         for (size_t i = 0; i < 11; i++) {
-            EXPECT_EQ(optimised_relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
+            EXPECT_EQ(relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
         }
     }
 

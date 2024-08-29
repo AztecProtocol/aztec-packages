@@ -51,11 +51,11 @@ TEST(Protogalaxy, CombinerOn2Instances)
             }
 
             ProverInstances instances{ instance_data };
-            Fun::CombinedRelationSeparator alphas;
+            Fun::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
-            Fun::UnivariateRelationParameters univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_skip_zero_computations(
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
+            auto result = Fun::compute_combiner_no_optimistic_skipping(
                 instances, pow_polynomial, univariate_relation_parameters, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
             auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 9704UL,
@@ -86,7 +86,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
             }
 
             ProverInstances instances{ instance_data };
-            Fun::CombinedRelationSeparator alphas;
+            Fun::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -134,9 +134,9 @@ TEST(Protogalaxy, CombinerOn2Instances)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
-            Fun::UnivariateRelationParameters univariate_relation_parameters;
-            Fun::OptimisedUnivariateRelationParameters optimised_univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_skip_zero_computations(
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
+            Fun::UnivariateRelationParameters optimised_univariate_relation_parameters;
+            auto result = Fun::compute_combiner_no_optimistic_skipping(
                 instances, pow_polynomial, univariate_relation_parameters, alphas);
             auto optimised_result =
                 Fun::compute_combiner(instances, pow_polynomial, optimised_univariate_relation_parameters, alphas);
@@ -191,7 +191,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
 
             ProverInstances instances{ instance_data };
-            Fun::CombinedRelationSeparator alphas;
+            Fun::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, UNIVARIATE_LENGTH>(FF(0))); // focus on the arithmetic relation only
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
 
@@ -254,9 +254,9 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 precomputed_result[idx] = std::get<0>(accumulator)[0];
             }
             auto expected_result = Univariate<FF, UNIVARIATE_LENGTH>(precomputed_result);
-            Fun::UnivariateRelationParameters univariate_relation_parameters;
-            Fun::OptimisedUnivariateRelationParameters optimised_univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_skip_zero_computations(
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
+            Fun::UnivariateRelationParameters optimised_univariate_relation_parameters;
+            auto result = Fun::compute_combiner_no_optimistic_skipping(
                 instances, pow_polynomial, univariate_relation_parameters, alphas);
             auto optimised_result =
                 Fun::compute_combiner(instances, pow_polynomial, optimised_univariate_relation_parameters, alphas);
@@ -278,7 +278,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
 
             ProverInstances instances{ instance_data };
-            Fun::CombinedRelationSeparator alphas;
+            Fun::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -326,9 +326,9 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             PowPolynomial<FF> pow_polynomial({ 2 }, /*log_num_monomials=*/1);
-            Fun::UnivariateRelationParameters univariate_relation_parameters;
-            Fun::OptimisedUnivariateRelationParameters optimised_univariate_relation_parameters;
-            auto result = Fun::compute_combiner_no_skip_zero_computations(
+            Fun::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters;
+            Fun::UnivariateRelationParameters optimised_univariate_relation_parameters;
+            auto result = Fun::compute_combiner_no_optimistic_skipping(
                 instances, pow_polynomial, univariate_relation_parameters, alphas);
             auto optimised_result =
                 Fun::compute_combiner(instances, pow_polynomial, optimised_univariate_relation_parameters, alphas);
