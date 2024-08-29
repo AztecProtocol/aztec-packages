@@ -240,6 +240,8 @@ bool WorldState::sync_block(StateReference& block_state_ref,
         return false;
     }
 
+    // TODO (alexg) should we rollback here?
+    // Potentiall not since all the changes exist only in-memory and this error will cause the process to die
     throw std::runtime_error("Block state does not match world state");
 }
 
