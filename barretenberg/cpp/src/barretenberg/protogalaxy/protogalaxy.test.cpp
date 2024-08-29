@@ -1,5 +1,5 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/polynomials/pow.hpp"
+#include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"

@@ -15,7 +15,7 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     std::vector<FF> betas;
 
-    /**j
+    /**
      * @brief The consecutive evaluations \f$ pow_{\ell}(\beta) =  pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$
      * identified with the integers \f$\ell = 0,\ldots, 2^d-1\f$
      *

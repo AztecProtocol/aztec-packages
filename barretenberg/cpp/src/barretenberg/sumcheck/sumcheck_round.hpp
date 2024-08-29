@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/polynomials/pow.hpp"
+#include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/utils.hpp"
