@@ -593,7 +593,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       }
       const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
 
-      cancelTx(wallet, txData, paymentMethod, log);
+      await cancelTx(wallet, txData, paymentMethod, log);
     });
 
   return program;
