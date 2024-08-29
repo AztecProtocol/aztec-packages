@@ -121,17 +121,15 @@ describe('token transfer test', () => {
 
   it('can transfer 1 publicly', async () => {
     const transferAmount = 1n;
+    const numTransfers = MINT_AMOUNT / transferAmount;
     const initialBalance = await tokenAtWallet0.methods.balance_of_public(completeAddresses[0].address).simulate();
     expect(initialBalance).toBeGreaterThanOrEqual(transferAmount);
-    const sentTxs = [];
-    for (let i = 1n; i <= MINT_AMOUNT / transferAmount; i++) {
-      sentTxs.push(
-        tokenAtWallet0.methods
-          .transfer_public(completeAddresses[0].address, completeAddresses[1].address, transferAmount, 0)
-          .send(),
-      );
+    for (let i = 1n; i <= numTransfers; i++) {
+      await tokenAtWallet0.methods
+        .transfer_public(completeAddresses[0].address, completeAddresses[1].address, transferAmount, 0)
+        .send()
+        .wait();
     }
-    await Promise.all(sentTxs.map(tx => tx.wait()));
     const finalBalance0 = await tokenAtWallet0.methods.balance_of_public(completeAddresses[0].address).simulate();
     expect(finalBalance0).toBe(0n);
     const finalBalance1 = await tokenAtWallet0.methods.balance_of_public(completeAddresses[1].address).simulate();
@@ -140,13 +138,12 @@ describe('token transfer test', () => {
 
   it('can transfer 1 privately', async () => {
     const transferAmount = 1n;
+    const numTransfers = MINT_AMOUNT / transferAmount;
     const initialBalance = await tokenAtWallet0.methods.balance_of_private(completeAddresses[0].address).simulate();
     expect(initialBalance).toBeGreaterThanOrEqual(transferAmount);
-    const sentTxs = [];
-    for (let i = 1n; i <= MINT_AMOUNT / transferAmount; i++) {
-      sentTxs.push(tokenAtWallet0.methods.transfer(completeAddresses[1].address, transferAmount).send());
+    for (let i = 1n; i <= numTransfers; i++) {
+      await tokenAtWallet0.methods.transfer(completeAddresses[1].address, transferAmount).send().wait();
     }
-    await Promise.all(sentTxs.map(tx => tx.wait()));
     const finalBalance0 = await tokenAtWallet0.methods.balance_of_private(completeAddresses[0].address).simulate();
     expect(finalBalance0).toBe(0n);
     const finalBalance1 = await tokenAtWallet0.methods.balance_of_private(completeAddresses[1].address).simulate();
