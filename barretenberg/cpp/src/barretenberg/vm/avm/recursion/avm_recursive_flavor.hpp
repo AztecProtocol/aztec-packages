@@ -7,9 +7,7 @@
 namespace bb {
 
 template <typename BuilderType> class AvmRecursiveFlavor_ {
-
   public:
-    // much of the types end up being the same but derived from the circuit builder types
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;

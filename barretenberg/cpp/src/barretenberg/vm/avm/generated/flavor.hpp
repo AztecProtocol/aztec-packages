@@ -148,7 +148,7 @@ class AvmFlavor {
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // Need to be templated for recursive verifier
-    template <typename FF>
+    template <typename FF_>
     using MainRelations_ = std::tuple<
         // Relations
         Avm_vm::alu<FF>,
@@ -162,13 +162,12 @@ class AvmFlavor {
         Avm_vm::mem_slice<FF>,
         Avm_vm::pedersen<FF>,
         Avm_vm::poseidon2<FF>,
-        Avm_vm::range_check<FF>,
         Avm_vm::sha256<FF>>;
 
     using MainRelations = MainRelations_<FF>;
 
     // Need to be templated for recursive verifier
-    template <typename FF>
+    template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
         incl_main_tag_err_relation<FF>,
@@ -190,16 +189,6 @@ class AvmFlavor {
         lookup_pow_2_0_relation<FF>,
         lookup_pow_2_1_relation<FF>,
         lookup_ret_value_relation<FF>,
-        lookup_rng_chk_0_relation<FF>,
-        lookup_rng_chk_1_relation<FF>,
-        lookup_rng_chk_2_relation<FF>,
-        lookup_rng_chk_3_relation<FF>,
-        lookup_rng_chk_4_relation<FF>,
-        lookup_rng_chk_5_relation<FF>,
-        lookup_rng_chk_6_relation<FF>,
-        lookup_rng_chk_7_relation<FF>,
-        lookup_rng_chk_diff_relation<FF>,
-        lookup_rng_chk_pow_2_relation<FF>,
         lookup_u16_0_relation<FF>,
         lookup_u16_1_relation<FF>,
         lookup_u16_10_relation<FF>,
@@ -247,7 +236,7 @@ class AvmFlavor {
     using LookupRelations = LookupRelations_<FF>;
 
     // Need to be templated for recursive verifier
-    template <typename FF> using Relations_ = tuple_cat_t<MainRelations_<FF>, LookupRelations_<FF>>;
+    template <typename FF_> using Relations_ = tuple_cat_t<MainRelations_<FF_>, LookupRelations_<FF_>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -436,10 +425,10 @@ class AvmFlavor {
     };
 
     // Templated for use in recursive verifier
-    template <typename Commitment, typename VerificationKey>
-    class VerifierCommitments_ : public AllEntities<Commitment> {
+    template <typename Commitment_, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities<Commitment_> {
       private:
-        using Base = AllEntities<Commitment>;
+        using Base = AllEntities<Commitment_>;
 
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)

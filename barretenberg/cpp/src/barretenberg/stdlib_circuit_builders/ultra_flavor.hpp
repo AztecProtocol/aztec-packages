@@ -713,7 +713,7 @@ class UltraFlavor {
 
         Transcript() = default;
 
-        // Used by verifier to initialize the xcript
+        // Used by verifier to initialize the transcript
         Transcript(const std::vector<FF>& proof)
             : NativeTranscript(proof)
         {}

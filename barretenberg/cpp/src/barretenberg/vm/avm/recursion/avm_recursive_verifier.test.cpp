@@ -19,10 +19,6 @@ namespace tests_avm {
 using namespace bb;
 using namespace bb::avm_trace;
 
-namespace {
-auto& engine = bb::numeric::get_debug_randomness();
-}
-
 class AvmRecursiveTests : public ::testing::Test {
   public:
     using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;

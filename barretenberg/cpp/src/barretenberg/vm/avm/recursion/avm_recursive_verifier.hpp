@@ -27,8 +27,6 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     std::array<typename Flavor::GroupElement, 2> verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
-    std::map<std::string, Commitment> commitments;
-
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
 };
