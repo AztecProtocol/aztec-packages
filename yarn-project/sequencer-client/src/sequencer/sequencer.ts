@@ -6,6 +6,7 @@ import {
   type ProcessedTx,
   Signature,
   Tx,
+  TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
@@ -473,8 +474,11 @@ export class Sequencer {
       this.log.verbose(`Flushing completed`);
     }
 
+    const txHashes = validTxs.map(tx => tx.getTxHash());
+
     this.isFlushing = false;
-    const attestations = await this.collectAttestations(block);
+    this.log.verbose('SEQUENCER | collectAttestations');
+    const attestations = await this.collectAttestations(block, txHashes);
 
     try {
       await this.publishL2Block(block, attestations);
@@ -495,7 +499,7 @@ export class Sequencer {
     this.isFlushing = true;
   }
 
-  protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // @todo  This should collect attestations properly and fix the ordering of them to make sense
     //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
     //        It is assuming that there will only be ONE (1) validator, so only one attestation
@@ -510,6 +514,8 @@ export class Sequencer {
     //                /   \
     //  _____________/_ __ \_____________
 
+    console.log('SEQUENCER | IS_DEV_NET', IS_DEV_NET);
+    console.log('SEQUENCER | this.validatorClient', this.validatorClient);
     if (IS_DEV_NET || !this.validatorClient) {
       return undefined;
     }
@@ -526,7 +532,7 @@ export class Sequencer {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
 
-    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
+    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
     this.validatorClient.broadcastBlockProposal(proposal);
@@ -545,11 +551,11 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: Signature[]) {
+  protected async publishL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    const publishedL2Block = await this.publisher.processL2Block(block, attestations);
+    const publishedL2Block = await this.publisher.processL2Block(block, attestations, txHashes);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

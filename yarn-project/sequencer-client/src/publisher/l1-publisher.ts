@@ -1,4 +1,4 @@
-import { type L2Block, type Signature } from '@aztec/circuit-types';
+import { type L2Block, type Signature, TxHash } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, GENESIS_ARCHIVE_ROOT, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -70,6 +70,8 @@ export type L1ProcessArgs = {
   blockHash: Buffer;
   /** L2 block body. */
   body: Buffer;
+  /** L2 block tx hashes */
+  txHashes: TxHash[];
   /** Attestations */
   attestations?: Signature[];
 };
@@ -228,6 +230,11 @@ export class L1Publisher {
       this.rollupContract.read.archive(),
     ]);
 
+    console.log('metadata for the next eth block');
+    console.table({
+      slot,
+      pendingBlockNumber: pendingBlockCount - 1n,
+    });
     return {
       proposer: EthAddress.fromString(submitter),
       slot,
@@ -264,7 +271,7 @@ export class L1Publisher {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, attestations?: Signature[]): Promise<boolean> {
+  public async processL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
@@ -285,6 +292,7 @@ export class L1Publisher {
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
       attestations,
+      txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
     };
 
     // Process block and publish the body if needed (if not already published)
@@ -458,10 +466,12 @@ export class L1Publisher {
       try {
         if (encodedData.attestations) {
           const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
+          const txHashes = encodedData.txHashes.map(txHash => txHash.to0xString());
           const args = [
             `0x${encodedData.header.toString('hex')}`,
             `0x${encodedData.archive.toString('hex')}`,
             `0x${encodedData.blockHash.toString('hex')}`,
+            txHashes,
             attestations,
           ] as const;
 
@@ -498,10 +508,12 @@ export class L1Publisher {
       try {
         if (encodedData.attestations) {
           const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
+          const txHashes = encodedData.txHashes.map(txHash => txHash.to0xString());
           const args = [
             `0x${encodedData.header.toString('hex')}`,
             `0x${encodedData.archive.toString('hex')}`,
             `0x${encodedData.blockHash.toString('hex')}`,
+            txHashes,
             attestations,
             `0x${encodedData.body.toString('hex')}`,
           ] as const;

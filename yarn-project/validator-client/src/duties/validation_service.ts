@@ -3,6 +3,7 @@ import { type Header } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class ValidationService {
   constructor(private keyStore: ValidatorKeyStore) {}
@@ -18,8 +19,8 @@ export class ValidationService {
    */
   async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     // Note: just signing the archive for now
-    const archiveBuf = archive.toBuffer();
-    const sig = await this.keyStore.sign(archiveBuf);
+    const payload = serializeToBuffer([archive, txs]);
+    const sig = await this.keyStore.sign(payload);
 
     return new BlockProposal(header, archive, txs, sig);
   }
@@ -33,7 +34,10 @@ export class ValidationService {
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
 
-    const buf = proposal.archive.toBuffer();
+    // TODO: in the function before this, check that all of the txns exist in the payload
+
+    console.log('attesting to proposal', proposal);
+    const buf = proposal.getPayload();
     const sig = await this.keyStore.sign(buf);
     return new BlockAttestation(proposal.header, proposal.archive, sig);
   }

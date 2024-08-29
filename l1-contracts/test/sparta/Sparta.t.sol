@@ -165,6 +165,8 @@ contract SpartaTest is DecoderBase {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
+    // TODO(md): get the tx hashes from the block - but we do not have them now
+    // Come back to this
     bytes memory body = full.block.body;
 
     StructToAvoidDeepStacks memory ree;
@@ -217,8 +219,11 @@ contract SpartaTest is DecoderBase {
         ree.shouldRevert = true;
       }
 
+      // TODO(md): this is temp and probably will not pass
+      bytes32[] memory txHashes = new bytes32[](0);
+
       vm.prank(ree.proposer);
-      rollup.process(header, archive, bytes32(0), signatures);
+      rollup.process(header, archive, bytes32(0), txHashes, signatures);
 
       if (ree.shouldRevert) {
         return;

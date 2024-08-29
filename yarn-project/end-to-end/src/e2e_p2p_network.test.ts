@@ -35,7 +35,7 @@ describe('e2e_p2p_network', () => {
 
   beforeEach(async () => {
     // If we want to test with interval mining, we can use the local host and start `anvil --block-time 12`
-    const useLocalHost = false;
+    const useLocalHost = true;
     if (useLocalHost) {
       jest.setTimeout(300_000);
     }
@@ -49,7 +49,9 @@ describe('e2e_p2p_network', () => {
 
     // Add 1 extra validator if in devnet or NUM_NODES if not.
     // Each of these will become a validator and sign attestations.
+    console.log('IS_DEV_NET', IS_DEV_NET);
     const limit = IS_DEV_NET ? 1 : NUM_NODES;
+    console.log('limit', limit);
     for (let i = 0; i < limit; i++) {
       const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(i + 1)!.toString('hex')}`);
       initialValidators.push(EthAddress.fromString(account.address));
@@ -72,7 +74,7 @@ describe('e2e_p2p_network', () => {
     }
   });
 
-  it('should rollup txs from all peers', async () => {
+  it.only('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

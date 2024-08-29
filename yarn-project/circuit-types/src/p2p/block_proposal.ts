@@ -36,14 +36,16 @@ export class BlockProposal extends Gossipable {
     /** The sequence of transactions in the block */
     public readonly txs: TxHash[],
     /** The signer of the BlockProposal over the header of the new block*/
-    public readonly signature: Signature,
+    public readonly signature: Signature
   ) {
     super();
   }
 
+
   static {
     this.p2pTopic = createTopicString(TopicType.block_proposal);
   }
+
 
   override p2pMessageIdentifier(): Buffer32 {
     return BlockProposalHash.fromField(this.archive);
@@ -64,6 +66,10 @@ export class BlockProposal extends Gossipable {
     }
 
     return this.sender;
+  }
+
+  getPayload() {
+    return serializeToBuffer([this.archive, this.txs]);
   }
 
   toBuffer(): Buffer {

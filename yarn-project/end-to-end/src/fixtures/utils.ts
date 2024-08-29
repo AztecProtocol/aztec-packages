@@ -461,6 +461,7 @@ export async function setup(
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
   const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
+  console.log('made account');
 
   const teardown = async () => {
     if (aztecNode instanceof AztecNodeService) {
