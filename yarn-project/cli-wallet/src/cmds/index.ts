@@ -539,11 +539,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
     .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
     .addOption(pxeOption)
-    .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page'), 1)
+    .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page', 1), 1)
     .option(
       '-s, --page-size <number>',
       'The number of transactions to display per page',
-      value => integerArgParser(value, '--page-size'),
+      value => integerArgParser(value, '--page-size', 1),
       10,
     )
     .action(async (txHash, options) => {

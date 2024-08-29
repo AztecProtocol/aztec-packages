@@ -13,10 +13,18 @@ const TARGET_DIR = 'target';
 export const ARTIFACT_DESCRIPTION =
   "Path to a compiled Aztec contract's artifact in JSON format. If executed inside a nargo workspace, a package and contract name can be specified as package@contract";
 
-export function integerArgParser(value: string, argName: string) {
+export function integerArgParser(
+  value: string,
+  argName: string,
+  min = Number.MIN_SAFE_INTEGER,
+  max = Number.MAX_SAFE_INTEGER,
+) {
   const parsed = parseInt(value, 10);
-  if (parsed < 1) {
-    throw new Error(`${argName} must be greater than 0`);
+  if (parsed < min) {
+    throw new Error(`${argName} must be greater than ${min}`);
+  }
+  if (parsed > max) {
+    throw new Error(`${argName} must be less than ${max}`);
   }
   return parsed;
 }
