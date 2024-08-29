@@ -275,6 +275,7 @@ class AvmFlavor {
         RefVector<DataType> get_table_polynomials() { return {}; }
     };
 
+  private:
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, WIRE_ENTITIES)
@@ -296,6 +297,7 @@ class AvmFlavor {
         return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ TO_BE_SHIFTED(entities) };
     }
 
+  public:
     template <typename DataType>
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
