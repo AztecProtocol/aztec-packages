@@ -46,6 +46,8 @@ else
   fi
 fi
 
+PIC_PRESET="$PRESET-pic"
+
 # Remove cmake cache files.
 rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
 
@@ -58,7 +60,11 @@ echo "#################################"
 
 function build_native {
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+  cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --build --preset $PRESET --target bb
+  cmake --build --preset $PIC_PRESET --target world_state_napi
+  mkdir -p ../../yarn-project/world-state/build/
+  cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 }
 
 function build_wasm {
