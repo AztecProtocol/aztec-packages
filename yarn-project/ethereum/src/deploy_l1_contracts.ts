@@ -147,7 +147,13 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr; assumeProvenUntil?: number; salt: number | undefined },
+  args: {
+    l2FeeJuiceAddress: AztecAddress;
+    vkTreeRoot: Fr;
+    assumeProvenUntil?: number;
+    salt: number | undefined;
+    initialValidators?: EthAddress[];
+  },
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -234,6 +240,7 @@ export const deployL1Contracts = async (
     getAddress(feeJuicePortalAddress.toString()),
     args.vkTreeRoot.toString(),
     account.address.toString(),
+    args.initialValidators?.map(v => v.toString()) ?? [],
   ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 
@@ -243,25 +250,27 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
 
-  // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
-  //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-  try {
-    // Need to get the time
-    const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
-
-    if (BigInt(currentSlot) === 0n) {
-      const ts = Number(await rollup.read.getTimestampForSlot([1]));
-      await rpcCall('evm_setNextBlockTimestamp', [ts]);
-      await rpcCall('hardhat_mine', [1]);
+  if (chain.id == foundry.id) {
+    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    try {
+      // Need to get the time
       const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
 
-      if (BigInt(currentSlot) !== 1n) {
-        throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+      if (BigInt(currentSlot) === 0n) {
+        const ts = Number(await rollup.read.getTimestampForSlot([1]));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
+        const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
+
+        if (BigInt(currentSlot) !== 1n) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        }
+        logger.info(`Jumped to slot 1`);
       }
-      logger.info(`Jumped to slot 1`);
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
     }
-  } catch (e) {
-    throw new Error(`Error jumping time: ${e}`);
   }
 
   // Set initial blocks as proven if requested
