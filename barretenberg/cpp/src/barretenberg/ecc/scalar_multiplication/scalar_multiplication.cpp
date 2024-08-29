@@ -862,16 +862,11 @@ typename Curve::Element pippenger_internal(typename Curve::AffineElement* points
                                            pippenger_runtime_state<Curve>& state,
                                            bool handle_edge_cases)
 {
-    size_t num_initial_points_power_2 = 1 << numeric::get_msb(num_initial_points);
-    if (num_initial_points_power_2 != num_initial_points) {
-        num_initial_points_power_2 *= 2; // Round up
-    }
     // multiplication_runtime_state state;
-    compute_wnaf_states<Curve>(
-        state.point_schedule, state.skew_table, state.round_counts, scalars, num_initial_points_power_2);
-    organize_buckets(state.point_schedule, num_initial_points_power_2 * 2);
+    compute_wnaf_states<Curve>(state.point_schedule, state.skew_table, state.round_counts, scalars, num_initial_points);
+    organize_buckets(state.point_schedule, num_initial_points * 2);
     typename Curve::Element result =
-        evaluate_pippenger_rounds<Curve>(state, points, num_initial_points_power_2 * 2, handle_edge_cases);
+        evaluate_pippenger_rounds<Curve>(state, points, num_initial_points * 2, handle_edge_cases);
     return result;
 }
 
