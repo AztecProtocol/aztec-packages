@@ -5,27 +5,32 @@ use std::{
 
 use acvm::{AcirField, FieldElement};
 use builtin_helpers::{
-    check_argument_count, check_function_not_yet_resolved, check_one_argument,
-    check_three_arguments, check_two_arguments, get_expr, get_function_def, get_module, get_quoted,
-    get_slice, get_struct, get_trait_constraint, get_trait_def, get_tuple, get_type, get_u32,
-    hir_pattern_to_tokens, mutate_func_meta_type, parse, parse_tokens,
-    replace_func_meta_parameters, replace_func_meta_return_type,
+    block_expression_to_value, check_argument_count, check_function_not_yet_resolved,
+    check_one_argument, check_three_arguments, check_two_arguments, get_expr, get_field,
+    get_function_def, get_module, get_quoted, get_slice, get_struct, get_trait_constraint,
+    get_trait_def, get_trait_impl, get_tuple, get_type, get_u32, get_unresolved_type,
+    hir_pattern_to_tokens, mutate_func_meta_type, parse, replace_func_meta_parameters,
+    replace_func_meta_return_type,
 };
+use chumsky::{prelude::choice, Parser};
+use im::Vector;
 use iter_extended::{try_vecmap, vecmap};
 use noirc_errors::Location;
+use num_bigint::BigUint;
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::{
     ast::{
-        ExpressionKind, FunctionKind, FunctionReturnType, IntegerBitSize, UnresolvedType,
-        UnresolvedTypeData, Visibility,
+        ArrayLiteral, BlockExpression, Expression, ExpressionKind, FunctionKind,
+        FunctionReturnType, IntegerBitSize, LValue, Literal, Statement, StatementKind, UnaryOp,
+        UnresolvedType, UnresolvedTypeData, Visibility,
     },
-    hir::comptime::{errors::IResult, value::add_token_spans, InterpreterError, Value},
+    hir::comptime::{errors::IResult, value::ExprValue, InterpreterError, Value},
     hir_def::function::FunctionBody,
-    macros_api::{ModuleDefId, NodeInterner, Signedness},
-    node_interner::DefinitionKind,
+    macros_api::{HirExpression, HirLiteral, ModuleDefId, NodeInterner, Signedness},
+    node_interner::{DefinitionKind, TraitImplKind},
     parser::{self},
-    token::{SpannedToken, Token},
+    token::Token,
     QuotedType, Shared, Type,
 };
 
@@ -46,9 +51,42 @@ impl<'local, 'context> Interpreter<'local, 'context> {
         match name {
             "array_as_str_unchecked" => array_as_str_unchecked(interner, arguments, location),
             "array_len" => array_len(interner, arguments, location),
+            "assert_constant" => Ok(Value::Bool(true)),
             "as_slice" => as_slice(interner, arguments, location),
-            "expr_as_function_call" => expr_as_function_call(arguments, return_type, location),
+            "expr_as_array" => expr_as_array(interner, arguments, return_type, location),
+            "expr_as_assign" => expr_as_assign(interner, arguments, return_type, location),
+            "expr_as_binary_op" => expr_as_binary_op(interner, arguments, return_type, location),
+            "expr_as_block" => expr_as_block(interner, arguments, return_type, location),
+            "expr_as_bool" => expr_as_bool(interner, arguments, return_type, location),
+            "expr_as_cast" => expr_as_cast(interner, arguments, return_type, location),
+            "expr_as_comptime" => expr_as_comptime(interner, arguments, return_type, location),
+            "expr_as_function_call" => {
+                expr_as_function_call(interner, arguments, return_type, location)
+            }
+            "expr_as_if" => expr_as_if(interner, arguments, return_type, location),
+            "expr_as_index" => expr_as_index(interner, arguments, return_type, location),
+            "expr_as_integer" => expr_as_integer(interner, arguments, return_type, location),
+            "expr_as_member_access" => {
+                expr_as_member_access(interner, arguments, return_type, location)
+            }
+            "expr_as_method_call" => {
+                expr_as_method_call(interner, arguments, return_type, location)
+            }
+            "expr_as_repeated_element_array" => {
+                expr_as_repeated_element_array(interner, arguments, return_type, location)
+            }
+            "expr_as_repeated_element_slice" => {
+                expr_as_repeated_element_slice(interner, arguments, return_type, location)
+            }
+            "expr_as_slice" => expr_as_slice(interner, arguments, return_type, location),
+            "expr_as_tuple" => expr_as_tuple(interner, arguments, return_type, location),
+            "expr_as_unary_op" => expr_as_unary_op(interner, arguments, return_type, location),
+            "expr_as_unsafe" => expr_as_unsafe(interner, arguments, return_type, location),
+            "expr_has_semicolon" => expr_has_semicolon(interner, arguments, location),
+            "expr_is_break" => expr_is_break(interner, arguments, location),
+            "expr_is_continue" => expr_is_continue(interner, arguments, location),
             "is_unconstrained" => Ok(Value::Bool(true)),
+            "function_def_body" => function_def_body(interner, arguments, location),
             "function_def_name" => function_def_name(interner, arguments, location),
             "function_def_parameters" => function_def_parameters(interner, arguments, location),
             "function_def_return_type" => function_def_return_type(interner, arguments, location),
@@ -79,6 +117,7 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "struct_def_as_type" => struct_def_as_type(interner, arguments, location),
             "struct_def_fields" => struct_def_fields(interner, arguments, location),
             "struct_def_generics" => struct_def_generics(interner, arguments, location),
+            "to_le_radix" => to_le_radix(arguments, location),
             "trait_constraint_eq" => trait_constraint_eq(interner, arguments, location),
             "trait_constraint_hash" => trait_constraint_hash(interner, arguments, location),
             "trait_def_as_trait_constraint" => {
@@ -86,6 +125,10 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             }
             "trait_def_eq" => trait_def_eq(interner, arguments, location),
             "trait_def_hash" => trait_def_hash(interner, arguments, location),
+            "trait_impl_methods" => trait_impl_methods(interner, arguments, location),
+            "trait_impl_trait_generic_args" => {
+                trait_impl_trait_generic_args(interner, arguments, location)
+            }
             "type_as_array" => type_as_array(arguments, return_type, location),
             "type_as_constant" => type_as_constant(arguments, return_type, location),
             "type_as_integer" => type_as_integer(arguments, return_type, location),
@@ -93,10 +136,14 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "type_as_struct" => type_as_struct(arguments, return_type, location),
             "type_as_tuple" => type_as_tuple(arguments, return_type, location),
             "type_eq" => type_eq(arguments, location),
+            "type_get_trait_impl" => {
+                type_get_trait_impl(interner, arguments, return_type, location)
+            }
             "type_implements" => type_implements(interner, arguments, location),
             "type_is_bool" => type_is_bool(arguments, location),
             "type_is_field" => type_is_field(arguments, location),
             "type_of" => type_of(arguments, location),
+            "unresolved_type_is_field" => unresolved_type_is_field(interner, arguments, location),
             "zeroed" => zeroed(return_type),
             _ => {
                 let item = format!("Comptime evaluation for builtin function {name}");
@@ -322,10 +369,14 @@ fn quoted_as_expr(
 ) -> IResult<Value> {
     let argument = check_one_argument(arguments, location)?;
 
-    let expr = parse(argument, parser::expression(), "an expression").ok();
-    let value = expr.map(|expr| Value::Expr(expr.kind));
+    let expr_parser = parser::expression().map(|expr| Value::expression(expr.kind));
+    let statement_parser = parser::fresh_statement().map(Value::statement);
+    let lvalue_parser = parser::lvalue(parser::expression()).map(Value::lvalue);
+    let parser = choice((expr_parser, statement_parser, lvalue_parser));
 
-    option(return_type, value)
+    let expr = parse(argument, parser, "an expression").ok();
+
+    option(return_type, expr)
 }
 
 // fn as_module(quoted: Quoted) -> Option<Module>
@@ -361,6 +412,7 @@ fn quoted_as_trait_constraint(
             elaborator.resolve_trait_bound(&trait_bound, Type::Unit)
         })
         .ok_or(InterpreterError::FailedToResolveTraitBound { trait_bound, location })?;
+
     Ok(Value::TraitConstraint(bound.trait_id, bound.trait_generics))
 }
 
@@ -375,6 +427,35 @@ fn quoted_as_type(
     let typ =
         interpreter.elaborate_item(interpreter.current_function, |elab| elab.resolve_type(typ));
     Ok(Value::Type(typ))
+}
+
+fn to_le_radix(arguments: Vec<(Value, Location)>, location: Location) -> IResult<Value> {
+    let (value, radix, limb_count) = check_three_arguments(arguments, location)?;
+
+    let value = get_field(value)?;
+    let radix = get_u32(radix)?;
+    let limb_count = get_u32(limb_count)?;
+
+    // Decompose the integer into its radix digits in little endian form.
+    let decomposed_integer = compute_to_radix(value, radix);
+    let decomposed_integer = vecmap(0..limb_count as usize, |i| match decomposed_integer.get(i) {
+        Some(digit) => Value::U8(*digit),
+        None => Value::U8(0),
+    });
+    Ok(Value::Array(
+        decomposed_integer.into(),
+        Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight),
+    ))
+}
+
+fn compute_to_radix(field: FieldElement, radix: u32) -> Vec<u8> {
+    let bit_size = u32::BITS - (radix - 1).leading_zeros();
+    let radix_big = BigUint::from(radix);
+    assert_eq!(BigUint::from(2u128).pow(bit_size), radix_big, "ICE: Radix must be a power of 2");
+    let big_integer = BigUint::from_bytes_be(&field.to_be_bytes());
+
+    // Decompose the integer into its radix digits in little endian form.
+    big_integer.to_radix_le(radix)
 }
 
 // fn as_array(self) -> Option<(Type, Type)>
@@ -507,6 +588,31 @@ fn type_eq(arguments: Vec<(Value, Location)>, location: Location) -> IResult<Val
     Ok(Value::Bool(self_type == other_type))
 }
 
+// fn get_trait_impl(self, constraint: TraitConstraint) -> Option<TraitImpl>
+fn type_get_trait_impl(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    let (typ, constraint) = check_two_arguments(arguments, location)?;
+
+    let typ = get_type(typ)?;
+    let (trait_id, generics) = get_trait_constraint(constraint)?;
+
+    let option_value = match interner.try_lookup_trait_implementation(
+        &typ,
+        trait_id,
+        &generics.ordered,
+        &generics.named,
+    ) {
+        Ok((TraitImplKind::Normal(trait_impl_id), _)) => Some(Value::TraitImpl(trait_impl_id)),
+        _ => None,
+    };
+
+    option(return_type, option_value)
+}
+
 // fn implements(self, constraint: TraitConstraint) -> bool
 fn type_implements(
     interner: &NodeInterner,
@@ -518,7 +624,9 @@ fn type_implements(
     let typ = get_type(typ)?;
     let (trait_id, generics) = get_trait_constraint(constraint)?;
 
-    let implements = interner.try_lookup_trait_implementation(&typ, trait_id, &generics).is_ok();
+    let implements = interner
+        .try_lookup_trait_implementation(&typ, trait_id, &generics.ordered, &generics.named)
+        .is_ok();
     Ok(Value::Bool(implements))
 }
 
@@ -607,6 +715,52 @@ fn trait_def_eq(
     Ok(Value::Bool(id_a == id_b))
 }
 
+// fn methods(self) -> [FunctionDefinition]
+fn trait_impl_methods(
+    interner: &mut NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let argument = check_one_argument(arguments, location)?;
+
+    let trait_impl_id = get_trait_impl(argument)?;
+    let trait_impl = interner.get_trait_implementation(trait_impl_id);
+    let trait_impl = trait_impl.borrow();
+    let methods =
+        trait_impl.methods.iter().map(|func_id| Value::FunctionDefinition(*func_id)).collect();
+    let slice_type = Type::Slice(Box::new(Type::Quoted(QuotedType::FunctionDefinition)));
+
+    Ok(Value::Slice(methods, slice_type))
+}
+
+// fn trait_generic_args(self) -> [Type]
+fn trait_impl_trait_generic_args(
+    interner: &mut NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let argument = check_one_argument(arguments, location)?;
+
+    let trait_impl_id = get_trait_impl(argument)?;
+    let trait_impl = interner.get_trait_implementation(trait_impl_id);
+    let trait_impl = trait_impl.borrow();
+    let trait_generics = trait_impl.trait_generics.iter().map(|t| Value::Type(t.clone())).collect();
+    let slice_type = Type::Slice(Box::new(Type::Quoted(QuotedType::Type)));
+
+    Ok(Value::Slice(trait_generics, slice_type))
+}
+
+// fn is_field(self) -> bool
+fn unresolved_type_is_field(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let typ = get_unresolved_type(interner, self_argument)?;
+    Ok(Value::Bool(matches!(typ, UnresolvedTypeData::FieldElement)))
+}
+
 // fn zeroed<T>() -> T
 fn zeroed(return_type: Type) -> IResult<Value> {
     match return_type {
@@ -683,22 +837,179 @@ fn zeroed(return_type: Type) -> IResult<Value> {
         | Type::InfixExpr(..)
         | Type::Quoted(_)
         | Type::Error
-        | Type::TraitAsType(_, _, _)
+        | Type::TraitAsType(..)
         | Type::NamedGeneric(_, _, _) => Ok(Value::Zeroed(return_type)),
     }
 }
 
-// fn as_function_call(self) -> Option<(Expr, [Expr])>
-fn expr_as_function_call(
+// fn as_array(self) -> Option<[Expr]>
+fn expr_as_array(
+    interner: &NodeInterner,
     arguments: Vec<(Value, Location)>,
     return_type: Type,
     location: Location,
 ) -> IResult<Value> {
-    expr_as(arguments, return_type, location, |expr| {
-        if let ExpressionKind::Call(call_expression) = expr {
-            let function = Value::Expr(call_expression.func.kind);
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Literal(Literal::Array(
+            ArrayLiteral::Standard(exprs),
+        ))) = expr
+        {
+            let exprs = exprs.into_iter().map(|expr| Value::expression(expr.kind)).collect();
+            let typ = Type::Slice(Box::new(Type::Quoted(QuotedType::Expr)));
+            Some(Value::Slice(exprs, typ))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_assign(self) -> Option<(Expr, Expr)>
+fn expr_as_assign(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Statement(StatementKind::Assign(assign)) = expr {
+            let lhs = Value::lvalue(assign.lvalue);
+            let rhs = Value::expression(assign.expression.kind);
+            Some(Value::Tuple(vec![lhs, rhs]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_binary_op(self) -> Option<(Expr, BinaryOp, Expr)>
+fn expr_as_binary_op(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type.clone(), location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Infix(infix_expr)) = expr {
+            let option_type = extract_option_generic_type(return_type);
+            let Type::Tuple(mut tuple_types) = option_type else {
+                panic!("Expected the return type option generic arg to be a tuple");
+            };
+            assert_eq!(tuple_types.len(), 3);
+
+            tuple_types.pop().unwrap();
+            let binary_op_type = tuple_types.pop().unwrap();
+
+            // For the op value we use the enum member index, which should match noir_stdlib/src/meta/op.nr
+            let binary_op_value = infix_expr.operator.contents as u128;
+
+            let mut fields = HashMap::default();
+            fields.insert(Rc::new("op".to_string()), Value::Field(binary_op_value.into()));
+
+            let unary_op = Value::Struct(fields, binary_op_type);
+            let lhs = Value::expression(infix_expr.lhs.kind);
+            let rhs = Value::expression(infix_expr.rhs.kind);
+            Some(Value::Tuple(vec![lhs, unary_op, rhs]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_block(self) -> Option<[Expr]>
+fn expr_as_block(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Block(block_expr)) = expr {
+            Some(block_expression_to_value(block_expr))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_bool(self) -> Option<bool>
+fn expr_as_bool(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Literal(Literal::Bool(bool))) = expr {
+            Some(Value::Bool(bool))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_cast(self) -> Option<(Expr, UnresolvedType)>
+fn expr_as_cast(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Cast(cast)) = expr {
+            let lhs = Value::expression(cast.lhs.kind);
+            let typ = Value::UnresolvedType(cast.r#type.typ);
+            Some(Value::Tuple(vec![lhs, typ]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_comptime(self) -> Option<[Expr]>
+fn expr_as_comptime(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    use ExpressionKind::Block;
+
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Comptime(block_expr, _)) = expr {
+            Some(block_expression_to_value(block_expr))
+        } else if let ExprValue::Statement(StatementKind::Comptime(statement)) = expr {
+            let typ = Type::Slice(Box::new(Type::Quoted(QuotedType::Expr)));
+
+            // comptime { ... } as a statement wraps a block expression,
+            // and in that case we return the block expression statements
+            // (comptime as a statement can also be comptime for, but in that case we'll
+            // return the for statement as a single expression)
+            if let StatementKind::Expression(Expression { kind: Block(block), .. }) = statement.kind
+            {
+                Some(block_expression_to_value(block))
+            } else {
+                let mut elements = Vector::new();
+                elements.push_back(Value::statement(statement.kind));
+                Some(Value::Slice(elements, typ))
+            }
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_function_call(self) -> Option<(Expr, [Expr])>
+fn expr_as_function_call(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Call(call_expression)) = expr {
+            let function = Value::expression(call_expression.func.kind);
             let arguments = call_expression.arguments.into_iter();
-            let arguments = arguments.map(|argument| Value::Expr(argument.kind)).collect();
+            let arguments = arguments.map(|argument| Value::expression(argument.kind)).collect();
             let arguments =
                 Value::Slice(arguments, Type::Slice(Box::new(Type::Quoted(QuotedType::Expr))));
             Some(Value::Tuple(vec![function, arguments]))
@@ -708,20 +1019,363 @@ fn expr_as_function_call(
     })
 }
 
+// fn as_if(self) -> Option<(Expr, Expr, Option<Expr>)>
+fn expr_as_if(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type.clone(), location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::If(if_expr)) = expr {
+            // Get the type of `Option<Expr>`
+            let option_type = extract_option_generic_type(return_type.clone());
+            let Type::Tuple(option_types) = option_type else {
+                panic!("Expected the return type option generic arg to be a tuple");
+            };
+            assert_eq!(option_types.len(), 3);
+            let alternative_option_type = option_types[2].clone();
+
+            let alternative = option(
+                alternative_option_type,
+                if_expr.alternative.map(|e| Value::expression(e.kind)),
+            );
+
+            Some(Value::Tuple(vec![
+                Value::expression(if_expr.condition.kind),
+                Value::expression(if_expr.consequence.kind),
+                alternative.ok()?,
+            ]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_index(self) -> Option<Expr>
+fn expr_as_index(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Index(index_expr)) = expr {
+            Some(Value::Tuple(vec![
+                Value::expression(index_expr.collection.kind),
+                Value::expression(index_expr.index.kind),
+            ]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_integer(self) -> Option<(Field, bool)>
+fn expr_as_integer(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type.clone(), location, |expr| match expr {
+        ExprValue::Expression(ExpressionKind::Literal(Literal::Integer(field, sign))) => {
+            Some(Value::Tuple(vec![Value::Field(field), Value::Bool(sign)]))
+        }
+        ExprValue::Expression(ExpressionKind::Resolved(id)) => {
+            if let HirExpression::Literal(HirLiteral::Integer(field, sign)) =
+                interner.expression(&id)
+            {
+                Some(Value::Tuple(vec![Value::Field(field), Value::Bool(sign)]))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    })
+}
+
+// fn as_member_access(self) -> Option<(Expr, Quoted)>
+fn expr_as_member_access(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| match expr {
+        ExprValue::Expression(ExpressionKind::MemberAccess(member_access)) => {
+            let tokens = Rc::new(vec![Token::Ident(member_access.rhs.0.contents.clone())]);
+            Some(Value::Tuple(vec![
+                Value::expression(member_access.lhs.kind),
+                Value::Quoted(tokens),
+            ]))
+        }
+        ExprValue::LValue(crate::ast::LValue::MemberAccess { object, field_name, span: _ }) => {
+            let tokens = Rc::new(vec![Token::Ident(field_name.0.contents.clone())]);
+            Some(Value::Tuple(vec![Value::lvalue(*object), Value::Quoted(tokens)]))
+        }
+        _ => None,
+    })
+}
+
+// fn as_method_call(self) -> Option<(Expr, Quoted, [UnresolvedType], [Expr])>
+fn expr_as_method_call(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::MethodCall(method_call)) = expr {
+            let object = Value::expression(method_call.object.kind);
+
+            let name_tokens =
+                Rc::new(vec![Token::Ident(method_call.method_name.0.contents.clone())]);
+            let name = Value::Quoted(name_tokens);
+
+            let generics = method_call.generics.unwrap_or_default().into_iter();
+            let generics = generics.map(|generic| Value::UnresolvedType(generic.typ)).collect();
+            let generics = Value::Slice(
+                generics,
+                Type::Slice(Box::new(Type::Quoted(QuotedType::UnresolvedType))),
+            );
+
+            let arguments = method_call.arguments.into_iter();
+            let arguments = arguments.map(|argument| Value::expression(argument.kind)).collect();
+            let arguments =
+                Value::Slice(arguments, Type::Slice(Box::new(Type::Quoted(QuotedType::Expr))));
+
+            Some(Value::Tuple(vec![object, name, generics, arguments]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_repeated_element_array(self) -> Option<(Expr, Expr)>
+fn expr_as_repeated_element_array(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Literal(Literal::Array(
+            ArrayLiteral::Repeated { repeated_element, length },
+        ))) = expr
+        {
+            Some(Value::Tuple(vec![
+                Value::expression(repeated_element.kind),
+                Value::expression(length.kind),
+            ]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_repeated_element_slice(self) -> Option<(Expr, Expr)>
+fn expr_as_repeated_element_slice(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Literal(Literal::Slice(
+            ArrayLiteral::Repeated { repeated_element, length },
+        ))) = expr
+        {
+            Some(Value::Tuple(vec![
+                Value::expression(repeated_element.kind),
+                Value::expression(length.kind),
+            ]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_slice(self) -> Option<[Expr]>
+fn expr_as_slice(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Literal(Literal::Slice(
+            ArrayLiteral::Standard(exprs),
+        ))) = expr
+        {
+            let exprs = exprs.into_iter().map(|expr| Value::expression(expr.kind)).collect();
+            let typ = Type::Slice(Box::new(Type::Quoted(QuotedType::Expr)));
+            Some(Value::Slice(exprs, typ))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_tuple(self) -> Option<[Expr]>
+fn expr_as_tuple(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Tuple(expressions)) = expr {
+            let expressions =
+                expressions.into_iter().map(|expr| Value::expression(expr.kind)).collect();
+            let typ = Type::Slice(Box::new(Type::Quoted(QuotedType::Expr)));
+            Some(Value::Slice(expressions, typ))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_unary_op(self) -> Option<(UnaryOp, Expr)>
+fn expr_as_unary_op(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type.clone(), location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Prefix(prefix_expr)) = expr {
+            let option_type = extract_option_generic_type(return_type);
+            let Type::Tuple(mut tuple_types) = option_type else {
+                panic!("Expected the return type option generic arg to be a tuple");
+            };
+            assert_eq!(tuple_types.len(), 2);
+
+            tuple_types.pop().unwrap();
+            let unary_op_type = tuple_types.pop().unwrap();
+
+            // These values should match the values used in noir_stdlib/src/meta/op.nr
+            let unary_op_value: u128 = match prefix_expr.operator {
+                UnaryOp::Minus => 0,
+                UnaryOp::Not => 1,
+                UnaryOp::MutableReference => 2,
+                UnaryOp::Dereference { .. } => 3,
+            };
+
+            let mut fields = HashMap::default();
+            fields.insert(Rc::new("op".to_string()), Value::Field(unary_op_value.into()));
+
+            let unary_op = Value::Struct(fields, unary_op_type);
+            let rhs = Value::expression(prefix_expr.rhs.kind);
+            Some(Value::Tuple(vec![unary_op, rhs]))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_unsafe(self) -> Option<[Expr]>
+fn expr_as_unsafe(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    expr_as(interner, arguments, return_type, location, |expr| {
+        if let ExprValue::Expression(ExpressionKind::Unsafe(block_expr, _)) = expr {
+            Some(block_expression_to_value(block_expr))
+        } else {
+            None
+        }
+    })
+}
+
+// fn as_has_semicolon(self) -> bool
+fn expr_has_semicolon(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let expr_value = get_expr(interner, self_argument)?;
+    Ok(Value::Bool(matches!(expr_value, ExprValue::Statement(StatementKind::Semi(..)))))
+}
+
+// fn is_break(self) -> bool
+fn expr_is_break(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let expr_value = get_expr(interner, self_argument)?;
+    Ok(Value::Bool(matches!(expr_value, ExprValue::Statement(StatementKind::Break))))
+}
+
+// fn is_continue(self) -> bool
+fn expr_is_continue(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let expr_value = get_expr(interner, self_argument)?;
+    Ok(Value::Bool(matches!(expr_value, ExprValue::Statement(StatementKind::Continue))))
+}
+
 // Helper function for implementing the `expr_as_...` functions.
 fn expr_as<F>(
+    interner: &NodeInterner,
     arguments: Vec<(Value, Location)>,
     return_type: Type,
     location: Location,
     f: F,
 ) -> IResult<Value>
 where
-    F: FnOnce(ExpressionKind) -> Option<Value>,
+    F: FnOnce(ExprValue) -> Option<Value>,
 {
     let self_argument = check_one_argument(arguments, location)?;
-    let expr = get_expr(self_argument)?;
-    let option_value = f(expr);
+    let mut expr_value = get_expr(interner, self_argument)?;
+    loop {
+        match expr_value {
+            ExprValue::Expression(ExpressionKind::Parenthesized(expression)) => {
+                expr_value = ExprValue::Expression(expression.kind);
+            }
+            ExprValue::Statement(StatementKind::Expression(expression))
+            | ExprValue::Statement(StatementKind::Semi(expression)) => {
+                expr_value = ExprValue::Expression(expression.kind);
+            }
+            ExprValue::Expression(ExpressionKind::Interned(id)) => {
+                expr_value = ExprValue::Expression(interner.get_expression_kind(id).clone());
+            }
+            ExprValue::Statement(StatementKind::Interned(id)) => {
+                expr_value = ExprValue::Statement(interner.get_statement_kind(id).clone());
+            }
+            ExprValue::LValue(LValue::Interned(id, span)) => {
+                expr_value = ExprValue::LValue(interner.get_lvalue(id, span).clone());
+            }
+            _ => break,
+        }
+    }
+
+    let option_value = f(expr_value);
     option(return_type, option_value)
+}
+
+// fn body(self) -> Expr
+fn function_def_body(
+    interner: &NodeInterner,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let self_argument = check_one_argument(arguments, location)?;
+    let func_id = get_function_def(self_argument)?;
+    let func_meta = interner.function_meta(&func_id);
+    if let FunctionBody::Unresolved(_, block_expr, _) = &func_meta.function_body {
+        Ok(Value::expression(ExpressionKind::Block(block_expr.clone())))
+    } else {
+        Err(InterpreterError::FunctionAlreadyResolved { location })
+    }
 }
 
 // fn name(self) -> Quoted
@@ -778,32 +1432,30 @@ fn function_def_return_type(
     Ok(Value::Type(func_meta.return_type().follow_bindings()))
 }
 
-// fn set_body(self, body: Quoted)
+// fn set_body(self, body: Expr)
 fn function_def_set_body(
     interpreter: &mut Interpreter,
     arguments: Vec<(Value, Location)>,
     location: Location,
 ) -> IResult<Value> {
     let (self_argument, body_argument) = check_two_arguments(arguments, location)?;
-    let body_argument_location = body_argument.1;
+    let body_location = body_argument.1;
 
     let func_id = get_function_def(self_argument)?;
     check_function_not_yet_resolved(interpreter, func_id, location)?;
 
-    let body_tokens = get_quoted(body_argument)?;
-    let mut body_quoted = add_token_spans(body_tokens.clone(), body_argument_location.span);
+    let body_argument = get_expr(interpreter.elaborator.interner, body_argument)?;
+    let statement_kind = match body_argument {
+        ExprValue::Expression(expression_kind) => StatementKind::Expression(Expression {
+            kind: expression_kind,
+            span: body_location.span,
+        }),
+        ExprValue::Statement(statement_kind) => statement_kind,
+        ExprValue::LValue(lvalue) => StatementKind::Expression(lvalue.as_expression()),
+    };
 
-    // Surround the body in `{ ... }` so we can parse it as a block
-    body_quoted.0.insert(0, SpannedToken::new(Token::LeftBrace, location.span));
-    body_quoted.0.push(SpannedToken::new(Token::RightBrace, location.span));
-
-    let body = parse_tokens(
-        body_tokens,
-        body_quoted,
-        body_argument_location,
-        parser::block(parser::fresh_statement()),
-        "a block",
-    )?;
+    let statement = Statement { kind: statement_kind, span: body_location.span };
+    let body = BlockExpression { statements: vec![statement] };
 
     let func_meta = interpreter.elaborator.interner.function_meta_mut(&func_id);
     func_meta.has_body = true;
@@ -884,7 +1536,7 @@ fn function_def_set_return_type(
     mutate_func_meta_type(interpreter.elaborator.interner, func_id, |func_meta| {
         func_meta.return_type = FunctionReturnType::Ty(UnresolvedType {
             typ: UnresolvedTypeData::Resolved(quoted_type_id),
-            span: Some(location.span),
+            span: location.span,
         });
         replace_func_meta_return_type(&mut func_meta.typ, return_type);
     });
@@ -1022,12 +1674,9 @@ fn trait_def_as_trait_constraint(
     let argument = check_one_argument(arguments, location)?;
 
     let trait_id = get_trait_def(argument)?;
-    let the_trait = interner.get_trait(trait_id);
-    let trait_generics = vecmap(&the_trait.generics, |generic| {
-        Type::NamedGeneric(generic.type_var.clone(), generic.name.clone(), generic.kind.clone())
-    });
+    let constraint = interner.get_trait(trait_id).as_constraint(location.span);
 
-    Ok(Value::TraitConstraint(trait_id, trait_generics))
+    Ok(Value::TraitConstraint(trait_id, constraint.trait_generics))
 }
 
 /// Creates a value that holds an `Option`.

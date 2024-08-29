@@ -123,6 +123,24 @@ pub struct CompileOptions {
     /// Temporary flag to enable the experimental arithmetic generics feature
     #[arg(long, hide = true)]
     pub arithmetic_generics: bool,
+
+    /// Flag to turn off the compiler check for under constrained values.
+    /// Warning: This can improve compilation speed but can also lead to correctness errors.
+    /// This check should always be run on production code.
+    #[arg(long)]
+    pub skip_underconstrained_check: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CheckOptions {
+    pub compile_options: CompileOptions,
+    pub error_on_unused_imports: bool,
+}
+
+impl CheckOptions {
+    pub fn new(compile_options: &CompileOptions, error_on_unused_imports: bool) -> Self {
+        Self { compile_options: compile_options.clone(), error_on_unused_imports }
+    }
 }
 
 pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {
@@ -272,13 +290,12 @@ pub fn add_dep(
 pub fn check_crate(
     context: &mut Context,
     crate_id: CrateId,
-    options: &CompileOptions,
+    check_options: &CheckOptions,
 ) -> CompilationResult<()> {
-    let macros: &[&dyn MacroProcessor] = if options.disable_macros {
-        &[]
-    } else {
-        &[&aztec_macros::AztecMacro as &dyn MacroProcessor]
-    };
+    let options = &check_options.compile_options;
+
+    let macros: &[&dyn MacroProcessor] =
+        if options.disable_macros { &[] } else { &[&aztec_macros::AztecMacro] };
 
     let mut errors = vec![];
     let diagnostics = CrateDefMap::collect_defs(
@@ -286,6 +303,7 @@ pub fn check_crate(
         context,
         options.debug_comptime_in_file.as_deref(),
         options.arithmetic_generics,
+        check_options.error_on_unused_imports,
         macros,
     );
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
@@ -319,7 +337,10 @@ pub fn compile_main(
     options: &CompileOptions,
     cached_program: Option<CompiledProgram>,
 ) -> CompilationResult<CompiledProgram> {
-    let (_, mut warnings) = check_crate(context, crate_id, options)?;
+    let error_on_unused_imports = true;
+    let check_options = CheckOptions::new(options, error_on_unused_imports);
+
+    let (_, mut warnings) = check_crate(context, crate_id, &check_options)?;
 
     let main = context.get_main_function(&crate_id).ok_or_else(|| {
         // TODO(#2155): This error might be a better to exist in Nargo
@@ -354,7 +375,9 @@ pub fn compile_contract(
     crate_id: CrateId,
     options: &CompileOptions,
 ) -> CompilationResult<CompiledContract> {
-    let (_, warnings) = check_crate(context, crate_id, options)?;
+    let error_on_unused_imports = true;
+    let check_options = CheckOptions::new(options, error_on_unused_imports);
+    let (_, warnings) = check_crate(context, crate_id, &check_options)?;
 
     // TODO: We probably want to error if contracts is empty
     let contracts = context.get_all_contracts(&crate_id);
@@ -557,6 +580,7 @@ pub fn compile_no_check(
     let force_compile = force_compile
         || options.print_acir
         || options.show_brillig
+        || options.force_brillig
         || options.show_ssa
         || options.emit_ssa;
 
@@ -576,9 +600,10 @@ pub fn compile_no_check(
             ExpressionWidth::default()
         },
         emit_ssa: if options.emit_ssa { Some(context.package_build_path.clone()) } else { None },
+        skip_underconstrained_check: options.skip_underconstrained_check,
     };
 
-    let SsaProgramArtifact { program, debug, warnings, names, error_types, .. } =
+    let SsaProgramArtifact { program, debug, warnings, names, brillig_names, error_types, .. } =
         create_program(program, &ssa_evaluator_options)?;
 
     let abi = abi_gen::gen_abi(context, &main_function, return_visibility, error_types);
@@ -593,5 +618,6 @@ pub fn compile_no_check(
         noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
         warnings,
         names,
+        brillig_names,
     })
 }
