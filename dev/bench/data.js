@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724946627318,
+  "lastUpdate": 1724951826427,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "3199d077a31593fa521f8922fb6de6f9b532d87c",
-          "message": "refactor(avm): separate alu finalization",
-          "timestamp": "2024-08-19T14:15:59Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8069/commits/3199d077a31593fa521f8922fb6de6f9b532d87c"
-        },
-        "date": 1724079346085,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13288.848839999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10099.605286000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4926.198556000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4455.163329 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39810.511990000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39810513000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14494.448756,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14494449000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3785457615,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3785457615 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209708358,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209708358 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3081123108,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3081123108 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172712972,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172712972 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3524,6 +3456,78 @@ window.BENCHMARK_DATA = {
             "value": 172504549,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 172504549 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2323cd53486d3a8a063685094ad51aa98412c4a5",
+          "message": "refactor(bb): use std::span in pippenger for scalars (#8269)\n\nRefactoring stepping stone. Behaves identically\r\n\r\nNext step would be to use this to allow accessing power of 2 quantities\r\nabove the std::span size() (with a different wrapper class) so that\r\nnon-powers-of-2 can be passed directly to pippenger\r\n\r\nWe recently anted to save memory on polynomials. The idea is that\r\ninstead of rounding up to a power of 2 to make pippenger fast (at cost\r\nof memory), we will make a wrapper class that happily pretends it has\r\nT{} (i.e. zeroes) anywhere form 0 to nearest rounded up power of 2. For\r\nstarters this just introduces a std::span, which should behave\r\nidentically",
+          "timestamp": "2024-08-29T17:01:38Z",
+          "tree_id": "31b16225009c56551e9841d8ef13262eed82adcd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2323cd53486d3a8a063685094ad51aa98412c4a5"
+        },
+        "date": 1724951819644,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13802.474261000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10547.411571999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5069.99193499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4646.312263999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40270.66841,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40270667000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14611.493934999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14611493000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3784618196,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3784618196 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 210979989,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 210979989 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3176792949,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3176792949 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 175458836,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 175458836 ns\nthreads: 1"
           }
         ]
       }
