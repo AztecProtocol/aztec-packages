@@ -140,28 +140,17 @@ template <typename Curve> class GeminiVerifier_ {
         const size_t num_variables = mle_opening_point.size();
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        std::vector<Commitment> commitments;
-        commitments.reserve(num_variables - 1);
-        for (size_t i = 0; i < num_variables - 1; ++i) {
-            auto commitment =
-                transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
-            commitments.emplace_back(commitment);
-        }
+        std::vector<Commitment> commitments = get_gemini_commitments(num_variables, transcript);
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
         std::vector<Fr> r_squares = gemini::squares_of_r(r, num_variables);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
-        std::vector<Fr> evaluations;
-        evaluations.reserve(num_variables);
-        for (size_t i = 0; i < num_variables; ++i) {
-            auto eval = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
-            evaluations.emplace_back(eval);
-        }
-
+        std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
         // Compute evaluation A₀(r)
-        auto a_0_pos = compute_eval_pos(batched_evaluation, mle_opening_point, r_squares, evaluations);
+        auto a_0_pos =
+            compute_gemini_batched_univariate_evaluation(batched_evaluation, mle_opening_point, r_squares, evaluations);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
@@ -183,20 +172,54 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-  private:
+    static std::vector<Commitment> get_gemini_commitments(size_t log_circuit_size, auto& transcript)
+    {
+        std::vector<Commitment> gemini_commitments;
+        gemini_commitments.reserve(log_circuit_size - 1);
+        for (size_t i = 0; i < log_circuit_size - 1; ++i) {
+            auto commitment =
+                transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
+            gemini_commitments.emplace_back(commitment);
+        }
+        return gemini_commitments;
+    }
+    static std::vector<Fr> get_gemini_evaluations(size_t log_circuit_size, auto& transcript)
+    {
+        std::vector<Fr> gemini_evaluations;
+        gemini_evaluations.reserve(log_circuit_size);
+        for (size_t i = 0; i < log_circuit_size; ++i) {
+            auto evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
+            gemini_evaluations.emplace_back(evaluation);
+        }
+        return gemini_evaluations;
+    }
+
     /**
      * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
      *
-     * @param batched_mle_eval The evaluation of the folded polynomials
-     * @param mle_vars MLE opening point u
-     * @param r_squares squares of r, r², ..., r^{2ᵐ⁻¹}
-     * @param fold_polynomial_evals series of Aᵢ₋₁(−r^{2ⁱ⁻¹})
-     * @return evaluation A₀(r)
+     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
+     * k \f$ is the number of "unshifted" commitments.
+     *
+     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum \rho^{i+k}
+     * g_i(\vec{u}) \f$. The folding property ensures that
+     * \f{align}{
+     * A_\ell\left(r^{2^\ell}\right) = (1 - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) +
+     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
+     * + u_{\ell-1} \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) -
+     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2r^{2^{\ell-1}}}
+     * \f}
+     * Therefore, the verifier can recover \f$ A_0(r) \f$ by solving several linear equations.
+     *
+     * @param batched_mle_eval The evaluation of the folded polynomials.
+     * @param mle_vars MLE opening point \f$ \vec{u} \f$.
+     * @param r_squares Squares of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{m-1}} \f$.
+     * @param fold_polynomial_evals Series of \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
+     * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_eval_pos(const Fr batched_mle_eval,
-                               std::span<const Fr> mle_vars,
-                               std::span<const Fr> r_squares,
-                               std::span<const Fr> fold_polynomial_evals)
+    static Fr compute_gemini_batched_univariate_evaluation(const Fr batched_mle_eval,
+                                                           std::span<const Fr> mle_vars,
+                                                           std::span<const Fr> r_squares,
+                                                           std::span<const Fr> fold_polynomial_evals)
     {
         const size_t num_variables = mle_vars.size();
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -449,6 +450,7 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
+    using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
 
   public:
     /**
@@ -528,7 +530,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 return Commitment::batch_mul(commitments, scalars);
             }
         } else {
-            return batch_mul_native(commitments, scalars);
+            return CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
         }
     }
 

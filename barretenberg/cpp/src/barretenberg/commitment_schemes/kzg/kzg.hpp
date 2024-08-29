@@ -2,6 +2,7 @@
 
 #include "../claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -85,5 +86,33 @@ template <typename Curve_> class KZG {
         auto P_1 = -quotient_commitment;
         return { P_0, P_1 };
     };
+
+    static std::array<GroupElement, 2> reduce_verify_gemini(const Fr& evaluation_point,
+                                                            const Fr& evaluation,
+                                                            std::vector<Commitment>& commitments,
+                                                            std::vector<Fr>& scalars,
+                                                            auto& transcript)
+    {
+        using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
+        auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
+
+        // Note: The pairing check can be expressed naturally as
+        // e(C - v * [1]_1, [1]_2) = e([W]_1, [X - r]_2) where C =[p(X)]_1. This can be rearranged (e.g. see the plonk
+        // paper) as e(C + r*[W]_1 - v*[1]_1, [1]_2) * e(-[W]_1, [X]_2) = 1, or e(P_0, [1]_2) * e(P_1, [X]_2) = 1
+        GroupElement P_0;
+        commitments.emplace_back(quotient_commitment);
+        scalars.emplace_back(evaluation_point);
+        scalars[scalars.size() - 1] += evaluation;
+        if constexpr (Curve::is_stdlib_type) {
+            P_0 = GroupElement::batch_mul(commitments, scalars);
+        } else {
+            P_0 = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
+            info("commitments vector size", commitments.size());
+            info("scalars vector size", scalars.size());
+        }
+
+        auto P_1 = -quotient_commitment;
+        return { P_0, P_1 };
+    }
 };
 } // namespace bb

@@ -199,13 +199,13 @@ template <typename Curve> class ShplonkVerifier_ {
             commitments.emplace_back(Q_commitment);
             scalars.emplace_back(Fr(builder, 1)); // Fr(1)
 
-            // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-            std::vector<Fr> inverse_vanishing_evals;
-            inverse_vanishing_evals.reserve(num_claims);
+            std::vector<Fr> r_squares;
             for (const auto& claim : claims) {
-                // Note: no need for batch inversion; emulated inversion is cheap. (just show known inverse is valid)
-                inverse_vanishing_evals.emplace_back((z_challenge - claim.opening_pair.challenge).invert());
+                r_squares.emplace_back(claim.opening_pair.challenge);
             }
+            // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
+            std::vector<Fr> inverse_vanishing_evals =
+                compute_inverse_vanishing_evals(num_claims, z_challenge, r_squares);
 
             auto current_nu = Fr(1);
             // Note: commitments and scalars vectors used only in recursion setting for batch mul
@@ -268,5 +268,18 @@ template <typename Curve> class ShplonkVerifier_ {
         // Return opening pair (z, 0) and commitment [G]
         return { { z_challenge, Fr(0) }, G_commitment };
     };
+
+    static std::vector<Fr> compute_inverse_vanishing_evals(size_t log_circuit_size,
+                                                           const Fr& z_challenge,
+                                                           const std::vector<Fr>& r_squares)
+    {
+        std::vector<Fr> inverse_vanishing_evals;
+        inverse_vanishing_evals.reserve(log_circuit_size + 1);
+        inverse_vanishing_evals.emplace_back((z_challenge - r_squares[0]).invert());
+        for (const auto& challenge_point : r_squares) {
+            inverse_vanishing_evals.emplace_back((z_challenge + challenge_point).invert());
+        }
+        return inverse_vanishing_evals;
+    }
 };
 } // namespace bb
