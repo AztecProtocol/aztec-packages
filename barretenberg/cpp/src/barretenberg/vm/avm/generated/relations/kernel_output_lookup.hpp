@@ -14,7 +14,7 @@ class kernel_output_lookup_lookup_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -41,11 +41,9 @@ class kernel_output_lookup_lookup_settings {
                                      in.main_sel_kernel_out,
                                      in.main_kernel_out_offset,
                                      in.main_ia,
-                                     in.main_side_effect_counter,
                                      in.main_ib,
                                      in.main_clk,
                                      in.main_kernel_value_out,
-                                     in.main_kernel_side_effect_out,
                                      in.main_kernel_metadata_out);
     }
 
@@ -57,11 +55,9 @@ class kernel_output_lookup_lookup_settings {
                                      in.main_sel_kernel_out,
                                      in.main_kernel_out_offset,
                                      in.main_ia,
-                                     in.main_side_effect_counter,
                                      in.main_ib,
                                      in.main_clk,
                                      in.main_kernel_value_out,
-                                     in.main_kernel_side_effect_out,
                                      in.main_kernel_metadata_out);
     }
 };
