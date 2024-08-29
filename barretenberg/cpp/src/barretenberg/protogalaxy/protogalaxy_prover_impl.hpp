@@ -93,7 +93,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_o
         finalise_and_send_instance(instance, domain_separator);
     }
 
-    state.accumulator = instances[0]; // WORKTODO: use this
+    state.accumulator = instances[0];
 };
 
 template <class ProverInstances>
