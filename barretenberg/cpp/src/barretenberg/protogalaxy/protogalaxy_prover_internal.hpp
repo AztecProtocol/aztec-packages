@@ -46,9 +46,9 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         typename Flavor::template OptimisedProverUnivariates<ExtendedUnivariate::LENGTH,
                                                              /* SKIP_COUNT= */ ProverInstances::NUM - 1>;
 
-    using TupleOfTuplesOfUnivariates =
+    using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
-    using OptimisedTupleOfTuplesOfUnivariates =
+    using TupleOfTuplesOfUnivariates =
         typename Flavor::template OptimisedProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
@@ -269,7 +269,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         BB_OP_COUNT_TIME();
 
         // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
-        constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, OptimisedTupleOfTuplesOfUnivariates>;
+        constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
 
         const size_t common_instance_size = instances[0]->proving_key.circuit_size;
         // Determine number of threads for multithreading.
@@ -332,7 +332,8 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
             RelationUtils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
-        TupleOfTuplesOfUnivariates deoptimized_univariates = deoptimise_univariates(univariate_accumulators);
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimized_univariates =
+            deoptimise_univariates(univariate_accumulators);
         //  Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(deoptimized_univariates, alphas);
     }
@@ -347,7 +348,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateRelationSeparator& alphas)
     {
-        TupleOfTuplesOfUnivariates accumulators;
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
         return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
     }
 
@@ -356,7 +357,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                                                                 const UnivariateRelationParameters& relation_parameters,
                                                                 const UnivariateRelationSeparator& alphas)
     {
-        OptimisedTupleOfTuplesOfUnivariates accumulators;
+        TupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
     }
 
@@ -369,11 +370,13 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      * @param optimised_univariate_accumulators
      * @param new_univariate_accumulators
      */
-    template <typename PossiblyOptimisedTupleOfTuplesOfUnivariates>
-    static TupleOfTuplesOfUnivariates deoptimise_univariates(const PossiblyOptimisedTupleOfTuplesOfUnivariates& tup)
+    template <typename TupleOfTuplesOfUnivariatePossiblyOptimistic>
+    static TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimise_univariates(
+        const TupleOfTuplesOfUnivariatePossiblyOptimistic& tup)
     {
         // If input does not have optimized operators, return the input
-        if constexpr (std::same_as<PossiblyOptimisedTupleOfTuplesOfUnivariates, TupleOfTuplesOfUnivariates>) {
+        if constexpr (std::same_as<TupleOfTuplesOfUnivariatePossiblyOptimistic,
+                                   TupleOfTuplesOfUnivariatesNoOptimisticSkipping>) {
             return tup;
         }
 
@@ -382,13 +385,14 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
             element = optimised_element.convert();
         };
 
-        TupleOfTuplesOfUnivariates result;
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
         RelationUtils::template apply_to_tuple_of_tuples<0, 0>(result, deoptimise);
         return result;
     }
 
-    static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
-                                                                    const UnivariateRelationSeparator& alpha)
+    static ExtendedUnivariateWithRandomization batch_over_relations(
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators,
+        const UnivariateRelationSeparator& alpha)
     {
         auto result = std::get<0>(std::get<0>(univariate_accumulators))
                           .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();

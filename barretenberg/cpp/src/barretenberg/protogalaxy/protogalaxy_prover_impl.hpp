@@ -146,7 +146,7 @@ ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
     const UnivariateRelationParameters relation_parameters =
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
-    OptimisedTupleOfTuplesOfUnivariates accumulators;
+    TupleOfTuplesOfUnivariates accumulators;
     auto combiner = Fun::compute_combiner(instances, pow_polynomial, relation_parameters, alphas, accumulators);
 
     const FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
