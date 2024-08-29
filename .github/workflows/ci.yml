@@ -306,7 +306,7 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +preset-gcc
 
-  bb-gcc:
+  bb-gcc-pic:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
@@ -317,7 +317,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           # must be globally unique for build x runner
-          concurrency_key: bb-gcc
+          concurrency_key: bb-gcc-pic
       - name: "Ensure GCC PIC Builds"
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 40
