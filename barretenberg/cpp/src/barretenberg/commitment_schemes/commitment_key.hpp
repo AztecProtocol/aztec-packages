@@ -9,6 +9,7 @@
 
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
@@ -50,10 +51,11 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
-        : pippenger_runtime_state(num_points)
+        : pippenger_runtime_state(numeric::round_up_power_2(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_prover_crs(num_points))
-    {}
+        , srs(crs_factory->get_prover_crs(numeric::round_up_power_2(num_points)))
+    {
+    }
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
     CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
@@ -70,11 +72,11 @@ template <class Curve> class CommitmentKey {
     Commitment commit(std::span<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        const size_t degree = polynomial.size();
-        if (degree > srs->get_monomial_size()) {
-            info("Attempting to commit to a polynomial of degree ",
-                 degree,
-                 " with an SRS of size ",
+        const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
+        if (consumed_srs > srs->get_monomial_size()) {
+            info("Attempting to commit to a polynomial that needs ",
+                 consumed_srs,
+                 " points with an SRS of size ",
                  srs->get_monomial_size());
             ASSERT(false);
         }
