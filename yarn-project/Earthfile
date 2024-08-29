@@ -6,7 +6,8 @@ deps:
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
     FROM ../build-images+from-registry
     # copy bb, bb-js and noir-packages
-    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/
+    COPY ../barretenberg/cpp/+preset-release/bin /usr/src/barretenberg/cpp/build/bin
+    COPY ../barretenberg/cpp/+preset-release-pic/bin /usr/src/barretenberg/cpp/build/bin
     COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
     COPY ../noir/+packages/packages /usr/src/noir/packages
     WORKDIR /usr/src/yarn-project
@@ -41,6 +42,7 @@ build:
     FROM +deps
 
     COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../barretenberg/cpp/+preset-release-pic/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
     COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
     COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
     COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts

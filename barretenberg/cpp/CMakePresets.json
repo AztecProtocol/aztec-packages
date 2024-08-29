@@ -67,6 +67,16 @@
       }
     },
     {
+      "name": "clang16-pic",
+      "displayName": "Release build with PIC",
+      "description": "Build with globally installed Clang-16 using PIC",
+      "inherits": "clang16",
+      "binaryDir": "build-pic",
+      "cacheVariables": {
+        "ENABLE_PIC": "ON"
+      }
+    },
+    {
       "name": "clang16-dbg",
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
@@ -159,6 +169,20 @@
       "environment": {
         "CC": "gcc",
         "CXX": "g++"
+      }
+    },
+    {
+      "name": "gcc-pic",
+      "displayName": "Build with GCC using PIC",
+      "description": "Build with globally installed GCC using PIC",
+      "inherits": "gcc",
+      "binaryDir": "build-gcc-pic",
+      "environment": {
+        "CC": "gcc",
+        "CXX": "g++"
+      },
+      "cacheVariables": {
+        "ENABLE_PIC": "ON"
       }
     },
     {
@@ -436,6 +460,11 @@
       "configurePreset": "tracy"
     },
     {
+      "name": "clang16-pic",
+      "inherits": "default",
+      "configurePreset": "clang16-pic"
+    },
+    {
       "name": "clang16-dbg-fast",
       "inherits": "default",
       "configurePreset": "clang16-dbg-fast"
@@ -459,6 +488,11 @@
       "name": "gcc",
       "inherits": "default",
       "configurePreset": "gcc"
+    },
+    {
+      "name": "gcc-pic",
+      "inherits": "default",
+      "configurePreset": "gcc-pic"
     },
     {
       "name": "gcc10",
