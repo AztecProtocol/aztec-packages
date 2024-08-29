@@ -728,6 +728,7 @@ jobs:
       # - acir-bench # non-blocking
       # - bench-summary # non-blocking
       - bb-gcc
+      - bb-gcc-pic
       - bb-native-tests
       - bb-js-test
       - noir-build-acir-tests

@@ -5,10 +5,10 @@ set -e
 cd "$(dirname "$0")/.."
 
 # relatiev path from the directory containing package.json
-WORLD_STATE_LIB_PATH=../../barretenberg/cpp/build/lib/world_state_napi.node
+WORLD_STATE_LIB_PATH=../../barretenberg/cpp/build/bin/world_state_napi.node
 
 build_addon() {
-  (cd ../../barretenberg/cpp; cmake --build --preset clang16 --target world_state_napi)
+  (cd ../../barretenberg/cpp; cmake --preset clang16-pic -DCMAKE_BUILD_TYPE=RelWithAssert; cmake --build --preset clang16-pic --target world_state_napi; echo $PWD; mkdir -p build/bin;  cp ./build-pic/lib/world_state_napi.node ./build/bin/world_state_napi.node)
 }
 
 cp_addon_lib() {
@@ -17,7 +17,7 @@ cp_addon_lib() {
     rm -rf build
     mkdir build
     cp $WORLD_STATE_LIB_PATH build/world_state_napi.node
-  else 
+  else
     echo "world_state_napi.node not found at $WORLD_STATE_LIB_PATH"
     echo "Skipping copy to build directory"
     echo "NativeWorldStateService will not work without this file"
