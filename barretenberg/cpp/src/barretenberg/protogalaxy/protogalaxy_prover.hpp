@@ -12,9 +12,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
     using CombinerQuotient = Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
-    using TupleOfTuplesOfUnivariates =
-        typename Flavor::template OptimisedProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
+        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<NUM_INSTANCES>;
+    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
     using UnivariateRelationSeparator =

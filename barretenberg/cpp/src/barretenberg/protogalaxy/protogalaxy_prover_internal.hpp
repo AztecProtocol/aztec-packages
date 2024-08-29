@@ -47,9 +47,9 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                                                                           /* SKIP_COUNT= */ ProverInstances::NUM - 1>;
 
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
+        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<ProverInstances::NUM>;
     using TupleOfTuplesOfUnivariates =
-        typename Flavor::template OptimisedProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
+        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;

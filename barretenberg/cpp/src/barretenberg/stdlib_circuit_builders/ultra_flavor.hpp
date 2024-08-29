@@ -85,10 +85,10 @@ class UltraFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     template <size_t NUM_INSTANCES>
-    using ProtogalaxyTupleOfTuplesOfUnivariates =
+    using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     template <size_t NUM_INSTANCES>
-    using OptimisedProtogalaxyTupleOfTuplesOfUnivariates =
+    using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
                                                                    NUM_INSTANCES,
                                                                    /*optimised=*/true>());
