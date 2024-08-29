@@ -33,7 +33,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::update_target_sum_and_fold");
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
-    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
     FoldingResult<Flavor> result{ .accumulator = instances[0], .proof = std::move(transcript->proof_data) };
 
@@ -76,7 +76,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::run_o
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::run_oink_prover_on_each_instance");
     auto idx = 0;
-    auto instance = instances[0];
+    auto& instance = instances[0];
     auto domain_separator = std::to_string(idx);
 
     if (!instance->is_accumulator) {
@@ -105,12 +105,12 @@ ProtoGalaxyProver_<ProverInstances>::perturbator_round(
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
-    FF delta = transcript->template get_challenge<FF>("delta");
-    std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
+    const FF delta = transcript->template get_challenge<FF>("delta");
+    const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
     // An honest prover with valid initial instances computes that the perturbator is 0 in the first round
-    LegacyPolynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? Fun::compute_perturbator(accumulator, deltas)
-                                           : LegacyPolynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    const LegacyPolynomial<FF> perturbator = accumulator->is_accumulator
+                                                 ? Fun::compute_perturbator(accumulator, deltas)
+                                                 : LegacyPolynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is different
@@ -137,19 +137,20 @@ ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
 
     using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
-    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
+    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
-    std::vector<FF> updated_gate_challenges = update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(instances);
-    PowPolynomial<FF> pow_polynomial{ updated_gate_challenges, instances[0]->proving_key.log_circuit_size };
-    UnivariateRelationParameters relation_parameters =
+    const std::vector<FF> updated_gate_challenges =
+        update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
+    const UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(instances);
+    const PowPolynomial<FF> pow_polynomial{ updated_gate_challenges, instances[0]->proving_key.log_circuit_size };
+    const UnivariateRelationParameters relation_parameters =
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
     OptimisedTupleOfTuplesOfUnivariates accumulators;
     auto combiner = Fun::compute_combiner(instances, pow_polynomial, relation_parameters, alphas, accumulators);
 
-    FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
-    CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
+    const FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
+    const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
@@ -184,7 +185,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
              state.combiner_quotient) =
         combiner_quotient_round(state.accumulator->gate_challenges, state.deltas, instances);
 
-    FoldingResult<Flavor> result = update_target_sum_and_fold(
+    const FoldingResult<Flavor> result = update_target_sum_and_fold(
         instances, state.combiner_quotient, state.alphas, state.relation_parameters, state.perturbator_evaluation);
 
     return result;
