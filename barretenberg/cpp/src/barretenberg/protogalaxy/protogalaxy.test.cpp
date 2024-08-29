@@ -33,7 +33,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using RelationParameters = bb::RelationParameters<FF>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using PowPolynomial = bb::PowPolynomial<FF>;
+    using GateSeparatorPolynomial = bb::GateSeparatorPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<ProverInstances>;
@@ -98,12 +98,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto expected_honk_evals = Fun::compute_full_honk_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
-        PowPolynomial expected_pows(accumulator->gate_challenges, accumulator->gate_challenges.size());
+        GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
+                                                         accumulator->gate_challenges.size());
 
         // Compute the corresponding target sum and create a dummy accumulator
         auto expected_target_sum = FF(0);
         for (size_t i = 0; i < instance_size; i++) {
-            expected_target_sum += expected_honk_evals[i] * expected_pows[i];
+            expected_target_sum += expected_honk_evals[i] * expected_gate_separators[i];
         }
         EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
     }
@@ -203,12 +204,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         }
 
         // Construct pow(\vec{betas}) as in the paper
-        bb::PowPolynomial pow_beta(betas, log_instance_size);
+        bb::GateSeparatorPolynomial gate_separators(betas, log_instance_size);
 
         // Compute the corresponding target sum and create a dummy accumulator
         auto target_sum = FF(0);
         for (size_t i = 0; i < instance_size; i++) {
-            target_sum += full_honk_evals[i] * pow_beta[i];
+            target_sum += full_honk_evals[i] * gate_separators[i];
         }
 
         auto accumulator = std::make_shared<ProverInstance>();

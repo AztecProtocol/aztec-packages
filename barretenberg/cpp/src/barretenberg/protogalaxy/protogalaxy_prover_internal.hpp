@@ -258,12 +258,12 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      *
      * @tparam skip_zero_computations whether to use the the optimization that skips computing zero.
      * @param instances
-     * @param pow_betas
+     * @param gate_separators
      * @return ExtendedUnivariateWithRandomization
      */
     template <typename Parameters, typename TupleOfTuples>
     static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                                const PowPolynomial<FF>& pow_betas,
+                                                                const GateSeparatorPolynomial<FF>& gate_separators,
                                                                 const Parameters& relation_parameters,
                                                                 const UnivariateRelationSeparator& alphas,
                                                                 TupleOfTuples& univariate_accumulators)
@@ -316,7 +316,7 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
                 constexpr size_t skip_count = skip_zero_computations ? ProverInstances::NUM - 1 : 0;
                 extend_univariates<skip_count>(extended_univariates[thread_idx], instances, idx);
 
-                const FF pow_challenge = pow_betas[idx];
+                const FF pow_challenge = gate_separators[idx];
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
                 // this function have already been folded. Moreover, linear-dependent relations that act over the
@@ -346,21 +346,21 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
      */
     static ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
         const ProverInstances& instances,
-        const PowPolynomial<FF>& pow_betas,
+        const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateRelationSeparator& alphas)
     {
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
-        return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
+        return compute_combiner(instances, gate_separators, relation_parameters, alphas, accumulators);
     }
 
     static ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
-                                                                const PowPolynomial<FF>& pow_betas,
+                                                                const GateSeparatorPolynomial<FF>& gate_separators,
                                                                 const UnivariateRelationParameters& relation_parameters,
                                                                 const UnivariateRelationSeparator& alphas)
     {
         TupleOfTuplesOfUnivariates accumulators;
-        return compute_combiner(instances, pow_betas, relation_parameters, alphas, accumulators);
+        return compute_combiner(instances, gate_separators, relation_parameters, alphas, accumulators);
     }
 
     /**

@@ -142,12 +142,13 @@ ProtogalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(instances);
-    const PowPolynomial<FF> pow_polynomial{ updated_gate_challenges, instances[0]->proving_key.log_circuit_size };
+    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
+                                                       instances[0]->proving_key.log_circuit_size };
     const UnivariateRelationParameters relation_parameters =
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
     TupleOfTuplesOfUnivariates accumulators;
-    auto combiner = Fun::compute_combiner(instances, pow_polynomial, relation_parameters, alphas, accumulators);
+    auto combiner = Fun::compute_combiner(instances, gate_separators, relation_parameters, alphas, accumulators);
 
     const FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
