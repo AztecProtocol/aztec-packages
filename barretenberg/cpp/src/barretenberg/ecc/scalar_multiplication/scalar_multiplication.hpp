@@ -154,21 +154,18 @@ typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve
 template <typename Curve>
 typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> scalars,
                                   typename Curve::AffineElement* points,
-                                  size_t num_initial_points,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases = true);
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(std::span<const typename Curve::ScalarField> scalars,
                                          typename Curve::AffineElement* points,
-                                         size_t num_initial_points,
                                          pippenger_runtime_state<Curve>& state);
 
 template <typename Curve>
 typename Curve::Element pippenger_without_endomorphism_basis_points(
     std::span<const typename Curve::ScalarField> scalars,
     typename Curve::AffineElement* points,
-    size_t num_initial_points,
     pippenger_runtime_state<Curve>& state);
 
 // Explicit instantiation
