@@ -127,6 +127,7 @@ export abstract class EntrypointPayload {
   /**
    * Creates an execution payload for the app-portion of a transaction from a set of function calls
    * @param functionCalls - The function calls to execute
+   * @param nonce - The nonce for the payload, used to emit a nullifier identifying the call
    * @returns The execution payload
    */
   static fromAppExecution(functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>, nonce = Fr.random()) {

@@ -1,5 +1,5 @@
 import { type AuthWitness, type FunctionCall, type PackedValues, type TxExecutionRequest } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/circuits.js';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';
 
