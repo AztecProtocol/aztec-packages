@@ -21,7 +21,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     struct State {
         std::shared_ptr<ProverInstance> accumulator;
-        LegacyPolynomial<FF> perturbator;
+        Polynomial<FF> perturbator;
         std::vector<FF> deltas;
         CombinerQuotient combiner_quotient;
         FF perturbator_evaluation;
@@ -81,10 +81,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @details Compute perturbator (F polynomial in paper). Send all but the constant coefficient to verifier.
      *
      * @param accumulator
-     * @return std::tuple<std::vector<FF>, LegacyPolynomial<FF>> deltas, perturbator
+     * @return std::tuple<std::vector<FF>, Polynomial<FF>> deltas, perturbator
      */
-    std::tuple<std::vector<FF>, LegacyPolynomial<FF>> perturbator_round(
-        const std::shared_ptr<const Instance>& accumulator);
+    std::tuple<std::vector<FF>, Polynomial<FF>> perturbator_round(const std::shared_ptr<const Instance>& accumulator);
 
     /**
      * @brief Steps 6 - 11 of the paper.
