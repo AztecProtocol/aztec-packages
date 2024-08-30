@@ -150,20 +150,18 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
+    ClientIVC ivc;
+
+    auto num_circuits = static_cast<size_t>(state.range(0));
+    auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
+
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        for (size_t i = 0; i < 10; i++) {
-            state.PauseTiming();
-            ClientIVC ivc;
-            auto num_circuits = static_cast<size_t>(state.range(0));
-            auto precomputed_vks = precompute_verification_keys(ivc, num_circuits);
-            state.ResumeTiming();
-            // Perform a specified number of iterations of function/kernel accumulation
-            perform_ivc_accumulation_rounds(num_circuits, ivc, precomputed_vks);
+        // Perform a specified number of iterations of function/kernel accumulation
+        perform_ivc_accumulation_rounds(num_circuits, ivc, precomputed_vks);
 
-            // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
-            ivc.prove();
-        }
+        // Construct IVC scheme proof (fold, decider, merge, eccvm, translator)
+        ivc.prove();
     }
 }
 
