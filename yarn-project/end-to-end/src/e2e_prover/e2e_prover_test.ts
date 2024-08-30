@@ -17,7 +17,6 @@ import {
   deployL1Contract,
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { createStore } from '@aztec/kv-store/utils';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
