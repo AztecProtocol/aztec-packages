@@ -21,7 +21,7 @@ template <class VerifierInstances> void ProtogalaxyRecursiveVerifier_<VerifierIn
     auto inst = instances[0];
     auto domain_separator = std::to_string(index);
 
-    if (!inst->is_accumulator) {
+    if (inst->is_strict()) {
         receive_and_finalise_instance(inst, domain_separator);
         inst->target_sum = 0;
         inst->gate_challenges = std::vector<FF>(static_cast<size_t>(inst->verification_key->log_circuit_size), 0);
@@ -50,7 +50,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifi
         compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
 
     std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
-    if (accumulator->is_accumulator) {
+    if (!accumulator->is_strict()) {
         for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
@@ -92,8 +92,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifi
     }
 
     next_accumulator->public_inputs = accumulator->public_inputs;
-
-    next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters
     next_accumulator->target_sum =

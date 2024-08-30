@@ -45,7 +45,6 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             // Perform oink recursive verification to complete the initial verifier accumulator
             OinkRecursiveVerifier oink{ &circuit, verifier_accum };
             oink.verify_proof(stdlib_proof);
-            verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink on this instance
 
             // Extract native verifier accumulator from the stdlib accum for use on the next round
             verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
@@ -106,7 +105,6 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     if (!initialized) {
         OinkProver<Flavor> oink_prover{ prover_instance };
         oink_prover.prove();
-        prover_instance->is_accumulator = true; // indicate to PG that it should not run oink on this instance
         // Initialize the gate challenges to zero for use in first round of folding
         prover_instance->gate_challenges = std::vector<FF>(prover_instance->proving_key.log_circuit_size, 0);
 

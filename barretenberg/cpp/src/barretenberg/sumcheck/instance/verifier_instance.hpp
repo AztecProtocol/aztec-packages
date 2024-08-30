@@ -23,7 +23,6 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
     std::shared_ptr<VerificationKey> verification_key;
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
-    bool is_accumulator = false;
     std::vector<FF> public_inputs;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
@@ -33,18 +32,14 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
+    inline bool is_strict() const { return target_sum == 0; }
+
     VerifierInstance_() = default;
     VerifierInstance_(std::shared_ptr<VerificationKey> vk)
         : verification_key(std::move(vk))
     {}
 
-    MSGPACK_FIELDS(verification_key,
-                   relation_parameters,
-                   alphas,
-                   is_accumulator,
-                   public_inputs,
-                   gate_challenges,
-                   target_sum,
-                   witness_commitments);
+    MSGPACK_FIELDS(
+        verification_key, relation_parameters, alphas, public_inputs, gate_challenges, target_sum, witness_commitments);
 };
 } // namespace bb

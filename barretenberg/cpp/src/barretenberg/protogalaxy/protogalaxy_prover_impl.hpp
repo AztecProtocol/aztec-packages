@@ -23,7 +23,7 @@ template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_o
     auto& instance = instances[0];
     auto domain_separator = std::to_string(idx);
 
-    if (!instance->is_accumulator) {
+    if (instance->is_strict()) {
         run_oink_prover_on_instance(instance, domain_separator);
         instance->target_sum = 0;
         instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
@@ -52,14 +52,14 @@ ProtogalaxyProver_<ProverInstances>::perturbator_round(
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
     // An honest prover with valid initial instances computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? Fun::compute_perturbator(accumulator, deltas)
-                                           : Polynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    const LegacyPolynomial<FF> perturbator = accumulator->is_strict()
+                                                 ? LegacyPolynomial<FF>(accumulator->proving_key.log_circuit_size + 1)
+                                                 : Fun::compute_perturbator(accumulator, deltas);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
-    if (accumulator->is_accumulator) {
+    if (!accumulator->is_strict()) {
         for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
         }
@@ -125,9 +125,6 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
     FoldingResult<Flavor> result{ .accumulator = instances[0], .proof = std::move(transcript->proof_data) };
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    result.accumulator->is_accumulator = true;
 
     // Compute the next target sum
     auto [vanishing_polynomial_at_challenge, lagranges] =

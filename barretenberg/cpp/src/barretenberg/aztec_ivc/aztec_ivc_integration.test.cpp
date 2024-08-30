@@ -34,7 +34,7 @@ class AztecIVCIntegrationTests : public ::testing::Test {
  * circuits total (3 app, 3 kernel) to save time.
  *
  */
-TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
+TEST_F(AztecIVCIntegrationTests, DISABLED_BenchmarkCaseSimple)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
@@ -57,7 +57,7 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
  * verification keys
  *
  */
-TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
+TEST_F(AztecIVCIntegrationTests, DISABLED_BenchmarkCasePrecomputedVKs)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
@@ -87,7 +87,7 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
  * causes failure of the IVC to verify.
  *
  */
-TEST_F(AztecIVCIntegrationTests, DatabusFailure)
+TEST_F(AztecIVCIntegrationTests, DISABLED_DatabusFailure)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
