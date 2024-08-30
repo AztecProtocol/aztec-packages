@@ -21,7 +21,7 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
 
     struct State {
         std::shared_ptr<ProverInstance> accumulator;
-        LegacyPolynomial<FF> perturbator;
+        Polynomial<FF> perturbator;
         std::vector<FF> deltas;
         CombinerQuotient combiner_quotient;
         FF perturbator_evaluation;
@@ -72,10 +72,9 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
      * @details Compute perturbator (F polynomial in paper). Send all but the constant coefficient to verifier.
      *
      * @param accumulator
-     * @return std::tuple<std::vector<FF>, LegacyPolynomial<FF>> deltas, perturbator
+     * @return std::tuple<std::vector<FF>, Polynomial<FF>> deltas, perturbator
      */
-    std::tuple<std::vector<FF>, LegacyPolynomial<FF>> perturbator_round(
-        const std::shared_ptr<const Instance>& accumulator);
+    std::tuple<std::vector<FF>, Polynomial<FF>> perturbator_round(const std::shared_ptr<const Instance>& accumulator);
 
     /**
      * @brief Steps 6 - 11 of the paper.
@@ -89,8 +88,10 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
-     * @details Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
-     * parameters set.
+     * @details Compute \f$ e^* \f$ plus, then update the prover accumulator by taking a Lagrange-linear combination of
+     * the current accumulator and the instances to be folded. In our mental model, we are doing a scalar multipliation
+     * of matrices whose columns are polynomials, as well as taking similar linear combinations of the relation
+     * parameters.
      */
     FoldingResult<Flavor> update_target_sum_and_fold(const ProverInstances_& instances,
                                                      const CombinerQuotient& combiner_quotient,

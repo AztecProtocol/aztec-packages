@@ -8,7 +8,7 @@
 
 namespace bb {
 
-class lookup_mem_rng_chk_hi_lookup_settings {
+class lookup_rng_chk_4_lookup_settings {
   public:
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -21,44 +21,44 @@ class lookup_mem_rng_chk_hi_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.mem_sel_rng_chk == 1 || in.main_sel_rng_8 == 1);
+        return (in.range_check_sel_lookup_4 == 1 || in.main_sel_rng_16 == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.mem_sel_rng_chk);
-        const auto is_table_entry = View(in.main_sel_rng_8);
+        const auto is_operation = View(in.range_check_sel_lookup_4);
+        const auto is_table_entry = View(in.main_sel_rng_16);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.lookup_mem_rng_chk_hi_inv,
-                                     in.lookup_mem_rng_chk_hi_counts,
-                                     in.mem_sel_rng_chk,
-                                     in.main_sel_rng_8,
-                                     in.mem_diff_hi,
+        return std::forward_as_tuple(in.lookup_rng_chk_4_inv,
+                                     in.lookup_rng_chk_4_counts,
+                                     in.range_check_sel_lookup_4,
+                                     in.main_sel_rng_16,
+                                     in.range_check_u16_r4,
                                      in.main_clk);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.lookup_mem_rng_chk_hi_inv,
-                                     in.lookup_mem_rng_chk_hi_counts,
-                                     in.mem_sel_rng_chk,
-                                     in.main_sel_rng_8,
-                                     in.mem_diff_hi,
+        return std::forward_as_tuple(in.lookup_rng_chk_4_inv,
+                                     in.lookup_rng_chk_4_counts,
+                                     in.range_check_sel_lookup_4,
+                                     in.main_sel_rng_16,
+                                     in.range_check_u16_r4,
                                      in.main_clk);
     }
 };
 
 template <typename FF_>
-class lookup_mem_rng_chk_hi_relation : public GenericLookupRelation<lookup_mem_rng_chk_hi_lookup_settings, FF_> {
+class lookup_rng_chk_4_relation : public GenericLookupRelation<lookup_rng_chk_4_lookup_settings, FF_> {
   public:
-    static constexpr const char* NAME = "LOOKUP_MEM_RNG_CHK_HI";
+    static constexpr const char* NAME = "LOOKUP_RNG_CHK_4";
 };
-template <typename FF_> using lookup_mem_rng_chk_hi = GenericLookup<lookup_mem_rng_chk_hi_lookup_settings, FF_>;
+template <typename FF_> using lookup_rng_chk_4 = GenericLookup<lookup_rng_chk_4_lookup_settings, FF_>;
 
 } // namespace bb
