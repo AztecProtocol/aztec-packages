@@ -6,6 +6,7 @@ import {
   type L2LogsSource,
   MerkleTreeId,
   type MerkleTreeOperations,
+  type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr, GasFees, GlobalVariables, MaxBlockNumber } from '@aztec/circuits.js';
@@ -14,7 +15,6 @@ import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 

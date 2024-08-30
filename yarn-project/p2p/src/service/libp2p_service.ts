@@ -1,17 +1,24 @@
 import {
   BlockAttestation,
   BlockProposal,
+  type ClientProtocolCircuitVerifier,
+  type GlobalVariableBuilder,
   type Gossipable,
+  type L2BlockSource,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
   Tx,
   TxHash,
+  type TxValidator,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
+import { WorldStateDB } from '@aztec/simulator';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -28,6 +35,11 @@ import { type Libp2p, createLibp2p } from 'libp2p';
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
+import { AggregateTxValidator } from '../tx_validator/aggregate_tx_validator.js';
+import { DataTxValidator } from '../tx_validator/data_validator.js';
+import { DoubleSpendTxValidator } from '../tx_validator/double_spend_validator.js';
+import { MetadataTxValidator } from '../tx_validator/metadata_validator.js';
+import { TxProofValidator } from '../tx_validator/tx_proof_validator.js';
 import { convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
@@ -90,6 +102,10 @@ export class LibP2PService implements P2PService {
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
+    private globalVariableBuilder: GlobalVariableBuilder,
+    private l2BlockSource: L2BlockSource,
+    private proofVerifier: ClientProtocolCircuitVerifier,
+    private worldStateSynchronizer: WorldStateSynchronizer,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
@@ -181,6 +197,10 @@ export class LibP2PService implements P2PService {
     peerId: PeerId,
     txPool: TxPool,
     attestationPool: AttestationPool,
+    l2BlockSource: L2BlockSource,
+    globalVariableBuilder: GlobalVariableBuilder,
+    proofVerifier: ClientProtocolCircuitVerifier,
+    worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecKVStore,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
@@ -252,7 +272,18 @@ export class LibP2PService implements P2PService {
       [TX_REQ_PROTOCOL]: txHandler,
     };
 
-    return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool, requestResponseHandlers);
+    return new LibP2PService(
+      config,
+      node,
+      peerDiscoveryService,
+      txPool,
+      attestationPool,
+      globalVariableBuilder,
+      l2BlockSource,
+      proofVerifier,
+      worldStateSynchronizer,
+      requestResponseHandlers,
+    );
   }
 
   /**
@@ -380,7 +411,39 @@ export class LibP2PService implements P2PService {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
-    await this.txPool.addTxs([tx]);
+
+    if (await this.isValidTx(tx)) {
+      await this.txPool.addTxs([tx]);
+    }
+  }
+
+  // TODO: these should be done separately and results will be used for peer scoring
+  private async isValidTx(tx: Tx): Promise<boolean> {
+    const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+
+    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
+      new Fr(blockNumber),
+      // We only need chainId and block number, thus coinbase and fee recipient can be set to 0.
+      EthAddress.ZERO,
+      AztecAddress.ZERO,
+    );
+
+    const txValidators: TxValidator<Tx>[] = [
+      new DataTxValidator(),
+      new MetadataTxValidator(newGlobalVariables),
+      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
+      new TxProofValidator(this.proofVerifier),
+    ];
+
+    const txValidator = new AggregateTxValidator(...txValidators);
+
+    const [_, invalidTxs] = await txValidator.validateTxs([tx]);
+    if (invalidTxs.length > 0) {
+      this.logger.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
+      return false;
+    }
+
+    return true;
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

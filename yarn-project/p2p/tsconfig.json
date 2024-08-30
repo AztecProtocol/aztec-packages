@@ -19,6 +19,9 @@
       "path": "../kv-store"
     },
     {
+      "path": "../simulator"
+    },
+    {
       "path": "../telemetry-client"
     }
   ],

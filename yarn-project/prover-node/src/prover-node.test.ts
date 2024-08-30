@@ -4,12 +4,13 @@ import {
   type MerkleTreeOperations,
   type ProverClient,
   type TxProvider,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

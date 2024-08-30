@@ -4,6 +4,9 @@ import {
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
+  WorldStateRunningState,
+  type WorldStateStatus,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
@@ -20,11 +23,6 @@ import { type MerkleTreeOperations, type MerkleTrees } from '../world-state-db/i
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
 import { type WorldStateConfig } from './config.js';
-import {
-  WorldStateRunningState,
-  type WorldStateStatus,
-  type WorldStateSynchronizer,
-} from './world_state_synchronizer.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource.
