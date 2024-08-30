@@ -30,13 +30,12 @@ Aliases have different types like `address` or `artifact` or `contract`. You can
 
 :::tip
 
-The wallet is smart enough to write to the `last` alias if it's likely that you use that same alias in the next command.
+The wallet writes to the `last` alias if it's likely that you use that same alias in the next command.
 
-It will also try and determine which type is expected. For example, if the alias `master_yoda` is an account, you don't need to prepend `account:` if, for example, you're deploying a contract.
+It will also try to determine which type is expected. For example, if the alias `master_yoda` is an account, you don't need to prepend `account:` if, for example, you're deploying a contract.
 
 You can create arbitrary aliases with the `alias` command. For example `aztec-wallet alias accounts test_alias 0x2c37902cdade7710bd2355e5949416dc5e43a16e0b13a5560854d2451d92d289`.
 
-:::
 
 ## Account Management
 
