@@ -31,6 +31,11 @@ spec:
                 sleep 5
               done
               echo "Ethereum node is ready!"
+              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
+                echo "Waiting for OpenTelemetry collector..."
+                sleep 5
+              done
+              echo "OpenTelemetry collector is ready!"
         - name: deploy-contracts
           image: {{ .Values.images.aztec.image }}
           command:
@@ -54,7 +59,7 @@ spec:
             [
               "/bin/bash",
               "-c",
-              "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer",
+              "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
           volumeMounts:
             - name: shared-volume
@@ -80,6 +85,12 @@ spec:
               value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
+            - name: VALIDATOR_DISABLED
+              value: "{{ .Values.bootNode.validator.disabled }}"
+            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
+              value: "{{ .Values.bootNode.sequencer.maxSecondsBetweenBlocks }}"
+            - name: SEQ_MIN_TX_PER_BLOCK
+              value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               value: "$(POD_DNS_NAME):{{ .Values.bootNode.service.p2pPort }}"
             - name: P2P_UDP_ANNOUNCE_ADDR
@@ -90,9 +101,13 @@ spec:
               value: "0.0.0.0:{{ .Values.bootNode.service.p2pPort }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
           ports:
-            - containerPort: "{{ .Values.bootNode.service.nodePort }}"
-            - containerPort: "{{ .Values.bootNode.service.p2pPort }}"
+            - containerPort: {{ .Values.bootNode.service.nodePort }}
+            - containerPort: {{ .Values.bootNode.service.p2pPort }}
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:

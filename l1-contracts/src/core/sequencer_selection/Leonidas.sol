@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -52,12 +53,12 @@ contract Leonidas is Ownable, ILeonidas {
   //
   //                    The value should be a higher multiple for any actual chain
   // @todo  #8019
-  uint256 public constant SLOT_DURATION = Constants.ETHEREUM_SLOT_DURATION * 1;
+  uint256 public constant SLOT_DURATION = Constants.AZTEC_SLOT_DURATION;
 
   // The duration of an epoch in slots
   // @todo  @LHerskind - This value should be updated when we are not blind.
   // @todo  #8020
-  uint256 public constant EPOCH_DURATION = 32;
+  uint256 public constant EPOCH_DURATION = Constants.AZTEC_EPOCH_DURATION;
 
   // The target number of validators in a committee
   // @todo #8021
@@ -96,7 +97,7 @@ contract Leonidas is Ownable, ILeonidas {
    */
   function addValidator(address _validator) external override(ILeonidas) onlyOwner {
     setupEpoch();
-    validatorSet.add(_validator);
+    _addValidator(_validator);
   }
 
   /**
@@ -187,6 +188,15 @@ contract Leonidas is Ownable, ILeonidas {
    */
   function getValidatorCount() public view override(ILeonidas) returns (uint256) {
     return validatorSet.length();
+  }
+
+  /**
+   * @notice  Get the number of validators in the validator set
+   *
+   * @return The number of validators in the validator set
+   */
+  function getValidatorAt(uint256 _index) public view override(ILeonidas) returns (address) {
+    return validatorSet.at(_index);
   }
 
   /**
@@ -321,7 +331,15 @@ contract Leonidas is Ownable, ILeonidas {
   }
 
   /**
-   * @notice  Process a pending block from the point-of-view of sequencer selection. Will:
+   * @notice  Adds a validator to the set WITHOUT setting up the epoch
+   * @param _validator - The validator to add
+   */
+  function _addValidator(address _validator) internal {
+    validatorSet.add(_validator);
+  }
+
+  /**
+   * @notice  Propose a pending block from the point-of-view of sequencer selection. Will:
    *          - Setup the epoch if needed (if epoch committee is empty skips the rest)
    *          - Validate that the proposer is the proposer of the slot
    *          - Validate that the signatures for attestations are indeed from the validatorset
@@ -332,29 +350,18 @@ contract Leonidas is Ownable, ILeonidas {
    *          - If the proposer is not the real proposer AND the proposer is not open
    *          - If the number of valid attestations is insufficient
    *
-   * @param _epochNumber - The epoch number of the block
    * @param _slot - The slot of the block
    * @param _signatures - The signatures of the committee members
    * @param _digest - The digest of the block
    */
-  function _processPendingBlock(
-    uint256 _epochNumber,
+  function _proposePendingBlock(
     uint256 _slot,
     SignatureLib.Signature[] memory _signatures,
-    bytes32 _digest
-  ) internal {
-    // @note  Setup the CURRENT epoch if not already done.
-    //        not necessarily the one we are processing!
-    setupEpoch();
-
-    Epoch storage epoch = epochs[_epochNumber];
-
-    // We should never enter this case because of `setupEpoch`
-    if (epoch.sampleSeed == 0) {
-      revert Errors.Leonidas__EpochNotSetup();
-    }
-
-    address proposer = getProposerAt(getTimestampForSlot(_slot));
+    bytes32 _digest,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
+    uint256 ts = getTimestampForSlot(_slot);
+    address proposer = getProposerAt(ts);
 
     // If the proposer is open, we allow anyone to propose without needing any signatures
     if (proposer == address(0)) {
@@ -366,7 +373,17 @@ contract Leonidas is Ownable, ILeonidas {
       revert Errors.Leonidas__InvalidProposer(proposer, msg.sender);
     }
 
-    uint256 needed = epoch.committee.length * 2 / 3 + 1;
+    // @note  This is NOT the efficient way to do it, but it is a very convenient way for us to do it
+    //        that allows us to reduce the number of code paths. Also when changed with optimistic for
+    //        pleistarchus, this will be changed, so we can live with it.
+
+    if (_flags.ignoreSignatures) {
+      return;
+    }
+
+    address[] memory committee = getCommitteeAt(ts);
+
+    uint256 needed = committee.length * 2 / 3 + 1;
     if (_signatures.length < needed) {
       revert Errors.Leonidas__InsufficientAttestationsProvided(needed, _signatures.length);
     }
@@ -383,7 +400,7 @@ contract Leonidas is Ownable, ILeonidas {
       }
 
       // The verification will throw if invalid
-      signature.verify(epoch.committee[i], ethSignedDigest);
+      signature.verify(committee[i], ethSignedDigest);
       validAttestations++;
     }
 
