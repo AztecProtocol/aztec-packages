@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725044611443,
+  "lastUpdate": 1725048693872,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "0460b98cd972ca99784fc8001e3f4d3fcf65b424",
-          "message": "feat: PG recursive verifier constructors based on stdlib inputs",
-          "timestamp": "2024-08-19T15:52:20Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8052/commits/0460b98cd972ca99784fc8001e3f4d3fcf65b424"
-        },
-        "date": 1724090413726,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13310.021998999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9955.814637 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5018.582276000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4601.911491 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39840.736996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39840736000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14553.139731,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14553141000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3826777320,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3826777320 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 215638513,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 215638513 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3111450838,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3111450838 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173124604,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173124604 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3560,6 +3492,78 @@ window.BENCHMARK_DATA = {
             "value": 173619308,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 173619308 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a9bb9d47e6b1838875c9ce16fa80a2133b05920",
+          "message": "feat: Clarify state in Protogalaxy 3 (#8181)\n\nMain goal: more explicit state by making round functions pure functions\r\n(with const inputs).\r\n- Exception: first round mutates instances. May handle in follow-on that\r\nchanges handling of accumulator.\r\n- Also: get rid of several pieces of prover state (`gate_challenges`,\r\n`relation_parameters`, `optimised_relation_parameters`, `accumulators`,\r\n`result`)\r\n- FYI: will likely get rid of temporary refactoring helper classes\r\n`State` and `ProtogalaxyProverInternal` also.\r\n\r\nAlso:\r\n- Rename `accumulator_update_round`, `preparation_round`,\r\n`compressed_perturbator`, `OptimisedFoo`, `CombinedFoo`.\r\n - Combiner test does not use prover class.\r\n - Use `const` in a bunch of places\r\n- Reduce amount of templating by explicitly naming instantiations of\r\ncompute_combiner",
+          "timestamp": "2024-08-30T19:54:10Z",
+          "tree_id": "967d75d2191c870419530c7c60208c96eca8d18d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4a9bb9d47e6b1838875c9ce16fa80a2133b05920"
+        },
+        "date": 1725048686760,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13425.153857999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10191.722959999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5107.53883000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4654.311539 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39664.33926000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39664340000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14744.279795000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14744279000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3782092932,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3782092932 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 208529732,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 208529732 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3069457948,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3069457948 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 175020004,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 175020004 ns\nthreads: 1"
           }
         ]
       }
