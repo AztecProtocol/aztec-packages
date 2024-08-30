@@ -225,11 +225,8 @@ export class FullProverTest {
     // Creating temp store and archiver for fully proven prover node
 
     this.logger.verbose('Starting archiver for new prover node');
-    const store = await createStore({ dataDirectory: undefined }, this.l1Contracts.l1ContractAddresses.rollupAddress);
-
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      store,
       new NoopTelemetryClient(),
       { blockUntilSync: true },
     );
