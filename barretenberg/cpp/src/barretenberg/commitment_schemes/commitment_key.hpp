@@ -77,7 +77,7 @@ template <class Curve> class CommitmentKey {
         BB_OP_COUNT_TIME();
         // See constructor, we must round up the number of used srs points to a power of 2.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
-        if (consumed_srs >= srs->get_monomial_size()) {
+        if (consumed_srs > srs->get_monomial_size()) {
             info("Attempting to commit to a polynomial that needs ",
                  consumed_srs,
                  " points with an SRS of size ",
