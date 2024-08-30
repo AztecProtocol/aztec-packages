@@ -51,11 +51,12 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
+        // Currently we must round up internal space for points as pippenger will use next power of 2.
+        // This is used to simplify the recursive halving scheme.
         : pippenger_runtime_state(numeric::round_up_power_2(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_prover_crs(numeric::round_up_power_2(num_points)))
-    {
-    }
+    {}
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
     CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
