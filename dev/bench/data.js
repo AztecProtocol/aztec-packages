@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725048693872,
+  "lastUpdate": 1725053455633,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "5f0c10f302103a8b52d298d2969200f820e1451f",
-          "message": "feat: PG recursive verifier constructors based on stdlib inputs",
-          "timestamp": "2024-08-19T15:52:20Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8052/commits/5f0c10f302103a8b52d298d2969200f820e1451f"
-        },
-        "date": 1724091340218,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13451.412032999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10526.895682999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5102.524040999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4625.276476 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40573.720659000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40573721000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14682.455011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14682455000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3783876666,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3783876666 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 210472717,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 210472717 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3109789056,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3109789056 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 175398381,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 175398381 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3564,6 +3496,78 @@ window.BENCHMARK_DATA = {
             "value": 175020004,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 175020004 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be2169da8057a06c0cc5c503ec523e62647775e1",
+          "message": "refactor: Renaming around Protogalaxy Prover (#8272)\n\nThis is literally just a ton of renaming + shuffling some declaration\r\nand defs in the Protogalaxy prover so the orders of these match. Some\r\nhighlights:\r\n- I wanted to stop using the term \"optimised\" around the Pg optimization\r\nthat skips computing zero because we have many optimizations and the\r\nname was unclear. I also put the extra qualifier on the non-production\r\ncase where we _don't_ use that optimization, which is currently just in\r\ntests of the combiner.\r\n- Ariel told me that the real name of the protocol is Protogalaxy--this\r\nis in the name of the paper in pdf form, but not on the eprint page\r\n:shrug:\r\n- `PowPolynomial` is now a misnomer because it doesn't involve powers of\r\na challenge $\\beta$, but rather a bunch of monomials generate from a set\r\nof $\\beta_i$'s. So I rename this and the corresponding files. I didn't\r\nhave to change this but I do think clarity here comes at a low enough\r\ncost to merit making the change.\r\n- We have functions that refer to the \"full honk\" relation, which is\r\nfine, but strictly speaking there is no connection to Honk when using\r\nProtogalaxy or sumcheck in insolation, so it makes sense to give more\r\nagnostic and IMO slightly clearer names.",
+          "timestamp": "2024-08-30T21:14:00Z",
+          "tree_id": "1c9a393ff201559bf6b785f62a44492631ff5038",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be2169da8057a06c0cc5c503ec523e62647775e1"
+        },
+        "date": 1725053448667,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13449.424109999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10332.491965000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5080.398435999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4721.820879999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39628.54128600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39628541000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14742.644203,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14742644000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3755411149,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3755411149 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 206473563,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 206473563 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3099576590,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3099576590 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 173461689,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 173461689 ns\nthreads: 1"
           }
         ]
       }
