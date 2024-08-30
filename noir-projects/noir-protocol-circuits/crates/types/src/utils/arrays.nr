@@ -1,5 +1,6 @@
-mod assert_combined_deduped_array;
 mod assert_combined_sorted_transformed_value_array;
+mod assert_combined_transformed_array;
+mod assert_deduped_array;
 mod assert_exposed_sorted_transformed_value_array;
 mod assert_sorted_array;
 mod assert_sorted_transformed_value_array;
@@ -11,19 +12,16 @@ mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
-use assert_combined_deduped_array::{
-    assert_combined_deduped_array, dedupe_array::dedupe_array,
-    get_deduped_hints::{DedupedHints, get_deduped_hints},
-    sort_by_position_then_counter::sort_by_position_then_counter
-};
 use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,
     get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
 };
+use assert_combined_transformed_array::assert_combined_transformed_array;
 use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}
 };
+use assert_deduped_array::{assert_deduped_array, dedupe_array};
 use assert_sorted_array::assert_sorted_array;
 use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
@@ -130,7 +128,11 @@ pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N] wher
     result
 }
 
-pub fn check_permutation<T, let N: u32>(original_array: [T; N], permuted_array: [T; N], original_indexes: [u32; N]) where T: Eq + Empty {
+pub fn check_permutation<T, let N: u32>(
+    original_array: [T; N],
+    permuted_array: [T; N],
+    original_indexes: [u32; N]
+) where T: Eq + Empty {
     let mut seen_value = [false; N];
     for i in 0..N {
         let index = original_indexes[i];

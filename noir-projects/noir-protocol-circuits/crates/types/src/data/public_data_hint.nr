@@ -1,6 +1,7 @@
 use crate::{
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, data::leaf_data_hint::LeafDataHint,
-    traits::Empty, merkle_tree::{MembershipWitness, conditionally_assert_check_membership},
+    abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}},
+    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::Empty,
+    merkle_tree::{MembershipWitness, conditionally_assert_check_membership},
     constants::PUBLIC_DATA_TREE_HEIGHT
 };
 
@@ -8,7 +9,7 @@ struct PublicDataHint {
     leaf_slot: Field,
     value: Field,
     override_counter: u32,
-    membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, // Should be MembershipWitness<PUBLIC_DATA_TREE_HEIGHT> when we can handle generics when converting to ts types.
+    membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     leaf_preimage: PublicDataTreeLeafPreimage,
 }
 
@@ -37,20 +38,6 @@ impl PublicDataHint {
     }
 }
 
-impl LeafDataHint for PublicDataHint {
-    fn leaf_slot(self) -> Field {
-        self.leaf_slot
-    }
-
-    fn value(self) -> Field {
-        self.value
-    }
-    
-    fn override_counter(self) -> u32 {
-        self.override_counter
-    }
-}
-
 impl Empty for PublicDataHint {
     fn empty() -> Self {
         PublicDataHint {
@@ -60,5 +47,18 @@ impl Empty for PublicDataHint {
             membership_witness: MembershipWitness::empty(),
             leaf_preimage: PublicDataTreeLeafPreimage::empty(),
         }
+    }
+}
+
+impl Readable<PublicDataRead> for PublicDataHint {
+    fn assert_match_read_request(self, read_request: PublicDataRead) {
+        assert_eq(self.leaf_slot, read_request.leaf_slot, "leaf_slot in PublicDataHint does not match read request");
+        assert_eq(self.value, read_request.value, "value in PublicDataHint does not match read request");
+    }
+}
+
+impl Overridable for PublicDataHint {
+    fn override_counter(self) -> u32 {
+        self.override_counter
     }
 }

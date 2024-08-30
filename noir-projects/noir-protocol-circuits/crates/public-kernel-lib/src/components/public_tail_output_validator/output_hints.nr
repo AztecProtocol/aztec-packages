@@ -1,18 +1,11 @@
 use dep::types::{
-    abis::{
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    public_data_update_request::PublicDataUpdateRequest
-},
+    abis::{kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs}},
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
-    MAX_ENCRYPTED_LOGS_PER_TX
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX
 },
     hash::silo_note_hash, traits::Empty,
-    utils::arrays::{
-    array_merge, CombinedOrderHint, DedupedHints, get_combined_order_hints_asc, get_deduped_hints,
-    sort_by_position_then_counter
-}
+    utils::arrays::{array_merge, CombinedOrderHint, get_combined_order_hints_asc}
 };
 
 struct SiloedNoteHashHint {
@@ -40,8 +33,6 @@ struct OutputHints {
     sorted_note_encrypted_log_hash_hints: [CombinedOrderHint; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hash_hints: [CombinedOrderHint; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_unencrypted_log_hash_hints: [CombinedOrderHint; MAX_UNENCRYPTED_LOGS_PER_TX],
-    sorted_public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    deduped_public_data_update_request_hints: DedupedHints<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 }
 
 unconstrained pub fn generate_output_hints(
@@ -74,16 +65,6 @@ unconstrained pub fn generate_output_hints(
         sorted_unencrypted_log_hash_hints: get_combined_order_hints_asc(
             non_revertible.unencrypted_logs_hashes,
             revertible.unencrypted_logs_hashes
-        ),
-        sorted_public_data_update_requests: sort_by_position_then_counter(
-            array_merge(
-                non_revertible.public_data_update_requests,
-                revertible.public_data_update_requests
-            )
-        ),
-        deduped_public_data_update_request_hints: get_deduped_hints(
-            non_revertible.public_data_update_requests,
-            revertible.public_data_update_requests
         )
     }
 }

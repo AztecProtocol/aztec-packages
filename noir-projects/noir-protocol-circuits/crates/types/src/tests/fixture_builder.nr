@@ -789,13 +789,6 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_read_request_for_pending_public_data(&mut self, public_date_update_request_index: u32) -> u32 {
-        let new_read_request_index = self.public_data_reads.len();
-        let public_write = self.public_data_update_requests.get(public_date_update_request_index);
-        self.add_public_data_read_request(public_write.leaf_slot, public_write.new_value);
-        new_read_request_index
-    }
-
     pub fn add_request_for_key_validation(&mut self, pk_m: Point, sk_app: Field, sk_app_generator: Field) -> u32 {
         let new_request_index = self.scoped_key_validation_requests_and_generators.len();
         let request = KeyValidationRequest { pk_m, sk_app };

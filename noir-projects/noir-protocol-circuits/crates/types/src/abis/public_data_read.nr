@@ -1,8 +1,10 @@
-use crate::constants::{GENERATOR_INDEX__PUBLIC_DATA_READ, PUBLIC_DATA_READ_LENGTH};
-use crate::traits::{Empty, Hash, Serialize, Deserialize};
-use crate::contrakt::storage_read::StorageRead;
-use crate::data::hash::{compute_public_data_tree_value, compute_public_data_tree_index};
-use crate::address::AztecAddress;
+use crate::{
+    abis::side_effect::Ordered, address::AztecAddress,
+    constants::{GENERATOR_INDEX__PUBLIC_DATA_READ, PUBLIC_DATA_READ_LENGTH},
+    contrakt::storage_read::StorageRead,
+    data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
+    traits::{Empty, Hash, Serialize, Deserialize}
+};
 
 struct PublicDataRead {
     leaf_slot: Field,
@@ -11,10 +13,7 @@ struct PublicDataRead {
 }
 
 impl PublicDataRead {
-    pub fn from_contract_storage_read(
-        contract_address: AztecAddress,
-        read_request: StorageRead
-    ) -> PublicDataRead {
+    pub fn from_contract_storage_read(contract_address: AztecAddress, read_request: StorageRead) -> PublicDataRead {
         PublicDataRead {
             leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
             value: compute_public_data_tree_value(read_request.current_value),
@@ -36,6 +35,12 @@ impl Empty for PublicDataRead {
             value: 0,
             counter: 0,
         }
+    }
+}
+
+impl Ordered for PublicDataRead {
+    fn counter(self) -> u32 {
+        self.counter
     }
 }
 

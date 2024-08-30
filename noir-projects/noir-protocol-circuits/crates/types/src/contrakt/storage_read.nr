@@ -6,7 +6,6 @@ use crate::{
 struct StorageRead {
     storage_slot: Field,
     current_value: Field,
-    // TODO(dbanks12): use side effects properly in kernel checks
     counter: u32,
 }
 
@@ -16,7 +15,7 @@ impl Eq for StorageRead {
     }
 }
 
-impl Empty for StorageRead {   
+impl Empty for StorageRead {
     fn empty() -> Self {
         Self {
             storage_slot: 0,

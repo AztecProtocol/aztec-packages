@@ -4,14 +4,12 @@ import {
   type MAX_NULLIFIERS_PER_TX,
   type MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  type MAX_PUBLIC_DATA_HINTS,
   type MAX_PUBLIC_DATA_READS_PER_TX,
   type MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
   type Nullifier,
   PUBLIC_DATA_TREE_HEIGHT,
-  type PublicDataHint,
   type PublicDataRead,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
@@ -19,7 +17,6 @@ import {
   buildNullifierNonExistentReadRequestHints,
   buildPublicDataHint,
   buildPublicDataHints,
-  buildPublicDataReadRequestHints,
   buildSiloedNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -60,14 +57,6 @@ export class HintsBuilder {
   getPublicDataHint(dataAction: PublicDataRead | PublicDataUpdateRequest | bigint) {
     const slot = typeof dataAction === 'bigint' ? dataAction : dataAction.leafSlot.toBigInt();
     return buildPublicDataHint(this, slot);
-  }
-
-  getPublicDataReadRequestHints(
-    publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-    publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    publicDataHints: Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>,
-  ) {
-    return buildPublicDataReadRequestHints(publicDataReads, publicDataUpdateRequests, publicDataHints);
   }
 
   async getNullifierMembershipWitness(nullifier: Fr) {

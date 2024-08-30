@@ -19,6 +19,7 @@ mod note_hash;
 mod nullifier;
 mod public_data_read;
 mod public_data_update_request;
+mod public_data_write;
 
 mod accumulated_data;
 mod validation_requests;

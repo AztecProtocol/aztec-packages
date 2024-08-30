@@ -1,11 +1,13 @@
-use crate::constants::{PUBLIC_DATA_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST};
-use crate::traits::{Empty, Hash, Serialize, Deserialize};
-use crate::public_data_tree_leaf::PublicDataTreeLeaf;
-use crate::address::AztecAddress;
-use crate::contrakt::storage_update_request::StorageUpdateRequest;
-use crate::data::hash::{compute_public_data_tree_value, compute_public_data_tree_index};
-use crate::abis::side_effect::{Ordered, Positioned};
+use crate::{
+    abis::{public_data_read::PublicDataRead, side_effect::{Ordered, Positioned, Readable}},
+    address::AztecAddress,
+    constants::{PUBLIC_DATA_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST},
+    contrakt::storage_update_request::StorageUpdateRequest,
+    data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
+    public_data_tree_leaf::PublicDataTreeLeaf, traits::{Empty, Hash, Serialize, Deserialize}
+};
 
+// TODO: Rename to PublicDataWrite
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
     new_value : Field,
@@ -60,6 +62,13 @@ impl Hash for PublicDataUpdateRequest {
             self.leaf_slot,
             self.new_value
         ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
+    }
+}
+
+impl Readable<PublicDataRead> for PublicDataUpdateRequest {
+    fn assert_match_read_request(self, read_request: PublicDataRead) {
+        assert_eq(self.leaf_slot, read_request.leaf_slot, "leaf_slot in PublicDataUpdateRequest does not match read request");
+        assert_eq(self.new_value, read_request.value, "value in PublicDataUpdateRequest does not match read request");
     }
 }
 

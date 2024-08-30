@@ -104,12 +104,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
       pendingPublicDataWrites,
     );
 
-    const publicDataReadRequestHints = this.hintsBuilder.getPublicDataReadRequestHints(
-      validationRequests.publicDataReads,
-      pendingPublicDataWrites,
-      publicDataHints,
-    );
-
     const currentState = await this.db.getStateReference();
 
     return new PublicKernelTailCircuitPrivateInputs(
@@ -117,7 +111,6 @@ export class TailPhaseManager extends AbstractPhaseManager {
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
       publicDataHints,
-      publicDataReadRequestHints,
       currentState.partial,
     );
   }

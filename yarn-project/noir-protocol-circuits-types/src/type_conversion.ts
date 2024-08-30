@@ -33,7 +33,6 @@ import {
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   L2ToL1Message,
-  type LeafDataReadHint,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -97,7 +96,6 @@ import {
   type PublicCircuitPublicInputs,
   type PublicDataHint,
   PublicDataRead,
-  type PublicDataReadRequestHints,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -166,7 +164,6 @@ import type {
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   L2ToL1Message as L2ToL1MessageNoir,
-  LeafDataReadHint as LeafDataReadHintNoir,
   LogHash as LogHashNoir,
   MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
@@ -216,7 +213,6 @@ import type {
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicDataRead as PublicDataReadNoir,
-  PublicDataReadRequestHints as PublicDataReadRequestHintsNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
@@ -1086,13 +1082,6 @@ function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
   };
 }
 
-function mapLeafDataReadHintToNoir(hint: LeafDataReadHint): LeafDataReadHintNoir {
-  return {
-    read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    data_hint_index: mapNumberToNoir(hint.dataHintIndex),
-  };
-}
-
 function mapNoteHashSettledReadHintToNoir(
   hint: SettledReadHint<typeof NOTE_HASH_TREE_HEIGHT, Fr>,
 ): NoteHashSettledReadHintNoir {
@@ -1173,14 +1162,6 @@ function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
     override_counter: mapNumberToNoir(hint.overrideCounter),
     membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
     leaf_preimage: mapPublicDataTreePreimageToNoir(hint.leafPreimage),
-  };
-}
-
-function mapPublicDataReadRequestHintsToNoir(hints: PublicDataReadRequestHints): PublicDataReadRequestHintsNoir {
-  return {
-    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
-    pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
-    leaf_data_read_hints: mapTuple(hints.leafDataReadHints, mapLeafDataReadHintToNoir),
   };
 }
 
@@ -1760,7 +1741,6 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
       inputs.nullifierNonExistentReadRequestHints,
     ),
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
-    public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
   };
 }

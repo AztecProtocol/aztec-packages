@@ -1,15 +1,17 @@
 use dep::types::{
     abis::{
     accumulated_data::{CombinedAccumulatedData, PublicAccumulatedData},
-    log_hash::{LogHash, ScopedLogHash}, nullifier::Nullifier
+    log_hash::{LogHash, ScopedLogHash}, nullifier::Nullifier,
+    public_data_write::OverridablePublicDataWrite
 },
-    constants::MAX_NOTE_HASHES_PER_TX, hash::silo_note_hash,
+    constants::{MAX_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX}, hash::silo_note_hash,
     utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc}
 };
 
 unconstrained pub fn combine_data(
     non_revertible: PublicAccumulatedData,
-    revertible: PublicAccumulatedData
+    revertible: PublicAccumulatedData,
+    overridable_public_data_writes: [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
 ) -> CombinedAccumulatedData {
     let mut note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
     let sorted_unsiloed_note_hashes = sort_by_counter_asc(array_merge(non_revertible.note_hashes, revertible.note_hashes));
@@ -28,12 +30,7 @@ unconstrained pub fn combine_data(
 
     let l2_to_l1_msgs = sort_by_counter_asc(array_merge(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs));
 
-    let public_data_update_requests = dedupe_array(
-        array_merge(
-            non_revertible.public_data_update_requests,
-            revertible.public_data_update_requests
-        )
-    );
+    let public_data_update_requests = dedupe_array(overridable_public_data_writes);
 
     let note_encrypted_logs_hashes = sort_by_counter_asc(
         array_merge(

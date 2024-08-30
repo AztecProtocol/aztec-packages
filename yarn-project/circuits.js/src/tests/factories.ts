@@ -105,7 +105,6 @@ import {
   PublicCircuitPublicInputs,
   PublicDataHint,
   PublicDataRead,
-  PublicDataReadRequestHintsBuilder,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -679,7 +678,6 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
     NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
-    PublicDataReadRequestHintsBuilder.empty(),
     makePartialStateReference(seed + 0x200),
   );
 }
