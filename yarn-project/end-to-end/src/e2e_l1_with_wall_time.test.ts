@@ -7,7 +7,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
-describe('e2e_devnet', () => {
+describe('e2e_l1_with_wall_time', () => {
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
   let pxe: PXE;
@@ -26,7 +26,7 @@ describe('e2e_devnet', () => {
       const txs = await submitTxsTo(pxe as PXEService, 8);
       await Promise.all(
         txs.map(async (tx, j) => {
-          logger.info(`Waiting for tx ${i - j}: ${await tx.getTxHash()} to be mined`);
+          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
           return tx.wait();
         }),
       );
