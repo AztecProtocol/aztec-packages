@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725020825287,
+  "lastUpdate": 1725031098957,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "51c9ad15f68ce9b6817050e2d444cc05a85ba808",
-          "message": "feat: PG recursive verifier constructors based on stdlib inputs",
-          "timestamp": "2024-08-19T15:52:20Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8052/commits/51c9ad15f68ce9b6817050e2d444cc05a85ba808"
-        },
-        "date": 1724087374523,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13448.808257000024,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10051.196767999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4880.282520999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4478.74033 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40047.13003000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40047130000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14506.480003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14506481000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3786377631,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3786377631 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208660962,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208660962 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3082142549,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3082142549 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173087296,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173087296 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3552,6 +3484,78 @@ window.BENCHMARK_DATA = {
             "value": 174392881,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 174392881 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7af80ff98313a20ed18dc15fd5e4c22c82828a98",
+          "message": "chore(bb): make compile on stock mac clang (#8278)\n\nxcode clang does not support all of c++20 it seems e.g. can't do\r\nConstructor(A,B,C) where A B and C are the members of a struct with only\r\ndefault constructors. Some common issues that come up like the\r\nuint64_t/size_t split",
+          "timestamp": "2024-08-30T15:58:33+01:00",
+          "tree_id": "102eceea53397a3ee1d50b7e8e313f91c46fb730",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7af80ff98313a20ed18dc15fd5e4c22c82828a98"
+        },
+        "date": 1725031091562,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13455.709143999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10398.923689000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5072.433451999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4712.197612 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39662.265849,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39662266000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14564.31712,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14564317000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3785964003,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3785964003 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 207931450,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 207931450 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3108863531,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3108863531 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 172640666,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 172640666 ns\nthreads: 1"
           }
         ]
       }
