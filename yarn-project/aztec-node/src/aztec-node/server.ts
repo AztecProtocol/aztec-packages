@@ -726,13 +726,8 @@ export class AztecNodeService implements AztecNode {
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
 
-    // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
-    // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
-    // So simulation of public functions doesn't affect the merkle trees.
-    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, new NoopTelemetryClient(), this.log);
-
     const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTrees.asLatest(),
+      await this.worldStateSynchronizer.ephemeralFork(),
       this.contractDataSource,
       new WASMSimulator(),
       this.telemetry,

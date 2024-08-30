@@ -5,6 +5,7 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
+  type MerkleTreeAdminOperations,
   MerkleTreeId,
   PROVING_STATUS,
   type ProvingSuccess,
@@ -35,7 +36,7 @@ import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simula
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
+import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -52,7 +53,7 @@ describe('sequencer', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let blockSimulator: MockProxy<BlockSimulator>;
-  let merkleTreeOps: MockProxy<MerkleTreeOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -104,7 +105,7 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue(true);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeOperations>();
+    merkleTreeOps = mock<MerkleTreeAdminOperations>();
     blockSimulator = mock<BlockSimulator>();
 
     p2p = mock<P2P>({
