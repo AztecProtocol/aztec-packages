@@ -41,7 +41,7 @@ template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_o
 };
 
 template <class ProverInstances>
-std::tuple<std::vector<typename ProverInstances::Flavor::FF>, LegacyPolynomial<typename ProverInstances::Flavor::FF>>
+std::tuple<std::vector<typename ProverInstances::Flavor::FF>, Polynomial<typename ProverInstances::Flavor::FF>>
 ProtogalaxyProver_<ProverInstances>::perturbator_round(
     const std::shared_ptr<const typename ProverInstances::Instance>& accumulator)
 {
@@ -52,9 +52,9 @@ ProtogalaxyProver_<ProverInstances>::perturbator_round(
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
     // An honest prover with valid initial instances computes that the perturbator is 0 in the first round
-    const LegacyPolynomial<FF> perturbator = accumulator->is_accumulator
-                                                 ? Fun::compute_perturbator(accumulator, deltas)
-                                                 : LegacyPolynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    const Polynomial<FF> perturbator = accumulator->is_accumulator
+                                           ? Fun::compute_perturbator(accumulator, deltas)
+                                           : Polynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
