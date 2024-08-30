@@ -110,6 +110,9 @@ NETWORK_TEST:
 e2e-p2p:
   DO +E2E_TEST --test=./src/e2e_p2p_network.test.ts
 
+e2e-devnet:
+  DO +E2E_TEST --test=./src/e2e_devnet.test.ts
+
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 

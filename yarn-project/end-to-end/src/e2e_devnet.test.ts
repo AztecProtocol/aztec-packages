@@ -37,7 +37,6 @@ describe('e2e_devnet', () => {
   const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
-      // const tx = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random()).deploy();
       const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.create({

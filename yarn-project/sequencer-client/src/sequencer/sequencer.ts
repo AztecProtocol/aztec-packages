@@ -513,12 +513,12 @@ export class Sequencer {
 
     if (committee.length === 0) {
       return undefined;
-    } else {
-      if (!this.validatorClient) {
-        const msg = 'Missing validator client: Cannot collect attestations';
-        this.log.error(msg);
-        throw new Error(msg);
-      }
+    }
+
+    if (!this.validatorClient) {
+      const msg = 'Missing validator client: Cannot collect attestations';
+      this.log.error(msg);
+      throw new Error(msg);
     }
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
