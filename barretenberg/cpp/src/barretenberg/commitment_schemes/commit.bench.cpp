@@ -121,10 +121,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    Polynomial<Fr> polynomial{ num_points };
-    for (auto& coeff : polynomial.coeffs()) {
-        coeff = Fr::random_element();
-    }
+    Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points);
     for (auto _ : state) {
         key->commit(polynomial);
     }
@@ -137,10 +134,7 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    auto polynomial = Polynomial<Fr>(num_points - 1);
-    for (auto& coeff : polynomial) {
-        coeff = Fr::random_element();
-    }
+    Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points - 1);
     for (auto _ : state) {
         key->commit(polynomial);
     }
