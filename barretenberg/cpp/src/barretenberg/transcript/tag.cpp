@@ -17,4 +17,10 @@ void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
         throw_or_abort("Submitted values from 2 different rounds are mixing without challenges");
     }
 }
+
+bool OriginTag::operator==(const OriginTag& other) const
+{
+    return this->parent_tag == other.parent_tag && this->child_tag == other.child_tag &&
+           this->instant_death == other.instant_death;
+}
 } // namespace bb

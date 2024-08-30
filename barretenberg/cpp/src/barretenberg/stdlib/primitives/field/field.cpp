@@ -70,6 +70,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
         result.witness_bool = (additive_constant == bb::fr::one());
         result.witness_inverted = false;
         result.witness_index = IS_CONSTANT;
+        result.set_origin_tag(tag);
         return result;
     }
     bool add_constant_check = (additive_constant == bb::fr::zero());
@@ -625,7 +626,9 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
     if (witness_index == IS_CONSTANT) {
-        return bool_t(context, (get_value() == bb::fr::zero()));
+        auto result = bool_t(context, (get_value() == bb::fr::zero()));
+        result.set_origin_tag(get_origin_tag());
+        return result;
     }
 
     // To check whether a field element, k, is zero, we use the fact that, if k > 0,
@@ -698,7 +701,9 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     if (is_constant() && other.is_constant()) {
-        return (get_value() == other.get_value());
+        auto result = bool_t<Builder>((get_value() == other.get_value()));
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
 
     bb::fr fa = get_value();
@@ -732,7 +737,9 @@ template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
     if (predicate.is_constant()) {
-        return predicate.get_value() ? -(*this) : *this;
+        auto result = field_t(predicate.get_value() ? -(*this) : *this);
+        result.set_origin_tag(OriginTag(get_origin_tag(), predicate.get_origin_tag()));
+        return result;
     }
     field_t<Builder> predicate_field(predicate);
     field_t<Builder> multiplicand = -(predicate_field + predicate_field);
@@ -746,7 +753,9 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
                                                       const field_t& rhs)
 {
     if (predicate.is_constant()) {
-        return predicate.get_value() ? lhs : rhs;
+        auto result = field_t(predicate.get_value() ? lhs : rhs);
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
     }
     // if lhs and rhs are the same witness, just return it!
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&

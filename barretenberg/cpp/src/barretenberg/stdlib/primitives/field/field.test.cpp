@@ -946,6 +946,132 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool circuit_checks = composer.check_circuit();
         EXPECT_TRUE(circuit_checks);
     }
+    static void test_origin_tag_consistency()
+    {
+        Builder builder = Builder();
+        auto a = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        auto b = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        EXPECT_TRUE(a.get_origin_tag().is_empty());
+        EXPECT_TRUE(b.get_origin_tag().is_empty());
+        const size_t parent_id = 0;
+
+        const auto submitted_value_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);
+        const auto challenge_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);
+        const auto next_challenge_tag = OriginTag(parent_id, /*round_id=*/1, /*submitted=*/false);
+
+        const auto first_two_merged_tag = OriginTag(submitted_value_origin_tag, challenge_origin_tag);
+        const auto first_and_third_merged_tag = OriginTag(submitted_value_origin_tag, next_challenge_tag);
+        const auto all_merged_tag = OriginTag(first_two_merged_tag, next_challenge_tag);
+
+        a.set_origin_tag(submitted_value_origin_tag);
+        b.set_origin_tag(challenge_origin_tag);
+
+        EXPECT_EQ(a.get_origin_tag(), submitted_value_origin_tag);
+        EXPECT_EQ(b.get_origin_tag(), challenge_origin_tag);
+
+        // Basic additon merges tags
+        auto c = a + b;
+        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+        // Basic multiplication merges tags
+        auto d = a * b;
+        EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
+
+        // Basic subtraction merges tags
+        auto e = a - b;
+        EXPECT_EQ(e.get_origin_tag(), first_two_merged_tag);
+
+        // Division merges tags
+
+        auto f = a / b;
+        EXPECT_EQ(f.get_origin_tag(), first_two_merged_tag);
+
+        // Exponentiation merges tags
+
+        auto exponent = field_ct(witness_ct(&builder, 10));
+        exponent.set_origin_tag(challenge_origin_tag);
+        auto g = a.pow(exponent);
+        EXPECT_EQ(g.get_origin_tag(), first_two_merged_tag);
+
+        // Madd merges tags
+        auto h = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        h.set_origin_tag(next_challenge_tag);
+        auto i = a.madd(b, h);
+        EXPECT_EQ(i.get_origin_tag(), all_merged_tag);
+
+        // add_two merges tags
+        auto j = a.add_two(b, h);
+        EXPECT_EQ(j.get_origin_tag(), all_merged_tag);
+
+        // Normalize preserves tag
+
+        EXPECT_EQ(j.normalize().get_origin_tag(), j.get_origin_tag());
+
+        // is_zero preserves tag
+
+        EXPECT_EQ(a.is_zero().get_origin_tag(), a.get_origin_tag());
+
+        // equals/not equals operator merges tags
+
+        EXPECT_EQ((a == b).get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ((a != b).get_origin_tag(), first_two_merged_tag);
+
+        // Conditionals merge tags
+
+        auto k = bool_ct(witness_ct(&builder, 1));
+        k.set_origin_tag(next_challenge_tag);
+        auto l = a.conditional_negate(k);
+        EXPECT_EQ(l.get_origin_tag(), first_and_third_merged_tag);
+
+        auto m = field_ct::conditional_assign(k, a, b);
+        EXPECT_EQ(m.get_origin_tag(), all_merged_tag);
+
+        // Accumulate merges tags
+        const size_t MAX_ACCUMULATED_ELEMENTS = 16;
+        std::vector<field_ct> elements;
+        std::vector<OriginTag> accumulated_tags;
+        for (size_t index = 0; index < MAX_ACCUMULATED_ELEMENTS; index++) {
+            const auto current_tag = OriginTag(parent_id, index >> 1, !(index & 1));
+            if (index == 0) {
+                accumulated_tags.emplace_back(current_tag);
+            } else {
+                accumulated_tags.emplace_back(OriginTag(accumulated_tags[index - 1], current_tag));
+            }
+            auto element = field_ct(witness_ct(&builder, bb::fr::random_element()));
+            element.set_origin_tag(current_tag);
+            elements.emplace_back(element);
+        }
+
+        for (size_t index = MAX_ACCUMULATED_ELEMENTS - 1; index > 0; index--) {
+            EXPECT_EQ(field_ct::accumulate(elements).get_origin_tag(), accumulated_tags[index]);
+            elements.pop_back();
+        }
+
+        // Slice preserves tags
+        auto n = a.slice(1, 0);
+        for (const auto& element : n) {
+            EXPECT_EQ(element.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Decomposition preserves tags
+
+        auto decomposed_bits = a.decompose_into_bits(256);
+        for (const auto& bit : decomposed_bits) {
+            EXPECT_EQ(bit.get_origin_tag(), submitted_value_origin_tag);
+        }
+
+        // Conversions
+
+        auto o = field_ct(witness_ct(&builder, 1));
+        o.set_origin_tag(submitted_value_origin_tag);
+        auto p = bool_ct(o);
+        EXPECT_EQ(p.get_origin_tag(), submitted_value_origin_tag);
+
+        o.set_origin_tag(challenge_origin_tag);
+        o = field_ct(p);
+
+        EXPECT_EQ(o.get_origin_tag(), submitted_value_origin_tag);
+    }
 };
 
 using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
@@ -1076,4 +1202,9 @@ TYPED_TEST(stdlib_field, test_copy_as_new_witness)
 TYPED_TEST(stdlib_field, test_ranged_less_than)
 {
     TestFixture::test_ranged_less_than();
+}
+
+TYPED_TEST(stdlib_field, test_origin_tag_consistency)
+{
+    TestFixture::test_origin_tag_consistency();
 }

@@ -2,6 +2,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <cstddef>
+#include <ostream>
 
 namespace bb {
 
@@ -60,10 +61,17 @@ struct OriginTag {
             child_tag |= next_tag.child_tag;
         }
     }
+    ~OriginTag() = default;
+    bool operator==(const OriginTag& other) const;
     void poison() { instant_death = true; }
     void unpoison() { instant_death = false; }
-    ~OriginTag() = default;
+    bool is_poisoned() const { return instant_death; }
+    bool is_empty() const { return !instant_death && parent_tag == 0 && child_tag == uint256_t(0); };
 };
+inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
+{
+    return os << "{ p_t: " << v.parent_tag << ", ch_t" << v.child_tag << ", instadeath: " << v.instant_death << " }";
+}
 } // namespace bb
 template <typename T>
 concept usesTag = requires(T x, const bb::OriginTag& tag) { x.set_origin_tag(tag); };
