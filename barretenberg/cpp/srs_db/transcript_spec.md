@@ -1,3 +1,5 @@
+# NOTE: This structure is a bit outdated now as the transcript is flat but still a useful reference.
+Copied from https://github.com/AztecProtocol/ignition-verification/blob/master/Transcript_spec.md.
 ### Transcript files
 
 Our setup produces 100,800,000 G1 points and 1 G2 point, over the BN254 curve.
