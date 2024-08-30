@@ -28,7 +28,7 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
 }
 
 constexpr size_t MIN_LOG_NUM_POINTS = 16;
-constexpr size_t MAX_LOG_NUM_POINTS = 22;
+constexpr size_t MAX_LOG_NUM_POINTS = 20;
 constexpr size_t MAX_NUM_POINTS = 1 << MAX_LOG_NUM_POINTS;
 constexpr size_t SPARSE_NUM_NONZERO = 100;
 
@@ -147,22 +147,26 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
 }
 
 BENCHMARK(bench_commit_zero<curve::BN254>)
-    ->DenseRange(MIN_LOG_NUM_POINTS / 2, MAX_LOG_NUM_POINTS / 2)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_random<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-// BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
-//     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
-//     ->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_random<curve::BN254>)->DenseRange(22, 22)->Unit(benchmark::kMillisecond);
-BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)->DenseRange(22, 22)->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_preprocessed<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_random<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_sparse_random_preprocessed<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_random<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(bench_commit_random_non_power_of_2<curve::BN254>)
+    ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
+    ->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 
