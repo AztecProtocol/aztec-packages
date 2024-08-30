@@ -46,7 +46,7 @@ template <typename T> constexpr inline T get_msb(const T in)
 template <typename T> constexpr inline T round_up_power_2(const T in)
 {
     auto lower_bound = T(1) << get_msb(in);
-    return lower_bound == in ? in : lower_bound * 2;
+    return (lower_bound == in || lower_bound == 1) ? in : lower_bound * 2;
 }
 
 } // namespace bb::numeric

@@ -37,6 +37,17 @@ template <class Curve> class CommitmentKey {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using G1 = typename Curve::AffineElement;
+    static constexpr size_t EXTRA_SRS_POINTS_FOR_ECCVM_IPA = 1;
+
+    static size_t get_num_needed_srs_points(size_t num_points)
+    {
+        // NOTE 1: Currently we must round up internal space for points as our pippenger algorithm (specifically,
+        // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
+        // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
+        // will pad 0s into the runtime state.
+        // NOTE 2: We then add one for ECCVM to provide for IPA verification
+        return numeric::round_up_power_2(num_points) + EXTRA_SRS_POINTS_FOR_ECCVM_IPA;
+    }
 
   public:
     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
@@ -53,13 +64,9 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
-        // Currently we must round up internal space for points as our pippenger algorithm (specifically,
-        // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
-        // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
-        // will pad 0s into the runtime state.
-        : pippenger_runtime_state(numeric::round_up_power_2(num_points))
+        : pippenger_runtime_state(get_num_needed_srs_points(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_prover_crs(numeric::round_up_power_2(num_points)))
+        , srs(crs_factory->get_prover_crs(get_num_needed_srs_points(num_points)))
     {}
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
