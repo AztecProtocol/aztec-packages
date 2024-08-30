@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <algorithm>
 #include <memory>
 
 #include "./process_buckets.hpp"
