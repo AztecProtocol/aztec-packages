@@ -30,18 +30,40 @@ export async function buildPublicDataHints(
   publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 ): Promise<Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>> {
-  const publicDataLeafSlots = [...publicDataReads, ...publicDataUpdateRequests]
+  const slotCounterMap = new Map<bigint, number>();
+  publicDataReads
     .filter(r => !r.isEmpty())
-    .map(r => r.leafSlot.toBigInt());
-  const uniquePublicDataLeafSlots = [...new Set(publicDataLeafSlots)];
+    .forEach(r => {
+      if (!r.isEmpty()) {
+        slotCounterMap.set(r.leafSlot.toBigInt(), 0);
+      }
+    });
+  publicDataUpdateRequests
+    .filter(w => !w.isEmpty())
+    .forEach(w => {
+      if (!w.isEmpty()) {
+        let overrideCounter = slotCounterMap.get(w.leafSlot.toBigInt()) || 0;
+        if (!overrideCounter || overrideCounter > w.counter) {
+          overrideCounter = w.counter;
+        }
+        slotCounterMap.set(w.leafSlot.toBigInt(), overrideCounter);
+      }
+    });
+  const uniquePublicDataLeafSlots = [...slotCounterMap.keys()];
 
-  const hints = await Promise.all(uniquePublicDataLeafSlots.map(slot => buildPublicDataHint(oracle, slot)));
+  const hints = await Promise.all(
+    uniquePublicDataLeafSlots.map(slot => buildPublicDataHint(oracle, slot, slotCounterMap.get(slot)!)),
+  );
   return padArrayEnd(hints, PublicDataHint.empty(), MAX_PUBLIC_DATA_HINTS);
 }
 
-export async function buildPublicDataHint(oracle: PublicDataMembershipWitnessOracle, leafSlot: bigint) {
+export async function buildPublicDataHint(
+  oracle: PublicDataMembershipWitnessOracle,
+  leafSlot: bigint,
+  overrideCounter: number,
+) {
   const { membershipWitness, leafPreimage } = await oracle.getMatchOrLowPublicDataMembershipWitness(leafSlot);
   const exists = leafPreimage.slot.toBigInt() === leafSlot;
   const value = exists ? leafPreimage.value : Fr.ZERO;
-  return new PublicDataHint(new Fr(leafSlot), value, 0, membershipWitness, leafPreimage);
+  return new PublicDataHint(new Fr(leafSlot), value, overrideCounter, membershipWitness, leafPreimage);
 }

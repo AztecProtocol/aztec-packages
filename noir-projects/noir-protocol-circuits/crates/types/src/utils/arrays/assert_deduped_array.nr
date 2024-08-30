@@ -12,7 +12,7 @@ pub fn assert_deduped_array<S, T, let N: u32>(
             num_deduped += 1;
         } else {
             assert(
-                is_empty(deduped_array[N - num_deduped]), "empty items must be padded to the deduped array"
+                is_empty(deduped_array[N - num_deduped - 1]), "empty items must be padded to the deduped array"
             );
         }
     }
