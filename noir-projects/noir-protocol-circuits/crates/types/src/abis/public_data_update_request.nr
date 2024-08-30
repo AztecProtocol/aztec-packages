@@ -1,10 +1,9 @@
 use crate::{
     abis::{public_data_read::PublicDataRead, side_effect::{Ordered, Positioned, Readable}},
-    address::AztecAddress,
-    constants::{PUBLIC_DATA_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST},
+    address::AztecAddress, constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
     contrakt::storage_update_request::StorageUpdateRequest,
     data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
-    public_data_tree_leaf::PublicDataTreeLeaf, traits::{Empty, Hash, Serialize, Deserialize}
+    public_data_tree_leaf::PublicDataTreeLeaf, traits::{Empty, Serialize, Deserialize}
 };
 
 // TODO: Rename to PublicDataWrite
@@ -53,15 +52,6 @@ impl Empty for PublicDataUpdateRequest {
             new_value : 0,
             counter : 0
         }
-    }
-}
-
-impl Hash for PublicDataUpdateRequest {
-    fn hash(self) -> Field {
-        crate::hash::poseidon2_hash_with_separator([
-            self.leaf_slot,
-            self.new_value
-        ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
 }
 

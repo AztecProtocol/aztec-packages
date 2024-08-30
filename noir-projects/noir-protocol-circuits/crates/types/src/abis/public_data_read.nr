@@ -1,9 +1,8 @@
 use crate::{
-    abis::side_effect::Ordered, address::AztecAddress,
-    constants::{GENERATOR_INDEX__PUBLIC_DATA_READ, PUBLIC_DATA_READ_LENGTH},
+    abis::side_effect::Ordered, address::AztecAddress, constants::PUBLIC_DATA_READ_LENGTH,
     contrakt::storage_read::StorageRead,
     data::hash::{compute_public_data_tree_value, compute_public_data_tree_index},
-    traits::{Empty, Hash, Serialize, Deserialize}
+    traits::{Empty, Serialize, Deserialize}
 };
 
 struct PublicDataRead {
@@ -41,16 +40,6 @@ impl Empty for PublicDataRead {
 impl Ordered for PublicDataRead {
     fn counter(self) -> u32 {
         self.counter
-    }
-}
-
-impl Hash for PublicDataRead {
-    fn hash(self) -> Field {
-        crate::hash::poseidon2_hash_with_separator([
-            self.leaf_slot,
-            self.value,
-            self.counter as Field,
-        ], GENERATOR_INDEX__PUBLIC_DATA_READ)
     }
 }
 
