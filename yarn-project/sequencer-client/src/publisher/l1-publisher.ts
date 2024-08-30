@@ -1,4 +1,4 @@
-import { type L2Block, type Signature, TxHash } from '@aztec/circuit-types';
+import { type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, GENESIS_ARCHIVE_ROOT, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -186,7 +186,6 @@ export class L1Publisher {
     return [slot, blockNumber];
   }
 
-
   public async validateBlockForSubmission(
     header: Header,
     digest: Buffer = new Fr(GENESIS_ARCHIVE_ROOT).toBuffer(),
@@ -312,16 +311,16 @@ export class L1Publisher {
       txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
     };
 
-    // Process block and publish the body if needed (if not already published)
+    // Publish body and propose block (if not already published)
     if (!this.interrupted) {
       let txHash;
       const timer = new Timer();
 
       if (await this.checkIfTxsAreAvailable(block)) {
         this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
-        txHash = await this.sendProcessTx(processTxArgs);
+        txHash = await this.sendProposeWithoutBodyTx(processTxArgs);
       } else {
-        txHash = await this.sendPublishAndProcessTx(processTxArgs);
+        txHash = await this.sendProposeTx(processTxArgs);
       }
 
       if (!txHash) {
@@ -478,7 +477,7 @@ export class L1Publisher {
     }
   }
 
-  private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
+  private async sendProposeWithoutBodyTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     if (!this.interrupted) {
       try {
         if (encodedData.attestations) {
@@ -493,10 +492,10 @@ export class L1Publisher {
           ] as const;
 
           if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.process(args, { account: this.account });
+            await this.rollupContract.simulate.propose(args, { account: this.account });
           }
 
-          return await this.rollupContract.write.process(args, {
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         } else {
@@ -507,9 +506,9 @@ export class L1Publisher {
           ] as const;
 
           if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.process(args, { account: this.account });
+            await this.rollupContract.simulate.propose(args, { account: this.account });
           }
-          return await this.rollupContract.write.process(args, {
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         }
@@ -520,7 +519,7 @@ export class L1Publisher {
     }
   }
 
-  private async sendPublishAndProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
+  private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     if (!this.interrupted) {
       try {
         if (encodedData.attestations) {
@@ -536,12 +535,12 @@ export class L1Publisher {
           ] as const;
 
           if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.publishAndProcess(args, {
+            await this.rollupContract.simulate.propose(args, {
               account: this.account,
             });
           }
 
-          return await this.rollupContract.write.publishAndProcess(args, {
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         } else {
@@ -553,12 +552,12 @@ export class L1Publisher {
           ] as const;
 
           if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.publishAndProcess(args, {
+            await this.rollupContract.simulate.propose(args, {
               account: this.account,
             });
           }
 
-          return await this.rollupContract.write.publishAndProcess(args, {
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         }
