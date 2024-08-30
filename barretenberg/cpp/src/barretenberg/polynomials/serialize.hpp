@@ -9,7 +9,7 @@ template <typename B> inline void read(B& buf, polynomial& p)
     uint32_t size;
     serialize::read(buf, size);
     p = polynomial(size);
-    memcpy(&p[0], buf, size * sizeof(fr));
+    memcpy(static_cast<void*>(&p[0]), static_cast<const void*>(buf), size * sizeof(fr));
 
     if (!is_little_endian()) {
         for (size_t i = 0; i < size; ++i) {
