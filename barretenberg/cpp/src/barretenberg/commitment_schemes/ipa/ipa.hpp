@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
@@ -571,6 +572,32 @@ template <typename Curve_> class IPA {
                                              const auto& transcript)
     {
         return reduce_verify_internal(vk, opening_claim, transcript);
+    }
+
+    static OpeningClaim<Curve> compute_opening_claim_from_shplemini_accumulators(std::vector<Commitment>& commitments,
+                                                             std::vector<Fr> scalars,
+                                                             const Fr& evaluation_point)
+    {
+        using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
+        GroupElement shplonk_output_commitment;
+        if constexpr (Curve::is_stdlib_type) {
+            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
+        } else {
+            shplonk_output_commitment = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
+            info("commitments vector size", commitments.size());
+            info("scalars vector size", scalars.size());
+        }
+        return { { evaluation_point, Fr(0) }, shplonk_output_commitment };
+    }
+
+    static VerifierAccumulator reduce_verify_shplemini(const Fr& evaluation_point,
+                                                               std::vector<Commitment>& commitments,
+                                                               std::vector<Fr>& scalars,
+const std::shared_ptr<VK>& vk,
+                                                               auto& transcript)
+    {
+        auto opening_claim = compute_opening_claim_from_shplemini_accumulators(commitments, scalars, evaluation_point);
+        return reduce_verify_internal( vk, opening_claim, transcript);
     }
 };
 

@@ -212,22 +212,6 @@ into a single method.
             scalars.emplace_back(-scaling_factor);
         }
     }
-
-    static OpeningClaim<Curve> compute_opening_claim_for_ipa(std::vector<Commitment>& commitments,
-                                                             std::vector<Fr> scalars,
-                                                             Fr& evaluation_point)
-    {
-        using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
-        GroupElement shplonk_output_commitment;
-        if constexpr (Curve::is_stdlib_type) {
-            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
-        } else {
-            shplonk_output_commitment = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
-            info("commitments vector size", commitments.size());
-            info("scalars vector size", scalars.size());
-        }
-        return { { evaluation_point, Fr(0) }, shplonk_output_commitment };
-    }
 };
 
 } // namespace bb

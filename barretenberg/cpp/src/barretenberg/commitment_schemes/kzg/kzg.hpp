@@ -87,11 +87,11 @@ template <typename Curve_> class KZG {
         return { P_0, P_1 };
     };
 
-    static std::array<GroupElement, 2> reduce_verify_gemini(const Fr& evaluation_point,
-                                                            const Fr& evaluation,
-                                                            std::vector<Commitment>& commitments,
-                                                            std::vector<Fr>& scalars,
-                                                            auto& transcript)
+    static std::array<GroupElement, 2> reduce_verify_shplemini(const Fr& evaluation_point,
+                                                               const Fr& evaluation,
+                                                               std::vector<Commitment>& commitments,
+                                                               std::vector<Fr>& scalars,
+                                                               auto& transcript)
     {
         using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");

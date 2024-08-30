@@ -402,9 +402,12 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
                                                                               this->vk()->get_g1_identity(),
                                                                               verifier_transcript);
 
-    auto shplonk_verifier_claim = ShpleminiVerifier::compute_opening_claim_for_ipa(
-        shplemini_output.commitments, shplemini_output.scalars, shplemini_output.evaluation_point);
-    auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
+    auto result = IPA::reduce_verify_shplemini(shplemini_output.evaluation_point,
+                                               shplemini_output.commitments,
+                                               shplemini_output.scalars,
+                                               this->vk(),
+                                               verifier_transcript);
+    // auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
 }
