@@ -24,7 +24,6 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     void verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerificationKey> key;
-    std::map<std::string, Commitment> commitments;
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;

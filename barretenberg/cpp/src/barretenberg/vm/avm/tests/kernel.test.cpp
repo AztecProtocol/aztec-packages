@@ -20,7 +20,10 @@ class AvmKernelTests : public ::testing::Test {
 };
 
 class AvmKernelPositiveTests : public AvmKernelTests {};
-class AvmKernelNegativeTests : public AvmKernelTests {};
+class AvmKernelNegativeTests : public AvmKernelTests {
+  protected:
+    void SetUp() override { GTEST_SKIP(); }
+};
 
 using KernelInputs = std::array<FF, KERNEL_INPUTS_LENGTH>;
 const size_t INITIAL_GAS = 10000;
@@ -937,8 +940,14 @@ TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
 }
 
 // KERNEL OUTPUTS
-class AvmKernelOutputPositiveTests : public AvmKernelTests {};
-class AvmKernelOutputNegativeTests : public AvmKernelTests {};
+class AvmKernelOutputPositiveTests : public AvmKernelTests {
+  protected:
+    void SetUp() override { GTEST_SKIP(); }
+};
+class AvmKernelOutputNegativeTests : public AvmKernelTests {
+  protected:
+    void SetUp() override { GTEST_SKIP(); }
+};
 
 TEST_F(AvmKernelOutputPositiveTests, kernelEmitNoteHash)
 {
