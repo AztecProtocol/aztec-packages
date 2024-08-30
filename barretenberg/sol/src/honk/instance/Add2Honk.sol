@@ -15,6 +15,7 @@ import {
     NUMBER_OF_ENTITIES,
     NUMBER_OF_SUBRELATIONS,
     NUMBER_OF_ALPHAS,
+    NUMBER_UNSHIFTED,
     BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
     P,
@@ -47,11 +48,11 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(
-        Honk.Proof memory proof,
-        Honk.VerificationKey memory vk,
-        bytes32[] calldata publicInputs
-    ) internal view returns (Transcript memory t) {
+    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs)
+        internal
+        view
+        returns (Transcript memory t)
+    {
         (t.eta, t.etaTwo, t.etaThree) = generateEtaChallenge(proof, publicInputs);
 
         (t.beta, t.gamma) = generateBetaAndGammaChallenges(t.etaThree, proof);
@@ -66,7 +67,6 @@ library TranscriptLib {
         t.zmY = generateZMYChallenge(t.rho, proof);
 
         (t.zmX, t.zmZ) = generateZMXZChallenges(t.zmY, proof);
-
         return t;
     }
 
@@ -216,7 +216,7 @@ library TranscriptLib {
 
     function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
-        view
+        pure
         returns (Fr zeromorphX, Fr zeromorphZ)
     {
         uint256[4 + 1] memory buf;
@@ -250,16 +250,14 @@ contract Add2HonkVerifier is IVerifier {
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        Transcript memory t = TranscriptLib.generateTranscript(p, vk, publicInputs);
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs);
 
         // Compute the public input delta
         t.publicInputsDelta =
             computePublicInputDelta(publicInputs, t.beta, t.gamma, vk.circuitSize, p.publicInputsOffset);
-
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
-
         // Zeromorph
         bool zeromorphVerified = verifyZeroMorph(p, vk, t);
         if (!zeromorphVerified) revert ZeromorphFailed();
@@ -417,7 +415,7 @@ contract Add2HonkVerifier is IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < publicInputs.length; i++) {
+            for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -443,9 +441,7 @@ contract Add2HonkVerifier is IVerifier {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             bool valid = checkSum(roundUnivariate, roundTarget);
             if (!valid) revert SumcheckFailed();
-
             Fr roundChallenge = tp.sumCheckUChallenges[round];
-
             // Update the round target for the next rounf
             roundTarget = computeNextTargetSum(roundUnivariate, roundChallenge);
             powPartialEvaluation = partiallyEvaluatePOW(tp, powPartialEvaluation, roundChallenge, round);
@@ -472,18 +468,27 @@ contract Add2HonkVerifier is IVerifier {
         returns (Fr targetSum)
     {
         // TODO: inline
-        Fr[7] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
             Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff89),
-            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000030),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffffdd),
-            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000030),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff89),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0)
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11),
+            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000090),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71),
+            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000000f0),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
+            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000013b0)
         ];
 
-        Fr[7] memory BARYCENTRIC_DOMAIN =
-            [Fr.wrap(0x00), Fr.wrap(0x01), Fr.wrap(0x02), Fr.wrap(0x03), Fr.wrap(0x04), Fr.wrap(0x05), Fr.wrap(0x06)];
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_DOMAIN = [
+            Fr.wrap(0x00),
+            Fr.wrap(0x01),
+            Fr.wrap(0x02),
+            Fr.wrap(0x03),
+            Fr.wrap(0x04),
+            Fr.wrap(0x05),
+            Fr.wrap(0x06),
+            Fr.wrap(0x07)
+        ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
         // TODO: opt: use same array mem for each iteratioon
@@ -516,7 +521,7 @@ contract Add2HonkVerifier is IVerifier {
     // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
     function partiallyEvaluatePOW(Transcript memory tp, Fr currentEvaluation, Fr roundChallenge, uint256 round)
         internal
-        view
+        pure
         returns (Fr newEvaluation)
     {
         Fr univariateEval = Fr.wrap(1) + (roundChallenge * (tp.gateChallenges[round] - Fr.wrap(1)));
@@ -601,7 +606,7 @@ contract Add2HonkVerifier is IVerifier {
         Transcript memory tp,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         Fr grand_product_numerator;
         Fr grand_product_denominator;
 
@@ -647,7 +652,7 @@ contract Add2HonkVerifier is IVerifier {
         Transcript memory tp,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         Fr write_term;
         Fr read_term;
 
@@ -760,7 +765,7 @@ contract Add2HonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         EllipticParams memory ep;
         ep.x_1 = wire(p, WIRE.W_R);
         ep.y_1 = wire(p, WIRE.W_O);
@@ -1206,7 +1211,7 @@ contract Add2HonkVerifier is IVerifier {
     function scaleAndBatchSubrelations(
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
         Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
-    ) internal view returns (Fr accumulator) {
+    ) internal pure returns (Fr accumulator) {
         accumulator = accumulator + evaluations[0];
 
         for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; ++i) {
@@ -1300,12 +1305,12 @@ contract Add2HonkVerifier is IVerifier {
 
         // f commitments are accumulated at (zm_x * r)
         cp.rho_pow = Fr.wrap(1);
-        for (uint256 i = 1; i < 34; ++i) {
+        for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
             scalars[i] = tp.zmX * cp.rho_pow;
             cp.rho_pow = cp.rho_pow * tp.rho;
         }
         // g commitments are accumulated at r
-        for (uint256 i = 34; i < 43; ++i) {
+        for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
             scalars[i] = cp.rho_pow;
             cp.rho_pow = cp.rho_pow * tp.rho;
         }
@@ -1383,8 +1388,8 @@ contract Add2HonkVerifier is IVerifier {
                 cp.x_pow_2kp1 = cp.x_pow_2kp1 * cp.x_pow_2kp1;
             }
 
-            scalars[43 + k] = scalar;
-            commitments[43 + k] = convertProofPoint(proof.zmCqs[k]);
+            scalars[NUMBER_OF_ENTITIES + 1 + k] = scalar;
+            commitments[NUMBER_OF_ENTITIES + 1 + k] = convertProofPoint(proof.zmCqs[k]);
         }
 
         return batchMul2(commitments, scalars);
@@ -1403,7 +1408,7 @@ contract Add2HonkVerifier is IVerifier {
             let free := mload(0x40)
 
             // Write the original into the accumulator
-            // Load into memory for ecMUL, leave offset for eccAdd result
+            // Load into memory forecMUL, leave offset foreccAdd result
             // base is an array of pointers, so we have to dereference them
             mstore(add(free, 0x40), mload(mload(base)))
             mstore(add(free, 0x60), mload(add(0x20, mload(base))))
@@ -1443,7 +1448,7 @@ contract Add2HonkVerifier is IVerifier {
             let free := mload(0x40)
 
             // Write the original into the accumulator
-            // Load into memory for ecMUL, leave offset for eccAdd result
+            // Load into memory forecMUL, leave offset foreccAdd result
             // base is an array of pointers, so we have to dereference them
             mstore(add(free, 0x40), mload(mload(base)))
             mstore(add(free, 0x60), mload(add(0x20, mload(base))))

@@ -11,15 +11,7 @@ uint256 constant ROUNDS_F = 8;
 uint256 constant ROUNDS_P = 56;
 uint256 constant SBOX_SIZE = 254;
 
-// Maybe this is found somewhere precompiled in a library in Solidity?
-// This is used for Poseidon Intternal Relation
 struct PoseidonParams {
-    // maybe the constants themselves are not needed
-    //    uint256 t;
-    //    uint256 d;
-    //    uint256 rounds_f;
-    //    uint256 rounds_p ;
-    //    uint256 sbox_size;
     Fr[T] internal_matrix_diagonal;
     Fr[T][T] internal_matrix;
     Fr[T][ROUNDS_F + ROUNDS_P] round_constants;

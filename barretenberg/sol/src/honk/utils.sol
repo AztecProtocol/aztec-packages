@@ -1,3 +1,5 @@
+pragma solidity >=0.8.21;
+
 import {Honk, P, Q} from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 

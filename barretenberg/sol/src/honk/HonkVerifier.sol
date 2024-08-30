@@ -12,6 +12,7 @@ import {
     NUMBER_OF_ENTITIES,
     NUMBER_OF_SUBRELATIONS,
     NUMBER_OF_ALPHAS,
+    NUMBER_UNSHIFTED,
     BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
     P,
@@ -42,7 +43,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        Transcript memory t = TranscriptLib.generateTranscript(p, vk, publicInputs);
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs);
 
         // Compute the public input delta
         t.publicInputsDelta =
@@ -264,18 +265,27 @@ abstract contract BaseHonkVerifier is IVerifier {
         returns (Fr targetSum)
     {
         // TODO: inline
-        Fr[7] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
             Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff89),
-            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000030),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffffdd),
-            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000030),
-            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff89),
-            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0)
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11),
+            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000090),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71),
+            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000000f0),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
+            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000013b0)
         ];
 
-        Fr[7] memory BARYCENTRIC_DOMAIN =
-            [Fr.wrap(0x00), Fr.wrap(0x01), Fr.wrap(0x02), Fr.wrap(0x03), Fr.wrap(0x04), Fr.wrap(0x05), Fr.wrap(0x06)];
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_DOMAIN = [
+            Fr.wrap(0x00),
+            Fr.wrap(0x01),
+            Fr.wrap(0x02),
+            Fr.wrap(0x03),
+            Fr.wrap(0x04),
+            Fr.wrap(0x05),
+            Fr.wrap(0x06),
+            Fr.wrap(0x07)
+        ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
         // TODO: opt: use same array mem for each iteratioon
@@ -308,7 +318,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
     function partiallyEvaluatePOW(Transcript memory tp, Fr currentEvaluation, Fr roundChallenge, uint256 round)
         internal
-        view
+        pure
         returns (Fr newEvaluation)
     {
         Fr univariateEval = Fr.wrap(1) + (roundChallenge * (tp.gateChallenges[round] - Fr.wrap(1)));
@@ -337,8 +347,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         accumulateDeltaRangeRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        accumulatePoseidonExternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        accumulatePoseidonInternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulatePoseidonExternalRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulatePoseidonInternalRelation(purportedEvaluations, evaluations, powPartialEval);
         // batch the subrelations with the alpha challenges to obtain the full honk relation
         accumulator = scaleAndBatchSubrelations(evaluations, tp.alphas);
     }
@@ -393,7 +403,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Transcript memory tp,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         Fr grand_product_numerator;
         Fr grand_product_denominator;
 
@@ -439,7 +449,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Transcript memory tp,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         Fr write_term;
         Fr read_term;
 
@@ -552,7 +562,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep
-    ) internal view {
+    ) internal pure {
         EllipticParams memory ep;
         ep.x_1 = wire(p, WIRE.W_R);
         ep.y_1 = wire(p, WIRE.W_O);
@@ -904,7 +914,6 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     function accumulatePoseidonExternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // I think this is not needed
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep // i guess this is the scaling factor?
     ) internal pure {
@@ -961,7 +970,6 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     function accumulatePoseidonInternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // I think this is not needed
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
         Fr domainSep // i guess this is the scaling factor?
     ) internal pure {
@@ -998,7 +1006,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     function scaleAndBatchSubrelations(
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
         Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
-    ) internal view returns (Fr accumulator) {
+    ) internal pure returns (Fr accumulator) {
         accumulator = accumulator + evaluations[0];
 
         for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; ++i) {
@@ -1092,12 +1100,12 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // f commitments are accumulated at (zm_x * r)
         cp.rho_pow = Fr.wrap(1);
-        for (uint256 i = 1; i < 34; ++i) {
+        for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
             scalars[i] = tp.zmX * cp.rho_pow;
             cp.rho_pow = cp.rho_pow * tp.rho;
         }
         // g commitments are accumulated at r
-        for (uint256 i = 34; i < 43; ++i) {
+        for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
             scalars[i] = cp.rho_pow;
             cp.rho_pow = cp.rho_pow * tp.rho;
         }
@@ -1175,8 +1183,8 @@ abstract contract BaseHonkVerifier is IVerifier {
                 cp.x_pow_2kp1 = cp.x_pow_2kp1 * cp.x_pow_2kp1;
             }
 
-            scalars[43 + k] = scalar;
-            commitments[43 + k] = convertProofPoint(proof.zmCqs[k]);
+            scalars[NUMBER_OF_ENTITIES + 1 + k] = scalar;
+            commitments[NUMBER_OF_ENTITIES + 1 + k] = convertProofPoint(proof.zmCqs[k]);
         }
 
         return batchMul2(commitments, scalars);

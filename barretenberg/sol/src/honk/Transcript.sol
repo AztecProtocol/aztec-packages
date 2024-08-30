@@ -1,3 +1,5 @@
+pragma solidity >=0.8.21;
+
 import {
     Honk,
     NUMBER_OF_ALPHAS,
@@ -29,11 +31,11 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(
-        Honk.Proof memory proof,
-        Honk.VerificationKey memory vk,
-        bytes32[] calldata publicInputs
-    ) internal view returns (Transcript memory t) {
+    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs)
+        internal
+        view
+        returns (Transcript memory t)
+    {
         (t.eta, t.etaTwo, t.etaThree) = generateEtaChallenge(proof, publicInputs);
 
         (t.beta, t.gamma) = generateBetaAndGammaChallenges(t.etaThree, proof);
@@ -194,7 +196,7 @@ library TranscriptLib {
 
     function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof)
         internal
-        view
+        pure
         returns (Fr zeromorphX, Fr zeromorphZ)
     {
         uint256[4 + 1] memory buf;

@@ -531,6 +531,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+
         if constexpr (Flavor::HasZK) {
             output += full_libra_purported_value.value();
         };

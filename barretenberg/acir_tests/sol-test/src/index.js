@@ -73,29 +73,28 @@ export const compilationInput = {
 
 // If testing honk is set, then we compile the honk test suite
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
-const NUMBER_OF_FIELDS_IN_PROOF = testingHonk ? NUMBER_OF_FIELDS_IN_HONK_PROOF : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
+const NUMBER_OF_FIELDS_IN_PROOF = testingHonk
+  ? NUMBER_OF_FIELDS_IN_HONK_PROOF
+  : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
 if (!testingHonk) {
+  const keyPath = getEnvVar("KEY_PATH");
+  const basePath = getEnvVar("BASE_PATH");
+  const [key, base] = await Promise.all([
+    fsPromises.readFile(keyPath, encoding),
+    fsPromises.readFile(basePath, encoding),
+  ]);
 
-    const keyPath = getEnvVar("KEY_PATH");
-    const basePath = getEnvVar("BASE_PATH");
-    const [key, base] = await Promise.all(
-      [
-        fsPromises.readFile(keyPath, encoding),
-        fsPromises.readFile(basePath, encoding),
-      ]
-    );
-
-    compilationInput.sources["BaseUltraVerifier.sol"] = {
-      content: base,
-    };
-    compilationInput.sources["Key.sol"] = {
-      content: key,
-    };
+  compilationInput.sources["BaseUltraVerifier.sol"] = {
+    content: base,
+  };
+  compilationInput.sources["Key.sol"] = {
+    content: key,
+  };
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
-
 const contract = output.contracts["Test.sol"]["Test"];
+console.log(output);
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
 
@@ -150,11 +149,11 @@ const readPublicInputs = (proofAsFields) => {
   // A proof with no public inputs is 93 fields long
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
   let publicInputsOffset = 0;
-  
+
   // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not
   if (testingHonk) {
     publicInputsOffset = 3;
-  } 
+  }
 
   for (let i = 0; i < numPublicInputs; i++) {
     publicInputs.push(proofAsFields[publicInputsOffset + i]);
@@ -215,7 +214,7 @@ try {
     proofStr = proofStr.substring(8);
     // Get the part before and after the public inputs
     const proofStart = proofStr.slice(0, 64 * 3);
-    const proofEnd = proofStr.substring((64 * 3) + (64 * numPublicInputs));
+    const proofEnd = proofStr.substring(64 * 3 + 64 * numPublicInputs);
     proofStr = proofStart + proofEnd;
   } else {
     proofStr = proofStr.substring(64 * numPublicInputs);

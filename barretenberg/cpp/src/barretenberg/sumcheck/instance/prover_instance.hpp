@@ -50,7 +50,6 @@ template <class Flavor> class ProverInstance_ {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
-        info("finalized gate count: ", circuit.num_gates);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
         const bool is_structured = (trace_structure != TraceStructure::NONE);
