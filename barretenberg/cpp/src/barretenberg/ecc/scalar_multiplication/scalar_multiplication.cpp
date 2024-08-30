@@ -948,6 +948,13 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     pippenger_runtime_state<Curve>& state)
 {
     BB_OP_COUNT_TIME();
+
+    // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
+    const size_t threshold = get_num_cpus_pow2() * 8;
+    // Delegate edge-cases to normal pippenger_unsafe().
+    if (scalars.size() <= threshold) {
+        return pippenger_unsafe(scalars, &points[0], state);
+    }
     // We need a padding of scalars.
     ASSERT(numeric::round_up_power_2(scalars.size()) <= points.size());
     // We do not optimize for the small case at all.
