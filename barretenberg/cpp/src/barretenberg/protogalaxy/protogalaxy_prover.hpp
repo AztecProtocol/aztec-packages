@@ -102,7 +102,6 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
     /**
      * @brief Execute the folding prover.
      *
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/753): fold goblin polynomials
      * @return FoldingResult is a pair consisting of an accumulator and a folding proof, which is a proof that the
      * accumulator was computed correctly.
      */

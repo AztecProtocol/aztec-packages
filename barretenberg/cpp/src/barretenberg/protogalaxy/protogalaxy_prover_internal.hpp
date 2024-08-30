@@ -56,10 +56,10 @@ template <class ProverInstances_> class ProtogalaxyProverInternal {
     static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;
 
     /**
-     * @brief Compute the values of the full Honk relation at each row in the execution trace, representing f_i(ω) in
-     * the Protogalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching challenges
-     * that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT confuse
-     * with α in Protogalaxy).
+     * @brief Compute the values of the aggregated relation evaluations at each row in the execution trace, representing
+     * f_i(ω) in the Protogalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching
+     * challenges that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT
+     * confuse with α in Protogalaxy).
      *
      * @details When folding Mega instances, one of the relations is linearly dependent. We define such relations
      * as acting on the entire execution trace and hence requiring to be accumulated separately as we iterate over each
