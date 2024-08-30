@@ -34,7 +34,7 @@ contract Token {
 
     use crate::types::{
         transparent_note::TransparentNote,
-        token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteHidingPoint}, balances_map::BalancesMap
+        token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteHidingPoint}, balance_set::BalanceSet
     };
     // docs:end::imports
 
@@ -64,7 +64,7 @@ contract Token {
         minters: Map<AztecAddress, PublicMutable<bool>>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap<TokenNote>,
+        balances: Map<AztecAddress, BalanceSet<TokenNote>>,
         // docs:end:storage_balances
         total_supply: PublicMutable<U128>,
         // docs:start:storage_pending_shields
@@ -223,7 +223,7 @@ contract Token {
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
         let caller_keys = get_current_public_keys(&mut context, caller);
-        storage.balances.add(caller, caller_keys.npk_m, U128::from_integer(amount)).emit(
+        storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
             encode_and_encrypt_note_with_keys(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
         );
 
@@ -320,7 +320,7 @@ contract Token {
         let from = context.msg_sender();
         let from_keys = get_current_public_keys(&mut context, from);
         let to_keys = get_current_public_keys(&mut context, to);
-        storage.balances.add(to, to_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
     // docs:end:redeem_shield
 
@@ -334,7 +334,7 @@ contract Token {
         }
 
         let from_keys = get_current_public_keys(&mut context, from);
-        storage.balances.sub(from, from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
 
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -364,11 +364,11 @@ contract Token {
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
 
-        storage.balances.add(from, from_keys.npk_m, change).emit(
+        storage.balances.at(from).add(from_keys.npk_m, change).emit(
             encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
         );
 
-        storage.balances.add(to, to_keys.npk_m, amount).emit(
+        storage.balances.at(to).add(to_keys.npk_m, amount).emit(
             encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
         );
 
@@ -390,7 +390,7 @@ contract Token {
         amount: U128,
         max_notes: u32
     ) -> U128 {
-        let subtracted = storage.balances.try_sub(account, amount, max_notes);
+        let subtracted = storage.balances.at(account).try_sub(amount, max_notes);
 
         // Failing to subtract any amount means that the owner was unable to produce more notes that could be nullified.
         // We could in some cases fail early inside try_sub if we detected that fewer notes than the maximum were
@@ -465,10 +465,10 @@ contract Token {
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
-        storage.balances.sub(from, from_keys.npk_m, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.at(from).sub(from_keys.npk_m, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
         // docs:end:encrypted
         // docs:end:increase_private_balance
-        storage.balances.add(to, to_keys.npk_m, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.at(to).add(to_keys.npk_m, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
     // docs:end:transfer_from
 
@@ -482,7 +482,7 @@ contract Token {
         }
 
         let from_keys = get_current_public_keys(&mut context, from);
-        storage.balances.sub(from, from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -491,18 +491,23 @@ contract Token {
     /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
     /// were the same we could fingerprint the user by doing the following:
     ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
-    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness) - G_npk * fee_payer_npk =
+    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness + G_slot * fee_payer_slot)
+    ///                                - G_npk * fee_payer_npk - G_slot * fee_payer_slot =
     ///                              = G_rnd * randomness
     ///      2) user_fingerprint = user_point - randomness_influence =
-    ///                          = (G_npk * user_npk + G_rnd * randomness) - G_rnd * randomness =
-    ///                          = G_npk * user_npk
+    ///                          = (G_npk * user_npk + G_rnd * randomness + G_slot * user_slot) - G_rnd * randomness =
+    ///                          = G_npk * user_npk + G_slot * user_slot
     ///      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint
     ///         and link that the 2 transactions were made by the same user. Given that it's expected that only
     ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
-    ///         by trying different fee payer npk values of these known contracts is a feasible attack.
+    ///         by trying different fee payers is a feasible attack.
     ///
-    /// `fee_payer_point` and `user_point` above are public information because they are passed as args to the public
-    /// `complete_refund(...)` function.
+    /// Note 1: fee_payer_npk is publicly available in a key registry contract under a fee_payer address. So if we have
+    ///         a known set of fee payer contract addresses getting fee_payer_npk and fee_payer_slot is trivial (slot
+    ///         is derived in a `Map<...>` as a hash of balances map slot and a fee payer address).
+    /// Note 2: fee_payer_point and user_point above are public information because they are passed as args to
+    ///         the public `complete_refund(...)` function.
+    // docs:start:setup_refund
     #[aztec(private)]
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
@@ -521,7 +526,7 @@ contract Token {
         let user_npk_m_hash = user_keys.npk_m.hash();
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
-        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded 
+        // (called fee limit in aztec spec). The difference between fee limit and the actual tx fee will be refunded
         // to the user in the `complete_refund(...)` function.
         let change = subtract_balance(
             &mut context,
@@ -530,7 +535,7 @@ contract Token {
             U128::from_integer(funded_amount),
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
-        storage.balances.add(user, user_keys.npk_m, change).emit(
+        storage.balances.at(user).add(user_keys.npk_m, change).emit(
             encode_and_encrypt_note_with_keys_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
         );
 
@@ -540,7 +545,7 @@ contract Token {
             header: NoteHeader {
                 contract_address: AztecAddress::zero(),
                 nonce: 0,
-                storage_slot: storage.balances.map.at(fee_payer).storage_slot,
+                storage_slot: storage.balances.at(fee_payer).set.storage_slot,
                 note_hash_counter: 0
             },
             amount: U128::zero(),
@@ -551,7 +556,7 @@ contract Token {
             header: NoteHeader {
                 contract_address: AztecAddress::zero(),
                 nonce: 0,
-                storage_slot: storage.balances.map.at(user).storage_slot,
+                storage_slot: storage.balances.at(user).set.storage_slot,
                 note_hash_counter: 0
             },
             amount: U128::zero(),
@@ -573,9 +578,11 @@ contract Token {
         ]
         );
     }
+    // docs:end:setup_refund
 
     // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
+    // docs:start:complete_refund
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(
@@ -614,6 +621,7 @@ contract Token {
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
+    // docs:end:complete_refund
 
     /// Internal ///
 
@@ -640,7 +648,7 @@ contract Token {
 
     // docs:start:balance_of_private
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
-        storage.balances.balance_of(owner).to_field()
+        storage.balances.at(owner).balance_of().to_field()
     }
     // docs:end:balance_of_private
 }

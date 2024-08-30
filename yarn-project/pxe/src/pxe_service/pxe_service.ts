@@ -532,7 +532,7 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
-    skipTxValidation: boolean = true, // TODO(#7956): make the default be false
+    skipTxValidation: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
@@ -542,7 +542,7 @@ export class PXEService implements PXE {
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx.tx))) {
+        if (!(await this.node.isValidTx(simulatedTx.tx, true))) {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
@@ -565,6 +565,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
+    this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
 
@@ -636,18 +637,21 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
-    ]);
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.node.getNodeVersion(),
+        this.node.getVersion(),
+        this.node.getChainId(),
+        this.node.getEncodedEnr(),
+        this.node.getL1ContractAddresses(),
+        this.node.getProtocolContractAddresses(),
+      ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
       protocolVersion,
+      enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
     };

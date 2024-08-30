@@ -32,11 +32,13 @@ import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
+  type EthAddress,
   GasSettings,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { NULL_KEY } from '@aztec/ethereum';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
@@ -78,13 +80,14 @@ import {
   createWalletClient,
   http,
 } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { Watcher } from './watcher.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -112,7 +115,8 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: { salt?: number } = {},
+  args: { salt?: number; initialValidators?: EthAddress[] } = {},
+  chain: Chain = foundry,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -145,10 +149,11 @@ export const setupL1Contracts = async (
     },
   };
 
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt: args.salt,
+    initialValidators: args.initialValidators,
   });
 
   return l1Data;
@@ -291,6 +296,10 @@ type SetupOptions = {
   deployL1ContractsValues?: DeployL1Contracts;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
   skipProtocolContracts?: boolean;
+  /** Salt to use in L1 contract deployment */
+  salt?: number;
+  /** An initial set of validators */
+  initialValidators?: EthAddress[];
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -329,6 +338,7 @@ export async function setup(
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
   enableValidators = false,
+  chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   const logger = getLogger();
@@ -336,6 +346,9 @@ export async function setup(
   let anvil: Anvil | undefined;
 
   if (!config.l1RpcUrl) {
+    if (chain.id != foundry.id) {
+      throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
+    }
     if (PXE_URL) {
       throw new Error(
         `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
@@ -359,19 +372,35 @@ export async function setup(
     await ethCheatCodes.loadChainState(opts.stateLoad);
   }
 
-  const publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
-  const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
-  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+  let publisherPrivKey = undefined;
+  let publisherHdAccount = undefined;
+
+  if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
+    publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+  } else if (!MNEMONIC) {
+    throw new Error(`Mnemonic not provided and no publisher private key`);
+  } else {
+    publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+    const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
+    publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+    config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  }
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(publisherHdAccount, config, logger, numberOfAccounts, enableGas);
+    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
-    opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount, logger));
+    opts.deployL1ContractsValues ??
+    (await setupL1Contracts(
+      config.l1RpcUrl,
+      publisherHdAccount!,
+      logger,
+      { salt: opts.salt, initialValidators: opts.initialValidators },
+      chain,
+    ));
 
-  config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
   // Run the test with validators enabled
@@ -423,6 +452,13 @@ export async function setup(
     }
   }
 
+  const watcher = new Watcher(
+    new EthCheatCodes(config.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+  watcher.start();
+
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
   const cheatCodes = CheatCodes.create(config.l1RpcUrl, pxe!);
 
@@ -441,6 +477,7 @@ export async function setup(
     }
 
     await anvil?.stop();
+    await watcher.stop();
   };
 
   return {

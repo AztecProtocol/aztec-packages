@@ -8,7 +8,7 @@ import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { getPublicIp, splitAddressPort } from '../util.js';
+import { getPublicIp, resolveAddressIfNecessary, splitAddressPort } from '../util.js';
 
 export * from './p2p_client.js';
 
@@ -23,11 +23,19 @@ export const createP2PClient = async (
 
   if (config.p2pEnabled) {
     // If announceTcpAddress or announceUdpAddress are not provided, query for public IP if config allows
+
     const {
       tcpAnnounceAddress: configTcpAnnounceAddress,
       udpAnnounceAddress: configUdpAnnounceAddress,
       queryForIp,
     } = config;
+
+    config.tcpAnnounceAddress = configTcpAnnounceAddress
+      ? await resolveAddressIfNecessary(configTcpAnnounceAddress)
+      : undefined;
+    config.udpAnnounceAddress = configUdpAnnounceAddress
+      ? await resolveAddressIfNecessary(configUdpAnnounceAddress)
+      : undefined;
 
     // create variable for re-use if needed
     let publicIp;
@@ -61,6 +69,7 @@ export const createP2PClient = async (
     // Create peer discovery service
     const peerId = await createLibP2PPeerId(config.peerIdPrivateKey);
     const discoveryService = new DiscV5Service(peerId, config);
+
     p2pService = await LibP2PService.new(config, discoveryService, peerId, txPool, attestationsPool, store);
   } else {
     p2pService = new DummyP2PService();
