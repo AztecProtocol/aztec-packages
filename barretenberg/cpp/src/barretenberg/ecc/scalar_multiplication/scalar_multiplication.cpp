@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -225,7 +226,7 @@ void compute_wnaf_states(uint64_t* point_schedule,
         bool* skew_table = &input_skew_table[(2 * i) * num_initial_points_per_thread];
         // Our offsets for this thread
         const uint64_t point_offset = i * num_points_per_thread;
-        const uint64_t scalar_offset = i * num_initial_points_per_thread;
+        const size_t scalar_offset = i * num_initial_points_per_thread;
 
         // How many defined scalars are there?
         const size_t defined_extent = std::min(scalar_offset + num_initial_points_per_thread, scalars.size());
@@ -236,7 +237,7 @@ void compute_wnaf_states(uint64_t* point_schedule,
                                          &wnaf_table[j * 2],
                                          skew_table[j * 2],
                                          &thread_round_counts[i][0],
-                                         (j * 2 + point_offset) << 32,
+                                         (j * 2ULL + point_offset) << 32ULL,
                                          num_points,
                                          wnaf_bits);
         };
@@ -245,18 +246,18 @@ void compute_wnaf_states(uint64_t* point_schedule,
                                          &wnaf_table[j * 2 + 1],
                                          skew_table[j * 2 + 1],
                                          &thread_round_counts[i][0],
-                                         (j * 2 + point_offset + 1) << 32,
+                                         (j * 2ULL + point_offset + 1ULL) << 32ULL,
                                          num_points,
                                          wnaf_bits);
         };
-        for (uint64_t j = 0; j < defined_scalars; j++) {
+        for (size_t j = 0; j < defined_scalars; j++) {
             Fr T0 = scalars[scalar_offset + j].from_montgomery_form();
             Fr::split_into_endomorphism_scalars(T0, T0, *(Fr*)&T0.data[2]);
 
             wnaf_first_half(&T0.data[0], j);
             wnaf_second_half(&T0.data[2], j);
         }
-        for (uint64_t j = defined_scalars; j < num_initial_points_per_thread; j++) {
+        for (size_t j = defined_scalars; j < num_initial_points_per_thread; j++) {
             // If we are trying to use a non-power-of-2
             static const uint64_t PADDING_ZEROES[] = { 0, 0 };
             wnaf_first_half(PADDING_ZEROES, j);
@@ -947,6 +948,13 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     pippenger_runtime_state<Curve>& state)
 {
     BB_OP_COUNT_TIME();
+
+    // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
+    const size_t threshold = get_num_cpus_pow2() * 8;
+    // Delegate edge-cases to normal pippenger_unsafe().
+    if (scalars.size() <= threshold) {
+        return pippenger_unsafe(scalars, &points[0], state);
+    }
     // We need a padding of scalars.
     ASSERT(numeric::round_up_power_2(scalars.size()) <= points.size());
     // We do not optimize for the small case at all.
