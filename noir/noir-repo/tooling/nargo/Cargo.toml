@@ -7,6 +7,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -20,7 +23,7 @@ noirc_printable_type.workspace = true
 iter-extended.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-rayon = "1.8.0"
+rayon.workspace = true
 jsonrpc.workspace = true
 rand.workspace = true
 serde.workspace = true

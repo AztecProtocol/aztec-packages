@@ -70,7 +70,8 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         current_function: Option<FuncId>,
     ) -> Self {
         let bound_generics = Vec::new();
-        Self { elaborator, crate_id, current_function, bound_generics, in_loop: false }
+        let in_loop = false;
+        Self { elaborator, crate_id, current_function, bound_generics, in_loop }
     }
 
     pub(crate) fn call_function(
@@ -99,8 +100,11 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         }
 
         self.remember_bindings(&instantiation_bindings, &impl_bindings);
+        self.elaborator.interpreter_call_stack.push_back(location);
+
         let result = self.call_function_inner(function, arguments, location);
 
+        self.elaborator.interpreter_call_stack.pop_back();
         undo_instantiation_bindings(impl_bindings);
         undo_instantiation_bindings(instantiation_bindings);
         self.rebind_generics_from_previous_function();
@@ -472,6 +476,7 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
             HirExpression::Lambda(lambda) => self.evaluate_lambda(lambda, id),
             HirExpression::Quote(tokens) => self.evaluate_quote(tokens, id),
             HirExpression::Comptime(block) => self.evaluate_block(block),
+            HirExpression::Unsafe(block) => self.evaluate_block(block),
             HirExpression::Unquote(tokens) => {
                 // An Unquote expression being found is indicative of a macro being
                 // expanded within another comptime fn which we don't currently support.
@@ -896,6 +901,7 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
                 (Value::U16(lhs), Value::U16(rhs)) => Ok(Value::Bool(lhs == rhs)),
                 (Value::U32(lhs), Value::U32(rhs)) => Ok(Value::Bool(lhs == rhs)),
                 (Value::U64(lhs), Value::U64(rhs)) => Ok(Value::Bool(lhs == rhs)),
+                (Value::Bool(lhs), Value::Bool(rhs)) => Ok(Value::Bool(lhs == rhs)),
                 (lhs, rhs) => make_error(self, lhs, rhs, "=="),
             },
             BinaryOpKind::NotEqual => match (lhs, rhs) {
@@ -908,6 +914,7 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
                 (Value::U16(lhs), Value::U16(rhs)) => Ok(Value::Bool(lhs != rhs)),
                 (Value::U32(lhs), Value::U32(rhs)) => Ok(Value::Bool(lhs != rhs)),
                 (Value::U64(lhs), Value::U64(rhs)) => Ok(Value::Bool(lhs != rhs)),
+                (Value::Bool(lhs), Value::Bool(rhs)) => Ok(Value::Bool(lhs != rhs)),
                 (lhs, rhs) => make_error(self, lhs, rhs, "!="),
             },
             BinaryOpKind::Less => match (lhs, rhs) {
@@ -1459,7 +1466,8 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
                 let message = constrain.2.and_then(|expr| self.evaluate(expr).ok());
                 let message =
                     message.map(|value| value.display(self.elaborator.interner).to_string());
-                Err(InterpreterError::FailingConstraint { location, message })
+                let call_stack = self.elaborator.interpreter_call_stack.clone();
+                Err(InterpreterError::FailingConstraint { location, message, call_stack })
             }
             value => {
                 let location = self.elaborator.interner.expr_location(&constrain.0);

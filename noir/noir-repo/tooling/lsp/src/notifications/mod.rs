@@ -2,7 +2,7 @@ use std::ops::ControlFlow;
 
 use crate::insert_all_files_for_workspace_into_file_manager;
 use async_lsp::{ErrorCode, LanguageClient, ResponseError};
-use noirc_driver::{check_crate, file_manager_with_stdlib};
+use noirc_driver::{check_crate, file_manager_with_stdlib, CheckOptions};
 use noirc_errors::{DiagnosticKind, FileDiagnostic};
 
 use crate::types::{
@@ -132,7 +132,11 @@ pub(crate) fn process_workspace_for_noir_document(
             let (mut context, crate_id) =
                 crate::prepare_package(&workspace_file_manager, &parsed_files, package);
 
-            let file_diagnostics = match check_crate(&mut context, crate_id, &Default::default()) {
+            let options = CheckOptions {
+                error_on_unused_imports: package.error_on_unused_imports(),
+                ..Default::default()
+            };
+            let file_diagnostics = match check_crate(&mut context, crate_id, &options) {
                 Ok(((), warnings)) => warnings,
                 Err(errors_and_warnings) => errors_and_warnings,
             };
@@ -223,7 +227,7 @@ mod notification_tests {
 
     use super::*;
     use lsp_types::{
-        InlayHintLabel, InlayHintParams, Position, TextDocumentContentChangeEvent,
+        InlayHintLabel, InlayHintParams, Position, Range, TextDocumentContentChangeEvent,
         TextDocumentIdentifier, TextDocumentItem, VersionedTextDocumentIdentifier,
         WorkDoneProgressParams,
     };
@@ -270,9 +274,9 @@ mod notification_tests {
             InlayHintParams {
                 work_done_progress_params: WorkDoneProgressParams { work_done_token: None },
                 text_document: TextDocumentIdentifier { uri: noir_text_document },
-                range: lsp_types::Range {
-                    start: lsp_types::Position { line: 0, character: 0 },
-                    end: lsp_types::Position { line: 1, character: 0 },
+                range: Range {
+                    start: Position { line: 0, character: 0 },
+                    end: Position { line: 1, character: 0 },
                 },
             },
         )
