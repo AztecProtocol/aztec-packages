@@ -99,8 +99,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
-     * @details Compute the next prover accumulator (ω* in the paper), encapsulated in a ProverInstance with folding
-     * parameters set.
+     * @details Compute \f$ e^* \f$ plus, then update the prover accumulator by taking a Lagrange-linear combination of
+     * the current accumulator and the instances to be folded. In our mental model, we are doing a scalar multipliation
+     * of matrices whose columns are polynomials, as well as taking similar linear combinations of the relation
+     * parameters.
      */
     FoldingResult<Flavor> update_target_sum_and_fold(const ProverInstances_& instances,
                                                      const CombinerQuotient& combiner_quotient,
