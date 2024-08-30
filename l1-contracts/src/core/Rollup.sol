@@ -39,7 +39,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32 archive;
     bytes32 blockHash;
     uint128 slotNumber;
-    bool isProven;
   }
 
   // @note  The number of slots within which a block must be proven
@@ -97,8 +96,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     blocks[0] = BlockLog({
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(0),
-      slotNumber: 0,
-      isProven: true
+      slotNumber: 0
     });
     pendingBlockCount = 1;
     provenBlockCount = 1;
@@ -106,6 +104,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     for (uint256 i = 0; i < _validators.length; i++) {
       _addValidator(_validators[i]);
     }
+    setupEpoch();
   }
 
   /**
@@ -151,11 +150,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     onlyOwner
   {
     if (blockNumber > provenBlockCount && blockNumber <= pendingBlockCount) {
-      for (uint256 i = provenBlockCount; i < blockNumber; i++) {
-        blocks[i].isProven = true;
-        emit L2ProofVerified(i, "CHEAT");
-      }
-      _progressState();
+      provenBlockCount = blockNumber;
     }
     assumeProvenUntilBlockNumber = blockNumber;
   }
@@ -194,7 +189,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Published the body and processes the block
+   * @notice  Published the body and propose the block
    * @dev     This should likely be purged in the future as it is a convenience method
    * @dev     `eth_log_handlers` rely on this function
    *
@@ -204,7 +199,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
-  function publishAndProcess(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
@@ -212,11 +207,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _body
   ) external override(IRollup) {
     AVAILABILITY_ORACLE.publish(_body);
-    process(_header, _archive, _blockHash, _signatures);
+    propose(_header, _archive, _blockHash, _signatures);
   }
 
   /**
-   * @notice  Published the body and processes the block
+   * @notice  Published the body and propose the block
    * @dev     This should likely be purged in the future as it is a convenience method
    * @dev     `eth_log_handlers` rely on this function
    * @param _header - The L2 block header
@@ -224,14 +219,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _body - The body of the L2 block
    */
-  function publishAndProcess(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
     bytes calldata _body
   ) external override(IRollup) {
     AVAILABILITY_ORACLE.publish(_body);
-    process(_header, _archive, _blockHash);
+    propose(_header, _archive, _blockHash);
   }
 
   /**
@@ -272,6 +267,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     if (header.globalVariables.blockNumber >= pendingBlockCount) {
       revert Errors.Rollup__TryingToProveNonExistingBlock();
+    }
+
+    // @note  This implicitly also ensures that we have not already proven, since
+    //        the value `provenBlockCount` is incremented at the end of this function
+    if (header.globalVariables.blockNumber != provenBlockCount) {
+      revert Errors.Rollup__NonSequentialProving();
     }
 
     bytes32 expectedLastArchive = blocks[header.globalVariables.blockNumber - 1].archive;
@@ -356,22 +357,20 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidProof();
     }
 
-    blocks[header.globalVariables.blockNumber].isProven = true;
+    provenBlockCount += 1;
 
-    _progressState();
+    for (uint256 i = 0; i < 32; i++) {
+      address coinbase = address(uint160(uint256(publicInputs[25 + i * 2])));
+      uint256 fees = uint256(publicInputs[26 + i * 2]);
 
+      if (coinbase != address(0) && fees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+      }
+    }
     emit L2ProofVerified(header.globalVariables.blockNumber, _proverId);
-  }
-
-  /**
-   * @notice  Get the `isProven` flag for the block number
-   *
-   * @param _blockNumber - The block number to check
-   *
-   * @return bool - True if proven, false otherwise
-   */
-  function isBlockProven(uint256 _blockNumber) external view override(IRollup) returns (bool) {
-    return blocks[_blockNumber].isProven;
   }
 
   /**
@@ -449,14 +448,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice Processes an incoming L2 block with signatures
+   * @notice propose an incoming L2 block with signatures
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
    */
-  function process(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
@@ -476,8 +475,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     blocks[pendingBlockCount++] = BlockLog({
       archive: _archive,
       blockHash: _blockHash,
-      slotNumber: header.globalVariables.slotNumber.toUint128(),
-      isProven: false
+      slotNumber: header.globalVariables.slotNumber.toUint128()
     });
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
@@ -494,38 +492,36 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
     );
 
-    // @note  This should be addressed at the time of proving if sequential proving or at the time of
-    //        inclusion into the proven chain otherwise. See #7622.
-    if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-      // @note  This will currently fail if there are insufficient funds in the bridge
-      //        which WILL happen for the old version after an upgrade where the bridge follow.
-      //        Consider allowing a failure. See #7938.
-      FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-    }
-
-    emit L2BlockProcessed(header.globalVariables.blockNumber);
+    emit L2BlockProposed(header.globalVariables.blockNumber);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
     if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
-      blocks[header.globalVariables.blockNumber].isProven = true;
+      provenBlockCount += 1;
+
+      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+
       emit L2ProofVerified(header.globalVariables.blockNumber, "CHEAT");
-      _progressState();
     }
   }
 
   /**
-   * @notice Processes an incoming L2 block without signatures
+   * @notice Propose a L2 block without signatures
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    */
-  function process(bytes calldata _header, bytes32 _archive, bytes32 _blockHash)
+  function propose(bytes calldata _header, bytes32 _archive, bytes32 _blockHash)
     public
     override(IRollup)
   {
     SignatureLib.Signature[] memory emptySignatures = new SignatureLib.Signature[](0);
-    process(_header, _archive, _blockHash, emptySignatures);
+    propose(_header, _archive, _blockHash, emptySignatures);
   }
 
   /**
@@ -535,37 +531,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    */
   function archive() public view override(IRollup) returns (bytes32) {
     return blocks[pendingBlockCount - 1].archive;
-  }
-
-  /**
-   * @notice  Progresses the state of the proven chain as far as possible
-   *
-   * @dev     Emits `ProgressedState` if the state is progressed
-   *
-   * @dev     Will continue along the pending chain as long as the blocks are proven
-   *          stops at the first unproven block.
-   *
-   * @dev     Have a potentially unbounded gas usage. @todo Will need a bounded version, such that it cannot be
-   *          used as a DOS vector.
-   */
-  function _progressState() internal {
-    if (pendingBlockCount == provenBlockCount) {
-      // We are already up to date
-      return;
-    }
-
-    uint256 cachedProvenBlockCount = provenBlockCount;
-
-    for (; cachedProvenBlockCount < pendingBlockCount; cachedProvenBlockCount++) {
-      if (!blocks[cachedProvenBlockCount].isProven) {
-        break;
-      }
-    }
-
-    if (cachedProvenBlockCount > provenBlockCount) {
-      provenBlockCount = cachedProvenBlockCount;
-      emit ProgressedState(provenBlockCount, pendingBlockCount);
-    }
   }
 
   /**
@@ -646,7 +611,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
     }
 
-    _processPendingBlock(_slot, _signatures, _digest, _flags);
+    _proposePendingBlock(_slot, _signatures, _digest, _flags);
   }
 
   /**
