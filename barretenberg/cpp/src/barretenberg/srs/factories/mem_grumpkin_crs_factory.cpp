@@ -46,7 +46,7 @@ MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement
 std::shared_ptr<bb::srs::factories::ProverCrs<Grumpkin>> MemGrumpkinCrsFactory::get_prover_crs(size_t degree)
 {
     if (prover_crs_->get_monomial_size() < degree) {
-       throw_or_abort("prover trying to get too many points in MemGrumpkinCrsFactory!");
+        throw_or_abort("prover trying to get too many points in MemGrumpkinCrsFactory!");
     }
     return prover_crs_;
 }

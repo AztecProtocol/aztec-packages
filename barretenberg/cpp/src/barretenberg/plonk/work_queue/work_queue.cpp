@@ -83,7 +83,9 @@ void work_queue::put_ifft_data(std::shared_ptr<fr[]> result, const size_t work_i
         if (item.work_type == WorkType::IFFT) {
             if (count == work_item_number) {
                 bb::polynomial wire(key->circuit_size);
-                memcpy(wire.data().get(), result.get(), key->circuit_size * sizeof(bb::fr));
+                memcpy(static_cast<void*>(wire.data().get()),
+                       static_cast<const void*>(result.get()),
+                       key->circuit_size * sizeof(bb::fr));
                 key->polynomial_store.put(item.tag, std::move(wire));
                 return;
             }
