@@ -9,7 +9,11 @@ use dep::types::{
     address::AztecAddress, traits::{Empty, is_empty}, transaction::tx_request::TxRequest
 };
 
-fn validate_array_prepended<T,  let N: u32>(dest: [T; N], source: [T; N], num_source_items: u32) where T: Eq {
+fn validate_array_prepended<T, let N: u32>(
+    dest: [T; N],
+    source: [T; N],
+    num_source_items: u32
+) where T: Eq {
     let mut proceed = true;
     for i in 0..source.len() {
         proceed &= i != num_source_items;
@@ -19,7 +23,7 @@ fn validate_array_prepended<T,  let N: u32>(dest: [T; N], source: [T; N], num_so
     }
 }
 
-fn validate_array_appended<T,  let N: u32, let M: u32>(
+fn validate_array_appended<T, let N: u32, let M: u32>(
     dest: [T; N],
     source: [T; M],
     num_source_items: u32,
