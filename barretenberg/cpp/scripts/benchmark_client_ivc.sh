@@ -4,7 +4,7 @@ set -eu
 TARGET=${1:-"client_ivc_bench"}
 
 if [ "$TARGET" = "client_ivc_bench" ]; then
-    BENCHMARK="ClientIVCBench/Full/6"
+    BENCHMARK="ClientIVCBench/Full/8"
 elif [ "$TARGET" = "aztec_ivc_bench" ]; then
     BENCHMARK="AztecIVCBench/FullStructured/6"
 else
