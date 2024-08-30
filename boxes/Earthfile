@@ -54,7 +54,9 @@ npx:
     FROM ../build-images/+base-slim-node
     COPY --dir +build/usr/src /usr
     WORKDIR /usr/src/boxes
-    RUN npx . new -d -t contract -n token_contract my_token
+
+    RUN yarn
+    RUN yarn test:ci
 
 BOX_TEST_LOCAL:
   FUNCTION
