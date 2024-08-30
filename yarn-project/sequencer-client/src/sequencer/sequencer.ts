@@ -482,7 +482,7 @@ export class Sequencer {
     this.log.verbose("Attestations collected");
 
     try {
-      await this.publishL2Block(block, attestations);
+      await this.publishL2Block(block, attestations, txHashes);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
@@ -557,6 +557,7 @@ export class Sequencer {
     const selfSign = await this.validatorClient.attestToProposal(proposal);
     attestations.push(selfSign);
 
+
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return await orderAttestations(attestations, committee);
   }
@@ -571,6 +572,9 @@ export class Sequencer {
   protected async publishL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
+
+    console.log('attestations', attestations);
+    console.log('txHashes', txHashes);
 
     const publishedL2Block = await this.publisher.processL2Block(block, attestations, txHashes);
     if (publishedL2Block) {

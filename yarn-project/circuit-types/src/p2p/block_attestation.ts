@@ -8,6 +8,7 @@ import { recoverMessageAddress } from 'viem';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
+import { TxHash } from '../tx/tx_hash.js';
 
 export class BlockAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -31,6 +32,7 @@ export class BlockAttestation extends Gossipable {
     public readonly header: Header,
     // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
+    public readonly txHashes: TxHash[],
     /** The signature of the block attester */
     public readonly signature: Signature,
   ) {
@@ -53,8 +55,10 @@ export class BlockAttestation extends Gossipable {
   async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
+      const payload = serializeToBuffer([this.archive, this.txHashes]);
+      const payload0x: `0x${string}` = `0x${payload.toString('hex')}`;
       const address = await recoverMessageAddress({
-        message: { raw: this.p2pMessageIdentifier().to0xString() },
+        message: { raw: payload0x },
         signature: this.signature.to0xString(),
       });
       // Cache the sender for later use
@@ -65,15 +69,15 @@ export class BlockAttestation extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.archive, this.signature]);
+    return serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes,   this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(Header), reader.readObject(Fr), reader.readObject(Signature));
+    return new BlockAttestation(reader.readObject(Header), reader.readObject(Fr), reader.readArray(reader.readNumber(), TxHash), reader.readObject(Signature));
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(Header.empty(), Fr.ZERO, Signature.empty());
+    return new BlockAttestation(Header.empty(), Fr.ZERO, [], Signature.empty());
   }
 }

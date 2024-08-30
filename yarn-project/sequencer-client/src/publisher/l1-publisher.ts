@@ -1,4 +1,4 @@
-import { type L2Block, type Signature } from '@aztec/circuit-types';
+import { TxHash, type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, GENESIS_ARCHIVE_ROOT, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -302,7 +302,7 @@ export class L1Publisher {
       return false;
     }
 
-    const processTxArgs = {
+    const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
@@ -311,6 +311,8 @@ export class L1Publisher {
       txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
     };
 
+    console.log('proposeTxArgs', proposeTxArgs);
+
     // Publish body and propose block (if not already published)
     if (!this.interrupted) {
       let txHash;
@@ -318,9 +320,9 @@ export class L1Publisher {
 
       if (await this.checkIfTxsAreAvailable(block)) {
         this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
-        txHash = await this.sendProposeWithoutBodyTx(processTxArgs);
+        txHash = await this.sendProposeWithoutBodyTx(proposeTxArgs);
       } else {
-        txHash = await this.sendProposeTx(processTxArgs);
+        txHash = await this.sendProposeTx(proposeTxArgs);
       }
 
       if (!txHash) {
@@ -534,11 +536,13 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          if (!L1Publisher.SKIP_SIMULATION) {
+          console.log('args', args);
+
+          // if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.propose(args, {
               account: this.account,
             });
-          }
+          // }
 
           return await this.rollupContract.write.propose(args, {
             account: this.account,

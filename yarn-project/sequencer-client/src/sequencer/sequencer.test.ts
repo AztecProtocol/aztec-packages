@@ -79,7 +79,8 @@ describe('sequencer', () => {
       return undefined;
     }
 
-    const attestation = new BlockAttestation(block.header, archive, mockedSig);
+    // TODO(md): might be errors in here
+    const attestation = new BlockAttestation(block.header, archive, [], mockedSig);
     (attestation as any).sender = committee[0];
 
     return [attestation];

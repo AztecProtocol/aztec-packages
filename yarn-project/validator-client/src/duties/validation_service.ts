@@ -36,9 +36,8 @@ export class ValidationService {
 
     // TODO: in the function before this, check that all of the txns exist in the payload
 
-    console.log('attesting to proposal', proposal);
     const buf = proposal.getPayload();
     const sig = await this.keyStore.sign(buf);
-    return new BlockAttestation(proposal.header, proposal.archive, sig);
+    return new BlockAttestation(proposal.header, proposal.archive, proposal.txs, sig);
   }
 }

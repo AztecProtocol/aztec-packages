@@ -36,7 +36,7 @@ describe('e2e_p2p_network', () => {
 
   beforeEach(async () => {
     // If we want to test with interval mining, we can use the local host and start `anvil --block-time 12`
-    const useLocalHost = true;
+    const useLocalHost = false;
     if (useLocalHost) {
       jest.setTimeout(300_000);
     }
@@ -101,7 +101,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // Warp an entire epoch ahead. So that the committee exists
-    await jumpIntoNextEpoch();
+    // await jumpIntoNextEpoch();
     // wait a bit for peers to discover each other
     await sleep(4000);
 

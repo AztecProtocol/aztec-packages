@@ -8,6 +8,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
 import { Signature } from './signature.js';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<BlockProposal> => {
   signer = signer || randomSigner();
@@ -26,9 +27,11 @@ export const makeBlockAttestation = async (signer?: PrivateKeyAccount): Promise<
 
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
+  const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+  const hash: `0x${string}` = `0x${serializeToBuffer([archive, txs]).toString('hex')}`;
+  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: hash } }));
 
-  return new BlockAttestation(blockHeader, archive, signature);
+  return new BlockAttestation(blockHeader, archive, txs, signature);
 };
 
 export const randomSigner = (): PrivateKeyAccount => {

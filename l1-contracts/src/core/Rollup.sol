@@ -564,29 +564,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Validates the header for submission
-   *
-   * @param _header - The proposed block header
-   * @param _signatures - The signatures for the attestations
-   * @param _digest - The digest that signatures signed
-   * @param _currentTime - The time of execution
-   * @dev                - This value is provided to allow for simple simulation of future
-   * @param _flags - Flags specific to the execution, whether certain checks should be skipped
-   */
-  function _validateHeader(
-    HeaderLib.Header memory _header,
-    SignatureLib.Signature[] memory _signatures,
-    bytes32 _digest,
-    uint256 _currentTime,
-    DataStructures.ExecutionFlags memory _flags
-  ) internal view {
-    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
-    _validateHeaderForSubmissionSequencerSelection(
-      _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
-    );
-  }
-
-  /**
    * @notice  Validate a header for submission to the pending chain (sequencer selection checks)
    *
    *          These validation checks are directly related to Leonidas.
@@ -641,7 +618,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
     }
 
-    _processPendingBlock(_slot, _signatures, _digest, _flags);
+    _proposePendingBlock(_slot, _signatures, _digest, _flags);
   }
 
   /**
