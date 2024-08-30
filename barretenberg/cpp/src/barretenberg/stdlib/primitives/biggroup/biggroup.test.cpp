@@ -50,6 +50,37 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     };
 
   public:
+    static void test_constructor()
+    {
+        Builder builder;
+
+        affine_element valid(element::random_element());
+        affine_element invalid(element::random_element());
+        invalid.x = invalid.x + invalid.x;
+
+        invalid.x++;
+
+        element_ct valid_ct = element_ct::from_witness(&builder, valid);
+        if constexpr (IsUltraBuilder<Builder>) {
+            builder.blocks.summarize();
+        }
+
+        element_ct invalid_ct = element_ct::from_witness(&builder, invalid);
+        if constexpr (IsUltraBuilder<Builder>) {
+            builder.blocks.summarize();
+        }
+
+        const auto check_point = [](const element_ct& big, const affine_element& native) {
+            fq big_x = big.x.get_value().lo;
+            fq big_y = big.y.get_value().lo;
+
+            return (big_x == native.x) && (big_y == native.y);
+        };
+
+        EXPECT_TRUE(check_point(valid_ct, valid));
+        EXPECT_FALSE(check_point(invalid_ct, invalid));
+    }
+
     static void test_add()
     {
         Builder builder;
@@ -1194,6 +1225,11 @@ TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 template <typename T>
 concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
 
+TYPED_TEST(stdlib_biggroup, constructor)
+{
+
+    TestFixture::test_constructor();
+}
 TYPED_TEST(stdlib_biggroup, add)
 {
 

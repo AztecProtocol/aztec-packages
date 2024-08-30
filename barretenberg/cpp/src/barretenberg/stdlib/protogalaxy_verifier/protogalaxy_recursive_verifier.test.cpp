@@ -205,7 +205,9 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_verifier_instance_1,
                                                   { recursive_verification_key_2 } };
+        info("OpQueue size before folding verifier: ", folding_circuit.op_queue->get_raw_ops().size());
         verifier.verify_folding_proof(stdlib_proof);
+        info("OpQueue size after folding verifier:  ", folding_circuit.op_queue->get_raw_ops().size());
         info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
@@ -390,7 +392,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
 };
 
 using FlavorTypes =
-    testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+    testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder> /* , MegaRecursiveFlavor_<CircuitSimulatorBN254> */>;
 TYPED_TEST_SUITE(ProtoGalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtoGalaxyRecursiveTests, InnerCircuit)

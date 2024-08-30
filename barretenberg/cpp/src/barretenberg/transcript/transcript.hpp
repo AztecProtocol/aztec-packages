@@ -254,6 +254,7 @@ template <typename TranscriptParams> class BaseTranscript {
     template <typename ChallengeType, typename... Strings>
     std::array<ChallengeType, sizeof...(Strings)> get_challenges(const Strings&... labels)
     {
+        info("hashing ", current_round_data.size(), " elements");
         constexpr size_t num_challenges = sizeof...(Strings);
 
         // Add challenge labels for current round to the manifest

@@ -26,6 +26,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
         : builder(builder)
     {
         ASSERT(vks.size() == NUM - 1);
+        info("Num gates when starting to construct recursive instances object: ", builder->num_gates);
 
         _data[0] = accumulator;
 
@@ -34,6 +35,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
             _data[idx] = std::make_shared<Instance>(builder, vk);
             idx++;
         }
+        info("Num gates after remaining instances created: ", builder->num_gates);
     }
 };
 } // namespace bb::stdlib::recursion::honk
