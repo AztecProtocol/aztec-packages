@@ -47,7 +47,11 @@ impl ConstantAllocation {
         })
     }
 
-    pub(crate) fn allocated_at_location(&self, block_id: BasicBlockId, location: InstructionLocation) -> Vec<ValueId> {
+    pub(crate) fn allocated_at_location(
+        &self,
+        block_id: BasicBlockId,
+        location: InstructionLocation,
+    ) -> Vec<ValueId> {
         self.allocation_points.get(&block_id).map_or(Vec::default(), |allocations| {
             allocations.get(&location).map_or(Vec::default(), |constants| constants.clone())
         })

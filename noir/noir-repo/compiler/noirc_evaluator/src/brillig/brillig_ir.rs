@@ -149,9 +149,9 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         self.obj.set_call_stack(call_stack);
     }
 
-    pub(crate) fn get_current_opcode_count(&self) -> usize {
-        self.obj.index_of_next_opcode()
-    }
+    // pub(crate) fn get_current_opcode_count(&self) -> usize {
+    //     self.obj.index_of_next_opcode()
+    // }
 }
 
 #[cfg(test)]
