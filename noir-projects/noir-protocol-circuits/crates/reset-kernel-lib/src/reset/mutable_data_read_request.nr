@@ -131,7 +131,7 @@ mod tests {
         fn value(self) -> Field {
             self.value
         }
-        
+
         fn override_counter(_self: Self) -> u32 {
             0
         }
