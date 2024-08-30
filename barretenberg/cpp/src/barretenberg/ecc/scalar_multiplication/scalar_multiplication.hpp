@@ -168,6 +168,13 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
     typename Curve::AffineElement* points,
     pippenger_runtime_state<Curve>& state);
 
+// NOTE: pippenger_unsafe_optimized_for_non_dyadic_polys requires dyadic SRS.
+template <typename Curve>
+typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
+    std::span<const typename Curve::ScalarField> scalars,
+    std::span<typename Curve::AffineElement> points,
+    pippenger_runtime_state<Curve>& state);
+
 // Explicit instantiation
 // BN254
 

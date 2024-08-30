@@ -51,8 +51,10 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
-        // Currently we must round up internal space for points as pippenger will use next power of 2.
-        // This is used to simplify the recursive halving scheme.
+        // Currently we must round up internal space for points as our pippenger algorithm (specifically,
+        // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
+        // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
+        // will pad 0s into the runtime state.
         : pippenger_runtime_state(numeric::round_up_power_2(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_prover_crs(numeric::round_up_power_2(num_points)))
@@ -73,6 +75,7 @@ template <class Curve> class CommitmentKey {
     Commitment commit(std::span<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
+        // See constructor, we must round up the number of used srs points to a power of 2.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
         if (consumed_srs > srs->get_monomial_size()) {
             info("Attempting to commit to a polynomial that needs ",
@@ -81,7 +84,8 @@ template <class Curve> class CommitmentKey {
                  srs->get_monomial_size());
             ASSERT(false);
         }
-        return scalar_multiplication::pippenger_unsafe<Curve>(
+        // NOTE: pippenger_unsafe_optimized_for_non_dyadic_polys requires dyadic SRS.
+        return scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             polynomial, srs->get_monomial_points(), pippenger_runtime_state);
     };
 

@@ -924,18 +924,32 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
     const auto slice_bits = static_cast<size_t>(numeric::get_msb(static_cast<uint64_t>(num_initial_points)));
     const auto num_slice_points = static_cast<size_t>(1ULL << slice_bits);
 
-    return pippenger_internal(points,
-                              scalars,
-                              num_slice_points == scalars.size() ? num_slice_points : num_slice_points * 2,
-                              state,
-                              handle_edge_cases);
-    // if (num_slice_points != num_initial_points) {
-    //     return result + pippenger(scalars.subspan(num_slice_points),
-    //                               points + static_cast<size_t>(num_slice_points * 2),
-    //                               state,
-    //                               handle_edge_cases);
-    // }
-    // return result;
+    Element result = pippenger_internal(points, scalars, num_slice_points, state, handle_edge_cases);
+    if (num_slice_points != num_initial_points) {
+        return result + pippenger(scalars.subspan(num_slice_points),
+                                  points + static_cast<size_t>(num_slice_points * 2),
+                                  state,
+                                  handle_edge_cases);
+    }
+    return result;
+}
+
+/* @brief Used for commits.
+The main reason for this existing alone as this has one assumption:
+The number of points is a dyadic (power of 2) size and scalars is not.
+Pippenger above can behavely poorly with numbers with many bits set.*/
+
+template <typename Curve>
+typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
+    std::span<const typename Curve::ScalarField> scalars,
+    std::span<typename Curve::AffineElement> points,
+    pippenger_runtime_state<Curve>& state)
+{
+    BB_OP_COUNT_TIME();
+    // We round up SRS points.
+    ASSERT(numeric::round_up_power_2(points.size()) == points.size())
+    // We do not optimize for the small case at all.
+    return pippenger_internal(points.begin(), scalars, numeric::round_up_power_2(scalars.size()), state, false);
 }
 
 /**
