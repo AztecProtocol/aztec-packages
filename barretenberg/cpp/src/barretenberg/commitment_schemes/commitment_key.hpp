@@ -77,16 +77,15 @@ template <class Curve> class CommitmentKey {
         BB_OP_COUNT_TIME();
         // See constructor, we must round up the number of used srs points to a power of 2.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
-        if (consumed_srs > srs->get_monomial_size()) {
+        if (consumed_srs >= srs->get_monomial_size()) {
             info("Attempting to commit to a polynomial that needs ",
                  consumed_srs,
                  " points with an SRS of size ",
                  srs->get_monomial_size());
             ASSERT(false);
         }
-        // NOTE: pippenger_unsafe_optimized_for_non_dyadic_polys requires dyadic SRS.
         return scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            polynomial, srs->get_monomial_points(), pippenger_runtime_state);
+            polynomial, { srs->get_monomial_points(), srs->get_monomial_size() }, pippenger_runtime_state);
     };
 
     /**

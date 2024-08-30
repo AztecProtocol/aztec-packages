@@ -12,6 +12,7 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/groups/wnaf.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
@@ -936,7 +937,7 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
 
 /* @brief Used for commits.
 The main reason for this existing alone as this has one assumption:
-The number of points is a dyadic (power of 2) size and scalars is not.
+The number of points is equal to or larger than #scalars rounded up to next power of 2.
 Pippenger above can behavely poorly with numbers with many bits set.*/
 
 template <typename Curve>
@@ -946,10 +947,10 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     pippenger_runtime_state<Curve>& state)
 {
     BB_OP_COUNT_TIME();
-    // We round up SRS points.
-    ASSERT(numeric::round_up_power_2(points.size()) == points.size())
+    // We need a padding of scalars.
+    ASSERT(numeric::round_up_power_2(scalars.size()) <= points.size())
     // We do not optimize for the small case at all.
-    return pippenger_internal(points.begin(), scalars, numeric::round_up_power_2(scalars.size()), state, false);
+    return pippenger_internal(&points[0], scalars, numeric::round_up_power_2(scalars.size()), state, false);
 }
 
 /**
@@ -1030,6 +1031,11 @@ template curve::BN254::Element pippenger_unsafe<curve::BN254>(std::span<const cu
                                                               curve::BN254::AffineElement* points,
                                                               pippenger_runtime_state<curve::BN254>& state);
 
+template curve::BN254::Element pippenger_unsafe_optimized_for_non_dyadic_polys<curve::BN254>(
+    std::span<const curve::BN254::ScalarField> scalars,
+    std::span<curve::BN254::AffineElement> points,
+    pippenger_runtime_state<curve::BN254>& state);
+
 template curve::BN254::Element pippenger_without_endomorphism_basis_points<curve::BN254>(
     std::span<const curve::BN254::ScalarField> scalars,
     curve::BN254::AffineElement* points,
@@ -1078,6 +1084,10 @@ template curve::Grumpkin::Element pippenger<curve::Grumpkin>(std::span<const cur
 template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
     std::span<const curve::Grumpkin::ScalarField> scalars,
     curve::Grumpkin::AffineElement* points,
+    pippenger_runtime_state<curve::Grumpkin>& state);
+template curve::Grumpkin::Element pippenger_unsafe_optimized_for_non_dyadic_polys<curve::Grumpkin>(
+    std::span<const curve::Grumpkin::ScalarField> scalars,
+    std::span<curve::Grumpkin::AffineElement> points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 
 template curve::Grumpkin::Element pippenger_without_endomorphism_basis_points<curve::Grumpkin>(
