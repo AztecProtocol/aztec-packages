@@ -284,7 +284,7 @@ export class L1Publisher {
       archive: archiveRoot.toBuffer(),
       proverId: proverId.toBuffer(),
       aggregationObject: serializeToBuffer(aggregationObject),
-      proof: proof.withoutPublicInputs(),
+      proof: proof.toBuffer(),
     };
 
     // Process block

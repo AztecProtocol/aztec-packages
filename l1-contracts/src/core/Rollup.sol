@@ -259,40 +259,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidProposedArchive(expectedArchive, _archive);
     }
 
-    bytes32[] memory publicInputs =
-      new bytes32[](4 + Constants.HEADER_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH);
-    // the archive tree root
-    publicInputs[0] = _archive;
-    // this is the _next_ available leaf in the archive tree
-    // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
-    // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
-    publicInputs[1] = bytes32(header.globalVariables.blockNumber + 1);
-
-    publicInputs[2] = vkTreeRoot;
-
-    bytes32[] memory headerFields = HeaderLib.toFields(header);
-    for (uint256 i = 0; i < headerFields.length; i++) {
-      publicInputs[i + 3] = headerFields[i];
-    }
-
-    publicInputs[headerFields.length + 3] = _proverId;
-
-    // the block proof is recursive, which means it comes with an aggregation object
-    // this snippet copies it into the public inputs needed for verification
-    // it also guards against empty _aggregationObject used with mocked proofs
-    uint256 aggregationLength = _aggregationObject.length / 32;
-    for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
-      bytes32 part;
-      assembly {
-        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
-      }
-      publicInputs[i + 4 + Constants.HEADER_LENGTH] = part;
-    }
-
-    if (!verifier.verify(_proof, publicInputs)) {
-      revert Errors.Rollup__InvalidProof();
-    }
-
     blocks[header.globalVariables.blockNumber].isProven = true;
 
     _progressState();
