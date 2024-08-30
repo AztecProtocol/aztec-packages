@@ -22,12 +22,56 @@
  *
  */
 namespace bb {
-template <typename Curve> struct ShpleminiVerifierOutput {
+/**
+ * @brief An accumulator consisting of the Shplonk evaluation challenge, and vectors of commitments and scalars
+ *
+ * @details This structure is fed to the method reduce_verify_shplemini of KZG or IPA, such that a chosen PCS simply
+receives last commitment \f$ W \f$ from the prover, adds it to the vector of commitments, adds \f$ -
+\text{evaluation_point}\f$ to the vector of scalars, and performs the single batch_mul operation to get the pair of
+pairing points.
+
+ * @tparam Curve BN254 or Grumpkin
+ */
+template <typename Curve> struct ShpleminiAccumulator {
     std::vector<typename Curve::AffineElement> commitments;
     std::vector<typename Curve::ScalarField> scalars;
     typename Curve::ScalarField evaluation_point;
 };
+/*!
+\brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
 
+\details This Verifier combines verifiers from 4 protocols:
+- Batch opening protocol for multilinear polynomials and their shifts that reduces various opening claims to the
+opening claim of a single polynomial
+- Gemini protocol that reduces a multilinear opening claim to a claim about openings of several univariate
+polynomials
+- Shplonk protocol that reduces an opening of several univariate polynomials at different points to a single opening
+of another univariate polynomial
+- KZG or IPA protocol that allows to check evaluation claims of univariate polynomials
+
+
+Although we are already able to perform this sequence of verification steps with the methods implemented, we
+face a critical inefficiency in such implementation. Namely, this sequence of verifiers performs 6 batch_mul calls. In
+order to reduce this to a single batch_mul call, we note that all group elements the 4 verifiers above receive could be
+accumulated in a single vector that will be batch_multiplied by a vector of scalars constructed from various
+challenges and evaluations received during the verification.
+
+
+This method receives commitments to all prover polynomials, their claimed evaluations, the sumcheck
+challenge, as well as the group element \f$ [1]_1 \f$, and a pointer to the transcript.
+
+The key observation here is that from step 1 to step 4, the verifier only populates its transcript with the
+challenges and the data received from the prover and is not required to place any results of own computations to the
+transcript. This allows us to organize the verification as follows:
+- Receive most of the challenges and prover data
+- Run \ref batch_multivariate_opening_claims  method corresponding to step 1 above
+- Run \ref batch_gemini_claims_received_from_prover corresponding to step 2 above
+- Compute the evaluation of the Gemini batched univariate corresponding to step 2 above
+- Receive the rest of the prover's data and produce the paring points in reduce_verify corresponding to step 3 above
+Note that the Shplonk step is not present in this list because it links all these steps and could not be isolated
+into a single method.
+ *
+ */
 template <typename Curve> class ShpleminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -35,65 +79,29 @@ template <typename Curve> class ShpleminiVerifier_ {
     using VK = VerifierCommitmentKey<Curve>;
 
   public:
-    /**
-    @brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
-
-    @details This Verifier combines verifiers from 4 protocols:
-    - Batch opening protocol for multilinear polynomials and their shifts that reduces various opening claims to the
-opening claim of a single polynomial
-    - Gemini protocol that reduces a multilinear opening claim to a claim about openings of several univariate
-polynomials
-    - Shplonk protocol that reduces an opening of several univariate polynomials at different points to a single opening
-of another univariate polynomial
-    - KZG or IPA protocol that allows to check evaluation claims of univariate polynomials
-
-    Although we are already able to perform this sequence of verification steps with the methods implemented, we face a
-critical inefficiency in such implementation. Namely, this sequence of verifiers performs 6 batch_mul calls. In order to
-reduce this to a single batch_mul call, we note that all group elements the 4 verifiers above receive could be
-accumulated in a single vector that will be batch_multiplied by a vector of scalars constructed from various challenges
-and evaluations received during the verification.
-
-
-    This method receives commitments to all prover polynomials, their claimed evaluations, the sumcheck
-    challenge, as well as the group element \f$ [1]_1 \f$, and a pointer to the transcript.
-
-    The key observation here is that from step 1 to step 4, the verifier only populates its transcript with the
-challenges and the data received from the prover and is not required to place any results of own computations to the
-transcript. This allows us to organize the verification as follows:
-    - Receive most of the challenges and prover data
-    - Run batch_multivariate_opening_claims method corresponding to step 1 above
-    - Run batch_gemini_claims_received_from_prover corresponding to step 2 above
-    - Compute the evaluation of the Gemini batched univariate corresponding to step 2 above
-    - Receive the rest of the prover's data and produce the paring points in reduce_verify corresponding to step 3 above
-    Note that the Shplonk step is not present in this list because it links all these steps and could not be isolated
-into a single method.
-     *
-     */
-
     template <typename Transcript>
-    static ShpleminiVerifierOutput<Curve> accumulate_batch_mul_arguments(size_t log_circuit_size,
-                                                                         RefSpan<Commitment> unshifted_commitments,
-                                                                         RefSpan<Commitment> shifted_commitments,
-                                                                         RefSpan<Fr> claimed_evaluations,
-                                                                         std::vector<Fr>& multivariate_challenge,
-                                                                         Commitment g1_identity,
-                                                                         std::shared_ptr<Transcript>& transcript)
+    static ShpleminiAccumulator<Curve> accumulate_batch_mul_arguments(size_t log_circuit_size,
+                                                                      RefSpan<Commitment> unshifted_commitments,
+                                                                      RefSpan<Commitment> shifted_commitments,
+                                                                      RefSpan<Fr> claimed_evaluations,
+                                                                      const std::vector<Fr>& multivariate_challenge,
+                                                                      const Commitment g1_identity,
+                                                                      std::shared_ptr<Transcript>& transcript)
     {
-        ShpleminiVerifierOutput<Curve> output;
+        ShpleminiAccumulator<Curve> output;
         // Get challenge to batch commitments to multilinear polynomials
         const Fr rho = transcript->template get_challenge<Fr>("rho");
-        info("rho", rho);
-
         // Get Gemini commitments (com(A_1), com(A_2), ... , com(A_{d-1}))
         std::vector<Commitment> gemini_commitments =
             GeminiVerifier_<Curve>::get_gemini_commitments(log_circuit_size, transcript);
         // Get Gemini evaluation challenge for A_i, i = 0,..., d-1
         const Fr gemini_eval_challenge = transcript->template get_challenge<Fr>("Gemini:r");
         // Get evaluations (A_0(-r), A_1(-r^2), ... , A_{d-1}(-r^{2^{d-1}}))
-        std::vector<Fr> gemini_evaluations =
-            GeminiVerifier_<Curve>::get_gemini_evaluations(log_circuit_size, transcript);
+        std::vector<Fr> gemini_evaluations(log_circuit_size);
+        gemini_evaluations = GeminiVerifier_<Curve>::get_gemini_evaluations(log_circuit_size, transcript);
         // Compute vector (r, r^2, ... , r^{2^{d-1}}), where d = log circuit size
-        std::vector<Fr> r_squares = gemini::squares_of_r(gemini_eval_challenge, log_circuit_size);
+        std::vector<Fr> r_squares(log_circuit_size);
+        r_squares = gemini::squares_of_r(gemini_eval_challenge, log_circuit_size);
         // Get Shplonk batching challenge
         const Fr shplonk_batching_challenge = transcript->template get_challenge<Fr>("Shplonk:nu");
         // Get the quotient commitment for the Shplonk batching of Gemini opening claims
@@ -166,6 +174,46 @@ into a single method.
         output.scalars = scalars;
         return output;
     };
+    /**
+     * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched multilinear
+     * polynomial at the sumcheck challenge.
+     *
+     * @details Iterates over all commitments and the claimed evaluations of the corresponding polynomials.
+     * Denote:
+     * - \f$ \rho \f$: Batching challenge for multivariate claims.
+     * - \f$ z \f$: Shplonk evaluation challenge.
+     * - \f$ r \f$: Gemini evaluation challenge.
+     * - \f$ \nu \f$: Shplonk batching challenge.
+     *
+     * The vector of scalars is populated as follows:
+     * \f[
+     * \left(
+     * - \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+     * \ldots,
+     * - \rho^{i+k-1} \times \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+     * - \rho^{i+k} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right),
+     * \ldots, - \rho^{k+m-1} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+     * \right)
+     * \f]
+     *
+     * The following vector is concatenated to the vector of commitments:
+     * \f[
+     * f_0, \ldots, f_{m-1}, f_{\text{shift}, 0}, \ldots, f_{\text{shift}, k-1}
+     * \f]
+     *
+     * Simultaneously, the evaluation of the multilinear polynomial \f$ \sum \rho^i \cdot f_i + \sum \rho^{i+k}
+     * \cdot f_{\text{shift}, i} \f$ at the challenge point \f$ (u_0,\ldots, u_{d-1}) \f$ is computed.
+     *
+     * @param unshifted_commitments Commitments to unshifted polynomials.
+     * @param shifted_commitments Commitments to shifted polynomials.
+     * @param claimed_evaluations Claimed evaluations of the corresponding polynomials.
+     * @param rho Random challenge used for batching of multivariate evaluation claims.
+     * @param unshifted_scalar Scaling factor for unshifted polynomials.
+     * @param shifted_scalar Scaling factor for shifted polynomials.
+     * @param commitments The vector of commitments to be populated.
+     * @param scalars The vector of scalars to be populated.
+     * @param batched_evaluation The evaluation of the batched multilinear polynomial.
+     */
 
     static void batch_multivariate_opening_claims(RefSpan<Commitment> unshifted_commitments,
                                                   RefSpan<Commitment> shifted_commitments,
@@ -194,7 +242,7 @@ into a single method.
             current_batching_challenge *= rho;
         }
     }
-    static void batch_gemini_claims_received_from_prover(size_t log_circuit_size,
+    static void batch_gemini_claims_received_from_prover(const size_t log_circuit_size,
                                                          const std::vector<Commitment>& gemini_commitments,
                                                          const std::vector<Fr>& gemini_evaluations,
                                                          const std::vector<Fr>& inverse_vanishing_evals,
