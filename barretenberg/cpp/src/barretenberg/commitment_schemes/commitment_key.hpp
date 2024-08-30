@@ -53,11 +53,22 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
+<<<<<<< HEAD
         : pippenger_runtime_state(numeric::round_up_power_2(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_prover_crs(numeric::round_up_power_2(num_points)))
     {
     }
+=======
+        // Currently we must round up internal space for points as our pippenger algorithm (specifically,
+        // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
+        // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
+        // will pad 0s into the runtime state.
+        : pippenger_runtime_state(numeric::round_up_power_2(num_points))
+        , crs_factory(srs::get_crs_factory<Curve>())
+        , srs(crs_factory->get_prover_crs(numeric::round_up_power_2(num_points)))
+    {}
+>>>>>>> origin/ad/pippenger-edge-case-smoothing
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
     CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
@@ -74,6 +85,7 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
+        // See constructor, we must round up the number of used srs points to a power of 2.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
         if (consumed_srs > srs->get_monomial_size()) {
             info("Attempting to commit to a polynomial that needs ",
@@ -86,9 +98,10 @@ template <class Curve> class CommitmentKey {
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
-        G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
+        std::span<G1> point_table = { srs->get_monomial_points() + polynomial.start_index * 2,
+                                      srs->get_monomial_size() - polynomial.start_index * 2 };
         DEBUG_LOG_ALL(polynomial.span);
-        Commitment point = scalar_multiplication::pippenger_unsafe<Curve>(
+        Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             polynomial.span, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
         return point;
