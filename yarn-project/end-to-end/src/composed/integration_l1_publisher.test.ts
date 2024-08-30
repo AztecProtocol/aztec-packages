@@ -170,7 +170,6 @@ describe('L1Publisher integration', () => {
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
-        timeTraveler: true,
       },
       new NoopTelemetryClient(),
     );
@@ -415,7 +414,7 @@ describe('L1Publisher integration', () => {
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -428,7 +427,7 @@ describe('L1Publisher integration', () => {
 
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
-        functionName: 'publishAndProcess',
+        functionName: 'propose',
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
@@ -515,7 +514,7 @@ describe('L1Publisher integration', () => {
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -530,7 +529,7 @@ describe('L1Publisher integration', () => {
         i == 0
           ? encodeFunctionData({
               abi: RollupAbi,
-              functionName: 'publishAndProcess',
+              functionName: 'propose',
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
@@ -540,7 +539,7 @@ describe('L1Publisher integration', () => {
             })
           : encodeFunctionData({
               abi: RollupAbi,
-              functionName: 'process',
+              functionName: 'propose',
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
