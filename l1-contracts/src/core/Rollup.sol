@@ -409,6 +409,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }
 
+    // Make sure that the proposer is up to date
     bytes32 tipArchive = archive();
     if (tipArchive != _archive) {
       revert Errors.Rollup__InvalidArchive(tipArchive, _archive);

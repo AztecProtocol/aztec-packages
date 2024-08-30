@@ -263,6 +263,7 @@ export class P2PClient implements P2P {
   }
 
   public broadcastProposal(proposal: BlockProposal): void {
+    this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 

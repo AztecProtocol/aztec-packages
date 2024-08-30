@@ -88,6 +88,7 @@ import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 import { Watcher } from './watcher.js';
+import { ConsoleMessage } from 'puppeteer';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -149,6 +150,7 @@ export const setupL1Contracts = async (
     },
   };
 
+  console.log("Initial validators", args.initialValidators);
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),

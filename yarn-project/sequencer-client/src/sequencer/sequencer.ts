@@ -477,8 +477,9 @@ export class Sequencer {
     const txHashes = validTxs.map(tx => tx.getTxHash());
 
     this.isFlushing = false;
-    this.log.verbose('SEQUENCER | collectAttestations');
+    this.log.verbose("Collecting attestations");
     const attestations = await this.collectAttestations(block, txHashes);
+    this.log.verbose("Attestations collected");
 
     try {
       await this.publishL2Block(block, attestations);
@@ -514,16 +515,22 @@ export class Sequencer {
     //                /   \
     //  _____________/_ __ \_____________
 
-    console.log('SEQUENCER | IS_DEV_NET', IS_DEV_NET);
-    console.log('SEQUENCER | this.validatorClient', this.validatorClient);
     if (IS_DEV_NET || !this.validatorClient) {
+      this.log.verbose("ATTEST | Skipping attestation collection");
       return undefined;
     }
 
+    // const committeeAtNext = await this.publisher.getCommitteeAtNextEthBlock();
+    // this.log.verbose(`ATTEST | committee at the next eth block length ${committeeAtNext.length}`);
+
+
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
+    this.log.verbose(`ATTEST | committee length ${committee.length}`);
 
     if (committee.length === 0) {
+      this.log.verbose(`ATTEST | committee length is 0, skipping`);
+      throw new Error('Committee length is 0, WHAT THE FUCK');
       return undefined;
     }
 
@@ -532,13 +539,23 @@ export class Sequencer {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
 
+    this.log.verbose("ATTEST | Creating block proposal");
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
+    this.log.verbose("Broadcasting block proposal to validators");
     this.validatorClient.broadcastBlockProposal(proposal);
+
+    // Note do we know if it is wating for attestations as it thinks it should be
+    // proposing the block?
 
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+    this.log.verbose("Collected attestations from validators");
+
+    // TODO: clean: SELF REPORT LMAO
+    const selfSign = await this.validatorClient.attestToProposal(proposal);
+    attestations.push(selfSign);
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return await orderAttestations(attestations, committee);

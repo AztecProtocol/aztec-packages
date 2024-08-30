@@ -133,7 +133,7 @@ contract Leonidas is Ownable, ILeonidas {
     return epochs[_epoch].committee;
   }
 
-  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
+  function getCommitteeAt(uint256 _ts) public view returns (address[] memory) {
     uint256 epochNumber = getEpochAt(_ts);
     if (epochNumber == 0) {
       return new address[](0);
@@ -161,9 +161,6 @@ contract Leonidas is Ownable, ILeonidas {
 
   /**
    * @notice  Get the validator set for the current epoch
-   *
-   * @dev Makes a call to setupEpoch under the hood, this should ONLY be called as a view function, and not from within
-   *      this contract.
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
@@ -306,23 +303,23 @@ contract Leonidas is Ownable, ILeonidas {
       return address(0);
     }
 
-    Epoch storage epoch = epochs[epochNumber];
+    // Epoch storage epoch = epochs[epochNumber];
 
-    // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
-    if (epoch.sampleSeed != 0) {
-      uint256 committeeSize = epoch.committee.length;
-      if (committeeSize == 0) {
-        return address(0);
-      }
+    // // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
+    // if (epoch.sampleSeed != 0) {
+    //   uint256 committeeSize = epoch.committee.length;
+    //   if (committeeSize == 0) {
+    //     return address(0);
+    //   }
 
-      return
-        epoch.committee[_computeProposerIndex(epochNumber, slot, epoch.sampleSeed, committeeSize)];
-    }
+    //   return
+    //     epoch.committee[_computeProposerIndex(epochNumber, slot, epoch.sampleSeed, committeeSize)];
+    // }
 
-    // Allow anyone if there is no validator set
-    if (validatorSet.length() == 0) {
-      return address(0);
-    }
+    // // Allow anyone if there is no validator set
+    // if (validatorSet.length() == 0) {
+    //   return address(0);
+    // }
 
     // Emulate a sampling of the validators
     uint256 sampleSeed = _getSampleSeed(epochNumber);

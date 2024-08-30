@@ -28,6 +28,8 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
  * We will skip these test if we are running with IS_DEV_NET = true
  */
 
+import "forge-std/console.sol";
+
 contract SpartaTest is DecoderBase {
   using MessageHashUtils for bytes32;
 
@@ -273,6 +275,34 @@ contract SpartaTest is DecoderBase {
     }
 
     assertEq(rollup.archive(), archive, "Invalid archive");
+  }
+
+
+  // We need to make sure that the get committee function is actually
+  // working the way we expect it to
+  // This is blowing up the test that we want to test
+  function testGetCommitteeAtNonSetupEpoch() public setup(4) {
+    if (Constants.IS_DEV_NET == 1) {
+      return;
+    }
+
+    uint256 _epochsToJump = 1;
+    uint256 pre = rollup.getCurrentEpoch();
+    vm.warp(
+      block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
+    );
+    uint256 post = rollup.getCurrentEpoch();
+    assertEq(pre + _epochsToJump, post, "Invalid epoch");
+
+    // Test that the committee returned from getCommitteeAt is the same as the one returned from getCurrentEpochCommittee
+    address[] memory committeeAtNow = rollup.getCommitteeAt(block.timestamp);
+    address[] memory currentCommittee = rollup.getCurrentEpochCommittee();
+    assertEq(currentCommittee.length, 4, "Committee should be empty");
+    assertEq(committeeAtNow.length, currentCommittee.length, "Committee now and get committee should be the same length");
+
+    for (uint256 i = 0; i < currentCommittee.length; i++) {
+      assertEq(currentCommittee[i], committeeAtNow[i], "Committee now and get committee should be the same length");
+    }
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {

@@ -90,6 +90,7 @@ export type L1SubmitProofArgs = {
   aggregationObject: Buffer;
 };
 
+
 export type MetadataForSlot = {
   proposer: EthAddress;
   slot: bigint;
@@ -185,6 +186,7 @@ export class L1Publisher {
     return [slot, blockNumber];
   }
 
+
   public async validateBlockForSubmission(
     header: Header,
     digest: Buffer = new Fr(GENESIS_ARCHIVE_ROOT).toBuffer(),
@@ -230,11 +232,6 @@ export class L1Publisher {
       this.rollupContract.read.archive(),
     ]);
 
-    console.log('metadata for the next eth block');
-    console.table({
-      slot,
-      pendingBlockNumber: pendingBlockCount - 1n,
-    });
     return {
       proposer: EthAddress.fromString(submitter),
       slot,
@@ -243,8 +240,28 @@ export class L1Publisher {
     };
   }
 
+
+  // /**
+  //  * @notice  Calls `getCommitteeAt` with the time of the next Ethereum block
+  //  * @return committee - The committee at the next Ethereum block
+  //  */
+  // public async getCommitteeAtNextEthBlock(): Promise<EthAddress[]> {
+  //   // TODO(md): reuse as a helper?
+  //   const lastBlockTimestamp = (await this.publicClient.getBlock()).timestamp;
+  //   console.log('lastBlockTimestamp', lastBlockTimestamp);
+  //   const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+  //   console.log('ts', ts);
+  //   const committee = await this.rollupContract.read.getCommitteeAt([
+  //     ts,
+  //   ]);
+  //   console.log('returned committee', committee);
+  //   return committee.map(EthAddress.fromString);
+  // }
+
+
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
     const committee = await this.rollupContract.read.getCurrentEpochCommittee();
+    console.log('returned committee', committee);
     return committee.map(EthAddress.fromString);
   }
 

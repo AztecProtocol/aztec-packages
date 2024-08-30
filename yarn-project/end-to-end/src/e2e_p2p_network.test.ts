@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep } from '@aztec/aztec.js';
-import { EthAddress, IS_DEV_NET } from '@aztec/circuits.js';
+import { CheatCodes, CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep } from '@aztec/aztec.js';
+import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, EthAddress, IS_DEV_NET } from '@aztec/circuits.js';
 import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
@@ -32,6 +32,7 @@ describe('e2e_p2p_network', () => {
   let teardown: () => Promise<void>;
   let bootstrapNode: BootstrapNode;
   let bootstrapNodeEnr: string;
+  let cheatCodes: CheatCodes;
 
   beforeEach(async () => {
     // If we want to test with interval mining, we can use the local host and start `anvil --block-time 12`
@@ -57,7 +58,7 @@ describe('e2e_p2p_network', () => {
       initialValidators.push(EthAddress.fromString(account.address));
     }
 
-    ({ teardown, config, logger } = await setup(0, { initialValidators, ...options }));
+    ({ teardown, config, logger, cheatCodes } = await setup(0, { initialValidators, ...options }));
 
     bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
     bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
@@ -73,6 +74,12 @@ describe('e2e_p2p_network', () => {
       fs.rmSync(`./data-${i}`, { recursive: true, force: true });
     }
   });
+
+  const jumpIntoNextEpoch = async () => {
+    const currentTimestamp = await cheatCodes.eth.timestamp();
+    const timeJump = currentTimestamp + (AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION);
+    await cheatCodes.eth.warp(timeJump + 1);
+  };
 
   it.only('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
@@ -93,8 +100,10 @@ describe('e2e_p2p_network', () => {
       /*activate validators=*/ !IS_DEV_NET,
     );
 
+    // Warp an entire epoch ahead. So that the committee exists
+    await jumpIntoNextEpoch();
     // wait a bit for peers to discover each other
-    await sleep(2000);
+    await sleep(4000);
 
     for (const node of nodes) {
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);

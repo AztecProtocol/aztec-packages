@@ -316,7 +316,7 @@ export class LibP2PService implements P2PService {
     this.logger.verbose(`Sending message ${identifier} to peers`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.verbose(`Sent tx ${identifier} to ${recipientsNum} peers`);
+    this.logger.verbose(`Sent message ${identifier} to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.
