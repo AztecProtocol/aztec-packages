@@ -8,18 +8,11 @@ In this tutorial, we will use Apple Mac's Secure Enclave to store the private ke
 
 Aztec is in active development and this has only been tested on MacOS. Please reach out if this tutorial does not work for you, and let us know your operating system.
 
-In any case, it helps showing how powerful Aztec is when combined with secp256r1 curves and account abstraction.
-
 :::
 
-## Setting up
+## Prerequisites
 
-You've guessed correctly. The first step is just to install and run the sandbox. This should install aztec-wallet together with the other aztec packages.
-
-```bash
-bash -i <(curl -s install.aztec.network)
-aztec start --sandbox
-```
+For this tutorial, we will need to have the the [Sandbox](../../../reference/developer_references/sandbox_reference/index.md) installed.
 
 We also need to install Secretive, a nice open-source package that allows us to store keys on the Secure Enclave. You can head to the [secretive releases page](https://github.com/maxgoedjen/secretive/releases) and get the last release's `zip`, unzip and move to Applications, or use [Homebrew](https://brew.sh/):
 
@@ -41,7 +34,7 @@ brew install socat
 
 ### Creating a key
 
-We will create our private key, which will be stored in the Secure Enclave. Open Secretive, click the "+" sign and create a key with authentication. You can give it any name you like. Secretive will then store it in the Secure Enclave. 
+We will create our private key, which will be stored in the Secure Enclave. Open Secretive, click the "+" sign and create a key with authentication. You can give it any name you like. Secretive will then store it in the Secure Enclave.
 
 Make sure Secretive's "Secret Agent" is running.
 
@@ -71,7 +64,6 @@ You should see a prompt like `? What public key to use?` with the public key you
 
 You can find other accounts by running `aztec-wallet create-account -h`.
 
-
 ### Using the wallet
 
 You can now use it as you would use any other wallet. Let's create a simple token contract example and mint ourselves some tokens with this.
@@ -92,12 +84,12 @@ aztec-nargo compile
 Great, our contract is ready to deploy with our TouchID wallet:
 
 ```bash
-aztec-wallet deploy --from accounts:my-wallet token_contract@Token --args accounts:my-wallet DevToken DTK 18 -a devtoken 
+aztec-wallet deploy --from accounts:my-wallet token_contract@Token --args accounts:my-wallet DevToken DTK 18 -a devtoken
 
 You should get prompted to sign with TouchID or password. Once authorized, you should see `Contract stored in database with aliases last & devtoken`
 ```
 
-Wondering what each of these options do? You can call `aztec-wallet -h` and see by yourself or check [the reference](../../../reference/developer_references/sandbox_reference/cli_wallet_reference.md), but I'll break it down for you (because I like you anon 💜):
+Check [the reference](../../../reference/developer_references/sandbox_reference/cli_wallet_reference.md) for the whole set of commands, but these mean:
 
 - --from is the sender: our account `my-wallet`. We use the alias because it's easier than writing the key stored in our Secure Enclave. The wallet resolves the alias and knows where to grab it.
 - token_contract@Token is a shorthand to look in the `target` folder for our contract `token_contract-Token`
