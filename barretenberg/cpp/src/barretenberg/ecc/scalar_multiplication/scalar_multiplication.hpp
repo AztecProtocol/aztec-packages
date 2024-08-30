@@ -93,7 +93,7 @@ void compute_wnaf_states(uint64_t* point_schedule,
                          size_t num_initial_points);
 
 template <typename Curve>
-void generate_pippenger_point_table(typename Curve::AffineElement* points,
+void generate_pippenger_point_table(const typename Curve::AffineElement* points,
                                     typename Curve::AffineElement* table,
                                     size_t num_points);
 
@@ -142,7 +142,7 @@ typename Curve::Element pippenger_internal(typename Curve::AffineElement* points
 
 template <typename Curve>
 typename Curve::Element evaluate_pippenger_rounds(pippenger_runtime_state<Curve>& state,
-                                                  typename Curve::AffineElement* points,
+                                                  const typename Curve::AffineElement* points,
                                                   size_t num_points,
                                                   bool handle_edge_cases = false);
 
