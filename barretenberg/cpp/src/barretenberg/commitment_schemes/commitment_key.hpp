@@ -98,7 +98,7 @@ template <class Curve> class CommitmentKey {
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
         std::span<G1> point_table = { srs->get_monomial_points() + polynomial.start_index * 2,
-                                      srs->get_monomial_size() - polynomial.start_index * 2 };
+                                      srs->get_monomial_size() * 2 - polynomial.start_index * 2 };
         DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             polynomial.span, point_table, pippenger_runtime_state);

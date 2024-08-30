@@ -956,7 +956,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
         return pippenger_unsafe(scalars, &points[0], state);
     }
     // We need a padding of scalars.
-    ASSERT(numeric::round_up_power_2(scalars.size()) <= points.size());
+    ASSERT(numeric::round_up_power_2(scalars.size()) * 2 <= points.size());
     // We do not optimize for the small case at all.
     return pippenger_internal(&points[0], scalars, numeric::round_up_power_2(scalars.size()), state, false);
 }
