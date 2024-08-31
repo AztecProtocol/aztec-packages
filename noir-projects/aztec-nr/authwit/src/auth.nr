@@ -316,7 +316,7 @@ fn poseidon2_hash_3_with_separator<T>(args: [Field; 3], separator: T) -> Field w
     let iv : Field = 4 * two_pow_64;
     let mut state = [separator.to_field(), args[0], args[1], iv];
     state = std::hash::poseidon2_permutation(state, 4);
-    state[0] = state[0] + args[3];
+    state[0] = state[0] + args[2];
     std::hash::poseidon2_permutation(state, 4)[0] as Field
 }
 
