@@ -207,11 +207,11 @@ function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
   return [
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
+      selector: FunctionSelector.fromSignature('pay_refund((Field),u64,(Field))'),
     },
     {
       classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
+      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(u64,(Field),Field)'),
     },
   ];
 }
