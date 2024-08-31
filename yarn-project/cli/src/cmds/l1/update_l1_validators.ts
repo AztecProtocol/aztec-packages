@@ -77,7 +77,7 @@ export async function fastForwardEpochs({
   const slotsInEpoch = await rollup.read.EPOCH_DURATION();
   const slotDuration = await rollup.read.SLOT_DURATION();
   const epochDuration = slotsInEpoch * slotDuration;
-  const warpTime = genesisTs + numEpochs * epochDuration;
+  const warpTime = genesisTs + numEpochs * epochDuration * 1000n;
   await cheatCodes.warp(Number(warpTime));
   dualLog(`Fast forwarded ${numEpochs} epochs to ${warpTime}`);
 }
