@@ -314,9 +314,9 @@ pub fn compute_inner_authwit_hash(args: [Field; 3]) -> Field {
 fn poseidon2_hash_3_with_separator<T>(args: [Field; 3], separator: T) -> Field where T: ToField {
     let two_pow_64 = 18446744073709551616;
     let iv : Field = 4 * two_pow_64;
-    let mut state = [args[0], args[1], args[2], iv];
+    let mut state = [separator.to_field(), args[0], args[1], iv];
     state = std::hash::poseidon2_permutation(state, 4);
-    state[0] = state[0] + separator.to_field();
+    state[0] = state[0] + args[3];
     std::hash::poseidon2_permutation(state, 4)[0] as Field
 }
 
