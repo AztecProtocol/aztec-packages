@@ -9,8 +9,10 @@ data:
     #!/bin/sh
     set -e
 
+    alias aztec='node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js'
+
     # Ask the bootnode for l1 contract addresses
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u {{ include "aztec-network.bootNodeUrl" . }})
+    output=$(aztec get-node-info -u {{ include "aztec-network.bootNodeUrl" . }})
 
     echo "$output"
 
@@ -24,13 +26,17 @@ data:
     fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 
     # Generate a private key for the validator
-    json_account=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js generate-l1-account)
+    json_account=$(aztec generate-l1-account)
 
     echo "$json_account"
     address=$(echo $json_account | jq -r '.address')
     private_key=$(echo $json_account | jq -r '.privateKey')
 
-    node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js add-l1-validator --validator $address --rollup $rollup_address
+    aztec add-l1-validator --validator $address --rollup $rollup_address
+
+    aztec fast-forward-epochs --rollup $rollup_address --count 1
+
+
 
     # Write the addresses to a file in the shared volume
     cat <<EOF > /shared/contracts.env

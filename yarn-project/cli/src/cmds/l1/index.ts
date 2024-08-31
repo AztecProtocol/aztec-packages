@@ -75,20 +75,48 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
-      await addL1Validator(
-        options.rpcUrl,
-        options.l1ChainId,
-        options.privateKey,
-        options.mnemonic,
-        options.validator,
-        options.rollup,
-
+      await addL1Validator({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        validatorAddress: options.validator,
+        rollupAddress: options.rollup,
         log,
         debugLogger,
-      );
+      });
     });
 
-  // TODO fastforward epoch
+  program
+    .command('fast-forward-epochs')
+    .description('Fast forwards the epoch of the L1 rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .option('--count <number>', 'The number of epochs to fast forward', arg => BigInt(parseInt(arg)), 1n)
+    .action(async options => {
+      const { fastForwardEpochs } = await import('./update_l1_validators.js');
+      await fastForwardEpochs({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        rollupAddress: options.rollup,
+        numEpochs: options.count,
+        log,
+        debugLogger,
+      });
+    });
 
   program
     .command('deploy-l1-verifier')
