@@ -53,7 +53,7 @@ export class TransactionFee extends EnvironmentGetterInstruction {
   static readonly opcode: Opcode = Opcode.TRANSACTIONFEE;
 
   protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.transactionFee);
+    return new Uint64(env.transactionFee.toBigInt());
   }
 }
 
