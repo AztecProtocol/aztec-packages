@@ -27,6 +27,7 @@ spec:
               done
               echo "PXE service is ready!"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-protocol-contracts
+              echo "Deployed L2 contracts"
           env:
             - name: PXE_URL
               value: {{ include "aztec-network.pxeUrl" . | quote }}

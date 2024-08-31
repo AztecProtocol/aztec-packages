@@ -5,4 +5,4 @@ validator:
 
 bootNode:
   validator:
-    disabled: false
+    disabled: true

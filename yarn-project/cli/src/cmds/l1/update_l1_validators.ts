@@ -73,13 +73,23 @@ export async function fastForwardEpochs({
   });
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  const genesisTs = await rollup.read.GENESIS_TIME();
-  const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-  const slotDuration = await rollup.read.SLOT_DURATION();
-  const epochDuration = slotsInEpoch * slotDuration;
-  const warpTime = genesisTs + numEpochs * epochDuration * 1000n;
-  await cheatCodes.warp(Number(warpTime));
-  dualLog(`Fast forwarded ${numEpochs} epochs to ${warpTime}`);
+  const genesisSeconds = await rollup.read.GENESIS_TIME();
+  const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
+  const l2SlotDurationSeconds = await rollup.read.SLOT_DURATION();
+  dualLog(`Genesis time: ${genesisSeconds}`);
+  const warpTimeSeconds = genesisSeconds + l2SlotsInEpoch * l2SlotDurationSeconds * numEpochs;
+  dualLog(`Fast forwarding ${numEpochs} epochs to ${warpTimeSeconds}`);
+  try {
+    await cheatCodes.warp(Number(warpTimeSeconds));
+    dualLog(`Fast forwarded ${numEpochs} epochs to ${warpTimeSeconds}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("is lower than or equal to previous block's timestamp")) {
+      dualLog(`Someone else fast forwarded the chain to a point after/equal to the target time`);
+    } else {
+      // Re-throw other errors
+      throw error;
+    }
+  }
 }
 
 function makeDualLog(log: LogFn, debugLogger: DebugLogger) {
