@@ -7,12 +7,13 @@ use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
 
 use super::{
-    BlockExpression, Expression, ExpressionKind, IndexExpression, MemberAccessExpression,
-    MethodCallExpression, UnresolvedType,
+    BlockExpression, Expression, ExpressionKind, GenericTypeArgs, IndexExpression,
+    MemberAccessExpression, MethodCallExpression, UnresolvedType,
 };
 use crate::elaborator::types::SELF_TYPE_NAME;
 use crate::lexer::token::SpannedToken;
 use crate::macros_api::{SecondaryAttribute, UnresolvedTypeData};
+use crate::node_interner::{InternedExpressionKind, InternedStatementKind};
 use crate::parser::{ParserError, ParserErrorReason};
 use crate::token::Token;
 
@@ -45,6 +46,9 @@ pub enum StatementKind {
     Comptime(Box<Statement>),
     // This is an expression with a trailing semi-colon
     Semi(Expression),
+    // This is an interned StatementKind during comptime code.
+    // The actual StatementKind can be retrieved with a NodeInterner.
+    Interned(InternedStatementKind),
     // This statement is the result of a recovered parse error.
     // To avoid issuing multiple errors in later steps, it should
     // be skipped in any future analysis if possible.
@@ -96,6 +100,9 @@ impl StatementKind {
             }
             // A semicolon on a for loop is optional and does nothing
             StatementKind::For(_) => self,
+
+            // No semicolon needed for a resolved statement
+            StatementKind::Interned(_) => self,
 
             StatementKind::Expression(expr) => {
                 match (&expr.kind, semi, last_statement_in_block) {
@@ -371,6 +378,7 @@ impl UseTree {
 pub struct AsTraitPath {
     pub typ: UnresolvedType,
     pub trait_path: Path,
+    pub trait_generics: GenericTypeArgs,
     pub impl_item: Ident,
 }
 
@@ -533,6 +541,7 @@ pub enum LValue {
     MemberAccess { object: Box<LValue>, field_name: Ident, span: Span },
     Index { array: Box<LValue>, index: Expression, span: Span },
     Dereference(Box<LValue>, Span),
+    Interned(InternedExpressionKind, Span),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -590,7 +599,7 @@ impl Recoverable for Pattern {
 }
 
 impl LValue {
-    fn as_expression(&self) -> Expression {
+    pub fn as_expression(&self) -> Expression {
         let kind = match self {
             LValue::Ident(ident) => ExpressionKind::Variable(Path::from_ident(ident.clone())),
             LValue::MemberAccess { object, field_name, span: _ } => {
@@ -611,9 +620,44 @@ impl LValue {
                     rhs: lvalue.as_expression(),
                 }))
             }
+            LValue::Interned(id, _) => ExpressionKind::Interned(*id),
         };
         let span = self.span();
         Expression::new(kind, span)
+    }
+
+    pub fn from_expression(expr: Expression) -> LValue {
+        LValue::from_expression_kind(expr.kind, expr.span)
+    }
+
+    pub fn from_expression_kind(expr: ExpressionKind, span: Span) -> LValue {
+        match expr {
+            ExpressionKind::Variable(path) => LValue::Ident(path.as_ident().unwrap().clone()),
+            ExpressionKind::MemberAccess(member_access) => LValue::MemberAccess {
+                object: Box::new(LValue::from_expression(member_access.lhs)),
+                field_name: member_access.rhs,
+                span,
+            },
+            ExpressionKind::Index(index) => LValue::Index {
+                array: Box::new(LValue::from_expression(index.collection)),
+                index: index.index,
+                span,
+            },
+            ExpressionKind::Prefix(prefix) => {
+                if matches!(
+                    prefix.operator,
+                    crate::ast::UnaryOp::Dereference { implicitly_added: false }
+                ) {
+                    LValue::Dereference(Box::new(LValue::from_expression(prefix.rhs)), span)
+                } else {
+                    panic!("Called LValue::from_expression with an invalid prefix operator")
+                }
+            }
+            ExpressionKind::Interned(id) => LValue::Interned(id, span),
+            _ => {
+                panic!("Called LValue::from_expression with an invalid expression")
+            }
+        }
     }
 
     pub fn span(&self) -> Span {
@@ -622,6 +666,7 @@ impl LValue {
             LValue::MemberAccess { span, .. }
             | LValue::Index { span, .. }
             | LValue::Dereference(_, span) => *span,
+            LValue::Interned(_, span) => *span,
         }
     }
 }
@@ -776,6 +821,7 @@ impl Display for StatementKind {
             StatementKind::Continue => write!(f, "continue"),
             StatementKind::Comptime(statement) => write!(f, "comptime {}", statement.kind),
             StatementKind::Semi(semi) => write!(f, "{semi};"),
+            StatementKind::Interned(_) => write!(f, "(resolved);"),
             StatementKind::Error => write!(f, "Error"),
         }
     }
@@ -808,6 +854,7 @@ impl Display for LValue {
             }
             LValue::Index { array, index, span: _ } => write!(f, "{array}[{index}]"),
             LValue::Dereference(lvalue, _span) => write!(f, "*{lvalue}"),
+            LValue::Interned(_, _) => write!(f, "?Interned"),
         }
     }
 }

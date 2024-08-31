@@ -1,5 +1,5 @@
 [package]
-name = "verify_honk_proof"
+name = "inject_context_attribute"
 type = "bin"
 authors = [""]
 
