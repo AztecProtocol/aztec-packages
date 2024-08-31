@@ -47,6 +47,50 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('generate-l1-account')
+    .description('Generates a new private key for an account on L1.')
+    .option('--json', 'Output the private key in JSON format')
+    .action(async () => {
+      const { generateL1Account } = await import('./update_l1_validators.js');
+      const account = generateL1Account();
+      log(JSON.stringify(account, null, 2));
+    });
+
+  program
+    .command('add-l1-validator')
+    .description('Adds a validator to the L1 rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--validator <addresse>', 'ethereum address of the validator', parseEthereumAddress)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .action(async options => {
+      const { addL1Validator } = await import('./update_l1_validators.js');
+      await addL1Validator(
+        options.rpcUrl,
+        options.l1ChainId,
+        options.privateKey,
+        options.mnemonic,
+        options.validator,
+        options.rollup,
+
+        log,
+        debugLogger,
+      );
+    });
+
+  // TODO fastforward epoch
+
+  program
     .command('deploy-l1-verifier')
     .description('Deploys the rollup verifier contract')
     .requiredOption(
