@@ -160,7 +160,7 @@ contract AvmTest {
     }
 
     /************************************************************************
-     * Misc 
+     * Misc
      ************************************************************************/
 
     #[aztec(public)]
@@ -289,7 +289,7 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn get_transaction_fee() -> Field {
+    fn get_transaction_fee() -> u64 {
         context.transaction_fee()
     }
 

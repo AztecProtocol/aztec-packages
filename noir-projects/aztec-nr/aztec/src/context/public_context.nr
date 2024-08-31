@@ -133,7 +133,7 @@ impl PublicContext {
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash
     }
-    fn transaction_fee(_self: Self) -> Field {
+    fn transaction_fee(_self: Self) -> u64 {
         transaction_fee()
     }
 
@@ -213,7 +213,7 @@ unconstrained fn portal() -> EthAddress {
 unconstrained fn function_selector() -> u32 {
     function_selector_opcode()
 }
-unconstrained fn transaction_fee() -> Field {
+unconstrained fn transaction_fee() -> u64 {
     transaction_fee_opcode()
 }
 unconstrained fn chain_id() -> Field {
@@ -309,7 +309,7 @@ unconstrained fn portal_opcode() -> EthAddress {}
 unconstrained fn function_selector_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTransactionFee)]
-unconstrained fn transaction_fee_opcode() -> Field {}
+unconstrained fn transaction_fee_opcode() -> u64 {}
 
 #[oracle(avmOpcodeChainId)]
 unconstrained fn chain_id_opcode() -> Field {}

@@ -56,16 +56,16 @@ contract FPC {
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn pay_refund(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
+    fn pay_refund(refund_address: AztecAddress, amount: u64, asset: AztecAddress) {
         // Just do public refunds for the present
         let refund = compute_rebate(context, amount);
-        Token::at(asset).transfer_public(context.this_address(), refund_address, refund, 0).call(&mut context);
+        Token::at(asset).transfer_public(context.this_address(), refund_address, refund as Field, 0).call(&mut context);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn pay_refund_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
+    fn pay_refund_with_shielded_rebate(amount: u64, asset: AztecAddress, secret_hash: Field) {
         let refund = compute_rebate(context, amount);
-        Token::at(asset).shield(context.this_address(), refund, secret_hash, 0).call(&mut context);
+        Token::at(asset).shield(context.this_address(), refund as Field, secret_hash, 0).call(&mut context);
     }
 }
