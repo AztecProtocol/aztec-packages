@@ -119,6 +119,35 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('debug-rollup')
+    .description('Debugs the rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .action(async options => {
+      const { debugRollup } = await import('./update_l1_validators.js');
+      await debugRollup({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        rollupAddress: options.rollup,
+        log,
+        debugLogger,
+      });
+    });
+
+  program
     .command('deploy-l1-verifier')
     .description('Deploys the rollup verifier contract')
     .requiredOption(

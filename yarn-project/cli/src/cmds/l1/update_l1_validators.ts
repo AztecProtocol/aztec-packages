@@ -92,6 +92,37 @@ export async function fastForwardEpochs({
   }
 }
 
+export async function debugRollup({
+  rpcUrl,
+  chainId,
+  privateKey,
+  mnemonic,
+  rollupAddress,
+  log,
+  debugLogger,
+}: RollupCommandArgs & LoggerArgs) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const { publicClient } = getL1Clients(rpcUrl, chainId, privateKey, mnemonic);
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: publicClient,
+  });
+
+  const epoch = await rollup.read.getCurrentEpoch();
+  dualLog(`Current epoch: ${epoch}`);
+  const slot = await rollup.read.getCurrentSlot();
+  dualLog(`Current slot: ${slot}`);
+  const validators = await rollup.read.getValidators();
+  dualLog(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
+  const committee = await rollup.read.getCurrentEpochCommittee();
+  dualLog(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+  const proposer = await rollup.read.getCurrentProposer();
+  dualLog(`Proposer: ${proposer.toString()}`);
+  const archive = await rollup.read.archive();
+  dualLog(`Archive: ${archive}`);
+}
+
 function makeDualLog(log: LogFn, debugLogger: DebugLogger) {
   return (msg: string) => {
     log(msg);
