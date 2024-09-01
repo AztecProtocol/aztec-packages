@@ -22,14 +22,15 @@ contract Test {
     use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
+    use dep::aztec::keys::getters::get_current_public_keys;
 
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
 
     use dep::aztec::{
         context::inputs::private_context_inputs::PrivateContextInputs,
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
+        hash::{pedersen_hash, compute_secret_hash, ArgsHasher}, keys::public_keys::IvpkM,
         note::{
-        lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
+        lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
@@ -63,10 +64,9 @@ contract Test {
 
     #[aztec(private)]
     fn get_master_incoming_viewing_public_key(address: AztecAddress) -> [Field; 2] {
-        let header = context.get_header();
-        let pub_key = header.get_ivpk_m(&mut context, address);
+        let ivpk_m = get_current_public_keys(&mut context, address).ivpk_m;
 
-        [pub_key.x, pub_key.y]
+        [ivpk_m.inner.x, ivpk_m.inner.y]
     }
 
     // Get the address of this contract (taken from the input context)
@@ -99,8 +99,7 @@ contract Test {
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
@@ -117,7 +116,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         notes.get(0).value
     }
@@ -133,7 +132,7 @@ contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         [notes.get(0).value, notes.get(1).value]
     }
@@ -175,11 +174,12 @@ contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = get_notes(&mut context, storage_slot, options);
+        let (notes, note_hashes): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) = get_notes(&mut context, storage_slot, options);
 
         let note = notes.get(0);
+        let note_hash = note_hashes.get(0);
 
-        destroy_note(&mut context, note);
+        destroy_note_unsafe(&mut context, note, note_hash);
     }
 
     #[aztec(private)]
@@ -265,9 +265,8 @@ contract Test {
         outgoing_viewer: AztecAddress,
         nest: bool
     ) {
-        let header = context.get_header();
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+        let owner_ivpk_m = get_current_public_keys(&mut context, owner).ivpk_m;
+        let outgoing_viewer_ovpk_m = get_current_public_keys(&mut context, outgoing_viewer).ovpk_m;
 
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
@@ -308,8 +307,7 @@ contract Test {
         Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
         storage_slot += 1;
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
@@ -407,27 +405,27 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn compute_note_header_ciphertext(secret: Scalar, point: Point) -> [u8; 48] {
-        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, point)
+    fn compute_note_header_ciphertext(secret: Scalar, ivpk: IvpkM) -> [u8; 48] {
+        EncryptedLogHeader::new(context.this_address()).compute_ciphertext(secret, ivpk)
     }
 
     // 64 bytes + 32 * #fields + 16 = 112 bytes
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
         secret: Scalar,
-        point: Point,
+        ivpk: IvpkM,
         storage_slot: Field,
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, point).as_array()
+        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, ivpk).as_array()
     }
 
     #[aztec(private)]
     fn compute_outgoing_log_body_ciphertext(
         eph_sk: Scalar,
         recipient: AztecAddress,
-        recipient_ivpk: Point,
+        recipient_ivpk: IvpkM,
         ovsk_app: Scalar
     ) -> [u8; 144] {
         let eph_pk = derive_public_key(eph_sk);
@@ -474,9 +472,8 @@ contract Test {
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
-        let notes = notes_set.get_notes(options);
-        let note = notes.get(0);
-        notes_set.remove(note);
+        let notes = notes_set.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
     }
 
     unconstrained fn get_constant() -> pub Field {
@@ -502,28 +499,9 @@ contract Test {
         ret.to_field()
     }
 
-    // This function is used for testing the registry contract and fresh public key getters. If nothing exists in the registry, but we have added public
-    // keys to the pxe, this function will return nothing, but the public key getters will return the correct value
-    #[aztec(private)]
-    fn test_shared_mutable_private_getter_for_registry_contract(
-        storage_slot_of_shared_mutable: Field,
-        address_to_get_in_registry: AztecAddress
-    ) -> Field {
-        // We have to derive this slot to get the location of the shared mutable inside the Map
-        let derived_slot = derive_storage_slot_in_map(storage_slot_of_shared_mutable, address_to_get_in_registry);
-
-        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(
-            &mut context,
-            AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS),
-            derived_slot
-        );
-        registry_private_getter.get_value_in_private(context.get_header())
-    }
-
     #[aztec(private)]
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
-        assert_eq(context.get_header().get_npk_m(&mut context, address), public_nullifying_key);
+        assert_eq(get_current_public_keys(&mut context, address).npk_m.inner, public_nullifying_key);
     }
 
     // Purely exists for testing
@@ -559,7 +537,7 @@ contract Test {
         many_notes: [DummyNote; 3],
     }
 
-    // Serializing using "canonical" form. 
+    // Serializing using "canonical" form.
     // 1. Everything that fits in a field, *becomes* a Field
     // 2. Strings become arrays of bytes (no strings here)
     // 4. Arrays become arrays of Fields following rules 2 and 3 (no arrays here)

@@ -1,6 +1,6 @@
 #include "work_queue.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 
 namespace bb::plonk {
@@ -214,7 +214,7 @@ void work_queue::process_queue()
             // Run pippenger multi-scalar multiplication.
             auto runtime_state = bb::scalar_multiplication::pippenger_runtime_state<curve::BN254>(msm_size);
             bb::g1::affine_element result(bb::scalar_multiplication::pippenger_unsafe<curve::BN254>(
-                item.mul_scalars.get(), srs_points, msm_size, runtime_state));
+                { item.mul_scalars.get(), msm_size }, srs_points, runtime_state));
 
             transcript->add_element(item.tag, result.to_buffer());
 

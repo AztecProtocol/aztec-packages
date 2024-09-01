@@ -1,9 +1,9 @@
-import { type BotConfig, BotRunner, createBotRunnerRpcServer, getBotConfigFromEnv } from '@aztec/bot';
-import { type PXE } from '@aztec/circuit-types';
+import { type BotConfig, BotRunner, botConfigMappings, createBotRunnerRpcServer } from '@aztec/bot';
+import { type AztecNode, type PXE } from '@aztec/circuit-types';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 
-import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
+import { extractRelevantOptions } from '../util.js';
 
 export async function startBot(
   options: any,
@@ -20,8 +20,14 @@ export async function startBot(
     );
     process.exit(1);
   }
+  // Start a PXE client that is used by the bot if required
+  let pxe: PXE | undefined;
+  if (options.pxe) {
+    const { addPXE } = await import('./start_pxe.js');
+    pxe = await addPXE(options, services, signalHandlers, userLog);
+  }
 
-  await addBot(options, services, signalHandlers);
+  await addBot(options, services, signalHandlers, { pxe });
   return services;
 }
 
@@ -29,13 +35,11 @@ export function addBot(
   options: any,
   services: ServerList,
   signalHandlers: (() => Promise<void>)[],
-  deps: { pxe?: PXE } = {},
+  deps: { pxe?: PXE; node?: AztecNode } = {},
 ) {
-  const envVars = getBotConfigFromEnv();
-  const cliOptions = parseModuleOptions(options.bot);
-  const config = mergeEnvVarsAndCliOptions<BotConfig>(envVars, cliOptions);
+  const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
 
-  const botRunner = new BotRunner(config, { pxe: deps.pxe });
+  const botRunner = new BotRunner(config, deps);
   const botServer = createBotRunnerRpcServer(botRunner);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time

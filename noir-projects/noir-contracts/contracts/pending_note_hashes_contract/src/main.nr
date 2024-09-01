@@ -9,6 +9,7 @@ contract PendingNoteHashes {
     use dep::aztec::protocol_types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL};
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
     use dep::aztec::note::note_emission::NoteEmission;
+    use dep::aztec::keys::getters::get_current_public_keys;
 
     #[aztec(storage)]
     struct Storage {
@@ -29,8 +30,7 @@ contract PendingNoteHashes {
     ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
@@ -39,13 +39,11 @@ contract PendingNoteHashes {
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
-        let notes = owner_balance.get_notes(options);
+        let notes = owner_balance.pop_notes(options);
 
         let note0 = notes.get(0);
         assert(note.value == note0.value);
         assert(notes.len() == 1);
-
-        owner_balance.remove(note0);
 
         note0.value
     }
@@ -61,8 +59,7 @@ contract PendingNoteHashes {
 
         assert(notes.len() == 0);
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         // Insert note
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
@@ -80,8 +77,7 @@ contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
@@ -91,7 +87,7 @@ contract PendingNoteHashes {
 
     // Nested/inner function to create and insert a note
     // TESTING: inserts a static randomness value to test notes with
-    // the same slotted note hash are dealt with correctly
+    // the same note hash are dealt with correctly
     #[aztec(private)]
     fn insert_note_static_randomness(
         amount: Field,
@@ -100,8 +96,7 @@ contract PendingNoteHashes {
     ) {
         let mut owner_balance = storage.balances.at(owner);
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
         note.randomness = 2;
@@ -116,8 +111,7 @@ contract PendingNoteHashes {
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let mut owner_balance = storage.balances.at(owner);
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(amount, owner_npk_m_hash);
 
@@ -137,12 +131,9 @@ contract PendingNoteHashes {
 
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let note = owner_balance.get_notes(options).get(0);
+        let note = owner_balance.pop_notes(options).get(0);
 
         assert(expected_value == note.value);
-
-        owner_balance.remove(note);
-
         expected_value
     }
 
@@ -338,10 +329,11 @@ contract PendingNoteHashes {
     fn test_emit_bad_note_log(owner: AztecAddress, outgoing_viewer: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(&mut context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+        let owner_keys = get_current_public_keys(&mut context, owner);
+        let owner_npk_m_hash = owner_keys.npk_m.hash();
+        let owner_ivpk_m = owner_keys.ivpk_m;
+        let outgoing_viewer_ovpk_m = get_current_public_keys(&mut context, outgoing_viewer).ovpk_m;
+
         let mut good_note = ValueNote::new(10, owner_npk_m_hash);
         // Insert good note with real log
         owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
@@ -364,10 +356,11 @@ contract PendingNoteHashes {
         context: &mut PrivateContext
     ) {
         let owner_balance = storage.balances.at(owner);
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
-        let outgoing_viewer_ovpk_m = header.get_ovpk_m(context, outgoing_viewer);
-        let owner_ivpk_m = header.get_ivpk_m(context, owner);
+
+        let owner_keys = get_current_public_keys(context, owner);
+        let owner_npk_m_hash = owner_keys.npk_m.hash();
+        let owner_ivpk_m = owner_keys.ivpk_m;
+        let outgoing_viewer_ovpk_m = get_current_public_keys(context, outgoing_viewer).ovpk_m;
 
         for i in 0..max_notes_per_call() {
             let mut note = ValueNote::new(i as Field, owner_npk_m_hash);
@@ -378,12 +371,9 @@ contract PendingNoteHashes {
     #[contract_library_method]
     fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
         let owner_balance = storage.balances.at(owner);
-        let notes = owner_balance.get_notes(NoteGetterOptions::new());
-
-        for i in 0..max_notes_per_call() {
-            let note = notes.get(i);
-            owner_balance.remove(note);
-        }
+        // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
+        // numer of notes are deleted.
+        let _ = owner_balance.pop_notes(NoteGetterOptions::new());
     }
 
     #[contract_library_method]

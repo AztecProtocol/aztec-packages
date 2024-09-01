@@ -6,7 +6,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -24,9 +23,9 @@
 #include <type_traits>
 #include <vector>
 
-#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -57,7 +56,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -73,15 +73,14 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using Relations = UltraFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
+    // static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
+    // static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
@@ -93,9 +92,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-  public:
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -138,6 +136,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
             this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
             this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
+            this->q_poseidon2_external = Commitment::from_witness(builder, native_key->q_poseidon2_external);
+            this->q_poseidon2_internal = Commitment::from_witness(builder, native_key->q_poseidon2_internal);
             this->sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
             this->sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
             this->sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
@@ -216,50 +216,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     using WitnessCommitments = UltraFlavor::WitnessEntities<Commitment>;
 
-    class VerifierCommitments : public UltraFlavor::AllEntities<Commitment> {
-      public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
-        {
-            this->q_m = verification_key->q_m;
-            this->q_l = verification_key->q_l;
-            this->q_r = verification_key->q_r;
-            this->q_o = verification_key->q_o;
-            this->q_4 = verification_key->q_4;
-            this->q_c = verification_key->q_c;
-            this->q_arith = verification_key->q_arith;
-            this->q_delta_range = verification_key->q_delta_range;
-            this->q_elliptic = verification_key->q_elliptic;
-            this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
-            this->sigma_1 = verification_key->sigma_1;
-            this->sigma_2 = verification_key->sigma_2;
-            this->sigma_3 = verification_key->sigma_3;
-            this->sigma_4 = verification_key->sigma_4;
-            this->id_1 = verification_key->id_1;
-            this->id_2 = verification_key->id_2;
-            this->id_3 = verification_key->id_3;
-            this->id_4 = verification_key->id_4;
-            this->table_1 = verification_key->table_1;
-            this->table_2 = verification_key->table_2;
-            this->table_3 = verification_key->table_3;
-            this->table_4 = verification_key->table_4;
-            this->lagrange_first = verification_key->lagrange_first;
-            this->lagrange_last = verification_key->lagrange_last;
-
-            if (witness_commitments.has_value()) {
-                auto commitments = witness_commitments.value();
-                this->w_l = commitments.w_l;
-                this->w_r = commitments.w_r;
-                this->w_o = commitments.w_o;
-                this->lookup_inverses = commitments.lookup_inverses;
-                this->lookup_read_counts = commitments.lookup_read_counts;
-                this->lookup_read_tags = commitments.lookup_read_tags;
-                this->w_4 = commitments.w_4;
-                this->z_perm = commitments.z_perm;
-            }
-        }
-    };
+    // Reuse the VerifierCommitments from Ultra
+    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };

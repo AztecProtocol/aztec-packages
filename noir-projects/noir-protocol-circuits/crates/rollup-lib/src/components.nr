@@ -1,14 +1,20 @@
-use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
-use crate::abis::previous_rollup_data::PreviousRollupData;
+use crate::abis::{
+    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
+    block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient}
+};
+use crate::abis::{previous_rollup_data::PreviousRollupData, previous_rollup_block_data::PreviousRollupBlockData};
 use dep::types::{
-    hash::{accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash},
+    hash::{
+    accumulate_sha256, silo_unencrypted_log_hash, compute_tx_logs_hash, silo_encrypted_log_hash,
+    compute_tx_note_logs_hash
+},
     merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{uint256::U256, arrays::array_length},
+    utils::{uint256::U256, arrays::{array_length, array_merge}},
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
     public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
@@ -19,10 +25,7 @@ use dep::types::{
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
  *
  */
-pub fn assert_txs_filled_from_left(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) {
+pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
         let left_txs = left.num_txs;
@@ -45,10 +48,7 @@ pub fn assert_txs_filled_from_left(
  * Asserts that the constants used in the left and right child are identical
  *
  */
-pub fn assert_equal_constants(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) {
+pub fn assert_equal_constants(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
     assert(left.constants.eq(right.constants), "input proofs have different constants");
 }
 
@@ -69,11 +69,48 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
 }
 
-pub fn accumulate_fees(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs
-) -> Field {
+// TODO(Miranda): split out?
+pub fn assert_prev_block_rollups_follow_on_from_each_other(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) {
+    assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
+    assert(
+        left.new_archive.eq(right.previous_archive), "input blocks have different archive tree snapshots"
+    );
+    assert(
+        left.end_block_hash.eq(right.previous_block_hash), "input block hashes do not follow on from each other"
+    );
+    assert(
+        left.end_global_variables.chain_id == right.start_global_variables.chain_id, "input blocks have different chain id"
+    );
+    assert(
+        left.end_global_variables.version == right.start_global_variables.version, "input blocks have different chain version"
+    );
+    assert(
+        left.end_global_variables.block_number + 1 == right.start_global_variables.block_number, "input block numbers do not follow on from each other"
+    );
+    assert(
+        left.end_global_variables.timestamp < right.start_global_variables.timestamp, "input block timestamps do not follow on from each other"
+    );
+}
+
+pub fn accumulate_fees(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) -> Field {
     left.accumulated_fees + right.accumulated_fees
+}
+
+pub fn accumulate_blocks_fees(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs
+) -> [FeeRecipient; 32] {
+    let left_len = array_length(left.fees);
+    let right_len = array_length(right.fees);
+    assert(left_len + right_len <= 32, "too many fee payment structs accumulated in rollup");
+    // TODO(Miranda): combine fees with same recipient depending on rollup structure
+    // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
+    // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
+    // Either way, construct arr in unconstrained and make use of hints to point to merged fee array.
+    array_merge(left.fees, right.fees)
 }
 
 /**
@@ -90,10 +127,19 @@ pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field 
     ]
     )
 }
+// TODO(Miranda): combine fns?
+pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
+    accumulate_sha256(
+        [
+        previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash,
+        previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash
+    ]
+    )
+}
 
-pub fn compute_kernel_out_hash(combined: CombinedAccumulatedData) -> Field {
-    let non_empty_items = array_length(combined.l2_to_l1_msgs);
-    let merkle_tree = VariableMerkleTree::new_sha(combined.l2_to_l1_msgs, non_empty_items);
+pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
+    let non_empty_items = array_length(l2_to_l1_msgs);
+    let merkle_tree = VariableMerkleTree::new_sha(l2_to_l1_msgs, non_empty_items);
     merkle_tree.get_root()
 }
 
@@ -112,8 +158,8 @@ pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -
     )
 }
 
-fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
-    let scoped_logs = unencrypted_logs_hashes.map(
+fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+    let siloed_logs = unencrypted_logs_hashes.map(
         |log: ScopedLogHash| {
         LogHash {
             value: silo_unencrypted_log_hash(log),
@@ -122,7 +168,20 @@ fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_
         }
     }
     );
-    compute_tx_logs_hash(scoped_logs)
+    compute_tx_logs_hash(siloed_logs)
+}
+
+fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+    let siloed_encrypted_logs = encrypted_logs_hashes.map(
+        |log: ScopedLogHash| {
+        LogHash {
+            value: silo_encrypted_log_hash(log),
+            counter: log.log_hash.counter,
+            length: log.log_hash.length
+        }
+    }
+    );
+    compute_tx_logs_hash(siloed_encrypted_logs)
 }
 
 // Tx effects hash consists of
@@ -130,7 +189,7 @@ fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_
 // 1 field for transaction fee
 // MAX_NOTE_HASHES_PER_TX fields for note hashes
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
-// MAX_L2_TO_L1_MSGS_PER_TX fields for L2 to L1 messages
+// 1 field for L2 to L1 messages (represented by the out_hash)
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
 //                                          __
 // 1 note encrypted logs length --> 1 field   |
@@ -140,20 +199,20 @@ fn scope_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_
 // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + MAX_L2_TO_L1_MSGS_PER_TX + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
+global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + 1 + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 pub fn compute_tx_effects_hash(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+    all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    out_hash: Field
 ) -> Field {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
     let note_hashes = combined.note_hashes;
     let nullifiers = combined.nullifiers;
-    let l2_to_l1_msgs = combined.l2_to_l1_msgs;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
@@ -161,9 +220,9 @@ pub fn compute_tx_effects_hash(
     let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
-    let note_encrypted_logs_hash = combined.note_encrypted_logs_hash;
-    let encrypted_logs_hash = combined.encrypted_logs_hash;
-    let unencrypted_logs_hash = scope_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
+    let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
+    let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
+    let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
 
     let mut offset = 0;
 
@@ -189,10 +248,8 @@ pub fn compute_tx_effects_hash(
     offset += MAX_NULLIFIERS_PER_TX ;
 
     // L2 TO L1 MESSAGES
-    for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-        tx_effects_hash_input[offset + j] = l2_to_l1_msgs[j];
-    }
-    offset += MAX_L2_TO_L1_MSGS_PER_TX;
+    tx_effects_hash_input[offset] = out_hash;
+    offset += 1;
 
     // PUBLIC DATA UPDATE REQUESTS
     for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
@@ -258,7 +315,7 @@ fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
         + MAX_NOTE_HASHES_PER_TX
         + MAX_NULLIFIERS_PER_TX
         + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-        + MAX_L2_TO_L1_MSGS_PER_TX
+        + 1 // out hash
         + 3 // logs lengths
         + 3; // logs hashes
     assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");

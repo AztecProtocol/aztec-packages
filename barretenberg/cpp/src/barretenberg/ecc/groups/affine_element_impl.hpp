@@ -69,6 +69,12 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator+(
 }
 
 template <class Fq, class Fr, class T>
+constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator*(const Fr& exponent) const noexcept
+{
+    return bb::group_elements::element(*this) * exponent;
+}
+
+template <class Fq, class Fr, class T>
 template <typename BaseField, typename CompileTimeEnabled>
 
 constexpr uint256_t affine_element<Fq, Fr, T>::compress() const noexcept
@@ -103,7 +109,6 @@ template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>:
         x.data[1] = Fq::modulus.data[1];
         x.data[2] = Fq::modulus.data[2];
         x.data[3] = Fq::modulus.data[3];
-
     } else {
         (*this).x = Fq::zero();
         (*this).y = Fq::zero();

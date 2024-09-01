@@ -34,8 +34,7 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     ProvingKey proving_key;
-
-    RelationSeparator alphas;
+    RelationSeparator alphas; // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
 
     bool is_accumulator = false;
@@ -44,11 +43,14 @@ template <class Flavor> class ProverInstance_ {
     std::vector<FF> gate_challenges;
     FF target_sum;
 
-    ProverInstance_(Circuit& circuit, TraceStructure trace_structure = TraceStructure::NONE)
+    ProverInstance_(Circuit& circuit,
+                    TraceStructure trace_structure = TraceStructure::NONE,
+                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
         BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
+        info("finalized gate count: ", circuit.num_gates);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
         const bool is_structured = (trace_structure != TraceStructure::NONE);
@@ -68,11 +70,14 @@ template <class Flavor> class ProverInstance_ {
         if constexpr (IsGoblinFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
         }
-
-        proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());
+        {
+            ZoneScopedN("constructing proving key");
+            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
+        }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key, is_structured);
+        ZoneScopedN("constructing prover instance after trace populate");
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
@@ -101,6 +106,10 @@ template <class Flavor> class ProverInstance_ {
         // Set the recursive proof indices
         proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
         proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
+
+        if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
+            proving_key.databus_propagation_data = circuit.databus_propagation_data;
+        }
     }
 
     ProverInstance_() = default;

@@ -15,7 +15,6 @@ import {
   parseOptionalTxHash,
   parsePartialAddress,
   parsePublicKey,
-  parseTxHash,
   pxeOption,
 } from '../../utils/commands.js';
 
@@ -49,16 +48,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         debugLogger,
         log,
       );
-    });
-
-  program
-    .command('get-tx')
-    .description('Gets the receipt for the specified transaction hash.')
-    .argument('<txHash>', 'A transaction hash to get the receipt for.', parseTxHash)
-    .addOption(pxeOption)
-    .action(async (txHash, options) => {
-      const { getTx } = await import('./get_tx.js');
-      await getTx(options.rpcUrl, txHash, debugLogger, log);
     });
 
   program
@@ -158,64 +147,24 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('call')
-    .description(
-      'Simulates the execution of a view (read-only) function on a deployed contract, without modifying state.',
-    )
-    .argument('<functionName>', 'Name of function to call')
-    .option('-a, --args [functionArgs...]', 'Function arguments', [])
-    .requiredOption(
-      '-c, --contract-artifact <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
-    )
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .option('-f, --from <string>', 'Aztec address of the caller. If empty, will use the first account from RPC.')
-    .addOption(pxeOption)
-    .action(async (functionName, options) => {
-      const { call } = await import('./call.js');
-      await call(
-        functionName,
-        options.args,
-        options.contractArtifact,
-        options.contractAddress,
-        options.from,
-        options.rpcUrl,
-        debugLogger,
-        log,
-      );
-    });
-
-  program
-    .command('add-note')
-    .description('Adds a note to the database in the PXE.')
-    .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
-    .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
-    .argument('<storageSlot>', 'The storage slot of the note.', parseField)
-    .argument('<noteTypeId>', 'The type ID of the note.', parseField)
-    .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
-    .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
-    .addOption(pxeOption)
-    .action(async (address, contractAddress, storageSlot, noteTypeId, txHash, options) => {
-      const { addNote } = await import('./add_note.js');
-      await addNote(
-        address,
-        contractAddress,
-        storageSlot,
-        noteTypeId,
-        txHash,
-        options.note,
-        options.rpcUrl,
-        debugLogger,
-      );
-    });
-
-  program
     .command('block-number')
     .description('Gets the current Aztec L2 block number.')
     .addOption(pxeOption)
     .action(async (options: any) => {
       const { blockNumber } = await import('./block_number.js');
       await blockNumber(options.rpcUrl, debugLogger, log);
+    });
+
+  program
+    .command('get-l1-to-l2-message-witness')
+    .description('Gets a L1 to L2 message witness.')
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('--message-hash <messageHash>', 'The L1 to L2 message hash.', parseField)
+    .requiredOption('--secret <secret>', 'The secret used to claim the L1 to L2 message', parseField)
+    .addOption(pxeOption)
+    .action(async ({ contractAddress, messageHash, secret, rpcUrl }) => {
+      const { getL1ToL2MessageWitness } = await import('./get_l1_to_l2_message_witness.js');
+      await getL1ToL2MessageWitness(rpcUrl, contractAddress, messageHash, secret, debugLogger, log);
     });
 
   program

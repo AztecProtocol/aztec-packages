@@ -18,6 +18,7 @@ import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -38,7 +39,7 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, logger);
+    const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
     const packedValuesCache = new PackedValuesCache();
     const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
     const noteCache = new ExecutionNoteCache(txHash);
@@ -67,16 +68,16 @@ export class TXEService {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
     const trees = (this.typedOracle as TXE).getTrees();
-    const header = Header.empty();
-    const l2Block = L2Block.empty();
-    header.state = await trees.getStateReference(true);
-    const blockNumber = await this.typedOracle.getBlockNumber();
-    header.globalVariables.blockNumber = new Fr(blockNumber);
-    l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
-    l2Block.header = header;
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
+      const header = Header.empty();
+      const l2Block = L2Block.empty();
+      header.state = await trees.getStateReference(true);
       header.globalVariables.blockNumber = new Fr(blockNumber);
+      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
+      l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
+      l2Block.header = header;
+      this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
       await trees.handleL2BlockAndMessages(l2Block, []);
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
@@ -443,14 +444,14 @@ export class TXEService {
     storageSlot: ForeignCallSingle,
     noteTypeId: ForeignCallSingle,
     note: ForeignCallArray,
-    slottedNoteHash: ForeignCallSingle,
+    noteHash: ForeignCallSingle,
     counter: ForeignCallSingle,
   ) {
     this.typedOracle.notifyCreatedNote(
       fromSingle(storageSlot),
       NoteSelector.fromField(fromSingle(noteTypeId)),
       fromArray(note),
-      fromSingle(slottedNoteHash),
+      fromSingle(noteHash),
       fromSingle(counter).toNumber(),
     );
     return toForeignCallResult([toSingle(new Fr(0))]);
@@ -458,12 +459,12 @@ export class TXEService {
 
   async notifyNullifiedNote(
     innerNullifier: ForeignCallSingle,
-    slottedNoteHash: ForeignCallSingle,
+    noteHash: ForeignCallSingle,
     counter: ForeignCallSingle,
   ) {
     await this.typedOracle.notifyNullifiedNote(
       fromSingle(innerNullifier),
-      fromSingle(slottedNoteHash),
+      fromSingle(noteHash),
       fromSingle(counter).toNumber(),
     );
     return toForeignCallResult([toSingle(new Fr(0))]);
@@ -512,8 +513,8 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async avmOpcodeEmitNoteHash(slottedNoteHash: ForeignCallSingle) {
-    await (this.typedOracle as TXE).avmOpcodeEmitNoteHash(fromSingle(slottedNoteHash));
+  async avmOpcodeEmitNoteHash(noteHash: ForeignCallSingle) {
+    await (this.typedOracle as TXE).avmOpcodeEmitNoteHash(fromSingle(noteHash));
     return toForeignCallResult([]);
   }
 
@@ -561,13 +562,13 @@ export class TXEService {
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
   }
 
-  async avmOpcodeStorageRead(slot: ForeignCallSingle, length: ForeignCallSingle) {
-    const values = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot), fromSingle(length));
-    return toForeignCallResult([toArray(values)]);
+  async avmOpcodeStorageRead(slot: ForeignCallSingle) {
+    const value = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot));
+    return toForeignCallResult([toSingle(value)]);
   }
 
-  async avmOpcodeStorageWrite(startStorageSlot: ForeignCallSingle, values: ForeignCallArray) {
-    await this.typedOracle.storageWrite(fromSingle(startStorageSlot), fromArray(values));
+  async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
+    await this.typedOracle.storageWrite(fromSingle(slot), [fromSingle(value)]);
     return toForeignCallResult([]);
   }
 
@@ -732,5 +733,26 @@ export class TXEService {
   async addNoteHashes(contractAddress: ForeignCallSingle, _length: ForeignCallSingle, noteHashes: ForeignCallArray) {
     await (this.typedOracle as TXE).addNoteHashes(fromSingle(contractAddress), fromArray(noteHashes));
     return toForeignCallResult([]);
+  }
+
+  async getHeader(blockNumber: ForeignCallSingle) {
+    const header = await this.typedOracle.getHeader(fromSingle(blockNumber).toNumber());
+    if (!header) {
+      throw new Error(`Block header not found for block ${blockNumber}.`);
+    }
+    return toForeignCallResult([toArray(header.toFields())]);
+  }
+
+  async getMembershipWitness(blockNumber: ForeignCallSingle, treeId: ForeignCallSingle, leafValue: ForeignCallSingle) {
+    const parsedBlockNumber = fromSingle(blockNumber).toNumber();
+    const parsedTreeId = fromSingle(treeId).toNumber();
+    const parsedLeafValue = fromSingle(leafValue);
+    const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeafValue);
+    if (!witness) {
+      throw new Error(
+        `Membership witness in tree ${MerkleTreeId[parsedTreeId]} not found for value ${parsedLeafValue} at block ${parsedBlockNumber}.`,
+      );
+    }
+    return toForeignCallResult([toArray(witness)]);
   }
 }

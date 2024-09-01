@@ -6,7 +6,6 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <gtest/gtest.h>
 #include <utility>
@@ -301,9 +300,9 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
         std::string label = "Gemini:a_" + std::to_string(l);
         const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
         prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
+        opening_claims.push_back({ gemini_witnesses[l], gemini_opening_pairs[l] });
     }
-    opening_claims.emplace_back(gemini_witnesses[log_n], gemini_opening_pairs[log_n]);
+    opening_claims.push_back({ gemini_witnesses[log_n], gemini_opening_pairs[log_n] });
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);

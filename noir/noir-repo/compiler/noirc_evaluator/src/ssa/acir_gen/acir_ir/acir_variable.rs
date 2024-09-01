@@ -7,8 +7,8 @@ use crate::ssa::acir_gen::{AcirDynamicArray, AcirValue};
 use crate::ssa::ir::dfg::CallStack;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
-use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
-use acvm::acir::circuit::opcodes::{BlockId, BlockType, MemOp};
+use acvm::acir::circuit::brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs};
+use acvm::acir::circuit::opcodes::{AcirFunctionId, BlockId, BlockType, MemOp};
 use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, ExpressionWidth, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
@@ -492,7 +492,7 @@ impl<F: AcirField> AcirContext<F> {
             self.sub_var(sum, mul)
         } else {
             // Implement OR in terms of AND
-            // (NOT a) NAND (NOT b) => a OR b
+            // (NOT a) AND (NOT b) => NOT (a OR b)
             let a = self.not_var(lhs, typ.clone())?;
             let b = self.not_var(rhs, typ.clone())?;
             let a_and_b = self.and_var(a, b, typ.clone())?;
@@ -1426,10 +1426,46 @@ impl<F: AcirField> AcirContext<F> {
                 output_count = input_size + (16 - input_size % 16);
                 (vec![], vec![F::from(output_count as u128)])
             }
+            BlackBoxFunc::RecursiveAggregation => {
+                let proof_type_var = match inputs.pop() {
+                    Some(domain_var) => domain_var.into_var()?,
+                    None => {
+                        return Err(RuntimeError::InternalError(InternalError::MissingArg {
+                            name: "verify proof".to_string(),
+                            arg: "proof type".to_string(),
+                            call_stack: self.get_call_stack(),
+                        }))
+                    }
+                };
+
+                let proof_type_constant = match self.vars[&proof_type_var].as_constant() {
+                    Some(proof_type_constant) => proof_type_constant,
+                    None => {
+                        return Err(RuntimeError::InternalError(InternalError::NotAConstant {
+                            name: "proof type".to_string(),
+                            call_stack: self.get_call_stack(),
+                        }))
+                    }
+                };
+
+                (vec![*proof_type_constant], Vec::new())
+            }
             _ => (vec![], vec![]),
         };
-        // Allow constant inputs only for MSM for now
-        let allow_constant_inputs = name.eq(&BlackBoxFunc::MultiScalarMul);
+        // Allow constant inputs for most blackbox
+        // EmbeddedCurveAdd needs to be fixed first in bb
+        // Poseidon2Permutation requires witness input
+        let allow_constant_inputs = matches!(
+            name,
+            BlackBoxFunc::MultiScalarMul
+                | BlackBoxFunc::Keccakf1600
+                | BlackBoxFunc::Sha256Compression
+                | BlackBoxFunc::Blake2s
+                | BlackBoxFunc::Blake3
+                | BlackBoxFunc::AND
+                | BlackBoxFunc::XOR
+                | BlackBoxFunc::AES128Encrypt
+        );
         // Convert `AcirVar` to `FunctionInput`
         let inputs = self.prepare_inputs_for_black_box_func_call(inputs, allow_constant_inputs)?;
         // Call Black box with `FunctionInput`
@@ -1612,7 +1648,7 @@ impl<F: AcirField> AcirContext<F> {
         outputs: Vec<AcirType>,
         attempt_execution: bool,
         unsafe_return_values: bool,
-        brillig_function_index: u32,
+        brillig_function_index: BrilligFunctionId,
         brillig_stdlib_func: Option<BrilligStdlibFunc>,
     ) -> Result<Vec<AcirValue>, RuntimeError> {
         let predicate = self.var_to_expression(predicate)?;
@@ -1921,6 +1957,9 @@ impl<F: AcirField> AcirContext<F> {
             }
             Some(optional_value) => {
                 let mut values = Vec::new();
+                if let AcirValue::DynamicArray(_) = optional_value {
+                    unreachable!("Dynamic array should already be initialized");
+                }
                 self.initialize_array_inner(&mut values, optional_value)?;
                 values
             }
@@ -1950,8 +1989,16 @@ impl<F: AcirField> AcirContext<F> {
                     self.initialize_array_inner(witnesses, value)?;
                 }
             }
-            AcirValue::DynamicArray(_) => {
-                unreachable!("Dynamic array should already be initialized");
+            AcirValue::DynamicArray(AcirDynamicArray { block_id, len, .. }) => {
+                let dynamic_array_values = try_vecmap(0..len, |i| {
+                    let index_var = self.add_constant(i);
+
+                    let read = self.read_from_memory(block_id, &index_var)?;
+                    Ok::<AcirValue, InternalError>(AcirValue::Var(read, AcirType::field()))
+                })?;
+                for value in dynamic_array_values {
+                    self.initialize_array_inner(witnesses, value)?;
+                }
             }
         }
         Ok(())
@@ -1959,7 +2006,7 @@ impl<F: AcirField> AcirContext<F> {
 
     pub(crate) fn call_acir_function(
         &mut self,
-        id: u32,
+        id: AcirFunctionId,
         inputs: Vec<AcirValue>,
         output_count: usize,
         predicate: AcirVar,
@@ -2005,7 +2052,7 @@ impl<F: PartialEq> PartialEq for AcirVarData<F> {
 }
 
 // TODO: check/test this hash impl
-impl<F> std::hash::Hash for AcirVarData<F> {
+impl<F> Hash for AcirVarData<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
     }

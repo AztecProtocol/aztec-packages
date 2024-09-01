@@ -83,9 +83,6 @@ impl<'context> Elaborator<'context> {
                 resolver.resolve(self.def_maps, path.clone(), &mut Some(&mut references))?;
 
             for (referenced, segment) in references.iter().zip(path.segments) {
-                let Some(referenced) = referenced else {
-                    continue;
-                };
                 self.interner.add_reference(
                     *referenced,
                     Location::new(segment.ident.span(), self.file),
@@ -171,12 +168,12 @@ impl<'context> Elaborator<'context> {
 
     pub fn push_scope(&mut self) {
         self.scopes.start_scope();
-        self.comptime_scopes.push(Default::default());
+        self.interner.comptime_scopes.push(Default::default());
     }
 
     pub fn pop_scope(&mut self) {
         let scope = self.scopes.end_scope();
-        self.comptime_scopes.pop();
+        self.interner.comptime_scopes.pop();
         self.check_for_unused_variables_in_scope_tree(scope.into());
     }
 

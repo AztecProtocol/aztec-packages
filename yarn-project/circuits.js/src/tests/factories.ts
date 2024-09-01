@@ -24,8 +24,6 @@ import {
   BaseParityInputs,
   BaseRollupInputs,
   CallContext,
-  ClientIvcProof,
-  CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -146,9 +144,16 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
-import { PublicValidationRequests, ScopedNoteHash } from '../structs/index.js';
+import { PublicValidationRequests, ScopedL2ToL1Message, ScopedNoteHash } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
+import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
+import {
+  BlockRootOrBlockMergePublicInputs,
+  FeeRecipient,
+} from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
+import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import { PreviousRollupBlockData } from '../structs/rollup/previous_rollup_block_data.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 
 /**
@@ -335,9 +340,9 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   return new CombinedAccumulatedData(
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
-    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
-    fr(seed + 0x700), // note encrypted logs hash
-    fr(seed + 0x800), // encrypted logs hash
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
+    tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty),
+    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800, ScopedLogHash.empty),
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     fr(seed + 0xa00), // note_encrypted_log_preimages_length
     fr(seed + 0xb00), // encrypted_log_preimages_length
@@ -367,9 +372,9 @@ function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedDat
   return new PublicAccumulatedData(
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, makeScopedNoteHash, seed + 0x120, ScopedNoteHash.empty),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
-    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
+    tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty), // note encrypted logs hashes
-    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
+    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800, ScopedLogHash.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs hashes
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -660,32 +665,7 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(
-    makePublicKernelData(seed),
-    ClientIvcProof.empty(),
-    makePublicCallData(seed + 0x1000),
-  );
-}
-
-export function makeCombineHints(seed = 1): CombineHints {
-  return CombineHints.from({
-    sortedNoteHashes: makeTuple(MAX_NOTE_HASHES_PER_TX, makeScopedNoteHash, seed + 0x100),
-    sortedNoteHashesIndexes: makeTuple(MAX_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
-    sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
-    sortedUnencryptedLogsHashesIndexes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, i => i, seed + 0x400),
-    sortedPublicDataUpdateRequests: makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataUpdateRequest,
-      seed + 0x300,
-    ),
-    sortedPublicDataUpdateRequestsIndexes: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x400),
-    dedupedPublicDataUpdateRequests: makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataUpdateRequest,
-      seed + 0x500,
-    ),
-    dedupedPublicDataUpdateRequestsRuns: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x600),
-  });
+  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 /**
@@ -701,7 +681,6 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
     makePartialStateReference(seed + 0x200),
-    makeCombineHints(seed + 0x300),
   );
 }
 
@@ -789,6 +768,10 @@ export function makeGasFees(seed = 1) {
   return new GasFees(fr(seed), fr(seed + 1));
 }
 
+export function makeFeeRecipient(seed = 1) {
+  return new FeeRecipient(EthAddress.fromField(fr(seed)), fr(seed + 1));
+}
+
 /**
  * Makes constant base rollup data.
  * @param seed - The seed to use for generating the constant base rollup data.
@@ -804,6 +787,10 @@ export function makeConstantBaseRollupData(
     vkTreeRoot: fr(seed + 0x401),
     globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x402),
   });
+}
+
+export function makeScopedL2ToL1Message(seed = 1): ScopedL2ToL1Message {
+  return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -875,6 +862,30 @@ export function makeBaseOrMergeRollupPublicInputs(
 }
 
 /**
+ * Makes arbitrary block merge or block root rollup circuit public inputs.
+ * @param seed - The seed to use for generating the block merge or block root rollup circuit public inputs.
+ * @param blockNumber - The block number to use for generating the block merge or block root rollup circuit public inputs.
+ * @returns A block merge or block root rollup circuit public inputs.
+ */
+export function makeBlockRootOrBlockMergeRollupPublicInputs(
+  seed = 0,
+  globalVariables: GlobalVariables | undefined = undefined,
+): BlockRootOrBlockMergePublicInputs {
+  return new BlockRootOrBlockMergePublicInputs(
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    fr(seed + 0x400),
+    fr(seed + 0x500),
+    globalVariables ?? makeGlobalVariables(seed + 0x501),
+    globalVariables ?? makeGlobalVariables(seed + 0x502),
+    fr(seed + 0x600),
+    makeTuple(32, () => makeFeeRecipient(seed), 0x700),
+    fr(seed + 0x800),
+    fr(seed + 0x900),
+  );
+}
+
+/**
  * Makes arbitrary previous rollup data.
  * @param seed - The seed to use for generating the previous rollup data.
  * @param globalVariables - The global variables to use when generating the previous rollup data.
@@ -893,21 +904,53 @@ export function makePreviousRollupData(
 }
 
 /**
+ * Makes arbitrary previous rollup block data.
+ * @param seed - The seed to use for generating the previous rollup block data.
+ * @param globalVariables - The global variables to use when generating the previous rollup block data.
+ * @returns A previous rollup block data.
+ */
+export function makePreviousRollupBlockData(
+  seed = 0,
+  globalVariables: GlobalVariables | undefined = undefined,
+): PreviousRollupBlockData {
+  return new PreviousRollupBlockData(
+    makeBlockRootOrBlockMergeRollupPublicInputs(seed, globalVariables),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    VerificationKeyAsFields.makeFake(),
+    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
+  );
+}
+
+/**
  * Makes root rollup inputs.
  * @param seed - The seed to use for generating the root rollup inputs.
- * @param blockNumber - The block number to use for generating the root rollup inputs.
+ * @param globalVariables - The global variables to use.
  * @returns A root rollup inputs.
  */
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
   return new RootRollupInputs(
+    [makePreviousRollupBlockData(seed, globalVariables), makePreviousRollupBlockData(seed + 0x1000, globalVariables)],
+    fr(seed + 0x2000),
+  );
+}
+
+/**
+ * Makes block root rollup inputs.
+ * @param seed - The seed to use for generating the root rollup inputs.
+ * @param globalVariables - The global variables to use.
+ * @returns A block root rollup inputs.
+ */
+export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): BlockRootRollupInputs {
+  return new BlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
-    fr(0x2500),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    fr(seed + 0x2400),
+    fr(seed + 0x2500),
   );
 }
 
@@ -951,17 +994,19 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  * @param blockNumber - The block number to use in the global variables of a header.
  * @returns A root rollup public inputs.
  */
-export function makeRootRollupPublicInputs(
-  seed = 0,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-): RootRollupPublicInputs {
-  return RootRollupPublicInputs.from({
-    archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, blockNumber, slotNumber),
-    vkTreeRoot: fr(seed + 0x300),
-    proverId: fr(seed + 0x400),
-  });
+export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
+  return new RootRollupPublicInputs(
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    fr(seed + 0x400),
+    fr(seed + 0x500),
+    fr(seed + 0x600),
+    fr(seed + 0x700),
+    fr(seed + 0x800),
+    makeTuple(32, () => makeFeeRecipient(seed), 0x900),
+    fr(seed + 0x100),
+    fr(seed + 0x200),
+  );
 }
 
 /**
@@ -1035,6 +1080,15 @@ export function makePartialStateReference(seed = 0): PartialStateReference {
  */
 export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
   return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
+}
+
+/**
+ * Makes arbitrary block merge rollup inputs.
+ * @param seed - The seed to use for generating the merge rollup inputs.
+ * @returns A block merge rollup inputs.
+ */
+export function makeBlockMergeRollupInputs(seed = 0): BlockMergeRollupInputs {
+  return new BlockMergeRollupInputs([makePreviousRollupBlockData(seed), makePreviousRollupBlockData(seed + 0x1000)]);
 }
 
 /**
@@ -1130,7 +1184,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   const constants = makeConstantBaseRollupData(0x100);
 
-  const feePayerGasTokenBalanceReadHint = PublicDataHint.empty();
+  const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
   return BaseRollupInputs.from({
     kernelData,
@@ -1142,7 +1196,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     lowPublicDataWritesMembershipWitnesses,
     archiveRootMembershipWitness,
     constants,
-    feePayerGasTokenBalanceReadHint,
+    feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
   });
 }
 

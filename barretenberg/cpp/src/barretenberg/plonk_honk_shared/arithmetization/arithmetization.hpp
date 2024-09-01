@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
@@ -28,7 +29,7 @@ struct StackTraces {
 // A set of fixed block size conigurations to be used with the structured execution trace. The actual block sizes
 // corresponding to these settings are defined in the corresponding arithmetization classes (Ultra/Mega). For efficiency
 // it is best to use the smallest possible block sizes to accommodate a given situation.
-enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
+enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, AZTEC_IVC_BENCH, E2E_FULL_TEST };
 
 /**
  * @brief Basic structure for storing gate data in a builder
@@ -39,8 +40,8 @@ enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
  */
 template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTraceBlock {
   public:
-    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
-    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using SelectorType = SlabVector<FF>;
+    using WireType = SlabVector<uint32_t>;
     using Selectors = std::array<SelectorType, NUM_SELECTORS>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
@@ -75,12 +76,6 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     uint32_t get_fixed_size() const { return fixed_size; }
     void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
-};
-
-class TranslatorArith {
-  public:
-    static constexpr size_t NUM_WIRES = 81;
-    static constexpr size_t NUM_SELECTORS = 0;
 };
 
 } // namespace bb

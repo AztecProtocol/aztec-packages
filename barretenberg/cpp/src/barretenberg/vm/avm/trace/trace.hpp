@@ -5,11 +5,13 @@
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/pedersen.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
@@ -29,8 +31,18 @@ struct AddressWithMode {
     AddressingMode mode;
     uint32_t offset;
 
+    AddressWithMode() = default;
+    AddressWithMode(uint32_t offset)
+        : mode(AddressingMode::DIRECT)
+        , offset(offset)
+    {}
+    AddressWithMode(AddressingMode mode, uint32_t offset)
+        : mode(mode)
+        , offset(offset)
+    {}
+
     // Dont mutate
-    AddressWithMode operator+(uint val) { return { mode, offset + val }; }
+    AddressWithMode operator+(uint val) const noexcept { return { mode, offset + val }; }
 };
 
 // This is the internal context that we keep along the lifecycle of bytecode execution
@@ -102,6 +114,8 @@ class AvmTraceBuilder {
 
     // Machine State - Memory
     void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // TODO: only used for write_slice_to_memory. Remove.
+    void op_set_internal(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
@@ -167,11 +181,9 @@ class AvmTraceBuilder {
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
     void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
 
-    std::vector<Row> finalize(uint32_t min_trace_size = 0, bool range_check_required = ENABLE_PROVING);
+    std::vector<Row> finalize(bool range_check_required = ENABLE_PROVING);
     void reset();
 
-    // (not an opcode) Halt -> stop program execution.
-    void halt();
     struct MemOp {
         bool is_indirect;
         uint32_t indirect_address;
@@ -183,6 +195,14 @@ class AvmTraceBuilder {
 
   private:
     std::vector<Row> main_trace;
+
+    std::vector<FF> calldata;
+    std::vector<FF> returndata;
+    // Side effect counter will increment when any state writing values are encountered.
+    uint32_t side_effect_counter = 0;
+    uint32_t external_call_counter = 0;
+    ExecutionHints execution_hints;
+
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
@@ -195,12 +215,9 @@ class AvmTraceBuilder {
     AvmPedersenTraceBuilder pedersen_trace_builder;
     AvmEccTraceBuilder ecc_trace_builder;
     AvmSliceTraceBuilder slice_trace_builder;
+    AvmRangeCheckBuilder range_check_builder;
 
-    std::vector<FF> calldata{};
-    std::vector<FF> returndata{};
-
-    Row create_kernel_lookup_opcode(
-        uint8_t indirect, uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+    Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
     Row create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
 
@@ -230,16 +247,6 @@ class AvmTraceBuilder {
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
 
-    // Side effect counter will increment when any state writing values are
-    // encountered
-    uint32_t side_effect_counter = 0;
-    uint32_t initial_side_effect_counter; // This one is constant.
-    uint32_t external_call_counter = 0;
-
-    // Execution hints aid witness solving for instructions that require auxiliary information to construct
-    // Mapping of side effect counter -> value
-    ExecutionHints execution_hints;
-
     MemOp constrained_read_from_memory(uint8_t space_id,
                                        uint32_t clk,
                                        AddressWithMode addr,
@@ -256,23 +263,11 @@ class AvmTraceBuilder {
                                       IntermRegister reg,
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
 
-    // TODO(ilyas: #6383): Temporary way to bulk read slices
-    template <typename MEM>
-    uint32_t read_slice_to_memory(uint8_t space_id,
-                                  uint32_t clk,
-                                  AddressWithMode addr,
-                                  AvmMemoryTag r_tag,
-                                  AvmMemoryTag w_tag,
-                                  FF internal_return_ptr,
-                                  size_t slice_len,
-                                  std::vector<MEM>& slice);
-    uint32_t write_slice_to_memory(uint8_t space_id,
-                                   uint32_t clk,
-                                   AddressWithMode addr,
-                                   AvmMemoryTag r_tag,
-                                   AvmMemoryTag w_tag,
-                                   FF internal_return_ptr,
-                                   std::vector<FF> const& slice);
+    // TODO: remove these once everything is constrained.
+    FF unconstrained_read_from_memory(AddressWithMode addr);
+    template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
+    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);
+    template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
 };
 
 } // namespace bb::avm_trace

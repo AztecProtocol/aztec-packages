@@ -6,6 +6,7 @@ import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
 import { Archiver, getArchiverConfigFromEnv } from './archiver/index.js';
+import { ArchiverInstrumentation } from './archiver/instrumentation.js';
 import { MemoryArchiverStore } from './archiver/memory_archiver_store/memory_archiver_store.js';
 
 export * from './archiver/index.js';
@@ -23,7 +24,7 @@ const log = createDebugLogger('aztec:archiver');
 // eslint-disable-next-line require-await
 async function main() {
   const config = getArchiverConfigFromEnv();
-  const { rpcUrl, l1Contracts } = config;
+  const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
   const publicClient = createPublicClient({
     chain: localhost,
@@ -40,7 +41,7 @@ async function main() {
     l1Contracts.registryAddress,
     archiverStore,
     1000,
-    new NoopTelemetryClient(),
+    new ArchiverInstrumentation(new NoopTelemetryClient()),
   );
 
   const shutdown = async () => {

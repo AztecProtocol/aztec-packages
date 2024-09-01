@@ -26,14 +26,16 @@ class AztecIVCTests : public ::testing::Test {
     using DeciderProver = AztecIVC::DeciderProver;
     using DeciderVerifier = AztecIVC::DeciderVerifier;
     using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
+    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
     using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
-     * @details Currently default sized to 2^16 to match kernel. (Note: dummy op gates added to avoid non-zero
-     * polynomials will bump size to next power of 2)
+     * @details Defaulted to add 2^16 gates (which will bump to next power of two with the addition of dummy gates).
+     * The size of the baseline circuit needs to be ~2x the number of gates appended to the kernel circuits via
+     * recursive verifications (currently ~60k) to ensure that the circuits being folded are equal in size. (This is
+     * only necessary if the structured trace is not in use).
      *
      */
     static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
@@ -49,6 +51,48 @@ class AztecIVCTests : public ::testing::Test {
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
+
+    /**
+     * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
+     *
+     */
+    class MockCircuitProducer {
+        using ClientCircuit = AztecIVC::ClientCircuit;
+
+        bool is_kernel = false;
+
+      public:
+        ClientCircuit create_next_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
+        {
+            ClientCircuit circuit{ ivc.goblin.op_queue };
+            circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
+            if (is_kernel) {
+                ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
+            }
+            is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
+
+            return circuit;
+        }
+
+        auto precompute_verification_keys(const size_t num_circuits,
+                                          TraceStructure trace_structure,
+                                          size_t log2_num_gates = 16)
+        {
+            AztecIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
+            ivc.trace_structure = trace_structure;
+
+            std::vector<std::shared_ptr<VerificationKey>> vkeys;
+
+            for (size_t idx = 0; idx < num_circuits; ++idx) {
+                ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
+                ivc.accumulate(circuit);                                          // accumulate the circuit
+                vkeys.emplace_back(ivc.instance_vk);                              // save the VK for the circuit
+            }
+            is_kernel = false;
+
+            return vkeys;
+        }
+    };
 
     /**
      * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
@@ -75,13 +119,33 @@ TEST_F(AztecIVCTests, Basic)
 {
     AztecIVC ivc;
 
+    MockCircuitProducer circuit_producer;
+
     // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = create_mock_circuit(ivc);
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
     ivc.accumulate(circuit_0);
 
     // Create another circuit and accumulate
-    Builder circuit_1 = create_mock_circuit(ivc);
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
     ivc.accumulate(circuit_1);
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
+ * @details When accumulating only four circuits, we execute all the functionality of a full AztecIVC run.
+ *
+ */
+TEST_F(AztecIVCTests, BasicFour)
+{
+    AztecIVC ivc;
+
+    MockCircuitProducer circuit_producer;
+    for (size_t idx = 0; idx < 4; ++idx) {
+        Builder circuit = circuit_producer.create_next_circuit(ivc);
+        ivc.accumulate(circuit);
+    }
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -100,10 +164,12 @@ TEST_F(AztecIVCTests, BadProofFailure)
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-        // Construct a set of arbitrary circuits
+        MockCircuitProducer circuit_producer;
+
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
         }
         EXPECT_TRUE(ivc.prove_and_verify());
@@ -114,10 +180,12 @@ TEST_F(AztecIVCTests, BadProofFailure)
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-        // Construct a set of arbitrary circuits
+        MockCircuitProducer circuit_producer;
+
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
             if (idx == 2) {
@@ -134,10 +202,12 @@ TEST_F(AztecIVCTests, BadProofFailure)
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-        // Construct a set of arbitrary circuits
+        MockCircuitProducer circuit_producer;
+
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
             if (idx == 2) {
@@ -154,10 +224,12 @@ TEST_F(AztecIVCTests, BadProofFailure)
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-        // Construct a set of arbitrary circuits
+        MockCircuitProducer circuit_producer;
+
+        // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
         }
 
@@ -165,7 +237,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         EXPECT_EQ(ivc.verification_queue.size(), 1);
         tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
 
-        EXPECT_FALSE(ivc.prove_and_verify());
+        EXPECT_ANY_THROW(ivc.prove_and_verify());
     }
 
     EXPECT_TRUE(true);
@@ -179,19 +251,15 @@ TEST_F(AztecIVCTests, BasicLarge)
 {
     AztecIVC ivc;
 
-    // Construct a set of arbitrary circuits
+    MockCircuitProducer circuit_producer;
+
+    // Construct and accumulate a set of mocked private function execution circuits
     size_t NUM_CIRCUITS = 6;
     std::vector<Builder> circuits;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
-    }
-
-    // Accumulate each circuit
-    for (auto& circuit : circuits) {
+        auto circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit);
     }
-
-    info(ivc.goblin.op_queue->get_current_size());
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -205,17 +273,17 @@ TEST_F(AztecIVCTests, BasicStructured)
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-    // Construct some circuits of varying size
-    Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
-    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/6);
-    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/7);
-    Builder circuit_3 = create_mock_circuit(ivc, /*log2_num_gates=*/8);
+    MockCircuitProducer circuit_producer;
 
-    // The circuits can be accumulated as normal due to the structured trace
-    ivc.accumulate(circuit_0);
-    ivc.accumulate(circuit_1);
-    ivc.accumulate(circuit_2);
-    ivc.accumulate(circuit_3);
+    size_t NUM_CIRCUITS = 4;
+
+    // Construct and accumulate some circuits of varying size
+    size_t log2_num_gates = 5;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+        ivc.accumulate(circuit);
+        log2_num_gates += 2;
+    }
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -228,19 +296,16 @@ TEST_F(AztecIVCTests, PrecomputedVerificationKeys)
 {
     AztecIVC ivc;
 
-    // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 4;
-    std::vector<Builder> circuits;
+
+    MockCircuitProducer circuit_producer;
+
+    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceStructure::NONE);
+
+    // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc));
-    }
-
-    // Precompute the verification keys that will be needed for the IVC
-    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
-
-    // Accumulate each circuit using the precomputed VKs
-    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
+        auto circuit = circuit_producer.create_next_circuit(ivc);
+        ivc.accumulate(circuit, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -255,19 +320,18 @@ TEST_F(AztecIVCTests, StructuredPrecomputedVKs)
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-    // Construct a set of arbitrary circuits
     size_t NUM_CIRCUITS = 4;
-    std::vector<Builder> circuits;
+    size_t log2_num_gates = 5; // number of gates in baseline mocked circuit
+
+    MockCircuitProducer circuit_producer;
+
+    auto precomputed_vks =
+        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_structure, log2_num_gates);
+
+    // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuits.emplace_back(create_mock_circuit(ivc, /*log2_num_gates=*/5));
-    }
-
-    // Precompute the (structured) verification keys that will be needed for the IVC
-    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
-
-    // Accumulate each circuit
-    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-        ivc.accumulate(circuit, precomputed_vk);
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+        ivc.accumulate(circuit, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

@@ -33,6 +33,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
 
+    // Metadata for propagating databus return data commitments via the public input mechanism
+    DatabusPropagationData databus_propagation_data;
+
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
     void set_goblin_ecc_op_code_constant_variables();
@@ -230,9 +233,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
-
-    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
-    void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

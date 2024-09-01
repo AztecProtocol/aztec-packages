@@ -6,6 +6,138 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### Key Rotation API overhaul
+
+Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `get_[x]pk_m` methods on the `Header` struct, but rather by calling `get_current_public_keys`, which returns a `PublicKeys` struct with all four keys at once:
+
+```diff
++use dep::aztec::keys::getters::get_current_public_keys;
+
+-let header = context.header();
+-let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+-let owner_ovpk_m = header.get_ovpk_m(&mut context, owner);
++let owner_keys = get_current_public_keys(&mut context, owner);
++let owner_ivpk_m = owner_keys.ivpk_m;
++let owner_ovpk_m = owner_keys.ovpk_m;
+```
+
+If using more than one key per account, this will result in very large circuit gate count reductions.
+
+Additionally, `get_historical_public_keys` was added to support reading historical keys using a historical header:
+
+```diff
++use dep::aztec::keys::getters::get_historical_public_keys;
+
+let historical_header = context.header_at(some_block_number);
+-let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+-let owner_ovpk_m = header.get_ovpk_m(&mut context, owner);
++let owner_keys = get_historical_public_keys(historical_header, owner);
++let owner_ivpk_m = owner_keys.ivpk_m;
++let owner_ovpk_m = owner_keys.ovpk_m;
+```
+
+## 0.48.0
+
+### NoteInterface changes
+
+`compute_note_hash_and_nullifier*` functions were renamed as `compute_nullifier*` and the `compute_nullifier` function now takes `note_hash_for_nullify` as an argument (this allowed us to reduce gate counts and the hash was typically computed before). Also `compute_note_hash_for_consumption` function was renamed as `compute_note_hash_for_nullify`.
+
+```diff
+impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
+-    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
+-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+-        let secret = context.request_nsk_app(self.npk_m_hash);
+-        let nullifier = poseidon2_hash_with_separator([
+-            note_hash_for_nullify,
+-            secret,
+-        ],
+-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-        );
+-        (note_hash_for_nullify, nullifier)
+-    }
+-    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
+-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+-        let secret = get_nsk_app(self.npk_m_hash);
+-        let nullifier = poseidon2_hash_with_separator([
+-            note_hash_for_nullify,
+-            secret,
+-        ],
+-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-        );
+-        (note_hash_for_nullify, nullifier)
+-    }
+
++    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
++        let secret = context.request_nsk_app(self.npk_m_hash);
++        poseidon2_hash_with_separator([
++            note_hash_for_nullify,
++            secret
++        ],
++            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++        )
++    }
++    fn compute_nullifier_without_context(self) -> Field {
++        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++        let secret = get_nsk_app(self.npk_m_hash);
++        poseidon2_hash_with_separator([
++            note_hash_for_nullify,
++            secret,
++        ],
++            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++        )
++    }
+}
+```
+
+### Fee Juice rename
+
+The name of the canonical Gas contract has changed to Fee Juice. Update noir code:
+
+```diff
+-GasToken::at(contract_address)
++FeeJuice::at(contract_address)
+```
+
+Additionally, `NativePaymentMethod` and `NativePaymentMethodWithClaim` have been renamed to `FeeJuicePaymentMethod` and `FeeJuicePaymentMethodWithClaim`.
+
+### PrivateSet::pop_notes(...)
+
+The most common flow when working with notes is obtaining them from a `PrivateSet` via `get_notes(...)` and then removing them via `PrivateSet::remove(...)`.
+This is cumbersome and it results in unnecessary constraints due to a redundant note read request checks in the remove function.
+
+For this reason we've implemented `pop_notes(...)` which gets the notes, removes them from the set and returns them.
+This tight coupling of getting notes and removing them allowed us to safely remove the redundant read request check.
+
+Token contract diff:
+
+```diff
+-let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
+-let notes = self.map.at(owner).get_notes(options);
+-let mut subtracted = U128::from_integer(0);
+-for i in 0..options.limit {
+-    if i < notes.len() {
+-        let note = notes.get_unchecked(i);
+-        self.map.at(owner).remove(note);
+-        subtracted = subtracted + note.get_amount();
+-    }
+-}
+-assert(minuend >= subtrahend, "Balance too low");
++let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
++let notes = self.map.at(owner).pop_notes(options);
++let mut subtracted = U128::from_integer(0);
++for i in 0..options.limit {
++    if i < notes.len() {
++        let note = notes.get_unchecked(i);
++        subtracted = subtracted + note.get_amount();
++    }
++}
++assert(minuend >= subtrahend, "Balance too low");
+```
+
+Note that `pop_notes` may not have obtained and removed any notes! The caller must place checks on the returned notes, e.g. in the example above by checking a sum of balances, or by checking the number of returned notes (`assert_eq(notes.len(), expected_num_notes)`).
+
 ## 0.47.0
 
 # [Aztec sandbox] TXE deployment changes
@@ -38,19 +170,23 @@ Sandbox commands have been cleaned up and simplified. Doing `aztec-up` now gets 
 
 **REMOVED/RENAMED**:
 
-* `aztec-sandbox` and `aztec sandbox`: now `aztec start --sandbox`
-* `aztec-builder`: now `aztec codegen` and `aztec update`
+- `aztec-sandbox` and `aztec sandbox`: now `aztec start --sandbox`
+- `aztec-builder`: now `aztec codegen` and `aztec update`
 
 **ADDED**:
 
-* `aztec test [options]`: runs `aztec start --txe && aztec-nargo test --oracle-resolver http://aztec:8081 --silence-warnings [options]` via docker-compose allowing users to easily run contract tests using TXE
+- `aztec test [options]`: runs `aztec start --txe && aztec-nargo test --oracle-resolver http://aztec:8081 --silence-warnings [options]` via docker-compose allowing users to easily run contract tests using TXE
 
 ## 0.45.0
+
 ### [Aztec.nr] Remove unencrypted logs from private
+
 They leak privacy so is a footgun!
 
 ## 0.44.0
+
 ### [Aztec.nr] Autogenerate Serialize methods for events
+
 ```diff
 #[aztec(event)]
 struct WithdrawalProcessed {
@@ -66,10 +202,11 @@ struct WithdrawalProcessed {
 ```
 
 ### [Aztec.nr] rename `encode_and_encrypt_with_keys` to `encode_and_encrypt_note_with_keys`
-```diff
+
+````diff
 contract XYZ {
 -   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_with_keys;
-+   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;    
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
 ....
 
 -    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m));
@@ -129,7 +266,7 @@ These changes were done because having the note hash exposed allowed us to not h
 +        (note_hash_for_nullify, nullifier)
 +    }
 + }
-```
+````
 
 ### [Aztec.nr] `note_getter` returns `BoundedVec`
 
@@ -1103,7 +1240,7 @@ Now:
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 ```
 
-### [Aztec.nr] aztec-nr contracts location change in Nargo.toml
+### [Aztec.nr] Aztec.nr contracts location change in Nargo.toml
 
 Aztec contracts are now moved outside of the `yarn-project` folder and into `noir-projects`, so you need to update your imports.
 

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use acir::circuit::brillig::BrilligFunctionId;
 use acir::circuit::{Circuit, Opcode, OpcodeLocation};
 use clap::Args;
 use color_eyre::eyre::{self, Context};
@@ -20,7 +21,7 @@ pub(crate) struct OpcodesFlamegraphCommand {
     #[clap(long, short)]
     output: String,
 
-    /// Wether to skip brillig functions
+    /// Whether to skip brillig functions
     #[clap(long, short, action)]
     skip_brillig: bool,
 }
@@ -62,6 +63,7 @@ fn run_with_generator<Generator: FlamegraphGenerator>(
                 opcode: AcirOrBrilligOpcode::Acir(opcode.clone()),
                 call_stack: vec![OpcodeLocation::Acir(index)],
                 count: 1,
+                brillig_function_id: None,
             })
             .collect();
 
@@ -101,6 +103,7 @@ fn run_with_generator<Generator: FlamegraphGenerator>(
                         brillig_index,
                     }],
                     count: 1,
+                    brillig_function_id: Some(BrilligFunctionId(brillig_fn_index as u32)),
                 })
                 .collect();
 
@@ -126,7 +129,7 @@ fn locate_brillig_call<F>(
     for (acir_fn_index, acir_fn) in acir_functions.iter().enumerate() {
         for (acir_opcode_index, acir_opcode) in acir_fn.opcodes.iter().enumerate() {
             match acir_opcode {
-                Opcode::BrilligCall { id, .. } if (*id) as usize == brillig_fn_index => {
+                Opcode::BrilligCall { id, .. } if id.as_usize() == brillig_fn_index => {
                     return Some((acir_fn_index, acir_opcode_index))
                 }
                 _ => {}
@@ -139,7 +142,10 @@ fn locate_brillig_call<F>(
 #[cfg(test)]
 mod tests {
     use acir::{
-        circuit::{brillig::BrilligBytecode, Circuit, Opcode, Program},
+        circuit::{
+            brillig::{BrilligBytecode, BrilligFunctionId},
+            Circuit, Opcode, Program,
+        },
         AcirField, FieldElement,
     };
     use color_eyre::eyre::{self};
@@ -185,6 +191,7 @@ mod tests {
             debug_symbols: ProgramDebugInfo { debug_infos: vec![DebugInfo::default()] },
             file_map: BTreeMap::default(),
             names: vec!["main".to_string()],
+            brillig_names: Vec::new(),
         };
 
         // Write the artifact to a file
@@ -207,8 +214,12 @@ mod tests {
 
         let artifact_path = temp_dir.path().join("test.json");
 
-        let acir: Vec<Opcode<FieldElement>> =
-            vec![Opcode::BrilligCall { id: 0, inputs: vec![], outputs: vec![], predicate: None }];
+        let acir: Vec<Opcode<FieldElement>> = vec![Opcode::BrilligCall {
+            id: BrilligFunctionId(0),
+            inputs: vec![],
+            outputs: vec![],
+            predicate: None,
+        }];
 
         let artifact = ProgramArtifact {
             noir_version: "0.0.0".to_string(),
@@ -221,6 +232,7 @@ mod tests {
             debug_symbols: ProgramDebugInfo { debug_infos: vec![DebugInfo::default()] },
             file_map: BTreeMap::default(),
             names: vec!["main".to_string()],
+            brillig_names: vec!["main".to_string()],
         };
 
         // Write the artifact to a file

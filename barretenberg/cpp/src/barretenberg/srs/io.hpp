@@ -87,7 +87,8 @@ template <typename Curve> class IO {
         file.read((char*)&manifest, sizeof(Manifest));
         if (!file) {
             ptrdiff_t read = file.gcount();
-            throw_or_abort(format("Only read ", read, " bytes from file but expected ", sizeof(Manifest), "."));
+            throw_or_abort(format(
+                "Only read ", read, " bytes from manifest file ", filename, " but expected ", sizeof(Manifest), "."));
         }
         file.close();
 
@@ -130,7 +131,8 @@ template <typename Curve> class IO {
         file.read(buffer, (int)size);
         if (!file) {
             ptrdiff_t read = file.gcount();
-            throw_or_abort(format("Only read ", read, " bytes from file but expected ", size, "."));
+            throw_or_abort(
+                format("Only read ", read, " bytes from transcript file ", filename, " but expected ", size, "."));
         }
 
         file.close();
@@ -285,7 +287,11 @@ template <typename Curve> class IO {
         size_t num_read = 0;
         std::string path = get_transcript_path(dir, num);
 
-        while (is_file_exist(path) && num_read < degree) {
+        if (!is_file_exist(path)) {
+            throw_or_abort(format("File path for transcript g1 ", path, " is invalid."));
+        }
+
+        while (num_read < degree) {
             Manifest manifest;
             read_manifest(path, manifest);
 

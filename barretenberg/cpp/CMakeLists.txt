@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.47.1 # x-release-please-version
+    VERSION 0.51.1 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -152,6 +152,7 @@ include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
+include(cmake/lmdb.cmake)
 
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)

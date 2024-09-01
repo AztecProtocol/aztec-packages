@@ -2,13 +2,25 @@ import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } fr
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/circuit-types';
 import { type DeployL1Contracts } from '@aztec/ethereum';
+import { FunctionType } from '@aztec/foundation/abi';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { RollupAbi } from '@aztec/l1-artifacts';
+import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
 import { gtr, ltr, satisfies, valid } from 'semver';
+import {
+  type Account,
+  type Chain,
+  type HttpTransport,
+  type WalletClient,
+  getAddress,
+  getContract,
+  publicActions,
+} from 'viem';
 
 import { encodeArgs } from './encoding.js';
 
@@ -45,6 +57,7 @@ export async function deployAztecContracts(
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
+  salt: number | undefined,
   debugLogger: DebugLogger,
 ): Promise<DeployL1Contracts> {
   const {
@@ -58,8 +71,8 @@ export async function deployAztecContracts(
     RollupBytecode,
     AvailabilityOracleAbi,
     AvailabilityOracleBytecode,
-    GasPortalAbi,
-    GasPortalBytecode,
+    FeeJuicePortalAbi,
+    FeeJuicePortalBytecode,
     PortalERC20Abi,
     PortalERC20Bytecode,
   } = await import('@aztec/l1-artifacts');
@@ -91,21 +104,37 @@ export async function deployAztecContracts(
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
-    gasToken: {
+    feeJuice: {
       contractAbi: PortalERC20Abi,
       contractBytecode: PortalERC20Bytecode,
     },
-    gasPortal: {
-      contractAbi: GasPortalAbi,
-      contractBytecode: GasPortalBytecode,
+    feeJuicePortal: {
+      contractAbi: FeeJuicePortalAbi,
+      contractBytecode: FeeJuicePortalBytecode,
     },
   };
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
 
   return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
-    l2GasTokenAddress: GasTokenAddress,
+    l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
+    salt,
   });
+}
+
+/** Sets the assumed proven block number on the rollup contract on L1 */
+export async function setAssumeProvenUntil(
+  blockNumber: number,
+  rollupAddress: EthAddress,
+  walletClient: WalletClient<HttpTransport, Chain, Account>,
+) {
+  const rollup = getContract({
+    address: getAddress(rollupAddress.toString()),
+    abi: RollupAbi,
+    client: walletClient,
+  });
+  const hash = await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber)]);
+  await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
 }
 
 /**
@@ -160,8 +189,9 @@ export async function prepTx(contractFile: string, functionName: string, _functi
   const contractArtifact = await getContractArtifact(contractFile, log);
   const functionArtifact = getFunctionArtifact(contractArtifact, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionArtifact.parameters);
+  const isPrivate = functionArtifact.functionType === FunctionType.PRIVATE;
 
-  return { functionArgs, contractArtifact };
+  return { functionArgs, contractArtifact, isPrivate };
 }
 
 /**

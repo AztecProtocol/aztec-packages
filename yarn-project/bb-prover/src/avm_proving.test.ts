@@ -1,5 +1,6 @@
 import {
   AvmCircuitInputs,
+  AvmVerificationKeyData,
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -49,7 +50,7 @@ import path from 'path';
 import { PublicSideEffectTrace } from '../../simulator/src/public/side_effect_trace.js';
 import { SerializableContractInstance } from '../../types/src/contracts/contract_instance.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
-import { extractVkData } from './verification_key/verification_key_data.js';
+import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
 const TIMEOUT = 60_000;
 const TIMESTAMP = new Fr(99833);
@@ -124,7 +125,7 @@ describe('AVM WitGen, proof generation and verification', () => {
       async (name, calldata) => {
         await proveAndVerifyAvmTestContract(name, calldata);
       },
-      TIMEOUT,
+      TIMEOUT * 2, // We need more for keccak for now
     );
   });
 
@@ -279,10 +280,10 @@ const proveAndVerifyAvmTestContract = async (
   const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
   expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
-  // Then we test VK extraction.
+  // Then we test VK extraction and serialization.
   const succeededRes = proofRes as BBSuccess;
-  const verificationKey = await extractVkData(succeededRes.vkPath!);
-  expect(verificationKey.keyAsBytes).toHaveLength(16);
+  const vkData = await extractAvmVkData(succeededRes.vkPath!);
+  AvmVerificationKeyData.fromBuffer(vkData.toBuffer());
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');

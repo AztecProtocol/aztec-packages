@@ -1,111 +1,91 @@
-import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  ETHEREUM_SLOT_DURATION,
+  type EthAddress,
+  GasFees,
+  GlobalVariables,
+} from '@aztec/circuits.js';
+import { type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
+
+import {
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  createPublicClient,
+  getAddress,
+  getContract,
+  http,
+} from 'viem';
+import type * as chains from 'viem/chains';
 
 /**
- * Reads values from L1 state that is used for the global values.
+ * Simple global variables builder.
  */
-export interface L1GlobalReader {
-  /**
-   * Fetches the last timestamp that a block was processed by the contract.
-   * @returns The last timestamp that a block was processed by the contract.
-   */
-  getLastTimestamp(): Promise<bigint>;
-  /**
-   * Fetches the version of the rollup contract.
-   * @returns The version of the rollup contract.
-   */
-  getVersion(): Promise<bigint>;
-  /**
-   * Gets the chain id.
-   * @returns The chain id.
-   */
-  getChainId(): Promise<bigint>;
+export class GlobalVariableBuilder {
+  private log = createDebugLogger('aztec:sequencer:global_variable_builder');
 
-  /**
-   * Gets the current L1 time.
-   * @returns The current L1 time.
-   */
-  getL1CurrentTime(): Promise<bigint>;
+  private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
+  private publicClient: PublicClient<HttpTransport, chains.Chain>;
 
-  /**
-   * Gets the last time L2 was warped as tracked by the rollup contract.
-   * @returns The warped time.
-   */
-  getLastWarpedBlockTs(): Promise<bigint>;
+  constructor(config: L1ReaderConfig) {
+    const { l1RpcUrl, l1ChainId: chainId, l1Contracts } = config;
 
-  /**
-   * Gets the current slot.
-   * @returns The current slot.
-   */
-  getCurrentSlot(): Promise<bigint>;
-}
+    const chain = createEthereumChain(l1RpcUrl, chainId);
 
-/**
- * Builds global variables from L1 state.
- */
-export interface GlobalVariableBuilder {
-  /**
-   * Builds global variables.
-   * @param blockNumber - The block number to build global variables for.
-   * @param coinbase - The address to receive block reward.
-   * @param feeRecipient - The address to receive fees.
-   * @returns The global variables for the given block number.
-   */
-  buildGlobalVariables(blockNumber: Fr, coinbase: EthAddress, feeRecipient: AztecAddress): Promise<GlobalVariables>;
-}
+    this.publicClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: http(chain.rpcUrl),
+    });
 
-/**
- * Simple test implementation of a builder that uses the minimum time possible for the global variables.
- * Also uses a "hack" to make use of the warp cheatcode that manipulates time on Aztec.
- */
-export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
-  private log = createDebugLogger('aztec:sequencer:simple_test_global_variable_builder');
-  constructor(private readonly reader: L1GlobalReader) {}
+    this.rollupContract = getContract({
+      address: getAddress(l1Contracts.rollupAddress.toString()),
+      abi: RollupAbi,
+      client: this.publicClient,
+    });
+  }
 
   /**
    * Simple builder of global variables that use the minimum time possible.
    * @param blockNumber - The block number to build global variables for.
    * @param coinbase - The address to receive block reward.
    * @param feeRecipient - The address to receive fees.
+   * @param slotNumber - The slot number to use for the global variables, if undefined it will be calculated.
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
     blockNumber: Fr,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
+    slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    let lastTimestamp = new Fr(await this.reader.getLastTimestamp());
-    const version = new Fr(await this.reader.getVersion());
-    const chainId = new Fr(await this.reader.getChainId());
+    const version = new Fr(await this.rollupContract.read.VERSION());
+    const chainId = new Fr(this.publicClient.chain.id);
 
-    // TODO(rahul) - fix #1614. By using the cheatcode warp to modify L2 time,
-    // txs in the next rollup would have same time as the txs in the current rollup (i.e. the rollup that was warped).
-    // So, for now you check if L2 time was warped and if so, serve warpedTime + 1 to txs in the new rollup.
-    // Check if L2 time was warped in the last rollup by checking if current L1 time is same as the warpedTime (stored on the rollup contract).
-    // more details at https://github.com/AztecProtocol/aztec-packages/issues/1614
-
-    const currTimestamp = await this.reader.getL1CurrentTime();
-    const rollupWarpTime = await this.reader.getLastWarpedBlockTs();
-    const isLastBlockWarped = rollupWarpTime === currTimestamp;
-    if (isLastBlockWarped) {
-      lastTimestamp = new Fr(lastTimestamp.value + 1n);
+    if (slotNumber === undefined) {
+      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+      slotNumber = await this.rollupContract.read.getSlotAt([ts]);
     }
 
-    const slot = new Fr(await this.reader.getCurrentSlot());
+    const timestamp = await this.rollupContract.read.getTimestampForSlot([slotNumber]);
+
+    const slotFr = new Fr(slotNumber);
+    const timestampFr = new Fr(timestamp);
 
     const gasFees = GasFees.default();
     const globalVariables = new GlobalVariables(
       chainId,
       version,
       blockNumber,
-      slot,
-      lastTimestamp,
+      slotFr,
+      timestampFr,
       coinbase,
       feeRecipient,
       gasFees,
     );
     this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toJSON());
-    return new GlobalVariables(chainId, version, blockNumber, slot, lastTimestamp, coinbase, feeRecipient, gasFees);
+    return globalVariables;
   }
 }

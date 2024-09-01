@@ -13,16 +13,25 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
       "path": "../cli"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

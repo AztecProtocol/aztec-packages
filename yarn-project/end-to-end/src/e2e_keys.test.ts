@@ -50,9 +50,9 @@ describe('Key Registry', () => {
   afterAll(() => teardown());
 
   describe('using nsk_app to detect nullification', () => {
-    //    This test checks that it possible to detect that a note has been nullified just by using nsk_app. Note that
-    // this only works for non-transient notes as transient ones never emit a note hash which makes it impossible
-    // to brute force their nullifier.
+    //    This test checks that it is possible to detect that a note has been nullified just by using nsk_app. Note
+    // that this only works for non-transient notes as transient ones never emit a note hash which makes it
+    // impossible to brute force their nullifier.
     //    This might seem to make the scheme useless in practice. This could not be the case because if you have
     // a note of funds, when you create the transient you are nullifying that note. So even if I cannot see when you
     // nullified the transient ones, I can see that you nullified the first.
@@ -79,7 +79,7 @@ describe('Key Registry', () => {
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+      await testContract.withWallet(account).methods.call_destroy_note(noteStorageSlot).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });

@@ -18,8 +18,10 @@
 #include "barretenberg/vm/stats.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <tuple>
@@ -124,13 +126,19 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     }
     auto circuit_builder = bb::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
+    vinfo("Trace size after padding: 2^",
+          // this calculates the integer log2
+          std::bit_width(circuit_builder.get_circuit_subgroup_size()) - 1);
 
     if (circuit_builder.get_circuit_subgroup_size() > SRS_SIZE) {
         throw_or_abort("Circuit subgroup size (" + std::to_string(circuit_builder.get_circuit_subgroup_size()) +
                        ") exceeds SRS_SIZE (" + std::to_string(SRS_SIZE) + ")");
     }
 
-    AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
+    // We only run check_circuit if we are not proving, or if forced to.
+    if (!ENABLE_PROVING || std::getenv("AVM_FORCE_CHECK_CIRCUIT") != nullptr) {
+        AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
+    }
 
     auto composer = AVM_TRACK_TIME_V("prove/create_composer", AvmComposer());
     auto prover = AVM_TRACK_TIME_V("prove/create_prover", composer.create_prover(circuit_builder));
@@ -317,13 +325,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
 bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
 {
-    auto verification_key = std::make_shared<AvmFlavor::VerificationKey>(vk);
-    AvmVerifier verifier(verification_key);
-
-    // todo: not needed for now until we verify the PCS/pairing of the proof
-    // auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size,
-    // crs_factory_);
-    // output_state.pcs_verification_key = std::move(pcs_verification_key);
+    AvmVerifier verifier(std::make_shared<AvmFlavor::VerificationKey>(vk));
 
     // Proof structure: public_inputs | calldata_size | calldata | returndata_size | returndata | raw proof
     std::vector<FF> public_inputs_vec;
@@ -636,14 +638,14 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::SLOAD:
             trace_builder.op_sload(std::get<uint8_t>(inst.operands.at(0)),
                                    std::get<uint32_t>(inst.operands.at(1)),
-                                   std::get<uint32_t>(inst.operands.at(2)),
-                                   std::get<uint32_t>(inst.operands.at(3)));
+                                   1,
+                                   std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::SSTORE:
             trace_builder.op_sstore(std::get<uint8_t>(inst.operands.at(0)),
                                     std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)),
-                                    std::get<uint32_t>(inst.operands.at(3)));
+                                    1,
+                                    std::get<uint32_t>(inst.operands.at(2)));
             break;
         case OpCode::NOTEHASHEXISTS:
             trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
@@ -814,7 +816,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     }
 
     auto trace = trace_builder.finalize();
-    vinfo("Final trace size: ", trace.size());
+    vinfo("Built trace size: ", trace.size());
     vinfo("Number of columns: ", trace.front().SIZE);
     const size_t total_elements = trace.front().SIZE * trace.size();
     const size_t nonzero_elements = [&]() {

@@ -6,11 +6,10 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 
@@ -43,7 +42,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = MegaFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -66,7 +66,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
@@ -88,7 +87,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         using Base::Base;
     };
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -99,6 +98,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        // Data pertaining to transfer of databus return data via public inputs of the proof
+        DatabusPropagationData databus_propagation_data;
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
@@ -122,36 +124,12 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->pub_inputs_offset = native_key->pub_inputs_offset;
             this->contains_recursive_proof = native_key->contains_recursive_proof;
             this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
-            this->q_m = Commitment::from_witness(builder, native_key->q_m);
-            this->q_l = Commitment::from_witness(builder, native_key->q_l);
-            this->q_r = Commitment::from_witness(builder, native_key->q_r);
-            this->q_o = Commitment::from_witness(builder, native_key->q_o);
-            this->q_4 = Commitment::from_witness(builder, native_key->q_4);
-            this->q_c = Commitment::from_witness(builder, native_key->q_c);
-            this->q_arith = Commitment::from_witness(builder, native_key->q_arith);
-            this->q_delta_range = Commitment::from_witness(builder, native_key->q_delta_range);
-            this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
-            this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
-            this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
-            this->q_busread = Commitment::from_witness(builder, native_key->q_busread);
-            this->q_poseidon2_external = Commitment::from_witness(builder, native_key->q_poseidon2_external);
-            this->q_poseidon2_internal = Commitment::from_witness(builder, native_key->q_poseidon2_internal);
-            this->sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
-            this->sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
-            this->sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
-            this->sigma_4 = Commitment::from_witness(builder, native_key->sigma_4);
-            this->id_1 = Commitment::from_witness(builder, native_key->id_1);
-            this->id_2 = Commitment::from_witness(builder, native_key->id_2);
-            this->id_3 = Commitment::from_witness(builder, native_key->id_3);
-            this->id_4 = Commitment::from_witness(builder, native_key->id_4);
-            this->table_1 = Commitment::from_witness(builder, native_key->table_1);
-            this->table_2 = Commitment::from_witness(builder, native_key->table_2);
-            this->table_3 = Commitment::from_witness(builder, native_key->table_3);
-            this->table_4 = Commitment::from_witness(builder, native_key->table_4);
-            this->lagrange_first = Commitment::from_witness(builder, native_key->lagrange_first);
-            this->lagrange_last = Commitment::from_witness(builder, native_key->lagrange_last);
-            this->lagrange_ecc_op = Commitment::from_witness(builder, native_key->lagrange_ecc_op);
-            this->databus_id = Commitment::from_witness(builder, native_key->databus_id);
+            this->databus_propagation_data = native_key->databus_propagation_data;
+
+            // Generate stdlib commitments (biggroup) from the native counterparts
+            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
+                commitment = Commitment::from_witness(builder, native_commitment);
+            }
         };
 
         /**
@@ -209,7 +187,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using CommitmentLabels = MegaFlavor::CommitmentLabels;
     // Reuse the VerifierCommitments from Mega
     using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-    // Reuse the transcript from Mega
+
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 

@@ -26,9 +26,9 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
+    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
     using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
 
     /**
      * @brief Prove and verify the IVC scheme
@@ -38,6 +38,7 @@ class ClientIVCTests : public ::testing::Test {
      */
     static bool prove_and_verify(ClientIVC& ivc)
     {
+        ZoneScopedN("ClientIVC::prove_and_verify");
         auto proof = ivc.prove();
 
         auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
@@ -50,7 +51,7 @@ class ClientIVCTests : public ::testing::Test {
      * polynomials will bump size to next power of 2)
      *
      */
-    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 15)
+    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -73,13 +74,33 @@ TEST_F(ClientIVCTests, Basic)
 {
     ClientIVC ivc;
 
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_0);
+    {
+        // Initialize the IVC with an arbitrary circuit
+        Builder circuit_0 = create_mock_circuit(ivc);
+        ivc.accumulate(circuit_0);
+    }
 
-    // Create another circuit and accumulate
-    Builder circuit_1 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_1);
+    {
+        // Create another circuit and accumulate
+        Builder circuit_1 = create_mock_circuit(ivc);
+        ivc.accumulate(circuit_1);
+    }
+
+    EXPECT_TRUE(prove_and_verify(ivc));
+};
+
+/**
+ * @brief A simple test demonstrating IVC for three mock circuits which does more logic than just two circuits.
+ *
+ */
+TEST_F(ClientIVCTests, BasicThree)
+{
+    ClientIVC ivc;
+
+    for (size_t idx = 0; idx < 3; ++idx) {
+        Builder circuit = create_mock_circuit(ivc);
+        ivc.accumulate(circuit);
+    }
 
     EXPECT_TRUE(prove_and_verify(ivc));
 };

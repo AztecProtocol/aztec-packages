@@ -5,11 +5,14 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         protocol_types::address::AztecAddress,
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+        keys::getters::get_current_public_keys,
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
+    // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
+    // docs:end:import_valuenote
     use dep::token::Token;
     // docs:end:all-deps
 
@@ -74,12 +77,13 @@ contract Crowdfunding {
         Token::at(storage.donation_token.read_private()).transfer_from(donor, context.this_address(), amount as Field, 0).call(&mut context);
         // docs:end:do-transfer
 
-        let header = context.get_header();
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let donor_npk_m_hash = header.get_npk_m_hash(&mut context, donor);
-        let mut note = ValueNote::new(amount as Field, donor_npk_m_hash);
-        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(&mut context, donor, donor));
+        let donor_keys = get_current_public_keys(&mut context, donor);
+        // docs:start:valuenote_new
+        let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
+        // docs:end:valuenote_new
+        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor));
     }
     // docs:end:donate
 

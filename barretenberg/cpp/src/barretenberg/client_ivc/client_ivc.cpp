@@ -18,16 +18,32 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // If a previous fold proof exists, add a recursive folding verification to the circuit
     if (!fold_output.proof.empty()) {
         BB_OP_COUNT_TIME_NAME("construct_circuits");
-        FoldingRecursiveVerifier verifier{ &circuit, { verifier_accumulator, { instance_vk } } };
-        auto verifier_accum = verifier.verify_folding_proof(fold_output.proof);
+
+        // Construct stdlib accumulator, vkey and proof
+        auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
+        auto stdlib_instance_vk = std::make_shared<RecursiveVerificationKey>(&circuit, instance_vk);
+        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, fold_output.proof);
+
+        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_instance_vk } };
+        auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
     }
 
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
     goblin.merge(circuit);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
+    // verifier.
+    circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
+
     // Construct the prover instance for circuit
-    prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+    std::shared_ptr<ProverInstance> prover_instance;
+    if (!initialized) {
+        prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+    } else {
+        prover_instance = std::make_shared<ProverInstance>(
+            circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
+    }
 
     // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
     max_block_size_tracker.update(circuit);
@@ -46,7 +62,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
-        fold_output = folding_prover.fold_instances();
+        fold_output = folding_prover.prove();
     }
 }
 
@@ -57,7 +73,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    ZoneScoped;
+    ZoneScopedN("ClientIVC::prove");
     max_block_size_tracker.print(); // print minimum structured sizes for each block
     return { fold_output.proof, decider_prove(), goblin.prove() };
 };
@@ -68,6 +84,7 @@ bool ClientIVC::verify(const Proof& proof,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
+    ZoneScopedN("ClientIVC::verify");
     // Goblin verification (merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
@@ -101,6 +118,7 @@ bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierI
  */
 HonkProof ClientIVC::decider_prove() const
 {
+    ZoneScopedN("ClientIVC::decider_prove");
     MegaDeciderProver decider_prover(fold_output.accumulator);
     return decider_prover.construct_proof();
 }

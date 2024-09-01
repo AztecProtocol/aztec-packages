@@ -37,6 +37,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     initialCircuits: ProtocolArtifact[] = [],
     logger = createDebugLogger('aztec:bb-verifier'),
   ) {
+    await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     const keys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>();
     for (const circuit of initialCircuits) {
       const vkData = await this.generateVerificationKey(
@@ -116,7 +117,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         proofType: 'ultra-honk',
       } satisfies CircuitVerificationStats);
     };
-    await runInDirectory(this.config.bbWorkingDirectory, operation);
+    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
   }
 
   public async generateSolidityContract(circuit: ProtocolArtifact, contractName: string) {
@@ -168,7 +169,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           proofType: 'client-ivc',
         } satisfies CircuitVerificationStats);
       };
-      await runInDirectory(this.config.bbWorkingDirectory, operation);
+      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
       return true;
     } catch (err) {
       this.logger.warn(`Failed to verify ClientIVC proof for tx ${Tx.getHash(tx)}: ${String(err)}`);

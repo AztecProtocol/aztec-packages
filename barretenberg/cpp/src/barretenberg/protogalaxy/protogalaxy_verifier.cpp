@@ -1,23 +1,20 @@
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
+
 namespace bb {
 
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
+void ProtogalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
                                                                             const std::string& domain_separator)
 {
-    auto& key = inst->verification_key;
-    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
-    auto [relation_parameters, witness_commitments, public_inputs, alphas] = oink_verifier.verify();
-    inst->relation_parameters = std::move(relation_parameters);
-    inst->witness_commitments = std::move(witness_commitments);
-    inst->public_inputs = std::move(public_inputs);
-    inst->alphas = std::move(alphas);
+    OinkVerifier<Flavor> oink_verifier{ inst, transcript, domain_separator + '_' };
+    oink_verifier.verify();
 }
 
 template <class VerifierInstances>
-void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<FF>& fold_data)
+void ProtogalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<FF>& fold_data)
 {
     transcript = std::make_shared<Transcript>(fold_data);
     auto index = 0;
@@ -38,7 +35,7 @@ void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
 }
 
 template <class VerifierInstances>
-std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<VerifierInstances>::verify_folding_proof(
+std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyVerifier_<VerifierInstances>::verify_folding_proof(
     const std::vector<FF>& fold_data)
 {
     prepare_for_folding(fold_data);
@@ -57,7 +54,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;
-    auto perturbator = Polynomial<FF>(perturbator_coeffs);
+    Polynomial<FF> perturbator(perturbator_coeffs);
     FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
@@ -102,6 +99,16 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
         accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
     next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
     next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
+    next_accumulator->verification_key->contains_recursive_proof =
+        accumulator->verification_key->contains_recursive_proof;
+    next_accumulator->verification_key->recursive_proof_public_input_indices =
+        accumulator->verification_key->recursive_proof_public_input_indices;
+
+    if constexpr (IsGoblinFlavor<Flavor>) { // Databus commitment propagation data
+        next_accumulator->verification_key->databus_propagation_data =
+            accumulator->verification_key->databus_propagation_data;
+    }
+
     size_t vk_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
         size_t inst = 0;
@@ -164,7 +171,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     return next_accumulator;
 }
 
-template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 2>>;
-template class ProtoGalaxyVerifier_<VerifierInstances_<MegaFlavor, 2>>;
+template class ProtogalaxyVerifier_<VerifierInstances_<UltraFlavor, 2>>;
+template class ProtogalaxyVerifier_<VerifierInstances_<MegaFlavor, 2>>;
 
 } // namespace bb

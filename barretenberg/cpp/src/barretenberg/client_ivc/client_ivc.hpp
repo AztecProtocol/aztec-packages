@@ -3,11 +3,11 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/max_block_size_tracker.hpp"
-#include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
+#include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include <algorithm>
 
 namespace bb {
@@ -31,16 +31,18 @@ class ClientIVC {
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
+    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
     using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
     using GURecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstances::Instance;
+    using RecursiveVerificationKey = RecursiveVerifierInstances::VerificationKey;
     using FoldingRecursiveVerifier =
-        bb::stdlib::recursion::honk::ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
 
     // A full proof for the IVC scheme
     struct Proof {
@@ -64,11 +66,7 @@ class ClientIVC {
   public:
     GoblinProver goblin;
     ProverFoldOutput fold_output;
-    std::shared_ptr<ProverInstance> prover_accumulator;
     std::shared_ptr<VerifierInstance> verifier_accumulator;
-    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
-    // be needed in the real IVC as they are provided as inputs
-    std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<VerificationKey> instance_vk;
 
     // A flag indicating whether or not to construct a structured trace in the ProverInstance

@@ -1,5 +1,13 @@
 import { type L2Block, MerkleTreeId, PublicDataWrite, type SiblingPath, TxEffect } from '@aztec/circuit-types';
 import {
+  type BatchInsertionResult,
+  type HandleL2BlockAndMessagesResult,
+  type IndexedTreeId,
+  type MerkleTreeLeafType,
+  type MerkleTreeOperations,
+  type TreeInfo,
+} from '@aztec/circuit-types/interfaces';
+import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   Fr,
@@ -22,15 +30,15 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import {
   type AppendOnlyTree,
-  type BatchInsertionResult,
   type IndexedTree,
-  Pedersen,
+  Poseidon,
   StandardIndexedTree,
   StandardTree,
   type UpdateOnlyTree,
@@ -38,6 +46,7 @@ import {
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
+import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import {
@@ -46,15 +55,9 @@ import {
   type MerkleTreeDb,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
-import {
-  type HandleL2BlockAndMessagesResult,
-  type IndexedTreeId,
-  type MerkleTreeLeafType,
-  type MerkleTreeMap,
-  type MerkleTreeOperations,
-  type TreeInfo,
-} from './merkle_tree_operations.js';
+import { type MerkleTreeMap } from './merkle_tree_map.js';
 import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
+import { WorldStateMetrics } from './metrics.js';
 
 /**
  * The nullifier tree is an indexed tree.
@@ -98,9 +101,11 @@ export class MerkleTrees implements MerkleTreeDb {
   private trees: MerkleTreeMap = null as any;
   private jobQueue = new SerialQueue();
   private initialStateReference: AztecSingleton<Buffer>;
+  private metrics: WorldStateMetrics;
 
-  private constructor(private store: AztecKVStore, private log: DebugLogger) {
+  private constructor(private store: AztecKVStore, private telemetryClient: TelemetryClient, private log: DebugLogger) {
     this.initialStateReference = store.openSingleton('merkle_trees_initial_state_reference');
+    this.metrics = new WorldStateMetrics(telemetryClient);
   }
 
   /**
@@ -108,8 +113,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param store - The db instance to use for data persistance.
    * @returns - A fully initialized MerkleTrees instance.
    */
-  public static async new(store: AztecKVStore, log = createDebugLogger('aztec:merkle_trees')) {
-    const merkleTrees = new MerkleTrees(store, log);
+  public static async new(store: AztecKVStore, client: TelemetryClient, log = createDebugLogger('aztec:merkle_trees')) {
+    const merkleTrees = new MerkleTrees(store, client, log);
     await merkleTrees.#init();
     return merkleTrees;
   }
@@ -121,7 +126,7 @@ export class MerkleTrees implements MerkleTreeDb {
     const fromDb = this.#isDbPopulated();
     const initializeTree = fromDb ? loadTree : newTree;
 
-    const hasher = new Pedersen();
+    const hasher = new Poseidon();
 
     const nullifierTree = await initializeTree(
       NullifierTree,
@@ -178,6 +183,24 @@ export class MerkleTrees implements MerkleTreeDb {
     }
 
     await this.#commit();
+  }
+
+  public async fork(): Promise<MerkleTrees> {
+    const [ms, db] = await elapsed(async () => {
+      // TODO(palla/prover-node): If the underlying store is being shared with other components, we're unnecessarily
+      // copying a lot of data unrelated to merkle trees. This may be fine for now, and we may be able to ditch backup-based
+      // forking in favor of a more elegant proposal. But if we see this operation starts taking a lot of time, we may want
+      // to open separate stores for merkle trees and other components.
+      const forked = await this.store.fork();
+      return MerkleTrees.new(forked, this.telemetryClient, this.log);
+    });
+
+    this.metrics.recordForkDuration(ms);
+    return db;
+  }
+
+  public async delete() {
+    await this.store.delete();
   }
 
   public getInitialHeader(): Header {
@@ -568,6 +591,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
   async #handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult> {
+    const timer = new Timer();
+
     const treeRootWithIdPairs = [
       [l2Block.header.state.partial.nullifierTree.root, MerkleTreeId.NULLIFIER_TREE],
       [l2Block.header.state.partial.noteHashTree.root, MerkleTreeId.NOTE_HASH_TREE],
@@ -651,10 +676,13 @@ export class MerkleTrees implements MerkleTreeDb {
         );
       } else {
         this.log.debug(`Tree ${treeName} synched with size ${info.size} root ${rootStr}`);
+        this.metrics.recordTreeSize(treeName, info.size);
       }
     }
     await this.#snapshot(l2Block.number);
 
+    this.metrics.recordDbSize(this.store.estimateSize().bytes);
+    this.metrics.recordSyncDuration(ourBlock ? 'commit' : 'rollback_and_update', timer);
     return { isBlockOurs: ourBlock };
   }
 

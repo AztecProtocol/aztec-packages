@@ -1,9 +1,21 @@
-import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash } from '@aztec/circuit-types';
+import {
+  type BlockAttestation,
+  type BlockProposal,
+  type L2Block,
+  L2BlockDownloader,
+  type L2BlockSource,
+  type Tx,
+  type TxHash,
+} from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
+import { type ENR } from '@chainsafe/enr';
+
+import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
+import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
 
@@ -35,6 +47,37 @@ export interface P2PSyncState {
  * Interface of a P2P client.
  **/
 export interface P2P {
+  /**
+   * Broadcasts a block proposal to other peers.
+   *
+   * @param proposal - the block proposal
+   */
+  broadcastProposal(proposal: BlockProposal): void;
+
+  /**
+   * Queries the Attestation pool for attestations for the given slot
+   *
+   * @param slot - the slot to query
+   * @returns BlockAttestations
+   */
+  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+
+  /**
+   * Registers a callback from the validator client that determines how to behave when
+   * foreign block proposals are received
+   *
+   * @param handler - A function taking a received block proposal and producing an attestation
+   */
+  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
+  // ^ This pattern is not my favorite (md)
+  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void;
+
+  /**
+   * Request a transaction from another peer by its tx hash.
+   * @param txHash - Hash of the tx to query.
+   */
+  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
@@ -90,6 +133,11 @@ export interface P2P {
    * Returns the current status of the p2p client.
    */
   getStatus(): Promise<P2PSyncState>;
+
+  /**
+   * Returns the ENR for this node, if any.
+   */
+  getEnr(): ENR | undefined;
 }
 
 /**
@@ -130,11 +178,12 @@ export class P2PClient implements P2P {
     store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
     private txPool: TxPool,
+    private attestationPool: AttestationPool,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
     private log = createDebugLogger('aztec:p2p'),
   ) {
-    const { p2pBlockCheckIntervalMS: checkInterval, p2pL2QueueSize } = getP2PConfigEnvVars();
+    const { blockCheckIntervalMS: checkInterval, l2QueueSize: p2pL2QueueSize } = getP2PConfigEnvVars();
     const l2DownloaderOpts = { maxQueueSize: p2pL2QueueSize, pollIntervalMS: checkInterval };
     // TODO(palla/prover-node): This effectively downloads blocks twice from the archiver, which is an issue
     // if the archiver is remote. We should refactor this so the downloader keeps a single queue and handles
@@ -220,6 +269,25 @@ export class P2PClient implements P2P {
     this.log.info('P2P client stopped.');
   }
 
+  public broadcastProposal(proposal: BlockProposal): void {
+    return this.p2pService.propagate(proposal);
+  }
+
+  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot));
+  }
+
+  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
+  // ^ This pattern is not my favorite (md)
+  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void {
+    this.p2pService.registerBlockReceivedCallback(handler);
+  }
+
+  public requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    // Underlying I want to use the libp2p service to just have a request method where the subprotocol is defined here
+    return this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+  }
+
   /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
@@ -263,7 +331,7 @@ export class P2PClient implements P2P {
       throw new Error('P2P client not ready');
     }
     await this.txPool.addTxs([tx]);
-    this.p2pService.propagateTx(tx);
+    this.p2pService.propagate(tx);
   }
 
   /**
@@ -273,6 +341,10 @@ export class P2PClient implements P2P {
    */
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
     return this.txPool.getTxStatus(txHash);
+  }
+
+  public getEnr(): ENR | undefined {
+    return this.p2pService.getEnr();
   }
 
   /**
@@ -425,7 +497,7 @@ export class P2PClient implements P2P {
     const txs = this.txPool.getAllTxs();
     if (txs.length > 0) {
       this.log.debug(`Publishing ${txs.length} previously stored txs`);
-      await Promise.all(txs.map(tx => this.p2pService.propagateTx(tx)));
+      await Promise.all(txs.map(tx => this.p2pService.propagate(tx)));
     }
   }
 }

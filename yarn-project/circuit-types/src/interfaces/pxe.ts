@@ -3,6 +3,7 @@ import {
   type CompleteAddress,
   type Fq,
   type Fr,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
@@ -18,7 +19,8 @@ import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
-import { type ExtendedNote, type OutgoingNotesFilter } from '../notes/index.js';
+import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
+import { type SiblingPath } from '../sibling_path/sibling_path.js';
 import { type NoteProcessorStats } from '../stats/stats.js';
 import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
@@ -159,11 +161,12 @@ export interface PXE {
    *
    * @param txRequest - An authenticated tx request ready for simulation
    * @param simulatePublic - Whether to simulate the public part of the transaction.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A transaction ready to be sent to the network for execution.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, scopes?: AztecAddress[]): Promise<Tx>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
@@ -179,12 +182,20 @@ export interface PXE {
    * @param txRequest - An authenticated tx request ready for simulation
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction object that includes a transaction that is potentially ready
    * to be sent to the network for execution, along with public and private return values.
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
+  simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender?: AztecAddress,
+    skipTxValidation?: boolean,
+    scopes?: AztecAddress[],
+  ): Promise<SimulatedTx>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
@@ -228,30 +239,36 @@ export interface PXE {
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]>;
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]>;
+
+  /**
+   * Fetches an L1 to L2 message from the node.
+   * @param contractAddress - Address of a contract by which the message was emitted.
+   * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
+   */
+  getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
    * Gets outgoing notes of accounts registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]>;
-
-  /**
-   * Finds the nonce(s) for a given note.
-   * @param note - The note to find the nonces for.
-   * @returns The nonces of the note.
-   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
-   * TODO(#4956): Un-expose this
-   */
-  getNoteNonces(note: ExtendedNote): Promise<Fr[]>;
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]>;
 
   /**
    * Adds a note to the database.
    * @throws If the note hash of the note doesn't exist in the tree.
    * @param note - The note to add.
+   * @param scope - The scope to add the note under. Currently optional.
    */
-  addNote(note: ExtendedNote): Promise<void>;
+  addNote(note: ExtendedNote, scope?: AztecAddress): Promise<void>;
 
   /**
    * Adds a nullified note to the database.
@@ -280,9 +297,16 @@ export interface PXE {
    * @param args - The arguments to be provided to the function.
    * @param to - The address of the contract to be called.
    * @param from - (Optional) The msg sender to set for the call.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns The result of the view function call, structured based on the function ABI.
    */
-  simulateUnconstrained(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
+  simulateUnconstrained(
+    functionName: string,
+    args: any[],
+    to: AztecAddress,
+    from?: AztecAddress,
+    scopes?: AztecAddress[],
+  ): Promise<any>;
 
   /**
    * Gets unencrypted logs based on the provided filter.

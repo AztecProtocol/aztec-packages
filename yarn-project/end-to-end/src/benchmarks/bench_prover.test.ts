@@ -3,8 +3,8 @@ import { PublicFeePaymentMethod, TxStatus, sleep } from '@aztec/aztec.js';
 import { type AccountWallet } from '@aztec/aztec.js/wallet';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
-import { FPCContract, GasTokenContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
@@ -12,6 +12,7 @@ import { jest } from '@jest/globals';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import { FeeJuicePortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
 
 // TODO(@PhilWindle): Some part of this test are commented out until we speed up proving.
 
@@ -37,7 +38,7 @@ describe('benchmarks/proving', () => {
 
   let recipient: CompleteAddress;
 
-  let initialGasContract: GasTokenContract;
+  let initialGasContract: FeeJuiceContract;
   let initialTestContract: TestContract;
   let initialTokenContract: TokenContract;
   let initialFpContract: FPCContract;
@@ -88,17 +89,26 @@ describe('benchmarks/proving', () => {
     )
       .send()
       .deployed();
-    initialGasContract = await GasTokenContract.at(GasTokenAddress, initialSchnorrWallet);
-    initialFpContract = await FPCContract.deploy(
-      initialSchnorrWallet,
-      initialTokenContract.address,
-      initialGasContract.address,
-    )
-      .send()
-      .deployed();
+    initialGasContract = await FeeJuiceContract.at(FeeJuiceAddress, initialSchnorrWallet);
+    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address).send().deployed();
+
+    const feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
+      aztecNode: ctx.aztecNode,
+      pxeService: ctx.pxe,
+      publicClient: ctx.deployL1ContractsValues.publicClient,
+      walletClient: ctx.deployL1ContractsValues.walletClient,
+      wallet: ctx.wallets[0],
+      logger: ctx.logger,
+    });
+
+    const { secret } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
+      1_000_000_000_000n,
+      1_000_000_000_000n,
+      initialFpContract.address,
+    );
 
     await Promise.all([
-      initialGasContract.methods.mint_public(initialFpContract.address, 1e12).send().wait(),
+      initialGasContract.methods.claim(initialFpContract.address, 1e12, secret).send().wait(),
       initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
       initialTokenContract.methods.privately_mint_private_note(1e12).send().wait(),
     ]);
