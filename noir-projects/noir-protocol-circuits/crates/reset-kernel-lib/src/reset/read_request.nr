@@ -313,7 +313,7 @@ mod tests {
     }
 
     impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
-        fn build_tree<N>(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
+        fn build_tree(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
             NonEmptyMerkleTree::new(
                 [self.leaf_preimages[0].as_leaf(), self.leaf_preimages[1].as_leaf()],
                 [0; 3],
