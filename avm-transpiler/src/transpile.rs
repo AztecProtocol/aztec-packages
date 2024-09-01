@@ -2,13 +2,12 @@ use std::collections::BTreeMap;
 
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
 
-use acvm::acir::circuit::OpcodeLocation;
+use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
 use acvm::{AcirField, FieldElement};
 use noirc_errors::debug_info::DebugInfo;
-use noirc_errors::Location;
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
@@ -983,7 +982,7 @@ fn handle_storage_write(
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -992,17 +991,16 @@ fn handle_storage_write(
     };
 
     let src_offset_maybe = inputs[1];
-    let (src_offset, size) = match src_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let src_offset = match src_offset_maybe {
+        ValueOrArray::MemoryAddress(src_offset) => src_offset.0,
+        _ => panic!("ForeignCall address source should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 { value: src_offset as u32 },
-            AvmOperand::U32 { value: size as u32 },
             AvmOperand::U32 { value: slot_offset as u32 },
         ],
         ..Default::default()
@@ -1048,28 +1046,26 @@ fn handle_storage_read(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 2); // output, len. The latter is not used by the AVM, but required in the oracle call so that TXE knows how many slots to read.
-    assert!(destinations.len() == 1); // return values
+    assert!(inputs.len() == 1); // output
+    assert!(destinations.len() == 1); // return value
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
-        _ => panic!("ForeignCall address destination should be a single value"),
+        _ => panic!("ForeignCall address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
-    let (dest_offset, size) = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        _ => panic!("ForeignCall address destination should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 { value: slot_offset as u32 },
-            AvmOperand::U32 { value: size as u32 },
             AvmOperand::U32 { value: dest_offset as u32 },
         ],
         ..Default::default()
@@ -1088,19 +1084,11 @@ pub fn patch_debug_info_pcs(
             patched_debug_info.brillig_locations.iter()
         {
             // create a new map with all of its keys (OpcodeLocations) patched
-            let mut patched_locations: BTreeMap<OpcodeLocation, Vec<Location>> = BTreeMap::new();
+            let mut patched_locations = BTreeMap::new();
             for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
-                match original_opcode_location {
-                    OpcodeLocation::Brillig { acir_index, brillig_index } => {
-                        let avm_opcode_location = OpcodeLocation::Brillig {
-                            acir_index: *acir_index,
-                            // patch the PC
-                            brillig_index: brillig_pcs_to_avm_pcs[*brillig_index],
-                        };
-                        patched_locations.insert(avm_opcode_location, source_locations.clone());
-                    }
-                    OpcodeLocation::Acir(_) => (),
-                }
+                let avm_opcode_location =
+                    BrilligOpcodeLocation(brillig_pcs_to_avm_pcs[original_opcode_location.0]);
+                patched_locations.insert(avm_opcode_location, source_locations.clone());
             }
             // insert the new map as a brillig locations map for the current function id
             patched_brillig_locations.insert(*brillig_function_id, patched_locations);
