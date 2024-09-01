@@ -105,6 +105,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
+  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
   public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max note hash checks
     // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
@@ -112,10 +113,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // is in fact checking the leaf indicated by the user
     this.noteHashReadRequests.push(new TreeLeafReadRequest(noteHash, leafIndex));
     this.avmCircuitHints.noteHashExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
+      new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
-    this.logger.debug(`NOTE_HASH_CHECK cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {
@@ -155,6 +154,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
+  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
   public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max message reads
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
@@ -162,10 +162,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     // is in fact checking the leaf indicated by the user
     this.l1ToL2MsgReadRequests.push(new TreeLeafReadRequest(msgHash, msgLeafIndex));
     this.avmCircuitHints.l1ToL2MessageExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
+      new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
-    this.logger.debug(`L1_TO_L2_MSG_CHECK cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceNewL2ToL1Message(recipient: Fr, content: Fr) {
@@ -173,7 +171,6 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     const recipientAddress = EthAddress.fromField(recipient);
     this.newL2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, this.sideEffectCounter));
     this.logger.debug(`NEW_L2_TO_L1_MSG cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceUnencryptedLog(contractAddress: Fr, log: Fr[]) {
