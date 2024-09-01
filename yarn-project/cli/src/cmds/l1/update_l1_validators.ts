@@ -52,6 +52,9 @@ export async function addL1Validator({
   const txHash = await rollup.write.addValidator([validatorAddress.toString()]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
+  dualLog(`Funding validator on L1`);
+  const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
+  await cheatCodes.setBalance(validatorAddress, 100000000000000000000n);
 }
 
 export async function fastForwardEpochs({
