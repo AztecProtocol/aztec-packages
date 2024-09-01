@@ -1,5 +1,5 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
-import { type EthAddress } from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, type EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -73,11 +73,10 @@ export async function fastForwardEpochs({
   });
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  const genesisSeconds = await rollup.read.GENESIS_TIME();
+  const nowSeconds = BigInt(Math.floor(new Date().getTime() / 1000));
   const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
   const l2SlotDurationSeconds = await rollup.read.SLOT_DURATION();
-  dualLog(`Genesis time: ${genesisSeconds}`);
-  const warpTimeSeconds = genesisSeconds + l2SlotsInEpoch * l2SlotDurationSeconds * numEpochs;
+  const warpTimeSeconds = nowSeconds + l2SlotsInEpoch * l2SlotDurationSeconds * numEpochs;
   dualLog(`Fast forwarding ${numEpochs} epochs to ${warpTimeSeconds}`);
   try {
     await cheatCodes.warp(Number(warpTimeSeconds));
@@ -99,9 +98,7 @@ export async function debugRollup({
   mnemonic,
   rollupAddress,
   log,
-  debugLogger,
 }: RollupCommandArgs & LoggerArgs) {
-  const dualLog = makeDualLog(log, debugLogger);
   const { publicClient } = getL1Clients(rpcUrl, chainId, privateKey, mnemonic);
   const rollup = getContract({
     address: rollupAddress.toString(),
@@ -109,18 +106,27 @@ export async function debugRollup({
     client: publicClient,
   });
 
-  const epoch = await rollup.read.getCurrentEpoch();
-  dualLog(`Current epoch: ${epoch}`);
-  const slot = await rollup.read.getCurrentSlot();
-  dualLog(`Current slot: ${slot}`);
+  const pendingCount = await rollup.read.pendingBlockCount();
+  log(`Pending block count: ${pendingCount}`);
+  const provenCount = await rollup.read.provenBlockCount();
+  log(`Proven block count: ${provenCount}`);
   const validators = await rollup.read.getValidators();
-  dualLog(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
+  log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.read.getCurrentEpochCommittee();
-  dualLog(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
-  const proposer = await rollup.read.getCurrentProposer();
-  dualLog(`Proposer: ${proposer.toString()}`);
+  log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
   const archive = await rollup.read.archive();
-  dualLog(`Archive: ${archive}`);
+  log(`Archive: ${archive}`);
+  const epochNum = await rollup.read.getCurrentEpoch();
+  log(`Current epoch: ${epochNum}`);
+  const epoch = await rollup.read.epochs([epochNum]);
+  log(`Epoch Sample Seed: ${epoch[0].toString()}, Next Seed: ${epoch[1].toString()}`);
+  const slot = await rollup.read.getCurrentSlot();
+  log(`Current slot: ${slot}`);
+  const proposerDuringPrevL1Block = await rollup.read.getCurrentProposer();
+  log(`Proposer during previous L1 block: ${proposerDuringPrevL1Block}`);
+  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+  const proposer = await rollup.read.getProposerAt([nextBlockTS]);
+  log(`Proposer NOW: ${proposer.toString()}`);
 }
 
 function makeDualLog(log: LogFn, debugLogger: DebugLogger) {

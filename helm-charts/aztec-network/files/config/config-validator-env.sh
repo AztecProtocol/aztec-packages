@@ -41,6 +41,8 @@ export AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$availability_oracle_address
 export FEE_JUICE_CONTRACT_ADDRESS=$fee_juice_address
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 export VALIDATOR_PRIVATE_KEY=$private_key
+export L1_PRIVATE_KEY=$private_key
+export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 EOF
 
 cat /shared/contracts.env
