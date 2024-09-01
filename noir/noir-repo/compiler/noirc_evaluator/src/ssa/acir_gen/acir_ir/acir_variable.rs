@@ -10,7 +10,6 @@ use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs};
 use acvm::acir::circuit::opcodes::{AcirFunctionId, BlockId, BlockType, MemOp};
 use acvm::acir::circuit::{AssertionPayload, ExpressionOrMemory, ExpressionWidth, Opcode};
-use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
 use acvm::{
     acir::AcirField,
@@ -492,7 +491,7 @@ impl<F: AcirField> AcirContext<F> {
             self.sub_var(sum, mul)
         } else {
             // Implement OR in terms of AND
-            // (NOT a) NAND (NOT b) => a OR b
+            // (NOT a) AND (NOT b) => NOT (a OR b)
             let a = self.not_var(lhs, typ.clone())?;
             let b = self.not_var(rhs, typ.clone())?;
             let a_and_b = self.and_var(a, b, typ.clone())?;
@@ -1452,8 +1451,19 @@ impl<F: AcirField> AcirContext<F> {
             }
             _ => (vec![], vec![]),
         };
-        // Allow constant inputs only for MSM for now
-        let allow_constant_inputs = name.eq(&BlackBoxFunc::MultiScalarMul);
+        // Allow constant inputs for most blackbox
+        // EmbeddedCurveAdd needs to be fixed first in bb
+        // Poseidon2Permutation requires witness input
+        let allow_constant_inputs = matches!(
+            name,
+            BlackBoxFunc::MultiScalarMul
+                | BlackBoxFunc::Keccakf1600
+                | BlackBoxFunc::Blake2s
+                | BlackBoxFunc::Blake3
+                | BlackBoxFunc::AND
+                | BlackBoxFunc::XOR
+                | BlackBoxFunc::AES128Encrypt
+        );
         // Convert `AcirVar` to `FunctionInput`
         let inputs = self.prepare_inputs_for_black_box_func_call(inputs, allow_constant_inputs)?;
         // Call Black box with `FunctionInput`
@@ -1945,6 +1955,9 @@ impl<F: AcirField> AcirContext<F> {
             }
             Some(optional_value) => {
                 let mut values = Vec::new();
+                if let AcirValue::DynamicArray(_) = optional_value {
+                    unreachable!("Dynamic array should already be initialized");
+                }
                 self.initialize_array_inner(&mut values, optional_value)?;
                 values
             }
@@ -1974,8 +1987,16 @@ impl<F: AcirField> AcirContext<F> {
                     self.initialize_array_inner(witnesses, value)?;
                 }
             }
-            AcirValue::DynamicArray(_) => {
-                unreachable!("Dynamic array should already be initialized");
+            AcirValue::DynamicArray(AcirDynamicArray { block_id, len, .. }) => {
+                let dynamic_array_values = try_vecmap(0..len, |i| {
+                    let index_var = self.add_constant(i);
+
+                    let read = self.read_from_memory(block_id, &index_var)?;
+                    Ok::<AcirValue, InternalError>(AcirValue::Var(read, AcirType::field()))
+                })?;
+                for value in dynamic_array_values {
+                    self.initialize_array_inner(witnesses, value)?;
+                }
             }
         }
         Ok(())
@@ -2129,7 +2150,11 @@ fn execute_brillig<F: AcirField>(
     }
 
     // Instantiate a Brillig VM given the solved input registers and memory, along with the Brillig bytecode.
-    let mut vm = VM::new(calldata, code, Vec::new(), &blackbox_solver::StubbedBlackBoxSolver);
+    //
+    // We pass a stubbed solver here as a concrete solver implies a field choice which conflicts with this function
+    // being generic.
+    let solver = acvm::blackbox_solver::StubbedBlackBoxSolver;
+    let mut vm = VM::new(calldata, code, Vec::new(), &solver);
 
     // Run the Brillig VM on these inputs, bytecode, etc!
     let vm_status = vm.process_opcodes();

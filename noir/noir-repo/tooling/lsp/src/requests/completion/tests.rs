@@ -182,7 +182,8 @@ mod completion_tests {
     async fn test_use_function() {
         let src = r#"
             mod foo {
-                fn bar(x: i32) -> u64 { 0 }
+                pub fn bar(x: i32) -> u64 { 0 }
+                fn bar_is_private(x: i32) -> u64 { 0 }
             }
             use foo::>|<
         "#;
@@ -469,19 +470,19 @@ mod completion_tests {
         assert_completion_excluding_auto_import(
             src,
             vec![
-                snippet_completion_item(
+                completion_item_with_trigger_parameter_hints_command(snippet_completion_item(
                     "assert(…)",
                     CompletionItemKind::FUNCTION,
                     "assert(${1:predicate})",
                     Some("fn(T)".to_string()),
-                ),
+                )),
                 function_completion_item("assert_constant(…)", "assert_constant(${1:x})", "fn(T)"),
-                snippet_completion_item(
+                completion_item_with_trigger_parameter_hints_command(snippet_completion_item(
                     "assert_eq(…)",
                     CompletionItemKind::FUNCTION,
                     "assert_eq(${1:lhs}, ${2:rhs})",
                     Some("fn(T, T)".to_string()),
-                ),
+                )),
             ],
         )
         .await;
@@ -1637,5 +1638,157 @@ mod completion_tests {
                 description: Some("fn()".to_string())
             })
         );
+    }
+
+    #[test]
+    async fn test_auto_import_from_std() {
+        let src = r#"
+            fn main() {
+                compute_merkle_roo>|<
+            }
+        "#;
+        let items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = &items[0];
+        assert_eq!(item.label, "compute_merkle_root(…)");
+        assert_eq!(
+            item.label_details.as_ref().unwrap().detail,
+            Some("(use std::merkle::compute_merkle_root)".to_string()),
+        );
+    }
+
+    #[test]
+    async fn test_completes_after_first_letter_of_path() {
+        let src = r#"
+            fn main() {
+                h>|<ello();
+            }
+
+            fn hello_world() {}
+        "#;
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "hello_world",
+                CompletionItemKind::FUNCTION,
+                Some("fn()".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_completes_after_colon_in_the_middle_of_an_ident_last_segment() {
+        let src = r#"
+            mod foo {
+                pub fn bar() {}
+            }
+
+            fn main() {
+                foo::>|<b
+            }
+        "#;
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "bar",
+                CompletionItemKind::FUNCTION,
+                Some("fn()".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_completes_after_colon_in_the_middle_of_an_ident_middle_segment() {
+        let src = r#"
+            mod foo {
+                pub fn bar() {}
+            }
+
+            fn main() {
+                foo::>|<b::baz
+            }
+        "#;
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "bar",
+                CompletionItemKind::FUNCTION,
+                Some("fn()".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_completes_at_function_call_name() {
+        let src = r#"
+            mod foo {
+                pub fn bar() {}
+            }
+
+            fn main() {
+                foo::b>|<x()
+            }
+        "#;
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "bar",
+                CompletionItemKind::FUNCTION,
+                Some("fn()".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_completes_at_method_call_name() {
+        let src = r#"
+            struct Foo {}
+
+            impl Foo {
+                pub fn bar(self) {}
+            }
+
+            fn x(f: Foo) {
+                f.b>|<x()
+            }
+        "#;
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "bar",
+                CompletionItemKind::FUNCTION,
+                Some("fn(self)".to_string()),
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_completes_at_method_call_name_after_dot() {
+        let src = r#"
+            struct Foo {}
+
+            impl Foo {
+                pub fn bar(self) {}
+            }
+
+            fn x(f: Foo) {
+                f.>|<()
+            }
+        "#;
+        assert_completion_excluding_auto_import(
+            src,
+            vec![simple_completion_item(
+                "bar",
+                CompletionItemKind::FUNCTION,
+                Some("fn(self)".to_string()),
+            )],
+        )
+        .await;
     }
 }
