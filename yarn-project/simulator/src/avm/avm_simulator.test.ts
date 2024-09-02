@@ -892,7 +892,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
         expect(results.revertReason).toBeDefined();
-        console.log(results.revertReason);
         expect(resolveAvmTestContractAssertionMessage('assert_same', results.revertReason!)).toMatch(
           'Values are not equal',
         );
