@@ -79,9 +79,9 @@ EOF
 }
 
 resource "aws_launch_template" "proof_verifier_launch_template" {
-  name                   = "${var.DEPLOY_TAG}-launch-template"
+  name                   = "${var.DEPLOY_TAG}-pf-launch-template"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "m7a.2xlarge" // 8 cores, 32 GB
+  instance_type          = "m4.2xlarge" // 8 cores, 32 GB
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -145,14 +145,18 @@ resource "aws_ecs_task_definition" "aztec-proof-verifier" {
       image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
       command           = ["start", "--proof-verifier"]
       essential         = true
-      cpu               = 8192,
-      memoryReservation = 32768,
-      portMappings      = []
+      cpu               = 8192
+      memoryReservation = 30720
+      portMappings = [
+        {
+          containerPort = 80
+        }
+      ]
       environment = [
         { name = "PROOF_VERIFIER_L1_START_BLOCK", value = "15918000" },
-        { name = "PROOF_VERIFIER_POLL_INTERVAL_MS", value = var.PROOF_VERIFIER_POLL_INTERVAL_MS },
+        { name = "PROOF_VERIFIER_POLL_INTERVAL_MS", value = tostring(var.PROOF_VERIFIER_POLL_INTERVAL_MS) },
         { name = "ETHEREUM_HOST", value = var.ETHEREUM_HOST },
-        { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
+        { name = "L1_CHAIN_ID", value = tostring(var.L1_CHAIN_ID) },
         { name = "ROLLUP_CONTRACT_ADDRESS", value = var.ROLLUP_CONTRACT_ADDRESS },
         {
           name  = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"

@@ -6,10 +6,6 @@ variable "DOCKERHUB_ACCOUNT" {
   type = string
 }
 
-variable "API_KEY" {
-  type = string
-}
-
 variable "LOG_LEVEL" {
   type    = string
   default = "verbose"
@@ -28,6 +24,6 @@ variable "ROLLUP_CONTRACT_ADDRESS" {
 }
 
 variable "PROOF_VERIFIER_POLL_INTERVAL_MS" {
-  type    = "number"
+  type    = number
   default = 10000
 }
