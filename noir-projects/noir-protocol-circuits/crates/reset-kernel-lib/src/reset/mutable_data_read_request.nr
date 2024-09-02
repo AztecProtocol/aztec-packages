@@ -35,7 +35,7 @@ fn validate_pending_read_requests<R, let READ_REQUEST_LEN: u32, V, let PENDING_V
     }
 }
 
-fn validate_leaf_data_read_requests<R, let READ_REQUEST_LEN: u32, L, let LEAF_DATA_LEN: u32, H, let NUM_HINTS: u32>(
+fn validate_leaf_data_read_requests<R, let READ_REQUEST_LEN: u32, L, let LEAF_DATA_LEN: u32, let NUM_HINTS: u32>(
     read_requests: [R; READ_REQUEST_LEN],
     leaf_data: [L; LEAF_DATA_LEN],
     index_hints: [ReadIndexHint; NUM_HINTS]
@@ -149,32 +149,22 @@ mod tests {
 
     global READ_REQUEST_LEN = 10;
 
-    struct TestBuilder<
-        let PENDING_VALUE_LEN: u32,
-        let NUM_LEAF_DATA: u32,
-        let NUM_PENDING_READS: u32,
-        let NUM_LEAF_DATA_READS: u32
-    >{
+    struct TestBuilder {
         read_requests: [PublicDataRead; READ_REQUEST_LEN],
         read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
-        data_writes: [OverridablePublicDataWrite; PENDING_VALUE_LEN],
-        leaf_data: [TestLeafData; NUM_LEAF_DATA],
-        pending_read_hints: [ReadIndexHint; NUM_PENDING_READS],
-        leaf_data_read_hints: [ReadIndexHint; NUM_LEAF_DATA_READS],
+        data_writes: [OverridablePublicDataWrite; 6],
+        leaf_data: [TestLeafData; 12],
+        pending_read_hints: [ReadIndexHint; 5],
+        leaf_data_read_hints: [ReadIndexHint; 4],
         num_pending_reads: u32,
         num_leaf_data_reads: u32,
         counter: u32,
     }
 
-    impl<
-        let PENDING_VALUE_LEN: u32,
-        let NUM_LEAF_DATA_HINTS: u32,
-        let NUM_PENDING_READS: u32,
-        let NUM_LEAF_DATA_READS: u32
-    > TestBuilder<PENDING_VALUE_LEN, NUM_LEAF_DATA_HINTS, NUM_PENDING_READS, NUM_LEAF_DATA_READS> {
-        pub fn new() -> TestBuilder<6, 12, 5, 4> {
-            let read_requests = [PublicDataRead::empty(); 10];
-            let read_request_statuses = [ReadRequestStatus::empty(); 10];
+    impl TestBuilder {
+        pub fn new() -> TestBuilder {
+            let read_requests = [PublicDataRead::empty(); READ_REQUEST_LEN];
+            let read_request_statuses = [ReadRequestStatus::empty(); READ_REQUEST_LEN];
 
             let leaf_data = pad_end(
                 [
