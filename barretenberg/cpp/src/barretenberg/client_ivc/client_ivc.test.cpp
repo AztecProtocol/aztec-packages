@@ -134,7 +134,7 @@ TEST_F(ClientIVCTests, BasicFailure)
     ivc.accumulate(circuit_2);
 
     // The bad fold proof should result in an invalid witness in the final circuit and the IVC should fail to verify
-    EXPECT_FALSE(prove_and_verify(ivc));
+    EXPECT_ANY_THROW(prove_and_verify(ivc));
 };
 
 /**

@@ -175,7 +175,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         EXPECT_TRUE(ivc.prove_and_verify());
     }
 
-    // The IVC fails to verify if the FIRST fold proof is tampered with
+    // The IVC throws an exception if the FIRST fold proof is tampered with
     {
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
@@ -185,6 +185,9 @@ TEST_F(AztecIVCTests, BadProofFailure)
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            if (idx == 3) {
+                EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
+            }
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
@@ -194,7 +197,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
             }
         }
 
-        EXPECT_FALSE(ivc.prove_and_verify());
+        EXPECT_ANY_THROW(ivc.prove_and_verify());
     }
 
     // The IVC fails to verify if the SECOND fold proof is tampered with
@@ -207,6 +210,9 @@ TEST_F(AztecIVCTests, BadProofFailure)
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            if (idx == 3) {
+                EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
+            }
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
@@ -216,7 +222,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
             }
         }
 
-        EXPECT_FALSE(ivc.prove_and_verify());
+        EXPECT_ANY_THROW(ivc.prove_and_verify());
     }
 
     // The IVC fails to verify if the 3rd/FINAL fold proof is tampered with
