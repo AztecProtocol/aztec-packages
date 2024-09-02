@@ -128,7 +128,9 @@ TEST_F(ClientIVCTests, BasicFailure)
             break;
         }
     }
-    EXPECT_ANY_THROW(create_mock_circuit(ivc));
+    // Accumulate another circuit; this involves recursive folding verification of the bad proof
+    Builder circuit_2 = create_mock_circuit(ivc);
+    EXPECT_ANY_THROW(ivc.accumulate(circuit_2));
 };
 
 /**
