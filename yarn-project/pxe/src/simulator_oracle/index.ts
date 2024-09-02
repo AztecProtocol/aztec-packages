@@ -152,7 +152,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
-  async getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
   }
 

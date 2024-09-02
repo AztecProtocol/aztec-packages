@@ -1,5 +1,5 @@
 import { AztecAddress, type FunctionSelector, type Gas } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
@@ -122,14 +122,14 @@ export class AvmPersistableStateManager {
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
   public async checkNoteHashExists(storageAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
-    const gotLeafValue = await this.hostStorage.commitmentsDb.getCommitmentValue(leafIndex.toBigInt());
-    const exists = gotLeafValue?.equals(noteHash) ?? false;
+    const gotLeafValue = (await this.hostStorage.commitmentsDb.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
+    const exists = gotLeafValue.equals(noteHash);
     this.log.debug(
       `noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
     );
     // TODO(8287): We still return exists here, but we need to transmit both the requested noteHash and the gotLeafValue
     // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceNoteHashCheck(storageAddress, gotLeafValue ?? noteHash, leafIndex, exists);
+    this.trace.traceNoteHashCheck(storageAddress, gotLeafValue, leafIndex, exists);
     return Promise.resolve(exists);
   }
 
@@ -177,14 +177,14 @@ export class AvmPersistableStateManager {
    * @returns exists - whether the message exists in the L1 to L2 Messages tree
    */
   public async checkL1ToL2MessageExists(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
-    const valueAtIndex = await this.hostStorage.commitmentsDb.getL1ToL2LeafValue(msgLeafIndex.toBigInt());
-    const exists = valueAtIndex?.equals(msgHash) ?? false;
+    const valueAtIndex = (await this.hostStorage.commitmentsDb.getL1ToL2LeafValue(msgLeafIndex.toBigInt())) ?? Fr.ZERO;
+    const exists = valueAtIndex.equals(msgHash);
     this.log.debug(
       `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
     );
     // TODO(8287): We still return exists here, but we need to transmit both the requested msgHash and the value
     // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex ?? msgHash, msgLeafIndex, exists);
+    this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists);
     return Promise.resolve(exists);
   }
 
