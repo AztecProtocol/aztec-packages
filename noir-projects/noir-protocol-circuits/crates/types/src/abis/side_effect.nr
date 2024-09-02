@@ -19,11 +19,6 @@ trait Scoped<T> where T: Eq {
     fn inner(self) -> T;
 }
 
-trait Positioned {
-    // Like a storage slot
-    fn position(self) -> Field;
-}
-
 trait Readable<T> {
     fn assert_match_read_request(self, read_request: T);
 }
