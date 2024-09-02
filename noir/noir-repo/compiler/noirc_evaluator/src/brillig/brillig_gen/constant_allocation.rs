@@ -1,3 +1,6 @@
+//! This module analyzes the usage of constants in a given function and decides an allocation point for them.
+//! The allocation point will be the common dominator of all the places where the constant is used.
+//! By allocating in the common dominator, we can cache the constants for all subsequent uses.
 use fxhash::FxHashMap as HashMap;
 
 use crate::ssa::ir::{
