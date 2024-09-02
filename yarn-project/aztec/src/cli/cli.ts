@@ -76,6 +76,9 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');
         services = await startNode(options, signalHandlers, userLog);
+      } else if (options.proofVerifier) {
+        const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
+        services = await startProofVerifier(options, signalHandlers, userLog);
       } else if (options.bot) {
         const { startBot } = await import('./cmds/start_bot.js');
         services = await startBot(options, signalHandlers, userLog);
@@ -101,7 +104,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
         userLog(`Cannot run a standalone sequencer without a node`);
         process.exit(1);
       } else {
-        userLog(`No module specified to start ${JSON.stringify(options, null, 2)}`);
+        userLog(`No module specified to start`);
         process.exit(1);
       }
     }
