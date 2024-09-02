@@ -19,7 +19,7 @@ export class TxValidatorFactory {
   validatorForNewTxs(globalVariables: GlobalVariables, setupAllowList: AllowedElement[]): TxValidator<Tx> {
     return new AggregateTxValidator(
       new DataTxValidator(),
-      new MetadataTxValidator(globalVariables),
+      new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
       new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb)),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
       new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), FeeJuiceAddress, this.enforceFees),
