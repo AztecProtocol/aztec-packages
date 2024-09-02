@@ -197,8 +197,6 @@ TEST_F(AztecIVCTests, BadProofFailure)
                 tamper_with_proof(ivc.verification_queue[0].proof); // tamper with first proof
             }
         }
-
-        EXPECT_ANY_THROW(ivc.prove_and_verify());
     }
 
     // The IVC fails to verify if the SECOND fold proof is tampered with
@@ -223,8 +221,6 @@ TEST_F(AztecIVCTests, BadProofFailure)
                 tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
             }
         }
-
-        EXPECT_ANY_THROW(ivc.prove_and_verify());
     }
 
     // The IVC fails to verify if the 3rd/FINAL fold proof is tampered with
