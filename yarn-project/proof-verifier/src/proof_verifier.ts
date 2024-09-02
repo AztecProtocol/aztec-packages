@@ -9,6 +9,8 @@ import { type PublicClient, createPublicClient, http } from 'viem';
 
 import { type ProofVerifierConfig } from './config.js';
 
+const EXPECTED_PROOF_SIZE = 13988;
+
 export class ProofVerifier {
   private runningPromise: RunningPromise;
   private synchedToL1Block = 0n;
@@ -27,7 +29,7 @@ export class ProofVerifier {
       valueType: ValueType.INT,
       description: 'The number of proofs verified by the block verifier bot',
     });
-    this.synchedToL1Block = config.l1StartBlock - 1n;
+    this.synchedToL1Block = BigInt(config.l1StartBlock - 1);
   }
 
   static async new(config: ProofVerifierConfig, telemetryClient: TelemetryClient): Promise<ProofVerifier> {
@@ -42,6 +44,7 @@ export class ProofVerifier {
   }
 
   start() {
+    this.logger.info(`Starting proof verifier monitoring rollup=${this.config.rollupAddress}`);
     this.runningPromise.start();
   }
 
@@ -58,24 +61,49 @@ export class ProofVerifier {
       startBlock,
     );
 
+    if (retrievedData.length === 0) {
+      this.logger.debug(`No proofs found since L1 block ${startBlock}`);
+      return;
+    } else {
+      this.logger.debug(`Fetched ${retrievedData.length} proofs since L1 block ${startBlock}`);
+    }
+
     for (const { l2BlockNumber, txHash, proof, proverId } of retrievedData) {
+      this.logger.debug(
+        `Proof size ${proof.buffer.length} for L2 block proverId=${proverId} l2Block=${l2BlockNumber} l1Tx=${txHash}`,
+      );
+
+      const invalidProofFormat = proof.buffer.length < EXPECTED_PROOF_SIZE;
+      if (invalidProofFormat) {
+        this.logger.warn(
+          `Invalid proof format detected: proof length=${proof.buffer.length}bytes proverId=${proverId} l2Block=${l2BlockNumber} l1Tx=${txHash}`,
+        );
+      }
+
       try {
         await this.verifier.verifyProofForCircuit('RootRollupArtifact', proof);
         this.logger.info(`Verified proof for L2 block proverId=${proverId} l2Block=${l2BlockNumber} l1Tx=${txHash}`);
 
         this.proofVerified.add(1, {
           [Attributes.ROLLUP_PROVER_ID]: proverId.toString(),
-          [Attributes.OK]: true,
+          [Attributes.STATUS]: 'valid',
         });
       } catch (err) {
         this.logger.warn(
           `Failed to verify proof for L2 block proverId=${proverId} l2Block=${l2BlockNumber} l1Tx=${txHash}`,
         );
 
-        this.proofVerified.add(1, {
-          [Attributes.ROLLUP_PROVER_ID]: proverId.toString(),
-          [Attributes.OK]: false,
-        });
+        if (invalidProofFormat) {
+          this.proofVerified.add(1, {
+            [Attributes.ROLLUP_PROVER_ID]: proverId.toString(),
+            [Attributes.STATUS]: 'invalid_proof_format',
+          });
+        } else {
+          this.proofVerified.add(1, {
+            [Attributes.ROLLUP_PROVER_ID]: proverId.toString(),
+            [Attributes.STATUS]: 'invalid',
+          });
+        }
       }
     }
 

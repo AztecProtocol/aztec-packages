@@ -25,5 +25,5 @@ variable "ROLLUP_CONTRACT_ADDRESS" {
 
 variable "PROOF_VERIFIER_POLL_INTERVAL_MS" {
   type    = number
-  default = 10000
+  default = 60000
 }
