@@ -31,3 +31,8 @@ variable "PROOF_VERIFIER_POLL_INTERVAL_MS" {
   type    = "number"
   default = 60000
 }
+
+variable "PROOF_VERIFIER_L1_BATCH_SIZE" {
+  type    = string
+  default = "1"
+}

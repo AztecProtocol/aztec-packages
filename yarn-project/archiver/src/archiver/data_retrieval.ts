@@ -170,11 +170,11 @@ export async function retrieveL2ProofsFromRollup(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
-  searchEndBlock?: bigint,
+  searchEndBlock: bigint,
 ): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }>> {
   const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
   const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }[] = [];
-  const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
+  const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchEndBlock;
 
   for (const { txHash, proverId, l2BlockNumber } of logs) {
     const proofData = await getBlockProofFromSubmitProofTx(publicClient, txHash, l2BlockNumber, proverId);

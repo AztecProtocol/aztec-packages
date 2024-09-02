@@ -14,6 +14,8 @@ export type ProofVerifierConfig = {
   l1ChainId: number;
   /** Start block number */
   l1StartBlock: number;
+  /** The size of each batch to read from L1 */
+  l1BatchSize: number;
   /** The address of the Rollup contract */
   rollupAddress: EthAddress;
   /** How often to poll L1 for proof submission */
@@ -41,6 +43,11 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
   l1StartBlock: {
     env: 'PROOF_VERIFIER_L1_START_BLOCK',
     description: 'Start block number',
+    ...numberConfigHelper(1),
+  },
+  l1BatchSize: {
+    env: 'PROOF_VERIFIER_L1_BATCH_SIZE',
+    description: 'The size of each batch to read from L1',
     ...numberConfigHelper(1),
   },
   rollupAddress: {

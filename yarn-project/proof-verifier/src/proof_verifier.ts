@@ -54,15 +54,17 @@ export class ProofVerifier {
 
   private async work() {
     const startBlock = this.synchedToL1Block + 1n;
-    this.logger.debug(`Fetching proofs from L1 block ${startBlock}`);
+    const endBlock = startBlock + BigInt(this.config.l1BatchSize);
+    this.logger.debug(`Fetching proofs from L1 block ${startBlock} to ${endBlock}`);
     const { lastProcessedL1BlockNumber, retrievedData } = await retrieveL2ProofsFromRollup(
       this.client,
       this.config.rollupAddress,
       startBlock,
+      endBlock,
     );
 
     if (retrievedData.length === 0) {
-      this.logger.debug(`No proofs found since L1 block ${startBlock}`);
+      this.logger.debug(`No proofs found between L1 block ${startBlock} ${endBlock}`);
       return;
     } else {
       this.logger.debug(`Fetched ${retrievedData.length} proofs since L1 block ${startBlock}`);
