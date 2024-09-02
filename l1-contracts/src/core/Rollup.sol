@@ -199,7 +199,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
-  function propose(
+  // Temp change name to fix viem issue
+  function proposeWithBody(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,

@@ -573,8 +573,8 @@ export class Sequencer {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    console.log('attestations', attestations);
-    console.log('txHashes', txHashes);
+    // console.log('attestations', attestations);
+    // console.log('txHashes', txHashes);
 
     const publishedL2Block = await this.publisher.processL2Block(block, attestations, txHashes);
     if (publishedL2Block) {

@@ -311,7 +311,7 @@ export class L1Publisher {
       txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
     };
 
-    console.log('proposeTxArgs', proposeTxArgs);
+    // console.log('proposeTxArgs', proposeTxArgs);
 
     // Publish body and propose block (if not already published)
     if (!this.interrupted) {
@@ -536,15 +536,16 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          console.log('args', args);
+          // console.log('args length', args.length);
 
           // if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, {
+            const simulationResult = await this.rollupContract.simulate.proposeWithBody(args, {
               account: this.account,
             });
+            console.log(simulationResult);
           // }
 
-          return await this.rollupContract.write.propose(args, {
+          return await this.rollupContract.write.proposeWithBody(args, {
             account: this.account,
           });
         } else {
