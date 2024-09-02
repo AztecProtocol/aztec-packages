@@ -1,10 +1,12 @@
 mod validate_linked_public_data_writes;
-mod validate_public_data_leaves;
+mod validate_public_data_leaf_memberships;
+mod validate_unique_leaf_slots;
 
 use crate::components::{
     public_tail_output_validator::{
     validate_linked_public_data_writes::validate_linked_public_data_writes,
-    validate_public_data_leaves::validate_public_data_leaves
+    validate_public_data_leaf_memberships::validate_public_data_leaf_memberships,
+    validate_unique_leaf_slots::validate_unique_leaf_slots
 },
     public_tail_output_composer::{OutputHints, SiloedNoteHashHint}
 };
@@ -153,9 +155,13 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
     }
 
     fn validate_deduped_public_data_writes(self) {
-        validate_public_data_leaves(
+        validate_unique_leaf_slots(
             self.hints.public_data_leaves,
-            self.hints.unique_slot_index_hints,
+            self.hints.unique_slot_index_hints
+        );
+
+        validate_public_data_leaf_memberships(
+            self.hints.public_data_leaves,
             self.public_data_leaf_hints,
             self.start_state.public_data_tree.root
         );
