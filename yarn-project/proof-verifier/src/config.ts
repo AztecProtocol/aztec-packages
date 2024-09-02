@@ -12,6 +12,8 @@ export type ProofVerifierConfig = {
   l1Url: string;
   /** The L1 chain ID */
   l1ChainId: number;
+  /** Start block number */
+  l1StartBlock: bigint;
   /** The address of the Rollup contract */
   rollupAddress: EthAddress;
   /** How often to poll L1 for proof submission */
@@ -35,6 +37,12 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
     parseEnv: (val: string) => +val,
     defaultValue: 31337,
     description: 'The chain ID of the ethereum host.',
+  },
+  l1StartBlock: {
+    env: 'PROOF_VERIFIER_L1_START_BLOCK',
+    parseEnv: (val: string) => BigInt(val),
+    description: 'Start block number',
+    defaultValue: 1n,
   },
   rollupAddress: {
     env: 'ROLLUP_CONTRACT_ADDRESS',

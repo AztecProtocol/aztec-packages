@@ -27,6 +27,7 @@ export class ProofVerifier {
       valueType: ValueType.INT,
       description: 'The number of proofs verified by the block verifier bot',
     });
+    this.synchedToL1Block = config.l1StartBlock - 1n;
   }
 
   static async new(config: ProofVerifierConfig, telemetryClient: TelemetryClient): Promise<ProofVerifier> {
