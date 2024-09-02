@@ -14,7 +14,7 @@
 #include <memory>
 
 WASM_EXPORT void acir_get_circuit_sizes(
-    uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
+    uint8_t const* acir_vec, uint32_t const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
