@@ -12,6 +12,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
+  BaseError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -567,6 +568,17 @@ export class L1Publisher {
           });
         }
       } catch (err) {
+        // TODO: tidy up this error
+        if (err instanceof BaseError) {
+          const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
+          if (revertError instanceof ContractFunctionRevertedError) {
+            // TODO: turn this into a function
+            const errorName = revertError.data?.errorName ?? "";
+            const args = revertError.metaMessages && revertError.metaMessages?.length > 1 ? revertError.metaMessages[1].trimStart() : '';
+            this.log.error(`propose failed with "${errorName}${args}"`)
+            return undefined;
+          }
+        }
         this.log.error(`Rollup publish failed`, err);
         return undefined;
       }

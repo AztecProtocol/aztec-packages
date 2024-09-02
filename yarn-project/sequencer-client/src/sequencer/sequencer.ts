@@ -216,7 +216,12 @@ export class Sequencer {
       let slot: bigint;
       try {
         slot = await this.mayProposeBlock(chainTipArchive, BigInt(newBlockNumber));
+        // TODO(md) below in this block are for debugging remove
+        const seqEnr = this.p2pClient.getEnr();
+        console.log("SEAN | ", seqEnr, " IS able to propose a block");
       } catch (err) {
+        const seqEnr = this.p2pClient.getEnr();
+        console.log("SEAN | ", seqEnr, " NOT able to propose a block");
         this.log.debug(`Cannot propose for block ${newBlockNumber}`);
         return;
       }

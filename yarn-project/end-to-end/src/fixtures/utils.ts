@@ -453,6 +453,7 @@ export async function setup(
     }
   }
 
+  // A watcher that performs time jumps in the sequencer when they are required
   const watcher = new Watcher(
     new EthCheatCodes(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,

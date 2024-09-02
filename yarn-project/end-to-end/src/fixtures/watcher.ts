@@ -6,6 +6,13 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type GetContractReturnType, type HttpTransport, type PublicClient, getAddress, getContract } from 'viem';
 import type * as chains from 'viem/chains';
 
+/**
+ * Watcher
+ *
+ * The watcher is used within tests in order to adjust the timestamps of an automine chain to have the correct block.timestamp values
+ * that are expected with the pending chain's timeliness requirements.
+ *
+ */
 export class Watcher {
   private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
 
@@ -55,6 +62,7 @@ export class Watcher {
           this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
         }
 
+        console.log("The watcher has jumped slot")
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
       }
     } catch (err) {
