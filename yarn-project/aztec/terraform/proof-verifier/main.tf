@@ -154,6 +154,14 @@ resource "aws_ecs_task_definition" "aztec-proof-verifier" {
         { name = "ETHEREUM_HOST", value = var.ETHEREUM_HOST },
         { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
         { name = "ROLLUP_CONTRACT_ADDRESS", value = var.ROLLUP_CONTRACT_ADDRESS },
+        {
+          name  = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+          value = "http://aztec-otel.local:4318/v1/metrics"
+        },
+        {
+          name  = "OTEL_SERVICE_NAME"
+          value = "${var.DEPLOY_TAG}-aztec-proof-verifier"
+        },
         { name = "LOG_LEVEL", value = var.LOG_LEVEL },
         { name = "NETWORK", value = var.DEPLOY_TAG },
         { name = "LOG_JSON", value = "1" }
