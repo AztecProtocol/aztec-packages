@@ -237,7 +237,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}",
     "command": ["start", "--prover"],
     "essential": true,
-    "cpu": 32768,
+    "cpu": 16384,
     "memoryReservation": 122880,
     "portMappings": [
       {
