@@ -128,13 +128,7 @@ TEST_F(ClientIVCTests, BasicFailure)
             break;
         }
     }
-
-    // Accumulate another circuit; this involves recursive folding verification of the bad proof
-    Builder circuit_2 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_2);
-
-    // The bad fold proof should result in an invalid witness in the final circuit and the IVC should fail to verify
-    EXPECT_ANY_THROW(prove_and_verify(ivc));
+    EXPECT_ANY_THROW(create_mock_circuit(ivc));
 };
 
 /**
