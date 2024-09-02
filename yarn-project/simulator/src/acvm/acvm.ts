@@ -117,15 +117,10 @@ export function resolveAssertionMessage(
     return undefined;
   }
 
-  console.log(opcodeLocations);
-
   const lastLocation = extractBrilligLocation(opcodeLocations[opcodeLocations.length - 1]);
   if (!lastLocation) {
     return undefined;
   }
-
-  console.log(lastLocation);
-  console.log(debug.assertMessages);
 
   return debug.assertMessages?.[parseInt(lastLocation, 10)];
 }
