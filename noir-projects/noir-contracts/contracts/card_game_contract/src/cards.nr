@@ -4,8 +4,7 @@ use dep::aztec::{
     context::UnconstrainedContext,
     protocol_types::{traits::{ToField, Serialize, FromField}, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-    keys::getters::get_current_public_keys, state_vars::PrivateSet,
-    note::constants::MAX_NOTES_PER_PAGE
+    keys::getters::get_current_public_keys, state_vars::PrivateSet, note::constants::MAX_NOTES_PER_PAGE
 };
 use dep::value_note::value_note::ValueNote;
 

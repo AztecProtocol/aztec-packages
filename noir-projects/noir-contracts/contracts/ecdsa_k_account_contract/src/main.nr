@@ -7,7 +7,6 @@ contract EcdsaKAccount {
         keys::getters::get_current_public_keys
     };
 
-
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness
