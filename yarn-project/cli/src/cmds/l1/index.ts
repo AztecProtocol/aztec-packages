@@ -95,12 +95,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
     )
-    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
-    )
     .addOption(l1ChainIdOption)
     .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
     .option('--count <number>', 'The number of epochs to fast forward', arg => BigInt(parseInt(arg)), 1n)
@@ -109,8 +103,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       await fastForwardEpochs({
         rpcUrl: options.rpcUrl,
         chainId: options.l1ChainId,
-        privateKey: options.privateKey,
-        mnemonic: options.mnemonic,
         rollupAddress: options.rollup,
         numEpochs: options.count,
         log,
@@ -125,12 +117,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '-u, --rpc-url <string>',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
       ETHEREUM_HOST,
-    )
-    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
     .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)

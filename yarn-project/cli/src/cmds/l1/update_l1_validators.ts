@@ -10,8 +10,8 @@ import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem
 export interface RollupCommandArgs {
   rpcUrl: string;
   chainId: number;
-  privateKey: string | undefined;
-  mnemonic: string;
+  privateKey?: string;
+  mnemonic?: string;
   rollupAddress: EthAddress;
 }
 
@@ -41,7 +41,8 @@ export async function addL1Validator({
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const { walletClient, publicClient } = getL1Clients(rpcUrl, chainId, privateKey, mnemonic);
+  const publicClient = getPublicClient(rpcUrl, chainId);
+  const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -54,36 +55,33 @@ export async function addL1Validator({
   await publicClient.waitForTransactionReceipt({ hash: txHash });
   dualLog(`Funding validator on L1`);
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  await cheatCodes.setBalance(validatorAddress, 100000000000000000000n);
+  await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
 }
 
 export async function fastForwardEpochs({
   rpcUrl,
   chainId,
-  privateKey,
-  mnemonic,
   rollupAddress,
   numEpochs,
   log,
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { numEpochs: bigint }) {
   const dualLog = makeDualLog(log, debugLogger);
-  const { walletClient } = getL1Clients(rpcUrl, chainId, privateKey, mnemonic);
+  const publicClient = getPublicClient(rpcUrl, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
-    client: walletClient,
+    client: publicClient,
   });
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  const nowSeconds = BigInt(Math.floor(new Date().getTime() / 1000));
+  const currentSlot = await rollup.read.getCurrentSlot();
   const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
-  const l2SlotDurationSeconds = await rollup.read.SLOT_DURATION();
-  const warpTimeSeconds = nowSeconds + l2SlotsInEpoch * l2SlotDurationSeconds * numEpochs;
-  dualLog(`Fast forwarding ${numEpochs} epochs to ${warpTimeSeconds}`);
+  const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
+  dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {
-    await cheatCodes.warp(Number(warpTimeSeconds));
-    dualLog(`Fast forwarded ${numEpochs} epochs to ${warpTimeSeconds}`);
+    await cheatCodes.warp(Number(timestamp));
+    dualLog(`Fast forwarded ${numEpochs} epochs to ${timestamp}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes("is lower than or equal to previous block's timestamp")) {
       dualLog(`Someone else fast forwarded the chain to a point after/equal to the target time`);
@@ -94,15 +92,8 @@ export async function fastForwardEpochs({
   }
 }
 
-export async function debugRollup({
-  rpcUrl,
-  chainId,
-  privateKey,
-  mnemonic,
-  rollupAddress,
-  log,
-}: RollupCommandArgs & LoggerArgs) {
-  const { publicClient } = getL1Clients(rpcUrl, chainId, privateKey, mnemonic);
+export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
+  const publicClient = getPublicClient(rpcUrl, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -139,15 +130,24 @@ function makeDualLog(log: LogFn, debugLogger: DebugLogger) {
   };
 }
 
-function getL1Clients(rpcUrl: string, chainId: number, privateKey: string | undefined, mnemonic: string) {
+function getPublicClient(rpcUrl: string, chainId: number) {
+  const chain = createEthereumChain(rpcUrl, chainId);
+  return createPublicClient({ chain: chain.chainInfo, transport: http(rpcUrl) });
+}
+
+function getWalletClient(
+  rpcUrl: string,
+  chainId: number,
+  privateKey: string | undefined,
+  mnemonic: string | undefined,
+) {
+  if (!privateKey && !mnemonic) {
+    throw new Error('Either privateKey or mnemonic must be provided to create a wallet client');
+  }
+
   const chain = createEthereumChain(rpcUrl, chainId);
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!)
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  const walletClient = createWalletClient({ account, chain: chain.chainInfo, transport: http(rpcUrl) });
-  const publicClient = createPublicClient({ chain: chain.chainInfo, transport: http(rpcUrl) });
-  return {
-    walletClient,
-    publicClient,
-  };
+  return createWalletClient({ account, chain: chain.chainInfo, transport: http(rpcUrl) });
 }
