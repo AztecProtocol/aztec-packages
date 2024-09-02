@@ -1,13 +1,11 @@
 
 #include "shplemini_verifier.hpp"
+#include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
 #include "../kzg/kzg.hpp"
 #include "../shplonk/shplonk.hpp"
 #include "../utils/batch_mul_native.hpp"
-
-#include "../commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
-
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 
 #include <gtest/gtest.h>
@@ -23,7 +21,9 @@ template <class Curve> class ShpleminiTest : public CommitmentTest<Curve> {
     using Polynomial = bb::Polynomial<Fr>;
 };
 
-TYPED_TEST_SUITE(ShpleminiTest, CommitmentSchemeParams);
+using CurveTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
+
+TYPED_TEST_SUITE(ShpleminiTest, CurveTypes);
 
 // This test checks that batch_multivariate_opening_claims method operates correctly
 TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)

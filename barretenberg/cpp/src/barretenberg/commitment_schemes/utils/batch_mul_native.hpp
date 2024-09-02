@@ -1,4 +1,7 @@
 #pragma once
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include <vector>
 
 namespace bb {
 template <typename Curve> class CommitmentSchemesUtils_ {

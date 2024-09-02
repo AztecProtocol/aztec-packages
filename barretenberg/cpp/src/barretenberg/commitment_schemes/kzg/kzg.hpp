@@ -3,6 +3,7 @@
 #include "../claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
+#include "barretenberg/commitment_schemes/utils/shplemini_accumulator.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -55,7 +56,7 @@ template <typename Curve_> class KZG {
      * @param claim OpeningClaim ({r, v}, C)
      * @return  {P₀, P₁} where
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
-     *      - P₁ = [W(x)]₁
+     *      - P₁ = - [W(x)]₁
      */
     template <typename Transcript>
     static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim,
@@ -87,31 +88,50 @@ template <typename Curve_> class KZG {
         return { P_0, P_1 };
     };
 
-    static std::array<GroupElement, 2> reduce_verify_shplemini_accumulator(const Fr& evaluation_point,
-                                                                           const Fr& evaluation,
-                                                                           std::vector<Commitment>& commitments,
-                                                                           std::vector<Fr>& scalars,
-                                                                           auto& transcript)
+    /**
+     * @brief Computes the input points for the pairing check needed to verify a KZG opening claim obtained from a
+     * Shplemini accumulator.
+     *
+     * @details This function is used in a recursive setting where we want to "aggregate" proofs. In the Shplemini case,
+     * the commitment \f$ C \f$ is encoded into the vectors `commitments` and `scalars` contained in the
+     * `shplemini_accumulator`. More explicitly, \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$. To avoid
+     * performing an extra `batch_mul`, we simply add the commitment \f$ [W]_1 \f$ to the vector of commitments and
+     * the Shplonk evaluation challenge to the vector of scalars and perform a single batch_mul that computes \f$C +
+     * W\cdot z \f$.
+     *
+     * @param shplemini_accumulator \f$(\text{commitments}, \text{scalars}, \text{shplonk_evaluation_challenge})\f$
+     *        A struct containing the commitments, scalars, and the Shplonk evaluation challenge.
+     * @return \f$ \{P_0, P_1\}\f$ where:
+     *         - \f$ P_0 = C + [W(x)]_1 \cdot z \f$
+     *         - \f$ P_1 = - [W(x)]_1 \f$
+     */
+    template <typename Transcript>
+    static VerifierAccumulator reduce_verify_shplemini_accumulator(ShpleminiAccumulator<Curve> shplemini_accumulator,
+                                                                   const std::shared_ptr<Transcript>& transcript)
     {
         using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
-        // Note: The pairing check can be expressed naturally as
-        // e(C - v * [1]_1, [1]_2) = e([W]_1, [X - r]_2) where C =[p(X)]_1. This can be rearranged (e.g. see the plonk
-        // paper) as e(C + r*[W]_1 - v*[1]_1, [1]_2) * e(-[W]_1, [X]_2) = 1, or e(P_0, [1]_2) * e(P_1, [X]_2) = 1
+        /// Note: In this case, the pairing check can be expressed as
+        /// \f$ e(C + [W]_1 \cdot z, [1]_2) * e(-[W]_1, [X]_2) = 1\f$, where
+        /// \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$.
         GroupElement P_0;
-        commitments.emplace_back(quotient_commitment);
-        scalars.emplace_back(evaluation_point);
-        scalars[scalars.size() - 1] += evaluation;
+        /// Place the commitment to \f$W\f$ to 'commitments'
+        shplemini_accumulator.commitments.emplace_back(quotient_commitment);
+        /// Update the scalars by adding the Shplonk evaluation challenge \f$ z \f$
+        shplemini_accumulator.scalars.emplace_back(shplemini_accumulator.evaluation_point);
+        /// Compute \f$ C + [W]_1 \cdot z \f$
         if constexpr (Curve::is_stdlib_type) {
-            P_0 = GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            P_0 = GroupElement::batch_mul(shplemini_accumulator.commitments,
+                                          shplemini_accumulator.scalars,
+                                          /*max_num_bits=*/0,
+                                          /*with_edgecases=*/true);
         } else {
-            P_0 = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
-            info("commitments vector size", commitments.size());
-            info("scalars vector size", scalars.size());
+            P_0 = CommitmentSchemesUtils::batch_mul_native(shplemini_accumulator.commitments,
+                                                           shplemini_accumulator.scalars);
         }
-
         auto P_1 = -quotient_commitment;
+
         return { P_0, P_1 };
     }
 };

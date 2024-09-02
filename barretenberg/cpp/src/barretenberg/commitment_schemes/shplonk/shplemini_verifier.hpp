@@ -4,27 +4,11 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
+#include "barretenberg/commitment_schemes/utils/shplemini_accumulator.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-/**
- * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
- *
- * @details This structure is used in the `reduce_verify_shplemini_accumulator` method of KZG or IPA. It allows a chosen
- * Polynomial Commitment Scheme (PCS) to perform a single batch multiplication operation by:
- * 1. Receiving the last commitment \f$ W \f$ from the prover.
- * 2. Adding this commitment to the vector of commitments.
- * 3. Adding \f$ -\text{evaluation\_point} \f$ to the vector of scalars.
- * 4. Performing a single `batch_mul` operation to obtain the pair of pairing points.
- *
- * @tparam Curve: BN254 or Grumpkin.
- */
-template <typename Curve> struct ShpleminiAccumulator {
-    std::vector<typename Curve::AffineElement> commitments;
-    std::vector<typename Curve::ScalarField> scalars;
-    typename Curve::ScalarField evaluation_point;
-};
 /*!
 \brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
 
@@ -60,8 +44,8 @@ and the sizes of 'commitments' and 'scalars' are equal to
 \#\text{claimed_evaluations} + \text{log_circuit_size} + 2
 \f]
 
-Note that the Shplonk step is not explicitly listed here because it links all of the steps and cannot be isolated into a
-single method.
+The ouput triple is either fed to  the corresponding \ref  bb::KZG< Curve_ >::reduce_verify_shplemini_accumulator
+"KZG method" or \ref  bb::IPA< Curve_ >::reduce_verify_shplemini_accumulator "IPA method".
 
 \todo Eliminate group operations spent on Shifted Polynomials. See
 https://github.com/AztecProtocol/barretenberg/issues/1084
@@ -74,7 +58,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     template <typename Transcript>
-    static ShpleminiAccumulator<Curve> accumulate_batch_mul_arguments(size_t log_circuit_size,
+    static ShpleminiAccumulator<Curve> accumulate_batch_mul_arguments(Fr log_N,
                                                                       RefSpan<Commitment> unshifted_commitments,
                                                                       RefSpan<Commitment> shifted_commitments,
                                                                       RefSpan<Fr> claimed_evaluations,
@@ -82,6 +66,12 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                       const Commitment& g1_identity,
                                                                       std::shared_ptr<Transcript>& transcript)
     {
+        size_t log_circuit_size{ 0 };
+        if constexpr (Curve::is_stdlib_type) {
+            log_circuit_size = static_cast<uint32_t>(log_N.get_value());
+        } else {
+            log_circuit_size = static_cast<uint32_t>(log_N);
+        }
         /// Get the challenge \f$\rho\f$ to batch commitments to multilinear polynomials and their shifts
         const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
         /// Get Gemini commitments \f$(\text{com}(A_1), \text{com}(A_2), \ldots , \text{com}(A_{d-1}))\f$
@@ -308,5 +298,4 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
 };
-
 } // namespace bb

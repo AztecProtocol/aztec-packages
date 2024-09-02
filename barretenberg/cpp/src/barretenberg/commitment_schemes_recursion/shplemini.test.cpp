@@ -12,16 +12,14 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
-#include <gtest/gtest.h>
-
 using namespace bb;
 
 template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
 
-numeric::RNG& engine = numeric::get_debug_randomness();
+static numeric::RNG& engine = numeric::get_debug_randomness();
 
 /**
- * @brief Test full Prover/Verifier protocol for proving single multilinear evaluation
+ * @brief Test Recursive Verification for 2 multilinear polynomials and a shift of one of them
  *
  */
 TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
@@ -38,20 +36,22 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using GeminiProver = GeminiProver_<NativeCurve>;
     using ShplonkProver = ShplonkProver_<NativeCurve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using ZeroMorphProver = ZeroMorphProver_<NativeCurve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Polynomial = bb::Polynomial<NativeFr>;
-    using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
-    constexpr size_t N = 2;
-    constexpr size_t NUM_UNSHIFTED = 1;
-    constexpr size_t NUM_SHIFTED = 0;
+    constexpr size_t N = 16;
+    constexpr size_t log_circuit_size = 4;
+    constexpr size_t NUM_UNSHIFTED = 2;
+    constexpr size_t NUM_SHIFTED = 1;
 
     srs::init_crs_factory("../srs_db/ignition");
 
-    std::vector<NativeFr> u_challenge = { NativeFr::random_element(&engine) };
+    std::vector<NativeFr> u_challenge(log_circuit_size);
+    for (NativeFr& element : u_challenge) {
+        element = NativeFr::random_element();
+    }
 
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
@@ -72,18 +72,17 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
     }
 
-    std::vector<Fr> claimed_evaluations;
+    std::vector<NativeFr> claimed_evaluations;
     claimed_evaluations.reserve(v_evaluations.size() + w_evaluations.size());
     claimed_evaluations.insert(claimed_evaluations.end(), v_evaluations.begin(), v_evaluations.end());
     claimed_evaluations.insert(claimed_evaluations.end(), w_evaluations.begin(), w_evaluations.end());
 
     // Compute commitments [f_i]
     std::vector<NativeCommitment> f_commitments;
-    auto commitment_key = std::make_shared<CommitmentKey>(1024);
+    auto commitment_key = std::make_shared<CommitmentKey>(4096);
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
         f_commitments.emplace_back(commitment_key->commit(f_polynomials[i]));
     }
-
     // Construct container of commitments of the "to-be-shifted" polynomials [g_i] (= [f_i])
     std::vector<NativeCommitment> g_commitments;
     for (size_t i = 0; i < NUM_SHIFTED; ++i) {
@@ -93,54 +92,47 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     // Initialize an empty NativeTranscript
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    FF rho = transcript->template get_challenge<FF>("rho");
-    std::vector<FF> rhos = gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
-    size_t circuit_size = N;
+    NativeFr rho = prover_transcript->template get_challenge<NativeFr>("rho");
+    std::vector<NativeFr> rhos = gemini::powers_of_rho(rho, NUM_SHIFTED + NUM_UNSHIFTED);
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
-    Polynomial batched_poly_unshifted(circuit_size); // batched unshifted polynomials
-    size_t poly_idx = 0;                             // TODO(#391) zip
+    Polynomial batched_poly_unshifted(N);
+    size_t poly_idx = 0;
     for (auto& unshifted_poly : g_polynomials) {
         batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
         ++poly_idx;
     }
 
-    Polynomial batched_poly_to_be_shifted(circuit_size); // batched to-be-shifted polynomials
+    Polynomial batched_poly_to_be_shifted(N); // batched to-be-shifted polynomials
     for (auto& to_be_shifted_poly : h_polynomials) {
         batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
         ++poly_idx;
     };
-
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
-    fold_polynomials =
-        Gemini::compute_gemini_polynomials(u_challenge, batched_poly_unshifted, batched_poly_to_be_shifted);
+    auto fold_polynomials = GeminiProver::compute_gemini_polynomials(
+        u_challenge, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
     // Comute and add to trasnscript the commitments [Fold^(i)], i = 1, ..., d-1
-    for (size_t l = 0; l < accumulator->proving_key.log_circuit_size - 1; ++l) {
-        Commitment current_commitment = commitment_key->commit(fold_polynomials[l + 2]);
-        transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1), current_commitment);
+    for (size_t l = 0; l < log_circuit_size - 1; ++l) {
+        NativeCommitment current_commitment = commitment_key->commit(fold_polynomials[l + 2]);
+        prover_transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1), current_commitment);
     }
+    const NativeFr r_challenge = prover_transcript->template get_challenge<NativeFr>("Gemini:r");
 
-    const FF r_challenge = transcript->template get_challenge<FF>("Gemini:r");
+    const auto [gemini_opening_pairs, gemini_witnesses] =
+        GeminiProver::compute_fold_polynomial_evaluations(u_challenge, std::move(fold_polynomials), r_challenge);
 
-    gemini_output =
-        Gemini::compute_fold_polynomial_evaluations(sumcheck_challenges, std ::move(fold_polynomials), r_challenge);
-
-    for (size_t l = 0; l < accumulator->proving_key.log_circuit_size; ++l) {
+    std::vector<ProverOpeningClaim<NativeCurve>> opening_claims;
+    for (size_t l = 0; l < log_circuit_size; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
-        const auto& evaluation = gemini_output[l + 1].opening_pair.evaluation;
-        transcript->send_to_verifier(label, evaluation);
+        const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
+        prover_transcript->send_to_verifier(label, evaluation);
+        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
     }
+    opening_claims.emplace_back(gemini_witnesses[log_circuit_size], gemini_opening_pairs[log_circuit_size]);
 
-    nu_challenge = transcript->template get_challenge<FF>("Shplonk:nu");
-
-    batched_quotient_Q = Shplonk::compute_batched_quotient(gemini_output, nu_challenge);
-
-    Commitment batched_commitment_Q = commitment_key->commit(batched_quotient_Q);
-    // commit to Q(X) and add [Q] to the transcript
-    transcript->send_to_verifier("Shplonk:Q", batched_commitment_Q);
-    const FF z_challenge = transcript->template get_challenge<FF>("Shplonk:z");
-
-    shplonk_output = Shplonk::compute_partially_evaluated_batched_quotient(
-        gemini_output, batched_quotient_Q, nu_challenge, z_challenge);
+    // Shplonk prover output:
+    // - opening pair: (z_challenge, 0)
+    // - witness: polynomial Q - Q_z
+    ShplonkProver::prove(commitment_key, opening_claims, prover_transcript);
 
     Builder builder;
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);
@@ -168,21 +160,18 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     };
     auto stdlib_f_commitments = commitments_to_witnesses(f_commitments);
     auto stdlib_g_commitments = commitments_to_witnesses(g_commitments);
-    auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
-    auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
+    auto stdlib_claimed_evaluations = elements_to_witness(claimed_evaluations);
 
-    std::vector<Fr> u_challenge_in_circuit(CONST_PROOF_SIZE_LOG_N);
-    std::fill_n(u_challenge_in_circuit.begin(), CONST_PROOF_SIZE_LOG_N, Fr::from_witness(&builder, 0));
-    u_challenge_in_circuit[0] = Fr::from_witness(&builder, u_challenge[0]);
+    std::vector<Fr> u_challenge_in_circuit = elements_to_witness(u_challenge);
 
     [[maybe_unused]] auto opening_claim =
-        ShpleminiVerifier::accumulate_batch_mul_arguments(log_circuit_size,
+        ShpleminiVerifier::accumulate_batch_mul_arguments(Fr::from_witness(&builder, log_circuit_size),
                                                           RefVector(stdlib_f_commitments), // unshifted
                                                           RefVector(stdlib_g_commitments),
-                                                          RefVector(claimed_evaluations),
-                                                          u_challenge,
+                                                          RefVector(stdlib_claimed_evaluations),
+                                                          u_challenge_in_circuit,
                                                           Commitment::one(&builder),
-                                                          stdlib_verifier_transcript)
+                                                          stdlib_verifier_transcript);
 
-            EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

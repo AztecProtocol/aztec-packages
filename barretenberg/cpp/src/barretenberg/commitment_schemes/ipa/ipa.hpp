@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
+#include "barretenberg/commitment_schemes/utils/shplemini_accumulator.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
@@ -14,12 +15,11 @@
 #include <vector>
 
 namespace bb {
-// clang-format off
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
 *
-*@details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
+* @details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
 *vector in each prover round. The implementation uses:
 *
 *1. An SRS (Structured Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
@@ -76,60 +76,61 @@ can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\
 documentation </a>
 */
 template <typename Curve_> class IPA {
- public:
-   using Curve = Curve_;
-   using Fr = typename Curve::ScalarField;
-   using GroupElement = typename Curve::Element;
-   using Commitment = typename Curve::AffineElement;
-   using CK = CommitmentKey<Curve>;
-   using VK = VerifierCommitmentKey<Curve>;
-   using Polynomial = bb::Polynomial<Fr>;
-   using VerifierAccumulator = bool;
+  public:
+    using Curve = Curve_;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
+    using CK = CommitmentKey<Curve>;
+    using VK = VerifierCommitmentKey<Curve>;
+    using Polynomial = bb::Polynomial<Fr>;
+    using VerifierAccumulator = bool;
 
-// These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
+// These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of
+// IPA specifically
 #ifdef IPA_TEST
-   FRIEND_TEST(IPATest, ChallengesAreZero);
-   FRIEND_TEST(IPATest, AIsZeroAfterOneRound);
+    FRIEND_TEST(IPATest, ChallengesAreZero);
+    FRIEND_TEST(IPATest, AIsZeroAfterOneRound);
 #endif
 #ifdef IPA_FUZZ_TEST
-   friend class ProxyCaller;
+    friend class ProxyCaller;
 #endif
-   /**
-    * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
-    *
-    * @tparam Transcript Transcript type. Useful for testing
-    * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
-    * @param opening_pair (challenge, evaluation)
-    * @param polynomial The witness polynomial whose opening proof needs to be computed
-    * @param transcript Prover transcript
-    * https://github.com/AztecProtocol/aztec-packages/pull/3434
-    *
-    *@details For a vector \f$\vec{v}=(v_0,v_1,...,v_{2n-1})\f$ of length \f$2n\f$ we'll denote
-    *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
-    *as follows:
-    *
-    *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
-    *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
-    *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
-    *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
-    *coefficients
-.   *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
-    evaluation we wish to prove.
-    *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
-    *   1. Compute
-    \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
-    U\f$​
-    *   2. Compute
-    *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
-    U\f$
-    *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
-    *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​, if it is zero, abort
-    *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
-    *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
-    *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
-    *
-    *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
-    */
+    /**
+     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
+     *
+     * @tparam Transcript Transcript type. Useful for testing
+     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+     * @param opening_pair (challenge, evaluation)
+     * @param polynomial The witness polynomial whose opening proof needs to be computed
+     * @param transcript Prover transcript
+     * https://github.com/AztecProtocol/aztec-packages/pull/3434
+     *
+     * @details For a vector \f$\vec{v}=(v_0,v_1,...,v_{2n-1})\f$ of length \f$2n\f$ we'll denote
+     *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
+     *as follows:
+     *
+     *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
+     *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
+     *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
+     *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
+     *coefficients
+ .   *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
+     evaluation we wish to prove.
+     *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
+     *   1. Compute
+     \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
+     U\f$​
+     *   2. Compute
+     *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
+     U\f$
+     *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
+     *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​, if it is zero, abort
+     *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
+     *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
+     *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
+     *
+     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
+     */
     template <typename Transcript>
     static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
@@ -170,10 +171,7 @@ template <typename Curve_> class IPA {
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         parallel_for_heuristic(
-            poly_length,
-            [&](size_t i) {
-                G_vec_local[i] = srs_elements[i * 2];
-            }, thread_heuristics::FF_COPY_COST);
+            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i * 2]; }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
@@ -187,7 +185,8 @@ template <typename Curve_> class IPA {
                     b_vec[i] = b_power;
                     b_power *= opening_pair.challenge;
                 }
-            }, thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
+            },
+            thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
@@ -204,13 +203,14 @@ template <typename Curve_> class IPA {
             // Run scalar products in parallel
             auto inner_prods = parallel_for_heuristic(
                 round_size,
-                std::pair{Fr::zero(), Fr::zero()},
+                std::pair{ Fr::zero(), Fr::zero() },
                 [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
                     inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
                     inner_prod_left_right.second += a_vec[round_size + j] * b_vec[j];
-                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+                },
+                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
             // Sum inner product contributions computed in parallel and unpack the std::pair
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
@@ -260,7 +260,8 @@ template <typename Curve_> class IPA {
                 [&](size_t j) {
                     a_vec[j] += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
-                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+                },
+                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
 
         // Step 7
@@ -376,7 +377,8 @@ template <typename Curve_> class IPA {
                         s_vec[i] *= round_challenges_inv[log_poly_degree - 1 - j];
                     }
                 }
-            }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
+            },
+            thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
         auto* srs_elements = vk->get_monomial_points();
 
@@ -387,10 +389,7 @@ template <typename Curve_> class IPA {
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         parallel_for_heuristic(
-            poly_length,
-            [&](size_t i) {
-                G_vec_local[i] = srs_elements[i * 2];
-            }, thread_heuristics::FF_COPY_COST * 2);
+            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i * 2]; }, thread_heuristics::FF_COPY_COST * 2);
 
         // Step 8.
         // Compute G₀
@@ -535,7 +534,6 @@ template <typename Curve_> class IPA {
         return (C_zero.get_value() == right_hand_side.get_value());
     }
 
-  public:
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
@@ -573,31 +571,44 @@ template <typename Curve_> class IPA {
     {
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
-
-    static OpeningClaim<Curve> compute_opening_claim_from_shplemini_accumulators(std::vector<Commitment>& commitments,
-                                                             std::vector<Fr> scalars,
-                                                             const Fr& evaluation_point)
+    /**
+     * @brief A method that produces an IPA opening claim from Shplemini accumulator containing vectors of commitments
+     * and scalars and a Shplonk evaluation challenge.
+     *
+     */
+    static OpeningClaim<Curve> compute_opening_claim_from_shplemini_accumulators(
+        ShpleminiAccumulator<Curve>& shplemini_accumulator)
     {
         using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
+        /// Extract data from the accumulator
+        auto& commitments = shplemini_accumulator.commitments;
+        auto& scalars = shplemini_accumulator.scalars;
+        Fr& shplonk_eval_challenge = shplemini_accumulator.evaluation_point;
+        /// Compute \f$ \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment;
         if constexpr (Curve::is_stdlib_type) {
-            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+            shplonk_output_commitment =
+                GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
         } else {
             shplonk_output_commitment = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
-            info("commitments vector size", commitments.size());
-            info("scalars vector size", scalars.size());
         }
-        return { { evaluation_point, Fr(0) }, shplonk_output_commitment };
+        /// Output an opening claim to be verified by the IPA opening protocol
+        return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
     }
-
-    static VerifierAccumulator reduce_verify_shplemini_accumulator(const Fr& evaluation_point,
-                                                               std::vector<Commitment>& commitments,
-                                                               std::vector<Fr>& scalars,
-const std::shared_ptr<VK>& vk,
-                                                               auto& transcript)
+    /**
+     * @brief Verify the IPA opening claim obtained from a Shplemini accumulator
+     *
+     * @param shplemini_accumulator
+     * @param vk
+     * @param transcript
+     * @return VerifierAccumulator
+     */
+    static VerifierAccumulator reduce_verify_shplemini_accumulator(ShpleminiAccumulator<Curve>& shplemini_accumulator,
+                                                                   const std::shared_ptr<VK>& vk,
+                                                                   auto& transcript)
     {
-        auto opening_claim = compute_opening_claim_from_shplemini_accumulators(commitments, scalars, evaluation_point);
-        return reduce_verify_internal( vk, opening_claim, transcript);
+        auto opening_claim = compute_opening_claim_from_shplemini_accumulators(shplemini_accumulator);
+        return reduce_verify_internal(vk, opening_claim, transcript);
     }
 };
 
