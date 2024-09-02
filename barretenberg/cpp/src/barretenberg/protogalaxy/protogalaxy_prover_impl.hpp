@@ -18,6 +18,8 @@ void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_instance(std::share
 
 template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
 {
+    // If cleaning this up, do through splitting out of accumulator.
+
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_instance");
     auto idx = 0;
     auto& instance = instances[0];
