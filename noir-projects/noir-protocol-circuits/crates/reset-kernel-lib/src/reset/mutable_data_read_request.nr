@@ -318,7 +318,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="leaf_slot in PublicDataUpdateRequest does not match read request")]
+    #[test(should_fail_with="leaf_slot in OverridablePublicDataWrite does not match read request")]
     fn reset_pending_reads_wrong_slot_fails() {
         let mut builder = TestBuilder::new();
 
@@ -328,7 +328,7 @@ mod tests {
         builder.validate_pending_read_requests();
     }
 
-    #[test(should_fail_with="value in PublicDataUpdateRequest does not match read request")]
+    #[test(should_fail_with="value in OverridablePublicDataWrite does not match read request")]
     fn reset_pending_reads_wrong_value_fails() {
         let mut builder = TestBuilder::new();
 

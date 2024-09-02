@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    side_effect::{Inner, Ordered, Overridable, Positioned, Readable}
+    side_effect::{Inner, Ordered, Overridable, Readable}
 },
     traits::Empty
 };
@@ -32,15 +32,10 @@ impl Ordered for OverridablePublicDataWrite {
     }
 }
 
-impl Positioned for OverridablePublicDataWrite {
-    fn position(self) -> Field {
-        self.write.leaf_slot
-    }
-}
-
 impl Readable<PublicDataRead> for OverridablePublicDataWrite {
     fn assert_match_read_request(self, read_request: PublicDataRead) {
-        self.write.assert_match_read_request(read_request);
+        assert_eq(self.write.leaf_slot, read_request.leaf_slot, "leaf_slot in OverridablePublicDataWrite does not match read request");
+        assert_eq(self.write.new_value, read_request.value, "value in OverridablePublicDataWrite does not match read request");
     }
 }
 

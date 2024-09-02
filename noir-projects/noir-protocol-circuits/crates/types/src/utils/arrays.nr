@@ -72,23 +72,10 @@ pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
     length
 }
 
-unconstrained fn count_non_empty_elements<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
-    let mut length = 0;
-    let mut seen_empty = false;
-    for elem in array {
-        if is_empty(elem) {
-            seen_empty = true;
-        } else if !seen_empty {
-            length += 1;
-        }
-    }
-    length
-}
-
 // Helper function to count the number of non-empty elements in a validated array.
 // Important: Only use it for validated arrays: validate_array(array) should be true.
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
-    let length = count_non_empty_elements(array);
+    let length = find_index_hint(array, |elem: T| is_empty(elem));
     if length != 0 {
         assert(!is_empty(array[length - 1]));
     }

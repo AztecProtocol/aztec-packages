@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    constants::PUBLIC_DATA_TREE_HEIGHT, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTreeLeafPreimage,
     utils::arr_copy_slice
 };
 

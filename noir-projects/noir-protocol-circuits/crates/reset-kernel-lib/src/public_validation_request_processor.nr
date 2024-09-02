@@ -14,13 +14,12 @@ use dep::types::{
     public_data_write::OverridablePublicDataWrite, read_request::ScopedReadRequest,
     validation_requests::PublicValidationRequests
 },
-    data::public_data_hint::PublicDataHint,
     constants::{MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
-    hash::compute_siloed_nullifier, traits::is_empty,
+    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier, traits::is_empty,
     utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
 };
 
-struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_HINTS: u32> {
+struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
     validation_requests: PublicValidationRequests,
     pending_nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -28,17 +27,17 @@ struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM
     nullifier_tree_root: Field,
     pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
     public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>,
-    public_data_hints: [PublicDataHint; NUM_PUBLIC_DATA_HINTS],
+    public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
 }
 
-impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_HINTS: u32> PublicValidationRequestProcessor<NUN_PUBLIC_DATA_WRITES, NUM_PUBLIC_DATA_HINTS> {
+impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicValidationRequestProcessor<NUN_PUBLIC_DATA_WRITES, NUM_PUBLIC_DATA_LEAVES> {
     pub fn new(
         public_inputs: PublicKernelCircuitPublicInputs,
         nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
         nullifier_tree_root: Field,
         pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
-        public_data_hints: [PublicDataHint; NUM_PUBLIC_DATA_HINTS]
+        public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES]
     ) -> Self {
         let validation_requests = public_inputs.validation_requests;
 
@@ -50,7 +49,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_HINTS: u32> PublicVali
         let public_data_read_request_hints = build_public_data_read_request_hints(
             validation_requests.public_data_reads,
             pending_public_data_writes,
-            public_data_hints
+            public_data_leaves
         );
 
         PublicValidationRequestProcessor {
@@ -61,7 +60,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_HINTS: u32> PublicVali
             nullifier_tree_root,
             pending_public_data_writes,
             public_data_read_request_hints,
-            public_data_hints
+            public_data_leaves
         }
     }
 
@@ -123,7 +122,7 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_HINTS: u32> PublicVali
             self.validation_requests.public_data_reads,
             hints.read_request_statuses,
             self.pending_public_data_writes,
-            self.public_data_hints,
+            self.public_data_leaves,
             hints.pending_read_hints,
             hints.leaf_data_read_hints
         );

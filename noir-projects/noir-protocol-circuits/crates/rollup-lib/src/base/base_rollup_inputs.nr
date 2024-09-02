@@ -32,8 +32,8 @@ use dep::types::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
     indexed_tree, MembershipWitness
 },
-    partial_state_reference::PartialStateReference, public_data_tree_leaf::PublicDataTreeLeaf,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
+    partial_state_reference::PartialStateReference,
+    data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage}, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
 };
 
@@ -484,8 +484,7 @@ mod tests {
         PUBLIC_KERNEL_TAIL_INDEX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
-        public_data_tree_leaf::PublicDataTreeLeaf,
-        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+        data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         tests::{
         fixtures, fixture_builder::FixtureBuilder,
         merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}

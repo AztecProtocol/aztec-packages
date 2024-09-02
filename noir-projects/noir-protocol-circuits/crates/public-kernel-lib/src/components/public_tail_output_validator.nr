@@ -1,11 +1,14 @@
 mod output_hints;
 mod validate_linked_public_data_writes;
-mod validate_public_data_hints;
+mod validate_public_data_leaves;
 
-use crate::components::public_tail_output_validator::{
+use crate::components::{
+    public_tail_output_validator::{
     output_hints::{generate_output_hints, OutputHints, SiloedNoteHashHint},
     validate_linked_public_data_writes::validate_linked_public_data_writes,
-    validate_public_data_hints::validate_public_data_hints
+    validate_public_data_leaves::validate_public_data_leaves
+},
+    public_tail_output_composer::LinkedIndexHint
 };
 use dep::types::{
     abis::{
@@ -13,9 +16,9 @@ use dep::types::{
     log_hash::{LogHash, ScopedLogHash}, note_hash::{NoteHash, ScopedNoteHash}, nullifier::Nullifier,
     public_data_update_request::PublicDataUpdateRequest, public_data_write::OverridablePublicDataWrite
 },
-    constants::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, data::public_data_hint::PublicDataHint,
-    hash::silo_note_hash, messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    partial_state_reference::PartialStateReference,
+    constants::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint}, hash::silo_note_hash,
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, partial_state_reference::PartialStateReference,
     utils::arrays::{
     array_length, assert_combined_sorted_transformed_value_array_asc, assert_combined_transformed_array,
     assert_deduped_array
@@ -26,8 +29,10 @@ struct PublicTailOutputValidator<let N: u32> {
     output: KernelCircuitPublicInputs,
     previous_kernel: PublicKernelCircuitPublicInputs,
     start_state: PartialStateReference,
-    overridable_public_data_writes: [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    public_data_hints: [PublicDataHint; N],
+    public_data_writes: [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_leaves: [OverridablePublicDataTreeLeaf; N],
+    public_data_linked_index_hints: [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    public_data_leaf_hints: [PublicDataLeafHint; N],
     hints: OutputHints
 }
 
@@ -36,11 +41,22 @@ impl<let N: u32> PublicTailOutputValidator<N> {
         output: KernelCircuitPublicInputs,
         previous_kernel: PublicKernelCircuitPublicInputs,
         start_state: PartialStateReference,
-        overridable_public_data_writes: [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-        public_data_hints: [PublicDataHint; N]
+        public_data_writes: [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        public_data_leaves: [OverridablePublicDataTreeLeaf; N],
+        public_data_linked_index_hints: [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        public_data_leaf_hints: [PublicDataLeafHint; N]
     ) -> Self {
         let hints = generate_output_hints(previous_kernel, output);
-        PublicTailOutputValidator { output, previous_kernel, start_state, overridable_public_data_writes, public_data_hints, hints }
+        PublicTailOutputValidator {
+            output,
+            previous_kernel,
+            start_state,
+            public_data_writes,
+            public_data_leaves,
+            public_data_linked_index_hints,
+            public_data_leaf_hints,
+            hints
+        }
     }
 
     pub fn validate(self) {
@@ -154,22 +170,27 @@ impl<let N: u32> PublicTailOutputValidator<N> {
     }
 
     fn validate_deduped_public_data_writes(self) {
-        validate_public_data_hints(
-            self.public_data_hints,
+        validate_public_data_leaves(
+            self.public_data_leaves,
+            self.public_data_leaf_hints,
             self.start_state.public_data_tree.root
         );
 
         assert_combined_transformed_array(
             self.previous_kernel.end_non_revertible.public_data_update_requests,
             self.previous_kernel.end.public_data_update_requests,
-            self.overridable_public_data_writes,
+            self.public_data_writes,
             |from: PublicDataUpdateRequest, to: OverridablePublicDataWrite| to.write == from // override_counter is checked in validate_linked_public_data_writes.
         );
 
-        validate_linked_public_data_writes(self.overridable_public_data_writes, self.public_data_hints);
+        validate_linked_public_data_writes(
+            self.public_data_writes,
+            self.public_data_leaves,
+            self.public_data_linked_index_hints
+        );
 
         assert_deduped_array(
-            self.overridable_public_data_writes,
+            self.public_data_writes,
             self.output.end.public_data_update_requests
         );
     }

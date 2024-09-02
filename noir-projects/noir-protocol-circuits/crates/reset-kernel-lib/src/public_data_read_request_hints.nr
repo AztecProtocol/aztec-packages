@@ -1,7 +1,7 @@
 use crate::reset::{mutable_data_read_request::ReadIndexHint, read_request::ReadRequestStatus};
 use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_write::OverridablePublicDataWrite},
-    data::public_data_hint::PublicDataHint, utils::arrays::find_index_hint
+    data::OverridablePublicDataTreeLeaf, utils::arrays::find_index_hint
 };
 
 struct PublicDataReadRequestHints<let NUM_READS: u32> {
@@ -10,10 +10,10 @@ struct PublicDataReadRequestHints<let NUM_READS: u32> {
     leaf_data_read_hints: [ReadIndexHint; NUM_READS],
 }
 
-unconstrained pub fn build_public_data_read_request_hints<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_PUBLIC_DATA_HINTS: u32>(
+unconstrained pub fn build_public_data_read_request_hints<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     reads: [PublicDataRead; NUM_READS],
     writes: [OverridablePublicDataWrite; NUM_WRITES],
-    leaf_data: [PublicDataHint; NUM_PUBLIC_DATA_HINTS]
+    leaf_data: [OverridablePublicDataTreeLeaf; NUM_LEAVES]
 ) -> PublicDataReadRequestHints<NUM_READS> {
     let mut read_request_statuses = [ReadRequestStatus::empty(); NUM_READS];
     let mut pending_read_hints = [ReadIndexHint::nada(NUM_READS); NUM_READS];
@@ -32,7 +32,10 @@ unconstrained pub fn build_public_data_read_request_hints<let NUM_READS: u32, le
                 read_request_statuses[i] = ReadRequestStatus::pending(num_pending_reads);
                 num_pending_reads += 1;
             } else {
-                let leaf_data_index = find_index_hint(leaf_data, |d: PublicDataHint| d.leaf_slot == read.leaf_slot);
+                let leaf_data_index = find_index_hint(
+                    leaf_data,
+                    |d: OverridablePublicDataTreeLeaf| d.leaf.slot == read.leaf_slot
+                );
                 assert(
                     leaf_data_index != leaf_data.len(), "cannot find a public data leaf or a pending write for the read request"
                 );

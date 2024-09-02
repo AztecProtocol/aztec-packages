@@ -143,7 +143,7 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
-import { PublicValidationRequests, ScopedL2ToL1Message, ScopedNoteHash } from '../structs/index.js';
+import { PublicDataLeafHint, PublicValidationRequests, ScopedL2ToL1Message, ScopedNoteHash } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
 import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
@@ -677,7 +677,7 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
     makePublicKernelData(seed),
     NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
-    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
+    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataLeafHint.empty),
     makePartialStateReference(seed + 0x200),
   );
 }

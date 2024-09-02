@@ -6,7 +6,7 @@ import {
   nullifierNonExistentReadRequestHintsFromBuffer,
 } from '../non_existent_read_request_hints.js';
 import { PartialStateReference } from '../partial_state_reference.js';
-import { PublicDataHint } from '../public_data_hint.js';
+import { PublicDataLeafHint } from '../public_data_leaf_hint.js';
 import { type NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from '../read_request_hints/index.js';
 import { PublicKernelData } from './public_kernel_data.js';
 
@@ -27,7 +27,7 @@ export class PublicKernelTailCircuitPrivateInputs {
      * Contains hints for the nullifier non existent read requests.
      */
     public readonly nullifierNonExistentReadRequestHints: NullifierNonExistentReadRequestHints,
-    public readonly publicDataHints: Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>,
+    public readonly publicDataHints: Tuple<PublicDataLeafHint, typeof MAX_PUBLIC_DATA_HINTS>,
     public readonly startState: PartialStateReference,
   ) {}
 
@@ -59,7 +59,7 @@ export class PublicKernelTailCircuitPrivateInputs {
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
       ),
       nullifierNonExistentReadRequestHintsFromBuffer(reader),
-      reader.readArray(MAX_PUBLIC_DATA_HINTS, PublicDataHint),
+      reader.readArray(MAX_PUBLIC_DATA_HINTS, PublicDataLeafHint),
       reader.readObject(PartialStateReference),
     );
   }

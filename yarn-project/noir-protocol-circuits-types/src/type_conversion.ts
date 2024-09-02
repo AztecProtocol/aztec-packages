@@ -95,6 +95,7 @@ import {
   PublicCallStackItemCompressed,
   type PublicCircuitPublicInputs,
   type PublicDataHint,
+  type PublicDataLeafHint,
   PublicDataRead,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -212,6 +213,7 @@ import type {
   PublicCallStackItem as PublicCallStackItemNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicDataHint as PublicDataHintNoir,
+  PublicDataLeafHint as PublicDataLeafHintNoir,
   PublicDataRead as PublicDataReadNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
@@ -1165,6 +1167,13 @@ function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
   };
 }
 
+function mapPublicDataLeafHintToNoir(hint: PublicDataLeafHint): PublicDataLeafHintNoir {
+  return {
+    preimage: mapPublicDataTreePreimageToNoir(hint.preimage),
+    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
+  };
+}
+
 function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
   return {
     _is_some: option.isSome,
@@ -1740,7 +1749,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     nullifier_non_existent_read_request_hints: mapNullifierNonExistentReadRequestHintsToNoir(
       inputs.nullifierNonExistentReadRequestHints,
     ),
-    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
+    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataLeafHintToNoir),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
   };
 }

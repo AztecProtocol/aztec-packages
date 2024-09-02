@@ -56,7 +56,7 @@ export class HintsBuilder {
 
   getPublicDataHint(dataAction: PublicDataRead | PublicDataUpdateRequest | bigint) {
     const slot = typeof dataAction === 'bigint' ? dataAction : dataAction.leafSlot.toBigInt();
-    return buildPublicDataHint(this, slot, 0);
+    return buildPublicDataHint(this, slot);
   }
 
   async getNullifierMembershipWitness(nullifier: Fr) {

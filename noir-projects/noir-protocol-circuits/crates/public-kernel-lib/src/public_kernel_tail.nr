@@ -1,7 +1,7 @@
 use crate::{
     components::{
     previous_kernel_validator::PreviousKernelValidator,
-    public_tail_output_composer::PublicTailOutputComposer,
+    public_tail_output_composer::{LinkedIndexHint, PublicTailOutputComposer},
     public_tail_output_validator::PublicTailOutputValidator
 },
     public_kernel_phase::PublicKernelPhase
@@ -16,7 +16,8 @@ use dep::types::{
     MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX
 },
-    data::public_data_hint::PublicDataHint, partial_state_reference::PartialStateReference
+    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint},
+    partial_state_reference::PartialStateReference
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
@@ -29,14 +30,20 @@ struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
-    public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_HINTS],
+    public_data_hints: [PublicDataLeafHint; MAX_PUBLIC_DATA_HINTS],
     start_state: PartialStateReference,
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
-    unconstrained fn generate_output(self) -> (KernelCircuitPublicInputs, [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
-        let composer = PublicTailOutputComposer::new(self.previous_kernel.public_inputs, self.start_state);
-        (composer.finish(), composer.overridable_public_data_writes)
+    unconstrained fn generate_output(self) -> (KernelCircuitPublicInputs, [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [OverridablePublicDataTreeLeaf; MAX_PUBLIC_DATA_HINTS], [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
+        let composer = PublicTailOutputComposer::new(
+            self.previous_kernel.public_inputs,
+            self.start_state,
+            self.public_data_hints
+        );
+        (
+            composer.finish(), composer.public_data_writes, composer.public_data_leaves, composer.public_data_linked_index_hints
+        )
     }
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
@@ -44,22 +51,24 @@ impl PublicKernelTailCircuitPrivateInputs {
         previous_kernel_validator.validate_phase(PublicKernelPhase.TAIL);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
-        let (output, overridable_public_data_writes) = self.generate_output();
+        let (output, public_data_writes, public_data_leaves, public_data_linked_index_hints) = self.generate_output();
 
         PublicValidationRequestProcessor::new(
             self.previous_kernel.public_inputs,
             self.nullifier_read_request_hints,
             self.nullifier_non_existent_read_request_hints,
             self.start_state.nullifier_tree.root,
-            overridable_public_data_writes,
-            self.public_data_hints
+            public_data_writes,
+            public_data_leaves
         ).validate();
 
         PublicTailOutputValidator::new(
             output,
             self.previous_kernel.public_inputs,
             self.start_state,
-            overridable_public_data_writes,
+            public_data_writes,
+            public_data_leaves,
+            public_data_linked_index_hints,
             self.public_data_hints
         ).validate();
 
@@ -92,8 +101,8 @@ mod tests {
         PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX, PUBLIC_KERNEL_SETUP_INDEX,
         PUBLIC_KERNEL_TEARDOWN_INDEX
     },
-        data::public_data_hint::PublicDataHint, hash::{compute_siloed_nullifier, silo_note_hash},
-        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+        data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
+        hash::{compute_siloed_nullifier, silo_note_hash},
         tests::{
         fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree,
         utils::{assert_array_eq, pad_end, swap_items}
@@ -114,10 +123,10 @@ mod tests {
         )
     }
 
-    fn build_public_data_tree<let N: u32>(public_data_leaves: [PublicDataTreeLeafPreimage; N]) -> NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT> {
+    fn build_public_data_tree<let N: u32>(leaf_preimages: [PublicDataTreeLeafPreimage; N]) -> NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT> {
         NonEmptyMerkleTree::new(
             pad_end(
-                public_data_leaves.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
+                leaf_preimages.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
                 0
             ),
             [0; PUBLIC_DATA_TREE_HEIGHT],
@@ -131,9 +140,8 @@ mod tests {
         previous_revertible: FixtureBuilder,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints_builder: NullifierNonExistentReadRequestHintsBuilder,
-        public_data_hints: BoundedVec<PublicDataHint, MAX_PUBLIC_DATA_HINTS>,
         public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>,
-        public_data_leaves: [PublicDataTreeLeafPreimage; N],
+        public_data_leaf_preimages: [PublicDataTreeLeafPreimage; N],
         start_state: PartialStateReference,
     }
 
@@ -148,10 +156,9 @@ mod tests {
                 previous_revertible,
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
                 nullifier_non_existent_read_request_hints_builder,
-                public_data_hints: BoundedVec::new(),
                 public_data_tree: NonEmptyMerkleTree::empty(),
-                start_state: PartialStateReference::empty(),
-                public_data_leaves: pad_end([], PublicDataTreeLeafPreimage::empty())
+                public_data_leaf_preimages: pad_end([], PublicDataTreeLeafPreimage::empty()),
+                start_state: PartialStateReference::empty()
             }
         }
 
@@ -165,14 +172,14 @@ mod tests {
         }
 
         pub fn with_public_data_tree(&mut self) -> Self {
-            let public_data_leaves = [
+            let public_data_leaf_preimages = [
                 PublicDataTreeLeafPreimage { slot: 0, value: 0, next_slot: 1111, next_index: 3 },
                 PublicDataTreeLeafPreimage { slot: 2222, value: 200, next_slot: 3333, next_index: 2 },
                 PublicDataTreeLeafPreimage { slot: 3333, value: 300, next_slot: 0, next_index: 0 },
                 PublicDataTreeLeafPreimage { slot: 1111, value: 100, next_slot: 2222, next_index: 1 }
             ];
-            let public_data_tree = build_public_data_tree(public_data_leaves);
-            self.public_data_leaves = pad_end(public_data_leaves, PublicDataTreeLeafPreimage::empty());
+            let public_data_tree = build_public_data_tree(public_data_leaf_preimages);
+            self.public_data_leaf_preimages = pad_end(public_data_leaf_preimages, PublicDataTreeLeafPreimage::empty());
             self.public_data_tree = public_data_tree;
             self.start_state.public_data_tree.root = public_data_tree.get_root();
             *self
@@ -233,60 +240,42 @@ mod tests {
             self.nullifier_non_existent_read_request_hints_builder.add_value_read(siloed_nullifier);
         }
 
-        pub fn add_public_data_write(&mut self, leaf_slot: Field, value: Field) {
-            let counter = self.previous_kernel.counter;
-            self.previous_kernel.add_public_data_update_request(leaf_slot, value);
-            self.add_public_data_hint(leaf_slot, counter);
-        }
-
-        pub fn read_public_write(&mut self, leaf_slot: Field, value: Field) {
-            self.previous_kernel.add_public_data_read_request(leaf_slot, value);
-            self.add_public_data_hint(leaf_slot, 0);
-        }
-
-        pub fn add_read_request_for_empty_slot(&mut self, leaf_slot: Field) {
-            self.previous_kernel.add_public_data_read_request(leaf_slot, 0);
-            self.add_public_data_hint(leaf_slot, 0);
-        }
-
-        fn add_public_data_hint(&mut self, leaf_slot: Field, override_counter: u32) {
-            let existing_index = find_index_hint(
-                self.public_data_hints.storage,
-                |d: PublicDataHint| d.leaf_slot == leaf_slot
+        fn create_public_data_leaf_hint(&mut self, leaf_slot: Field) -> PublicDataLeafHint {
+            let low_leaf_index = find_index_hint(
+                self.public_data_leaf_preimages,
+                |p: PublicDataTreeLeafPreimage| !leaf_slot.lt(p.slot) & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot))
             );
-            if existing_index != self.public_data_hints.storage.len() {
-                let data = self.public_data_hints.storage[existing_index];
-                if data.override_counter == 0 {
-                    self.public_data_hints.storage[existing_index].override_counter = override_counter;
+
+            let preimage = self.public_data_leaf_preimages[low_leaf_index];
+            let membership_witness = MembershipWitness {
+                leaf_index: low_leaf_index as Field,
+                sibling_path: self.public_data_tree.get_sibling_path(low_leaf_index)
+            };
+
+            PublicDataLeafHint { preimage, membership_witness }
+        }
+
+        fn generate_public_data_leaf_hints(&mut self) -> [PublicDataLeafHint; MAX_PUBLIC_DATA_HINTS] {
+            let mut public_data_hints = BoundedVec::new();
+            let mut unique_slots: BoundedVec<Field, MAX_PUBLIC_DATA_HINTS> = BoundedVec::new();
+
+            for i in 0..self.previous_kernel.public_data_reads.len() {
+                let read = self.previous_kernel.public_data_reads.get(i);
+                if !unique_slots.any(|s| s == read.leaf_slot) {
+                    public_data_hints.push(self.create_public_data_leaf_hint(read.leaf_slot));
+                    unique_slots.push(read.leaf_slot);
                 }
-            } else {
-                let mut low_leaf_index = 0;
-                let mut low_leaf_slot = 0;
-                for i in 0..self.public_data_leaves.len() {
-                    let leaf = self.public_data_leaves[i];
-                    if !leaf_slot.lt(leaf.slot) & low_leaf_slot.lt(leaf.slot) {
-                        low_leaf_index = i;
-                        low_leaf_slot = leaf.slot;
-                    }
-                }
-
-                let leaf_preimage = self.public_data_leaves[low_leaf_index];
-                let membership_witness = MembershipWitness {
-                    leaf_index: low_leaf_index as Field,
-                    sibling_path: self.public_data_tree.get_sibling_path(low_leaf_index)
-                };
-
-                let exists_in_tree = low_leaf_slot == leaf_slot;
-                let read_value = if exists_in_tree {
-                    leaf_preimage.value
-                } else {
-                    0
-                };
-
-                self.public_data_hints.push(
-                    PublicDataHint { leaf_slot, value: read_value, override_counter, membership_witness, leaf_preimage }
-                );
             }
+
+            for i in 0..self.previous_kernel.public_data_update_requests.len() {
+                let write = self.previous_kernel.public_data_update_requests.get(i);
+                if !unique_slots.any(|s| s == write.leaf_slot) {
+                    public_data_hints.push(self.create_public_data_leaf_hint(write.leaf_slot));
+                    unique_slots.push(write.leaf_slot);
+                }
+            }
+
+            public_data_hints.storage
         }
 
         fn sync_counters(&mut self) {
@@ -304,12 +293,13 @@ mod tests {
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
             self.set_nullifiers_for_non_existent_read_request_hints();
+            let public_data_hints = self.generate_public_data_leaf_hints();
 
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
-                public_data_hints: self.public_data_hints.storage,
+                public_data_hints,
                 start_state: self.start_state
             };
 
@@ -450,24 +440,24 @@ mod tests {
     unconstrained fn public_data_reads_and_writes_succeeds() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
 
-        builder.read_public_write(22, 0);
+        builder.previous_kernel.add_public_data_read_request(22, 0);
 
-        builder.add_public_data_write(11, 500);
-        builder.add_public_data_write(22, 700);
+        builder.previous_kernel.add_public_data_update_request(11, 500);
+        builder.previous_kernel.add_public_data_update_request(22, 700);
 
-        builder.read_public_write(22, 700);
-        builder.read_public_write(11, 500);
-        builder.read_public_write(3333, 300);
+        builder.previous_kernel.add_public_data_read_request(22, 700);
+        builder.previous_kernel.add_public_data_read_request(11, 500);
+        builder.previous_kernel.add_public_data_read_request(3333, 300);
 
         // Override the previous value at leaf slot 22.
-        builder.add_public_data_write(22, 701);
+        builder.previous_kernel.add_public_data_update_request(22, 701);
 
         // Override the value of the leaf.
-        builder.add_public_data_write(3333, 301);
+        builder.previous_kernel.add_public_data_update_request(3333, 301);
 
         // Read the new values.
-        builder.read_public_write(22, 701);
-        builder.read_public_write(3333, 301);
+        builder.previous_kernel.add_public_data_read_request(22, 701);
+        builder.previous_kernel.add_public_data_read_request(3333, 301);
 
         let prev_writes = builder.previous_kernel.public_data_update_requests.storage;
 
@@ -478,7 +468,6 @@ mod tests {
         swap_items(&mut builder.previous_kernel.public_data_reads, 0, 3);
 
         let public_inputs = builder.execute();
-
         assert_array_eq(
             public_inputs.end.public_data_update_requests,
             [
@@ -489,11 +478,11 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="value in PublicDataHint does not match read request")]
+    #[test(should_fail_with="value in OverridablePublicDataTreeLeaf does not match read request")]
     unconstrained fn reading_uninitialized_public_data_non_zero_value_fails() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
 
-        builder.read_public_write(1234, 1);
+        builder.previous_kernel.add_public_data_read_request(1234, 1);
 
         builder.failed();
     }
