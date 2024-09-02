@@ -581,7 +581,7 @@ template <typename Curve_> class IPA {
         using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
         GroupElement shplonk_output_commitment;
         if constexpr (Curve::is_stdlib_type) {
-            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
+            shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
         } else {
             shplonk_output_commitment = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
             info("commitments vector size", commitments.size());
@@ -590,7 +590,7 @@ template <typename Curve_> class IPA {
         return { { evaluation_point, Fr(0) }, shplonk_output_commitment };
     }
 
-    static VerifierAccumulator reduce_verify_shplemini(const Fr& evaluation_point,
+    static VerifierAccumulator reduce_verify_shplemini_accumulator(const Fr& evaluation_point,
                                                                std::vector<Commitment>& commitments,
                                                                std::vector<Fr>& scalars,
 const std::shared_ptr<VK>& vk,

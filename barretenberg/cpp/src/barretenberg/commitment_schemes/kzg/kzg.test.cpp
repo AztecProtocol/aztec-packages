@@ -281,11 +281,11 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
                                                                               this->vk()->get_g1_identity(),
                                                                               verifier_transcript);
     Fr evaluation_claim{ 0 };
-    auto pairing_points = KZG::reduce_verify_shplemini(shplemini_output.evaluation_point,
-                                                       evaluation_claim,
-                                                       shplemini_output.commitments,
-                                                       shplemini_output.scalars,
-                                                       verifier_transcript);
+    auto pairing_points = KZG::reduce_verify_shplemini_accumulator(shplemini_output.evaluation_point,
+                                                                   evaluation_claim,
+                                                                   shplemini_output.commitments,
+                                                                   shplemini_output.scalars,
+                                                                   verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
     EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);

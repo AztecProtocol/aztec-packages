@@ -87,11 +87,11 @@ template <typename Curve_> class KZG {
         return { P_0, P_1 };
     };
 
-    static std::array<GroupElement, 2> reduce_verify_shplemini(const Fr& evaluation_point,
-                                                               const Fr& evaluation,
-                                                               std::vector<Commitment>& commitments,
-                                                               std::vector<Fr>& scalars,
-                                                               auto& transcript)
+    static std::array<GroupElement, 2> reduce_verify_shplemini_accumulator(const Fr& evaluation_point,
+                                                                           const Fr& evaluation,
+                                                                           std::vector<Commitment>& commitments,
+                                                                           std::vector<Fr>& scalars,
+                                                                           auto& transcript)
     {
         using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
@@ -104,7 +104,7 @@ template <typename Curve_> class KZG {
         scalars.emplace_back(evaluation_point);
         scalars[scalars.size() - 1] += evaluation;
         if constexpr (Curve::is_stdlib_type) {
-            P_0 = GroupElement::batch_mul(commitments, scalars);
+            P_0 = GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
         } else {
             P_0 = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
             info("commitments vector size", commitments.size());

@@ -88,7 +88,7 @@ template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const siz
  * @param num_squares The number of foldings
  * @return std::vector<typename Curve::ScalarField>
  */
-template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares)
+template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const Fr r, const size_t num_squares)
 {
     std::vector<Fr> squares = { r };
     squares.reserve(num_squares);
@@ -144,7 +144,7 @@ template <typename Curve> class GeminiVerifier_ {
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        std::vector<Fr> r_squares = gemini::squares_of_r(r, num_variables);
+        std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, num_variables);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);

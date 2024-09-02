@@ -189,7 +189,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         prover_evaluations.emplace_back(evaluation);
     }
 
-    std::vector<Fr> r_squares = gemini::squares_of_r(gemini_eval_challenge, log_n);
+    std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_eval_challenge, log_n);
 
     GroupElement expected_result = GroupElement::zero();
     std::vector<Fr> expected_inverse_vanishing_evals(log_n + 1);
@@ -231,5 +231,4 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     EXPECT_EQ(shplemini_result, expected_result);
 }
-
 } // namespace bb
