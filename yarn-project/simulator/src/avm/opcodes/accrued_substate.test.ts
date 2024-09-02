@@ -290,9 +290,11 @@ describe('Accrued Substate', () => {
         expect(gotExists).toEqual(new Uint8(expectFound ? 1 : 0));
 
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
+        // The expected value to trace depends on a) if we found it and b) if it is undefined - we currently return the claimed value
+        const foundOrUndefined = mockAtLeafIndex === undefined || gotExists.toNumber() === 1;
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*msgHash=*/ value0,
+          /*msgHash=*/ foundOrUndefined ? value0 : value1,
           leafIndex,
           /*exists=*/ expectFound,
         );

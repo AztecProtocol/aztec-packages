@@ -171,6 +171,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     const recipientAddress = EthAddress.fromField(recipient);
     this.newL2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, this.sideEffectCounter));
     this.logger.debug(`NEW_L2_TO_L1_MSG cnt: ${this.sideEffectCounter}`);
+    this.incrementSideEffectCounter();
   }
 
   public traceUnencryptedLog(contractAddress: Fr, log: Fr[]) {

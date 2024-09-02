@@ -94,7 +94,6 @@ describe('Side Effect Trace', () => {
   it('Should trace note hash checks', () => {
     const exists = true;
     trace.traceNoteHashCheck(address, utxo, leafIndex, exists);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
     expect(pxResult.noteHashReadRequests).toEqual([
@@ -106,7 +105,7 @@ describe('Side Effect Trace', () => {
         leafIndex,
       },
     ]);
-    expect(pxResult.avmCircuitHints.noteHashExists.items).toEqual([{ key: startCounterFr, value: new Fr(exists) }]);
+    expect(pxResult.avmCircuitHints.noteHashExists.items).toEqual([{ key: leafIndex, value: new Fr(exists) }]);
   });
 
   it('Should trace note hashes', () => {
@@ -174,7 +173,6 @@ describe('Side Effect Trace', () => {
   it('Should trace L1ToL2 Message checks', () => {
     const exists = true;
     trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const pxResult = toPxResult(trace);
     expect(pxResult.l1ToL2MsgReadRequests).toEqual([
@@ -185,7 +183,7 @@ describe('Side Effect Trace', () => {
     ]);
     expect(pxResult.avmCircuitHints.l1ToL2MessageExists.items).toEqual([
       {
-        key: startCounterFr,
+        key: leafIndex,
         value: new Fr(exists),
       },
     ]);
@@ -246,7 +244,6 @@ describe('Side Effect Trace', () => {
     nestedTrace.tracePublicStorageWrite(address, slot, value);
     testCounter++;
     nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault);
-    testCounter++;
     nestedTrace.traceNewNoteHash(address, utxo);
     testCounter++;
     nestedTrace.traceNullifierCheck(address, utxo, leafIndex, /*exists=*/ true, isPending);
@@ -256,7 +253,6 @@ describe('Side Effect Trace', () => {
     nestedTrace.traceNewNullifier(address, utxo);
     testCounter++;
     nestedTrace.traceL1ToL2MessageCheck(address, utxo, leafIndex, existsDefault);
-    testCounter++;
     nestedTrace.traceNewL2ToL1Message(recipient, content);
     testCounter++;
     nestedTrace.traceUnencryptedLog(address, log);

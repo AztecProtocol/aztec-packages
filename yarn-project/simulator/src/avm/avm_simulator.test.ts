@@ -467,9 +467,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
 
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
+        const foundOrUndefined = mockAtLeafIndex === undefined || results.output[0].equals(Fr.ONE);
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*msgHash=*/ value0,
+          /*msgHash=*/ foundOrUndefined ? value0 : value1,
           leafIndex,
           /*exists=*/ expectFound,
         );
