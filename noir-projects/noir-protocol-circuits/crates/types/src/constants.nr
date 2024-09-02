@@ -137,7 +137,6 @@ global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
 global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 1;
 global AZTEC_EPOCH_DURATION: u32 = 48;
-global IS_DEV_NET: bool = true;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
@@ -290,6 +289,12 @@ global NESTED_RECURSIVE_PROOF_LENGTH = 439;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
 global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+// VK is composed of
+// - circuit size encoded as a fr field element (32 bytes)
+// - num of inputs encoded as a fr field element (32 bytes)
+// - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
+// 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
+global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS = 2 + 16 * 4;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
@@ -336,6 +341,7 @@ global GENERATOR_INDEX__BLOCK_HASH: u32 = 28;
 global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
 global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
 global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
+global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
 // Indices with size ≤ 16
 global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
