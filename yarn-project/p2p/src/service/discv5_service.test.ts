@@ -135,6 +135,7 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
+      l1ChainId: 31337,
     };
     return new DiscV5Service(peerId, config);
   };

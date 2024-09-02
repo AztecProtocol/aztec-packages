@@ -98,6 +98,7 @@ describe('Req Resp p2p client integration', () => {
         maxPeerCount: 10,
         keepProvenTxsInPoolFor: 0,
         queryForIp: false,
+        l1ChainId: 31337,
       };
 
       txPool = {
