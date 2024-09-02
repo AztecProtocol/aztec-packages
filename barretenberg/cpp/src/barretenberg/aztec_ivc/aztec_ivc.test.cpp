@@ -187,6 +187,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             if (idx == 3) {
                 EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
+                break;
             }
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
@@ -212,6 +213,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             if (idx == 3) {
                 EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
+                break;
             }
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
