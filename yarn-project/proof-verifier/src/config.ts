@@ -13,7 +13,7 @@ export type ProofVerifierConfig = {
   /** The L1 chain ID */
   l1ChainId: number;
   /** Start block number */
-  l1StartBlock: bigint;
+  l1StartBlock: number;
   /** The address of the Rollup contract */
   rollupAddress: EthAddress;
   /** How often to poll L1 for proof submission */
@@ -40,9 +40,8 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
   },
   l1StartBlock: {
     env: 'PROOF_VERIFIER_L1_START_BLOCK',
-    parseEnv: (val: string) => BigInt(val),
     description: 'Start block number',
-    defaultValue: 1n,
+    ...numberConfigHelper(1),
   },
   rollupAddress: {
     env: 'ROLLUP_CONTRACT_ADDRESS',
@@ -52,7 +51,7 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
   pollIntervalMs: {
     env: 'PROOF_VERIFIER_POLL_INTERVAL_MS',
     description: 'How often to poll L1 for proof submission',
-    ...numberConfigHelper(10_000),
+    ...numberConfigHelper(60_000),
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
