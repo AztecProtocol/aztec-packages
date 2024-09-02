@@ -151,10 +151,10 @@ TEST_F(AztecIVCTests, BasicFour)
 };
 
 /**
- * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
+ * @brief Check that the IVC fails if an intermediate fold proof is invalid
  * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied and
- * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will fail
- * to verify.
+ * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will
+ * fail.
  *
  */
 TEST_F(AztecIVCTests, BadProofFailure)
@@ -185,7 +185,8 @@ TEST_F(AztecIVCTests, BadProofFailure)
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == 3) {
+            if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
+                            // folding verifier will throw an error.
                 EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
                 break;
             }
@@ -199,7 +200,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         }
     }
 
-    // The IVC fails to verify if the SECOND fold proof is tampered with
+    // The IVC fails if the SECOND fold proof is tampered with
     {
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
@@ -209,7 +210,8 @@ TEST_F(AztecIVCTests, BadProofFailure)
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == 3) {
+            if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
+                            // folding verifier will throw an error.
                 EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
                 break;
             }
@@ -223,7 +225,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
         }
     }
 
-    // The IVC fails to verify if the 3rd/FINAL fold proof is tampered with
+    // The IVC fails if the 3rd/FINAL fold proof is tampered with
     {
         AztecIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;

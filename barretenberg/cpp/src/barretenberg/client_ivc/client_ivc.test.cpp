@@ -106,7 +106,7 @@ TEST_F(ClientIVCTests, BasicThree)
 };
 
 /**
- * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
+ * @brief Check that the IVC fails if an intermediate fold proof is invalid
  *
  */
 TEST_F(ClientIVCTests, BasicFailure)
@@ -128,7 +128,8 @@ TEST_F(ClientIVCTests, BasicFailure)
             break;
         }
     }
-    // Accumulate another circuit; this involves recursive folding verification of the bad proof
+    // Accumulate another circuit; this involves recursive folding verification of the bad proof which throws an error
+    // because of circuit sizes don't match.
     Builder circuit_2 = create_mock_circuit(ivc);
     EXPECT_ANY_THROW(ivc.accumulate(circuit_2));
 };
