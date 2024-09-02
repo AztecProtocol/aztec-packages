@@ -1,17 +1,11 @@
 // An integration test for the p2p client to test req resp protocols
-import {
-  type ClientProtocolCircuitVerifier,
-  type GlobalVariableBuilder,
-  type WorldStateSynchronizer,
-  mockTx,
-} from '@aztec/circuit-types';
+import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { mock } from 'jest-mock-extended';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { type AttestationPool } from '../../attestation_pool/attestation_pool.js';
@@ -65,7 +59,6 @@ describe('Req Resp p2p client integration', () => {
   let blockSource: MockBlockSource;
   let kvStore: AztecKVStore;
   let worldStateSynchronizer: WorldStateSynchronizer;
-  let globalVariableBuilder: GlobalVariableBuilder;
   let proofVerifier: ClientProtocolCircuitVerifier;
   const logger = createDebugLogger('p2p-client-integration-test');
 
@@ -120,8 +113,6 @@ describe('Req Resp p2p client integration', () => {
         getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
       };
 
-      globalVariableBuilder = mock<GlobalVariableBuilder>();
-
       blockSource = new MockBlockSource();
       kvStore = openTmpStore();
       const client = await createP2PClient(
@@ -130,7 +121,6 @@ describe('Req Resp p2p client integration', () => {
         txPool as unknown as TxPool,
         attestationPool as unknown as AttestationPool,
         blockSource,
-        globalVariableBuilder,
         proofVerifier,
         worldStateSynchronizer,
       );

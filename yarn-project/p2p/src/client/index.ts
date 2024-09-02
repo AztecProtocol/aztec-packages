@@ -1,9 +1,4 @@
-import type {
-  ClientProtocolCircuitVerifier,
-  GlobalVariableBuilder,
-  L2BlockSource,
-  WorldStateSynchronizer,
-} from '@aztec/circuit-types';
+import type { ClientProtocolCircuitVerifier, L2BlockSource, WorldStateSynchronizer } from '@aztec/circuit-types';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
@@ -23,7 +18,6 @@ export const createP2PClient = async (
   txPool: TxPool,
   attestationsPool: AttestationPool,
   l2BlockSource: L2BlockSource,
-  globalVariableBuilder: GlobalVariableBuilder,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
 ) => {
@@ -44,7 +38,6 @@ export const createP2PClient = async (
       txPool,
       attestationsPool,
       l2BlockSource,
-      globalVariableBuilder,
       proofVerifier,
       worldStateSynchronizer,
       store,

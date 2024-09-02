@@ -163,7 +163,6 @@ export class AztecNodeService implements AztecNode {
       new AztecKVTxPool(store, telemetry),
       new InMemoryAttestationPool(),
       archiver,
-      new GlobalVariableBuilder(config),
       new TestCircuitVerifier(),
       worldStateSynchronizer,
     );
