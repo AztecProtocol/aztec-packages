@@ -83,12 +83,15 @@ TEST_F(AvmRecursiveTests, recursion)
     OuterBuilder outer_circuit;
     RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
 
-    auto pairing_points = recursive_verifier.verify_proof(proof);
+    auto agg_object =
+        stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
 
-    bool pairing_points_valid = verification_key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
-                                                                                      pairing_points[1].get_value());
+    auto agg_output = recursive_verifier.verify_proof(proof, agg_object);
 
-    ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
+    bool agg_output_valid =
+        verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
+
+    ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
 
     vinfo("Recursive verifier: num gates = ", outer_circuit.num_gates);
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
