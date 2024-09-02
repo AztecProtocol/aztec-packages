@@ -1100,6 +1100,8 @@ pub fn patch_debug_info_pcs(
     debug_infos
 }
 
+/// Patch the assert messages with updated PCs since transpilation injects extra
+/// opcodes into the bytecode.
 pub fn patch_assert_message_pcs(
     assert_messages: HashMap<usize, String>,
     brillig_pcs_to_avm_pcs: &[usize],

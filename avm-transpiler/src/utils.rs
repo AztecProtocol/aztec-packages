@@ -38,6 +38,7 @@ pub fn extract_brillig_from_acir_program(
     &program.unconstrained_functions[0].bytecode
 }
 
+/// Assertion messages that are static strings are stored in the assert_messages map of the ACIR program.
 pub fn extract_static_assert_messages(program: &Program<FieldElement>) -> HashMap<usize, String> {
     assert_eq!(
         program.functions.len(),
