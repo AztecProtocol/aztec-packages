@@ -9,6 +9,7 @@ import {
   isBooleanConfigValue,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
+import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
 import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
 import { allPxeConfigMappings } from '@aztec/pxe';
@@ -294,6 +295,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('bot', botConfigMappings),
+  ],
+  'PROOF VERIFIER': [
+    {
+      flag: '--proof-verifier',
+      description: 'Starts Aztec Proof Verifier with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('proofVerifier', proofVerifierConfigMappings),
   ],
   TXE: [
     {
