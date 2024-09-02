@@ -19,9 +19,11 @@ export async function proverStats(opts: {
   endBlock: bigint | undefined;
   batchSize: bigint;
   provingTimeout: bigint | undefined;
+  rawLogs: boolean;
 }) {
   const debugLog = createDebugLogger('aztec:cli:prover_stats');
-  const { startBlock, chainId, l1RpcUrl, l1RollupAddress, batchSize, nodeUrl, provingTimeout, endBlock, log } = opts;
+  const { startBlock, chainId, l1RpcUrl, l1RollupAddress, batchSize, nodeUrl, provingTimeout, endBlock, rawLogs, log } =
+    opts;
   if (!l1RollupAddress && !nodeUrl) {
     throw new Error('Either L1 rollup address or node URL must be set');
   }
@@ -39,6 +41,16 @@ export async function proverStats(opts: {
 
   // Get all events for L2 proof submissions
   const events = await getL2ProofVerifiedEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup);
+
+  // If we only care for raw logs, output them
+  if (rawLogs) {
+    log(`l1_block_number, l2_block_number, prover_id, tx_hash`);
+    for (const event of events) {
+      const { l1BlockNumber, l2BlockNumber, proverId, txHash } = event;
+      log(`${l1BlockNumber}, ${l2BlockNumber}, ${proverId}, ${txHash}`);
+    }
+    return;
+  }
 
   // If we don't have a proving timeout, we can just count the number of unique blocks per prover
   if (!provingTimeout) {

@@ -205,9 +205,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       '--node-url <string>',
       'JSON RPC URL of an Aztec node to retrieve the rollup contract address (required if L1 rollup address is not set)',
     )
+    .option('--raw-logs', 'Output raw logs instead of aggregated stats')
     .action(async options => {
       const { proverStats } = await import('./prover_stats.js');
-      const { l1RpcUrl, chainId, l1RollupAddress, startBlock, endBlock, batchSize, nodeUrl, provingTimeout } = options;
+      const { l1RpcUrl, chainId, l1RollupAddress, startBlock, endBlock, batchSize, nodeUrl, provingTimeout, rawLogs } =
+        options;
       await proverStats({
         l1RpcUrl,
         chainId,
@@ -217,6 +219,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         batchSize,
         nodeUrl,
         provingTimeout,
+        rawLogs,
         log,
       });
     });
