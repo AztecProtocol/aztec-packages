@@ -772,20 +772,12 @@ export class AztecNodeService implements AztecNode {
 
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
-
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      new Fr(blockNumber),
-      // We only need chainId and block number, thus coinbase and fee recipient can be set to 0.
-      EthAddress.ZERO,
-      AztecAddress.ZERO,
-    );
-
     // These validators are taken from the sequencer, and should match.
     // The reason why `phases` and `gas` tx validator is in the sequencer and not here is because
     // those tx validators are customizable by the sequencer.
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
-      new MetadataTxValidator(newGlobalVariables),
+      new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
     ];
 

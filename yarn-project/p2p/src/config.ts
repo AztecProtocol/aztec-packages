@@ -87,6 +87,8 @@ export interface P2PConfig {
 
   /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
   keepProvenTxsInPoolFor: number;
+
+  l1ChainId: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -169,6 +171,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
+  },
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    description: 'The chain id of the L1 chain.',
+    ...numberConfigHelper(31337),
   },
 };
 

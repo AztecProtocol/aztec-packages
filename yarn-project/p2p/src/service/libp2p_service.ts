@@ -5,6 +5,7 @@ import {
   type GlobalVariableBuilder,
   type Gossipable,
   type L2BlockSource,
+  MerkleTreeId,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
@@ -13,12 +14,11 @@ import {
   type TxValidator,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
-import { WorldStateDB } from '@aztec/simulator';
 
 import { type ENR } from '@chainsafe/enr';
 import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -420,18 +420,16 @@ export class LibP2PService implements P2PService {
   // TODO: these should be done separately and results will be used for peer scoring
   private async isValidTx(tx: Tx): Promise<boolean> {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
-
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      new Fr(blockNumber),
-      // We only need chainId and block number, thus coinbase and fee recipient can be set to 0.
-      EthAddress.ZERO,
-      AztecAddress.ZERO,
-    );
-
     const txValidators: TxValidator<Tx>[] = [
       new DataTxValidator(),
-      new MetadataTxValidator(newGlobalVariables),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
+      new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber)),
+      new DoubleSpendTxValidator({
+        getNullifierIndex: async (nullifier: Fr) => {
+          const merkleTree = this.worldStateSynchronizer.getLatest();
+          const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+          return index;
+        },
+      }),
       new TxProofValidator(this.proofVerifier),
     ];
 

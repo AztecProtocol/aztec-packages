@@ -28,7 +28,7 @@ export const createP2PClient = async (
   worldStateSynchronizer: WorldStateSynchronizer,
 ) => {
   let p2pService;
-  let config = _config;
+  let config = { ..._config };
 
   if (_config.p2pEnabled) {
     config = await configureP2PClientAddresses(_config);
@@ -55,7 +55,8 @@ export const createP2PClient = async (
   return new P2PClient(store, l2BlockSource, txPool, attestationsPool, p2pService, config.keepProvenTxsInPoolFor);
 };
 
-async function configureP2PClientAddresses(config: P2PConfig) {
+async function configureP2PClientAddresses(_config: P2PConfig) {
+  const config = { ..._config };
   const {
     tcpAnnounceAddress: configTcpAnnounceAddress,
     udpAnnounceAddress: configUdpAnnounceAddress,
