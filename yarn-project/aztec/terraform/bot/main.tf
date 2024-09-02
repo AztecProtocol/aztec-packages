@@ -35,12 +35,14 @@ data "terraform_remote_state" "setup_iac" {
 }
 
 resource "aws_cloudwatch_log_group" "aztec-bot-log-group" {
-  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-bot"
+  count             = var.BOT_COUNT
+  name              = "/fargate/service/${var.DEPLOY_TAG}/aztec-bot-${count.index + 1}"
   retention_in_days = 14
 }
 
 resource "aws_service_discovery_service" "aztec-bot" {
-  name = "${var.DEPLOY_TAG}-aztec-bot"
+  count = var.BOT_COUNT
+  name  = "${var.DEPLOY_TAG}-aztec-bot-${count.index + 1}"
 
   health_check_custom_config {
     failure_threshold = 1
@@ -132,12 +134,9 @@ resource "aws_ec2_fleet" "bot_fleet" {
   terminate_instances_with_expiration = true
 }
 
-locals {
-  api_prefix = "/${var.DEPLOY_TAG}/aztec-bot/${var.BOT_API_KEY}"
-}
-
 resource "aws_ecs_task_definition" "aztec-bot" {
-  family                   = "${var.DEPLOY_TAG}-aztec-bot"
+  count                    = var.BOT_COUNT
+  family                   = "${var.DEPLOY_TAG}-aztec-bot-${count.index + 1}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["EC2"]
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
@@ -145,7 +144,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
 
   container_definitions = jsonencode([
     {
-      name              = "${var.DEPLOY_TAG}-aztec-bot"
+      name              = "${var.DEPLOY_TAG}-aztec-bot-${count.index + 1}"
       image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
       command           = ["start", "--bot", "--pxe"]
       essential         = true
@@ -163,7 +162,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "BOT_TX_INTERVAL_SECONDS", value = var.BOT_TX_INTERVAL_SECONDS },
         { name = "LOG_LEVEL", value = var.LOG_LEVEL },
         { name = "AZTEC_PORT", value = "80" },
-        { name = "API_PREFIX", value = local.api_prefix },
+        { name = "API_PREFIX", value = "/${var.DEPLOY_TAG}/aztec-bot/${var.BOT_API_KEY}" },
         { name = "BOT_PRIVATE_TRANSFERS_PER_TX", value = var.BOT_PRIVATE_TRANSFERS_PER_TX },
         { name = "BOT_PUBLIC_TRANSFERS_PER_TX", value = var.BOT_PUBLIC_TRANSFERS_PER_TX },
         { name = "BOT_TX_MINED_WAIT_SECONDS", value = var.BOT_TX_MINED_WAIT_SECONDS },
@@ -173,15 +172,12 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "NETWORK", value = var.DEPLOY_TAG },
         { name = "BOT_FLUSH_SETUP_TRANSACTIONS", value = tostring(var.BOT_FLUSH_SETUP_TRANSACTIONS) },
         { name = "BOT_MAX_PENDING_TXS", value = tostring(var.BOT_MAX_PENDING_TXS) },
-        { name = "BOT_SKIP_PUBLIC_SIMULATION", value = tostring(var.BOT_SKIP_PUBLIC_SIMULATION) },
-        { name = "BOT_L2_GAS_LIMIT", value = var.BOT_L2_GAS_LIMIT },
-        { name = "BOT_DA_GAS_LIMIT", value = var.BOT_DA_GAS_LIMIT },
         { name = "LOG_JSON", value = "1" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.aztec-bot-log-group.name
+          "awslogs-group"         = "/fargate/service/${var.DEPLOY_TAG}/aztec-bot-${count.index + 1}"
           "awslogs-region"        = "eu-west-2"
           "awslogs-stream-prefix" = "ecs"
         }
@@ -191,7 +187,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
 }
 
 resource "aws_ecs_service" "aztec-bot" {
-  name                               = "${var.DEPLOY_TAG}-aztec-bot"
+  name                               = "${var.DEPLOY_TAG}-aztec-bot-${count.index + 1}"
   cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
   launch_type                        = "EC2"
   desired_count                      = var.BOT_COUNT
@@ -216,7 +212,7 @@ resource "aws_ecs_service" "aztec-bot" {
 
   service_registries {
     registry_arn   = aws_service_discovery_service.aztec-bot.arn
-    container_name = "${var.DEPLOY_TAG}-aztec-bot"
+    container_name = "${var.DEPLOY_TAG}-aztec-bot-${count.index + 1}"
     container_port = 80
   }
 
@@ -225,7 +221,7 @@ resource "aws_ecs_service" "aztec-bot" {
     expression = "attribute:group == ${var.DEPLOY_TAG}-bot"
   }
 
-  task_definition = aws_ecs_task_definition.aztec-bot.family
+  task_definition = aws_ecs_task_definition.aztec-bot[count.index].family
 }
 
 # resource "aws_alb_target_group" "bot_http" {
