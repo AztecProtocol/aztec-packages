@@ -1,35 +1,16 @@
 use dep::types::{
-    abis::public_data_read::PublicDataRead, data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint},
-    merkle_tree::conditionally_assert_check_membership,
-    utils::arrays::get_sorted_tuple::get_sorted_tuple
+    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint},
+    merkle_tree::conditionally_assert_check_membership, utils::arrays::SortedResult
 };
-
-fn sort_by_leaf_slot(a: OverridablePublicDataTreeLeaf, b: OverridablePublicDataTreeLeaf) -> bool {
-    (b.leaf.slot == 0) | ((a.leaf.slot != 0) & a.leaf.slot.lt(b.leaf.slot))
-}
-
-unconstrained fn generate_unique_leaf_slot_hints<let N: u32>(leaves: [OverridablePublicDataTreeLeaf; N]) -> ([Field; N], [u32; N]) {
-    let mut sorted_leaf_slots = [0; N];
-    let mut sorted_leaf_slot_indexes = [N - 1; N];
-
-    let sorted_tuples = get_sorted_tuple(leaves, sort_by_leaf_slot);
-    for i in 0..N {
-        let elem = sorted_tuples[i].elem;
-        sorted_leaf_slots[i] = elem.leaf.slot;
-
-        let original_index = sorted_tuples[i].original_index;
-        sorted_leaf_slot_indexes[original_index] = i;
-    }
-
-    (sorted_leaf_slots, sorted_leaf_slot_indexes)
-}
 
 // All non-zero leaf slots in leaves must be unique, ensuring that writes with the same leaf slot are grouped into a single group.
 fn validate_unique_leaf_slots<let N: u32>(
     leaves: [OverridablePublicDataTreeLeaf; N],
-    sorted_leaf_slots: [Field; N],
-    sorted_leaf_slot_indexes: [u32; N]
+    unique_slot_index_hints: SortedResult<Field, N>
 ) {
+    let sorted_leaf_slots = unique_slot_index_hints.sorted_array;
+    let sorted_leaf_slot_indexes = unique_slot_index_hints.sorted_index_hints;
+
     let mut prev_slot = 0;
     let mut num_non_zeros = 0;
     for i in 0..N {
@@ -53,9 +34,9 @@ fn validate_unique_leaf_slots<let N: u32>(
     }
 }
 
-fn validate_memberships<let NUM_LEAVES: u32, let NUM_HINTS: u32>(
-    leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES],
-    leaf_hints: [PublicDataLeafHint; NUM_HINTS],
+fn validate_memberships<let N: u32>(
+    leaves: [OverridablePublicDataTreeLeaf; N],
+    leaf_hints: [PublicDataLeafHint; N],
     tree_root: Field
 ) {
     for i in 0..leaves.len() {
@@ -82,12 +63,12 @@ fn validate_memberships<let NUM_LEAVES: u32, let NUM_HINTS: u32>(
     }
 }
 
-pub fn validate_public_data_leaves<let NUM_LEAVES: u32, let NUM_HINTS: u32>(
-    leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES],
-    leaf_hints: [PublicDataLeafHint; NUM_HINTS],
+pub fn validate_public_data_leaves<let N: u32>(
+    leaves: [OverridablePublicDataTreeLeaf; N],
+    unique_slot_index_hints: SortedResult<Field, N>,
+    leaf_hints: [PublicDataLeafHint; N],
     tree_root: Field
 ) {
-    let (sorted_leaf_slots, sorted_leaf_slot_indexes) = generate_unique_leaf_slot_hints(leaves);
-    validate_unique_leaf_slots(leaves, sorted_leaf_slots, sorted_leaf_slot_indexes);
+    validate_unique_leaf_slots(leaves, unique_slot_index_hints);
     validate_memberships(leaves, leaf_hints, tree_root);
 }

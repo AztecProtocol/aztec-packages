@@ -29,7 +29,7 @@ use assert_split_sorted_transformed_value_arrays::{
 };
 use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
 use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
-use get_sorted_hints::get_sorted_hints;
+use get_sorted_hints::{get_sorted_hints, SortedResult};
 use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};

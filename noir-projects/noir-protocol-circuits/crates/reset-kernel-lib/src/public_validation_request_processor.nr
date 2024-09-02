@@ -6,7 +6,7 @@ use crate::{
 },
     nullifier_read_request_reset::NullifierReadRequestHints,
     nullifier_non_existent_read_request_reset::NullifierNonExistentReadRequestHints,
-    public_data_read_request_hints::{build_public_data_read_request_hints, PublicDataReadRequestHints}
+    public_data_read_request_hints::PublicDataReadRequestHints
 };
 use dep::types::{
     abis::{
@@ -26,8 +26,8 @@ struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
     nullifier_tree_root: Field,
     pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
-    public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>,
     public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
+    public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>,
 }
 
 impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicValidationRequestProcessor<NUN_PUBLIC_DATA_WRITES, NUM_PUBLIC_DATA_LEAVES> {
@@ -37,7 +37,8 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
         nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
         nullifier_tree_root: Field,
         pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
-        public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES]
+        public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
+        public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>
     ) -> Self {
         let validation_requests = public_inputs.validation_requests;
 
@@ -46,12 +47,6 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
 
         let pending_nullifiers = array_merge(end_non_revertible.nullifiers, end.nullifiers);
 
-        let public_data_read_request_hints = build_public_data_read_request_hints(
-            validation_requests.public_data_reads,
-            pending_public_data_writes,
-            public_data_leaves
-        );
-
         PublicValidationRequestProcessor {
             validation_requests,
             pending_nullifiers,
@@ -59,8 +54,8 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             nullifier_non_existent_read_request_hints,
             nullifier_tree_root,
             pending_public_data_writes,
-            public_data_read_request_hints,
-            public_data_leaves
+            public_data_leaves,
+            public_data_read_request_hints
         }
     }
 

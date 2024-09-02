@@ -1,36 +1,22 @@
+use crate::components::public_tail_output_composer::generate_output_hints::OutputHints;
 use dep::types::{
     abis::{
     accumulated_data::{CombinedAccumulatedData, PublicAccumulatedData},
-    log_hash::{LogHash, ScopedLogHash}, nullifier::Nullifier,
-    public_data_write::OverridablePublicDataWrite
+    log_hash::{LogHash, ScopedLogHash}, nullifier::Nullifier
 },
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX}, hash::silo_note_hash,
     utils::arrays::{array_merge, dedupe_array, sort_by_counter_asc}
 };
 
-unconstrained pub fn combine_data(
+unconstrained pub fn combine_data<let NUM_PUBLIC_DATA_LEAVES: u32>(
     non_revertible: PublicAccumulatedData,
     revertible: PublicAccumulatedData,
-    public_data_writes: [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
+    output_hints: OutputHints<NUM_PUBLIC_DATA_LEAVES>
 ) -> CombinedAccumulatedData {
-    let mut note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
-    let sorted_unsiloed_note_hashes = sort_by_counter_asc(array_merge(non_revertible.note_hashes, revertible.note_hashes));
-    let tx_hash = non_revertible.nullifiers[0].value;
-    for i in 0..sorted_unsiloed_note_hashes.len() {
-        let note_hash = sorted_unsiloed_note_hashes[i];
-        note_hashes[i] = if note_hash.counter() == 0 {
-            // If counter is zero, the note hash is either empty or is emitted from private and has been siloed in private_kernel_tail_to_public.
-            note_hash.value()
-        } else {
-            silo_note_hash(note_hash, tx_hash, i)
-        };
-    }
-
     let nullifiers = sort_by_counter_asc(array_merge(non_revertible.nullifiers, revertible.nullifiers)).map(|n: Nullifier| n.value);
 
     let l2_to_l1_msgs = sort_by_counter_asc(array_merge(non_revertible.l2_to_l1_msgs, revertible.l2_to_l1_msgs));
 
-    let public_data_update_requests = dedupe_array(public_data_writes);
+    let public_data_update_requests = dedupe_array(output_hints.public_data_writes);
 
     let note_encrypted_logs_hashes = sort_by_counter_asc(
         array_merge(
@@ -57,7 +43,7 @@ unconstrained pub fn combine_data(
     let unencrypted_log_preimages_length = unencrypted_logs_hashes.fold(0, |a, b: ScopedLogHash| a + b.log_hash.length);
 
     CombinedAccumulatedData {
-        note_hashes,
+        note_hashes: output_hints.siloed_note_hashes,
         nullifiers,
         l2_to_l1_msgs,
         note_encrypted_logs_hashes,

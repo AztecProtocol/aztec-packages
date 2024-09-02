@@ -1,23 +1,22 @@
 use crate::{
     components::{
     previous_kernel_validator::PreviousKernelValidator,
-    public_tail_output_composer::{LinkedIndexHint, PublicTailOutputComposer},
+    public_tail_output_composer::{OutputHints, PublicTailOutputComposer},
     public_tail_output_validator::PublicTailOutputValidator
 },
     public_kernel_phase::PublicKernelPhase
 };
-use dep::reset_kernel_lib::{NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicValidationRequestProcessor};
+use dep::reset_kernel_lib::{
+    NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicValidationRequestProcessor,
+    public_data_read_request_hints::{build_public_data_read_request_hints, PublicDataReadRequestHints}
+};
 use dep::types::{
-    abis::{
-    kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
-    public_data_write::OverridablePublicDataWrite
-},
+    abis::{kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData},
     constants::{
-    MAX_PUBLIC_DATA_HINTS, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS, MAX_PUBLIC_DATA_READS_PER_TX,
     PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX
 },
-    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint},
-    partial_state_reference::PartialStateReference
+    data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
@@ -35,15 +34,20 @@ struct PublicKernelTailCircuitPrivateInputs {
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
-    unconstrained fn generate_output(self) -> (KernelCircuitPublicInputs, [OverridablePublicDataWrite; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [OverridablePublicDataTreeLeaf; MAX_PUBLIC_DATA_HINTS], [LinkedIndexHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
-        let composer = PublicTailOutputComposer::new(
+    unconstrained fn generate_output_and_hints(self) -> (KernelCircuitPublicInputs, OutputHints<MAX_PUBLIC_DATA_HINTS>, PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>) {
+        let (output, output_hints) = PublicTailOutputComposer::new(
             self.previous_kernel.public_inputs,
             self.start_state,
             self.public_data_hints
+        ).finish();
+
+        let public_data_read_request_hints = build_public_data_read_request_hints(
+            self.previous_kernel.public_inputs.validation_requests.public_data_reads,
+            output_hints.public_data_writes,
+            output_hints.public_data_leaves
         );
-        (
-            composer.finish(), composer.public_data_writes, composer.public_data_leaves, composer.public_data_linked_index_hints
-        )
+
+        (output, output_hints, public_data_read_request_hints)
     }
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
@@ -51,24 +55,23 @@ impl PublicKernelTailCircuitPrivateInputs {
         previous_kernel_validator.validate_phase(PublicKernelPhase.TAIL);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
-        let (output, public_data_writes, public_data_leaves, public_data_linked_index_hints) = self.generate_output();
+        let (output, output_hints, public_data_read_request_hints) = self.generate_output_and_hints();
 
         PublicValidationRequestProcessor::new(
             self.previous_kernel.public_inputs,
             self.nullifier_read_request_hints,
             self.nullifier_non_existent_read_request_hints,
             self.start_state.nullifier_tree.root,
-            public_data_writes,
-            public_data_leaves
+            output_hints.public_data_writes,
+            output_hints.public_data_leaves,
+            public_data_read_request_hints
         ).validate();
 
         PublicTailOutputValidator::new(
             output,
             self.previous_kernel.public_inputs,
             self.start_state,
-            public_data_writes,
-            public_data_leaves,
-            public_data_linked_index_hints,
+            output_hints,
             self.public_data_hints
         ).validate();
 
