@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725286062733,
+  "lastUpdate": 1725359176301,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "a8240d8dc6414db175259773fe9509d5f08828c6",
-          "message": "WIP chore: does parallel for nest right now?",
-          "timestamp": "2024-08-19T18:24:39Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8072/commits/a8240d8dc6414db175259773fe9509d5f08828c6"
-        },
-        "date": 1724101312881,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13456.394034999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10208.978727 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5150.384418000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4618.348293999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40671.620465,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40671620000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14809.623920999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14809624000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3783973735,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3783973735 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 207987614,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 207987614 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3086576204,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3086576204 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173396441,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173396441 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3588,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 120319926,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120319926 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8a097cf338bae2445006b3f20a2f54fc8f5e7f5",
+          "message": "chore: improve ec addition (#8291)\n\nReduces the gate count for addition in cycle group\r\n\r\nI get 37 gates instead of 41.\r\nI improved the equality checks by one gate by removing the boolean gate.\r\nI rewrote a division as one gate instead of 3 thanks to the quotient\r\nbeing not null.",
+          "timestamp": "2024-09-03T12:11:02+02:00",
+          "tree_id": "81ff96563e29ae11700d12bf523cb316a2a0e1ee",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e8a097cf338bae2445006b3f20a2f54fc8f5e7f5"
+        },
+        "date": 1725359169594,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13400.620809000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10364.154539999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5122.895393999983,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4698.647449 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39533.354016000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39533353000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14672.914212000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14672914000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3710373764,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3710373764 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146577441,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146577441 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3056161209,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3056161209 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120002177,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120002177 ns\nthreads: 1"
           }
         ]
       }
