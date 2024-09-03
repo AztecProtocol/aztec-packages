@@ -1,5 +1,6 @@
 #pragma once
 #include "aes128_constraint.hpp"
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -50,6 +51,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
+    std::vector<size_t> ivc_recursion_constraints;
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
@@ -95,6 +97,7 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
+    std::vector<RecursionConstraint> ivc_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -135,6 +138,7 @@ struct AcirFormat {
                    ec_add_constraints,
                    recursion_constraints,
                    honk_recursion_constraints,
+                   ivc_recursion_constraints,
                    poly_triple_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
@@ -189,6 +193,11 @@ Builder create_circuit(AcirFormat& constraint_system,
                        bool honk_recursion = false,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
+
+MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
+                                         AztecIVC& ivc,
+                                         size_t size_hint = 0,
+                                         WitnessVector const& witness = {});
 
 template <typename Builder>
 void build_constraints(

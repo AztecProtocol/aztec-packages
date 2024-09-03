@@ -416,6 +416,43 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
     return builder;
 };
 
+MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
+                                         AztecIVC& ivc,
+                                         [[maybe_unused]] size_t size_hint,
+                                         WitnessVector const& witness)
+{
+    using RecursiveVerificationKey = AztecIVC::RecursiveVerificationKey;
+
+    // Construct the main kernel circuit logic excluding recursive verifiers
+    auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
+                                                      size_hint,
+                                                      witness,
+                                                      /*honk_recursion=*/false,
+                                                      ivc.goblin.op_queue,
+                                                      /*collect_gates_per_opcode=*/false);
+
+    const size_t num_ivc_constraints = constraint_system.ivc_recursion_constraints.size();
+
+    if (num_ivc_constraints != ivc.verification_queue.size()) {
+        info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
+        info("num_ivc_constraints = ", num_ivc_constraints);
+        info("ivc.verification_queue.size() = ", ivc.verification_queue.size());
+        ASSERT(false);
+    }
+
+    for (size_t i = 0; i < num_ivc_constraints; ++i) {
+        const auto& [proof, vkey, type] = ivc.verification_queue[i];
+        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+
+        // WORKTODO: assert_equal on proof and vkey here
+
+        ivc.perform_recursive_verification_and_databus_consistency_checks(circuit, stdlib_proof, stdlib_vkey, type);
+    }
+
+    return circuit;
+};
+
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool, bool);
 
 } // namespace acir_format
