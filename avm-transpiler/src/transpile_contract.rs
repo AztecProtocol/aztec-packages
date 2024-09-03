@@ -1,11 +1,11 @@
 use std::io::Read;
 
+use acvm::FieldElement;
 use base64::Engine;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use noirc_abi::Abi;
-use noirc_artifacts::contract::ContractFunctionArtifact as AcirContractFunctionArtifact;
+use acvm::acir::circuit::Program;
 use noirc_errors::debug_info::ProgramDebugInfo;
 
 use crate::transpile::{
@@ -45,7 +45,7 @@ pub struct AvmContractFunctionArtifact {
     pub name: String,
     pub is_unconstrained: bool,
     pub custom_attributes: Vec<String>,
-    pub abi: Abi,
+    pub abi: serde_json::Value,
     pub bytecode: String, // base64
     #[serde(
         serialize_with = "ProgramDebugInfo::serialize_compressed_base64_json",
@@ -54,6 +54,27 @@ pub struct AvmContractFunctionArtifact {
     pub debug_symbols: ProgramDebugInfo,
     pub brillig_names: Vec<String>,
     pub assert_messages: HashMap<usize, String>,
+}
+
+/// Representation of an ACIR contract function but with
+/// catch-all serde Values for fields irrelevant to transpilation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AcirContractFunctionArtifact {
+    pub name: String,
+    pub is_unconstrained: bool,
+    pub custom_attributes: Vec<String>,
+    pub abi: serde_json::Value,
+    #[serde(
+        serialize_with = "Program::serialize_program_base64",
+        deserialize_with = "Program::deserialize_program_base64"
+    )]
+    pub bytecode: Program<FieldElement>,
+    #[serde(
+        serialize_with = "ProgramDebugInfo::serialize_compressed_base64_json",
+        deserialize_with = "ProgramDebugInfo::deserialize_compressed_base64_json"
+    )]
+    pub debug_symbols: ProgramDebugInfo,
+    pub brillig_names: Vec<String>,
 }
 
 /// An enum that allows the TranspiledContract struct to contain
