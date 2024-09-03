@@ -139,6 +139,22 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
         key->commit(polynomial);
     }
 }
+// Commit to a polynomial with dense random nonzero entries but NOT our happiest case of an exact power of 2
+// Note this used to be a 50% regression just subtracting a power of 2 by 1.
+template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
+
+    const size_t num_points = 1 << state.range(0);
+    auto polynomial = Polynomial<Fr>(num_points - 1);
+    for (auto& coeff : polynomial) {
+        coeff = Fr::random_element();
+    }
+    for (auto _ : state) {
+        key->commit(polynomial);
+    }
+}
 
 BENCHMARK(bench_commit_zero<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
