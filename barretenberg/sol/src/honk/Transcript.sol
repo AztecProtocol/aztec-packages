@@ -30,12 +30,12 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 NUM_PUBLIC_INPUTS)
+    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         external
         view
         returns (Transcript memory t)
     {
-        (t.eta, t.etaTwo, t.etaThree) = generateEtaChallenge(proof, publicInputs, NUM_PUBLIC_INPUTS);
+        (t.eta, t.etaTwo, t.etaThree) = generateEtaChallenge(proof, publicInputs, publicInputsSize);
 
         (t.beta, t.gamma) = generateBetaAndGammaChallenges(t.etaThree, proof);
 
@@ -53,34 +53,33 @@ library TranscriptLib {
         return t;
     }
 
-    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 num_public_inputs)
+    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
         view
         returns (Fr eta, Fr etaTwo, Fr etaThree)
     {
-        uint256 arraySize = 3 + num_public_inputs + 12;
-        bytes32[] memory round0 = new bytes32[](arraySize);
+        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
         round0[0] = bytes32(proof.circuitSize);
         round0[1] = bytes32(proof.publicInputsSize);
         round0[2] = bytes32(proof.publicInputsOffset);
-        for (uint256 i = 0; i < num_public_inputs; i++) {
+        for (uint256 i = 0; i < publicInputsSize; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + num_public_inputs] = bytes32(proof.w1.x_0);
-        round0[3 + num_public_inputs + 1] = bytes32(proof.w1.x_1);
-        round0[3 + num_public_inputs + 2] = bytes32(proof.w1.y_0);
-        round0[3 + num_public_inputs + 3] = bytes32(proof.w1.y_1);
-        round0[3 + num_public_inputs + 4] = bytes32(proof.w2.x_0);
-        round0[3 + num_public_inputs + 5] = bytes32(proof.w2.x_1);
-        round0[3 + num_public_inputs + 6] = bytes32(proof.w2.y_0);
-        round0[3 + num_public_inputs + 7] = bytes32(proof.w2.y_1);
-        round0[3 + num_public_inputs + 8] = bytes32(proof.w3.x_0);
-        round0[3 + num_public_inputs + 9] = bytes32(proof.w3.x_1);
-        round0[3 + num_public_inputs + 10] = bytes32(proof.w3.y_0);
-        round0[3 + num_public_inputs + 11] = bytes32(proof.w3.y_1);
+        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
+        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
+        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
+        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
+        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
+        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
+        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
+        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
+        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
+        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
+        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
+        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
 
         eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         etaTwo = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(eta))));

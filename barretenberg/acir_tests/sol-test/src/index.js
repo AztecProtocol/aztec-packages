@@ -3,9 +3,11 @@ const { readFileSync, promises: fsPromises } = fs;
 import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
+import linker from "solc/linker.js";
 
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 393;
+// This excludes the public inputs which are sent separately to the Solidity verifier
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 423;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -46,6 +48,9 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(testPath, encoding),
   fsPromises.readFile(verifierPath, encoding),
 ]);
+
+// 1. figure out how to deploy the libraries
+// 2. call linker.linkBytecode providing the libraries name and address
 
 export const compilationInput = {
   language: "Solidity",
@@ -94,9 +99,17 @@ if (!testingHonk) {
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
 const contract = output.contracts["Test.sol"]["Test"];
-
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
+
+// Get the bytecode and abi of the two libraries with external calls that need to be deployed separately
+const transcriptLib = output.contracts["Verifier.sol"]["TranscriptLib"];
+const transcriptLibBytecode = transcriptLib.evm.bytecode.object;
+const transcriptLibAbi = transcriptLib.abi;
+
+const relationsLib = output.contracts["Verifier.sol"]["RelationsLib"];
+const relationsLibBytecode = relationsLib.evm.bytecode.object;
+const relationsLibAbi = relationsLib.abi;
 
 /**
  * Launch anvil on the given port,
@@ -132,7 +145,7 @@ const launchAnvil = async (port) => {
  * Deploys the contract
  * @param {ethers.Signer} signer
  */
-const deploy = async (signer) => {
+const deploy = async (signer, abi, bytecode) => {
   const factory = new ethers.ContractFactory(abi, bytecode, signer);
   const deployment = await factory.deploy();
   const deployed = await deployment.waitForDeployment();
@@ -146,7 +159,7 @@ const deploy = async (signer) => {
  */
 const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
-  // A proof with no public inputs is 93 fields long
+  // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
   let publicInputsOffset = 0;
 
@@ -227,8 +240,41 @@ try {
   const provider = await getProvider(randomPort);
   const signer = new ethers.Wallet(key, provider);
 
-  // deploy
-  const address = await deploy(signer);
+  // Deploy the two libraries, awaiting to ensure the nonce is modified correctly to prevent race conditions.
+  await signer.getNonce();
+  const transcriptLibAddress = await deploy(
+    signer,
+    transcriptLibAbi,
+    transcriptLibBytecode
+  );
+
+  // TODO: maybe this can be done in a better way
+  await signer.getNonce();
+
+  const relationsLibAddress = await deploy(
+    signer,
+    relationsLibAbi,
+    relationsLibBytecode
+  );
+
+  const libraries = {
+    TranscriptLib: transcriptLibAddress,
+    RelationsLib: relationsLibAddress,
+  };
+  const linkerInput = {
+    "Verifier.sol": {
+      TranscriptLib: libraries["TranscriptLib"],
+      RelationsLib: libraries["RelationsLib"],
+    },
+  };
+
+  // Link the libraries in the contract bytecode
+  const linkedBytecode = linker.linkBytecode(bytecode, linkerInput);
+
+  console.log(await signer.getNonce());
+
+  // Deploy the verifier contract
+  const address = await deploy(signer, abi, linkedBytecode);
   const contract = new ethers.Contract(address, abi, signer);
 
   const result = await contract.test(proofStr, publicInputs);

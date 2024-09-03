@@ -1,7 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-
-// NOTE: to work around solidity not allowing templates, we need a transcript class and proof class for each
-
 // Copyright 2024 Aztec Labs
 pragma solidity >=0.8.21;
 
@@ -22,7 +19,7 @@ import {
 
 import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
 
-// Field arithmetic libraries
+// Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "../Fr.sol";
 
 import {Transcript, TranscriptLib} from "../Transcript.sol";
@@ -50,9 +47,11 @@ contract Add2HonkVerifier is IVerifier {
         // Compute the public input delta
         t.publicInputsDelta =
             computePublicInputDelta(publicInputs, t.beta, t.gamma, vk.circuitSize, p.publicInputsOffset);
+
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
+
         // Zeromorph
         bool zeromorphVerified = verifyZeroMorph(p, vk, t);
         if (!zeromorphVerified) revert ZeromorphFailed();
@@ -104,7 +103,9 @@ contract Add2HonkVerifier is IVerifier {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             bool valid = checkSum(roundUnivariate, roundTarget);
             if (!valid) revert SumcheckFailed();
+
             Fr roundChallenge = tp.sumCheckUChallenges[round];
+
             // Update the round target for the next rounf
             roundTarget = computeNextTargetSum(roundUnivariate, roundChallenge);
             powPartialEvaluation = partiallyEvaluatePOW(tp, powPartialEvaluation, roundChallenge, round);
