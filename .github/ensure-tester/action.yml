@@ -72,7 +72,7 @@ runs:
       shell: bash
       run:
         # Try 6 times to see if .user-data-finished has been written to
-        for i in {0..6} ; do scripts/run_on_tester "cat /home/ubuntu/.user-data-finished" && break ; sleep 5 ; done
+        for i in {0..6} ; do scripts/run_on_tester "cat /home/ubuntu/.user-data-finished" && break ; sleep 5 ; done ;
         scripts/run_on_tester "cat /home/ubuntu/.user-data-finished ; cat /run/log.out" || true # don't fail
 
     # Set up a context for this run
