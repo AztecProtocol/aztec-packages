@@ -373,7 +373,31 @@ class MegaFlavor {
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
-        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+        { // Initialize all unshifted polynomials to the zero polynomial and initialize the
+          // shifted polys
+          // PLAN: hack these to use upper bounds into megaflavor and make sure e2e works
+          // (check if we are structured)
+          // PLAN: first try aztec ivc tests and aztec ivc bench with the test bounds
+          // -> polynomials start with q_ + trace block name and can use this size
+          // this->ecc_op = 1 << 9;
+          // this->pub_inputs = 4000; // offset = ecc_op
+          // this->arithmetic = 200000; // offset = ecc_op + pub_inputs, size = arithmetic
+          // -> corresponds to q_arith, q_m,
+          // q_l, q_r, q_4 -> likely fully initialize
+          // this->delta_range = 25000;
+          // this->elliptic = 80000;
+          // this->aux = 100000; // offset = sum all previous, size = this->aux
+          // -> q_aux
+          // this->lookup = 200000;
+          // this->busread = 10;
+          // this->poseidon_external = 30000;
+          // this->poseidon_internal = 150000;
+          // The Goblin ECC op wires (4x): Each of these has a single non-zero block at the start of the polynomial with
+          // length equal to the number of goblin ops used, which is never very large ( at most ~ 2 10)
+          // -> goblin ops in mega
+          // lagrange first and lagrange last -> one value is set?
+          // Initialize all unshifted polynomials to the zero
+          // polynomial and initialize the shifted polys
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in aztec_ivc_bench only).
             BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");

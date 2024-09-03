@@ -87,11 +87,10 @@ template <class Curve> class CommitmentKey {
         // See constructor, we must round up the number of used srs points to a power of 2.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.end_index());
         if (consumed_srs > srs->get_monomial_size()) {
-            info("Attempting to commit to a polynomial that needs ",
-                 consumed_srs,
-                 " points with an SRS of size ",
-                 srs->get_monomial_size());
-            ASSERT(false);
+            throw_or_abort(format("Attempting to commit to a polynomial that needs ",
+                                  consumed_srs,
+                                  " points with an SRS of size ",
+                                  srs->get_monomial_size()));
         }
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding

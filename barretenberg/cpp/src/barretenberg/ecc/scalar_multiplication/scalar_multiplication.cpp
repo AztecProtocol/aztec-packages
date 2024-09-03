@@ -342,7 +342,8 @@ void add_affine_points(typename Curve::AffineElement* points,
     }
 
     if (batch_inversion_accumulator == 0) {
-        throw_or_abort("attempted to invert zero in add_affine_points");
+        // prefer abort to throw for code that might emit from multiple threads
+        abort_with_message("attempted to invert zero in add_affine_points");
     } else {
         batch_inversion_accumulator = batch_inversion_accumulator.invert();
     }
