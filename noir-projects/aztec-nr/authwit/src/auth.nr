@@ -172,7 +172,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  * --- FAQ ---
  * Q:   Why are we using a success flag of `keccak256("IS_VALID()")` instead of just returning a boolean?
  * A:   We want to make sure that we don't accidentally return `true` if there is a collision in the function selector.
- *      By returning a hash of `IS_VALID()`, it becomes very unlikely that there is both a colission and we return
+ *      By returning a hash of `IS_VALID()`, it becomes very unlikely that there is both a collision and we return
  *      a success flag.
  *
  * Q:   Why are we using static calls?
