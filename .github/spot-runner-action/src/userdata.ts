@@ -22,8 +22,14 @@ export class UserData {
       `sudo service docker restart`,
       "sudo wget -q https://github.com/earthly/earthly/releases/download/v0.8.10/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly",
       "sudo chmod +x /usr/local/bin/earthly",
-      `echo 'Acquire::Retries "3"; Acquire::https::Timeout "240"; Acquire::http::Timeout "240"; APT::Get::Assume-Yes "true"; APT::Install-Recommends "false"; APT::Install-Suggests "false";' > /run/99-aztec-build`,
-      `sudo cp /run/99-aztec-build /etc/apt/apt.conf.d/99-aztec-build`,
+      `sudo bash -c 'cat <<EOF > /etc/apt/apt.conf.d/99-aztec-build
+Acquire::Retries "3";
+Acquire::https::Timeout "240";
+Acquire::http::Timeout "240";
+APT::Get::Assume-Yes "true";
+APT::Install-Recommends "false";
+APT::Install-Suggests "false";
+EOF'`,
       "sudo apt install -y brotli",
       'echo "MaxStartups 1000" >> /etc/ssh/sshd_config',
       'echo "ClientAliveInterval=30" >> /etc/ssh/sshd_config',
