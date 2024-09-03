@@ -37,7 +37,7 @@ template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_o
         run_oink_prover_on_instance(instance, domain_separator);
     }
 
-    state.accumulator = instances[0];
+    accumulator = instances[0];
 };
 
 template <class ProverInstances>
@@ -95,7 +95,7 @@ ProtogalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
     TupleOfTuplesOfUnivariates accumulators;
     auto combiner = Fun::compute_combiner(instances, gate_separators, relation_parameters, alphas, accumulators);
 
-    const FF perturbator_evaluation = state.perturbator.evaluate(perturbator_challenge);
+    const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
 
     for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
@@ -177,17 +177,13 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
     }
     run_oink_prover_on_each_instance();
 
-    std::tie(state.deltas, state.perturbator) = perturbator_round(state.accumulator);
+    std::tie(deltas, perturbator) = perturbator_round(accumulator);
 
-    std::tie(state.accumulator->gate_challenges,
-             state.alphas,
-             state.relation_parameters,
-             state.perturbator_evaluation,
-             state.combiner_quotient) =
-        combiner_quotient_round(state.accumulator->gate_challenges, state.deltas, instances);
+    std::tie(accumulator->gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient) =
+        combiner_quotient_round(accumulator->gate_challenges, deltas, instances);
 
-    const FoldingResult<Flavor> result = update_target_sum_and_fold(
-        instances, state.combiner_quotient, state.alphas, state.relation_parameters, state.perturbator_evaluation);
+    const FoldingResult<Flavor> result =
+        update_target_sum_and_fold(instances, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
 
     return result;
 }

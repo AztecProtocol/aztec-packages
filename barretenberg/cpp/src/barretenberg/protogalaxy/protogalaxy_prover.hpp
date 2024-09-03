@@ -19,15 +19,6 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
     using UnivariateRelationSeparator =
         std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
-    struct State {
-        std::shared_ptr<ProverInstance> accumulator;
-        Polynomial<FF> perturbator;
-        std::vector<FF> deltas;
-        CombinerQuotient combiner_quotient;
-        FF perturbator_evaluation;
-        UnivariateRelationParameters relation_parameters;
-        UnivariateRelationSeparator alphas;
-    };
     using Transcript = typename Flavor::Transcript;
     using Instance = typename ProverInstances_::Instance;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -36,9 +27,17 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
     static constexpr size_t NUM_SUBRELATIONS = ProverInstances_::NUM_SUBRELATIONS;
 
     ProverInstances_ instances;
-    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::shared_ptr<CommitmentKey> commitment_key;
-    State state;
+
+    // the updated and state carried forward beween rounds
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
+    std::shared_ptr<ProverInstance> accumulator;
+    Polynomial<FF> perturbator;
+    std::vector<FF> deltas;
+    CombinerQuotient combiner_quotient;
+    FF perturbator_evaluation;
+    UnivariateRelationParameters relation_parameters;
+    UnivariateRelationSeparator alphas;
 
     ProtogalaxyProver_() = default;
     ProtogalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
