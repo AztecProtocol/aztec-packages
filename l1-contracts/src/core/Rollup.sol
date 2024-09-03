@@ -17,6 +17,8 @@ import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
 import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {SignatureLib} from "./sequencer_selection/SignatureLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {DataStructures} from "./libraries/DataStructures.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
@@ -31,11 +33,12 @@ import {Leonidas} from "./sequencer_selection/Leonidas.sol";
  * not giving a damn about gas costs.
  */
 contract Rollup is Leonidas, IRollup, ITestRollup {
+  using SafeCast for uint256;
+
   struct BlockLog {
     bytes32 archive;
     bytes32 blockHash;
     uint128 slotNumber;
-    bool isProven;
   }
 
   // @note  The number of slots within which a block must be proven
@@ -64,10 +67,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   bytes32 public vkTreeRoot;
 
-  // @note  This should not exists, but we have it now to ensure we will not be killing the devnet with our
-  //        timeliness requirements.
-  bool public isDevNet = Constants.IS_DEV_NET == 1;
-
   // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenUntilBlockNumber;
@@ -93,8 +92,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     blocks[0] = BlockLog({
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
       blockHash: bytes32(0),
-      slotNumber: 0,
-      isProven: true
+      slotNumber: 0
     });
     pendingBlockCount = 1;
     provenBlockCount = 1;
@@ -102,18 +100,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     for (uint256 i = 0; i < _validators.length; i++) {
       _addValidator(_validators[i]);
     }
+    setupEpoch();
   }
 
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
+   *
+   * @dev     While in devnet, this will be guarded behind an `onlyOwner`
    */
-  function prune() external override(IRollup) {
-    if (isDevNet) {
-      revert Errors.DevNet__NoPruningAllowed();
-    }
-
+  function prune() external override(IRollup) onlyOwner {
     if (pendingBlockCount == provenBlockCount) {
       revert Errors.Rollup__NothingToPrune();
     }
@@ -147,24 +144,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     onlyOwner
   {
     if (blockNumber > provenBlockCount && blockNumber <= pendingBlockCount) {
-      for (uint256 i = provenBlockCount; i < blockNumber; i++) {
-        blocks[i].isProven = true;
-        emit L2ProofVerified(i, "CHEAT");
-      }
-      _progressState();
+      provenBlockCount = blockNumber;
     }
     assumeProvenUntilBlockNumber = blockNumber;
-  }
-
-  /**
-   * @notice  Set the devnet mode
-   *
-   * @dev     This is only needed for testing, and should be removed
-   *
-   * @param _devNet - Whether or not the contract is in devnet mode
-   */
-  function setDevNet(bool _devNet) external override(ITestRollup) onlyOwner {
-    isDevNet = _devNet;
   }
 
   /**
@@ -190,7 +172,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Published the body and processes the block
+   * @notice  Published the body and propose the block
    * @dev     This should likely be purged in the future as it is a convenience method
    * @dev     `eth_log_handlers` rely on this function
    *
@@ -200,7 +182,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
-  function publishAndProcess(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
@@ -208,11 +190,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _body
   ) external override(IRollup) {
     AVAILABILITY_ORACLE.publish(_body);
-    process(_header, _archive, _blockHash, _signatures);
+    propose(_header, _archive, _blockHash, _signatures);
   }
 
   /**
-   * @notice  Published the body and processes the block
+   * @notice  Published the body and propose the block
    * @dev     This should likely be purged in the future as it is a convenience method
    * @dev     `eth_log_handlers` rely on this function
    * @param _header - The L2 block header
@@ -220,14 +202,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _body - The body of the L2 block
    */
-  function publishAndProcess(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
     bytes calldata _body
   ) external override(IRollup) {
     AVAILABILITY_ORACLE.publish(_body);
-    process(_header, _archive, _blockHash);
+    propose(_header, _archive, _blockHash);
   }
 
   /**
@@ -268,6 +250,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     if (header.globalVariables.blockNumber >= pendingBlockCount) {
       revert Errors.Rollup__TryingToProveNonExistingBlock();
+    }
+
+    // @note  This implicitly also ensures that we have not already proven, since
+    //        the value `provenBlockCount` is incremented at the end of this function
+    if (header.globalVariables.blockNumber != provenBlockCount) {
+      revert Errors.Rollup__NonSequentialProving();
     }
 
     bytes32 expectedLastArchive = blocks[header.globalVariables.blockNumber - 1].archive;
@@ -352,22 +340,20 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidProof();
     }
 
-    blocks[header.globalVariables.blockNumber].isProven = true;
+    provenBlockCount += 1;
 
-    _progressState();
+    for (uint256 i = 0; i < 32; i++) {
+      address coinbase = address(uint160(uint256(publicInputs[25 + i * 2])));
+      uint256 fees = uint256(publicInputs[26 + i * 2]);
 
+      if (coinbase != address(0) && fees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+      }
+    }
     emit L2ProofVerified(header.globalVariables.blockNumber, _proverId);
-  }
-
-  /**
-   * @notice  Get the `isProven` flag for the block number
-   *
-   * @param _blockNumber - The block number to check
-   *
-   * @return bool - True if proven, false otherwise
-   */
-  function isBlockProven(uint256 _blockNumber) external view override(IRollup) returns (bool) {
-    return blocks[_blockNumber].isProven;
   }
 
   /**
@@ -382,14 +368,73 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice Processes an incoming L2 block with signatures
+   * @notice  Check if a proposer can propose at a given time
+   *
+   * @param _ts - The timestamp to check
+   * @param _proposer - The proposer to check
+   * @param _archive - The archive to check (should be the latest archive)
+   *
+   * @return uint256 - The slot at the given timestamp
+   * @return uint256 - The block number at the given timestamp
+   */
+  function canProposeAtTime(uint256 _ts, address _proposer, bytes32 _archive)
+    external
+    view
+    override(IRollup)
+    returns (uint256, uint256)
+  {
+    uint256 slot = getSlotAt(_ts);
+
+    uint256 lastSlot = uint256(blocks[pendingBlockCount - 1].slotNumber);
+    if (slot <= lastSlot) {
+      revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
+    }
+
+    bytes32 tipArchive = archive();
+    if (tipArchive != _archive) {
+      revert Errors.Rollup__InvalidArchive(tipArchive, _archive);
+    }
+
+    address proposer = getProposerAt(_ts);
+    if (proposer != address(0) && proposer != _proposer) {
+      revert Errors.Leonidas__InvalidProposer(proposer, _proposer);
+    }
+
+    return (slot, pendingBlockCount);
+  }
+
+  /**
+   * @notice  Validate a header for submission
+   *
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
+   *          without having to deal with viem or anvil for simulating timestamps in the future.
+   *
+   * @param _header - The header to validate
+   * @param _signatures - The signatures to validate
+   * @param _digest - The digest to validate
+   * @param _currentTime - The current time
+   * @param _flags - The flags to validate
+   */
+  function validateHeader(
+    bytes calldata _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) external view override(IRollup) {
+    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    _validateHeader(header, _signatures, _digest, _currentTime, _flags);
+  }
+
+  /**
+   * @notice propose an incoming L2 block with signatures
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
    */
-  function process(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
@@ -397,16 +442,19 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   ) public override(IRollup) {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
-    _validateHeaderForSubmissionBase(header);
-    _validateHeaderForSubmissionSequencerSelection(header, _signatures, _archive);
+    setupEpoch();
+    _validateHeader({
+      _header: header,
+      _signatures: _signatures,
+      _digest: _archive,
+      _currentTime: block.timestamp,
+      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+    });
 
-    // As long as the header is passing validity check in `_validateHeaderForSubmissionBase` we can safely cast
-    // the slot number to uint128
     blocks[pendingBlockCount++] = BlockLog({
       archive: _archive,
       blockHash: _blockHash,
-      slotNumber: uint128(header.globalVariables.slotNumber),
-      isProven: false
+      slotNumber: header.globalVariables.slotNumber.toUint128()
     });
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
@@ -423,38 +471,36 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
     );
 
-    // @note  This should be addressed at the time of proving if sequential proving or at the time of
-    //        inclusion into the proven chain otherwise. See #7622.
-    if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-      // @note  This will currently fail if there are insufficient funds in the bridge
-      //        which WILL happen for the old version after an upgrade where the bridge follow.
-      //        Consider allowing a failure. See #7938.
-      FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-    }
-
-    emit L2BlockProcessed(header.globalVariables.blockNumber);
+    emit L2BlockProposed(header.globalVariables.blockNumber);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
     if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
-      blocks[header.globalVariables.blockNumber].isProven = true;
+      provenBlockCount += 1;
+
+      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+
       emit L2ProofVerified(header.globalVariables.blockNumber, "CHEAT");
-      _progressState();
     }
   }
 
   /**
-   * @notice Processes an incoming L2 block without signatures
+   * @notice Propose a L2 block without signatures
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    */
-  function process(bytes calldata _header, bytes32 _archive, bytes32 _blockHash)
+  function propose(bytes calldata _header, bytes32 _archive, bytes32 _blockHash)
     public
     override(IRollup)
   {
     SignatureLib.Signature[] memory emptySignatures = new SignatureLib.Signature[](0);
-    process(_header, _archive, _blockHash, emptySignatures);
+    propose(_header, _archive, _blockHash, emptySignatures);
   }
 
   /**
@@ -467,34 +513,26 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Progresses the state of the proven chain as far as possible
+   * @notice  Validates the header for submission
    *
-   * @dev     Emits `ProgressedState` if the state is progressed
-   *
-   * @dev     Will continue along the pending chain as long as the blocks are proven
-   *          stops at the first unproven block.
-   *
-   * @dev     Have a potentially unbounded gas usage. @todo Will need a bounded version, such that it cannot be
-   *          used as a DOS vector.
+   * @param _header - The proposed block header
+   * @param _signatures - The signatures for the attestations
+   * @param _digest - The digest that signatures signed
+   * @param _currentTime - The time of execution
+   * @dev                - This value is provided to allow for simple simulation of future
+   * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
-  function _progressState() internal {
-    if (pendingBlockCount == provenBlockCount) {
-      // We are already up to date
-      return;
-    }
-
-    uint256 cachedProvenBlockCount = provenBlockCount;
-
-    for (; cachedProvenBlockCount < pendingBlockCount; cachedProvenBlockCount++) {
-      if (!blocks[cachedProvenBlockCount].isProven) {
-        break;
-      }
-    }
-
-    if (cachedProvenBlockCount > provenBlockCount) {
-      provenBlockCount = cachedProvenBlockCount;
-      emit ProgressedState(provenBlockCount, pendingBlockCount);
-    }
+  function _validateHeader(
+    HeaderLib.Header memory _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
+    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
+    _validateHeaderForSubmissionSequencerSelection(
+      _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
+    );
   }
 
   /**
@@ -509,41 +547,21 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *            This might be relaxed for allow consensus set to better handle short-term bursts of L1 congestion
    *          - The slot MUST be in the current epoch
    *
-   * @dev     While in isDevNet, we allow skipping all of the checks as we simply assume only TRUSTED sequencers
-   *
-   * @param _header - The header to validate
+   * @param _slot - The slot of the header to validate
    * @param _signatures - The signatures to validate
-   * @param _archive - The archive root of the block
+   * @param _digest - The digest that signatures sign over
    */
   function _validateHeaderForSubmissionSequencerSelection(
-    HeaderLib.Header memory _header,
+    uint256 _slot,
     SignatureLib.Signature[] memory _signatures,
-    bytes32 _archive
-  ) internal {
-    if (isDevNet) {
-      // @note  If we are running in a devnet, we don't want to perform all the consensus
-      //        checks, we instead simply require that either there are NO validators or
-      //        that the proposer is a validator.
-      //
-      //        This means that we relaxes the condition that the block must land in the
-      //        correct slot and epoch to make it more fluid for the devnet launch
-      //        or for testing.
-      if (getValidatorCount() == 0) {
-        return;
-      }
-
-      if (!isValidator(msg.sender)) {
-        revert Errors.Leonidas__InvalidProposer(getValidatorAt(0), msg.sender);
-      }
-      return;
-    }
-
-    uint256 slot = _header.globalVariables.slotNumber;
-
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
     // Ensure that the slot proposed is NOT in the future
-    uint256 currentSlot = getCurrentSlot();
-    if (slot != currentSlot) {
-      revert Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot);
+    uint256 currentSlot = getSlotAt(_currentTime);
+    if (_slot != currentSlot) {
+      revert Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot);
     }
 
     // @note  We are currently enforcing that the slot is in the current epoch
@@ -551,13 +569,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     //        of an entire epoch if no-one from the new epoch committee have seen
     //        those blocks or behaves as if they did not.
 
-    uint256 epochNumber = getEpochAt(getTimestampForSlot(slot));
-    uint256 currentEpoch = getCurrentEpoch();
+    uint256 epochNumber = getEpochAt(getTimestampForSlot(_slot));
+    uint256 currentEpoch = getEpochAt(_currentTime);
     if (epochNumber != currentEpoch) {
       revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
     }
 
-    _processPendingBlock(epochNumber, slot, _signatures, _archive);
+    _proposePendingBlock(_slot, _signatures, _digest, _flags);
   }
 
   /**
@@ -577,7 +595,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _header - The header to validate
    */
-  function _validateHeaderForSubmissionBase(HeaderLib.Header memory _header) internal view {
+  function _validateHeaderForSubmissionBase(
+    HeaderLib.Header memory _header,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
     if (block.chainid != _header.globalVariables.chainId) {
       revert Errors.Rollup__InvalidChainId(block.chainid, _header.globalVariables.chainId);
     }
@@ -612,8 +634,20 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
     }
 
+    if (timestamp > _currentTime) {
+      // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
+      //        from the value that we have in the constants.
+      //        When you are encountering this, it will likely be as the sequencer expects to be able to include
+      //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
+      //        from the last block. However, if the actual will only be 1 second in the future, you will end up
+      //        expecting this value to be in the future.
+      revert Errors.Rollup__TimestampInFuture(_currentTime, timestamp);
+    }
+
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!AVAILABILITY_ORACLE.isAvailable(_header.contentCommitment.txsEffectsHash)) {
+    if (
+      !_flags.ignoreDA && !AVAILABILITY_ORACLE.isAvailable(_header.contentCommitment.txsEffectsHash)
+    ) {
       revert Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash);
     }
   }
