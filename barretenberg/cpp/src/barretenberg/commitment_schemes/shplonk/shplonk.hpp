@@ -204,8 +204,7 @@ template <typename Curve> class ShplonkVerifier_ {
                 r_squares.emplace_back(claim.opening_pair.challenge);
             }
             // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-            std::vector<Fr> inverse_vanishing_evals =
-                compute_inverse_vanishing_evals(num_claims, z_challenge, r_squares);
+            std::vector<Fr> inverse_vanishing_evals = compute_inverted_denominators(num_claims, z_challenge, r_squares);
 
             auto current_nu = Fr(1);
             // Note: commitments and scalars vectors used only in recursion setting for batch mul
@@ -268,18 +267,25 @@ template <typename Curve> class ShplonkVerifier_ {
         // Return opening pair (z, 0) and commitment [G]
         return { { z_challenge, Fr(0) }, G_commitment };
     };
-
-    static std::vector<Fr> compute_inverse_vanishing_evals(size_t log_circuit_size,
-                                                           const Fr& z_challenge,
-                                                           const std::vector<Fr>& r_squares)
+    /**
+     * @brief Computes \f$ \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \f$.
+     *
+     * @param log_circuit_size \f$ d \f$
+     * @param shplonk_eval_challenge \f$ z \f$
+     * @param gemini_eval_challenge_powers \f$ (r , r^2, \ldots, r^{2^{d-1}}) \f$
+     * @return \f[ \left( \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \right) \f]
+     */
+    static std::vector<Fr> compute_inverted_denominators(const size_t& log_circuit_size,
+                                                         const Fr& shplonk_eval_challenge,
+                                                         const std::vector<Fr>& gemini_eval_challenge_powers)
     {
-        std::vector<Fr> inverse_vanishing_evals;
-        inverse_vanishing_evals.reserve(log_circuit_size + 1);
-        inverse_vanishing_evals.emplace_back((z_challenge - r_squares[0]).invert());
-        for (const auto& challenge_point : r_squares) {
-            inverse_vanishing_evals.emplace_back((z_challenge + challenge_point).invert());
+        std::vector<Fr> inverted_denominators;
+        inverted_denominators.reserve(log_circuit_size + 1);
+        inverted_denominators.emplace_back((shplonk_eval_challenge - gemini_eval_challenge_powers[0]).invert());
+        for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
+            inverted_denominators.emplace_back((shplonk_eval_challenge + gemini_eval_challenge_power).invert());
         }
-        return inverse_vanishing_evals;
+        return inverted_denominators;
     }
 };
 } // namespace bb

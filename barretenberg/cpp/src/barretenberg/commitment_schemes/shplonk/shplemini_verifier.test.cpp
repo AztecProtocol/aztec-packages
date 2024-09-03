@@ -203,14 +203,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr current_challenge{ shplonk_batching_challenge * shplonk_batching_challenge };
     for (size_t idx = 0; idx < prover_commitments.size(); ++idx) {
         expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[idx + 2];
-        info(-current_challenge * expected_inverse_vanishing_evals[idx + 2]);
         current_challenge *= shplonk_batching_challenge;
     }
     Fr expected_constant_term_accumulator{ 0 };
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverse_vanishing_evals(log_n, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_denominators(log_n, shplonk_eval_challenge, r_squares);
 
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;

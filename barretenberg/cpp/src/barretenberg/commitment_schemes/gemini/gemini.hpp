@@ -132,7 +132,7 @@ template <typename Curve> class GeminiVerifier_ {
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
     static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                                const Fr batched_evaluation,           /* all */
+                                                                Fr& batched_evaluation,                /* all */
                                                                 GroupElement& batched_f,               /* unshifted */
                                                                 GroupElement& batched_g, /* to-be-shifted */
                                                                 auto& transcript)
@@ -210,38 +210,39 @@ template <typename Curve> class GeminiVerifier_ {
      * \f}
      * Therefore, the verifier can recover \f$ A_0(r) \f$ by solving several linear equations.
      *
-     * @param batched_mle_eval The evaluation of the folded polynomials.
-     * @param mle_vars MLE opening point \f$ \vec{u} \f$.
-     * @param r_squares Squares of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{m-1}} \f$.
-     * @param fold_polynomial_evals Series of \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
+     * @param batched_mle_eval The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
+     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$.
+     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{m-1}} \f$.
+     * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(const Fr batched_mle_eval,
-                                                           std::span<const Fr> mle_vars,
-                                                           std::span<const Fr> r_squares,
+    static Fr compute_gemini_batched_univariate_evaluation(Fr& batched_mle_eval,
+                                                           std::span<const Fr> evaluation_point,
+                                                           std::span<const Fr> challenge_powers,
                                                            std::span<const Fr> fold_polynomial_evals)
     {
-        const size_t num_variables = mle_vars.size();
+        const size_t num_variables = evaluation_point.size();
 
         const auto& evals = fold_polynomial_evals;
-
-        // Initialize eval_pos with batched MLE eval v = ∑ⱼ ρʲ vⱼ + ∑ⱼ ρᵏ⁺ʲ v↺ⱼ
-        Fr eval_pos = batched_mle_eval;
+        /// Initialize the evaluation of the univariatization of the batched multilinear polynomial with
+        /// the evaluation of \f$ \sum \rho^i f_i + \sum \rho^{i+k} f_{i,\text{shift}} \f$ at \f$ (u_0,\ldots, u_{d-1})
+        /// \f$
+        Fr& batched_eval = batched_mle_eval;
+        /// Solve the sequence of linear equations
         for (size_t l = num_variables; l != 0; --l) {
-            const Fr r = r_squares[l - 1];    // = rₗ₋₁ = r^{2ˡ⁻¹}
-            const Fr eval_neg = evals[l - 1]; // = Aₗ₋₁(−r^{2ˡ⁻¹})
-            const Fr u = mle_vars[l - 1];     // = uₗ₋₁
-
-            // The folding property ensures that
-            //                     Aₗ₋₁(r^{2ˡ⁻¹}) + Aₗ₋₁(−r^{2ˡ⁻¹})      Aₗ₋₁(r^{2ˡ⁻¹}) - Aₗ₋₁(−r^{2ˡ⁻¹})
-            // Aₗ(r^{2ˡ}) = (1-uₗ₋₁) ----------------------------- + uₗ₋₁ -----------------------------
-            //                                   2                                2r^{2ˡ⁻¹}
-            // We solve the above equation in Aₗ₋₁(r^{2ˡ⁻¹}), using the previously computed Aₗ(r^{2ˡ}) in eval_pos
-            // and using Aₗ₋₁(−r^{2ˡ⁻¹}) sent by the prover in the proof.
-            eval_pos = ((r * eval_pos * 2) - eval_neg * (r * (Fr(1) - u) - u)) / (r * (Fr(1) - u) + u);
+            /// Get \f$ r^{2^{\ell - 1}} \f$
+            const Fr& challenge_power = challenge_powers[l - 1];
+            /// Get \f$ A_{\ell-1}(−r^{2^{\ell -1 }})\f$
+            const Fr& eval_neg = evals[l - 1];
+            /// Get \f$ u_{\ell-1}\f$
+            const Fr& u = evaluation_point[l - 1];
+            /// Compute the numerator
+            batched_eval = ((challenge_power * batched_eval * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            /// Divide by the denominator
+            batched_eval *= (challenge_power * (Fr(1) - u) + u).invert();
         }
 
-        return eval_pos; // return A₀(r)
+        return batched_eval;
     }
 
     /**

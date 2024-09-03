@@ -187,10 +187,8 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     const size_t n = 16;
     const size_t log_n = 4;
     auto prover_transcript = NativeTranscript::prover_init_empty();
-
+    // Get batching challenge
     Fr rho = prover_transcript->template get_challenge<Fr>("rho");
-    info("rho", rho);
-
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
