@@ -774,24 +774,23 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , main_nullifier_non_exists_write_offset_shift(il[766])
     , main_pc_shift(il[767])
     , main_sel_execution_row_shift(il[768])
-    , main_side_effect_counter_shift(il[769])
-    , main_sload_write_offset_shift(il[770])
-    , main_sstore_write_offset_shift(il[771])
-    , mem_glob_addr_shift(il[772])
-    , mem_rw_shift(il[773])
-    , mem_sel_mem_shift(il[774])
-    , mem_tag_shift(il[775])
-    , mem_tsp_shift(il[776])
-    , mem_val_shift(il[777])
-    , slice_addr_shift(il[778])
-    , slice_clk_shift(il[779])
-    , slice_cnt_shift(il[780])
-    , slice_col_offset_shift(il[781])
-    , slice_sel_cd_cpy_shift(il[782])
-    , slice_sel_mem_active_shift(il[783])
-    , slice_sel_return_shift(il[784])
-    , slice_sel_start_shift(il[785])
-    , slice_space_id_shift(il[786])
+    , main_sload_write_offset_shift(il[769])
+    , main_sstore_write_offset_shift(il[770])
+    , mem_glob_addr_shift(il[771])
+    , mem_rw_shift(il[772])
+    , mem_sel_mem_shift(il[773])
+    , mem_tag_shift(il[774])
+    , mem_tsp_shift(il[775])
+    , mem_val_shift(il[776])
+    , slice_addr_shift(il[777])
+    , slice_clk_shift(il[778])
+    , slice_cnt_shift(il[779])
+    , slice_col_offset_shift(il[780])
+    , slice_sel_cd_cpy_shift(il[781])
+    , slice_sel_mem_active_shift(il[782])
+    , slice_sel_return_shift(il[783])
+    , slice_sel_start_shift(il[784])
+    , slice_space_id_shift(il[785])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -1577,7 +1576,6 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      main_nullifier_non_exists_write_offset_shift[row_idx],
                      main_pc_shift[row_idx],
                      main_sel_execution_row_shift[row_idx],
-                     main_side_effect_counter_shift[row_idx],
                      main_sload_write_offset_shift[row_idx],
                      main_sstore_write_offset_shift[row_idx],
                      mem_glob_addr_shift[row_idx],
