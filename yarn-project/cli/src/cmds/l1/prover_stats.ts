@@ -2,7 +2,7 @@ import { getL2BlockProcessedLogs, retrieveL2ProofVerifiedEvents } from '@aztec/a
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { unique } from '@aztec/foundation/collection';
+import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { type LogFn, type Logger, createDebugLogger } from '@aztec/foundation/log';
 
 import chunk from 'lodash.chunk';
@@ -65,6 +65,9 @@ export async function proverStats(opts: {
 
   // But if we do, fetch the events for each block submitted, so we can look up their timestamp
   const blockEvents = await getL2BlockEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup);
+  debugLog.verbose(
+    `First L2 block within range is ${blockEvents[0]?.args.blockNumber} at L1 block ${blockEvents[0]?.blockNumber}`,
+  );
 
   // Get the timestamps for every block on every log, both for proof and block submissions
   const l1BlockNumbers = unique([...events.map(e => e.l1BlockNumber), ...blockEvents.map(e => e.blockNumber)]);
@@ -86,24 +89,35 @@ export async function proverStats(opts: {
   }
 
   // Now calculate stats
-  const stats = groupBy(events, 'proverId');
+  const stats = mapValues(groupBy(events, 'proverId'), (blocks, proverId) =>
+    compactArray(
+      blocks.map(e => {
+        const provenTimestamp = l1BlockTimestamps[e.l1BlockNumber.toString()];
+        const uploadedBlockNumber = l2BlockSubmissions[e.l2BlockNumber.toString()];
+        if (!uploadedBlockNumber) {
+          debugLog.verbose(
+            `Skipping ${proverId}'s proof for L2 block ${e.l2BlockNumber} as it was before the start block`,
+          );
+          return undefined;
+        }
+        const uploadedTimestamp = l1BlockTimestamps[uploadedBlockNumber.toString()];
+        const provingTime = provenTimestamp - uploadedTimestamp;
+        debugLog.debug(
+          `prover=${e.proverId} blockNumber=${e.l2BlockNumber} uploaded=${uploadedTimestamp} proven=${provenTimestamp} time=${provingTime}`,
+        );
+        return { provenTimestamp, uploadedTimestamp, provingTime, ...e };
+      }),
+    ),
+  );
+
   log(`prover_id, blocks_proven_within_timeout, total_blocks_proven, avg_proving_time`);
   for (const proverId in stats) {
-    const blocks = stats[proverId].map(e => {
-      const provenTimestamp = l1BlockTimestamps[e.l1BlockNumber.toString()];
-      const uploadedBlockNumber = l2BlockSubmissions[e.l2BlockNumber.toString()];
-      const uploadedTimestamp = l1BlockTimestamps[uploadedBlockNumber.toString()];
-      const provingTime = provenTimestamp - uploadedTimestamp;
-      debugLog.debug(
-        `prover=${e.proverId} blockNumber=${e.l2BlockNumber} uploaded=${uploadedTimestamp} proven=${provenTimestamp} time=${provingTime}`,
-      );
-      return { provenTimestamp, uploadedTimestamp, provingTime, ...e };
-    });
-
+    const blocks = stats[proverId];
     const withinTimeout = blocks.filter(b => b.provingTime <= provingTimeout);
     const uniqueBlocksWithinTimeout = new Set(withinTimeout.map(e => e.l2BlockNumber));
-    const uniqueBlocks = new Set(stats[proverId].map(e => e.l2BlockNumber));
-    const avgProvingTime = Math.ceil(Number(blocks.reduce((acc, b) => acc + b.provingTime, 0n)) / blocks.length);
+    const uniqueBlocks = new Set(blocks.map(e => e.l2BlockNumber));
+    const avgProvingTime =
+      blocks.length === 0 ? 0 : Math.ceil(Number(blocks.reduce((acc, b) => acc + b.provingTime, 0n)) / blocks.length);
 
     log(`${proverId}, ${uniqueBlocksWithinTimeout.size}, ${uniqueBlocks.size}, ${avgProvingTime}`);
   }
