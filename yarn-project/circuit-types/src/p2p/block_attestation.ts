@@ -3,7 +3,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { recoverMessageAddress } from 'viem';
+import { keccak256, recoverMessageAddress } from 'viem';
 
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
@@ -56,9 +56,12 @@ export class BlockAttestation extends Gossipable {
     if (!this.sender) {
       // Recover the sender from the attestation
       const payload = serializeToBuffer([this.archive, this.txHashes]);
-      const payload0x: `0x${string}` = `0x${payload.toString('hex')}`;
+      console.log("ATTESTATION PAYLOAD", payload);
+      // TODO(md) - temporarily hashing again to hav eless changes in the rollup
+      const hashed = keccak256(payload);
+      // const payload0x: `0x${string}` = `0x${payload.toString('hex')}`;
       const address = await recoverMessageAddress({
-        message: { raw: payload0x },
+        message: { raw: hashed },
         signature: this.signature.to0xString(),
       });
       // Cache the sender for later use

@@ -3,7 +3,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { recoverMessageAddress } from 'viem';
+import { keccak256, recoverMessageAddress } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { Gossipable } from './gossipable.js';
@@ -57,8 +57,11 @@ export class BlockProposal extends Gossipable {
   async getSender() {
     if (!this.sender) {
       // performance note(): this signature method requires another hash behind the scenes
+      const hashed = keccak256(this.getPayload());
       const address = await recoverMessageAddress({
-        message: { raw: this.p2pMessageIdentifier().to0xString() },
+        // TODO(md): fix this up
+        // message: { raw: this.p2pMessageIdentifier().to0xString() },
+        message: { raw: hashed },
         signature: this.signature.to0xString(),
       });
       // Cache the sender for later use

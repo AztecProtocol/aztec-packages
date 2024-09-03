@@ -4,6 +4,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { keccak256 } from '@aztec/foundation/crypto';
 
 export class ValidationService {
   constructor(private keyStore: ValidatorKeyStore) {}
@@ -20,7 +21,9 @@ export class ValidationService {
   async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     // Note: just signing the archive for now
     const payload = serializeToBuffer([archive, txs]);
-    const sig = await this.keyStore.sign(payload);
+    // TODO(temp hash it together before signing)
+    const hashed = keccak256(payload);
+    const sig = await this.keyStore.sign(hashed);
 
     return new BlockProposal(header, archive, txs, sig);
   }
@@ -36,7 +39,7 @@ export class ValidationService {
 
     // TODO: in the function before this, check that all of the txns exist in the payload
 
-    const buf = proposal.getPayload();
+    const buf = keccak256(proposal.getPayload());
     const sig = await this.keyStore.sign(buf);
     return new BlockAttestation(proposal.header, proposal.archive, proposal.txs, sig);
   }

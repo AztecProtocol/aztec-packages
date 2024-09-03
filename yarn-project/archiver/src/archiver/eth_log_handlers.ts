@@ -110,7 +110,7 @@ async function getBlockMetadataFromRollupTx(
     data,
   });
 
-  if (!(functionName === 'propose')) {
+  if (!(functionName === 'propose' || functionName === 'proposeWithBody')) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
   const [headerHex, archiveRootHex, _] = args! as readonly [Hex, Hex, Hex];
@@ -152,10 +152,11 @@ async function getBlockBodiesFromAvailabilityOracleTx(
   // [
   //   "propose(bytes,bytes32,bytes32,(bool,uint8,bytes32,bytes32)[],bytes)": "08978fe9",
   //   "propose(bytes,bytes32,bytes32,bytes)": "81e6f472",
+  //   "proposeWithBody(bytes,bytes32,bytes32,bytes32[],(bool,uint8,bytes32,bytes32)[],bytes)": "b2283b07",
   //   "publish(bytes calldata _body)"
   // ]
-  const DATA_INDEX = [4, 3, 0];
-  const SUPPORTED_SIGS = ['0x08978fe9', '0x81e6f472', '0x7fd28346'];
+  const DATA_INDEX = [4, 3, 5, 0]; // index where the body is, in the parameters list
+  const SUPPORTED_SIGS = ['0x08978fe9', '0x81e6f472', '0xb2283b07', '0x7fd28346'];
 
   const signature = slice(data, 0, 4);
 
@@ -163,6 +164,7 @@ async function getBlockBodiesFromAvailabilityOracleTx(
     throw new Error(`Unexpected method called ${signature}`);
   }
 
+  // Check if explicitly calling the DA oracle
   if (signature === SUPPORTED_SIGS[SUPPORTED_SIGS.length - 1]) {
     const { args } = decodeFunctionData({
       abi: AvailabilityOracleAbi,

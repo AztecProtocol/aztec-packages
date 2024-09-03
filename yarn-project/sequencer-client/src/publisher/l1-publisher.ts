@@ -32,6 +32,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
+import { keccak256 } from '@aztec/foundation/crypto';
 
 /**
  * Stats for a sent transaction.
@@ -298,6 +299,7 @@ export class L1Publisher {
    * @param block - L2 block to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
+  // TODO: rename propose
   public async processL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
@@ -305,7 +307,9 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    const processTxArgs = {
+    // TODO: move this to take in the proposal to get the digest - rather than manually
+    const tempDigest = keccak256(serializeToBuffer(block.archive.root, txHashes ?? []));
+    const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
@@ -314,7 +318,7 @@ export class L1Publisher {
       txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
     };
 
-    // console.log('proposeTxArgs', proposeTxArgs);
+    console.log('proposeTxArgs', proposeTxArgs);
 
     // Publish body and propose block (if not already published)
     if (!this.interrupted) {
@@ -328,7 +332,8 @@ export class L1Publisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       await this.validateBlockForSubmission(block.header, {
-        digest: block.archive.root.toBuffer(),
+        // digest: block.archive.root.toBuffer(), // THIS IS NOT THE DIGEST ANYMORE!!!!!
+        digest: tempDigest,
         signatures: attestations ?? [],
       });
 
@@ -552,12 +557,13 @@ export class L1Publisher {
 
           // console.log('args length', args.length);
 
-          // if (!L1Publisher.SKIP_SIMULATION) {
+          // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
+          if (!L1Publisher.SKIP_SIMULATION) {
             const simulationResult = await this.rollupContract.simulate.proposeWithBody(args, {
               account: this.account,
             });
             console.log(simulationResult);
-          // }
+          }
 
           return await this.rollupContract.write.proposeWithBody(args, {
             account: this.account,
@@ -570,12 +576,14 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
+          // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
           if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.propose(args, {
               account: this.account,
             });
           }
 
+          // TODO(md): first tx is failing in here
           return await this.rollupContract.write.propose(args, {
             account: this.account,
           });

@@ -244,6 +244,7 @@ export class Sequencer {
       this._feeRecipient,
       slot,
     );
+    console.log("new global variables ", newGlobalVariables);
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new Header(
@@ -512,14 +513,15 @@ export class Sequencer {
     this.isFlushing = true;
   }
 
-  protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
     this.log.verbose(`ATTEST | committee length ${committee.length}`);
 
     if (committee.length === 0) {
       this.log.verbose(`ATTEST | committee length is 0, skipping`);
-      throw new Error('Committee length is 0, WHAT THE FUCK');
+      // TODO(md): remove error
+      throw new Error('Committee length is 0, WHAT');
       return undefined;
     }
 
@@ -546,11 +548,12 @@ export class Sequencer {
 
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
-    this.log.verbose("Collected attestations from validators");
+    this.log.verbose(`Collected attestations from validators, number of attestations: ${attestations.length}`);
 
-    // TODO: clean: SELF REPORT LMAO
-    const selfSign = await this.validatorClient.attestToProposal(proposal);
-    attestations.push(selfSign);
+    // NOTE: is the self report now done in the method above
+    // // TODO: clean: SELF REPORT LMAO
+    // const selfSign = await this.validatorClient.attestToProposal(proposal);
+    // attestations.push(selfSign);
 
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
