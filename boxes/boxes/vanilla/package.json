@@ -22,7 +22,7 @@
     "@aztec/builder": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "1.42.0",
+    "@playwright/test": "1.46.1",
     "@types/node": "^20.11.17",
     "assert": "^2.1.0",
     "copy-webpack-plugin": "^11.0.0",
