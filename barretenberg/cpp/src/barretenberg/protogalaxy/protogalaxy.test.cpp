@@ -84,7 +84,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
         const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
     {
-        FoldingProver folding_prover(prover_instances);
+        FoldingProver folding_prover(prover_instances[0], { prover_instances[1] });
         FoldingVerifier folding_verifier(verifier_instances);
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
@@ -94,19 +94,23 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
     static void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
     {
-        auto instance_size = accumulator->proving_key.circuit_size;
+        const size_t instance_size = accumulator->proving_key.circuit_size;
         auto expected_honk_evals = Fun::compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
-        GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
-                                                         accumulator->gate_challenges.size());
+        const GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
+                                                               accumulator->gate_challenges.size());
 
         // Compute the corresponding target sum and create a dummy accumulator
-        auto expected_target_sum = FF(0);
+        FF expected_target_sum{ 0 };
         for (size_t i = 0; i < instance_size; i++) {
             expected_target_sum += expected_honk_evals[i] * expected_gate_separators[i];
         }
-        EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
+        if (expected_result) {
+            EXPECT_EQ(accumulator->target_sum, expected_target_sum);
+        } else {
+            EXPECT_FALSE(accumulator->target_sum == expected_target_sum);
+        }
     }
 
     static void decide_and_verify(std::shared_ptr<ProverInstance>& prover_accumulator,
@@ -535,7 +539,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         // Tamper with an accumulator polynomial
-        prover_accumulator->proving_key.polynomials.w_l[1] = FF::random_element();
+        prover_accumulator->proving_key.polynomials.w_l[1] = FF::random_element(&engine);
         check_accumulator_target_sum_manual(prover_accumulator, false);
 
         TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
@@ -551,7 +555,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfInstances insts = construct_instances(total_insts);
 
-        ProtogalaxyProver_<ProverInstances_<Flavor, total_insts>> folding_prover(get<0>(insts));
+        auto& prover_insts = get<0>(insts);
+        ProtogalaxyProver_<ProverInstances_<Flavor, total_insts>> folding_prover(prover_insts[0], { prover_insts[1] });
         ProtogalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(get<1>(insts));
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();

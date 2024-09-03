@@ -18,17 +18,13 @@ void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_instance(std::share
 
 template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
 {
-    // If cleaning this up, do through splitting out of accumulator.
-
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_instance");
-    auto idx = 0;
-    auto& instance = instances[0];
+    size_t idx = 0;
     auto domain_separator = std::to_string(idx);
-
-    if (instance->is_strict()) {
-        run_oink_prover_on_instance(instance, domain_separator);
-        instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
+    if (state.accumulator->is_strict()) {
+        run_oink_prover_on_instance(state.accumulator, domain_separator);
+        state.accumulator->target_sum = 0;
+        state.accumulator->gate_challenges = std::vector<FF>(state.accumulator->proving_key.log_circuit_size, 0);
     }
 
     idx++;
@@ -126,7 +122,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
-    FoldingResult<Flavor> result{ .accumulator = instances[0], .proof = std::move(transcript->proof_data) };
+    FoldingResult<Flavor> result{ .accumulator = state.accumulator, .proof = std::move(transcript->proof_data) };
 
     // Compute the next target sum
     auto [vanishing_polynomial_at_challenge, lagranges] =
@@ -145,7 +141,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
         }
     }
 
-    // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
+    // Evaluate the combined batching α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
     for (auto [folded_alpha, inst_alpha] : zip_view(result.accumulator->alphas, alphas)) {
         folded_alpha = inst_alpha.evaluate(combiner_challenge);
@@ -166,8 +162,9 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
     ZoneScopedN("ProtogalaxyProver::prove");
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
     // Ensure instances are all of the same size
-    for (size_t idx = 0; idx < ProverInstances::NUM - 1; ++idx) {
-        if (instances[idx]->proving_key.circuit_size != instances[idx + 1]->proving_key.circuit_size) {
+
+    for (size_t idx = 1; idx < ProverInstances::NUM; ++idx) {
+        if (instances[idx]->proving_key.circuit_size != state.accumulator->proving_key.circuit_size) {
             info("ProtogalaxyProver: circuit size mismatch!");
             info("Instance ", idx, " size = ", instances[idx]->proving_key.circuit_size);
             info("Instance ", idx + 1, " size = ", instances[idx + 1]->proving_key.circuit_size);
