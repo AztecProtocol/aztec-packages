@@ -6,6 +6,9 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type GetContractReturnType, type HttpTransport, type PublicClient, getAddress, getContract } from 'viem';
 import type * as chains from 'viem/chains';
 
+/**
+ * Represents a watcher for a rollup contract. It periodically checks if a slot is filled and mines if necessary.
+ */
 export class Watcher {
   private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
 
@@ -27,13 +30,20 @@ export class Watcher {
     this.logger.info(`Watcher created for rollup at ${rollupAddress}`);
   }
 
-  start() {
+  async start() {
     if (this.filledRunningPromise) {
       throw new Error('Watcher already watching for filled slot');
     }
-    this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), 1000);
-    this.filledRunningPromise.start();
-    this.logger.info(`Watcher started`);
+
+    const isAutoMining = await this.cheatcodes.isAutoMining();
+
+    if (isAutoMining) {
+      this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), 1000);
+      this.filledRunningPromise.start();
+      this.logger.info(`Watcher started`);
+    } else {
+      this.logger.info(`Watcher not started because not auto mining`);
+    }
   }
 
   async stop() {

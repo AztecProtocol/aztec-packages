@@ -14,6 +14,7 @@ import {
   type PXE,
   SignerlessWallet,
   type Wallet,
+  Watcher,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
@@ -44,7 +45,6 @@ import {
   deployCanonicalRouter,
   getPrivateKeyFromIndex,
 } from './utils.js';
-import { Watcher } from './watcher.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -312,6 +312,13 @@ async function setupFromFresh(
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
+  const watcher = new Watcher(
+    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+  await watcher.start();
+
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
     aztecNodeConfig.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
@@ -334,13 +341,6 @@ async function setupFromFresh(
     aztecNodeConfig,
     aztecNode,
   );
-
-  const watcher = new Watcher(
-    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
-    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    deployL1ContractsValues.publicClient,
-  );
-  watcher.start();
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -422,7 +422,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     aztecNodeConfig.l1Contracts.rollupAddress,
     publicClient,
   );
-  watcher.start();
+  await watcher.start();
 
   logger.verbose('Creating aztec node...');
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());

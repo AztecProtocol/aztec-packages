@@ -19,6 +19,7 @@ import {
   type SentTx,
   SignerlessWallet,
   type Wallet,
+  Watcher,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
@@ -89,7 +90,6 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import { Watcher } from './watcher.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -406,6 +406,14 @@ export async function setup(
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
+  const watcher = new Watcher(
+    new EthCheatCodes(config.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+
+  await watcher.start();
+
   // Run the test with validators enabled
   const validatorPrivKey = getPrivateKeyFromIndex(1);
   config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
@@ -455,17 +463,6 @@ export async function setup(
     await deployCanonicalRouter(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
-  }
-
-  const watcher = new Watcher(
-    new EthCheatCodes(config.l1RpcUrl),
-    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    deployL1ContractsValues.publicClient,
-  );
-
-  // If we are NOT using wall time, we should start the watcher to jump in time as needed.
-  if (!opts.l1BlockTime) {
-    watcher.start();
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];

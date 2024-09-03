@@ -5,3 +5,4 @@ export * from './cheat_codes.js';
 export * from './authwit.js';
 export * from './pxe.js';
 export * from './account.js';
+export * from './watcher.js';
