@@ -431,6 +431,8 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                                       ivc.goblin.op_queue,
                                                       /*collect_gates_per_opcode=*/false);
 
+    circuit.databus_propagation_data.is_kernel = true;
+
     const size_t num_ivc_constraints = constraint_system.ivc_recursion_constraints.size();
 
     if (num_ivc_constraints != ivc.verification_queue.size()) {
@@ -449,6 +451,9 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
 
         ivc.perform_recursive_verification_and_databus_consistency_checks(circuit, stdlib_proof, stdlib_vkey, type);
     }
+    ivc.verification_queue.clear();
+
+    ivc.process_recursive_merge_verification_queue(circuit);
 
     return circuit;
 };
