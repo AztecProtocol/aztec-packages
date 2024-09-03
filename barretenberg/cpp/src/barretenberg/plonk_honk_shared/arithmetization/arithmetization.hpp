@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
@@ -76,6 +77,14 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     uint32_t get_fixed_size() const { return fixed_size; }
     void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+    ~ExecutionTraceBlock()
+    {
+        for (size_t j = 0; j < this->wires.size(); j++) {
+            TRACY_GATE_FREE(this + j);
+        }
+    }
+#endif
 };
 
 } // namespace bb

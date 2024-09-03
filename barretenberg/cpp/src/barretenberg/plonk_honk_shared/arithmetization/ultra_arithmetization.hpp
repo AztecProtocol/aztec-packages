@@ -63,6 +63,7 @@ template <typename FF_> class UltraArith {
 #ifdef CHECK_CIRCUIT_STACKTRACES
             this->stack_traces.populate();
 #endif
+            TRACY_GATE_ALLOC(/*fake allocation*/ this + this->wires[0].size());
             this->wires[0].emplace_back(idx_1);
             this->wires[1].emplace_back(idx_2);
             this->wires[2].emplace_back(idx_3);
