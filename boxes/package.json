@@ -41,6 +41,6 @@
     "vitest": "^2.0.5"
   },
   "devDependencies": {
-    "@playwright/test": "1.42.0"
+    "@playwright/test": "1.46.1"
   }
 }
