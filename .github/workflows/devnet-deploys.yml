@@ -65,6 +65,8 @@ env:
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
   TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets.DEVNET_API_KEY }}
+  TF_VAR_MAINNET_FORK_CPU_UNITS: 2048
+  TF_VAR_MAINNET_FORK_MEMORY_UNITS: 4096
 
   # Faucet
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
@@ -123,6 +125,8 @@ jobs:
       min_txs_per_block: ${{ steps.set_network_vars.outputs.min_txs_per_block }}
       bot_flush_setup_txs: ${{ steps.set_network_vars.outputs.bot_flush_setup_txs }}
       bot_max_pending_txs: ${{ steps.set_network_vars.outputs.bot_max_pending_txs }}
+      mainnet_fork_cpu_units: ${{ steps.set_network_vars.outputs.mainnet_fork_cpu_units }}
+      mainnet_fork_memory_units: ${{ steps.set_network_vars.outputs.mainnet_fork_memory_units }}
     steps:
       - name: Set network vars
         shell: bash
@@ -151,6 +155,8 @@ jobs:
               echo "bot_follow_chain=PROVEN" >> $GITHUB_OUTPUT
               echo "bot_flush_setup_txs=false" >> $GITHUB_OUTPUT
               echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_cpu_units=2048" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_memory_units=4096" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
@@ -173,6 +179,8 @@ jobs:
               echo "bot_follow_chain=NONE" >> $GITHUB_OUTPUT
               echo "bot_flush_setup_txs=true" >> $GITHUB_OUTPUT
               echo "bot_max_pending_txs=32" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_cpu_units=8192" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_memory_units=32768" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
@@ -195,6 +203,8 @@ jobs:
               echo "bot_follow_chain=PROVEN" >> $GITHUB_OUTPUT
               echo "bot_flush_setup_txs=false" >> $GITHUB_OUTPUT
               echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_cpu_units=2048" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_memory_units=4096" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -400,6 +410,8 @@ jobs:
       TF_VAR_BOT_NO_WAIT_FOR_TRANSFERS: ${{ needs.set-network.outputs.bot_no_wait }}
       TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
       TF_VAR_SEQ_MAX_TX_PER_BLOCK: ${{ needs.set-network.outputs.max_txs_per_block }}
+      TF_VAR_MAINNET_FORK_CPU_UNITS: ${{ needs.set-network.outputs.mainnet_fork_cpu_units }}
+      TF_VAR_MAINNET_FORK_MEMORY_UNITS: ${{ needs.set-network.outputs.mainnet_fork_memory_units }}
     steps:
       - uses: actions/checkout@v4
         with:
