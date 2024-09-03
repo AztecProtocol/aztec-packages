@@ -17,10 +17,6 @@ uint256 constant NUMBER_TO_BE_SHIFTED = 9;
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
 
-// Prime field order
-uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
-uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order, F_r
-
 // WORKTODO(Mara): Change name ?
 // ENUM FOR WIRES
 enum WIRE {

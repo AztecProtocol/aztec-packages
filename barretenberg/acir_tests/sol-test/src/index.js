@@ -94,7 +94,7 @@ if (!testingHonk) {
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
 const contract = output.contracts["Test.sol"]["Test"];
-console.log(output);
+
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
 

@@ -804,9 +804,6 @@ template <typename Flavor> class SumcheckVerifier {
             full_honk_purported_value.assert_equal(round.target_total_sum);
             final_check = (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
         } else {
-            for (auto eval : purported_evaluations.get_all()) {
-                info(eval);
-            }
             final_check = (full_honk_purported_value == round.target_total_sum);
         }
         verified = final_check && verified;

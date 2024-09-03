@@ -1,7 +1,9 @@
 pragma solidity >=0.8.21;
 
-import {Honk, P, Q} from "./HonkTypes.sol";
+import {Honk} from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
+
+uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
 
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
