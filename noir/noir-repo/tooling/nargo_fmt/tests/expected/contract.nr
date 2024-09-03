@@ -65,7 +65,8 @@ contract Benchmarking {
             context.this_address(),
             comptime {
             FunctionSelector::from_signature("broadcast(Field)")
-        }, [owner]
+        },
+            [owner]
         );
     }
 

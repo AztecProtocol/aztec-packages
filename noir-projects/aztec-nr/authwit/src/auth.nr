@@ -221,7 +221,8 @@ pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_o
         on_behalf_of,
         comptime {
         FunctionSelector::from_signature("verify_private_authwit(Field)")
-    }, [inner_hash]
+    },
+        [inner_hash]
     ).unpack_into();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
     // Compute the nullifier, similar computation to the outer hash, but without the chain_id and version.
@@ -264,7 +265,9 @@ pub fn assert_current_call_valid_authwit_public(context: &mut PublicContext, on_
 pub fn assert_inner_hash_valid_authwit_public(context: &mut PublicContext, on_behalf_of: AztecAddress, inner_hash: Field) {
     let result: Field = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("consume((Field),Field)") },
+        comptime {
+        FunctionSelector::from_signature("consume((Field),Field)")
+    },
         [on_behalf_of.to_field(), inner_hash].as_slice(),
         GasOpts::default()
     ).deserialize_into();
@@ -358,7 +361,9 @@ pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, ver
 pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authorize: bool) {
     context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
+        comptime {
+        FunctionSelector::from_signature("set_authorized(Field,bool)")
+    },
         [message_hash, authorize as Field].as_slice(),
         GasOpts::default()
     ).assert_empty();
@@ -374,7 +379,9 @@ pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authoriz
 pub fn set_reject_all(context: &mut PublicContext, reject: bool) {
     context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
+        comptime {
+        FunctionSelector::from_signature("set_reject_all(bool)")
+    },
         [context.this_address().to_field(), reject as Field].as_slice(),
         GasOpts::default()
     ).assert_empty();
