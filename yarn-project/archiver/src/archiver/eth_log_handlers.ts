@@ -1,5 +1,5 @@
 import { Body, InboxLeaf } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
@@ -256,4 +256,58 @@ export function getMessageSentLogs(
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
+}
+
+export type SubmitBlockProof = {
+  header: Header;
+  archiveRoot: Fr;
+  proverId: Fr;
+  aggregationObject: Buffer;
+  proof: Proof;
+};
+
+/**
+ * Gets block metadata (header and archive snapshot) from the calldata of an L1 transaction.
+ * Assumes that the block was published from an EOA.
+ * TODO: Add retries and error management.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param txHash - Hash of the tx that published it.
+ * @param l2BlockNum - L2 block number.
+ * @returns L2 block metadata (header and archive) from the calldata, deserialized
+ */
+export async function getBlockProofFromSubmitProofTx(
+  publicClient: PublicClient,
+  txHash: `0x${string}`,
+  l2BlockNum: bigint,
+  expectedProverId: Fr,
+): Promise<SubmitBlockProof> {
+  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  const { functionName, args } = decodeFunctionData({
+    abi: RollupAbi,
+    data,
+  });
+
+  if (!(functionName === 'submitProof')) {
+    throw new Error(`Unexpected method called ${functionName}`);
+  }
+  const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
+
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const proverId = Fr.fromString(proverIdHex);
+
+  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
+  if (blockNumberFromHeader !== l2BlockNum) {
+    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
+  }
+  if (!proverId.equals(expectedProverId)) {
+    throw new Error(`Prover ID mismatch: expected ${expectedProverId} but got ${proverId}`);
+  }
+
+  return {
+    header,
+    proverId,
+    aggregationObject: Buffer.from(hexToBytes(aggregationObjectHex)),
+    archiveRoot: Fr.fromString(archiveHex),
+    proof: Proof.fromBuffer(Buffer.from(hexToBytes(proofHex))),
+  };
 }
