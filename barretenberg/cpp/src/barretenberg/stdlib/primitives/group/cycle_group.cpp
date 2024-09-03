@@ -449,11 +449,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     auto x_diff = x2.add_two(-x1, x_coordinates_match);
     // Computes lambda = (y2-y1)/x_diff, using the fact that x_diff is never 0
     field_t lambda;
-    if ((!y2.is_constant() || !y1.is_constant()) && !x_diff.is_constant()) {
+    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
+        lambda = (y2 - y1).divide_no_zero_check(x_diff);
+    } else {
         lambda = field_t::from_witness(context, (y2.get_value() - y1.get_value()) / x_diff.get_value());
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
-    } else {
-        lambda = (y2 - y1).divide_no_zero_check(x_diff);
     }
 
     auto x3 = lambda.madd(lambda, -(x2 + x1));
