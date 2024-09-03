@@ -83,6 +83,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * Represents the first index in the array that is backed by actual memory.
      * This is used to represent polynomial shifts by representing the unshfited polynomials
      * with index >= 1 and reducing this by one to divide by x / left shift one.
+     * Historically, we used memory padding to represent shifts. This is currently implied by start_ (before which we
+     * consider all values 0).
      */
     size_t start_ = 0;
 

@@ -109,8 +109,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         std::vector<Commitment> f_commitments;
         size_t poly_length = 1 << u_challenge.size();
         for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
-            f_polynomials.emplace_back(this->random_polynomial(poly_length));
-            f_polynomials[i] = f_polynomials[i].shifted(); // ensure f is "shiftable"
+            f_polynomials.emplace_back(Polynomial::random(poly_length, 1)); // ensure f is "shiftable"
             v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
             f_commitments.emplace_back(this->commit(f_polynomials[i]));
         }
@@ -333,7 +332,7 @@ TYPED_TEST(ZeroMorphTest, QuotientConstruction)
     size_t log_N = numeric::get_msb(N);
 
     // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
-    Polynomial multilinear_f = this->random_polynomial(N);
+    Polynomial multilinear_f = Polynomial::random(N);
     std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
     Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
 
@@ -509,9 +508,8 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     size_t log_N = numeric::get_msb(N);
 
     // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
-    Polynomial multilinear_f = this->random_polynomial(N);
-    Polynomial multilinear_g = this->random_polynomial(N);
-    multilinear_g = multilinear_g.unshifted().share();
+    Polynomial multilinear_f = Polynomial::random(N);
+    Polynomial multilinear_g = Polynomial::random(N, /* starting index for shift */ 1);
     std::vector<Fr> u_challenge = this->random_evaluation_point(log_N);
     Fr v_evaluation = multilinear_f.evaluate_mle(u_challenge);
     Fr w_evaluation = multilinear_g.evaluate_mle(u_challenge, /* shift = */ true);
@@ -525,9 +523,9 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
     auto v_batched = v_evaluation + rho * w_evaluation;
 
     // Define some mock q_k with deg(q_k) = 2^k - 1
-    auto q_0 = this->random_polynomial(1 << 0);
-    auto q_1 = this->random_polynomial(1 << 1);
-    auto q_2 = this->random_polynomial(1 << 2);
+    auto q_0 = Polynomial::random(1 << 0);
+    auto q_1 = Polynomial::random(1 << 1);
+    auto q_2 = Polynomial::random(1 << 2);
     std::vector<Polynomial> quotients = { q_0, q_1, q_2 };
 
     auto x_challenge = Fr::random_element();

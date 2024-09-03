@@ -894,7 +894,7 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases)
 {
-    BB_OP_COUNT_TRACK();
+    BB_OP_COUNT_TIME_NAME("pippenger");
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
 

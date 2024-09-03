@@ -166,21 +166,19 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
-    const size_t other_size = other.size();
-    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
-
-    size_t start_index_offset = other.start_index - start_index();
-    size_t num_threads = calculate_num_threads(other_size);
-    size_t range_per_thread = other_size / num_threads;
-    size_t leftovers = other_size - (range_per_thread * num_threads);
+    // Compute the subset that is defined in both polynomials
+    ASSERT(start_index() <= other.start_index);
+    ASSERT(end_index() >= other.end_index());
+    size_t num_threads = calculate_num_threads(other.size());
+    size_t range_per_thread = other.size() / num_threads;
+    size_t leftovers = other.size() - (range_per_thread * num_threads);
     parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread;
+        size_t offset = j * range_per_thread + other.start_index;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            data()[i - start_index_offset] += other.span[i];
+            at(i) += other[i];
         }
     });
-
     return *this;
 }
 
@@ -294,18 +292,17 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
-    const size_t other_size = other.size();
-    ASSERT(start_index() <= other.start_index && end_index() >= other.end_index());
-
-    size_t start_index_offset = other.start_index - start_index();
-    size_t num_threads = calculate_num_threads(other_size);
-    size_t range_per_thread = other_size / num_threads;
-    size_t leftovers = other_size - (range_per_thread * num_threads);
+    // Compute the subset that is defined in both polynomials
+    ASSERT(start_index() <= other.start_index);
+    ASSERT(end_index() >= other.end_index());
+    size_t num_threads = calculate_num_threads(other.size());
+    size_t range_per_thread = other.size() / num_threads;
+    size_t leftovers = other.size() - (range_per_thread * num_threads);
     parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread;
+        size_t offset = j * range_per_thread + other.start_index;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
-            coefficients_.data()[i - start_index_offset] -= other.span[i];
+            at(i) -= other[i];
         }
     });
     return *this;
@@ -313,8 +310,6 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
 {
-    ASSERT(in_place_operation_viable());
-
     size_t num_threads = calculate_num_threads(size());
     size_t range_per_thread = size() / num_threads;
     size_t leftovers = size() - (range_per_thread * num_threads);
@@ -329,58 +324,23 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
-namespace {
-// WORKTODO(sparse polys)
-// WORKTODO we need to actually allocate shifted polynomials properly - until then, reallocate them shifted
-template <typename Fr> void hacky_shift_adjustment(const Polynomial<Fr>& to_shift)
-{
-    auto& mutable_hack = const_cast<Polynomial<Fr>&>(to_shift);
-    ASSERT(to_shift[to_shift.start_index()] == Fr(0));
-
-    auto copy = Polynomial<Fr>(to_shift.size() - 1, to_shift.virtual_size(), to_shift.start_index() + 1);
-    size_t i = 0;
-    for (const Fr& coeff : to_shift.coeffs(/*offset*/ 1)) {
-        copy.coeffs()[i] = coeff;
-    }
-    mutable_hack = copy;
-}
-} // namespace
-
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t left_expand) const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
     Polynomial result = *this;
-    result.coefficients_ = _clone(coefficients_, 0, left_expand);
+    // Make 0..virtual_size usable
+    result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
 }
-template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor)
+template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
-    // // WORKTODO(sparse) remove this and properly instantiate these things
-    // if (start_index() > other.start_index || end_index() < other.end_index()) {
-    //     if (start_index() <= 0) {
-    //         hacky_shift_adjustment(*this);
-    //     } else {
-    //         other.start_index += 1;
-    //         other.span = other.span.subspan(1);
-    //     }
-    // }
-    // END WORKTODO(sparse) remove this block
     // Compute the subset that is defined in both polynomials
-    size_t start = std::max(start_index(), other.start_index);
-    size_t end = std::min(end_index(), other.end_index());
-    // Assert that values in 'other' that lie outside this subset are zeroes
-    for (size_t i = other.start_index; i < start; i++) {
-        ASSERT(other[i] == 0);
-    }
-    for (size_t i = end; i < other.end_index(); i++) {
-        ASSERT(other[i] == 0);
-    }
-    size_t common_size = end - start;
-
-    size_t num_threads = calculate_num_threads(common_size);
-    size_t range_per_thread = common_size / num_threads;
-    size_t leftovers = common_size - (range_per_thread * num_threads);
+    ASSERT(start_index() <= other.start_index);
+    ASSERT(end_index() >= other.end_index());
+    size_t num_threads = calculate_num_threads(other.size());
+    size_t range_per_thread = other.size() / num_threads;
+    size_t leftovers = other.size() - (range_per_thread * num_threads);
     parallel_for(num_threads, [&](size_t j) {
-        size_t offset = j * range_per_thread + start;
+        size_t offset = j * range_per_thread + other.start_index;
         size_t end = (j == num_threads - 1) ? offset + range_per_thread + leftovers : offset + range_per_thread;
         for (size_t i = offset; i < end; ++i) {
             at(i) += scaling_factor * other[i];
@@ -395,16 +355,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
     result.coefficients_.end_ -= 1;
-    return result;
-}
-
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::unshifted() const
-{
-    // // WORKTODO(sparse) remove this and properly instantiate these things
-    Polynomial result;
-    result.coefficients_ = coefficients_;
-    result.coefficients_.start_ += 1;
-    result.coefficients_.end_ += 1;
     return result;
 }
 

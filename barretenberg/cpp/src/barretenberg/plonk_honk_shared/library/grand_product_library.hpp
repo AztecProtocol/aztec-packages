@@ -75,12 +75,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
                 eval = full_poly.size() > i ? full_poly.get(i) : 0;
             }
-            auto num = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(evaluations,
-                                                                                                relation_parameters);
-            numerator.at(i) = num;
-            auto denom = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+            numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
-            denominator.at(i) = denom;
+            denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+                evaluations, relation_parameters);
         }
     });
 

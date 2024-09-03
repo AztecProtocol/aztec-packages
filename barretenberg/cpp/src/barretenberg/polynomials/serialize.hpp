@@ -6,7 +6,7 @@ namespace bb {
 // Highly optimized read / write of polynomials in little endian montgomery form.
 template <typename B> inline void read(B& buf, polynomial& p)
 {
-    uint32_t size;
+    uint32_t size = 0;
     serialize::read(buf, size);
     p = polynomial(size);
     memcpy(static_cast<void*>(&p[0]), static_cast<const void*>(buf), size * sizeof(fr));

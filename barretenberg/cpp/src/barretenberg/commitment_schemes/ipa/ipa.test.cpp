@@ -82,7 +82,7 @@ TEST_F(IPATest, OpenAtZero)
     using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     Fr x = Fr::zero();
     auto eval = poly.evaluate(x);
     auto commitment = this->commit(poly);
@@ -108,7 +108,7 @@ TEST_F(IPATest, ChallengesAreZero)
     using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
@@ -194,7 +194,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 TEST_F(IPATest, Commit)
 {
     constexpr size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     GroupElement commitment = this->commit(poly);
     auto* srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
@@ -212,7 +212,7 @@ TEST_F(IPATest, Open)
     using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
@@ -247,8 +247,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     const auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n);
     poly2.at(0) = Fr::zero(); // this property is required of polynomials whose shift is used
 
     GroupElement commitment1 = this->commit(poly1);

@@ -228,7 +228,7 @@ template <typename Curve> class ZeroMorphProver_ {
 
         // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
         // Make sure g_batched does not have any starting implicit/virtual 0s as we will assign to [0]
-        auto result = g_batched.expand(g_batched.start_index());
+        auto result = g_batched.full();
         result.add_scaled(f_batched, x_challenge);
 
         // Compute Z_x -= v * x * \Phi_n(x)
