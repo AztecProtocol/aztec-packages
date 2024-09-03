@@ -29,7 +29,7 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
     ProverInstances_ instances;
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    // the updated and state carried forward beween rounds
+    // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::shared_ptr<ProverInstance> accumulator;
     Polynomial<FF> perturbator;
