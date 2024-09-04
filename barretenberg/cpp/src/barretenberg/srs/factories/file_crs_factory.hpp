@@ -24,7 +24,8 @@ template <typename Curve> class FileCrsFactory : public CrsFactory<Curve> {
 
   private:
     std::string path_;
-    size_t degree_;
+    size_t prover_degree_;
+    size_t verifier_degree_;
     std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> prover_crs_;
     std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> verifier_crs_;
 };
