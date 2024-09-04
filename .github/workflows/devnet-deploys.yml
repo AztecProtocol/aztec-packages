@@ -214,10 +214,10 @@ jobs:
               echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
               echo "mainnet_fork_cpu_units=2048" >> $GITHUB_OUTPUT
               echo "mainnet_fork_memory_units=4096" >> $GITHUB_OUTPUT
-              echo "bot_skip_simulation=true" >> $GITHUB_OUTPUT
-              echo "bot_l2_gas_limit=1000000000" >> $GITHUB_OUTPUT
-              echo "bot_da_gas_limit=1000000000" >> $GITHUB_OUTPUT
-              echo "bot_count=4" >> $GITHUB_OUTPUT
+              echo "bot_skip_simulation=false" >> $GITHUB_OUTPUT
+              echo "bot_l2_gas_limit=" >> $GITHUB_OUTPUT
+              echo "bot_da_gas_limit=" >> $GITHUB_OUTPUT
+              echo "bot_count=1" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
