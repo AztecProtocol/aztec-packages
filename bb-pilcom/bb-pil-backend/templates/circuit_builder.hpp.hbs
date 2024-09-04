@@ -3,8 +3,6 @@
 
 #include <vector>
 
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-
 #include "barretenberg/vm/{{snakeCase name}}/generated/full_row.hpp"
 #include "barretenberg/vm/{{snakeCase name}}/generated/flavor.hpp"
 
@@ -27,7 +25,7 @@ class {{name}}CircuitBuilder {
         ProverPolynomials compute_polynomials() const;
 
         bool check_circuit() const;
-    
+
         size_t get_num_gates() const { return rows.size(); }
 
         size_t get_circuit_subgroup_size() const

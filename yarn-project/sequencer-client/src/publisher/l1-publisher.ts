@@ -12,6 +12,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
+  ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
@@ -59,13 +60,6 @@ export type MinimalTransactionReceipt = {
   logs: any[];
 };
 
-/**
- * @notice An attestation for the sequencing model.
- * @todo    This is not where it belongs. But I think we should do a bigger rewrite of some of
- *          this spaghetti.
- */
-export type Attestation = { isEmpty: boolean; v: number; r: `0x${string}`; s: `0x${string}` };
-
 /** Arguments to the process method of the rollup contract */
 export type L1ProcessArgs = {
   /** The L2 block header. */
@@ -103,6 +97,15 @@ export type L1SubmitProofArgs = {
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
 export class L1Publisher {
+  // @note  If we want to simulate in the future, we have to skip the viem simulations and use `reads` instead
+  //        This is because the viem simulations are not able to simulate the future, only the current state.
+  //        This means that we will be simulating as if `block.timestamp` is the same for the next block
+  //        as for the last block.
+  //        Nevertheless, it can be quite useful for figuring out why exactly the transaction is failing
+  //        as a middle ground right now, we will be skipping the simulation and just sending the transaction
+  //        but only after we have done a successful run of the `validateHeader` for the timestamp in the future.
+  public static SKIP_SIMULATION = true;
+
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
@@ -127,6 +130,7 @@ export class L1Publisher {
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
     this.account = privateKeyToAccount(publisherPrivateKey);
+    this.log.debug(`Publishing from address ${this.account.address}`);
     const walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
@@ -154,24 +158,62 @@ export class L1Publisher {
     return Promise.resolve(EthAddress.fromString(this.account.address));
   }
 
-  // Computes who will be the L2 proposer at the next Ethereum block
-  // Using next Ethereum block so we do NOT need to wait for it being mined before seeing the effect
-  // @note Assumes that all ethereum slots have blocks
-  async getProposerAtNextEthBlock(): Promise<EthAddress> {
-    try {
-      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-      const submitter = await this.rollupContract.read.getProposerAt([ts]);
-      return EthAddress.fromString(submitter);
-    } catch (err) {
-      this.log.warn(`Failed to get submitter: ${err}`);
-      return EthAddress.ZERO;
-    }
+  /**
+   * @notice  Calls `canProposeAtTime` with the time of the next Ethereum block and the sender address
+   *
+   * @dev     Throws if unable to propose
+   *
+   * @param archive - The archive that we expect to be current state
+   * @return slot - The L2 slot number  of the next Ethereum block,
+   * @return blockNumber - The L2 block number of the next L2 block
+   */
+  public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
+    return [slot, blockNumber];
   }
 
-  public async isItMyTurnToSubmit(): Promise<boolean> {
-    const submitter = await this.getProposerAtNextEthBlock();
-    const sender = await this.getSenderAddress();
-    return submitter.isZero() || submitter.equals(sender);
+  /**
+   * @notice  Will call `validateHeader` to make sure that it is possible to propose
+   *
+   * @dev     Throws if unable to propose
+   *
+   * @param header - The header to propose
+   * @param digest - The digest that attestations are signing over
+   *
+   */
+  public async validateBlockForSubmission(
+    header: Header,
+    attestationData: { digest: Buffer; signatures: Signature[] } = {
+      digest: Buffer.alloc(32),
+      signatures: [],
+    },
+  ): Promise<void> {
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+
+    const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
+    const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
+
+    const args = [
+      `0x${header.toBuffer().toString('hex')}`,
+      formattedSignatures,
+      `0x${attestationData.digest.toString('hex')}`,
+      ts,
+      flags,
+    ] as const;
+
+    try {
+      await this.rollupContract.read.validateHeader(args, { account: this.account });
+    } catch (error: unknown) {
+      // Specify the type of error
+      if (error instanceof ContractFunctionRevertedError) {
+        const err = error as ContractFunctionRevertedError;
+        this.log.debug(`Validation failed: ${err.message}`, err.data);
+      } else {
+        this.log.debug(`Unexpected error during validation: ${error}`);
+      }
+      throw error;
+    }
   }
 
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
@@ -203,44 +245,52 @@ export class L1Publisher {
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
   public async processL2Block(block: L2Block, attestations?: Signature[]): Promise<boolean> {
-    const ctx = { blockNumber: block.number, blockHash: block.hash().toString() };
-    // TODO(#4148) Remove this block number check, it's here because we don't currently have proper genesis state on the contract
-    const lastArchive = block.header.lastArchive.root.toBuffer();
-    if (block.number != 1 && !(await this.checkLastArchiveHash(lastArchive))) {
-      this.log.info(`Detected different last archive prior to publishing a block, aborting publish...`, ctx);
-      return false;
-    }
-    const encodedBody = block.body.toBuffer();
+    const ctx = {
+      blockNumber: block.number,
+      slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
+      blockHash: block.hash().toString(),
+    };
 
     const processTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
-      body: encodedBody,
+      body: block.body.toBuffer(),
       attestations,
     };
 
-    // Process block and publish the body if needed (if not already published)
-    while (!this.interrupted) {
+    // Publish body and propose block (if not already published)
+    if (!this.interrupted) {
       let txHash;
       const timer = new Timer();
 
-      if (await this.checkIfTxsAreAvailable(block)) {
+      const isAvailable = await this.checkIfTxsAreAvailable(block);
+
+      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+      //        This means that we can avoid the simulation issues in later checks.
+      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+      //        make time consistency checks break.
+      await this.validateBlockForSubmission(block.header, {
+        digest: block.archive.root.toBuffer(),
+        signatures: attestations ?? [],
+      });
+
+      if (isAvailable) {
         this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
-        txHash = await this.sendProcessTx(processTxArgs);
+        txHash = await this.sendProposeWithoutBodyTx(processTxArgs);
       } else {
-        txHash = await this.sendPublishAndProcessTx(processTxArgs);
+        txHash = await this.sendProposeTx(processTxArgs);
       }
 
       if (!txHash) {
         this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
-        break;
+        return false;
       }
 
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) {
         this.log.info(`Failed to get receipt for tx ${txHash}`, ctx);
-        break;
+        return false;
       }
 
       // Tx was mined successfully
@@ -254,16 +304,11 @@ export class L1Publisher {
         };
         this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
         this.metrics.recordProcessBlockTx(timer.ms(), stats);
+
         return true;
       }
 
       this.metrics.recordFailedTx('process');
-
-      // Check if someone else incremented the block number
-      if (!(await this.checkLastArchiveHash(lastArchive))) {
-        this.log.warn('Publish failed. Detected different last archive hash.', ctx);
-        break;
-      }
 
       this.log.error(`Rollup.process tx status failed: ${receipt.transactionHash}`, ctx);
       await this.sleepOrInterrupted();
@@ -280,7 +325,7 @@ export class L1Publisher {
     aggregationObject: Fr[],
     proof: Proof,
   ): Promise<boolean> {
-    const ctx = { blockNumber: header.globalVariables.blockNumber };
+    const ctx = { blockNumber: header.globalVariables.blockNumber, slotNumber: header.globalVariables.slotNumber };
 
     const txArgs: L1SubmitProofArgs = {
       header: header.toBuffer(),
@@ -291,16 +336,16 @@ export class L1Publisher {
     };
 
     // Process block
-    while (!this.interrupted) {
+    if (!this.interrupted) {
       const timer = new Timer();
       const txHash = await this.sendSubmitProofTx(txArgs);
       if (!txHash) {
-        break;
+        return false;
       }
 
       const receipt = await this.getTransactionReceipt(txHash);
       if (!receipt) {
-        break;
+        return false;
       }
 
       // Tx was mined successfully
@@ -341,26 +386,6 @@ export class L1Publisher {
     this.interrupted = false;
   }
 
-  async getCurrentArchive(): Promise<Buffer> {
-    const archive = await this.rollupContract.read.archive();
-    return Buffer.from(archive.replace('0x', ''), 'hex');
-  }
-
-  /**
-   * Verifies that the given value of last archive in a block header equals current archive of the rollup contract
-   * @param lastArchive - The last archive of the block we wish to publish.
-   * @returns Boolean indicating if the hashes are equal.
-   */
-  private async checkLastArchiveHash(lastArchive: Buffer): Promise<boolean> {
-    const fromChain = await this.getCurrentArchive();
-    const areSame = lastArchive.equals(fromChain);
-    if (!areSame) {
-      this.log.debug(`Contract archive: ${fromChain.toString('hex')}`);
-      this.log.debug(`New block last archive: ${lastArchive.toString('hex')}`);
-    }
-    return areSame;
-  }
-
   private async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
     try {
       const size = Object.values(submitProofArgs).reduce((acc, arg) => acc + arg.length, 0);
@@ -375,6 +400,12 @@ export class L1Publisher {
         `0x${proof.toString('hex')}`,
       ] as const;
 
+      if (!L1Publisher.SKIP_SIMULATION) {
+        await this.rollupContract.simulate.submitBlockRootProof(args, {
+          account: this.account,
+        });
+      }
+
       return await this.rollupContract.write.submitBlockRootProof(args, {
         account: this.account,
       });
@@ -384,11 +415,16 @@ export class L1Publisher {
     }
   }
 
+  // This is used in `integration_l1_publisher.test.ts` currently. Could be removed though.
   private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
-    while (!this.interrupted) {
+    if (!this.interrupted) {
       try {
         this.log.info(`TxEffects size=${encodedBody.length} bytes`);
         const args = [`0x${encodedBody.toString('hex')}`] as const;
+
+        await this.availabilityOracleContract.simulate.publish(args, {
+          account: this.account,
+        });
 
         return await this.availabilityOracleContract.write.publish(args, {
           account: this.account,
@@ -400,8 +436,8 @@ export class L1Publisher {
     }
   }
 
-  private async sendProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
-    while (!this.interrupted) {
+  private async sendProposeWithoutBodyTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
+    if (!this.interrupted) {
       try {
         if (encodedData.attestations) {
           const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
@@ -412,7 +448,11 @@ export class L1Publisher {
             attestations,
           ] as const;
 
-          return await this.rollupContract.write.process(args, {
+          if (!L1Publisher.SKIP_SIMULATION) {
+            await this.rollupContract.simulate.propose(args, { account: this.account });
+          }
+
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         } else {
@@ -422,7 +462,10 @@ export class L1Publisher {
             `0x${encodedData.blockHash.toString('hex')}`,
           ] as const;
 
-          return await this.rollupContract.write.process(args, {
+          if (!L1Publisher.SKIP_SIMULATION) {
+            await this.rollupContract.simulate.propose(args, { account: this.account });
+          }
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         }
@@ -433,10 +476,9 @@ export class L1Publisher {
     }
   }
 
-  private async sendPublishAndProcessTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
-    while (!this.interrupted) {
+  private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
+    if (!this.interrupted) {
       try {
-        // @note  This is quite a sin, but I'm committing war crimes in this code already.
         if (encodedData.attestations) {
           const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
           const args = [
@@ -447,7 +489,13 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          return await this.rollupContract.write.publishAndProcess(args, {
+          if (!L1Publisher.SKIP_SIMULATION) {
+            await this.rollupContract.simulate.propose(args, {
+              account: this.account,
+            });
+          }
+
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         } else {
@@ -458,7 +506,13 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          return await this.rollupContract.write.publishAndProcess(args, {
+          if (!L1Publisher.SKIP_SIMULATION) {
+            await this.rollupContract.simulate.propose(args, {
+              account: this.account,
+            });
+          }
+
+          return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         }

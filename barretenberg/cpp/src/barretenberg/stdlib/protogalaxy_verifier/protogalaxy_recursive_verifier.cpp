@@ -5,21 +5,17 @@
 namespace bb::stdlib::recursion::honk {
 
 template <class VerifierInstances>
-void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_instance(
+void ProtogalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_instance(
     const std::shared_ptr<Instance>& inst, std::string& domain_separator)
 {
     domain_separator = domain_separator + "_";
-    OinkVerifier oink_verifier{ builder, inst->verification_key, transcript, domain_separator };
-    auto [relation_parameters, witness_commitments, public_inputs, alphas] = oink_verifier.verify();
-    inst->relation_parameters = std::move(relation_parameters);
-    inst->witness_commitments = std::move(witness_commitments);
-    inst->public_inputs = std::move(public_inputs);
-    inst->alphas = std::move(alphas);
+    OinkVerifier oink_verifier{ builder, inst, transcript, domain_separator };
+    oink_verifier.verify();
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
 // between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
-template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::prepare_for_folding()
+template <class VerifierInstances> void ProtogalaxyRecursiveVerifier_<VerifierInstances>::prepare_for_folding()
 {
     auto index = 0;
     auto inst = instances[0];
@@ -40,7 +36,7 @@ template <class VerifierInstances> void ProtoGalaxyRecursiveVerifier_<VerifierIn
 }
 
 template <class VerifierInstances>
-std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifier_<
+std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifier_<
     VerifierInstances>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     using Transcript = typename Flavor::Transcript;
@@ -135,13 +131,13 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyRecursiveVerifi
     return next_accumulator;
 }
 
-template class ProtoGalaxyRecursiveVerifier_<
+template class ProtogalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances_<UltraRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<UltraRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
-template class ProtoGalaxyRecursiveVerifier_<
+template class ProtogalaxyRecursiveVerifier_<
     RecursiveVerifierInstances_<MegaRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 } // namespace bb::stdlib::recursion::honk

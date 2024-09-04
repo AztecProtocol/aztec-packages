@@ -4,30 +4,18 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { type PublicClient, getAbiItem } from 'viem';
+import { type Hex, type PublicClient, getAbiItem } from 'viem';
 
 import {
-  getL2BlockProcessedLogs,
+  getL2BlockProposedLogs,
   getMessageSentLogs,
   getTxsPublishedLogs,
-  processL2BlockProcessedLogs,
+  processL2BlockProposedLogs,
   processMessageSentLogs,
   processTxsPublishedLogs,
 } from './eth_log_handlers.js';
-
-/**
- * Data retrieved from logs
- */
-export type DataRetrieval<T> = {
-  /**
-   * Blocknumber of the last L1 block from which we obtained data.
-   */
-  lastProcessedL1BlockNumber: bigint;
-  /**
-   * The data returned.
-   */
-  retrievedData: T[];
-};
+import { type DataRetrieval } from './structs/data_retrieval.js';
+import { type L1PublishedData } from './structs/published.js';
 
 /**
  * Fetches new L2 block metadata (header, archive snapshot).
@@ -47,37 +35,37 @@ export async function retrieveBlockMetadataFromRollup(
   searchEndBlock: bigint,
   expectedNextL2BlockNum: bigint,
   logger: DebugLogger = createDebugLogger('aztec:archiver'),
-): Promise<DataRetrieval<[Header, AppendOnlyTreeSnapshot]>> {
-  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot][] = [];
+): Promise<[Header, AppendOnlyTreeSnapshot, L1PublishedData][]> {
+  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, L1PublishedData][] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const l2BlockProcessedLogs = await getL2BlockProcessedLogs(
+    const L2BlockProposedLogs = await getL2BlockProposedLogs(
       publicClient,
       rollupAddress,
       searchStartBlock,
       searchEndBlock,
     );
-    if (l2BlockProcessedLogs.length === 0) {
+    if (L2BlockProposedLogs.length === 0) {
       break;
     }
 
-    const lastLog = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1];
+    const lastLog = L2BlockProposedLogs[L2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got L2 block processed logs for ${l2BlockProcessedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
+      `Got L2 block processed logs for ${L2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
     );
 
-    const newBlockMetadata = await processL2BlockProcessedLogs(
+    const newBlockMetadata = await processL2BlockProposedLogs(
       publicClient,
       expectedNextL2BlockNum,
-      l2BlockProcessedLogs,
+      L2BlockProposedLogs,
     );
     retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = lastLog.blockNumber! + 1n;
     expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockMetadata };
+  return retrievedBlockMetadata;
 }
 
 /**
@@ -159,7 +147,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr }[]> {
+): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -172,5 +160,6 @@ export async function retrieveL2ProofVerifiedEvents(
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: log.args.blockNumber,
     proverId: Fr.fromString(log.args.proverId),
+    txHash: log.transactionHash,
   }));
 }

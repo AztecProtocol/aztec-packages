@@ -1,6 +1,7 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/polynomials/pow.hpp"
+#include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
@@ -15,14 +16,14 @@ namespace {
 
 auto& engine = numeric::get_debug_randomness();
 
-template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
+template <typename Flavor> class ProtogalaxyTests : public testing::Test {
   public:
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using ProverInstances = ProverInstances_<Flavor, 2>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using VerifierInstances = VerifierInstances_<Flavor, 2>;
-    using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
+    using ProtogalaxyProver = ProtogalaxyProver_<ProverInstances>;
     using FF = typename Flavor::FF;
     using Affine = typename Flavor::Commitment;
     using Projective = typename Flavor::GroupElement;
@@ -32,11 +33,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     using RelationParameters = bb::RelationParameters<FF>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using PowPolynomial = bb::PowPolynomial<FF>;
+    using GateSeparatorPolynomial = bb::GateSeparatorPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
-    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
+    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using Fun = ProtogalaxyProverInternal<ProverInstances>;
 
     using TupleOfInstances =
         std::tuple<std::vector<std::shared_ptr<ProverInstance>>, std::vector<std::shared_ptr<VerifierInstance>>>;
@@ -93,16 +95,16 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     static void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
     {
         auto instance_size = accumulator->proving_key.circuit_size;
-        auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
+        auto expected_honk_evals = Fun::compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
-        auto expected_pows = PowPolynomial(accumulator->gate_challenges);
-        expected_pows.compute_values(accumulator->gate_challenges.size());
+        GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges,
+                                                         accumulator->gate_challenges.size());
 
         // Compute the corresponding target sum and create a dummy accumulator
         auto expected_target_sum = FF(0);
         for (size_t i = 0; i < instance_size; i++) {
-            expected_target_sum += expected_honk_evals[i] * expected_pows[i];
+            expected_target_sum += expected_honk_evals[i] * expected_gate_separators[i];
         }
         EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
     }
@@ -146,7 +148,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         for (auto& alpha : instance->alphas) {
             alpha = FF::random_element();
         }
-        auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
+        auto full_honk_evals = Fun::compute_row_evaluations(
             instance->proving_key.polynomials, instance->alphas, instance->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
@@ -165,7 +167,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
         std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
         std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-        auto perturbator = ProtoGalaxyProver::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
+        auto perturbator = Fun::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         std::vector<FF> expected_values = { FF(648), FF(936), FF(432), FF(64) };
         EXPECT_EQ(perturbator.size(), 4); // log(instance_size) + 1
         for (size_t i = 0; i < perturbator.size(); i++) {
@@ -195,21 +197,19 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             alpha = FF::random_element();
         }
 
-        auto full_honk_evals =
-            ProtoGalaxyProver::compute_full_honk_evaluations(full_polynomials, alphas, relation_parameters);
+        auto full_honk_evals = Fun::compute_row_evaluations(full_polynomials, alphas, relation_parameters);
         std::vector<FF> betas(log_instance_size);
         for (size_t idx = 0; idx < log_instance_size; idx++) {
             betas[idx] = FF::random_element();
         }
 
         // Construct pow(\vec{betas}) as in the paper
-        auto pow_beta = bb::PowPolynomial(betas);
-        pow_beta.compute_values(log_instance_size);
+        bb::GateSeparatorPolynomial gate_separators(betas, log_instance_size);
 
         // Compute the corresponding target sum and create a dummy accumulator
         auto target_sum = FF(0);
         for (size_t i = 0; i < instance_size; i++) {
-            target_sum += full_honk_evals[i] * pow_beta[i];
+            target_sum += full_honk_evals[i] * gate_separators[i];
         }
 
         auto accumulator = std::make_shared<ProverInstance>();
@@ -220,7 +220,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         accumulator->alphas = alphas;
 
         auto deltas = compute_round_challenge_pows(log_instance_size, FF::random_element());
-        auto perturbator = ProtoGalaxyProver::compute_perturbator(accumulator, deltas);
+        auto perturbator = Fun::compute_perturbator(accumulator, deltas);
 
         // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper
         EXPECT_EQ(perturbator[0], target_sum);
@@ -233,23 +233,23 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_combiner_quotient()
     {
-        auto compressed_perturbator = FF(2); // F(\alpha) in the paper
+        auto perturbator_evaluation = FF(2); // F(\alpha) in the paper
         auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
-        auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
+        auto combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
 
         // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
         // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
         auto expected_evals = bb::Univariate<FF, 12, 2>(std::array<FF, 10>{
-            (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
-            (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
-            (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
-            (FF(25) - (FF(1) - FF(5)) * compressed_perturbator) / (FF(5) * FF(5 - 1)),
-            (FF(26) - (FF(1) - FF(6)) * compressed_perturbator) / (FF(6) * FF(6 - 1)),
-            (FF(27) - (FF(1) - FF(7)) * compressed_perturbator) / (FF(7) * FF(7 - 1)),
-            (FF(28) - (FF(1) - FF(8)) * compressed_perturbator) / (FF(8) * FF(8 - 1)),
-            (FF(29) - (FF(1) - FF(9)) * compressed_perturbator) / (FF(9) * FF(9 - 1)),
-            (FF(30) - (FF(1) - FF(10)) * compressed_perturbator) / (FF(10) * FF(10 - 1)),
-            (FF(31) - (FF(1) - FF(11)) * compressed_perturbator) / (FF(11) * FF(11 - 1)),
+            (FF(22) - (FF(1) - FF(2)) * perturbator_evaluation) / (FF(2) * FF(2 - 1)),
+            (FF(23) - (FF(1) - FF(3)) * perturbator_evaluation) / (FF(3) * FF(3 - 1)),
+            (FF(24) - (FF(1) - FF(4)) * perturbator_evaluation) / (FF(4) * FF(4 - 1)),
+            (FF(25) - (FF(1) - FF(5)) * perturbator_evaluation) / (FF(5) * FF(5 - 1)),
+            (FF(26) - (FF(1) - FF(6)) * perturbator_evaluation) / (FF(6) * FF(6 - 1)),
+            (FF(27) - (FF(1) - FF(7)) * perturbator_evaluation) / (FF(7) * FF(7 - 1)),
+            (FF(28) - (FF(1) - FF(8)) * perturbator_evaluation) / (FF(8) * FF(8 - 1)),
+            (FF(29) - (FF(1) - FF(9)) * perturbator_evaluation) / (FF(9) * FF(9 - 1)),
+            (FF(30) - (FF(1) - FF(10)) * perturbator_evaluation) / (FF(10) * FF(10 - 1)),
+            (FF(31) - (FF(1) - FF(11)) * perturbator_evaluation) / (FF(11) * FF(11 - 1)),
         });
 
         for (size_t idx = 2; idx < 7; idx++) {
@@ -262,7 +262,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      * univariate, barycentrially extended to the desired number of evaluations, is performed correctly.
      *
      */
-    static void test_combine_relation_parameters()
+    static void test_compute_extended_relation_parameters()
     {
         Builder builder1;
         auto instance1 = std::make_shared<ProverInstance>(builder1);
@@ -274,14 +274,18 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         instance2->relation_parameters.eta = 3;
 
         ProverInstances instances{ { instance1, instance2 } };
-        ProtoGalaxyProver::combine_relation_parameters(instances);
+        auto relation_parameters_no_optimistic_skipping = Fun::template compute_extended_relation_parameters<
+            typename Fun::UnivariateRelationParametersNoOptimisticSkipping>(instances);
+        auto relation_parameters =
+            Fun::template compute_extended_relation_parameters<typename FoldingProver::UnivariateRelationParameters>(
+                instances);
 
         bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
-        EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
+        EXPECT_EQ(relation_parameters_no_optimistic_skipping.eta, expected_eta);
         // Optimised relation parameters are the same, we just don't compute any values for non-used indices when
         // deriving values from them
         for (size_t i = 0; i < 11; i++) {
-            EXPECT_EQ(instances.optimised_relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
+            EXPECT_EQ(relation_parameters.eta.evaluations[i], expected_eta.evaluations[i]);
         }
     }
 
@@ -289,7 +293,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      * @brief Given two dummy instances with the batching challenges alphas set (one for each subrelation) ensure
      * combining them in a univariate of desired length works as expected.
      */
-    static void test_combine_alpha()
+    static void test_compute_and_extend_alphas()
     {
         Builder builder1;
         auto instance1 = std::make_shared<ProverInstance>(builder1);
@@ -301,11 +305,11 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         instance2->alphas.fill(4);
 
         ProverInstances instances{ { instance1, instance2 } };
-        ProtoGalaxyProver::combine_alpha(instances);
+        auto alphas = Fun::compute_and_extend_alphas(instances);
 
-        bb::Univariate<FF, 12> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
-        for (const auto& alpha : instances.alphas) {
-            EXPECT_EQ(alpha, expected_alpha);
+        bb::Univariate<FF, 12> expected_alphas{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
+        for (const auto& alpha : alphas) {
+            EXPECT_EQ(alpha, expected_alphas);
         }
     }
 
@@ -547,8 +551,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfInstances insts = construct_instances(total_insts);
 
-        ProtoGalaxyProver_<ProverInstances_<Flavor, total_insts>> folding_prover(get<0>(insts));
-        ProtoGalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(get<1>(insts));
+        ProtogalaxyProver_<ProverInstances_<Flavor, total_insts>> folding_prover(get<0>(insts));
+        ProtogalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(get<1>(insts));
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
@@ -560,74 +564,74 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 } // namespace
 
 using FlavorTypes = testing::Types<MegaFlavor>;
-TYPED_TEST_SUITE(ProtoGalaxyTests, FlavorTypes);
+TYPED_TEST_SUITE(ProtogalaxyTests, FlavorTypes);
 
-TYPED_TEST(ProtoGalaxyTests, PerturbatorCoefficients)
+TYPED_TEST(ProtogalaxyTests, PerturbatorCoefficients)
 {
     TestFixture::test_pertubator_coefficients();
 }
 
-TYPED_TEST(ProtoGalaxyTests, FullHonkEvaluationsValidCircuit)
+TYPED_TEST(ProtogalaxyTests, FullHonkEvaluationsValidCircuit)
 {
     TestFixture::test_full_honk_evaluations_valid_circuit();
 }
 
-TYPED_TEST(ProtoGalaxyTests, PerturbatorPolynomial)
+TYPED_TEST(ProtogalaxyTests, PerturbatorPolynomial)
 {
     TestFixture::test_pertubator_polynomial();
 }
 
-TYPED_TEST(ProtoGalaxyTests, CombinerQuotient)
+TYPED_TEST(ProtogalaxyTests, CombinerQuotient)
 {
     TestFixture::test_combiner_quotient();
 }
 
-TYPED_TEST(ProtoGalaxyTests, CombineRelationParameters)
+TYPED_TEST(ProtogalaxyTests, CombineRelationParameters)
 {
-    TestFixture::test_combine_relation_parameters();
+    TestFixture::test_compute_extended_relation_parameters();
 }
 
-TYPED_TEST(ProtoGalaxyTests, CombineAlpha)
+TYPED_TEST(ProtogalaxyTests, CombineAlphas)
 {
-    TestFixture::test_combine_alpha();
+    TestFixture::test_compute_and_extend_alphas();
 }
 
-TYPED_TEST(ProtoGalaxyTests, ProtogalaxyInhomogeneous)
+TYPED_TEST(ProtogalaxyTests, ProtogalaxyInhomogeneous)
 {
     TestFixture::test_protogalaxy_inhomogeneous();
 }
 
-TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyTest)
+TYPED_TEST(ProtogalaxyTests, FullProtogalaxyTest)
 {
     TestFixture::test_full_protogalaxy();
 }
 
-TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyStructuredTrace)
+TYPED_TEST(ProtogalaxyTests, FullProtogalaxyStructuredTrace)
 {
     TestFixture::test_full_protogalaxy_structured_trace();
 }
-TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyStructuredTraceInhomogeneous)
+TYPED_TEST(ProtogalaxyTests, FullProtogalaxyStructuredTraceInhomogeneous)
 {
     TestFixture::test_full_protogalaxy_structured_trace_inhomogeneous_circuits();
 }
 
-TYPED_TEST(ProtoGalaxyTests, TamperedCommitment)
+TYPED_TEST(ProtogalaxyTests, TamperedCommitment)
 {
     TestFixture::test_tampered_commitment();
 }
 
-TYPED_TEST(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
+TYPED_TEST(ProtogalaxyTests, TamperedAccumulatorPolynomial)
 {
     TestFixture::test_tampered_accumulator_polynomial();
 }
 
-TYPED_TEST(ProtoGalaxyTests, BadLookupFailure)
+TYPED_TEST(ProtogalaxyTests, BadLookupFailure)
 {
     TestFixture::test_protogalaxy_bad_lookup_failure();
 }
 
 // We only fold one instance currently due to significant compile time added by multiple instances
-TYPED_TEST(ProtoGalaxyTests, Fold1Instance)
+TYPED_TEST(ProtogalaxyTests, Fold1Instance)
 {
     TestFixture::template test_fold_k_instances<1>();
 }
