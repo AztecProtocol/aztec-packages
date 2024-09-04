@@ -34,7 +34,6 @@ A context's **execution environment** remains constant throughout a contract cal
 | contractCallPointer | `field`                      | Uniquely identifies each contract call processed by an AVM session. An initial call is assigned pointer value of 1 (expanded on in the AVM circuit section's ["Call Pointer"](./avm-circuit#call-pointer) subsection). |
 | globals             | `PublicGlobalVariables`      |                                                                                                                                                                                                                        |
 | isStaticCall        | `boolean`                    |                                                                                                                                                                                                                        |
-| isDelegateCall      | `boolean`                    |                                                                                                                                                                                                                        |
 | calldata            | `[field; <calldata-length>]` |                                                                                                                                                                                                                        |
 
 ## Contract Call Results
@@ -79,7 +78,6 @@ INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
     contractCallPointer: 1,
     globals: <current block's global variables>
     isStaticCall: PublicCallRequest.CallContext.isStaticCall,
-    isDelegateCall: PublicCallRequest.CallContext.isDelegateCall,
     calldata: PublicCallRequest.args,
 }
 

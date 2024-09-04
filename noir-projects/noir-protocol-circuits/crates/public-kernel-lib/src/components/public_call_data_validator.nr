@@ -55,15 +55,9 @@ impl PublicCallDataValidator {
         let public_inputs = call_stack_item.public_inputs;
 
         let call_context = public_inputs.call_context;
-        if call_context.is_delegate_call {
-            assert(
-                !call_stack_item.contract_address.eq(call_context.storage_contract_address), "curent contract address must not match storage contract address for delegate calls"
-            );
-        } else {
-            assert(
-                call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address"
-            );
-        }
+        assert(
+            call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address"
+        );
 
         if call_context.is_static_call {
             // No state changes are allowed for static calls:
@@ -95,21 +89,12 @@ impl PublicCallDataValidator {
                 let target_context = request.item.call_context;
                 let target_contract = request.item.contract_address;
 
-                if target_context.is_delegate_call {
-                    assert_eq(
-                        target_context.msg_sender, this_context.msg_sender, "incorrect msg_sender for delegate call request"
-                    );
-                    assert_eq(
-                        target_context.storage_contract_address, this_context.storage_contract_address, "incorrect storage_contract_address for delegate call request"
-                    );
-                } else {
-                    assert_eq(
-                        target_context.msg_sender, this_context.storage_contract_address, "incorrect msg_sender for call request"
-                    );
-                    assert_eq(
-                        target_context.storage_contract_address, target_contract, "incorrect storage_contract_address for call request"
-                    );
-                }
+                assert_eq(
+                    target_context.msg_sender, this_context.storage_contract_address, "incorrect msg_sender for call request"
+                );
+                assert_eq(
+                    target_context.storage_contract_address, target_contract, "incorrect storage_contract_address for call request"
+                );
                 if !target_context.is_static_call {
                     assert(this_context.is_static_call == false, "static call cannot make non-static calls");
                 }

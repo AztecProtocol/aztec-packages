@@ -142,7 +142,6 @@ function createAvmExecutionEnvironment(
     header,
     globalVariables,
     executionRequest.callContext.isStaticCall,
-    executionRequest.callContext.isDelegateCall,
     executionRequest.args,
   );
 }

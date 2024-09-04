@@ -955,17 +955,7 @@ impl FixtureBuilder {
         let index_offset = self.public_call_requests.len();
         for i in 0..self.public_call_requests.max_len() {
             if i < num {
-                let item = self.mock_public_call_request_item(index_offset + i, false);
-                self.push_public_call_request(item);
-            }
-        }
-    }
-
-    pub fn append_public_call_requests_delegate(&mut self, num: u32) {
-        let index_offset = self.public_call_requests.len();
-        for i in 0..self.public_call_requests.max_len() {
-            if i < num {
-                let item = self.mock_public_call_request_item(index_offset + i, true);
+                let item = self.mock_public_call_request_item(index_offset + i);
                 self.push_public_call_request(item);
             }
         }
@@ -987,13 +977,7 @@ impl FixtureBuilder {
 
     pub fn append_public_teardown_call_request(&mut self) {
         let index = self.public_teardown_call_stack.len();
-        let item = self.mock_public_teardown_call_request_item(index, false);
-        self.push_public_teardown_call_request(item);
-    }
-
-    pub fn append_public_teardown_call_request_delegate(&mut self) {
-        let index = self.public_teardown_call_stack.len();
-        let item = self.mock_public_teardown_call_request_item(index, true);
+        let item = self.mock_public_teardown_call_request_item(index);
         self.push_public_teardown_call_request(item);
     }
 
@@ -1001,7 +985,7 @@ impl FixtureBuilder {
         let index_offset = self.public_teardown_call_stack.len();
         for i in 0..self.public_teardown_call_stack.max_len() {
             if i < num {
-                let item = self.mock_public_teardown_call_request_item(index_offset + i, true);
+                let item = self.mock_public_teardown_call_request_item(index_offset + i);
                 self.push_public_teardown_call_request(item);
             }
         }
@@ -1095,19 +1079,19 @@ impl FixtureBuilder {
         PrivateCallRequest::deserialize(fields)
     }
 
-    fn mock_public_call_request_item(self, index: u32, is_delegate_call: bool) -> PublicCallStackItemCompressed {
+    fn mock_public_call_request_item(self, index: u32) -> PublicCallStackItemCompressed {
         let value_offset = 636363 + self.value_offset + index as Field;
         let mut fields = [0; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH];
         for i in 0..fields.len() {
             fields[i] = value_offset + i as Field;
         }
         let mut item = PublicCallStackItemCompressed::deserialize(fields);
-        item.call_context = self.generate_call_context(item.contract_address, is_delegate_call);
+        item.call_context = self.generate_call_context(item.contract_address, /*is_delegate_call=*/ false);
         item
     }
 
-    fn mock_public_teardown_call_request_item(self, index: u32, is_delegate_call: bool) -> PublicCallStackItemCompressed {
-        self.mock_public_call_request_item(index + 54345, is_delegate_call)
+    fn mock_public_teardown_call_request_item(self, index: u32) -> PublicCallStackItemCompressed {
+        self.mock_public_call_request_item(index + 54345)
     }
 
     fn mock_fee_payer(self) -> AztecAddress {

@@ -14,4 +14,4 @@ Isn't this a conflation of instances and classes? A contract address represents 
 Perhaps the information that's needed for any kind of 'call' needs to be modified. At the moment it's: contract_address, function_selector. Perhaps it needs to become: contract_address, class_id, function_selector? Then, for an ordinary call, the class_id can be checked to match the one 'baked into ' the contract_address. For a delegatecall, the contract_address can be that of the calling contract (i.e. the storage contract address), and the class_id can be the target class?
 -->
 
-At the contract level, a caller can initiate a delegate call via a `delegateCallPrivateFunction` or `delegateCallPublicFunction` oracle call. The caller is responsible for asserting that the returned `CallStackItem` has the `is_delegate_call` flag correctly set.
+At the contract level, a caller can initiate a delegate call via a `delegateCallPrivateFunction`oracle call. The caller is responsible for asserting that the returned `CallStackItem` has the `is_delegate_call` flag correctly set. Delegate calls to public contract code are not supported.

@@ -101,16 +101,6 @@ impl PublicContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn delegate_call_public_function<let RETURNS_COUNT: u32>(
-        _self: &mut Self,
-        _contract_address: AztecAddress,
-        _function_selector: FunctionSelector,
-        _args: [Field]
-    ) -> FunctionReturns<RETURNS_COUNT> {
-        assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
-    }
-
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
         emit_note_hash(note_hash);
     }

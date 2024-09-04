@@ -54,7 +54,7 @@ The following table defines an AVM context's world state interface:
 | `l1ToL2Messages` | [`L1TOL2MSGEXISTS`](./instruction-set#isa-section-l1tol2msgexists) (membership-checks (start-of-block))                                                                       |
 | `headers`        | [`HEADERMEMBER`](./instruction-set#isa-section-headermember) (membership-checks & leaf-preimage-reads)                                                                        |
 
-> \* `*CALL` is short for `CALL`/`STATICCALL`/`DELEGATECALL`.
+> \* `*CALL` is short for `CALL`/`STATICCALL`.
 
 > \* For the purpose of the AVM, the world state's `contracts` member is readable for [bytecode fetching](./execution#bytecode-fetch-and-decode), and it is effectively updated when a new contract class or instance is created (along with a nullifier for the contract class identifier or contract address).
 
@@ -85,7 +85,7 @@ Each entry in the world state access trace is listed below along with its type a
 
 > The types tracked in these trace vectors are defined [here](./type-structs).
 
-> `*CALL` is short for `CALL`/`STATICCALL`/`DELEGATECALL`.
+> `*CALL` is short for `CALL`/`STATICCALL`.
 
 > Aztec tree operations like membership checks, appends, or leaf updates are performed in-circuit by downstream circuits (public kernel and rollup circuits), _after_ AVM execution. The world state access trace is a list of requests made by the AVM for later circuits to perform.
 

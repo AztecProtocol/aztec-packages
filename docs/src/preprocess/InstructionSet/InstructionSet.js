@@ -1400,7 +1400,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
@@ -1429,7 +1429,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=true, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=true)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
@@ -1437,34 +1437,6 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)
       "Call into another contract, disallowing World State and Accrued Substate modifications",
     Details:
       `Same as \`CALL\`, but disallows World State and Accrued Substate modifications. ` +
-      CALL_INSTRUCTION_DETAILS,
-    "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
-    "Tag updates": `
-T[successOffset] = u8
-T[retOffset:retOffset+retSize] = field
-`,
-  },
-  {
-    id: "delegatecall",
-    Name: "`DELEGATECALL`",
-    Category: "Control Flow - Contract Calls",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: CALL_INSTRUCTION_ARGS,
-    Expression: `
-// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
-chargeGas(context,
-          l2GasCost=M[instr.args.gasOffset],
-          daGasCost=M[instr.args.gasOffset+1])
-traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=true)
-execute(nestedContext)
-updateContextAfterNestedCall(context, instr.args, nestedContext)
-`,
-    Summary:
-      "(UNIMPLEMENTED) Call into another contract, but keep the caller's `sender` and `storageAddress`",
-    Details:
-      `Same as \`CALL\`, but \`sender\` and \`storageAddress\` remains
-                    the same in the nested call as they were in the caller. ` +
       CALL_INSTRUCTION_DETAILS,
     "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
     "Tag updates": `

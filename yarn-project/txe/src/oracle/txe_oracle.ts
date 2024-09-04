@@ -729,7 +729,6 @@ export class TXE implements TypedOracle {
     functionSelector: FunctionSelector,
     args: Fr[],
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
@@ -744,7 +743,7 @@ export class TXE implements TypedOracle {
     callContext.functionSelector = this.functionSelector;
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
-    callContext.isDelegateCall = isDelegateCall;
+    callContext.isDelegateCall = false;
 
     const executionResult = await this.executePublicFunction(
       targetContractAddress,
@@ -770,7 +769,6 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     // Store and modify env
     const currentContractAddress = AztecAddress.fromField(this.contractAddress);
@@ -785,7 +783,7 @@ export class TXE implements TypedOracle {
     callContext.functionSelector = this.functionSelector;
     callContext.storageContractAddress = targetContractAddress;
     callContext.isStaticCall = isStaticCall;
-    callContext.isDelegateCall = isDelegateCall;
+    callContext.isDelegateCall = false;
 
     const args = this.packedValuesCache.unpack(argsHash);
 
@@ -813,7 +811,6 @@ export class TXE implements TypedOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     // Definitely not right, in that the teardown should always be last.
     // But useful for executing flows.
@@ -823,7 +820,6 @@ export class TXE implements TypedOracle {
       argsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
   }
 

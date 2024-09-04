@@ -556,13 +556,12 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
-      isDelegateCall,
+      /*isDelegateCall=*/ false,
       isStaticCall,
     );
     const args = this.packedValuesCache.unpack(argsHash);
@@ -601,7 +600,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     await this.createPublicExecutionRequest(
       'enqueued',
@@ -610,7 +608,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       argsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
   }
 
@@ -631,7 +628,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     await this.createPublicExecutionRequest(
       'teardown',
@@ -640,7 +636,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       argsHash,
       sideEffectCounter,
       isStaticCall,
-      isDelegateCall,
     );
   }
 

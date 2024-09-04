@@ -92,7 +92,6 @@ enum class OpCode : uint8_t {
     // Control Flow - Contract Calls
     CALL,
     STATICCALL,
-    DELEGATECALL,
     RETURN,
     REVERT,
 

@@ -34,27 +34,5 @@ describe.skip('e2e_delegate_calls', () => {
 
       expect(delegatorValue).toEqual(sentValue);
     });
-
-    it("runs another contract's enqueued public function on delegator's storage", async () => {
-      const sentValue = 42n;
-      await delegatorContract.methods.enqueued_delegate_set_value(delegatedOnContract.address, sentValue).send().wait();
-
-      const delegatorValue = await delegatorContract.methods.view_public_value().simulate();
-      const delegatedOnValue = await delegatedOnContract.methods.view_public_value().simulate();
-
-      expect(delegatedOnValue).toEqual(0n);
-      expect(delegatorValue).toEqual(sentValue);
-    });
-
-    it("runs another contract's public function on delegator's storage", async () => {
-      const sentValue = 42n;
-      await delegatorContract.methods.public_delegate_set_value(delegatedOnContract.address, sentValue).send().wait();
-
-      const delegatorValue = await delegatorContract.methods.view_public_value().simulate();
-      const delegatedOnValue = await delegatedOnContract.methods.view_public_value().simulate();
-
-      expect(delegatedOnValue).toEqual(0n);
-      expect(delegatorValue).toEqual(sentValue);
-    });
   });
 });

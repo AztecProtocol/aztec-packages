@@ -446,7 +446,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ) {
     await this.typedOracle.enqueuePublicFunctionCall(
       AztecAddress.fromString(contractAddress),
@@ -454,7 +453,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
   }
 
@@ -464,7 +462,6 @@ export class Oracle {
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-    [isDelegateCall]: ACVMField[],
   ) {
     await this.typedOracle.setPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
@@ -472,7 +469,6 @@ export class Oracle {
       fromACVMField(argsHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
-      frToBoolean(fromACVMField(isDelegateCall)),
     );
   }
 

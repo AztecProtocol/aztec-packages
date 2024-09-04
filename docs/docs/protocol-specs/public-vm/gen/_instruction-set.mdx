@@ -463,7 +463,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
@@ -478,28 +478,13 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=true, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=true)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
 	<td style={{'text-align': 'center'}}>0x34</td>
-	<td style={{'text-align': 'center'}}><a id='isa-table-delegatecall'/><Markdown>\[\`DELEGATECALL\`\](#isa-section-delegatecall)</Markdown></td>
-	<td><Markdown>(UNIMPLEMENTED) Call into another contract, but keep the caller's `sender` and `storageAddress`</Markdown></td>
-	<td><CodeBlock language="jsx">
-{`// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
-chargeGas(context,
-          l2GasCost=M[instr.args.gasOffset],
-          daGasCost=M[instr.args.gasOffset+1])
-traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=true)
-execute(nestedContext)
-updateContextAfterNestedCall(context, instr.args, nestedContext)`}
-	</CodeBlock></td>
-</tr>
-<tr>
-	<td style={{'text-align': 'center'}}>0x35</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-return'/><Markdown>\[\`RETURN\`\](#isa-section-return)</Markdown></td>
 	<td><Markdown>Halt execution within this context (without revert), optionally returning some data</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -508,7 +493,7 @@ halt`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x36</td>
+	<td style={{'text-align': 'center'}}>0x35</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-revert'/><Markdown>\[\`REVERT\`\](#isa-section-revert)</Markdown></td>
 	<td><Markdown>Halt execution within this context as `reverted`, optionally returning some data</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -518,7 +503,7 @@ halt`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x37</td>
+	<td style={{'text-align': 'center'}}>0x36</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-to_radix_le'/><Markdown>\[\`TORADIXLE\`\](#isa-section-to_radix_le)</Markdown></td>
 	<td><Markdown>Convert a word to an array of limbs in little-endian radix form</Markdown></td>
 	<td><Markdown>TBD: Storage of limbs and if T[dstOffset] is constrained to U8</Markdown></td>
@@ -1667,7 +1652,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 </CodeBlock>
@@ -1714,7 +1699,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=true, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=true)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 </CodeBlock>
@@ -1734,56 +1719,12 @@ T[retOffset:retOffset+retSize] = field`}
 
 [![](/img/protocol-specs/public-vm/bit-formats/STATICCALL.png)](/img/protocol-specs/public-vm/bit-formats/STATICCALL.png)
 
-### <a id='isa-section-delegatecall'/>`DELEGATECALL`
-(UNIMPLEMENTED) Call into another contract, but keep the caller's `sender` and `storageAddress`
-
-[See in table.](#isa-table-delegatecall)
-
-- **Opcode**: 0x34
-- **Category**: Control Flow - Contract Calls
-- **Flags**: 
-	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
-- **Args**: 
-	- **gasOffset**: offset to two words containing `{l2GasLeft, daGasLeft}`: amount of gas to provide to the callee
-	- **addrOffset**: address of the contract to call
-	- **argsOffset**: memory offset to args (will become the callee's calldata)
-	- **argsSizeOffset**: memory offset for the number of words to pass via callee's calldata
-	- **retOffset**: destination memory offset specifying where to store the data returned from the callee
-	- **retSize**: number of words to copy from data returned by callee
-	- **successOffset**: destination memory offset specifying where to store the call's success (0: failure, 1: success)
-- **Expression**: 
-<CodeBlock language="jsx">
-{`// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
-chargeGas(context,
-          l2GasCost=M[instr.args.gasOffset],
-          daGasCost=M[instr.args.gasOffset+1])
-traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=true)
-execute(nestedContext)
-updateContextAfterNestedCall(context, instr.args, nestedContext)`}
-</CodeBlock>
-- **Details**: Same as `CALL`, but `sender` and `storageAddress` remains
-                    the same in the nested call as they were in the caller. 
-    ["Nested contract calls"](./nested-calls) provides a full explanation of this
-    instruction along with the shorthand used in the expression above.
-    The explanation includes details on charging gas for nested calls,
-    nested context derivation, world state tracing, and updating the parent context
-    after the nested call halts.
-- **Tag checks**: `T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`
-- **Tag updates**: 
-<CodeBlock language="jsx">
-{`T[successOffset] = u8
-T[retOffset:retOffset+retSize] = field`}
-</CodeBlock>
-- **Bit-size**: 248
-
-
 ### <a id='isa-section-return'/>`RETURN`
 Halt execution within this context (without revert), optionally returning some data
 
 [See in table.](#isa-table-return)
 
-- **Opcode**: 0x35
+- **Opcode**: 0x34
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1805,7 +1746,7 @@ Halt execution within this context as `reverted`, optionally returning some data
 
 [See in table.](#isa-table-revert)
 
-- **Opcode**: 0x36
+- **Opcode**: 0x35
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1828,7 +1769,7 @@ Convert a word to an array of limbs in little-endian radix form
 
 [See in table.](#isa-table-to_radix_le)
 
-- **Opcode**: 0x37
+- **Opcode**: 0x36
 - **Category**: Conversions
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.

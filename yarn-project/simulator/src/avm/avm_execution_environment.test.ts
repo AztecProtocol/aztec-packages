@@ -23,22 +23,6 @@ describe('Execution Environment', () => {
     );
   });
 
-  // Delegate calls not supported.
-  it.skip('New delegate call should fork execution environment correctly', () => {
-    const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.newDelegateCall(newAddress, calldata, selector);
-
-    expect(newExecutionEnvironment).toEqual(
-      allSameExcept(executionEnvironment, {
-        address: newAddress,
-        contractCallDepth: Fr.ONE,
-        isDelegateCall: true,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(calldata),
-      }),
-    );
-  });
-
   it('New static call call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
     const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(

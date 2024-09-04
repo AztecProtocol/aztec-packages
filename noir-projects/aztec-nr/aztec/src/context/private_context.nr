@@ -410,7 +410,7 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments_array(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false)
     }
 
     pub fn static_call_public_function<let ARGS_COUNT: u32>(
@@ -421,18 +421,7 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments_array(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
-    }
-
-    pub fn delegate_call_public_function<let ARGS_COUNT: u32>(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) {
-        let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments_array(args));
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
+        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true)
     }
 
     pub fn call_public_function_no_args(
@@ -440,7 +429,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_public_function_no_args(
@@ -448,15 +437,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
-    }
-
-    pub fn delegate_call_public_function_no_args(
-        &mut self,
-        contract_address: AztecAddress,
-        function_selector: FunctionSelector
-    ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
     }
 
     pub fn call_public_function_with_packed_args(
@@ -465,7 +446,6 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-        is_delegate_call: bool
     ) {
         let counter = self.next_counter();
 
@@ -476,14 +456,13 @@ impl PrivateContext {
             args_hash,
             counter,
             is_static_call,
-            is_delegate_call
         );
 
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
             is_static_call,
-            is_delegate_call
+            /*is_delegate_call=*/ false,
         );
 
         let item = PublicCallStackItemCompressed {
@@ -508,7 +487,7 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments_array(args));
-        self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false)
     }
 
     pub fn set_public_teardown_function_with_packed_args(
@@ -517,7 +496,6 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-        is_delegate_call: bool
     ) {
         let counter = self.next_counter();
 
@@ -528,14 +506,13 @@ impl PrivateContext {
             args_hash,
             counter,
             is_static_call,
-            is_delegate_call
         );
 
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
             is_static_call,
-            is_delegate_call
+            /*is_delegate_call=*/ false,
         );
 
         let item = PublicCallStackItemCompressed {

@@ -329,7 +329,7 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
     msgSender: avmEnvironment.sender,
     storageContractAddress: avmEnvironment.storageAddress,
     functionSelector: avmEnvironment.functionSelector,
-    isDelegateCall: avmEnvironment.isDelegateCall,
+    isDelegateCall: false,
     isStaticCall: avmEnvironment.isStaticCall,
   });
   return new PublicExecutionRequest(

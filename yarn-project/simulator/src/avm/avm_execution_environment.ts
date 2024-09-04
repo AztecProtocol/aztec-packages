@@ -28,7 +28,6 @@ export class AvmExecutionEnvironment {
     public readonly header: Header,
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
-    public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
   ) {
     // We encode some extra inputs (AvmContextInputs) in calldata.
@@ -42,7 +41,6 @@ export class AvmExecutionEnvironment {
     calldata: Fr[],
     functionSelector: FunctionSelector,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
   ) {
     return new AvmExecutionEnvironment(
       /*address=*/ targetAddress,
@@ -54,7 +52,6 @@ export class AvmExecutionEnvironment {
       this.header,
       this.globals,
       isStaticCall,
-      isDelegateCall,
       calldata,
     );
   }
@@ -69,7 +66,6 @@ export class AvmExecutionEnvironment {
       calldata,
       functionSelector,
       /*isStaticCall=*/ false,
-      /*isDelegateCall=*/ false,
     );
   }
 
@@ -83,16 +79,7 @@ export class AvmExecutionEnvironment {
       calldata,
       functionSelector,
       /*isStaticCall=*/ true,
-      /*isDelegateCall=*/ false,
     );
-  }
-
-  public newDelegateCall(
-    _targetAddress: AztecAddress,
-    _calldata: Fr[],
-    _functionSelector: FunctionSelector,
-  ): AvmExecutionEnvironment {
-    throw new Error('Delegate calls not supported!');
   }
 
   public getCalldataWithoutPrefix(): Fr[] {
