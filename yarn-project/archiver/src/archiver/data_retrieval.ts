@@ -4,13 +4,13 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { type PublicClient, getAbiItem } from 'viem';
+import { type Hex, type PublicClient, getAbiItem } from 'viem';
 
 import {
-  getL2BlockProcessedLogs,
+  getL2BlockProposedLogs,
   getMessageSentLogs,
   getTxsPublishedLogs,
-  processL2BlockProcessedLogs,
+  processL2BlockProposedLogs,
   processMessageSentLogs,
   processTxsPublishedLogs,
 } from './eth_log_handlers.js';
@@ -41,25 +41,25 @@ export async function retrieveBlockMetadataFromRollup(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const l2BlockProcessedLogs = await getL2BlockProcessedLogs(
+    const L2BlockProposedLogs = await getL2BlockProposedLogs(
       publicClient,
       rollupAddress,
       searchStartBlock,
       searchEndBlock,
     );
-    if (l2BlockProcessedLogs.length === 0) {
+    if (L2BlockProposedLogs.length === 0) {
       break;
     }
 
-    const lastLog = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1];
+    const lastLog = L2BlockProposedLogs[L2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got L2 block processed logs for ${l2BlockProcessedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
+      `Got L2 block processed logs for ${L2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
     );
 
-    const newBlockMetadata = await processL2BlockProcessedLogs(
+    const newBlockMetadata = await processL2BlockProposedLogs(
       publicClient,
       expectedNextL2BlockNum,
-      l2BlockProcessedLogs,
+      L2BlockProposedLogs,
     );
     retrievedBlockMetadata.push(...newBlockMetadata);
     searchStartBlock = lastLog.blockNumber! + 1n;
@@ -147,7 +147,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr }[]> {
+): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -160,5 +160,6 @@ export async function retrieveL2ProofVerifiedEvents(
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: log.args.blockNumber,
     proverId: Fr.fromString(log.args.proverId),
+    txHash: log.transactionHash,
   }));
 }

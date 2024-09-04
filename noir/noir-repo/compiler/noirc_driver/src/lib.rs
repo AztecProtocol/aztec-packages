@@ -129,11 +129,6 @@ pub struct CompileOptions {
     /// This check should always be run on production code.
     #[arg(long)]
     pub skip_underconstrained_check: bool,
-
-    /// A workspace is compiled in parallel by default. This flag will compile it sequentially.
-    /// This flag is useful to reduce memory consumption or to avoid using rayon threads for compilation (which don't have dynamic stacks).
-    #[arg(long)]
-    pub sequential: bool,
 }
 
 pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {
@@ -289,11 +284,13 @@ pub fn check_crate(
         if options.disable_macros { &[] } else { &[&aztec_macros::AztecMacro] };
 
     let mut errors = vec![];
+    let error_on_unused_imports = true;
     let diagnostics = CrateDefMap::collect_defs(
         crate_id,
         context,
         options.debug_comptime_in_file.as_deref(),
         options.arithmetic_generics,
+        error_on_unused_imports,
         macros,
     );
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
