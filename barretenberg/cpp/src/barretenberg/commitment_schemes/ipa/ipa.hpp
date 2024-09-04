@@ -166,7 +166,7 @@ template <typename Curve_> class IPA {
         std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
-        if (poly_length * 2 >= srs_elements.size()) {
+        if (poly_length * 2 > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
 
@@ -383,7 +383,7 @@ template <typename Curve_> class IPA {
             }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
         std::span<const Commitment> srs_elements = vk->get_monomial_points();
-        if (poly_length * 2 >= srs_elements.size()) {
+        if (poly_length * 2 > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
         // Copy the G_vector to local memory.
