@@ -41,10 +41,18 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
     State state;
 
     ProtogalaxyProver_() = default;
-    ProtogalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(ProverInstances_(insts))
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
-        , commitment_key(instances[1]->proving_key.commitment_key){};
+    ProtogalaxyProver_(const std::shared_ptr<Instance> accumulator,
+                       const std::array<std::shared_ptr<Instance>, NUM_INSTANCES - 1>& insts)
+        : instances(ProverInstances_(accumulator, insts))
+        , commitment_key(insts[0]->proving_key.commitment_key)
+    {
+        state.accumulator = accumulator;
+    };
+
+    // ProtogalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
+    //     : instances(ProverInstances_(insts))
+    //     // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
+    //     , commitment_key(instances[1]->proving_key.commitment_key){};
 
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.

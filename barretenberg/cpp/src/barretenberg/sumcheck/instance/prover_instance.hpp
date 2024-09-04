@@ -37,11 +37,11 @@ template <class Flavor> class ProverInstance_ {
     RelationSeparator alphas; // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
 
-    bool is_accumulator = false;
-
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
     std::vector<FF> gate_challenges;
-    FF target_sum;
+    FF target_sum{ 0 };
+
+    inline bool is_strict() const { return target_sum == 0; }
 
     ProverInstance_(Circuit& circuit,
                     TraceStructure trace_structure = TraceStructure::NONE,

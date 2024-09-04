@@ -28,7 +28,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     std::shared_ptr<VerificationKey> verification_key;
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
-    bool is_accumulator = false;
     std::vector<FF> public_inputs;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
@@ -37,6 +36,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
+
+    inline bool is_strict() const { return target_sum.get_value() == 0; }
 
     RecursiveVerifierInstance_(Builder* builder)
         : builder(builder){};
@@ -54,9 +55,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
         : RecursiveVerifierInstance_(builder, instance->verification_key)
     {
-        is_accumulator = instance->is_accumulator;
-        if (is_accumulator) {
-
+        if (!is_strict()) {
             for (auto [native_public_input] : zip_view(instance->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
@@ -115,7 +114,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         }
 
         VerifierInstance inst(inst_verification_key);
-        inst.is_accumulator = is_accumulator;
 
         inst.public_inputs = std::vector<NativeFF>(static_cast<size_t>(verification_key->num_public_inputs));
         for (auto [public_input, inst_public_input] : zip_view(public_inputs, inst.public_inputs)) {

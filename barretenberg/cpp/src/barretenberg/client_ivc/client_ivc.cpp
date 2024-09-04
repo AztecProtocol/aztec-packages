@@ -61,7 +61,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
-        FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
+        FoldingProver folding_prover(fold_output.accumulator, { prover_instance });
         fold_output = folding_prover.prove();
     }
 }

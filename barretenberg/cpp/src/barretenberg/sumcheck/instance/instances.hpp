@@ -26,6 +26,16 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     typename ArrayType::const_iterator end() const { return _data.end(); };
     typename ArrayType::iterator end() { return _data.end(); };
     ProverInstances_() = default;
+    ProverInstances_(const std::shared_ptr<Instance> accumulator,
+                     const std::array<std::shared_ptr<Instance>, NUM - 1> instances)
+    {
+        ASSERT(1 + instances.size() == NUM);
+        _data[0] = std::move(accumulator);
+
+        for (size_t idx = 1; idx < NUM; idx++) {
+            _data[idx] = std::move(instances[idx - 1]);
+        }
+    };
     ProverInstances_(std::vector<std::shared_ptr<Instance>> data)
     {
         ASSERT(data.size() == NUM);
