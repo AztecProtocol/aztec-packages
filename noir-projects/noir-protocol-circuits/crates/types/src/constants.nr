@@ -137,7 +137,7 @@ global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
 global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 1;
 global AZTEC_EPOCH_DURATION: u32 = 48;
-global IS_DEV_NET: bool = true;
+global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
@@ -196,6 +196,7 @@ global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x24877c50868f
 global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x2ab1a2bd6d07d8d61ea56d85861446349e52c6b7c0612b702cb1e6db6ad0b089);
 global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x05d15342d76e46e5be07d3cda0d753158431cdc5e39d29ce4e8fe1f5c070564a);
 global FEE_JUICE_ADDRESS = AztecAddress::from_field(0x16a83e3395bc921a2441db55dce24f0e0932636901a2e676fa68b9b2b9a644c1);
+global ROUTER_ADDRESS = AztecAddress::from_field(0x11fc9d3c438ea027f3d52cb7cf844fa4bb197520205c7366b8887a624f6a7b2c);
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH = 1;
