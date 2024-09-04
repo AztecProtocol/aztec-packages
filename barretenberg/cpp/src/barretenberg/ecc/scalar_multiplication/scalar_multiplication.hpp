@@ -163,7 +163,7 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases = true)
 {
-    ASSERT(scalars.size() * 2 < points.size());
+    ASSERT(scalars.size() * 2 <= points.size());
     return pippenger(scalars, &points[0], state, handle_edge_cases);
 }
 template <typename Curve>
@@ -175,7 +175,7 @@ typename Curve::Element pippenger_unsafe(std::span<const typename Curve::ScalarF
                                          std::span<typename Curve::AffineElement> points,
                                          pippenger_runtime_state<Curve>& state)
 {
-    ASSERT(scalars.size() * 2 < points.size());
+    ASSERT(scalars.size() * 2 <= points.size());
     return pippenger_unsafe(scalars, &points[0], state);
 }
 
