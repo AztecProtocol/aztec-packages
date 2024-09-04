@@ -60,7 +60,8 @@ void AztecIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
         // Initialize the gate challenges to zero for use in first round of folding
-        verifier_accumulator->gate_challenges = std::vector<FF>(verifier_accum->verification_key->log_circuit_size, 0);
+        auto log_circuit_size = static_cast<size_t>(verifier_accum->verification_key->log_circuit_size);
+        verifier_accumulator->gate_challenges = std::vector<FF>(log_circuit_size, 0);
 
         // Perform databus commitment consistency checks and propagate return data commitments via public inputs
         bus_depot.execute(verifier_accum->witness_commitments,
