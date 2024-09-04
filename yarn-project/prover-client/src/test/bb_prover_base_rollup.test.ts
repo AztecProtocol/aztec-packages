@@ -41,7 +41,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
-    let baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
+    const baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     baseRollupInputProof.proof[0] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[0];
     baseRollupInputProof.proof[1] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[1];
     baseRollupInputProof.proof[2] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[2];
