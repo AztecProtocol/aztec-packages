@@ -17,7 +17,6 @@ uint256 constant NUMBER_TO_BE_SHIFTED = 9;
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
 
-// WORKTODO(Mara): Change name ?
 // ENUM FOR WIRES
 enum WIRE {
     Q_M,

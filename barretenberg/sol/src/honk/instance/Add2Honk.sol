@@ -213,7 +213,6 @@ contract Add2HonkVerifier is IVerifier {
         Honk.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
 
         // KZG pairing accumulator
-        // WORKTODO: concerned that this is zero - it is multiplied by a point later on
         Fr evaluation = Fr.wrap(0);
         verified = zkgReduceVerify(proof, tp, evaluation, c_zeta_Z);
     }
