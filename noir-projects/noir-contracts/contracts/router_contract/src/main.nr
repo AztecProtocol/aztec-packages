@@ -1,3 +1,5 @@
+mod test;
+
 /// The purpose of this contract is to perform a check in public without revealing what contract enqued the public
 /// call. This is achieved by having a private function on this contract that enques the public call and hence
 /// the `msg_sender` in the public call is the address of this contract.
