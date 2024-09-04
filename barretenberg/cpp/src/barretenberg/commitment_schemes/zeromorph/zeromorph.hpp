@@ -450,7 +450,7 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
+    using CommitmentSchemesUtils = CommitmentSchemesUtils<Curve>;
 
   public:
     /**

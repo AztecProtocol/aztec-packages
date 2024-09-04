@@ -1,15 +1,19 @@
 #pragma once
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/common/ref_span.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include <vector>
 
 namespace bb {
-template <typename Curve> class CommitmentSchemesUtils_ {
+template <typename Curve> class CommitmentSchemesUtils {
 
   public:
     using Commitment = typename Curve::AffineElement;
     using FF = typename Curve::ScalarField;
 
+    /**
+     * @brief Utility for native batch multiplication of group elements
+     * @note This is used only for native verification and is not optimized for efficiency
+     */
     static Commitment batch_mul_native(std::vector<Commitment>& _points, std::vector<FF>& _scalars)
     {
         std::vector<Commitment> points;
@@ -36,7 +40,4 @@ template <typename Curve> class CommitmentSchemesUtils_ {
         return result;
     }
 };
-template class CommitmentSchemesUtils_<curve::BN254>;
-template class CommitmentSchemesUtils_<curve::Grumpkin>;
-
 } // namespace bb

@@ -15,122 +15,122 @@
 #include <vector>
 
 namespace bb {
+// clang-format off
 
 /**
- * @brief IPA (inner product argument) commitment scheme class.
- *
- * @details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
- * vector in each prover round. The implementation uses:
- *
- * 1. An SRS (Structured Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
- *    \f$\mathbb{F}_r\f$ - the scalar field of the elliptic curve as well as \f$G\f$ which is an independent generator
- * on the same curve.
- * 2. A polynomial \f$f(x)=\sum_{i=0}^{d-1}f_ix^i\f$ over field \f$F_r\f$, where the polynomial degree \f$d-1\f$ is such
- *    that \f$d=2^k\f$.
- *
- * The opening and verification procedures expect that there already exists a commitment to \f$f(x)\f$ which is the
- * scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​.
- *
- * The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof_internal
- * compute_opening_proof_internal \endlink. The verification procedure documentation is in \link IPA::verify_internal
- * verify_internal \endlink.
- *
- * @tparam Curve
- *
- * @remark IPA is not a very intuitive algorithm, so here are a few things that might help internalize it:
- *
- * 1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, whose product we want to prove, but
- *    the prover can't just send vector \f$\vec{a}\f$ to the verifier, it can only provide a commitment
- *    \f$\langle\vec{a},\vec{G}\rangle\f$.
- * 2. The verifier computes the \f$C'=C+\langle\vec{a},\vec{b}\rangle\cdot U\f$ to "bind" together the
- *    commitment and the evaluation (\f$C=\langle\vec{a},\vec{G}\rangle\f$ is the commitment and \f$U=u⋅G\f$ is the
- * auxiliary generator independent from \f$\vec{G}\f$).
- * 3. The prover wants to reduce the problem of verifying the inner product of
- *    \f$\vec{a}\f$, \f$\vec{b}\f$ of length
- *    \f$n\f$ to a problem of verifying the IPA of 2 vectors \f$\vec{a}_{new}\f$, \f$\vec{b}_{new}\f$ of size
- *    \f$\frac{n}{2}\f$​.
- * 4. If \f$\vec{a}_{new}=\vec{a}_{low}+\alpha\cdot \vec{a}_{high}\f$ and
- * \f$\vec{b}_{new}=\vec{b}_{low}+\alpha^{-1}\cdot \vec{b}_{high}\f$, then \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle
- * = \langle\vec{a}_{low},\vec{b}_{low}\rangle + \alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle
- * \vec{a}_{high},\vec{b}_{low}\rangle + \langle\vec{a}_{high},\vec{b}_{high}\rangle=
- *    \langle\vec{a},\vec{b}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle
- *    \vec{a}_{high},\vec{b}_{low}\rangle\f$, so if we provide commitments to the cross-terms
- *    \f$\langle\vec{a}_{low},\vec{b}_{high}\rangle\f$ and \f$\langle \vec{a}_{high},\vec{b}_{low}\rangle\f$,  the
- * verifier can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\f$ to the new commitment
- * \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle U\f$.
- * 5. Analogously, if \f$\vec{G}_{new}=\vec{G}_{low}+\alpha^{-1}\vec{G}_{high}\f$, then we can reduce the initial
- *    commitment to \f$\vec{a}\f$ by providing  \f$\langle\vec{a}_{low},\vec{G}_{high}\rangle\f$ and \f$\langle
- *    \vec{a}_{high},\vec{G}_{low}\rangle\f$. \f$\langle \vec{a}_{new},\vec{G}_{new}\rangle =
- *    \langle\vec{a},\vec{G}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{G}_{high}\rangle+\alpha \langle
- *    \vec{a}_{high},\vec{G}_{low}\rangle\f$.
- * 6. We can batch the two reductions together \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle U + \langle
- *    \vec{a}_{new},\vec{G}_{new}\rangle= \langle\vec{a},\vec{b}\rangle U+ \langle\vec{a},\vec{G}\rangle+
- *    \alpha^{-1}(\langle\vec{a}_{low},\vec{b}_{high}\rangle U +\langle\vec{a}_{low},\vec{G}_{high}\rangle) +\alpha
- * (\langle \vec{a}_{high},\vec{b}_{low}\rangle U+\langle \vec{a}_{high},\vec{G}_{low}\rangle)\f$​.
- * 7. After \f$k\f$ steps of reductions we are left with \f$\langle \vec{a}_{0},\vec{b}_{0}\rangle U + \langle
- *    \vec{a}_{0},\vec{G}_{s}\rangle= a_0 b_0 U+a_0G_s\f$. The prover provides \f$a_0\f$. The independence of \f$U\f$
- * and \f$\vec{G}\f$ from which we construct \f$G_s\f$ ensures that \f$a_0\f$ is constructed from
- * \f$\vec{a}_k=\vec{p}\f$ correctly, while the correctness of \f$a_0 b_0 U\f$ ensures that the polynomial opening is
- * indeed \f$f(\beta)\f$.
- *
- * The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
- * documentation</a>.
- */
+* @brief IPA (inner product argument) commitment scheme class.
+*
+*@details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
+*vector in each prover round. The implementation uses:
+*
+*1. An SRS (Structured Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
+*\f$\mathbb{F}_r\f$ - the scalar field of the elliptic curve as well as \f$G\f$ which is an independent generator on
+*the same curve.
+*2. A polynomial \f$f(x)=\sum_{i=0}^{d-1}f_ix^i\f$ over field \f$F_r\f$, where the polynomial degree \f$d-1\f$ is such
+*that \f$d=2^k\f$
+*
+*The opening and verification procedures expect that there already exists a commitment to \f$f(x)\f$ which is the
+*scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​
+*
+* The opening procedure documentation can be found in the description of \link IPA::compute_opening_proof_internal
+compute_opening_proof_internal \endlink. The verification procedure documentation is in \link IPA::verify_internal
+verify_internal \endlink
+*
+* @tparam Curve
+*
+* @remark IPA is not a very intuitive algorithm, so here are a few things that might help internalize it:
+*
+*1. Originally we have two vectors \f$\vec{a}\f$ and \f$\vec{b}\f$, whose product we want to prove, but
+*the prover can't just send vector \f$\vec{a}\f$ to the verifier, it can only provide a commitment
+\f$\langle\vec{a},\vec{G}\rangle\f$
+*2. The verifier computes the \f$C'=C+\langle\vec{a},\vec{b}\rangle\cdot U\f$ to "bind" together the
+commitment and the evaluation (\f$C=\langle\vec{a},\vec{G}\rangle\f$ is the commitment and \f$U=u⋅G\f$ is the auxiliary
+generator independent from \f$\vec{G}\f$)
+*3. The prover wants to reduce the problem of verifying the inner product of
+\f$\vec{a}\f$, \f$\vec{b}\f$ of length
+*\f$n\f$ to a problem of verifying the IPA of 2 vectors \f$\vec{a}_{new}\f$, \f$\vec{b}_{new}\f$ of size
+*\f$\frac{n}{2}\f$​
+*4. If \f$\vec{a}_{new}=\vec{a}_{low}+\alpha\cdot \vec{a}_{high}\f$ and \f$\vec{b}_{new}=\vec{b}_{low}+\alpha^{-1}\cdot
+\vec{b}_{high}\f$, then \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle = \langle\vec{a}_{low},\vec{b}_{low}\rangle +
+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle \vec{a}_{high},\vec{b}_{low}\rangle +
+\langle\vec{a}_{high},\vec{b}_{high}\rangle=
+\langle\vec{a},\vec{b}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{b}_{high}\rangle+\alpha \langle
+\vec{a}_{high},\vec{b}_{low}\rangle\f$, so if we provide commitments to the cross-terms
+\f$\langle\vec{a}_{low},\vec{b}_{high}\rangle\f$ and \f$\langle \vec{a}_{high},\vec{b}_{low}\rangle\f$,  the verifier
+can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\f$ to the new commitment \f$\langle
+\vec{a}_{new},\vec{b}_{new}\rangle U\f$
+*5. Analogously, if \f$\vec{G}_{new}=\vec{G}_{low}+\alpha^{-1}\vec{G}_{high}\f$, then we can reduce the initial
+*commitment to \f$\vec{a}\f$ by providing  \f$\langle\vec{a}_{low},\vec{G}_{high}\rangle\f$ and \f$\langle
+\vec{a}_{high},\vec{G}_{low}\rangle\f$. \f$\langle \vec{a}_{new},\vec{G}_{new}\rangle =
+\langle\vec{a},\vec{G}\rangle+\alpha^{-1}\langle\vec{a}_{low},\vec{G}_{high}\rangle+\alpha \langle
+\vec{a}_{high},\vec{G}_{low}\rangle\f$
+*6. We can batch the two reductions together \f$\langle \vec{a}_{new},\vec{b}_{new}\rangle U + \langle
+\vec{a}_{new},\vec{G}_{new}\rangle= \langle\vec{a},\vec{b}\rangle U+ \langle\vec{a},\vec{G}\rangle+
+\alpha^{-1}(\langle\vec{a}_{low},\vec{b}_{high}\rangle U +\langle\vec{a}_{low},\vec{G}_{high}\rangle) +\alpha (\langle
+\vec{a}_{high},\vec{b}_{low}\rangle U+\langle \vec{a}_{high},\vec{G}_{low}\rangle)\f$​
+*7. After \f$k\f$ steps of reductions we are left with \f$\langle \vec{a}_{0},\vec{b}_{0}\rangle U + \langle
+\vec{a}_{0},\vec{G}_{s}\rangle= a_0 b_0 U+a_0G_s\f$. The prover provides \f$a_0\f$. The independence of \f$U\f$ and
+\f$\vec{G}\f$ from which we construct \f$G_s\f$ ensures that \f$a_0\f$ is constructed from \f$\vec{a}_k=\vec{p}\f$
+*correctly, while the correctness of \f$a_0 b_0 U\f$ ensures that the polynomial opening is indeed \f$f(\beta)\f$
+*
+* The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
+documentation </a>
+*/
 template <typename Curve_> class IPA {
-  public:
-    using Curve = Curve_;
-    using Fr = typename Curve::ScalarField;
-    using GroupElement = typename Curve::Element;
-    using Commitment = typename Curve::AffineElement;
-    using CK = CommitmentKey<Curve>;
-    using VK = VerifierCommitmentKey<Curve>;
-    using Polynomial = bb::Polynomial<Fr>;
-    using VerifierAccumulator = bool;
+ public:
+   using Curve = Curve_;
+   using Fr = typename Curve::ScalarField;
+   using GroupElement = typename Curve::Element;
+   using Commitment = typename Curve::AffineElement;
+   using CK = CommitmentKey<Curve>;
+   using VK = VerifierCommitmentKey<Curve>;
+   using Polynomial = bb::Polynomial<Fr>;
+   using VerifierAccumulator = bool;
 
-// These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of
-// IPA specifically
+// These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
-    FRIEND_TEST(IPATest, ChallengesAreZero);
-    FRIEND_TEST(IPATest, AIsZeroAfterOneRound);
+   FRIEND_TEST(IPATest, ChallengesAreZero);
+   FRIEND_TEST(IPATest, AIsZeroAfterOneRound);
 #endif
 #ifdef IPA_FUZZ_TEST
-    friend class ProxyCaller;
+   friend class ProxyCaller;
 #endif
-
-    /**
-     * @tparam Transcript Transcript type. Useful for testing.
-     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM.
-     * @param opening_pair (challenge, evaluation).
-     * @param polynomial The witness polynomial whose opening proof needs to be computed.
-     * @param transcript Prover transcript.
-     * https://github.com/AztecProtocol/aztec-packages/pull/3434
-     *
-     * @details For a vector \f$\vec{v}=(v_0,v_1,...,v_{2n-1})\f$ of length \f$2n\f$ we'll denote
-     * \f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure
-     * runs as follows:
-     *
-     * 1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier.
-     * 2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort.
-     * 3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​.
-     * 4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
-     *    coefficients.
-     * 5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)\f$ is the
-     *    evaluation we wish to prove.
-     * 6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
-     *    1. Compute
-     * \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
-     *       U\f$​.
-     *    2. Compute
-     * \f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
-     *       U\f$.
-     *    3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier.
-     *    4. Receive round challenge \f$u_{i-1}\f$ from the verifier​, if it is zero, abort.
-     *    5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$.
-     *    6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$.
-     *    7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​.
-     *
-     * 7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier.
-     */
+   /**
+    * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
+    *
+    * @tparam Transcript Transcript type. Useful for testing
+    * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+    * @param opening_pair (challenge, evaluation)
+    * @param polynomial The witness polynomial whose opening proof needs to be computed
+    * @param transcript Prover transcript
+    * https://github.com/AztecProtocol/aztec-packages/pull/3434
+    *
+    *@details For a vector \f$\vec{v}=(v_0,v_1,...,v_{2n-1})\f$ of length \f$2n\f$ we'll denote
+    *\f$\vec{v}_{low}=(v_0,v_1,...,v_{n-1})\f$ and \f$\vec{v}_{high}=(v_{n},v_{n+1},...v_{2n-1})\f$. The procedure runs
+    *as follows:
+    *
+    *1. Send the degree of \f$f(x)\f$ plus one, equal to \f$d\f$ to the verifier
+    *2. Receive the generator challenge \f$u\f$ from the verifier. If it is zero, abort
+    *3. Compute the auxiliary generator \f$U=u\cdot G\f$, where \f$G\f$ is a generator of \f$E(\mathbb{F}_p)\f$​
+    *4. Set \f$\vec{G}_{k}=\vec{G}\f$, \f$\vec{a}_{k}=\vec{p}\f$ where \f$vec{p}\f$ represent the polynomial's
+    *coefficients
+.   *5. Compute the vector \f$\vec{b}_{k}=(1,\beta,\beta^2,...,\beta^{d-1})\f$ where \f$p(\beta)$\f is the
+    evaluation we wish to prove.
+    *6. Perform \f$k\f$ rounds (for \f$i \in \{k,...,1\}\f$) of:
+    *   1. Compute
+    \f$L_{i-1}=\langle\vec{a}_{i\_low},\vec{G}_{i\_high}\rangle+\langle\vec{a}_{i\_low},\vec{b}_{i\_high}\rangle\cdot
+    U\f$​
+    *   2. Compute
+    *\f$R_{i-1}=\langle\vec{a}_{i\_high},\vec{G}_{i\_low}\rangle+\langle\vec{a}_{i\_high},\vec{b}_{i\_low}\rangle\cdot
+    U\f$
+    *   3. Send \f$L_{i-1}\f$ and \f$R_{i-1}\f$ to the verifier
+    *   4. Receive round challenge \f$u_{i-1}\f$ from the verifier​, if it is zero, abort
+    *   5. Compute \f$\vec{G}_{i-1}=\vec{G}_{i\_low}+u_{i-1}^{-1}\cdot \vec{G}_{i\_high}\f$
+    *   6. Compute \f$\vec{a}_{i-1}=\vec{a}_{i\_low}+u_{i-1}\cdot \vec{a}_{i\_high}\f$
+    *   7. Compute \f$\vec{b}_{i-1}=\vec{b}_{i\_low}+u_{i-1}^{-1}\cdot \vec{b}_{i\_high}\f$​
+    *
+    *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
+    */
     template <typename Transcript>
     static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
@@ -171,7 +171,10 @@ template <typename Curve_> class IPA {
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         parallel_for_heuristic(
-            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i * 2]; }, thread_heuristics::FF_COPY_COST);
+            poly_length,
+            [&](size_t i) {
+                G_vec_local[i] = srs_elements[i * 2];
+            }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
@@ -185,8 +188,7 @@ template <typename Curve_> class IPA {
                     b_vec[i] = b_power;
                     b_power *= opening_pair.challenge;
                 }
-            },
-            thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
+            }, thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
         auto log_poly_degree = static_cast<size_t>(numeric::get_msb(poly_length));
@@ -203,26 +205,25 @@ template <typename Curve_> class IPA {
             // Run scalar products in parallel
             auto inner_prods = parallel_for_heuristic(
                 round_size,
-                std::pair{ Fr::zero(), Fr::zero() },
+                std::pair{Fr::zero(), Fr::zero()},
                 [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
                     inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
                     inner_prod_left_right.second += a_vec[round_size + j] * b_vec[j];
-                },
-                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
             // Sum inner product contributions computed in parallel and unpack the std::pair
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                { &a_vec[0], /*size*/ round_size }, &G_vec_local[round_size], ck->pippenger_runtime_state);
+                {&a_vec[0], /*size*/ round_size}, &G_vec_local[round_size], ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                { &a_vec[round_size], /*size*/ round_size }, &G_vec_local[0], ck->pippenger_runtime_state);
+                {&a_vec[round_size], /*size*/ round_size}, &G_vec_local[0], ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -260,8 +261,7 @@ template <typename Curve_> class IPA {
                 [&](size_t j) {
                     a_vec[j] += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
-                },
-                thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
 
         // Step 7
@@ -347,7 +347,7 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            { &msm_scalars[0], /*size*/ pippenger_size }, &msm_elements[0], vk->pippenger_runtime_state);
+            {&msm_scalars[0], /*size*/ pippenger_size}, &msm_elements[0], vk->pippenger_runtime_state);
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -377,8 +377,7 @@ template <typename Curve_> class IPA {
                         s_vec[i] *= round_challenges_inv[log_poly_degree - 1 - j];
                     }
                 }
-            },
-            thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
+            }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
         auto* srs_elements = vk->get_monomial_points();
 
@@ -389,12 +388,15 @@ template <typename Curve_> class IPA {
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
         // G_vec_local should use only the original SRS thus we extract only the even indices.
         parallel_for_heuristic(
-            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i * 2]; }, thread_heuristics::FF_COPY_COST * 2);
+            poly_length,
+            [&](size_t i) {
+                G_vec_local[i] = srs_elements[i * 2];
+            }, thread_heuristics::FF_COPY_COST * 2);
 
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            { &s_vec[0], /*size*/ poly_length }, &G_vec_local[0], vk->pippenger_runtime_state);
+            {&s_vec[0], /*size*/ poly_length}, &G_vec_local[0], vk->pippenger_runtime_state);
 
         // Step 9.
         // Receive a₀ from the prover
@@ -534,6 +536,7 @@ template <typename Curve_> class IPA {
         return (C_zero.get_value() == right_hand_side.get_value());
     }
 
+  public:
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
@@ -583,7 +586,7 @@ template <typename Curve_> class IPA {
     static OpeningClaim<Curve> compute_opening_claim_from_shplemini_accumulators(
         ShpleminiAccumulator<Curve>& shplemini_accumulator)
     {
-        using CommitmentSchemesUtils = CommitmentSchemesUtils_<Curve>;
+        using CommitmentSchemesUtils = CommitmentSchemesUtils<Curve>;
         /// Extract batch_mul arguments from the accumulator
         auto& commitments = shplemini_accumulator.commitments;
         auto& scalars = shplemini_accumulator.scalars;

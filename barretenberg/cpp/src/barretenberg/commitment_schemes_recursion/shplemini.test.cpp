@@ -166,7 +166,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     [[maybe_unused]] auto opening_claim =
         ShpleminiVerifier::accumulate_batch_mul_arguments(Fr::from_witness(&builder, log_circuit_size),
-                                                          RefVector(stdlib_f_commitments), // unshifted
+                                                          RefVector(stdlib_f_commitments),
                                                           RefVector(stdlib_g_commitments),
                                                           RefVector(stdlib_claimed_evaluations),
                                                           u_challenge_in_circuit,

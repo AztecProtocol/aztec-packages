@@ -124,8 +124,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             scalars.emplace_back(Fr(1));
         }
         /// Compute \f$ 1/(z - r), 1/(z+r), 1/(z+r^2),\ldots, 1/(z+r^{2^{d-1}})\f$
-        std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_denominators(
-            log_circuit_size, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+        std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
+            log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
         /// Compute the multiplier for the batched unshifted prover polynomials, \f$i\f$-th unshifted commitment is
         /// multiplied by \f$ - \rho^{i} \cdot ( \frac{1}{z-r} + \frac{\nu}{z+r} )\f$
         Fr unshifted_scalar = inverse_vanishing_evals[0] + shplonk_batching_challenge * inverse_vanishing_evals[1];

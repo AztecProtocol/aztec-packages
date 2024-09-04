@@ -33,7 +33,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     using GroupElement = typename TypeParam::Element;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
-    using CommitmentSchemesUtils = CommitmentSchemesUtils_<TypeParam>;
+    using CommitmentSchemesUtils = CommitmentSchemesUtils<TypeParam>;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -129,7 +129,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     using GroupElement = typename TypeParam::Element;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
-    using CommitmentSchemesUtils = CommitmentSchemesUtils_<TypeParam>;
+    using CommitmentSchemesUtils = CommitmentSchemesUtils<TypeParam>;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -209,7 +209,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverted_denominators(log_n, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_gemini_denominators(log_n + 1, shplonk_eval_challenge, r_squares);
 
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
