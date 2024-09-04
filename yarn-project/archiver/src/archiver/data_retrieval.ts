@@ -7,6 +7,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type Hex, type PublicClient, getAbiItem } from 'viem';
 
 import {
+  getBlockProofFromSubmitProofTx,
   getL2BlockProposedLogs,
   getMessageSentLogs,
   getTxsPublishedLogs,

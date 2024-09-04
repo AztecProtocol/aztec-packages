@@ -287,7 +287,7 @@ export async function getBlockProofFromSubmitProofTx(
     data,
   });
 
-  if (!(functionName === 'submitProof')) {
+  if (!(functionName === 'submitBlockRootProof')) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
   const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
