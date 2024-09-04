@@ -110,7 +110,11 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 };
 
-TEST_F(IvcRecursionConstraintTest, Single)
+/**
+ * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
+ * app, specified via an ACIR RecursionConstraint.
+ */
+TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
@@ -131,26 +135,32 @@ TEST_F(IvcRecursionConstraintTest, Single)
     EXPECT_TRUE(ivc.prove_and_verify());
 }
 
-TEST_F(IvcRecursionConstraintTest, Two)
+/**
+ * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
+ * the second contains two recursive PG verifications, all specified via a ACIR RecursionConstraints.
+ */
+TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
-    Builder app_circuit{ ivc.goblin.op_queue };
-    GoblinMockCircuits::construct_simple_circuit(app_circuit);
-
-    // Complete instance and generate an oink proof
-    ivc.accumulate(app_circuit);
+    Builder app_circuit_0{ ivc.goblin.op_queue };
+    GoblinMockCircuits::construct_simple_circuit(app_circuit_0);
+    ivc.accumulate(app_circuit_0);
 
     // Construct kernel_0; consists of a single oink recursive verification for app (plus databus/merge logic)
-    Builder kernel_0 = construct_kernel_from_constraint_system(ivc, { app_circuit.public_inputs.size() });
-
-    EXPECT_TRUE(CircuitChecker::check(kernel_0));
+    Builder kernel_0 = construct_kernel_from_constraint_system(ivc, { app_circuit_0.public_inputs.size() });
     ivc.accumulate(kernel_0);
 
-    // Construct kernel_1; consists of a single PG recursive verification for kernel_0 (plus databus/merge logic)
-    Builder kernel_1 = construct_kernel_from_constraint_system(ivc, { kernel_0.public_inputs.size() });
+    // construct a mock app_circuit
+    Builder app_circuit_1{ ivc.goblin.op_queue };
+    GoblinMockCircuits::construct_simple_circuit(app_circuit_1);
+    ivc.accumulate(app_circuit_1);
+
+    // Construct kernel_1; consists of two PG recursive verifications for kernel_0 and app_1 (plus databus/merge logic)
+    Builder kernel_1 = construct_kernel_from_constraint_system(
+        ivc, { kernel_0.public_inputs.size(), app_circuit_1.public_inputs.size() });
 
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
     ivc.accumulate(kernel_1);
